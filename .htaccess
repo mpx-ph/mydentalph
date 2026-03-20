@@ -1,0 +1,34 @@
+RewriteEngine On
+
+# Allow existing files and directories to be served normally
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Admin routes (slug-based, shared templates in /clinic)
+# Example: /{slug}/AdminLoginPage.php -> clinic/AdminLoginPage.php?clinic_slug={slug}
+RewriteRule ^([a-z0-9\-]+)/(Admin[A-Za-z0-9_\-]*\.php|Dentist_Dashboard\.php|Staff_Dashboard\.php)$ clinic/$2?clinic_slug=$1 [L,QSA]
+
+# Public clinic routes (slug-based, shared templates in /clinic)
+
+# {slug}/services -> clinic/ServicesClient.php?clinic_slug={slug}
+RewriteRule ^([a-z0-9\-]+)/services/?$ clinic/ServicesClient.php?clinic_slug=$1 [L,QSA]
+
+# {slug}/about -> clinic/AboutUsClient.php?clinic_slug={slug}
+RewriteRule ^([a-z0-9\-]+)/about/?$ clinic/AboutUsClient.php?clinic_slug=$1 [L,QSA]
+
+# {slug}/contact -> clinic/ContactUsClient.php?clinic_slug={slug}
+RewriteRule ^([a-z0-9\-]+)/contact/?$ clinic/ContactUsClient.php?clinic_slug=$1 [L,QSA]
+
+# {slug}/register -> clinic/RegisterClient.php?clinic_slug={slug}
+RewriteRule ^([a-z0-9\-]+)/register/?$ clinic/RegisterClient.php?clinic_slug=$1 [L,QSA]
+
+# {slug}/download -> clinic/DownloadApp.php?clinic_slug={slug}
+RewriteRule ^([a-z0-9\-]+)/download/?$ clinic/DownloadApp.php?clinic_slug=$1 [L,QSA]
+
+# {slug}/login -> clinic/Login.php?clinic_slug={slug}
+RewriteRule ^([a-z0-9\-]+)/login/?$ clinic/Login.php?clinic_slug=$1 [L,QSA]
+
+# {slug}/ -> clinic/MainPageClient.php?clinic_slug={slug}
+RewriteRule ^([a-z0-9\-]+)/?$ clinic/MainPageClient.php?clinic_slug=$1 [L,QSA]
+

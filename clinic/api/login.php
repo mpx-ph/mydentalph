@@ -1,0 +1,90 @@
+<?php
+/**
+ * Login API Endpoint
+ */
+
+// Enable error reporting for debugging (remove in production)
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/auth.php';
+
+header('Content-Type: application/json');
+
+// Handle CORS if needed
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST');
+header('Access-Control-Allow-Headers: Content-Type');
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    jsonResponse(false, 'Invalid request method.');
+}
+
+$debug = false;
+try {
+    $input = json_decode(file_get_contents('php://input'), true);
+    
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        jsonResponse(false, 'Invalid JSON data: ' . json_last_error_msg());
+    }
+    
+    $debug = !empty($input['debug']);
+    $email = sanitize($input['email'] ?? '');
+    $password = $input['password'] ?? '';
+    $userType = sanitize($input['user_type'] ?? 'client');
+    $clinicSlug = isset($input['clinic_slug']) ? trim((string) $input['clinic_slug']) : '';
+
+    if (empty($email) || empty($password)) {
+        jsonResponse(false, 'Email and password are required.');
+    }
+
+    // If tenant context is missing but clinic_slug was sent, resolve and set session (e.g. direct API call or new tab)
+    if (empty(getClinicTenantId()) && $clinicSlug !== '' && preg_match('/^[a-z0-9\-]+$/', strtolower($clinicSlug))) {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT tenant_id, clinic_slug
+            FROM tbl_tenants
+            WHERE clinic_slug = ? AND (subscription_status IS NULL OR subscription_status = 'active')
+            LIMIT 1
+        ");
+        $stmt->execute([strtolower($clinicSlug)]);
+        $tenant = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($tenant) {
+            $_SESSION['public_tenant_id'] = $tenant['tenant_id'];
+            $_SESSION['public_tenant_slug'] = $tenant['clinic_slug'];
+        }
+    }
+
+    $result = loginUser($email, $password, $userType);
+
+    if ($result['success']) {
+        jsonResponse(true, $result['message'], ['user' => [
+            'id' => $result['user']['id'],
+            'name' => $result['user']['first_name'] . ' ' . $result['user']['last_name'],
+            'email' => $result['user']['email'],
+            'type' => $result['user']['user_type']
+        ]]);
+    } else {
+        jsonResponse(false, $result['message']);
+    }
+} catch (PDOException $e) {
+    // Database errors (including connection errors)
+    error_log('Login API PDO Error: ' . $e->getMessage());
+    error_log('Stack trace: ' . $e->getTraceAsString());
+    $showDetail = $debug || (defined('DB_DEBUG') && DB_DEBUG);
+    $errorMsg = $showDetail
+        ? ('Database error: ' . $e->getMessage())
+        : 'Database error. Please check your database connection.';
+    jsonResponse(false, $errorMsg);
+} catch (Exception $e) {
+    // Other errors
+    error_log('Login API Error: ' . $e->getMessage());
+    error_log('Stack trace: ' . $e->getTraceAsString());
+    $showDetail = $debug || (ini_get('display_errors'));
+    $errorMessage = $showDetail ? $e->getMessage() : 'An error occurred. Please try again.';
+    jsonResponse(false, $errorMessage);
+}
+

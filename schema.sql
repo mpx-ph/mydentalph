@@ -1,0 +1,589 @@
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- ============================================
+-- TENANTS (Clinics using the system)
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_tenants (
+    tenant_id VARCHAR(20) NOT NULL,
+    clinic_name VARCHAR(255) NOT NULL,
+    clinic_slug VARCHAR(100) DEFAULT NULL,
+    country_region VARCHAR(100),
+    clinic_address TEXT,
+    contact_email VARCHAR(255),
+    contact_phone VARCHAR(50),
+    subscription_status ENUM('active','inactive','suspended') DEFAULT 'active',
+    owner_user_id VARCHAR(20) DEFAULT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (tenant_id),
+    UNIQUE KEY unique_clinic_slug (clinic_slug),
+    UNIQUE KEY unique_owner_user_id (owner_user_id)
+    -- FK to tbl_users added after tbl_users exists; see migrations/001_tenant_owner_user_id.sql
+);
+
+-- ============================================
+-- SUBSCRIPTION PLANS
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_subscription_plans (
+    plan_id INT AUTO_INCREMENT,
+    plan_slug VARCHAR(50) NOT NULL,
+    plan_name VARCHAR(100) NOT NULL,
+    description TEXT,
+    price DECIMAL(10,2) NOT NULL,
+    billing_cycle ENUM('monthly','yearly') DEFAULT 'monthly',
+    max_users INT,
+    max_patients INT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (plan_id),
+    UNIQUE KEY unique_plan_slug (plan_slug)
+);
+
+-- ============================================
+-- TENANT SUBSCRIPTIONS
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_tenant_subscriptions (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    plan_id INT NOT NULL,
+    subscription_start DATE,
+    subscription_end DATE,
+    payment_status ENUM('pending','paid','failed','cancelled') DEFAULT 'pending',
+    payment_method ENUM('gcash','paymaya','bank_transfer','card','cash'),
+    amount_paid DECIMAL(10,2),
+    reference_number VARCHAR(100),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id),
+    FOREIGN KEY (plan_id) REFERENCES tbl_subscription_plans(plan_id)
+);
+
+-- ============================================
+-- TENANT INVOICES
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_tenant_invoices (
+    invoice_id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    plan_id INT NOT NULL,
+    amount DECIMAL(10,2),
+    due_date DATE,
+    status ENUM('pending','paid','overdue') DEFAULT 'pending',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (invoice_id),
+    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id),
+    FOREIGN KEY (plan_id) REFERENCES tbl_subscription_plans(plan_id)
+);
+
+-- ============================================
+-- USERS
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_users (
+    user_id VARCHAR(20) NOT NULL,
+    tenant_id VARCHAR(20) NOT NULL,
+    username VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255),
+    full_name VARCHAR(255) NOT NULL,
+    role ENUM('tenant_owner','manager','staff','dentist','client') NOT NULL DEFAULT 'client',
+    phone VARCHAR(20),
+    photo VARCHAR(500),
+    status ENUM('active','inactive','suspended') DEFAULT 'active',
+    last_login TIMESTAMP NULL DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (user_id),
+    UNIQUE KEY unique_tenant_username (tenant_id, username),
+    UNIQUE KEY unique_tenant_email (tenant_id, email),
+    KEY idx_username (username),
+    KEY idx_email (email),
+    KEY idx_role (role),
+    KEY idx_tenant (tenant_id),
+
+    CONSTRAINT fk_users_tenant
+        FOREIGN KEY (tenant_id)
+        REFERENCES tbl_tenants(tenant_id)
+        ON DELETE CASCADE
+);
+
+-- ============================================
+-- LOGIN ATTEMPTS
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_login_attempts (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    ip_address VARCHAR(45),
+    attempts INT DEFAULT 1,
+    last_attempt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id)
+);
+
+-- ============================================
+-- PATIENTS
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_patients (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    patient_id VARCHAR(50),
+    owner_user_id VARCHAR(20) NULL,
+    linked_user_id VARCHAR(20) NULL,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    contact_number VARCHAR(20),
+    date_of_birth DATE,
+    gender ENUM('Male','Female','Other','Prefer not to say'),
+    blood_type VARCHAR(10),
+    house_street VARCHAR(255),
+    barangay VARCHAR(100),
+    city_municipality VARCHAR(100),
+    province VARCHAR(100),
+    profile_image VARCHAR(255),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY unique_tenant_patient_id (tenant_id, patient_id),
+    KEY idx_tenant (tenant_id),
+    KEY idx_patients_tenant_patientid (tenant_id, patient_id),
+    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id),
+    FOREIGN KEY (owner_user_id) REFERENCES tbl_users(user_id) ON DELETE SET NULL,
+    FOREIGN KEY (linked_user_id) REFERENCES tbl_users(user_id) ON DELETE SET NULL
+);
+
+-- ============================================
+-- PATIENT DEPENDENTS
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_dependents (
+    dependent_id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    patient_id VARCHAR(50) NOT NULL,
+    guardian_user_id VARCHAR(20) NULL,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    date_of_birth DATE NOT NULL,
+    gender ENUM('Male','Female'),
+    relationship VARCHAR(50) DEFAULT 'child',
+    photo_path VARCHAR(500),
+    status ENUM('active','inactive') DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (dependent_id),
+
+    KEY idx_patient (patient_id),
+    KEY idx_guardian (guardian_user_id),
+    KEY idx_tenant (tenant_id),
+
+    CONSTRAINT fk_dependents_patient
+        FOREIGN KEY (patient_id)
+        REFERENCES tbl_patients(patient_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_dependents_guardian
+        FOREIGN KEY (guardian_user_id)
+        REFERENCES tbl_users(user_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_dependents_tenant
+        FOREIGN KEY (tenant_id)
+        REFERENCES tbl_tenants(tenant_id)
+        ON DELETE CASCADE
+);
+
+-- ============================================
+-- PATIENT FILES
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_patient_files (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    patient_id VARCHAR(50) NULL,
+    dependent_id INT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_type VARCHAR(100),
+    file_size BIGINT,
+    file_category VARCHAR(100),
+    description TEXT,
+    uploaded_by VARCHAR(20),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id) ON DELETE CASCADE,
+    FOREIGN KEY (dependent_id) REFERENCES tbl_dependents(dependent_id) ON DELETE CASCADE,
+    FOREIGN KEY (patient_id) REFERENCES tbl_patients(patient_id) ON DELETE CASCADE,
+    FOREIGN KEY (uploaded_by) REFERENCES tbl_users(user_id) ON DELETE SET NULL,
+    CHECK (
+        (patient_id IS NOT NULL AND dependent_id IS NULL) OR 
+        (patient_id IS NULL AND dependent_id IS NOT NULL)
+    )
+);
+
+-- ============================================
+-- DENTISTS
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_dentists (
+    dentist_id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    specialization VARCHAR(150),
+    license_number VARCHAR(100),
+    years_of_experience INT,
+    contact_number VARCHAR(20),
+    email VARCHAR(255),
+    status ENUM('active','inactive') DEFAULT 'active',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (dentist_id),
+    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id)
+);
+
+-- ============================================
+-- STAFFS (admin/staff/doctor/manager profiles linked to tbl_users)
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_staffs (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    staff_id VARCHAR(50) NOT NULL,
+    user_id VARCHAR(20) NOT NULL,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    contact_number VARCHAR(20),
+    gender ENUM('Male','Female','Other','Prefer not to say'),
+    house_street VARCHAR(255),
+    barangay VARCHAR(100),
+    city_municipality VARCHAR(100),
+    province VARCHAR(100),
+    profile_image VARCHAR(500),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY unique_tenant_staff_id (tenant_id, staff_id),
+    UNIQUE KEY unique_tenant_user_id (tenant_id, user_id),
+    KEY idx_tenant (tenant_id),
+    CONSTRAINT fk_staffs_tenant
+        FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id) ON DELETE CASCADE,
+    CONSTRAINT fk_staffs_user
+        FOREIGN KEY (user_id) REFERENCES tbl_users(user_id) ON DELETE CASCADE
+);
+
+-- ============================================
+-- APPOINTMENTS
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_appointments (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    dentist_id INT NOT NULL,
+    booking_id VARCHAR(50),
+    patient_id VARCHAR(50),
+    appointment_date DATE,
+    appointment_time TIME,
+    service_type VARCHAR(100),
+    service_description TEXT,
+    insurance VARCHAR(100),
+    treatment_type ENUM('short_term','long_term') DEFAULT 'short_term',
+    visit_type ENUM('pre_book','walk_in','emergency') DEFAULT 'pre_book',
+    status ENUM('pending','confirmed','completed','cancelled','no_show') DEFAULT 'pending',
+    notes TEXT,
+    total_treatment_cost DECIMAL(10,2),
+    duration_months INT,
+    target_completion_date DATE,
+    start_date DATE,
+    created_by VARCHAR(20),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY unique_booking_per_tenant (tenant_id, booking_id),
+    UNIQUE KEY unique_dentist_schedule (tenant_id, dentist_id, appointment_date, appointment_time),
+    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id),
+    FOREIGN KEY (dentist_id) REFERENCES tbl_dentists(dentist_id),
+    FOREIGN KEY (patient_id) REFERENCES tbl_patients(patient_id),
+    FOREIGN KEY (created_by) REFERENCES tbl_users(user_id)
+);
+
+-- ============================================
+-- PATIENT PAYMENTS
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_payments (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    payment_id VARCHAR(50),
+    patient_id VARCHAR(50),
+    booking_id VARCHAR(50),
+    installment_number INT,
+    amount DECIMAL(10,2),
+    payment_method ENUM('cash','credit_card','debit_card','gcash','paymaya','bank_transfer','check'),
+    payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    reference_number VARCHAR(100),
+    notes TEXT,
+    status ENUM('pending','completed','refunded','cancelled') DEFAULT 'completed',
+    created_by VARCHAR(20),
+    PRIMARY KEY (id),
+    UNIQUE KEY unique_tenant_payment_id (tenant_id, payment_id),
+    KEY idx_payments_tenant (tenant_id),
+    KEY idx_payments_tenant_booking (tenant_id, booking_id),
+    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id),
+    FOREIGN KEY (patient_id) REFERENCES tbl_patients(patient_id),
+    FOREIGN KEY (created_by) REFERENCES tbl_users(user_id)
+);
+
+-- ============================================
+-- INSTALLMENTS
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_installments (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    booking_id VARCHAR(50),
+    installment_number INT,
+    amount_due DECIMAL(10,2),
+    status ENUM('pending','paid','book_visit','locked','completed') DEFAULT 'pending',
+    scheduled_date DATE,
+    scheduled_time TIME,
+    payment_id VARCHAR(50),
+    notes TEXT,
+    PRIMARY KEY (id),
+    KEY idx_installments_tenant_booking (tenant_id, booking_id),
+    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id),
+    FOREIGN KEY (booking_id) REFERENCES tbl_appointments(booking_id),
+    FOREIGN KEY (payment_id) REFERENCES tbl_payments(payment_id)
+);
+
+-- ============================================
+-- SERVICES
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_services (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    service_id VARCHAR(50),
+    service_name VARCHAR(255),
+    service_details TEXT,
+    category VARCHAR(100),
+    price DECIMAL(10,2),
+    status ENUM('active','inactive') DEFAULT 'active',
+    PRIMARY KEY (id),
+    UNIQUE KEY unique_tenant_service_id (tenant_id, service_id),
+    KEY idx_services_tenant (tenant_id),
+    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id)
+);
+
+-- ============================================
+-- APPOINTMENT SERVICES (junction: appointments + services per booking)
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_appointment_services (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    booking_id VARCHAR(50) NOT NULL,
+    appointment_id INT NULL,
+    service_id VARCHAR(50) NOT NULL,
+    service_name VARCHAR(255),
+    price DECIMAL(10,2),
+    is_original TINYINT DEFAULT 1,
+    added_by VARCHAR(20),
+    added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_tenant (tenant_id),
+    KEY idx_appointment_services_tenant_booking (tenant_id, booking_id),
+    KEY idx_appointment_services_tenant_service (tenant_id, service_id),
+    CONSTRAINT fk_appointment_services_tenant
+        FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id) ON DELETE CASCADE,
+    CONSTRAINT fk_appointment_services_booking
+        FOREIGN KEY (tenant_id, booking_id) REFERENCES tbl_appointments(tenant_id, booking_id) ON DELETE CASCADE,
+    CONSTRAINT fk_appointment_services_appointment
+        FOREIGN KEY (appointment_id) REFERENCES tbl_appointments(id) ON DELETE CASCADE,
+    CONSTRAINT fk_appointment_services_service
+        FOREIGN KEY (tenant_id, service_id) REFERENCES tbl_services(tenant_id, service_id) ON DELETE CASCADE,
+    CONSTRAINT fk_appointment_services_added_by
+        FOREIGN KEY (added_by) REFERENCES tbl_users(user_id) ON DELETE SET NULL
+);
+
+-- ============================================
+-- MESSAGES (Notifications)
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_messages (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    sender_id VARCHAR(20),
+    receiver_id VARCHAR(20),
+    subject VARCHAR(255),
+    message TEXT,
+    is_read TINYINT DEFAULT 0,
+    status ENUM('sent','delivered','seen') DEFAULT 'sent',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id),
+    FOREIGN KEY (sender_id) REFERENCES tbl_users(user_id),
+    FOREIGN KEY (receiver_id) REFERENCES tbl_users(user_id)
+);
+
+-- ============================================
+-- REPORTS
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_reports (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    date DATE,
+    total_bookings INT DEFAULT 0,
+    completed_treatments INT DEFAULT 0,
+    gross_revenue DECIMAL(10,2) DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id)
+);
+
+-- ============================================
+-- DENTIST SCHEDULES
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_dentist_schedules (
+    schedule_id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    dentist_id INT NOT NULL,
+    day_of_week ENUM('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),
+    start_time TIME,
+    end_time TIME,
+    status ENUM('available','unavailable') DEFAULT 'available',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (schedule_id),
+    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id),
+    FOREIGN KEY (dentist_id) REFERENCES tbl_dentists(dentist_id)
+);
+
+-- ============================================
+-- PATIENT QUEUE
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_patient_queue (
+    queue_id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    patient_id VARCHAR(50),
+    appointment_id INT,
+    queue_number INT,
+    status ENUM('waiting','serving','completed','cancelled') DEFAULT 'waiting',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (queue_id),
+    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id),
+    FOREIGN KEY (patient_id) REFERENCES tbl_patients(patient_id),
+    FOREIGN KEY (appointment_id) REFERENCES tbl_appointments(id)
+);
+
+-- ============================================
+-- TERMS AND CONDITIONS
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_terms_and_conditions (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    title VARCHAR(255),
+    content TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id)
+);
+
+-- ============================================
+-- AUDIT LOGS
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_audit_logs (
+    log_id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    user_id VARCHAR(20),
+    action VARCHAR(255),
+    description TEXT,
+    ip_address VARCHAR(45),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (log_id),
+    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id),
+    FOREIGN KEY (user_id) REFERENCES tbl_users(user_id)
+);
+
+-- ============================================
+-- FEEDBACK
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_feedback (
+    feedback_id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    patient_id VARCHAR(50) NOT NULL,
+    appointment_id INT NOT NULL,
+    rating TINYINT NOT NULL,
+    comments TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (feedback_id),
+    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id) ON DELETE CASCADE,
+    FOREIGN KEY (patient_id) REFERENCES tbl_patients(patient_id) ON DELETE CASCADE,
+    FOREIGN KEY (appointment_id) REFERENCES tbl_appointments(id) ON DELETE CASCADE,
+    CHECK (rating BETWEEN 1 AND 5)
+);
+
+-- ============================================
+-- REVIEWS (patient feedback per appointment; clinic-facing)
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_reviews (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    review_id VARCHAR(50) NOT NULL,
+    appointment_id INT NOT NULL,
+    booking_id VARCHAR(50) NOT NULL,
+    patient_id VARCHAR(50) NOT NULL,
+    rating TINYINT NOT NULL,
+    comment TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY unique_tenant_review_id (tenant_id, review_id),
+    KEY idx_tenant (tenant_id),
+    KEY idx_reviews_tenant_appointment (tenant_id, appointment_id),
+    CONSTRAINT fk_reviews_tenant
+        FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id) ON DELETE CASCADE,
+    CONSTRAINT fk_reviews_appointment
+        FOREIGN KEY (appointment_id) REFERENCES tbl_appointments(id) ON DELETE CASCADE,
+    CONSTRAINT fk_reviews_patient
+        FOREIGN KEY (tenant_id, patient_id) REFERENCES tbl_patients(tenant_id, patient_id) ON DELETE CASCADE,
+    CHECK (rating BETWEEN 1 AND 5)
+);
+
+-- ============================================
+-- EMAIL VERIFICATIONS
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_email_verifications (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    user_id VARCHAR(20) NOT NULL,
+    otp_hash VARCHAR(255) NOT NULL,
+    token_hash VARCHAR(255) DEFAULT NULL,
+    otp_expires_at DATETIME NOT NULL,
+    token_expires_at DATETIME DEFAULT NULL,
+    attempts INT NOT NULL DEFAULT 0,
+    last_sent_at DATETIME DEFAULT NULL,
+    verified_at DATETIME DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_user_id (user_id),
+    KEY idx_expires (otp_expires_at),
+    KEY idx_verified (verified_at),
+    KEY idx_token_hash (token_hash),
+    KEY idx_token_expires (token_expires_at),
+    KEY idx_tenant (tenant_id),
+    CONSTRAINT fk_email_verifications_user
+        FOREIGN KEY (user_id) REFERENCES tbl_users(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_email_verifications_tenant
+        FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id) ON DELETE CASCADE
+);
+
+-- ============================================
+-- PATIENT NOTES
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_patient_notes (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    patient_id VARCHAR(50) NOT NULL,
+    author_id VARCHAR(20) NOT NULL,
+    note_content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_patient (patient_id),
+    KEY idx_author (author_id),
+    KEY idx_created (created_at),
+    KEY idx_tenant (tenant_id),
+    CONSTRAINT fk_patient_notes_patient
+        FOREIGN KEY (patient_id) REFERENCES tbl_patients(patient_id) ON DELETE CASCADE,
+    CONSTRAINT fk_patient_notes_author
+        FOREIGN KEY (author_id) REFERENCES tbl_users(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_patient_notes_tenant
+        FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id) ON DELETE CASCADE
+);
+
+SET FOREIGN_KEY_CHECKS = 1;
+
