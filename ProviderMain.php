@@ -70,7 +70,7 @@
 <section class="py-24">
 <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 <div class="mb-16">
-<h2 class="text-3xl font-extrabold text-slate-900 dark:text-white">Platform Highlight</h2>
+<h2 class="text-3xl font-extrabold text-slate-900 dark:text-white">Platform Highlights</h2>
 <p class="mt-4 text-lg text-slate-600 dark:text-slate-400">Everything you need to run a successful multi-tenant dental practice.</p>
 </div>
 <div class="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
@@ -177,10 +177,7 @@
                         </p>
 <div class="mt-10 flex flex-wrap items-center justify-center gap-6">
 <button class="rounded-xl bg-white px-8 py-4 text-base font-bold text-primary shadow-lg hover:bg-slate-50 transition-all">
-                                Get Started for Free
-                            </button>
-<button class="text-base font-bold text-white hover:underline underline-offset-4 decoration-2">
-                                Contact Sales Team
+                                Get Started
                             </button>
 </div>
 </div>
