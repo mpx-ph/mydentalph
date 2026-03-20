@@ -1,9 +1,9 @@
 <?php
 // db.php - InfinityFree MySQL Connection
-$host = 'sql110.infinityfree.com';
-$db = 'if0_41383818_mydental';
-$user = 'if0_41383818';
-$pass = 'SVA2Q2r2ZCTph';
+$host = 'sql102.infinityfree.com';
+$db = 'if0_41436542_mydentalph';
+$user = 'if0_41436542';
+$pass = 'dIdY2azmN95';
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8mb4", $user, $pass);
