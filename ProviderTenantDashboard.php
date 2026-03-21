@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once 'db.php';
+require_once __DIR__ . '/../db.php';
 
 if (empty($_SESSION['user_id']) || empty($_SESSION['tenant_id'])) {
     header('Location: ProviderLogin.php');
