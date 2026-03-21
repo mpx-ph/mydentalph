@@ -285,6 +285,8 @@ if ($tcpdfPath !== null) {
 }
 
 // ---- FPDF fallback (bundled under superadmin/lib; no vendor/ required) ----
+// Use only Helvetica regular (font/helvetica.php). Bold/Italic need extra font definition files
+// (helveticab.php / helveticai.php) which may be missing on the server.
 require_once __DIR__ . '/lib/fpdf.php';
 
 class AuditLogsExportFPDF extends FPDF
@@ -292,7 +294,7 @@ class AuditLogsExportFPDF extends FPDF
     public function Footer()
     {
         $this->SetY(-14);
-        $this->SetFont('Helvetica', 'I', 8);
+        $this->SetFont('Helvetica', '', 8);
         $this->SetTextColor(90, 90, 90);
         $this->Cell(0, 10, 'MyDental - Confidential  |  Generated ' . date('M j, Y g:i A')
             . '  |  Page ' . $this->PageNo() . '/{nb}', 0, 0, 'C');
@@ -317,13 +319,13 @@ try {
         $pdf->SetDrawColor(200, 215, 240);
         $pdf->Rect(15, $headerTop - 1, 78, 16, 'DF');
         $pdf->SetXY(19, $headerTop + 1);
-        $pdf->SetFont('Helvetica', 'B', 16);
+        $pdf->SetFont('Helvetica', '', 17);
         $pdf->SetTextColor(0, 102, 255);
         $pdf->Cell(70, 10, 'MyDental', 0, 0, 'L');
     }
     $pdf->SetTextColor(30, 30, 30);
 
-    $pdf->SetFont('Helvetica', 'B', 13);
+    $pdf->SetFont('Helvetica', '', 14);
     $pdf->SetXY(100, $headerTop + 2);
     $pdf->Cell(95, 7, 'Login & Logout Audit Report', 0, 1, 'R');
     $pdf->SetFont('Helvetica', '', 9);
@@ -339,7 +341,7 @@ try {
     $pdf->Line(15, $pdf->GetY(), 195, $pdf->GetY());
     $pdf->Ln(6);
 
-    $pdf->SetFont('Helvetica', 'B', 11);
+    $pdf->SetFont('Helvetica', '', 12);
     $pdf->SetTextColor(25, 35, 50);
     $pdf->Cell(0, 6, 'Executive summary', 0, 1, 'L');
     $pdf->SetFont('Helvetica', '', 9);
@@ -365,7 +367,7 @@ try {
     $pdf->Ln(4);
 
     if ($dbError === null) {
-        $pdf->SetFont('Helvetica', 'B', 10);
+        $pdf->SetFont('Helvetica', '', 11);
         $pdf->SetTextColor(25, 35, 50);
         $pdf->Cell(0, 6, 'Login & logout events', 0, 1, 'L');
         $pdf->Ln(1);
@@ -375,7 +377,7 @@ try {
         $wDate = 48;
         $wType = 36;
 
-        $pdf->SetFont('Helvetica', 'B', 8);
+        $pdf->SetFont('Helvetica', '', 9);
         $pdf->SetFillColor(30, 41, 59);
         $pdf->SetTextColor(255, 255, 255);
         $pdf->Cell($wUser, 7, 'User', 1, 0, 'L', true);
@@ -424,7 +426,7 @@ try {
                 $pdf->Cell($wUser, 6, $userCol, 1, 0, 'L');
                 $pdf->Cell($wAction, 6, $actCol, 1, 0, 'L');
                 $pdf->Cell($wDate, 6, $dtCol, 1, 0, 'L');
-                $pdf->SetFont('Helvetica', 'B', 7.5);
+                $pdf->SetFont('Helvetica', '', 8);
                 $pdf->SetTextColor($isLogout ? 180 : 21, $isLogout ? 83 : 128, $isLogout ? 9 : 61);
                 $pdf->Cell($wType, 6, $typeLabel, 1, 1, 'C');
                 $pdf->SetTextColor(30, 30, 30);
