@@ -137,7 +137,11 @@ try {
     ];
 }
 
-$revenue_chart_json = json_encode($revenue_series);
+// JSON_HEX_* keeps </script> and & safe inside <script type="application/json">
+$revenue_chart_json = json_encode(
+    $revenue_series,
+    JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE
+);
 if ($revenue_chart_json === false) {
     $revenue_chart_json = '{}';
 }
@@ -273,6 +277,11 @@ function dashboard_format_int(int $n): string
         .ai-glow {
             border: 1px solid rgba(255, 255, 255, 0.3);
             box-shadow: 0 20px 40px -15px rgba(0, 102, 255, 0.4);
+        }
+        #revenue-chart-tooltip {
+            pointer-events: none;
+            z-index: 50;
+            transition: opacity 0.12s ease;
         }
     </style>
 </head>
@@ -470,26 +479,31 @@ function dashboard_format_int(int $n): string
 <h4 class="text-xl font-extrabold font-headline">Revenue Analytics</h4>
 <p class="text-sm text-on-surface-variant font-medium">Paid subscription revenue (<span class="whitespace-nowrap">amount_paid</span>) by <span id="revenue-period-label">month</span></p>
 </div>
-<script type="application/json" id="revenue-chart-data"><?php echo htmlspecialchars($revenue_chart_json, ENT_NOQUOTES, 'UTF-8'); ?></script>
+<script type="application/json" id="revenue-chart-data"><?php echo $revenue_chart_json; ?></script>
 <div class="h-64 relative" id="revenue-chart-container">
-<div class="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-[0.07]">
+<div class="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-[0.07] z-0">
 <div class="border-t border-on-surface"></div>
 <div class="border-t border-on-surface"></div>
 <div class="border-t border-on-surface"></div>
 <div class="border-t border-on-surface"></div>
 </div>
-<svg class="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 1000 200" aria-hidden="true">
+<svg class="absolute inset-0 w-full h-full z-[1]" preserveAspectRatio="none" viewBox="0 0 1000 200" role="img" aria-labelledby="revenue-chart-title">
+<title id="revenue-chart-title">Revenue by period</title>
 <defs>
 <linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
 <stop offset="0%" stop-color="#0066ff" stop-opacity="0.25"></stop>
 <stop offset="100%" stop-color="#0066ff" stop-opacity="0"></stop>
 </linearGradient>
 </defs>
-<path id="revenue-area" d="" fill="url(#chartGradient)"></path>
-<path id="revenue-line" d="" fill="none" stroke="#0066ff" stroke-linecap="round" stroke-width="4"></path>
-<circle id="revenue-dot" class="drop-shadow-md" cx="0" cy="100" fill="#0066ff" r="6"></circle>
+<path id="revenue-area" d="" fill="url(#chartGradient)" pointer-events="none"></path>
+<path id="revenue-line" d="" fill="none" stroke="#0066ff" stroke-linecap="round" stroke-width="4" pointer-events="none"></path>
+<g id="revenue-points" pointer-events="all"></g>
 </svg>
-<div class="absolute bottom-0 left-0 right-0 flex w-full justify-between pt-3 text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] relative z-10" id="revenue-chart-labels"></div>
+<div id="revenue-chart-tooltip" class="absolute z-[50] hidden opacity-0 rounded-xl bg-on-surface text-white text-xs font-bold px-3 py-2 shadow-xl border border-white/10 max-w-[220px]">
+<span id="revenue-chart-tooltip-label" class="block text-[10px] font-semibold uppercase tracking-wider text-white/70"></span>
+<span id="revenue-chart-tooltip-value" class="block text-sm mt-0.5"></span>
+</div>
+<div class="absolute bottom-0 left-0 right-0 flex w-full justify-between pt-3 text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] z-[2] pointer-events-none" id="revenue-chart-labels"></div>
 </div>
 <div class="flex flex-wrap justify-between gap-2 mt-3 text-[10px] font-semibold text-on-surface-variant">
 <span id="revenue-chart-sum"></span>
@@ -498,112 +512,211 @@ function dashboard_format_int(int $n): string
 </div>
 <script>
 (function () {
-    var dataEl = document.getElementById('revenue-chart-data');
-    if (!dataEl) return;
-    var chartData = {};
-    try {
-        chartData = JSON.parse(dataEl.textContent || '{}');
-    } catch (e) {
-        return;
-    }
-    var W = 1000, H = 200, PAD = 18;
-    var labelWords = { monthly: 'month', weekly: 'week', yearly: 'year' };
+    function initRevenueChart() {
+        var dataEl = document.getElementById('revenue-chart-data');
+        var container = document.getElementById('revenue-chart-container');
+        if (!dataEl || !container) return;
 
-    function buildPath(values) {
-        var n = values.length;
-        if (n === 0) {
-            return { line: '', area: '', cx: W / 2, cy: H / 2, max: 0, sum: 0 };
-        }
-        var max = 0;
-        for (var i = 0; i < n; i++) if (values[i] > max) max = values[i];
-        if (max < 1e-9) max = 1;
-        var sum = 0;
-        for (var j = 0; j < n; j++) sum += values[j];
-        if (n === 1) {
-            var x = W / 2;
-            var y = H - PAD - (values[0] / max) * (H - 2 * PAD);
-            return {
-                line: 'M ' + (x - 1) + ',' + y + ' L ' + (x + 1) + ',' + y,
-                area: 'M ' + (x - 1) + ',' + y + ' L ' + (x + 1) + ',' + y + ' L ' + (x + 1) + ',' + H + ' L ' + (x - 1) + ',' + H + ' Z',
-                cx: x,
-                cy: y,
-                max: max,
-                sum: sum
-            };
-        }
-        var pts = [];
-        for (var k = 0; k < n; k++) {
-            var x = k * (W / (n - 1));
-            var y = H - PAD - (values[k] / max) * (H - 2 * PAD);
-            pts.push([x, y]);
-        }
-        var d = 'M ' + pts[0][0] + ',' + pts[0][1];
-        for (var m = 1; m < n; m++) d += ' L ' + pts[m][0] + ',' + pts[m][1];
-        var area = d + ' L ' + pts[n - 1][0] + ',' + H + ' L ' + pts[0][0] + ',' + H + ' Z';
-        return {
-            line: d,
-            area: area,
-            cx: pts[n - 1][0],
-            cy: pts[n - 1][1],
-            max: max,
-            sum: sum
-        };
-    }
-
-    function fmtMoney(x) {
-        if (x >= 1000000) return '₱' + (x / 1000000).toFixed(1) + 'M';
-        if (x >= 1000) return '₱' + (x / 1000).toFixed(1) + 'k';
-        return '₱' + Math.round(x).toLocaleString();
-    }
-
-    function render(period) {
-        var s = chartData[period];
-        var labEl = document.getElementById('revenue-period-label');
-        if (labEl) labEl.textContent = labelWords[period] || period;
-
-        if (!s || !s.values || s.values.length === 0) {
-            document.getElementById('revenue-area').setAttribute('d', '');
-            document.getElementById('revenue-line').setAttribute('d', '');
-            document.getElementById('revenue-chart-labels').innerHTML = '';
-            document.getElementById('revenue-chart-sum').textContent = '';
-            document.getElementById('revenue-chart-peak').textContent = 'No data';
+        var chartData = {};
+        try {
+            var raw = (dataEl.textContent || '').trim();
+            chartData = JSON.parse(raw);
+        } catch (e) {
+            console.error('Revenue chart JSON parse error', e);
+            var sumEl = document.getElementById('revenue-chart-sum');
+            if (sumEl) sumEl.textContent = 'Chart data could not be loaded.';
             return;
         }
 
-        var p = buildPath(s.values);
-        document.getElementById('revenue-area').setAttribute('d', p.area);
-        document.getElementById('revenue-line').setAttribute('d', p.line);
-        var dot = document.getElementById('revenue-dot');
-        dot.setAttribute('cx', p.cx);
-        dot.setAttribute('cy', p.cy);
-        dot.style.opacity = s.values.length > 1 || p.sum > 0 ? '1' : '0';
+        var W = 1000, H = 200, PAD = 18;
+        var labelWords = { monthly: 'month', weekly: 'week', yearly: 'year' };
+        var currentPeriod = 'monthly';
 
-        var labels = document.getElementById('revenue-chart-labels');
-        labels.innerHTML = '';
-        (s.labels || []).forEach(function (lab) {
-            var sp = document.createElement('span');
-            sp.textContent = lab;
-            labels.appendChild(sp);
+        function buildPath(values, labels) {
+            labels = labels || [];
+            var n = values.length;
+            if (n === 0) {
+                return { line: '', area: '', cx: W / 2, cy: H / 2, max: 0, sum: 0, pts: [] };
+            }
+            var max = 0;
+            for (var i = 0; i < n; i++) if (values[i] > max) max = values[i];
+            if (max < 1e-9) max = 1;
+            var sum = 0;
+            for (var j = 0; j < n; j++) sum += values[j];
+
+            var pts = [];
+            if (n === 1) {
+                var x0 = W / 2;
+                var y0 = H - PAD - (values[0] / max) * (H - 2 * PAD);
+                pts.push({ x: x0, y: y0, label: labels[0] || '', value: values[0] });
+                return {
+                    line: 'M ' + (x0 - 1) + ',' + y0 + ' L ' + (x0 + 1) + ',' + y0,
+                    area: 'M ' + (x0 - 1) + ',' + y0 + ' L ' + (x0 + 1) + ',' + y0 + ' L ' + (x0 + 1) + ',' + H + ' L ' + (x0 - 1) + ',' + H + ' Z',
+                    cx: x0,
+                    cy: y0,
+                    max: max,
+                    sum: sum,
+                    pts: pts
+                };
+            }
+            for (var k = 0; k < n; k++) {
+                var x = k * (W / (n - 1));
+                var y = H - PAD - (values[k] / max) * (H - 2 * PAD);
+                pts.push({ x: x, y: y, label: labels[k] || '', value: values[k] });
+            }
+            var d = 'M ' + pts[0].x + ',' + pts[0].y;
+            for (var m = 1; m < n; m++) d += ' L ' + pts[m].x + ',' + pts[m].y;
+            var area = d + ' L ' + pts[n - 1].x + ',' + H + ' L ' + pts[0].x + ',' + H + ' Z';
+            return {
+                line: d,
+                area: area,
+                cx: pts[n - 1].x,
+                cy: pts[n - 1].y,
+                max: max,
+                sum: sum,
+                pts: pts
+            };
+        }
+
+        function fmtMoney(x) {
+            if (x >= 1000000) return '₱' + (x / 1000000).toFixed(1) + 'M';
+            if (x >= 1000) return '₱' + (x / 1000).toFixed(1) + 'k';
+            return '₱' + Math.round(x).toLocaleString();
+        }
+
+        function hideTooltip() {
+            var tt = document.getElementById('revenue-chart-tooltip');
+            if (!tt) return;
+            tt.classList.add('hidden', 'opacity-0');
+            tt.classList.remove('opacity-100');
+        }
+
+        function showTooltip(cx, cy, label, value) {
+            var tt = document.getElementById('revenue-chart-tooltip');
+            var tl = document.getElementById('revenue-chart-tooltip-label');
+            var tv = document.getElementById('revenue-chart-tooltip-value');
+            if (!tt || !tl || !tv) return;
+            tl.textContent = label || 'Period';
+            tv.textContent = fmtMoney(value);
+            var pctX = (cx / W) * 100;
+            var pctY = (cy / H) * 100;
+            tt.style.left = pctX + '%';
+            tt.style.top = pctY + '%';
+            tt.style.transform = 'translate(-50%, calc(-100% - 10px))';
+            tt.classList.remove('hidden', 'opacity-0');
+            tt.classList.add('opacity-100');
+        }
+
+        function render(period) {
+            currentPeriod = period;
+            var s = chartData[period];
+            var labEl = document.getElementById('revenue-period-label');
+            if (labEl) labEl.textContent = labelWords[period] || period;
+
+            var areaEl = document.getElementById('revenue-area');
+            var lineEl = document.getElementById('revenue-line');
+            var pointsG = document.getElementById('revenue-points');
+
+            hideTooltip();
+
+            if (!s || !s.values || s.values.length === 0) {
+                if (areaEl) areaEl.setAttribute('d', '');
+                if (lineEl) lineEl.setAttribute('d', '');
+                if (pointsG) pointsG.innerHTML = '';
+                var labelsEl = document.getElementById('revenue-chart-labels');
+                if (labelsEl) labelsEl.innerHTML = '';
+                var sumEl = document.getElementById('revenue-chart-sum');
+                var peakEl = document.getElementById('revenue-chart-peak');
+                if (sumEl) sumEl.textContent = '';
+                if (peakEl) peakEl.textContent = 'No data';
+                return;
+            }
+
+            var p = buildPath(s.values, s.labels || []);
+            if (areaEl) areaEl.setAttribute('d', p.area);
+            if (lineEl) lineEl.setAttribute('d', p.line);
+
+            if (pointsG) {
+                pointsG.innerHTML = '';
+                p.pts.forEach(function (pt) {
+                    var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    g.setAttribute('class', 'revenue-point-group cursor-pointer');
+                    var hit = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    hit.setAttribute('cx', pt.x);
+                    hit.setAttribute('cy', pt.y);
+                    hit.setAttribute('r', '22');
+                    hit.setAttribute('fill', 'transparent');
+                    hit.setAttribute('stroke', 'none');
+                    var vis = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    vis.setAttribute('class', 'revenue-point-dot transition-all duration-150');
+                    vis.setAttribute('cx', pt.x);
+                    vis.setAttribute('cy', pt.y);
+                    vis.setAttribute('r', '5');
+                    vis.setAttribute('fill', '#ffffff');
+                    vis.setAttribute('stroke', '#0066ff');
+                    vis.setAttribute('stroke-width', '2');
+                    g.appendChild(hit);
+                    g.appendChild(vis);
+                    hit.addEventListener('mouseenter', function () {
+                        vis.setAttribute('r', '8');
+                        vis.setAttribute('stroke-width', '3');
+                        showTooltip(pt.x, pt.y, pt.label, pt.value);
+                    });
+                    hit.addEventListener('mouseleave', function () {
+                        vis.setAttribute('r', '5');
+                        vis.setAttribute('stroke-width', '2');
+                        hideTooltip();
+                    });
+                    hit.addEventListener('focus', function () {
+                        showTooltip(pt.x, pt.y, pt.label, pt.value);
+                    });
+                    hit.addEventListener('blur', hideTooltip);
+                    hit.setAttribute('tabindex', '0');
+                    hit.setAttribute('role', 'button');
+                    hit.setAttribute('aria-label', 'Revenue ' + (pt.label || '') + ': ' + fmtMoney(pt.value));
+                    pointsG.appendChild(g);
+                });
+            }
+
+            var labels = document.getElementById('revenue-chart-labels');
+            if (labels) {
+                labels.innerHTML = '';
+                (s.labels || []).forEach(function (lab) {
+                    var sp = document.createElement('span');
+                    sp.textContent = lab;
+                    labels.appendChild(sp);
+                });
+            }
+
+            var sumOut = document.getElementById('revenue-chart-sum');
+            var peakOut = document.getElementById('revenue-chart-peak');
+            if (sumOut) sumOut.textContent = 'Period total: ' + fmtMoney(p.sum);
+            if (peakOut) peakOut.textContent = 'Peak: ' + fmtMoney(p.max);
+        }
+
+        document.querySelectorAll('.revenue-period-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var period = btn.getAttribute('data-period');
+                document.querySelectorAll('.revenue-period-btn').forEach(function (b) {
+                    b.classList.remove('bg-white', 'shadow-sm', 'text-primary');
+                    b.classList.add('text-on-surface-variant');
+                });
+                btn.classList.add('bg-white', 'shadow-sm', 'text-primary');
+                btn.classList.remove('text-on-surface-variant');
+                render(period);
+            });
         });
 
-        document.getElementById('revenue-chart-sum').textContent = 'Period total: ' + fmtMoney(p.sum);
-        document.getElementById('revenue-chart-peak').textContent = 'Peak: ' + fmtMoney(p.max);
+        container.addEventListener('mouseleave', hideTooltip);
+
+        render('monthly');
     }
 
-    document.querySelectorAll('.revenue-period-btn').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var period = btn.getAttribute('data-period');
-            document.querySelectorAll('.revenue-period-btn').forEach(function (b) {
-                b.classList.remove('bg-white', 'shadow-sm', 'text-primary');
-                b.classList.add('text-on-surface-variant');
-            });
-            btn.classList.add('bg-white', 'shadow-sm', 'text-primary');
-            btn.classList.remove('text-on-surface-variant');
-            render(period);
-        });
-    });
-
-    render('monthly');
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initRevenueChart);
+    } else {
+        initRevenueChart();
+    }
 })();
 </script>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
