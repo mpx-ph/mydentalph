@@ -531,6 +531,8 @@ function dashboard_format_int(int $n): string
         var W = 1000, H = 200, PAD = 18;
         var labelWords = { monthly: 'month', weekly: 'week', yearly: 'year' };
         var currentPeriod = 'monthly';
+        var tooltipHideTimer = null;
+        var TOOLTIP_HIDE_MS = 200;
 
         function buildPath(values, labels) {
             labels = labels || [];
@@ -585,10 +587,37 @@ function dashboard_format_int(int $n): string
         }
 
         function hideTooltip() {
+            if (tooltipHideTimer) {
+                clearTimeout(tooltipHideTimer);
+                tooltipHideTimer = null;
+            }
             var tt = document.getElementById('revenue-chart-tooltip');
             if (!tt) return;
             tt.classList.add('hidden', 'opacity-0');
             tt.classList.remove('opacity-100');
+        }
+
+        function resetPointDots() {
+            document.querySelectorAll('#revenue-points .revenue-point-dot').forEach(function (v) {
+                v.setAttribute('r', '5');
+                v.setAttribute('stroke-width', '2');
+            });
+        }
+
+        function scheduleHideTooltip() {
+            if (tooltipHideTimer) clearTimeout(tooltipHideTimer);
+            tooltipHideTimer = setTimeout(function () {
+                tooltipHideTimer = null;
+                hideTooltip();
+                resetPointDots();
+            }, TOOLTIP_HIDE_MS);
+        }
+
+        function cancelHideTooltip() {
+            if (tooltipHideTimer) {
+                clearTimeout(tooltipHideTimer);
+                tooltipHideTimer = null;
+            }
         }
 
         function showTooltip(cx, cy, label, value) {
@@ -617,7 +646,9 @@ function dashboard_format_int(int $n): string
             var lineEl = document.getElementById('revenue-line');
             var pointsG = document.getElementById('revenue-points');
 
+            cancelHideTooltip();
             hideTooltip();
+            resetPointDots();
 
             if (!s || !s.values || s.values.length === 0) {
                 if (areaEl) areaEl.setAttribute('d', '');
@@ -644,7 +675,7 @@ function dashboard_format_int(int $n): string
                     var hit = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                     hit.setAttribute('cx', pt.x);
                     hit.setAttribute('cy', pt.y);
-                    hit.setAttribute('r', '22');
+                    hit.setAttribute('r', '32');
                     hit.setAttribute('fill', 'transparent');
                     hit.setAttribute('stroke', 'none');
                     var vis = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -655,22 +686,28 @@ function dashboard_format_int(int $n): string
                     vis.setAttribute('fill', '#ffffff');
                     vis.setAttribute('stroke', '#0066ff');
                     vis.setAttribute('stroke-width', '2');
+                    vis.setAttribute('pointer-events', 'none');
                     g.appendChild(hit);
                     g.appendChild(vis);
                     hit.addEventListener('mouseenter', function () {
+                        cancelHideTooltip();
                         vis.setAttribute('r', '8');
                         vis.setAttribute('stroke-width', '3');
                         showTooltip(pt.x, pt.y, pt.label, pt.value);
                     });
                     hit.addEventListener('mouseleave', function () {
-                        vis.setAttribute('r', '5');
-                        vis.setAttribute('stroke-width', '2');
-                        hideTooltip();
+                        scheduleHideTooltip();
                     });
                     hit.addEventListener('focus', function () {
+                        cancelHideTooltip();
+                        vis.setAttribute('r', '8');
+                        vis.setAttribute('stroke-width', '3');
                         showTooltip(pt.x, pt.y, pt.label, pt.value);
                     });
-                    hit.addEventListener('blur', hideTooltip);
+                    hit.addEventListener('blur', function () {
+                        hideTooltip();
+                        resetPointDots();
+                    });
                     hit.setAttribute('tabindex', '0');
                     hit.setAttribute('role', 'button');
                     hit.setAttribute('aria-label', 'Revenue ' + (pt.label || '') + ': ' + fmtMoney(pt.value));
@@ -707,7 +744,11 @@ function dashboard_format_int(int $n): string
             });
         });
 
-        container.addEventListener('mouseleave', hideTooltip);
+        container.addEventListener('mouseleave', function () {
+            cancelHideTooltip();
+            hideTooltip();
+            resetPointDots();
+        });
 
         render('monthly');
     }
