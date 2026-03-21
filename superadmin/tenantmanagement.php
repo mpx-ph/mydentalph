@@ -1,4 +1,192 @@
-<?php require_once __DIR__ . '/require_superadmin.php'; ?>
+<?php
+require_once __DIR__ . '/require_superadmin.php';
+require_once __DIR__ . '/../db.php';
+
+function tenant_tm_build_query(array $base, array $overrides = []): string {
+    $merged = array_merge($base, $overrides);
+    $parts = [];
+    foreach ($merged as $k => $v) {
+        if ($v === '' || $v === null) {
+            continue;
+        }
+        if ($k === 'page' && (int) $v === 1) {
+            continue;
+        }
+        $parts[$k] = $v;
+    }
+    return http_build_query($parts);
+}
+
+function tenant_tm_url(array $base, array $overrides = []): string {
+    $q = tenant_tm_build_query($base, $overrides);
+    return $q === '' ? 'tenantmanagement.php' : ('tenantmanagement.php?' . $q);
+}
+
+function tenant_tm_last_activity(?string $ts): string {
+    if ($ts === null || $ts === '') {
+        return '—';
+    }
+    $t = strtotime($ts);
+    if ($t === false) {
+        return '—';
+    }
+    $diff = time() - $t;
+    if ($diff < 60) {
+        return 'Just now';
+    }
+    if ($diff < 3600) {
+        $m = (int) floor($diff / 60);
+        return $m . ($m === 1 ? ' min ago' : ' mins ago');
+    }
+    if ($diff < 86400) {
+        $h = (int) floor($diff / 3600);
+        return $h . ($h === 1 ? ' hour ago' : ' hours ago');
+    }
+    if ($diff < 86400 * 60) {
+        $d = (int) floor($diff / 86400);
+        return $d . ($d === 1 ? ' day ago' : ' days ago');
+    }
+    return date('M j, Y', $t);
+}
+
+function tenant_tm_initials(string $name): string {
+    $name = trim($name);
+    if ($name === '') {
+        return '?';
+    }
+    $len = function_exists('mb_strlen') ? mb_strlen($name) : strlen($name);
+    $sub = function_exists('mb_substr') ? 'mb_substr' : 'substr';
+    $up = function_exists('mb_strtoupper') ? 'mb_strtoupper' : 'strtoupper';
+    $parts = preg_split('/\s+/u', $name, -1, PREG_SPLIT_NO_EMPTY);
+    if (count($parts) >= 2) {
+        $a = $sub($parts[0], 0, 1);
+        $b = $sub($parts[count($parts) - 1], 0, 1);
+        return $up($a . $b);
+    }
+    return $up($sub($name, 0, min(2, $len)));
+}
+
+$filterBase = [
+    'status' => isset($_GET['status']) ? (string) $_GET['status'] : '',
+    'plan' => isset($_GET['plan']) ? (string) $_GET['plan'] : '',
+    'q' => isset($_GET['q']) ? trim((string) $_GET['q']) : '',
+];
+$page = max(1, (int) (isset($_GET['page']) ? $_GET['page'] : 1));
+$perPage = 10;
+
+$totalTenants = 0;
+$activeTenants = 0;
+$inactiveTenants = 0;
+$suspendedTenants = 0;
+$plans = [];
+$tenants = [];
+$totalRows = 0;
+$totalPages = 1;
+$dbError = null;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['tenant_action'], $_POST['tenant_id'])) {
+    $action = (string) $_POST['tenant_action'];
+    $tid = (string) $_POST['tenant_id'];
+    $map = [
+        'publish' => 'active',
+        'unpublish' => 'inactive',
+        'suspend' => 'suspended',
+    ];
+    if (isset($map[$action]) && $tid !== '' && strlen($tid) <= 20) {
+        try {
+            $chk = $pdo->prepare('SELECT 1 FROM tbl_tenants WHERE tenant_id = ? LIMIT 1');
+            $chk->execute([$tid]);
+            if ($chk->fetchColumn()) {
+                $u = $pdo->prepare('UPDATE tbl_tenants SET subscription_status = ? WHERE tenant_id = ?');
+                $u->execute([$map[$action], $tid]);
+            }
+        } catch (Throwable $e) {
+            // ignore; redirect still shows list
+        }
+    }
+    $redir = tenant_tm_url($filterBase, ['page' => $page]);
+    header('Location: ' . $redir, true, 303);
+    exit;
+}
+
+try {
+    $totalTenants = (int) $pdo->query('SELECT COUNT(*) FROM tbl_tenants')->fetchColumn();
+    $activeTenants = (int) $pdo->query("SELECT COUNT(*) FROM tbl_tenants WHERE subscription_status = 'active'")->fetchColumn();
+    $inactiveTenants = (int) $pdo->query("SELECT COUNT(*) FROM tbl_tenants WHERE subscription_status = 'inactive'")->fetchColumn();
+    $suspendedTenants = (int) $pdo->query("SELECT COUNT(*) FROM tbl_tenants WHERE subscription_status = 'suspended'")->fetchColumn();
+
+    $plans = $pdo->query('SELECT plan_id, plan_name FROM tbl_subscription_plans ORDER BY plan_name ASC')->fetchAll(PDO::FETCH_ASSOC);
+
+    $where = ['1=1'];
+    $params = [];
+
+    $allowedStatus = ['active', 'inactive', 'suspended'];
+    if ($filterBase['status'] !== '' && in_array($filterBase['status'], $allowedStatus, true)) {
+        $where[] = 't.subscription_status = ?';
+        $params[] = $filterBase['status'];
+    }
+
+    if ($filterBase['plan'] !== '' && ctype_digit($filterBase['plan'])) {
+        $where[] = 'EXISTS (SELECT 1 FROM tbl_tenant_subscriptions tsf WHERE tsf.tenant_id = t.tenant_id AND tsf.plan_id = ?)';
+        $params[] = (int) $filterBase['plan'];
+    }
+
+    if ($filterBase['q'] !== '') {
+        $like = '%' . $filterBase['q'] . '%';
+        $where[] = '(t.clinic_name LIKE ? OR t.tenant_id LIKE ? OR u.full_name LIKE ? OR u.email LIKE ?)';
+        array_push($params, $like, $like, $like, $like);
+    }
+
+    $whereSql = implode(' AND ', $where);
+
+    $countSql = "
+        SELECT COUNT(*)
+        FROM tbl_tenants t
+        LEFT JOIN tbl_users u ON u.user_id = t.owner_user_id
+        WHERE {$whereSql}
+    ";
+    $cstmt = $pdo->prepare($countSql);
+    $cstmt->execute($params);
+    $totalRows = (int) $cstmt->fetchColumn();
+    $totalPages = max(1, (int) ceil($totalRows / $perPage));
+    if ($page > $totalPages) {
+        $page = $totalPages;
+    }
+    $offset = ($page - 1) * $perPage;
+
+    $listSql = "
+        SELECT
+            t.tenant_id,
+            t.clinic_name,
+            t.subscription_status,
+            u.full_name AS owner_name,
+            u.email AS owner_email,
+            u.photo AS owner_photo,
+            u.last_login AS owner_last_login,
+            sp.plan_name
+        FROM tbl_tenants t
+        LEFT JOIN tbl_users u ON u.user_id = t.owner_user_id
+        LEFT JOIN tbl_tenant_subscriptions ts ON ts.id = (
+            SELECT MAX(ts2.id) FROM tbl_tenant_subscriptions ts2 WHERE ts2.tenant_id = t.tenant_id
+        )
+        LEFT JOIN tbl_subscription_plans sp ON sp.plan_id = ts.plan_id
+        WHERE {$whereSql}
+        ORDER BY t.created_at DESC
+        LIMIT {$perPage} OFFSET {$offset}
+    ";
+    $lstmt = $pdo->prepare($listSql);
+    $lstmt->execute($params);
+    $tenants = $lstmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+    $dbError = $e->getMessage();
+}
+
+if (!isset($offset)) {
+    $offset = ($page - 1) * $perPage;
+}
+$rangeStart = $totalRows === 0 ? 0 : $offset + 1;
+$rangeEnd = $totalRows === 0 ? 0 : min($totalRows, $offset + count($tenants));
+?>
 <!DOCTYPE html>
 
 <html class="light" lang="en"><head>
@@ -137,10 +325,16 @@
 <!-- TopNavBar (Matches SCREEN_2) -->
 <header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-20 z-30 bg-white/70 backdrop-blur-xl border-b border-white/50 flex items-center justify-between px-8">
 <div class="flex items-center gap-6 flex-1">
-<div class="relative w-full max-w-md group">
-<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-xl">search</span>
-<input class="w-full bg-surface-container-low/50 border-none focus:ring-2 focus:ring-primary/20 rounded-2xl pl-11 pr-4 py-2.5 text-sm transition-all placeholder:text-on-surface-variant/50" placeholder="Search analytics, tenants, or logs..." type="text"/>
-</div>
+<form method="get" action="tenantmanagement.php" class="relative w-full max-w-md group">
+<?php if ($filterBase['status'] !== ''): ?>
+<input type="hidden" name="status" value="<?php echo htmlspecialchars($filterBase['status'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<?php endif; ?>
+<?php if ($filterBase['plan'] !== ''): ?>
+<input type="hidden" name="plan" value="<?php echo htmlspecialchars($filterBase['plan'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<?php endif; ?>
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-xl pointer-events-none">search</span>
+<input name="q" value="<?php echo htmlspecialchars($filterBase['q'], ENT_QUOTES, 'UTF-8'); ?>" class="w-full bg-surface-container-low/50 border-none focus:ring-2 focus:ring-primary/20 rounded-2xl pl-11 pr-4 py-2.5 text-sm transition-all placeholder:text-on-surface-variant/50" placeholder="Search tenants, clinics, or email..." type="search" autocomplete="off"/>
+</form>
 </div>
 <div class="flex items-center gap-4">
 <button class="hover:bg-surface-container-low rounded-full p-2.5 transition-all relative">
@@ -175,65 +369,79 @@
                 </button>
 </div>
 </section>
+<?php if ($dbError !== null): ?>
+<div class="rounded-[2rem] bg-error/10 border border-error/20 px-8 py-4 text-error text-sm font-medium">
+    Could not load tenant data. Please try again or check the database connection.
+</div>
+<?php endif; ?>
 <!-- Metrics Bento Grid (Styled like SCREEN_2 cards) -->
-<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
 <div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all">
 <div class="flex justify-between items-start mb-4">
 <div class="p-2.5 bg-blue-50 text-primary rounded-xl shadow-sm">
 <span class="material-symbols-outlined">corporate_fare</span>
 </div>
-<span class="text-[10px] font-extrabold text-green-600 bg-green-50 px-2 py-1 rounded-lg uppercase">+12%</span>
 </div>
 <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Total Tenants</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">1,284</h3>
+<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo number_format($totalTenants); ?></h3>
 </div>
 <div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all">
 <div class="flex justify-between items-start mb-4">
 <div class="p-2.5 bg-blue-50 text-primary rounded-xl shadow-sm">
-<span class="material-symbols-outlined">medical_services</span>
+<span class="material-symbols-outlined">check_circle</span>
 </div>
-<span class="text-[10px] font-extrabold text-green-600 bg-green-50 px-2 py-1 rounded-lg uppercase">+8%</span>
 </div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Active Clinics</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">942</h3>
+<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Active Tenants</p>
+<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo number_format($activeTenants); ?></h3>
+</div>
+<div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all border-r-4 border-slate-200">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2.5 bg-slate-100 text-slate-600 rounded-xl shadow-sm">
+<span class="material-symbols-outlined">pause_circle</span>
+</div>
+</div>
+<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Inactive Account</p>
+<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo number_format($inactiveTenants); ?></h3>
 </div>
 <div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all border-r-4 border-error/20">
 <div class="flex justify-between items-start mb-4">
 <div class="p-2.5 bg-error-container/10 text-error rounded-xl shadow-sm">
 <span class="material-symbols-outlined">warning</span>
 </div>
-<span class="text-[10px] font-extrabold text-error bg-error-container px-2 py-1 rounded-lg uppercase">Action Required</span>
 </div>
 <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Suspended Accounts</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">14</h3>
+<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo number_format($suspendedTenants); ?></h3>
 </div>
 </section>
 <!-- Main Data Table Container (Glassmorphism & Style from SCREEN_2) -->
 <div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
 <!-- Table Controls -->
 <div class="px-8 py-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/50">
-<div class="flex items-center gap-4">
+<form method="get" action="tenantmanagement.php" class="flex flex-wrap items-center gap-4 flex-1 min-w-0">
+<?php if ($filterBase['q'] !== ''): ?>
+<input type="hidden" name="q" value="<?php echo htmlspecialchars($filterBase['q'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<?php endif; ?>
 <div class="relative group">
-<select class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
-<option>All Status</option>
-<option>Active</option>
-<option>Inactive</option>
-<option>Suspended</option>
+<select name="status" onchange="this.form.submit()" class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
+<option value=""<?php echo $filterBase['status'] === '' ? ' selected' : ''; ?>>All Status</option>
+<option value="active"<?php echo $filterBase['status'] === 'active' ? ' selected' : ''; ?>>Active</option>
+<option value="inactive"<?php echo $filterBase['status'] === 'inactive' ? ' selected' : ''; ?>>Inactive</option>
+<option value="suspended"<?php echo $filterBase['status'] === 'suspended' ? ' selected' : ''; ?>>Suspended</option>
 </select>
 <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xl">expand_more</span>
 </div>
 <div class="relative group">
-<select class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
-<option>All Plans</option>
-<option>Enterprise</option>
-<option>Pro</option>
-<option>Basic</option>
+<select name="plan" onchange="this.form.submit()" class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
+<option value=""<?php echo $filterBase['plan'] === '' ? ' selected' : ''; ?>>All Plans</option>
+<?php foreach ($plans as $p): ?>
+<option value="<?php echo (int) $p['plan_id']; ?>"<?php echo $filterBase['plan'] === (string) $p['plan_id'] ? ' selected' : ''; ?>><?php echo htmlspecialchars($p['plan_name'], ENT_QUOTES, 'UTF-8'); ?></option>
+<?php endforeach; ?>
 </select>
 <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xl">filter_list</span>
 </div>
-</div>
+</form>
 <div class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">
-                    Showing <span class="text-primary opacity-100">1-10</span> of 1,284 tenants
+                    Showing <span class="text-primary opacity-100"><?php echo $totalRows === 0 ? '0' : number_format($rangeStart) . '–' . number_format($rangeEnd); ?></span> of <?php echo number_format($totalRows); ?> tenants
                 </div>
 </div>
 <!-- Table Content -->
@@ -250,117 +458,109 @@
 </tr>
 </thead>
 <tbody class="divide-y divide-white/40">
-<!-- Row 1 -->
+<?php if ($dbError !== null): ?>
+<tr>
+<td colspan="6" class="px-10 py-12 text-center text-sm text-error font-medium">Unable to load tenants.</td>
+</tr>
+<?php elseif (empty($tenants)): ?>
+<tr>
+<td colspan="6" class="px-10 py-12 text-center text-sm text-on-surface-variant font-medium">No tenants match your filters.</td>
+</tr>
+<?php else: ?>
+<?php foreach ($tenants as $row):
+    $st = (string) ($row['subscription_status'] ?? '');
+    $ownerName = trim((string) ($row['owner_name'] ?? ''));
+    $displayName = $ownerName !== '' ? $ownerName : '—';
+    $email = trim((string) ($row['owner_email'] ?? ''));
+    $photo = trim((string) ($row['owner_photo'] ?? ''));
+    $planName = trim((string) ($row['plan_name'] ?? ''));
+    if ($st === 'active') {
+        $badge = '<span class="px-3 py-1.5 bg-green-50 text-green-600 rounded-xl text-[10px] font-bold uppercase tracking-wider">Active</span>';
+    } elseif ($st === 'inactive') {
+        $badge = '<span class="px-3 py-1.5 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-bold uppercase tracking-wider">Inactive</span>';
+    } elseif ($st === 'suspended') {
+        $badge = '<span class="px-3 py-1.5 bg-error-container/20 text-error rounded-xl text-[10px] font-bold uppercase tracking-wider">Suspended</span>';
+    } else {
+        $badge = '<span class="px-3 py-1.5 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-bold uppercase tracking-wider">' . htmlspecialchars($st, ENT_QUOTES, 'UTF-8') . '</span>';
+    }
+    $canPublish = $st !== 'active';
+    $canUnpublish = $st === 'active';
+    $canSuspend = $st !== 'suspended';
+    ?>
 <tr class="hover:bg-primary/5 transition-colors group">
 <td class="px-10 py-5">
 <div class="flex items-center gap-4">
-<img alt="Tenant 1" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZ84sX81i1GPCrjS58akL1mYFBaX7VUgGPCxqm3VurBUwYX1qM13_KzpZ8BcnrHG-4IOvCU3vpkpCoWdnIWTgLXN0WbWFtDiIE7prYB3zL6v4n88Ku681TGNtdsAoE8JZ0VY9OL5II9BkcHN5SwLwNy5xmwWKCr_-foGMpce3zmWRuAzCBpJpq0WMQENueXyU0veVLZbdgxbb-OijwhWB59-cAY9zfhd_K7SMWMmbF6gy5x5bc2lFjn-pX6GWWAQFdwOUFsO4QXjE"/>
+<?php if ($photo !== ''): ?>
+<img alt="" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" src="<?php echo htmlspecialchars($photo, ENT_QUOTES, 'UTF-8'); ?>"/>
+<?php else: ?>
+<div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-primary text-xs font-bold border-2 border-white shadow-sm"><?php echo htmlspecialchars(tenant_tm_initials($displayName === '—' ? (string) $row['clinic_name'] : $displayName), ENT_QUOTES, 'UTF-8'); ?></div>
+<?php endif; ?>
 <div>
-<p class="text-sm font-bold text-on-surface">Dr. Sarah Thompson</p>
-<p class="text-[10px] text-on-surface-variant font-medium">sarah.t@clinic.com</p>
+<p class="text-sm font-bold text-on-surface"><?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-[10px] text-on-surface-variant font-medium"><?php echo $email !== '' ? htmlspecialchars($email, ENT_QUOTES, 'UTF-8') : '—'; ?></p>
 </div>
 </div>
 </td>
 <td class="px-8 py-5">
-<span class="text-sm font-semibold text-on-surface-variant">BrightSmile Dental</span>
+<span class="text-sm font-semibold text-on-surface-variant"><?php echo htmlspecialchars((string) ($row['clinic_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
 </td>
 <td class="px-8 py-5">
-<span class="px-3 py-1.5 bg-green-50 text-green-600 rounded-xl text-[10px] font-bold uppercase tracking-wider">Active</span>
+<?php echo $badge; ?>
 </td>
 <td class="px-8 py-5">
+<?php if ($planName !== ''): ?>
 <span class="flex items-center gap-2 text-sm font-bold text-primary">
 <span class="material-symbols-outlined text-lg">verified</span>
-                                    Enterprise
-                                </span>
+<?php echo htmlspecialchars($planName, ENT_QUOTES, 'UTF-8'); ?>
+</span>
+<?php else: ?>
+<span class="text-sm font-medium text-on-surface-variant/60">—</span>
+<?php endif; ?>
 </td>
-<td class="px-8 py-5 text-xs font-medium text-on-surface-variant">2 mins ago</td>
+<td class="px-8 py-5 text-xs font-medium text-on-surface-variant"><?php echo tenant_tm_last_activity($row['owner_last_login'] ?? null); ?></td>
 <td class="px-10 py-5 text-right">
-<div class="flex justify-end gap-2">
-<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-xl">edit</span></button>
-<button class="p-2 text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-xl">block</span></button>
+<div class="flex justify-end flex-wrap gap-1.5">
+<form method="post" action="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page]), ENT_QUOTES, 'UTF-8'); ?>" class="inline">
+<input type="hidden" name="tenant_id" value="<?php echo htmlspecialchars((string) $row['tenant_id'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<button type="submit" name="tenant_action" value="publish" <?php echo $canPublish ? '' : 'disabled'; ?> class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wide border border-outline-variant/30 <?php echo $canPublish ? 'text-primary hover:bg-primary/10' : 'opacity-40 cursor-not-allowed'; ?>"><span class="material-symbols-outlined text-base">publish</span> Publish</button>
+</form>
+<form method="post" action="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page]), ENT_QUOTES, 'UTF-8'); ?>" class="inline">
+<input type="hidden" name="tenant_id" value="<?php echo htmlspecialchars((string) $row['tenant_id'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<button type="submit" name="tenant_action" value="unpublish" <?php echo $canUnpublish ? '' : 'disabled'; ?> class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wide border border-outline-variant/30 <?php echo $canUnpublish ? 'text-on-surface-variant hover:bg-white/80' : 'opacity-40 cursor-not-allowed'; ?>"><span class="material-symbols-outlined text-base">unpublished</span> Unpublish</button>
+</form>
+<form method="post" action="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page]), ENT_QUOTES, 'UTF-8'); ?>" class="inline">
+<input type="hidden" name="tenant_id" value="<?php echo htmlspecialchars((string) $row['tenant_id'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<button type="submit" name="tenant_action" value="suspend" <?php echo $canSuspend ? '' : 'disabled'; ?> class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wide border border-outline-variant/30 <?php echo $canSuspend ? 'text-error hover:bg-error/10' : 'opacity-40 cursor-not-allowed'; ?>"><span class="material-symbols-outlined text-base">block</span> Suspend</button>
+</form>
 </div>
 </td>
 </tr>
-<!-- Row 2 -->
-<tr class="hover:bg-primary/5 transition-colors group">
-<td class="px-10 py-5">
-<div class="flex items-center gap-4">
-<div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-primary text-xs font-bold border-2 border-white shadow-sm">MJ</div>
-<div>
-<p class="text-sm font-bold text-on-surface">Mark Janson</p>
-<p class="text-[10px] text-on-surface-variant font-medium">mark.j@metrocare.com</p>
-</div>
-</div>
-</td>
-<td class="px-8 py-5">
-<span class="text-sm font-semibold text-on-surface-variant">MetroCare Dental Hub</span>
-</td>
-<td class="px-8 py-5">
-<span class="px-3 py-1.5 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-bold uppercase tracking-wider">Inactive</span>
-</td>
-<td class="px-8 py-5">
-<span class="flex items-center gap-2 text-sm font-bold text-on-surface-variant">
-<span class="material-symbols-outlined text-lg">workspace_premium</span>
-                                    Pro
-                                </span>
-</td>
-<td class="px-8 py-5 text-xs font-medium text-on-surface-variant">4 hours ago</td>
-<td class="px-10 py-5 text-right">
-<div class="flex justify-end gap-2">
-<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-xl">edit</span></button>
-<button class="p-2 text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-xl">block</span></button>
-</div>
-</td>
-</tr>
-<!-- Row 3 -->
-<tr class="hover:bg-primary/5 transition-colors group">
-<td class="px-10 py-5">
-<div class="flex items-center gap-4">
-<img alt="Tenant 3" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDO5PLkDXpTS3_Mc7cMnIyCZWoQ0pw4rY5SH_X_eoRl3EeXu9Y9Rmjl10wSdbkv7yHPUoIGaGV6JrPJpg3SInPknS1-jraDdhxIE-GUWXBIQjWAqGJerMYLR_CDF4KqImAdFs3AEIerELchpWgzqJODVyVwPoATOWdJ-4NfH4wYJl0b6GU0wxxQHewUweTve2fTfcOHqLVyywKaBaRxzmV4yYOsaXslVT0EwsoWRckY03nLjvwNL-oEWsWadurx9O7XcU60T9DjBXs"/>
-<div>
-<p class="text-sm font-bold text-on-surface">Dr. Robert Liao</p>
-<p class="text-[10px] text-on-surface-variant font-medium">robert.liao@zenith.com</p>
-</div>
-</div>
-</td>
-<td class="px-8 py-5">
-<span class="text-sm font-semibold text-on-surface-variant">Zenith Specialist Clinic</span>
-</td>
-<td class="px-8 py-5">
-<span class="px-3 py-1.5 bg-error-container/20 text-error rounded-xl text-[10px] font-bold uppercase tracking-wider">Suspended</span>
-</td>
-<td class="px-8 py-5">
-<span class="flex items-center gap-2 text-sm font-bold text-on-surface-variant opacity-60">
-<span class="material-symbols-outlined text-lg">stars</span>
-                                    Basic
-                                </span>
-</td>
-<td class="px-8 py-5 text-xs font-medium text-on-surface-variant">3 days ago</td>
-<td class="px-10 py-5 text-right">
-<div class="flex justify-end gap-2">
-<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-xl">edit</span></button>
-<button class="p-2 text-error hover:brightness-125 transition-all"><span class="material-symbols-outlined text-xl">lock_open</span></button>
-</div>
-</td>
-</tr>
+<?php endforeach; ?>
+<?php endif; ?>
 </tbody>
 </table>
 </div>
 <!-- Pagination (Matches SCREEN_2 Button Style) -->
-<div class="px-10 py-8 flex items-center justify-between border-t border-white/50">
-<button class="px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2 disabled:opacity-40" disabled="">
+<div class="px-10 py-8 flex flex-wrap items-center justify-between gap-4 border-t border-white/50">
+<?php if ($page > 1): ?>
+<a href="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page - 1]), ENT_QUOTES, 'UTF-8'); ?>" class="px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
 <span class="material-symbols-outlined text-lg">chevron_left</span> Previous
-                </button>
-<div class="flex items-center gap-2">
-<button class="w-10 h-10 bg-primary text-white rounded-xl font-bold text-sm active-glow">1</button>
-<button class="w-10 h-10 bg-white/40 text-on-surface-variant hover:bg-white rounded-xl font-bold text-sm transition-all">2</button>
-<button class="w-10 h-10 bg-white/40 text-on-surface-variant hover:bg-white rounded-xl font-bold text-sm transition-all">3</button>
-<span class="px-2 opacity-40">...</span>
-<button class="w-10 h-10 bg-white/40 text-on-surface-variant hover:bg-white rounded-xl font-bold text-sm transition-all">128</button>
-</div>
-<button class="px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
+                </a>
+<?php else: ?>
+<span class="px-5 py-2.5 bg-white/40 text-on-surface-variant text-sm font-bold rounded-xl border border-white/60 shadow-sm flex items-center gap-2 opacity-40 cursor-not-allowed">
+<span class="material-symbols-outlined text-lg">chevron_left</span> Previous
+                </span>
+<?php endif; ?>
+<p class="text-sm font-bold text-on-surface order-first sm:order-none w-full sm:w-auto text-center sm:text-left">Page <?php echo (int) $page; ?> of <?php echo (int) $totalPages; ?></p>
+<?php if ($page < $totalPages): ?>
+<a href="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page + 1]), ENT_QUOTES, 'UTF-8'); ?>" class="px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
                     Next <span class="material-symbols-outlined text-lg">chevron_right</span>
-</button>
+                </a>
+<?php else: ?>
+<span class="px-5 py-2.5 bg-white/40 text-on-surface-variant text-sm font-bold rounded-xl border border-white/60 shadow-sm flex items-center gap-2 opacity-40 cursor-not-allowed">
+                    Next <span class="material-symbols-outlined text-lg">chevron_right</span>
+                </span>
+<?php endif; ?>
 </div>
 </div>
 <!-- Footer Grid (Styled like Bottom Section in SCREEN_2) -->
