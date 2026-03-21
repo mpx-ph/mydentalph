@@ -10,10 +10,22 @@ require_once __DIR__ . '/../includes/auth.php';
 
 // Get user type and client clinic slug BEFORE destroying session
 $userType = isset($_SESSION['user_type']) ? $_SESSION['user_type'] : 'client';
+$userId = isset($_SESSION['user_id']) ? trim((string) $_SESSION['user_id']) : '';
+$tenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
 $clientClinicSlug = isset($_SESSION['public_tenant_slug']) ? trim((string) $_SESSION['public_tenant_slug']) : '';
 $adminClinicSlug = isset($_SESSION['tenant_slug']) ? trim((string) $_SESSION['tenant_slug']) : '';
 if ($adminClinicSlug === '' && $clientClinicSlug !== '') {
     $adminClinicSlug = $clientClinicSlug;
+}
+
+// Record logout before session is destroyed
+if ($tenantId !== '') {
+    writeAuditLog(
+        $tenantId,
+        $userId !== '' ? $userId : null,
+        'LOGOUT',
+        'User logged out.'
+    );
 }
 
 // Perform logout (destroys session)

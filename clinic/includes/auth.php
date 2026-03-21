@@ -11,6 +11,47 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/tenant.php';
 
 /**
+ * Write an audit log row without interrupting auth flow.
+ * @param string $tenantId
+ * @param string|null $userId
+ * @param string $action
+ * @param string|null $description
+ */
+function writeAuditLog($tenantId, $userId, $action, $description = null) {
+    if (!function_exists('getDBConnection')) {
+        require_once __DIR__ . '/../config/database.php';
+    }
+    try {
+        $tenantId = trim((string) $tenantId);
+        if ($tenantId === '' || trim((string) $action) === '') {
+            return;
+        }
+        $ipAddress = '';
+        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            $ipAddress = trim((string) explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
+        } elseif (!empty($_SERVER['REMOTE_ADDR'])) {
+            $ipAddress = trim((string) $_SERVER['REMOTE_ADDR']);
+        }
+
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            INSERT INTO tbl_audit_logs (tenant_id, user_id, action, description, ip_address)
+            VALUES (?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([
+            $tenantId,
+            $userId !== null && trim((string) $userId) !== '' ? (string) $userId : null,
+            (string) $action,
+            $description !== null && trim((string) $description) !== '' ? (string) $description : null,
+            $ipAddress !== '' ? $ipAddress : null
+        ]);
+    } catch (Throwable $e) {
+        // Never block login/logout because of audit logging.
+        error_log('Audit log write failed: ' . $e->getMessage());
+    }
+}
+
+/**
  * Log out the current user: clear session and destroy it.
  */
 function logout() {
@@ -166,6 +207,12 @@ function loginUser($email, $password, $userType) {
     $_SESSION['user_type'] = $userDbType;
     // Persist tenant context for the logged-in session
     $_SESSION['tenant_id'] = $tenantId;
+    writeAuditLog(
+        $tenantId,
+        (string) $user['user_id'],
+        'LOGIN',
+        'User logged in as ' . $userDbType
+    );
 
     return [
         'success' => true,
