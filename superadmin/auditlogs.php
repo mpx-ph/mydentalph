@@ -223,10 +223,10 @@ try {
 <p class="text-on-surface-variant mt-2 font-medium">Track and monitor system activities across all clinic modules.</p>
 </div>
 <div class="flex items-center gap-3">
-<button class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all">
+<a href="auditlogs_pdf.php" class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow inline-flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all no-underline" target="_blank" rel="noopener">
 <span class="material-symbols-outlined text-lg">picture_as_pdf</span>
                     PDF Export
-                </button>
+                </a>
 </div>
 </section>
 <!-- Metrics Grid -->
