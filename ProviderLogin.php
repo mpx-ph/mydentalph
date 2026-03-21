@@ -5,10 +5,16 @@ require_once __DIR__ . '/../db.php';
 $error = '';
 
 // Already logged in -> redirect to home or requested redirect
-if (!empty($_SESSION['user_id'])) {
+// user_id can be 0 for hardcoded superadmin; empty() treats 0 as empty
+if (isset($_SESSION['user_id'])) {
     $redirect = isset($_GET['redirect']) ? trim($_GET['redirect']) : '';
     if ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)) {
-        header('Location: ' . $redirect);
+        $is_superadmin_path = (strpos($redirect, 'superadmin/') === 0);
+        if ($is_superadmin_path && ($_SESSION['role'] ?? '') !== 'superadmin') {
+            header('Location: ProviderMain.php');
+        } else {
+            header('Location: ' . $redirect);
+        }
     } else {
         header('Location: ProviderMain.php');
     }
