@@ -121,13 +121,10 @@
 <!-- SideNavBar -->
 <aside class="fixed left-0 top-0 h-full w-64 z-40 sidebar-glass flex flex-col py-8">
 <div class="px-7 mb-10">
-<h1 class="text-xl font-extrabold text-on-surface tracking-tight font-headline flex items-center gap-2">
-<span class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/30">
-<span class="material-symbols-outlined text-white text-lg">medical_services</span>
-</span>
-                Clinical Precision
-            </h1>
-<p class="text-on-surface-variant text-[10px] font-bold tracking-[0.2em] uppercase mt-2 opacity-60">Management Console</p>
+<a href="dashboard.php" class="block" aria-label="MyDental">
+<img src="MyDental Logo.svg" alt="MyDental" class="h-11 w-auto max-w-full object-contain object-left"/>
+</a>
+<p class="text-on-surface-variant text-[10px] font-bold tracking-[0.2em] mt-2 opacity-60">MANAGEMENT CONSOLE</p>
 </div>
 <nav class="flex-1 space-y-1 overflow-y-auto no-scrollbar">
 <!-- Active Item: Dashboard Analytics -->
