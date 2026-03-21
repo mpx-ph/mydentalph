@@ -6,12 +6,6 @@
 require_once __DIR__ . '/require_superadmin.php';
 require_once __DIR__ . '/../db.php';
 
-// Prevent "headers already sent" if any included file outputs whitespace/BOM
-while (ob_get_level() > 0) {
-    ob_end_clean();
-}
-ob_start();
-
 @ini_set('memory_limit', '128M');
 @set_time_limit(60);
 
@@ -30,7 +24,38 @@ function auditlogs_pdf_latin1_safe($text)
             return $conv;
         }
     }
-    return preg_replace('/[^\x00-\x7F]/u', '?', $text);
+    $clean = @preg_replace('/[^\x00-\x7F]/u', '?', $text);
+    return ($clean === null) ? $text : $clean;
+}
+
+/**
+ * Send PDF bytes as download (avoids FPDF/TCPDF Output(D) which fails if ob contains any junk).
+ */
+function auditlogs_send_pdf_download($pdfBinary, $downloadName)
+{
+    if (headers_sent($hsFile, $hsLine)) {
+        error_log('auditlogs_send_pdf_download: headers already sent at ' . $hsFile . ':' . $hsLine);
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        http_response_code(500);
+        header('Content-Type: text/plain; charset=UTF-8');
+        echo 'PDF was built but could not be sent (output already started). Check for spaces/BOM before <?php in PHP files.';
+        exit;
+    }
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    $downloadName = preg_replace('/[^a-zA-Z0-9._-]/', '_', basename($downloadName));
+    if ($downloadName === '') {
+        $downloadName = 'export.pdf';
+    }
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: attachment; filename="' . $downloadName . '"');
+    header('Cache-Control: private, max-age=0, must-revalidate');
+    header('Pragma: public');
+    header('Content-Length: ' . strlen($pdfBinary));
+    echo $pdfBinary;
 }
 
 /**
@@ -39,7 +64,7 @@ function auditlogs_pdf_latin1_safe($text)
  *
  * @return string|null Absolute path to tcpdf.php if readable
  */
-function auditlogs_resolve_tcpdf_path(): ?string
+function auditlogs_resolve_tcpdf_path()
 {
     $candidates = [
         dirname(__DIR__) . '/vendor/tecnickcom/tcpdf/tcpdf.php',
@@ -250,16 +275,11 @@ if ($tcpdfPath !== null) {
             $pdf->writeHTML($html, true, false, true, false, '');
         }
 
-        while (ob_get_level() > 0) {
-            ob_end_clean();
-        }
-        $pdf->Output($filename, 'D');
+        $pdfData = $pdf->Output($filename, 'S');
+        auditlogs_send_pdf_download($pdfData, $filename);
         exit;
     } catch (Throwable $e) {
         error_log('auditlogs_export_pdf TCPDF: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
-        while (ob_get_level() > 0) {
-            ob_end_clean();
-        }
         // Fall through to FPDF fallback below (do not exit here)
     }
 }
@@ -412,10 +432,8 @@ try {
         }
     }
 
-    while (ob_get_level() > 0) {
-        ob_end_clean();
-    }
-    $pdf->Output('D', $filename);
+    $pdfData = $pdf->Output('S', $filename);
+    auditlogs_send_pdf_download($pdfData, $filename);
     exit;
 } catch (Throwable $e) {
     error_log('auditlogs_export_pdf FPDF: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
