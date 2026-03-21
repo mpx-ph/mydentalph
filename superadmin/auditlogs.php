@@ -1,4 +1,50 @@
-<?php require_once __DIR__ . '/require_superadmin.php'; ?>
+<?php
+require_once __DIR__ . '/require_superadmin.php';
+require_once __DIR__ . '/../db.php';
+
+$totalLogs = 0;
+$loginEvents = 0;
+$logoutEvents = 0;
+$totalEventRows = 0;
+$eventRows = [];
+$dbError = null;
+
+try {
+    $totalLogs = (int) $pdo->query('SELECT COUNT(*) FROM tbl_audit_logs')->fetchColumn();
+
+    $loginStmt = $pdo->query("
+        SELECT COUNT(*)
+        FROM tbl_audit_logs
+        WHERE LOWER(action) LIKE '%login%'
+    ");
+    $loginEvents = (int) $loginStmt->fetchColumn();
+
+    $logoutStmt = $pdo->query("
+        SELECT COUNT(*)
+        FROM tbl_audit_logs
+        WHERE LOWER(action) LIKE '%logout%'
+    ");
+    $logoutEvents = (int) $logoutStmt->fetchColumn();
+
+    $eventsStmt = $pdo->query("
+        SELECT
+            l.log_id,
+            l.user_id,
+            l.action,
+            l.ip_address,
+            l.created_at,
+            u.full_name
+        FROM tbl_audit_logs l
+        LEFT JOIN tbl_users u ON u.user_id = l.user_id
+        WHERE LOWER(l.action) LIKE '%login%' OR LOWER(l.action) LIKE '%logout%'
+        ORDER BY l.created_at DESC, l.log_id DESC
+    ");
+    $eventRows = $eventsStmt->fetchAll(PDO::FETCH_ASSOC);
+    $totalEventRows = count($eventRows);
+} catch (Throwable $e) {
+    $dbError = 'Unable to load audit logs right now.';
+}
+?>
 <!DOCTYPE html>
 
 <html class="light" lang="en"><head>
@@ -187,27 +233,27 @@
 <span class="text-[10px] font-extrabold text-green-600 bg-green-50 px-2 py-1 rounded-lg uppercase">+12%</span>
 </div>
 <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Total Logs</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">12,842</h3>
+<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo number_format($totalLogs); ?></h3>
 </div>
 <div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all border-r-4 border-error/20">
 <div class="flex justify-between items-start mb-4">
 <div class="p-2.5 bg-error-container/10 text-error rounded-xl shadow-sm">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">warning</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">login</span>
 </div>
-<span class="text-[10px] font-extrabold text-error bg-error-container px-2 py-1 rounded-lg uppercase">Action Required</span>
+<span class="text-[10px] font-extrabold text-error bg-error-container px-2 py-1 rounded-lg uppercase">Live Data</span>
 </div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Critical Alerts</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">24</h3>
+<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Login Events</p>
+<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo number_format($loginEvents); ?></h3>
 </div>
 <div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all">
 <div class="flex justify-between items-start mb-4">
 <div class="p-2.5 bg-blue-50 text-primary rounded-xl shadow-sm">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">bolt</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">logout</span>
 </div>
-<span class="text-[10px] font-extrabold text-primary bg-primary/5 px-2 py-1 rounded-lg uppercase">Today</span>
+<span class="text-[10px] font-extrabold text-primary bg-primary/5 px-2 py-1 rounded-lg uppercase">Live Data</span>
 </div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Recent Activities</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">318</h3>
+<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Logout Events</p>
+<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo number_format($logoutEvents); ?></h3>
 </div>
 </section>
 <!-- Action Center Buttons -->
@@ -252,7 +298,7 @@
 </div>
 </div>
 <div class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">
-                    Showing <span class="text-primary opacity-100">1-4</span> of 12,842 results
+                    Showing <span class="text-primary opacity-100"><?php echo $totalEventRows === 0 ? '0' : ('1-' . $totalEventRows); ?></span> of <?php echo number_format($totalEventRows); ?> results
                 </div>
 </div>
 <!-- Table Content -->
@@ -264,126 +310,63 @@
 <th class="px-8 py-5">Action</th>
 <th class="px-8 py-5">Date &amp; Time</th>
 <th class="px-8 py-5">Status</th>
-<th class="px-10 py-5 text-right">Details</th>
 </tr>
 </thead>
 <tbody class="divide-y divide-white/40">
-<!-- Row 1 -->
+<?php if ($dbError !== null): ?>
+<tr>
+<td class="px-10 py-5 text-sm text-error font-bold" colspan="4"><?php echo htmlspecialchars($dbError); ?></td>
+</tr>
+<?php elseif (empty($eventRows)): ?>
+<tr>
+<td class="px-10 py-5 text-sm text-on-surface-variant font-bold" colspan="4">No login/logout events found.</td>
+</tr>
+<?php else: ?>
+<?php foreach ($eventRows as $row): ?>
+<?php
+    $action = (string) ($row['action'] ?? '');
+    $lowerAction = strtolower($action);
+    $isLogin = strpos($lowerAction, 'login') !== false;
+    $isLogout = strpos($lowerAction, 'logout') !== false;
+    $statusLabel = $isLogout ? 'Logout' : 'Login';
+    $statusClasses = $isLogout
+        ? 'bg-amber-50 text-amber-600'
+        : 'bg-green-50 text-green-600';
+    $dotClass = $isLogout ? 'bg-amber-600' : 'bg-green-600';
+    $displayName = trim((string) ($row['full_name'] ?? ''));
+    if ($displayName === '') {
+        $displayName = trim((string) ($row['user_id'] ?? ''));
+    }
+    if ($displayName === '') {
+        $displayName = 'System';
+    }
+?>
 <tr class="hover:bg-primary/5 transition-colors group">
 <td class="px-10 py-5">
-<div class="flex items-center gap-4">
-<img alt="Dr. Sarah Chen" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD6gnZui_FPaMktbvXWxlyPOQcKbgkG0LYeOyrpTKUw5l5m52eUld0IsEE5w7Ey2Yjqnyzttn541tJqQfowf07exQ0IWGI8OOUuAeUAaWVe-s5ZXtk1KVB6UI7yZDOJwzX869-o5b5XzZSx4VB6F29GxHda3UQlGC0glUCcc95g1JLd890U2SyNyirzFUhLndttkcwAgBYZ77EOWBzEz8JnRVKekYIQv5DarCMyVIupTDexMl5IMLuBphTz3z4mPsdLnJQTyV1ifGM"/>
 <div>
-<p class="text-sm font-bold text-on-surface">Dr. Sarah Chen</p>
-<p class="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Lead Dentist</p>
-</div>
+<p class="text-sm font-bold text-on-surface"><?php echo htmlspecialchars($displayName); ?></p>
+<p class="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">
+<?php echo htmlspecialchars((string) ($row['ip_address'] ?: 'Unknown IP')); ?>
+</p>
 </div>
 </td>
 <td class="px-8 py-5">
-<span class="text-sm font-bold text-on-surface">Clinic Settings Updated</span>
+<span class="text-sm font-bold text-on-surface"><?php echo htmlspecialchars($action); ?></span>
 </td>
 <td class="px-8 py-5">
 <div class="text-xs">
-<p class="text-on-surface font-black">Oct 24, 2023</p>
-<p class="text-on-surface-variant font-bold">14:30:22</p>
+<p class="text-on-surface font-black"><?php echo htmlspecialchars(date('M d, Y', strtotime((string) $row['created_at']))); ?></p>
+<p class="text-on-surface-variant font-bold"><?php echo htmlspecialchars(date('H:i:s', strtotime((string) $row['created_at']))); ?></p>
 </div>
 </td>
 <td class="px-8 py-5">
-<span class="px-3 py-1.5 bg-green-50 text-green-600 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center w-fit gap-1.5">
-<span class="w-1.5 h-1.5 rounded-full bg-green-600"></span> Completed
-                                </span>
-</td>
-<td class="px-10 py-5 text-right">
-<button class="text-primary text-sm font-bold hover:underline">View JSON</button>
+<span class="px-3 py-1.5 <?php echo $statusClasses; ?> rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center w-fit gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full <?php echo $dotClass; ?>"></span> <?php echo $statusLabel; ?>
+</span>
 </td>
 </tr>
-<!-- Row 2 -->
-<tr class="hover:bg-primary/5 transition-colors group">
-<td class="px-10 py-5">
-<div class="flex items-center gap-4">
-<img alt="Admin Mark" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4L6MTIYSlFoFqqBbfvt6bZn4ZJneCnkADls1GNqp6X0UEf04krdIp-GRX2cszUniZVzlPP9eV3uxAwCKCzoqvS5Q1SclsXv9bb99cS2W0bgx-ZnYOtvjrlx6cDyLMYm8nx5bTHnk0Vs9-E2QHUsiuCo-fXjZHI9nG1zlKy-TElbfhnCB8hnoSLk23KzmziID8eXRiqXBGVQEfO5l382ZXF2lnG_pckiQcM4abUXSaDKF03riYw6t6DgCrHN17-JNhhtFsNeAW2DE"/>
-<div>
-<p class="text-sm font-bold text-on-surface">Admin Mark</p>
-<p class="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">System Admin</p>
-</div>
-</div>
-</td>
-<td class="px-8 py-5">
-<span class="text-sm font-bold text-on-surface">New Tenant Registered</span>
-</td>
-<td class="px-8 py-5">
-<div class="text-xs">
-<p class="text-on-surface font-black">Oct 24, 2023</p>
-<p class="text-on-surface-variant font-bold">13:15:45</p>
-</div>
-</td>
-<td class="px-8 py-5">
-<span class="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center w-fit gap-1.5">
-<span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span> Pending
-                                </span>
-</td>
-<td class="px-10 py-5 text-right">
-<button class="text-primary text-sm font-bold hover:underline">View Details</button>
-</td>
-</tr>
-<!-- Row 3 -->
-<tr class="hover:bg-primary/5 transition-colors group">
-<td class="px-10 py-5">
-<div class="flex items-center gap-4">
-<img alt="Security Bot" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAlZdbB3lZwHZN7Hq09KrjFjf8TxkavFqEWAa7Ip5hWoARBdLdgX04VTb92Qlw40opDz_Doto2lTCQFNAdhlnJGWiSPnoIzG2S57d01L6-KHo0fVguf64i2i2uzxBQ7c-PjVnqFO0ZBK-yQtxIDpCFOqOY439cZw6ciOYKxBGCzMKyVJF9AnwrotTQi7vVCbKFi-qNkVuSB0c9N8YlehdcQH1F43b0dC6IDpIo6Is03LG4yT2Fl7BS6NDGLduZdxYM1WaIfkUhU9nM"/>
-<div>
-<p class="text-sm font-bold text-on-surface">Security Bot</p>
-<p class="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">System Process</p>
-</div>
-</div>
-</td>
-<td class="px-8 py-5">
-<span class="text-sm font-bold text-error">Unauthorized Login Attempt</span>
-</td>
-<td class="px-8 py-5">
-<div class="text-xs">
-<p class="text-on-surface font-black">Oct 24, 2023</p>
-<p class="text-on-surface-variant font-bold">11:02:10</p>
-</div>
-</td>
-<td class="px-8 py-5">
-<span class="px-3 py-1.5 bg-error/10 text-error rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center w-fit gap-1.5">
-<span class="w-1.5 h-1.5 rounded-full bg-error"></span> Failed
-                                </span>
-</td>
-<td class="px-10 py-5 text-right">
-<button class="text-error text-sm font-bold hover:underline">Review Incident</button>
-</td>
-</tr>
-<!-- Row 4 -->
-<tr class="hover:bg-primary/5 transition-colors group">
-<td class="px-10 py-5">
-<div class="flex items-center gap-4">
-<img alt="Lisa Miller" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB1Mk1WHoHwjhTvJw_CedBrwDG3Gj_VhaaNF5OT_DFvZRgufLThLJX8vxE1muGPLupN_TA8CgekDwFaqmFvY8HJQMfc3KkziPGsEXHkrBZVv0anNovZmpo0nVLiUv3b7zTs484ZNs05YOeSC09-3kxrV9e3wav0QhOARnjXkDmJPpLLKZmA6I4ebJHz_YREtdfz_cYmlPJo-jBAa12BG2p6wPBekt42iRRsYVCaOWnpOpg_J8_wtsJTvltNR0Rz7eqKzE5yt4EuipQ"/>
-<div>
-<p class="text-sm font-bold text-on-surface">Lisa Miller</p>
-<p class="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Receptionist</p>
-</div>
-</div>
-</td>
-<td class="px-8 py-5">
-<span class="text-sm font-bold text-on-surface">Patient Record Exported</span>
-</td>
-<td class="px-8 py-5">
-<div class="text-xs">
-<p class="text-on-surface font-black">Oct 24, 2023</p>
-<p class="text-on-surface-variant font-bold">09:45:00</p>
-</div>
-</td>
-<td class="px-8 py-5">
-<span class="px-3 py-1.5 bg-green-50 text-green-600 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center w-fit gap-1.5">
-<span class="w-1.5 h-1.5 rounded-full bg-green-600"></span> Completed
-                                </span>
-</td>
-<td class="px-10 py-5 text-right">
-<button class="text-primary text-sm font-bold hover:underline">View File</button>
-</td>
-</tr>
+<?php endforeach; ?>
+<?php endif; ?>
 </tbody>
 </table>
 </div>
