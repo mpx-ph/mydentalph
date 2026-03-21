@@ -6,8 +6,32 @@
 require_once __DIR__ . '/require_superadmin.php';
 require_once __DIR__ . '/../db.php';
 
+// Prevent "headers already sent" if any included file outputs whitespace/BOM
+while (ob_get_level() > 0) {
+    ob_end_clean();
+}
+ob_start();
+
 @ini_set('memory_limit', '128M');
 @set_time_limit(60);
+
+/**
+ * FPDF core fonts expect single-byte encoding; strip/convert UTF-8 for stable output.
+ */
+function auditlogs_pdf_latin1_safe($text)
+{
+    $text = (string) $text;
+    if ($text === '') {
+        return '';
+    }
+    if (function_exists('iconv')) {
+        $conv = @iconv('UTF-8', 'Windows-1252//TRANSLIT//IGNORE', $text);
+        if ($conv !== false) {
+            return $conv;
+        }
+    }
+    return preg_replace('/[^\x00-\x7F]/u', '?', $text);
+}
 
 /**
  * TCPDF lives at project root: .../vendor/tecnickcom/tcpdf/tcpdf.php
@@ -71,7 +95,7 @@ try {
         ORDER BY l.created_at DESC, l.log_id DESC
     ");
     $eventRows = $eventsStmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
+} catch (Throwable $e) {
     $dbError = $e->getMessage();
 }
 
@@ -226,16 +250,18 @@ if ($tcpdfPath !== null) {
             $pdf->writeHTML($html, true, false, true, false, '');
         }
 
-        $pdf->Output($filename, 'D');
-    } catch (Exception $e) {
-        http_response_code(500);
-        header('Content-Type: text/plain; charset=UTF-8');
-        echo 'PDF generation failed. If this continues, contact support.';
-        if (defined('DEBUG') && DEBUG) {
-            echo "\n\n" . $e->getMessage();
+        while (ob_get_level() > 0) {
+            ob_end_clean();
         }
+        $pdf->Output($filename, 'D');
+        exit;
+    } catch (Throwable $e) {
+        error_log('auditlogs_export_pdf TCPDF: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        // Fall through to FPDF fallback below (do not exit here)
     }
-    exit;
 }
 
 // ---- FPDF fallback (bundled under superadmin/lib; no vendor/ required) ----
@@ -302,7 +328,7 @@ try {
     if ($dbError !== null) {
         $pdf->SetFillColor(255, 235, 235);
         $pdf->SetDrawColor(220, 180, 180);
-        $pdf->MultiCell(0, 5, 'Data could not be loaded: ' . $dbError, 1, 'L', true);
+        $pdf->MultiCell(0, 5, auditlogs_pdf_latin1_safe('Data could not be loaded: ' . $dbError), 1, 'L', true);
     } else {
         $summary = sprintf(
             'Total audit records (all actions): %s  |  Login events: %s  |  Logout events: %s  |  Events listed below: %s',
@@ -313,7 +339,7 @@ try {
         );
         $pdf->SetFillColor(240, 245, 255);
         $pdf->SetDrawColor(190, 205, 235);
-        $pdf->MultiCell(0, 5, $summary, 1, 'L', true);
+        $pdf->MultiCell(0, 5, auditlogs_pdf_latin1_safe($summary), 1, 'L', true);
     }
 
     $pdf->Ln(4);
@@ -365,11 +391,13 @@ try {
                 $timeStr = $ts ? date('H:i:s', $ts) : '';
 
                 $userCol = $displayName . ' | IP: ' . $ipLabel;
+                $userCol = auditlogs_pdf_latin1_safe($userCol);
                 if (strlen($userCol) > 52) {
                     $userCol = substr($userCol, 0, 49) . '...';
                 }
-                $actCol = strlen($action) > 48 ? substr($action, 0, 45) . '...' : $action;
-                $dtCol = $dateStr . ' ' . $timeStr;
+                $actCol = auditlogs_pdf_latin1_safe($action);
+                $actCol = strlen($actCol) > 48 ? substr($actCol, 0, 45) . '...' : $actCol;
+                $dtCol = auditlogs_pdf_latin1_safe($dateStr . ' ' . $timeStr);
 
                 $pdf->SetFont('Helvetica', '', 7.5);
                 $pdf->SetTextColor(30, 30, 30);
@@ -384,11 +412,22 @@ try {
         }
     }
 
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
     $pdf->Output('D', $filename);
-} catch (Exception $e) {
+    exit;
+} catch (Throwable $e) {
+    error_log('auditlogs_export_pdf FPDF: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
     http_response_code(500);
     header('Content-Type: text/plain; charset=UTF-8');
     echo 'PDF generation failed. If this continues, contact support.';
+    if (!empty($_GET['pdf_debug']) && $_GET['pdf_debug'] === '1') {
+        echo "\n\n" . $e->getMessage();
+    }
 }
 
 exit;
