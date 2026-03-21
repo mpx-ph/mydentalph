@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/db.php';
 require_once 'paymongo_config.php';
 
 $client_key = $_SESSION['paymongo_client_key'] ?? null;
