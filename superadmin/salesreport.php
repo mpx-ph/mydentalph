@@ -120,6 +120,12 @@
 <span class="font-headline text-sm font-medium tracking-tight">Settings</span>
 </a>
 </div>
+<div class="px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-error hover:text-error transition-colors duration-200 hover:bg-error/10 rounded-xl" href="../ProviderLogout.php">
+<span class="material-symbols-outlined text-[22px]">logout</span>
+<span class="font-headline text-sm font-medium tracking-tight">Logout</span>
+</a>
+</div>
 </nav>
 <div class="px-4 mt-auto">
 <div class="bg-white/40 backdrop-blur-md rounded-2xl p-5 border border-white/60 shadow-sm">
