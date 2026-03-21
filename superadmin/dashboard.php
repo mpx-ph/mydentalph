@@ -14,6 +14,8 @@ $revenue_series = [
     'weekly' => ['labels' => [], 'values' => []],
     'yearly' => ['labels' => [], 'values' => []],
 ];
+$tenant_growth = ['labels' => [], 'counts' => []];
+$top_performing = [];
 
 try {
     $metrics['total_registered_clinics'] = (int) $pdo->query('SELECT COUNT(*) FROM tbl_tenants')->fetchColumn();
@@ -128,6 +130,48 @@ try {
         $revenue_series['yearly']['labels'][] = (string) $y;
         $revenue_series['yearly']['values'][] = $yearData[$y] ?? 0.0;
     }
+
+    // Tenant growth (by patients): new patient registrations per month, last 6 months
+    $growthMonthKeys = [];
+    for ($i = 5; $i >= 0; $i--) {
+        $d = new DateTime('first day of this month 00:00:00');
+        $d->modify("-{$i} months");
+        $growthMonthKeys[] = $d->format('Y-m');
+    }
+    $stmt = $pdo->prepare("
+        SELECT DATE_FORMAT(created_at, '%Y-%m') AS ym, COUNT(*) AS cnt
+        FROM tbl_patients
+        WHERE created_at >= ?
+        GROUP BY ym
+    ");
+    $stmt->execute([$growthMonthKeys[0] . '-01 00:00:00']);
+    $patientMonthData = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $patientMonthData[$row['ym']] = (int) $row['cnt'];
+    }
+    foreach ($growthMonthKeys as $ym) {
+        $d = DateTime::createFromFormat('Y-m', $ym);
+        $tenant_growth['labels'][] = $d ? $d->format('M') : $ym;
+        $tenant_growth['counts'][] = $patientMonthData[$ym] ?? 0;
+    }
+
+    // Top performing tenants by total paid subscription revenue
+    $stmt = $pdo->query("
+        SELECT t.clinic_name,
+               COALESCE(SUM(COALESCE(s.amount_paid, 0)), 0) AS revenue
+        FROM tbl_tenants t
+        INNER JOIN tbl_tenant_subscriptions s
+            ON s.tenant_id = t.tenant_id AND s.payment_status = 'paid'
+        GROUP BY t.tenant_id, t.clinic_name
+        ORDER BY revenue DESC
+        LIMIT 5
+    ");
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $top_performing[] = [
+            'name' => (string) $row['clinic_name'],
+            'revenue' => (float) $row['revenue'],
+        ];
+    }
 } catch (PDOException $e) {
     error_log('superadmin dashboard metrics: ' . $e->getMessage());
     $revenue_series = [
@@ -135,6 +179,19 @@ try {
         'weekly' => ['labels' => [], 'values' => []],
         'yearly' => ['labels' => [], 'values' => []],
     ];
+    $tenant_growth = ['labels' => [], 'counts' => []];
+    $top_performing = [];
+}
+
+$tenant_growth_max = !empty($tenant_growth['counts']) ? max($tenant_growth['counts']) : 0;
+if ($tenant_growth_max < 1) {
+    $tenant_growth_max = 1;
+}
+$top_revenue_max = 0.0;
+foreach ($top_performing as $tp) {
+    if ($tp['revenue'] > $top_revenue_max) {
+        $top_revenue_max = $tp['revenue'];
+    }
 }
 
 // JSON_HEX_* keeps </script> and & safe inside <script type="application/json">
@@ -761,19 +818,40 @@ function dashboard_format_int(int $n): string
 })();
 </script>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-<!-- Tenant Growth Bar Chart -->
+<!-- Tenant Growth Bar Chart (new patients per month) -->
 <div class="bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow">
-<h4 class="text-lg font-extrabold font-headline mb-6">Tenant Growth</h4>
-<div class="flex items-end justify-between h-40 px-2">
-<div class="w-8 bg-surface-container-high rounded-xl h-24 hover:bg-primary/20 transition-colors"></div>
-<div class="w-8 bg-surface-container-high rounded-xl h-16 hover:bg-primary/20 transition-colors"></div>
-<div class="w-8 bg-surface-container-high rounded-xl h-32 hover:bg-primary/20 transition-colors"></div>
-<div class="w-8 bg-primary rounded-xl h-40 primary-glow"></div>
-<div class="w-8 bg-surface-container-high rounded-xl h-28 hover:bg-primary/20 transition-colors"></div>
-<div class="w-8 bg-surface-container-high rounded-xl h-36 hover:bg-primary/20 transition-colors"></div>
+<h4 class="text-lg font-extrabold font-headline mb-1">Tenant Growth</h4>
+<p class="text-xs text-on-surface-variant font-medium mb-6">New patient registrations per month</p>
+<div class="flex items-end justify-between h-40 px-2 gap-1">
+<?php
+$tg_counts = $tenant_growth['counts'] ?? [];
+$tg_labels = $tenant_growth['labels'] ?? [];
+$tg_n = count($tg_counts);
+$tg_max_count = $tg_n > 0 ? max($tg_counts) : 0;
+$tg_chart_px = 160;
+for ($ti = 0; $ti < $tg_n; $ti++) {
+    $tc = (int) $tg_counts[$ti];
+    $bar_h_px = $tenant_growth_max > 0 ? (int) round(($tc / $tenant_growth_max) * $tg_chart_px) : 0;
+    if ($tc > 0 && $bar_h_px < 6) {
+        $bar_h_px = 6;
+    }
+    $is_peak = $tg_max_count > 0 && $tc === $tg_max_count;
+    $bar_class = $is_peak
+        ? 'w-full max-w-8 bg-primary rounded-xl primary-glow transition-colors'
+        : 'w-full max-w-8 bg-surface-container-high rounded-xl hover:bg-primary/20 transition-colors';
+    ?>
+<div class="flex flex-1 flex-col justify-end items-center h-40 min-w-0">
+<div class="<?php echo $bar_class; ?>" style="height: <?php echo (int) $bar_h_px; ?>px; min-height: 0;"></div>
 </div>
-<div class="flex justify-between mt-6 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
-<span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span>
+<?php } ?>
+<?php if ($tg_n === 0): ?>
+<p class="text-sm text-on-surface-variant w-full text-center py-8">No patient data for this period.</p>
+<?php endif; ?>
+</div>
+<div class="flex justify-between mt-6 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest gap-1">
+<?php foreach ($tg_labels as $lab): ?>
+<span class="truncate"><?php echo htmlspecialchars($lab); ?></span>
+<?php endforeach; ?>
 </div>
 </div>
 <!-- AI Insights Widget -->
@@ -834,44 +912,38 @@ function dashboard_format_int(int $n): string
 </div>
 </div>
 </div>
-<!-- Top Performing Clinics Horizontal Bar Chart -->
+<!-- Top Performing Clinics Horizontal Bar Chart (revenue) -->
 <div class="bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow">
-<h4 class="text-lg font-extrabold font-headline mb-6">Top Performing</h4>
+<h4 class="text-lg font-extrabold font-headline mb-1">Top Performing</h4>
+<p class="text-xs text-on-surface-variant font-medium mb-6">Total paid subscription revenue</p>
 <div class="space-y-6">
+<?php if (empty($top_performing)): ?>
+<p class="text-sm text-on-surface-variant text-center py-4">No paid subscription revenue yet.</p>
+<?php else: ?>
+<?php foreach ($top_performing as $tp): ?>
+<?php
+$tp_rev = $tp['revenue'];
+$tp_pct = $top_revenue_max > 0 ? ($tp_rev / $top_revenue_max) * 100 : 0;
+$tp_pct = max(0, min(100, $tp_pct));
+?>
 <div class="space-y-2">
-<div class="flex justify-between text-xs font-bold mb-1">
-<span>Lumineer Dental Hub</span>
-<span class="text-primary">$82k</span>
+<div class="flex justify-between text-xs font-bold mb-1 gap-2">
+<span class="truncate"><?php echo htmlspecialchars($tp['name']); ?></span>
+<span class="text-primary shrink-0"><?php echo htmlspecialchars(dashboard_format_revenue($tp_rev)); ?></span>
 </div>
 <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-<div class="h-full bg-primary w-[90%] rounded-full shadow-[0_0_10px_rgba(0,102,255,0.3)]"></div>
+<div class="h-full bg-primary rounded-full shadow-[0_0_10px_rgba(0,102,255,0.3)]" style="width: <?php echo htmlspecialchars(number_format($tp_pct, 2, '.', '')); ?>%;"></div>
 </div>
 </div>
-<div class="space-y-2">
-<div class="flex justify-between text-xs font-bold mb-1">
-<span>Radiant Smile Clinic</span>
-<span class="text-primary">$74k</span>
+<?php endforeach; ?>
+<?php endif; ?>
 </div>
-<div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-<div class="h-full bg-primary w-[82%] rounded-full shadow-[0_0_10px_rgba(0,102,255,0.3)]"></div>
-</div>
-</div>
-<div class="space-y-2">
-<div class="flex justify-between text-xs font-bold mb-1">
-<span>Pearl White Institute</span>
-<span class="text-primary">$68k</span>
-</div>
-<div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-<div class="h-full bg-primary w-[75%] rounded-full shadow-[0_0_10px_rgba(0,102,255,0.3)]"></div>
-</div>
-</div>
-</div>
-<button class="w-full mt-8 py-3.5 bg-surface-container-low/50 border border-white hover:bg-white text-primary text-sm font-bold rounded-2xl transition-all shadow-sm">View All Rankings</button>
+<a href="salesreport.php" class="block w-full mt-8 py-3.5 bg-surface-container-low/50 border border-white hover:bg-white text-primary text-sm font-bold rounded-2xl transition-all shadow-sm text-center">Sales report</a>
 </div>
 </div>
 </section>
-<!-- Bottom Section: Timeline & Alerts -->
-<section class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<!-- Bottom Section: Recent Activity -->
+<section class="grid grid-cols-1 gap-8">
 <!-- Recent Activity Feed -->
 <div class="bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow">
 <div class="flex justify-between items-center mb-8">
@@ -910,49 +982,6 @@ function dashboard_format_int(int $n): string
 <p class="text-sm font-bold group-hover:text-amber-600 transition-colors">System Update <span class="text-amber-600">v2.4.1</span></p>
 <p class="text-xs text-on-surface-variant mt-1.5 font-medium leading-relaxed">Automatic backup completed for all European region shards.</p>
 <p class="text-[10px] text-slate-400 mt-2.5 font-bold uppercase tracking-widest">5 hours ago</p>
-</div>
-</div>
-</div>
-</div>
-<!-- Critical Alerts Panel -->
-<div class="bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow">
-<div class="flex justify-between items-center mb-8">
-<h4 class="text-xl font-extrabold font-headline">Critical Alerts</h4>
-<span class="bg-error/10 text-error text-[10px] font-extrabold px-3 py-1.5 rounded-xl uppercase tracking-widest">3 Actions Required</span>
-</div>
-<div class="space-y-4">
-<div class="bg-error-container/5 backdrop-blur-sm p-5 rounded-3xl border border-error-container/20 flex items-start gap-5 group hover:bg-error-container/10 transition-colors">
-<div class="w-10 h-10 rounded-2xl bg-error/10 flex items-center justify-center shrink-0 border border-error/10">
-<span class="material-symbols-outlined text-error">error</span>
-</div>
-<div class="flex-1">
-<h6 class="text-sm font-extrabold text-on-surface">Subscription Expiring Soon</h6>
-<p class="text-xs text-on-surface-variant mt-1.5 leading-relaxed font-medium">Apex Dental (ID: #8821) expires in 48 hours.</p>
-<div class="flex gap-3 mt-5">
-<button class="text-[10px] font-bold text-error uppercase tracking-widest bg-white px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition-all border border-error/10">Notify Tenant</button>
-<button class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-2 py-2 hover:text-on-surface transition-colors">Dismiss</button>
-</div>
-</div>
-</div>
-<div class="bg-tertiary-container/5 backdrop-blur-sm p-5 rounded-3xl border border-tertiary-container/10 flex items-start gap-5 group hover:bg-tertiary-container/10 transition-colors">
-<div class="w-10 h-10 rounded-2xl bg-tertiary/10 flex items-center justify-center shrink-0 border border-tertiary/10">
-<span class="material-symbols-outlined text-tertiary">priority_high</span>
-</div>
-<div class="flex-1">
-<h6 class="text-sm font-extrabold text-on-surface">Inactivity Detected</h6>
-<p class="text-xs text-on-surface-variant mt-1.5 leading-relaxed font-medium">City Center Dental has shown 0 activity for the past 14 days.</p>
-<div class="flex gap-3 mt-5">
-<button class="text-[10px] font-bold text-tertiary uppercase tracking-widest bg-white px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition-all border border-tertiary/10">Review Status</button>
-</div>
-</div>
-</div>
-<div class="bg-white/40 p-5 rounded-3xl flex items-start gap-5 border border-white/60">
-<div class="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/10">
-<span class="material-symbols-outlined text-primary">dns</span>
-</div>
-<div>
-<h6 class="text-sm font-extrabold text-on-surface">Node Optimization</h6>
-<p class="text-xs text-on-surface-variant mt-1.5 leading-relaxed font-medium">Server load on Asia-Central-1 is approaching 85% capacity threshold.</p>
 </div>
 </div>
 </div>
