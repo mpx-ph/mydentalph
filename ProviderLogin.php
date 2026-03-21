@@ -4,6 +4,36 @@ require_once __DIR__ . '/db.php';
 
 $error = '';
 
+function providerWriteAuditLog($pdo, $tenantId, $userId, $action, $description = null) {
+    try {
+        $tenantId = trim((string) $tenantId);
+        if ($tenantId === '' || trim((string) $action) === '') {
+            return;
+        }
+
+        $ipAddress = '';
+        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            $ipAddress = trim((string) explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
+        } elseif (!empty($_SERVER['REMOTE_ADDR'])) {
+            $ipAddress = trim((string) $_SERVER['REMOTE_ADDR']);
+        }
+
+        $stmt = $pdo->prepare("
+            INSERT INTO tbl_audit_logs (tenant_id, user_id, action, description, ip_address)
+            VALUES (?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([
+            $tenantId,
+            $userId !== null && trim((string) $userId) !== '' ? (string) $userId : null,
+            (string) $action,
+            $description !== null && trim((string) $description) !== '' ? (string) $description : null,
+            $ipAddress !== '' ? $ipAddress : null
+        ]);
+    } catch (Throwable $e) {
+        error_log('Provider audit log write failed: ' . $e->getMessage());
+    }
+}
+
 // Already logged in -> redirect to home or requested redirect
 // user_id can be 0 for hardcoded superadmin; empty() treats 0 as empty
 if (isset($_SESSION['user_id'])) {
@@ -30,20 +60,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($login_identifier) || empty($password)) {
         $error = 'Please enter your email/username and password.';
     } else {
-        // Hardcoded superadmin (temporary)
-        if ($login_identifier === 'super' && $password === 'admin') {
-            $_SESSION['user_id'] = 0;
-            $_SESSION['tenant_id'] = null;
-            $_SESSION['username'] = 'super';
-            $_SESSION['email'] = 'super';
-            $_SESSION['full_name'] = 'Super Admin';
-            $_SESSION['role'] = 'superadmin';
-            $_SESSION['is_owner'] = false;
-
-            header('Location: superadmin/dashboard.php');
-            exit;
-        }
-
         try {
             $stmt = $pdo->prepare("SELECT user_id, tenant_id, username, email, full_name, role, password_hash FROM tbl_users WHERE username = ? OR email = ? LIMIT 1");
             $stmt->execute([$login_identifier, $login_identifier]);
@@ -66,6 +82,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $is_owner = ($tenant && isset($tenant['owner_user_id']) && $tenant['owner_user_id'] === $user['user_id']);
                 }
                 $_SESSION['is_owner'] = $is_owner;
+                providerWriteAuditLog(
+                    $pdo,
+                    (string) $user['tenant_id'],
+                    (string) $user['user_id'],
+                    'LOGIN',
+                    'Provider user logged in.'
+                );
 
                 $redirect = isset($_GET['redirect']) ? trim($_GET['redirect']) : '';
                 if (($user['role'] ?? '') === 'superadmin') {
