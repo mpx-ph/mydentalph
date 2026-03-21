@@ -232,7 +232,7 @@
 </div>
 </section>
 <!-- Top Metrics Bento Grid -->
-<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
 <!-- Card 1 -->
 <div class="bg-white/60 backdrop-blur-md p-6 rounded-2xl editorial-shadow group hover:-translate-y-1 transition-all">
 <div class="flex justify-between items-start mb-4">
@@ -241,7 +241,7 @@
 </div>
 <span class="text-[10px] font-extrabold text-green-600 bg-green-50 px-2 py-1 rounded-lg uppercase">+12%</span>
 </div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Total Tenants</p>
+<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Total Registered Clinics</p>
 <h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">1,284</h3>
 </div>
 <!-- Card 2 -->
@@ -270,11 +270,11 @@
 <div class="bg-white/60 backdrop-blur-md p-6 rounded-2xl editorial-shadow group hover:-translate-y-1 transition-all">
 <div class="flex justify-between items-start mb-4">
 <div class="p-2.5 bg-blue-50 text-primary rounded-xl shadow-sm">
-<span class="material-symbols-outlined">person_add</span>
+<span class="material-symbols-outlined">clinical_notes</span>
 </div>
 <span class="text-[10px] font-extrabold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg uppercase">New</span>
 </div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Registrations</p>
+<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Total Patient Records</p>
 <h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">42</h3>
 </div>
 <!-- Card 5 -->
@@ -285,22 +285,8 @@
 </div>
 <span class="text-[10px] font-extrabold text-tertiary bg-tertiary-fixed px-2 py-1 rounded-lg uppercase">Alert</span>
 </div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Expiring</p>
+<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Expiring Subscription</p>
 <h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">15</h3>
-</div>
-<!-- Card 6 -->
-<div class="bg-white/60 backdrop-blur-md p-6 rounded-2xl editorial-shadow group hover:-translate-y-1 transition-all">
-<div class="flex justify-between items-start mb-4">
-<div class="p-2.5 bg-blue-50 text-primary rounded-xl shadow-sm">
-<span class="material-symbols-outlined">bolt</span>
-</div>
-<div class="flex items-center gap-1.5">
-<div class="w-2 h-2 rounded-full bg-green-500 pulse-live"></div>
-<span class="text-[10px] font-extrabold text-green-600 uppercase">99.9%</span>
-</div>
-</div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Activity Rate</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">94%</h3>
 </div>
 </section>
 <!-- Main Charts & Insights Section -->
