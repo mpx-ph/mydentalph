@@ -2,11 +2,6 @@
 session_start();
 require_once __DIR__ . '/db.php';
 
-if (($_SESSION['role'] ?? '') === 'superadmin') {
-    header('Location: superadmin/dashboard.php');
-    exit;
-}
-
 if (empty($_SESSION['user_id']) || empty($_SESSION['tenant_id'])) {
     header('Location: ProviderLogin.php');
     exit;

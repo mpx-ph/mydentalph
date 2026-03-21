@@ -75,6 +75,9 @@ CREATE TABLE IF NOT EXISTS tbl_tenant_invoices (
 -- ============================================
 -- USERS
 -- ============================================
+-- role ENUM (canonical app roles):
+--   tenant_owner, manager, staff, dentist, client — tenant/clinic users
+--   superadmin — platform administrator (superadmin panel)
 CREATE TABLE IF NOT EXISTS tbl_users (
     user_id VARCHAR(20) NOT NULL,
     tenant_id VARCHAR(20) NOT NULL,
@@ -82,7 +85,7 @@ CREATE TABLE IF NOT EXISTS tbl_users (
     email VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255),
     full_name VARCHAR(255) NOT NULL,
-    role ENUM('tenant_owner','manager','staff','dentist','client') NOT NULL DEFAULT 'client',
+    role ENUM('tenant_owner','manager','staff','dentist','client','superadmin') NOT NULL DEFAULT 'client',
     phone VARCHAR(20),
     photo VARCHAR(500),
     status ENUM('active','inactive','suspended') DEFAULT 'active',
