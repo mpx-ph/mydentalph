@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once __DIR__ . '/provider_redirect_superadmin.php';
 require_once __DIR__ . '/db.php';
 
 $tenant_id = null;

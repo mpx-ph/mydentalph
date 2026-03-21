@@ -5,8 +5,12 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // If session has a user_id, verify the user still exists in DB (e.g. after a DB reset)
 // Also treat onboarding (onboarding_user_id) as "logged in" so Purchase/Setup show the account
+// user_id can be 0 for hardcoded superadmin — empty() treats 0 as empty, so handle superadmin first
 $logged_in = false;
-if (!empty($_SESSION['user_id'])) {
+$is_superadmin = (isset($_SESSION['user_id']) && ($_SESSION['role'] ?? '') === 'superadmin');
+if ($is_superadmin) {
+    $logged_in = true;
+} elseif (!empty($_SESSION['user_id'])) {
     try {
         require_once __DIR__ . '/db.php';
         $stmt = $pdo->prepare("SELECT 1 FROM tbl_users WHERE user_id = ? AND status = 'active' LIMIT 1");
@@ -55,12 +59,18 @@ $user_initial = mb_strtoupper(mb_substr(trim($user_display_name), 0, 1)) ?: '?';
 <span class="material-symbols-outlined text-slate-500 dark:text-slate-400 text-lg transition-transform group-open:rotate-180">expand_more</span>
 </summary>
 <div class="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 py-1 shadow-lg">
+<?php if ($is_superadmin): ?>
+<a href="superadmin/dashboard.php" class="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/80 transition-colors">
+<span class="material-symbols-outlined text-lg text-slate-500">admin_panel_settings</span> Super Admin
+</a>
+<?php else: ?>
 <a href="ProviderTenantDashboard.php" class="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/80 transition-colors">
 <span class="material-symbols-outlined text-lg text-slate-500">dashboard</span> Manage
 </a>
 <a href="ProviderProfile.php" class="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/80 transition-colors">
 <span class="material-symbols-outlined text-lg text-slate-500">person</span> My Profile
 </a>
+<?php endif; ?>
 <div class="my-1 border-t border-slate-100 dark:border-slate-700"></div>
 <a href="ProviderLogout.php" class="flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
 <span class="material-symbols-outlined text-lg">logout</span> Log Out

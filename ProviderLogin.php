@@ -15,6 +15,8 @@ if (isset($_SESSION['user_id'])) {
         } else {
             header('Location: ' . $redirect);
         }
+    } elseif (($_SESSION['role'] ?? '') === 'superadmin') {
+        header('Location: superadmin/dashboard.php');
     } else {
         header('Location: ProviderMain.php');
     }
@@ -38,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['role'] = 'superadmin';
             $_SESSION['is_owner'] = false;
 
-            header('Location: ProviderSuperAdmin.php');
+            header('Location: superadmin/dashboard.php');
             exit;
         }
 
@@ -66,7 +68,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['is_owner'] = $is_owner;
 
                 $redirect = isset($_GET['redirect']) ? trim($_GET['redirect']) : '';
-                if ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)) {
+                if (($user['role'] ?? '') === 'superadmin') {
+                    if ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)
+                        && strpos($redirect, 'superadmin/') === 0) {
+                        header('Location: ' . $redirect);
+                    } else {
+                        header('Location: superadmin/dashboard.php');
+                    }
+                } elseif ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)) {
                     header('Location: ' . $redirect);
                 } else {
                     header('Location: ProviderMain.php');
