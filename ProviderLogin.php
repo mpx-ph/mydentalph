@@ -8,7 +8,19 @@ $error = '';
 // user_id can be 0 for hardcoded superadmin; empty() treats 0 as empty
 if (isset($_SESSION['user_id'])) {
     $redirect = isset($_GET['redirect']) ? trim($_GET['redirect']) : '';
-    if ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)) {
+    $redirect_ok = ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect));
+
+    if (($_SESSION['role'] ?? '') === 'superadmin') {
+        // Never send superadmin to tenant/provider tools via ?redirect=
+        if ($redirect_ok && strpos($redirect, 'superadmin/') === 0) {
+            header('Location: ' . $redirect);
+        } else {
+            header('Location: superadmin/dashboard.php');
+        }
+        exit;
+    }
+
+    if ($redirect_ok) {
         $is_superadmin_path = (strpos($redirect, 'superadmin/') === 0);
         if ($is_superadmin_path && ($_SESSION['role'] ?? '') !== 'superadmin') {
             header('Location: ProviderMain.php');
@@ -38,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['role'] = 'superadmin';
             $_SESSION['is_owner'] = false;
 
-            header('Location: ProviderSuperAdmin.php');
+            header('Location: superadmin/dashboard.php');
             exit;
         }
 
@@ -64,6 +76,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $is_owner = ($tenant && isset($tenant['owner_user_id']) && $tenant['owner_user_id'] === $user['user_id']);
                 }
                 $_SESSION['is_owner'] = $is_owner;
+
+                if (($user['role'] ?? '') === 'superadmin') {
+                    header('Location: superadmin/dashboard.php');
+                    exit;
+                }
 
                 $redirect = isset($_GET['redirect']) ? trim($_GET['redirect']) : '';
                 if ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)) {
