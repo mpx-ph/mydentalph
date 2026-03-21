@@ -1,3 +1,4 @@
+<?php require_once __DIR__ . '/require_superadmin.php'; ?>
 <!DOCTYPE html>
 
 <html class="light" lang="en"><head>
