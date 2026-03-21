@@ -1,4 +1,70 @@
-<?php require_once __DIR__ . '/require_superadmin.php'; ?>
+<?php
+require_once __DIR__ . '/require_superadmin.php';
+require_once __DIR__ . '/../db.php';
+
+$metrics = [
+    'total_registered_clinics' => 0,
+    'active_clinics' => 0,
+    'monthly_revenue' => 0.0,
+    'total_patient_records' => 0,
+    'expiring_subscriptions' => 0,
+];
+
+try {
+    $metrics['total_registered_clinics'] = (int) $pdo->query('SELECT COUNT(*) FROM tbl_tenants')->fetchColumn();
+
+    // Active: tenant account active, clinic site published (clinic_slug), paid subscription not ended
+    $stmt = $pdo->query("
+        SELECT COUNT(DISTINCT t.tenant_id)
+        FROM tbl_tenants t
+        INNER JOIN tbl_tenant_subscriptions s ON s.tenant_id = t.tenant_id
+        WHERE t.subscription_status = 'active'
+          AND t.clinic_slug IS NOT NULL AND TRIM(t.clinic_slug) <> ''
+          AND s.payment_status = 'paid'
+          AND (s.subscription_end IS NULL OR s.subscription_end >= CURDATE())
+    ");
+    $metrics['active_clinics'] = (int) $stmt->fetchColumn();
+
+    $stmt = $pdo->query("
+        SELECT COALESCE(SUM(COALESCE(amount_paid, 0)), 0)
+        FROM tbl_tenant_subscriptions
+        WHERE payment_status = 'paid'
+          AND YEAR(created_at) = YEAR(CURDATE())
+          AND MONTH(created_at) = MONTH(CURDATE())
+    ");
+    $metrics['monthly_revenue'] = (float) $stmt->fetchColumn();
+
+    $metrics['total_patient_records'] = (int) $pdo->query('SELECT COUNT(*) FROM tbl_patients')->fetchColumn();
+
+    // Subscriptions ending within the next 30 days (still current as of today)
+    $stmt = $pdo->query("
+        SELECT COUNT(DISTINCT s.tenant_id)
+        FROM tbl_tenant_subscriptions s
+        WHERE s.payment_status = 'paid'
+          AND s.subscription_end IS NOT NULL
+          AND s.subscription_end BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+    ");
+    $metrics['expiring_subscriptions'] = (int) $stmt->fetchColumn();
+} catch (PDOException $e) {
+    error_log('superadmin dashboard metrics: ' . $e->getMessage());
+}
+
+function dashboard_format_revenue(float $amount): string
+{
+    if ($amount >= 1000000) {
+        return '₱' . number_format($amount / 1000000, 1) . 'M';
+    }
+    if ($amount >= 1000) {
+        return '₱' . number_format($amount / 1000, 1) . 'k';
+    }
+    return '₱' . number_format($amount, 0);
+}
+
+function dashboard_format_int(int $n): string
+{
+    return number_format($n);
+}
+?>
 <!DOCTYPE html>
 
 <html class="light" lang="en"><head>
@@ -239,10 +305,10 @@
 <div class="p-2.5 bg-blue-50 text-primary rounded-xl shadow-sm">
 <span class="material-symbols-outlined">corporate_fare</span>
 </div>
-<span class="text-[10px] font-extrabold text-green-600 bg-green-50 px-2 py-1 rounded-lg uppercase">+12%</span>
+<span class="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest">Live</span>
 </div>
 <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Total Registered Clinics</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">1,284</h3>
+<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo htmlspecialchars(dashboard_format_int($metrics['total_registered_clinics'])); ?></h3>
 </div>
 <!-- Card 2 -->
 <div class="bg-white/60 backdrop-blur-md p-6 rounded-2xl editorial-shadow group hover:-translate-y-1 transition-all">
@@ -250,10 +316,10 @@
 <div class="p-2.5 bg-blue-50 text-primary rounded-xl shadow-sm">
 <span class="material-symbols-outlined">medical_services</span>
 </div>
-<span class="text-[10px] font-extrabold text-green-600 bg-green-50 px-2 py-1 rounded-lg uppercase">+8%</span>
+<span class="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest">Live</span>
 </div>
 <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Active Clinics</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">942</h3>
+<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo htmlspecialchars(dashboard_format_int($metrics['active_clinics'])); ?></h3>
 </div>
 <!-- Card 3 -->
 <div class="bg-white/60 backdrop-blur-md p-6 rounded-2xl editorial-shadow group hover:-translate-y-1 transition-all">
@@ -261,10 +327,10 @@
 <div class="p-2.5 bg-blue-50 text-primary rounded-xl shadow-sm">
 <span class="material-symbols-outlined">payments</span>
 </div>
-<span class="text-[10px] font-extrabold text-green-600 bg-green-50 px-2 py-1 rounded-lg uppercase">+24%</span>
+<span class="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest">Live</span>
 </div>
 <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Monthly Revenue</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">$428k</h3>
+<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo htmlspecialchars(dashboard_format_revenue($metrics['monthly_revenue'])); ?></h3>
 </div>
 <!-- Card 4 -->
 <div class="bg-white/60 backdrop-blur-md p-6 rounded-2xl editorial-shadow group hover:-translate-y-1 transition-all">
@@ -272,10 +338,10 @@
 <div class="p-2.5 bg-blue-50 text-primary rounded-xl shadow-sm">
 <span class="material-symbols-outlined">clinical_notes</span>
 </div>
-<span class="text-[10px] font-extrabold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg uppercase">New</span>
+<span class="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest">Live</span>
 </div>
 <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Total Patient Records</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">42</h3>
+<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo htmlspecialchars(dashboard_format_int($metrics['total_patient_records'])); ?></h3>
 </div>
 <!-- Card 5 -->
 <div class="bg-white/60 backdrop-blur-md p-6 rounded-2xl editorial-shadow group hover:-translate-y-1 transition-all">
@@ -283,10 +349,15 @@
 <div class="p-2.5 bg-tertiary-container/10 text-tertiary rounded-xl shadow-sm">
 <span class="material-symbols-outlined">warning</span>
 </div>
+<?php if ($metrics['expiring_subscriptions'] > 0): ?>
 <span class="text-[10px] font-extrabold text-tertiary bg-tertiary-fixed px-2 py-1 rounded-lg uppercase">Alert</span>
+<?php else: ?>
+<span class="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg uppercase">OK</span>
+<?php endif; ?>
 </div>
 <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Expiring Subscription</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">15</h3>
+<p class="text-[10px] text-on-surface-variant/70 mt-0.5">Next 30 days</p>
+<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo htmlspecialchars(dashboard_format_int($metrics['expiring_subscriptions'])); ?></h3>
 </div>
 </section>
 <!-- Main Charts & Insights Section -->
