@@ -9,6 +9,11 @@ $metrics = [
     'total_patient_records' => 0,
     'expiring_subscriptions' => 0,
 ];
+$revenue_series = [
+    'monthly' => ['labels' => [], 'values' => []],
+    'weekly' => ['labels' => [], 'values' => []],
+    'yearly' => ['labels' => [], 'values' => []],
+];
 
 try {
     $metrics['total_registered_clinics'] = (int) $pdo->query('SELECT COUNT(*) FROM tbl_tenants')->fetchColumn();
@@ -45,8 +50,96 @@ try {
           AND s.subscription_end BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
     ");
     $metrics['expiring_subscriptions'] = (int) $stmt->fetchColumn();
+
+    // Revenue Analytics chart: paid subscription amounts by period (created_at)
+    $monthKeys = [];
+    for ($i = 11; $i >= 0; $i--) {
+        $d = new DateTime('first day of this month 00:00:00');
+        $d->modify("-{$i} months");
+        $monthKeys[] = $d->format('Y-m');
+    }
+    $stmt = $pdo->prepare("
+        SELECT DATE_FORMAT(created_at, '%Y-%m') AS ym, COALESCE(SUM(COALESCE(amount_paid, 0)), 0) AS total
+        FROM tbl_tenant_subscriptions
+        WHERE payment_status = 'paid'
+          AND created_at >= ?
+        GROUP BY ym
+    ");
+    $stmt->execute([$monthKeys[0] . '-01 00:00:00']);
+    $monthData = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $monthData[$row['ym']] = (float) $row['total'];
+    }
+    foreach ($monthKeys as $ym) {
+        $d = DateTime::createFromFormat('Y-m', $ym);
+        $revenue_series['monthly']['labels'][] = $d ? $d->format('M') : $ym;
+        $revenue_series['monthly']['values'][] = $monthData[$ym] ?? 0.0;
+    }
+
+    $weekKeys = [];
+    $today = new DateTime('today');
+    $dow = (int) $today->format('N');
+    $thisMonday = clone $today;
+    $thisMonday->modify('-' . ($dow - 1) . ' days');
+    $thisMonday->setTime(0, 0, 0);
+    for ($i = 7; $i >= 0; $i--) {
+        $wk = clone $thisMonday;
+        $wk->modify("-{$i} weeks");
+        $weekKeys[] = $wk->format('Y-m-d');
+    }
+    $stmt = $pdo->prepare("
+        SELECT DATE(DATE_SUB(created_at, INTERVAL WEEKDAY(created_at) DAY)) AS week_start,
+               COALESCE(SUM(COALESCE(amount_paid, 0)), 0) AS total
+        FROM tbl_tenant_subscriptions
+        WHERE payment_status = 'paid'
+          AND created_at >= ?
+        GROUP BY week_start
+    ");
+    $stmt->execute([$weekKeys[0] . ' 00:00:00']);
+    $weekData = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $wkKey = $row['week_start'] ? substr((string) $row['week_start'], 0, 10) : '';
+        if ($wkKey !== '') {
+            $weekData[$wkKey] = (float) $row['total'];
+        }
+    }
+    foreach ($weekKeys as $wk) {
+        $d = DateTime::createFromFormat('Y-m-d', $wk);
+        $revenue_series['weekly']['labels'][] = $d ? $d->format('M j') : $wk;
+        // Normalize DB date string (Y-m-d) for array key match
+        $revenue_series['weekly']['values'][] = $weekData[$wk] ?? 0.0;
+    }
+
+    $yStart = (int) date('Y') - 4;
+    $yEnd = (int) date('Y');
+    $stmt = $pdo->prepare("
+        SELECT YEAR(created_at) AS y, COALESCE(SUM(COALESCE(amount_paid, 0)), 0) AS total
+        FROM tbl_tenant_subscriptions
+        WHERE payment_status = 'paid'
+          AND YEAR(created_at) BETWEEN ? AND ?
+        GROUP BY y
+    ");
+    $stmt->execute([$yStart, $yEnd]);
+    $yearData = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $yearData[(int) $row['y']] = (float) $row['total'];
+    }
+    for ($y = $yStart; $y <= $yEnd; $y++) {
+        $revenue_series['yearly']['labels'][] = (string) $y;
+        $revenue_series['yearly']['values'][] = $yearData[$y] ?? 0.0;
+    }
 } catch (PDOException $e) {
     error_log('superadmin dashboard metrics: ' . $e->getMessage());
+    $revenue_series = [
+        'monthly' => ['labels' => [], 'values' => []],
+        'weekly' => ['labels' => [], 'values' => []],
+        'yearly' => ['labels' => [], 'values' => []],
+    ];
+}
+
+$revenue_chart_json = json_encode($revenue_series);
+if ($revenue_chart_json === false) {
+    $revenue_chart_json = '{}';
 }
 
 function dashboard_format_revenue(float $amount): string
@@ -367,40 +460,152 @@ function dashboard_format_int(int $n): string
 <!-- Revenue Analytics Line Chart -->
 <div class="bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow relative overflow-hidden">
 <div class="absolute top-0 right-0 p-8">
-<div class="flex bg-surface-container-low/50 p-1.5 rounded-2xl border border-white/40">
-<button class="px-5 py-2 text-xs font-bold rounded-xl bg-white shadow-sm text-primary">Monthly</button>
-<button class="px-5 py-2 text-xs font-bold rounded-xl text-on-surface-variant hover:text-on-surface">Weekly</button>
-<button class="px-5 py-2 text-xs font-bold rounded-xl text-on-surface-variant hover:text-on-surface">Yearly</button>
+<div class="flex bg-surface-container-low/50 p-1.5 rounded-2xl border border-white/40" id="revenue-period-toggle" role="tablist">
+<button type="button" data-period="monthly" class="revenue-period-btn px-5 py-2 text-xs font-bold rounded-xl bg-white shadow-sm text-primary">Monthly</button>
+<button type="button" data-period="weekly" class="revenue-period-btn px-5 py-2 text-xs font-bold rounded-xl text-on-surface-variant hover:text-on-surface">Weekly</button>
+<button type="button" data-period="yearly" class="revenue-period-btn px-5 py-2 text-xs font-bold rounded-xl text-on-surface-variant hover:text-on-surface">Yearly</button>
 </div>
 </div>
-<div class="mb-10">
+<div class="mb-10 pr-44">
 <h4 class="text-xl font-extrabold font-headline">Revenue Analytics</h4>
-<p class="text-sm text-on-surface-variant font-medium">Performance tracking across global nodes</p>
+<p class="text-sm text-on-surface-variant font-medium">Paid subscription revenue (<span class="whitespace-nowrap">amount_paid</span>) by <span id="revenue-period-label">month</span></p>
 </div>
-<!-- Mock Chart Area -->
-<div class="h-64 flex items-end justify-between gap-2 relative">
-<div class="absolute inset-0 flex flex-col justify-between opacity-5">
+<script type="application/json" id="revenue-chart-data"><?php echo htmlspecialchars($revenue_chart_json, ENT_NOQUOTES, 'UTF-8'); ?></script>
+<div class="h-64 relative" id="revenue-chart-container">
+<div class="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-[0.07]">
 <div class="border-t border-on-surface"></div>
 <div class="border-t border-on-surface"></div>
 <div class="border-t border-on-surface"></div>
 <div class="border-t border-on-surface"></div>
 </div>
-<svg class="absolute inset-0 w-full h-full" preserveaspectratio="none" viewbox="0 0 1000 200">
+<svg class="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 1000 200" aria-hidden="true">
 <defs>
-<lineargradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
+<linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
 <stop offset="0%" stop-color="#0066ff" stop-opacity="0.25"></stop>
 <stop offset="100%" stop-color="#0066ff" stop-opacity="0"></stop>
-</lineargradient>
+</linearGradient>
 </defs>
-<path d="M0,150 Q100,140 200,160 T400,100 T600,80 T800,120 T1000,60 L1000,200 L0,200 Z" fill="url(#chartGradient)"></path>
-<path d="M0,150 Q100,140 200,160 T400,100 T600,80 T800,120 T1000,60" fill="none" stroke="#0066ff" stroke-linecap="round" stroke-width="4"></path>
-<circle class="shadow-lg" cx="400" cy="100" fill="#0066ff" r="6"></circle>
+<path id="revenue-area" d="" fill="url(#chartGradient)"></path>
+<path id="revenue-line" d="" fill="none" stroke="#0066ff" stroke-linecap="round" stroke-width="4"></path>
+<circle id="revenue-dot" class="drop-shadow-md" cx="0" cy="100" fill="#0066ff" r="6"></circle>
 </svg>
-<div class="flex w-full justify-between pt-4 mt-auto text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em] relative z-10">
-<span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span>
+<div class="absolute bottom-0 left-0 right-0 flex w-full justify-between pt-3 text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] relative z-10" id="revenue-chart-labels"></div>
+</div>
+<div class="flex flex-wrap justify-between gap-2 mt-3 text-[10px] font-semibold text-on-surface-variant">
+<span id="revenue-chart-sum"></span>
+<span id="revenue-chart-peak"></span>
 </div>
 </div>
-</div>
+<script>
+(function () {
+    var dataEl = document.getElementById('revenue-chart-data');
+    if (!dataEl) return;
+    var chartData = {};
+    try {
+        chartData = JSON.parse(dataEl.textContent || '{}');
+    } catch (e) {
+        return;
+    }
+    var W = 1000, H = 200, PAD = 18;
+    var labelWords = { monthly: 'month', weekly: 'week', yearly: 'year' };
+
+    function buildPath(values) {
+        var n = values.length;
+        if (n === 0) {
+            return { line: '', area: '', cx: W / 2, cy: H / 2, max: 0, sum: 0 };
+        }
+        var max = 0;
+        for (var i = 0; i < n; i++) if (values[i] > max) max = values[i];
+        if (max < 1e-9) max = 1;
+        var sum = 0;
+        for (var j = 0; j < n; j++) sum += values[j];
+        if (n === 1) {
+            var x = W / 2;
+            var y = H - PAD - (values[0] / max) * (H - 2 * PAD);
+            return {
+                line: 'M ' + (x - 1) + ',' + y + ' L ' + (x + 1) + ',' + y,
+                area: 'M ' + (x - 1) + ',' + y + ' L ' + (x + 1) + ',' + y + ' L ' + (x + 1) + ',' + H + ' L ' + (x - 1) + ',' + H + ' Z',
+                cx: x,
+                cy: y,
+                max: max,
+                sum: sum
+            };
+        }
+        var pts = [];
+        for (var k = 0; k < n; k++) {
+            var x = k * (W / (n - 1));
+            var y = H - PAD - (values[k] / max) * (H - 2 * PAD);
+            pts.push([x, y]);
+        }
+        var d = 'M ' + pts[0][0] + ',' + pts[0][1];
+        for (var m = 1; m < n; m++) d += ' L ' + pts[m][0] + ',' + pts[m][1];
+        var area = d + ' L ' + pts[n - 1][0] + ',' + H + ' L ' + pts[0][0] + ',' + H + ' Z';
+        return {
+            line: d,
+            area: area,
+            cx: pts[n - 1][0],
+            cy: pts[n - 1][1],
+            max: max,
+            sum: sum
+        };
+    }
+
+    function fmtMoney(x) {
+        if (x >= 1000000) return '₱' + (x / 1000000).toFixed(1) + 'M';
+        if (x >= 1000) return '₱' + (x / 1000).toFixed(1) + 'k';
+        return '₱' + Math.round(x).toLocaleString();
+    }
+
+    function render(period) {
+        var s = chartData[period];
+        var labEl = document.getElementById('revenue-period-label');
+        if (labEl) labEl.textContent = labelWords[period] || period;
+
+        if (!s || !s.values || s.values.length === 0) {
+            document.getElementById('revenue-area').setAttribute('d', '');
+            document.getElementById('revenue-line').setAttribute('d', '');
+            document.getElementById('revenue-chart-labels').innerHTML = '';
+            document.getElementById('revenue-chart-sum').textContent = '';
+            document.getElementById('revenue-chart-peak').textContent = 'No data';
+            return;
+        }
+
+        var p = buildPath(s.values);
+        document.getElementById('revenue-area').setAttribute('d', p.area);
+        document.getElementById('revenue-line').setAttribute('d', p.line);
+        var dot = document.getElementById('revenue-dot');
+        dot.setAttribute('cx', p.cx);
+        dot.setAttribute('cy', p.cy);
+        dot.style.opacity = s.values.length > 1 || p.sum > 0 ? '1' : '0';
+
+        var labels = document.getElementById('revenue-chart-labels');
+        labels.innerHTML = '';
+        (s.labels || []).forEach(function (lab) {
+            var sp = document.createElement('span');
+            sp.textContent = lab;
+            labels.appendChild(sp);
+        });
+
+        document.getElementById('revenue-chart-sum').textContent = 'Period total: ' + fmtMoney(p.sum);
+        document.getElementById('revenue-chart-peak').textContent = 'Peak: ' + fmtMoney(p.max);
+    }
+
+    document.querySelectorAll('.revenue-period-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var period = btn.getAttribute('data-period');
+            document.querySelectorAll('.revenue-period-btn').forEach(function (b) {
+                b.classList.remove('bg-white', 'shadow-sm', 'text-primary');
+                b.classList.add('text-on-surface-variant');
+            });
+            btn.classList.add('bg-white', 'shadow-sm', 'text-primary');
+            btn.classList.remove('text-on-surface-variant');
+            render(period);
+        });
+    });
+
+    render('monthly');
+})();
+</script>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
 <!-- Tenant Growth Bar Chart -->
 <div class="bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow">
