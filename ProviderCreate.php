@@ -4,29 +4,6 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 require_once __DIR__ . '/db.php';
 require_once 'mail_config.php';
 
-/**
- * If tbl_tenants (or another table) is non-transactional, INSERT can persist after ROLLBACK.
- * Remove any partial signup for this tenant so failed registrations do not leave orphan tenants.
- */
-function provider_create_cleanup_failed_signup(PDO $pdo, ?string $tenant_id): void
-{
-    if ($tenant_id === null || $tenant_id === '') {
-        return;
-    }
-    try {
-        $pdo->prepare('DELETE FROM tbl_email_verifications WHERE tenant_id = ?')->execute([$tenant_id]);
-    } catch (PDOException $e) {
-    }
-    try {
-        $pdo->prepare('DELETE FROM tbl_users WHERE tenant_id = ? AND role = ?')->execute([$tenant_id, 'tenant_owner']);
-    } catch (PDOException $e) {
-    }
-    try {
-        $pdo->prepare('DELETE FROM tbl_tenants WHERE tenant_id = ?')->execute([$tenant_id]);
-    } catch (PDOException $e) {
-    }
-}
-
 $error = '';
 $success = '';
 $chosen_plan = isset($_GET['plan']) ? strtolower(trim($_GET['plan'])) : '';
@@ -54,71 +31,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
 
-            // Check if username or email already exists
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM tbl_users WHERE username = ? OR email = ?");
+            // Confirmed accounts only; pending OTP lives in tbl_provider_pending_signups (no tenant/user yet).
+            $stmt = $pdo->prepare('SELECT COUNT(*) FROM tbl_users WHERE username = ? OR email = ?');
             $stmt->execute([$username, $email]);
             if ($stmt->fetchColumn() > 0) {
-                $error = "Username or email already exists.";
+                $error = 'Username or email already exists.';
             } else {
-                // MAX(varchar) is lexicographic; tbl_users also has P-/M- style IDs — only bump numeric USER_/TNT_ sequences.
-                $maxAttempts = 8;
-                for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
-                    $tenant_id = null;
+                $stmt = $pdo->prepare('SELECT id FROM tbl_provider_pending_signups WHERE username = ? AND email != ?');
+                $stmt->execute([$username, $email]);
+                if ($stmt->fetch()) {
+                    $error = 'Username is already reserved by another pending registration.';
+                } else {
                     try {
-                        $pdo->beginTransaction();
-
-                        // 1) Create tenant first (no owner_user_id yet)
-                        $stmt = $pdo->query("SELECT COALESCE(MAX(CAST(SUBSTRING(tenant_id, 5) AS UNSIGNED)), 0) FROM tbl_tenants WHERE tenant_id REGEXP '^TNT_[0-9]+$'");
-                        $num = (int) $stmt->fetchColumn() + 1;
-                        $tenant_id = 'TNT_' . str_pad((string) $num, 5, '0', STR_PAD_LEFT);
-                        $stmt = $pdo->prepare("INSERT INTO tbl_tenants (tenant_id, clinic_name, country_region) VALUES (?, ?, ?)");
-                        $stmt->execute([$tenant_id, $clinic_name, $country_region]);
-
-                        // 2) Create tenant owner user (role = tenant_owner)
-                        $stmt = $pdo->query("SELECT COALESCE(MAX(CAST(SUBSTRING(user_id, 6) AS UNSIGNED)), 0) FROM tbl_users WHERE user_id REGEXP '^USER_[0-9]+$'");
-                        $unum = (int) $stmt->fetchColumn() + 1;
-                        $user_id = 'USER_' . str_pad((string) $unum, 5, '0', STR_PAD_LEFT);
                         $password_hash = password_hash($password, PASSWORD_DEFAULT);
                         $full_name = trim($_POST['full_name'] ?? '') !== '' ? trim($_POST['full_name']) : $username;
-                        $stmt = $pdo->prepare("INSERT INTO tbl_users (user_id, tenant_id, username, email, full_name, password_hash, role) VALUES (?, ?, ?, ?, ?, ?, 'tenant_owner')");
-                        $stmt->execute([$user_id, $tenant_id, $username, $email, $full_name, $password_hash]);
-
-                        // 3) Set tenant's official owner
-                        $stmt = $pdo->prepare("UPDATE tbl_tenants SET owner_user_id = ? WHERE tenant_id = ?");
-                        $stmt->execute([$user_id, $tenant_id]);
-
-                        // 4) Email verification OTP (6 digits, expires in 15 min)
                         $otp_code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
                         $otp_hash = password_hash($otp_code, PASSWORD_DEFAULT);
                         $otp_expires = date('Y-m-d H:i:s', time() + 900);
-                        $stmt = $pdo->prepare("INSERT INTO tbl_email_verifications (tenant_id, user_id, otp_hash, otp_expires_at, attempts) VALUES (?, ?, ?, ?, 0)");
-                        $stmt->execute([$tenant_id, $user_id, $otp_hash, $otp_expires]);
 
-                        $pdo->commit();
+                        $stmt = $pdo->prepare('SELECT id FROM tbl_provider_pending_signups WHERE email = ?');
+                        $stmt->execute([$email]);
+                        $existing = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                        // Send OTP email (Gmail SMTP)
+                        if ($existing) {
+                            $stmt = $pdo->prepare('UPDATE tbl_provider_pending_signups SET clinic_name = ?, country_region = ?, full_name = ?, username = ?, password_hash = ?, plan = ?, otp_hash = ?, otp_expires_at = ?, attempts = 0, last_sent_at = NOW() WHERE id = ?');
+                            $stmt->execute([$clinic_name, $country_region, $full_name, $username, $password_hash, $plan, $otp_hash, $otp_expires, $existing['id']]);
+                            $pending_id = (int) $existing['id'];
+                        } else {
+                            $stmt = $pdo->prepare('INSERT INTO tbl_provider_pending_signups (clinic_name, country_region, full_name, username, email, password_hash, plan, otp_hash, otp_expires_at, attempts, last_sent_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())');
+                            $stmt->execute([$clinic_name, $country_region, $full_name, $username, $email, $password_hash, $plan, $otp_hash, $otp_expires]);
+                            $pending_id = (int) $pdo->lastInsertId();
+                        }
+
                         send_otp_email($email, $otp_code);
 
-                        // Store onboarding session and redirect to OTP (do not log in yet)
-                        $_SESSION['onboarding_user_id'] = $user_id;
-                        $_SESSION['onboarding_tenant_id'] = $tenant_id;
+                        $_SESSION['onboarding_pending_id'] = $pending_id;
                         $_SESSION['onboarding_email'] = $email;
                         $_SESSION['onboarding_plan'] = $plan;
-                        $_SESSION['onboarding_full_name'] = isset($full_name) ? $full_name : $username;
+                        $_SESSION['onboarding_full_name'] = $full_name;
                         $_SESSION['onboarding_username'] = $username;
+                        unset($_SESSION['onboarding_user_id'], $_SESSION['onboarding_tenant_id']);
                         header('Location: ProviderOTP.php');
                         exit;
                     } catch (PDOException $e) {
-                        if (isset($pdo) && $pdo->inTransaction()) {
-                            $pdo->rollBack();
-                        }
-                        provider_create_cleanup_failed_signup($pdo, $tenant_id);
-                        $driverCode = isset($e->errorInfo[1]) ? (int) $e->errorInfo[1] : 0;
-                        if ($attempt < $maxAttempts && $driverCode === 1062) {
-                            continue;
-                        }
-                        $error = "Database error: " . $e->getMessage();
-                        break;
+                        $error = 'Database error: ' . $e->getMessage();
                     }
                 }
             }

@@ -82,7 +82,7 @@ try {
         $t = $stmt2->fetch(PDO::FETCH_ASSOC);
         $_SESSION['is_owner'] = ($t && isset($t['owner_user_id']) && $t['owner_user_id'] === $user['user_id']);
     }
-    unset($_SESSION['onboarding_user_id'], $_SESSION['onboarding_tenant_id'], $_SESSION['onboarding_email'], $_SESSION['onboarding_plan'], $_SESSION['onboarding_full_name'], $_SESSION['onboarding_username']);
+    unset($_SESSION['onboarding_user_id'], $_SESSION['onboarding_tenant_id'], $_SESSION['onboarding_pending_id'], $_SESSION['onboarding_email'], $_SESSION['onboarding_plan'], $_SESSION['onboarding_full_name'], $_SESSION['onboarding_username']);
     unset($_SESSION['paymongo_client_key'], $_SESSION['paymongo_payment_intent_id'], $_SESSION['paymongo_payment_method'], $_SESSION['paymongo_tenant_id'], $_SESSION['paymongo_user_id'], $_SESSION['paymongo_plan_id'], $_SESSION['paymongo_plan_name'], $_SESSION['paymongo_plan_price']);
 } catch (PDOException $e) {
     // Already paid; ensure user gets to dashboard

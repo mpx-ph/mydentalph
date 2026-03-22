@@ -1,63 +1,68 @@
 <?php
 session_start();
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/provider_signup_lib.php';
 require_once 'mail_config.php';
 
 $error = '';
 $resend_message = '';
 
-// Require onboarding session
-if (empty($_SESSION['onboarding_user_id']) || empty($_SESSION['onboarding_tenant_id'])) {
+if (empty($_SESSION['onboarding_pending_id'])) {
     header('Location: ProviderCreate.php');
     exit;
 }
 
-$user_id = $_SESSION['onboarding_user_id'];
-$tenant_id = $_SESSION['onboarding_tenant_id'];
+$pending_id = (int) $_SESSION['onboarding_pending_id'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? 'verify';
     if ($action === 'resend') {
-        // Regenerate OTP and update record
         $otp_code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         $otp_hash = password_hash($otp_code, PASSWORD_DEFAULT);
         $otp_expires = date('Y-m-d H:i:s', time() + 900);
-        $stmt = $pdo->prepare("UPDATE tbl_email_verifications SET otp_hash = ?, otp_expires_at = ?, last_sent_at = NOW() WHERE user_id = ? AND tenant_id = ? AND verified_at IS NULL ORDER BY id DESC LIMIT 1");
-        $stmt->execute([$otp_hash, $otp_expires, $user_id, $tenant_id]);
+        $stmt = $pdo->prepare('UPDATE tbl_provider_pending_signups SET otp_hash = ?, otp_expires_at = ?, attempts = 0, last_sent_at = NOW() WHERE id = ?');
+        $stmt->execute([$otp_hash, $otp_expires, $pending_id]);
         $to_email = $_SESSION['onboarding_email'] ?? '';
         if ($to_email && send_otp_email($to_email, $otp_code)) {
-            $resend_message = "A new code has been sent to your email.";
+            $resend_message = 'A new code has been sent to your email.';
         } else {
-            $resend_message = "We could not send the email. Please check your address or try again later.";
+            $resend_message = 'We could not send the email. Please check your address or try again later.';
         }
     } else {
         $otp_code = trim($_POST['otp_code'] ?? '');
         if (strlen($otp_code) !== 6 || !ctype_digit($otp_code)) {
-            $error = "Please enter a valid 6-digit code.";
+            $error = 'Please enter a valid 6-digit code.';
         } else {
-            // Optional: define('DEV_OTP', '123456'); in config to accept that code for testing (no email needed)
             $dev_otp = defined('DEV_OTP') ? DEV_OTP : null;
-            $stmt = $pdo->prepare("SELECT id, otp_hash, otp_expires_at FROM tbl_email_verifications WHERE user_id = ? AND tenant_id = ? AND verified_at IS NULL ORDER BY id DESC LIMIT 1");
-            $stmt->execute([$user_id, $tenant_id]);
+            $stmt = $pdo->prepare('SELECT id, otp_hash, otp_expires_at FROM tbl_provider_pending_signups WHERE id = ?');
+            $stmt->execute([$pending_id]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $proceed = false;
             if (!$row) {
-                $error = "No pending verification found. Please start over.";
+                unset($_SESSION['onboarding_pending_id']);
+                $error = 'No pending registration found. Please start over.';
             } elseif ($dev_otp !== null && $otp_code === $dev_otp) {
-                $stmt = $pdo->prepare("UPDATE tbl_email_verifications SET verified_at = NOW() WHERE id = ?");
-                $stmt->execute([$row['id']]);
-                header('Location: ProviderClinicSetup.php');
-                exit;
+                $proceed = true;
             } elseif (strtotime($row['otp_expires_at']) < time()) {
-                $error = "This code has expired. Please request a new one.";
+                $error = 'This code has expired. Please request a new one.';
             } elseif (!password_verify($otp_code, $row['otp_hash'])) {
-                $stmt = $pdo->prepare("UPDATE tbl_email_verifications SET attempts = attempts + 1 WHERE id = ?");
-                $stmt->execute([$row['id']]);
-                $error = "Invalid verification code. Please try again.";
+                $stmt = $pdo->prepare('UPDATE tbl_provider_pending_signups SET attempts = attempts + 1 WHERE id = ?');
+                $stmt->execute([$pending_id]);
+                $error = 'Invalid verification code. Please try again.';
             } else {
-                $stmt = $pdo->prepare("UPDATE tbl_email_verifications SET verified_at = NOW() WHERE id = ?");
-                $stmt->execute([$row['id']]);
-                header('Location: ProviderClinicSetup.php');
-                exit;
+                $proceed = true;
+            }
+            if ($proceed) {
+                try {
+                    $ids = provider_signup_finalize_from_pending($pdo, $pending_id);
+                    unset($_SESSION['onboarding_pending_id']);
+                    $_SESSION['onboarding_user_id'] = $ids['user_id'];
+                    $_SESSION['onboarding_tenant_id'] = $ids['tenant_id'];
+                    header('Location: ProviderClinicSetup.php');
+                    exit;
+                } catch (Throwable $e) {
+                    $error = 'Could not complete registration. Please try again or contact support.';
+                }
             }
         }
     }

@@ -26,7 +26,7 @@ if ($is_superadmin) {
         unset($_SESSION['user_id'], $_SESSION['tenant_id'], $_SESSION['username'], $_SESSION['email'], $_SESSION['full_name'], $_SESSION['role'], $_SESSION['is_owner']);
     }
 }
-if (!$logged_in && !empty($_SESSION['onboarding_user_id'])) {
+if (!$logged_in && (!empty($_SESSION['onboarding_user_id']) || !empty($_SESSION['onboarding_pending_id']))) {
     $logged_in = true;
 }
 
