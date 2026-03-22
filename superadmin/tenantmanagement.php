@@ -255,82 +255,11 @@ $rangeEnd = $totalRows === 0 ? 0 : min($totalRows, $offset + count($tenants));
     </style>
 </head>
 <body class="mesh-bg font-body text-on-surface antialiased min-h-screen">
-<!-- SideNavBar (Matches SCREEN_2) -->
-<aside class="fixed left-0 top-0 h-full w-64 z-40 sidebar-glass flex flex-col py-8">
-<div class="px-7 mb-10">
-<a href="dashboard.php" class="block" aria-label="MyDental">
-<img src="MyDental Logo.svg" alt="MyDental" class="h-11 w-auto max-w-full object-contain object-left"/>
-</a>
-<p class="text-on-surface-variant text-[10px] font-bold tracking-[0.2em] mt-2 opacity-60">MANAGEMENT CONSOLE</p>
-</div>
-<nav class="flex-1 space-y-1 overflow-y-auto no-scrollbar">
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface transition-colors duration-200 hover:bg-white/50 rounded-xl" href="dashboard.php">
-<span class="material-symbols-outlined text-[22px]">dashboard</span>
-<span class="font-headline text-sm font-medium tracking-tight">Dashboard Analytics</span>
-</a>
-</div>
-<!-- Active Item: Tenant Management -->
-<div class="relative px-3">
-<a class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl transition-all duration-200 active-glow" href="tenantmanagement.php">
-<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">groups</span>
-<span class="font-headline text-sm font-bold tracking-tight">Tenant Management</span>
-</a>
-<div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full"></div>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface transition-colors duration-200 hover:bg-white/50 rounded-xl" href="salesreport.php">
-<span class="material-symbols-outlined text-[22px]">payments</span>
-<span class="font-headline text-sm font-medium tracking-tight">Sales Report</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface transition-colors duration-200 hover:bg-white/50 rounded-xl" href="reports.php">
-<span class="material-symbols-outlined text-[22px]">assessment</span>
-<span class="font-headline text-sm font-medium tracking-tight">Reports</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface transition-colors duration-200 hover:bg-white/50 rounded-xl" href="auditlogs.php">
-<span class="material-symbols-outlined text-[22px]">history_edu</span>
-<span class="font-headline text-sm font-medium tracking-tight">Audit Logs</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface transition-colors duration-200 hover:bg-white/50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">settings_backup_restore</span>
-<span class="font-headline text-sm font-medium tracking-tight">Backup and Restore</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface transition-colors duration-200 hover:bg-white/50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">settings</span>
-<span class="font-headline text-sm font-medium tracking-tight">Settings</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-error hover:text-error transition-colors duration-200 hover:bg-error/10 rounded-xl" href="../ProviderLogout.php">
-<span class="material-symbols-outlined text-[22px]">logout</span>
-<span class="font-headline text-sm font-medium tracking-tight">Logout</span>
-</a>
-</div>
-</nav>
-<div class="px-4 mt-auto">
-<div class="bg-white/40 backdrop-blur-md rounded-2xl p-5 border border-white/60 shadow-sm">
-<div class="flex items-center gap-3 mb-4">
-<div class="w-9 h-9 rounded-full bg-primary-container flex items-center justify-center text-primary text-xs font-bold">CP</div>
-<div>
-<p class="text-on-surface text-xs font-bold">Pro Plan</p>
-<p class="text-on-surface-variant text-[10px]">Renewal in 12 days</p>
-</div>
-</div>
-<button class="w-full py-2.5 bg-white border border-outline-variant/30 hover:border-primary/50 text-on-surface text-xs font-bold rounded-xl transition-all shadow-sm">Manage Subscription</button>
-</div>
-</div>
-</aside>
-<!-- TopNavBar (Matches SCREEN_2) -->
-<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-20 z-30 bg-white/70 backdrop-blur-xl border-b border-white/50 flex items-center justify-between px-8">
-<div class="flex items-center gap-6 flex-1">
+<?php
+$superadmin_nav = 'tenantmanagement';
+require __DIR__ . '/superadmin_sidebar.php';
+ob_start();
+?>
 <form method="get" action="tenantmanagement.php" class="relative w-full max-w-md group">
 <?php if ($filterBase['status'] !== ''): ?>
 <input type="hidden" name="status" value="<?php echo htmlspecialchars($filterBase['status'], ENT_QUOTES, 'UTF-8'); ?>"/>
@@ -341,22 +270,10 @@ $rangeEnd = $totalRows === 0 ? 0 : min($totalRows, $offset + count($tenants));
 <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-xl pointer-events-none">search</span>
 <input name="q" value="<?php echo htmlspecialchars($filterBase['q'], ENT_QUOTES, 'UTF-8'); ?>" class="w-full bg-surface-container-low/50 border-none focus:ring-2 focus:ring-primary/20 rounded-2xl pl-11 pr-4 py-2.5 text-sm transition-all placeholder:text-on-surface-variant/50" placeholder="Search tenants, clinics, or email..." type="search" autocomplete="off"/>
 </form>
-</div>
-<div class="flex items-center gap-4">
-<button class="hover:bg-surface-container-low rounded-full p-2.5 transition-all relative">
-<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
-<span class="absolute top-2.5 right-2.5 w-2 h-2 bg-error rounded-full border-2 border-white"></span>
-</button>
-<div class="h-8 w-[1px] bg-outline-variant/30 mx-2"></div>
-<div class="flex items-center gap-3 pl-2">
-<div class="text-right hidden sm:block">
-<p class="text-sm font-bold text-on-surface">Dr. Julian</p>
-<p class="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest opacity-60">Admin Manager</p>
-</div>
-<img alt="Dr. Julian Profile" class="w-10 h-10 rounded-full bg-surface-container-high border-2 border-white shadow-md" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDa5Hm5Qj9GBJdlIFq95iJVw8xI37VvQSwpzCCPtaHX_DBdrPsRP0otd28FikWt0xhUXx9g4ecq8uAQafVZreSU6D4BO5EV-2KYtlgRNtZ3k8QISo8LSNXujmWhY1sAp-MULw0Jm_xZOqx9zBo5JMUIqSQFHTCd-rnwMtR73GJND8FP3M_zurmtNzy3JOuMvM5FlPSIXcT7JmHGgpyrkjvXIvTpFfAgltlUP0cOIJD18FvbRiq_XGARsUjvPO88LVXy4HqqythNxq8"/>
-</div>
-</div>
-</header>
+<?php
+$superadmin_header_center = ob_get_clean();
+require __DIR__ . '/superadmin_header.php';
+?>
 <!-- Main Content Area -->
 <main class="ml-64 pt-20 min-h-screen">
 <div class="pt-8 px-10 pb-16 space-y-10 relative">
