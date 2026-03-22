@@ -4,6 +4,29 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 require_once __DIR__ . '/db.php';
 require_once 'mail_config.php';
 
+/**
+ * If tbl_tenants (or another table) is non-transactional, INSERT can persist after ROLLBACK.
+ * Remove any partial signup for this tenant so failed registrations do not leave orphan tenants.
+ */
+function provider_create_cleanup_failed_signup(PDO $pdo, ?string $tenant_id): void
+{
+    if ($tenant_id === null || $tenant_id === '') {
+        return;
+    }
+    try {
+        $pdo->prepare('DELETE FROM tbl_email_verifications WHERE tenant_id = ?')->execute([$tenant_id]);
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->prepare('DELETE FROM tbl_users WHERE tenant_id = ? AND role = ?')->execute([$tenant_id, 'tenant_owner']);
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->prepare('DELETE FROM tbl_tenants WHERE tenant_id = ?')->execute([$tenant_id]);
+    } catch (PDOException $e) {
+    }
+}
+
 $error = '';
 $success = '';
 $chosen_plan = isset($_GET['plan']) ? strtolower(trim($_GET['plan'])) : '';
@@ -40,6 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // MAX(varchar) is lexicographic; tbl_users also has P-/M- style IDs — only bump numeric USER_/TNT_ sequences.
                 $maxAttempts = 8;
                 for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+                    $tenant_id = null;
                     try {
                         $pdo->beginTransaction();
 
@@ -88,6 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if (isset($pdo) && $pdo->inTransaction()) {
                             $pdo->rollBack();
                         }
+                        provider_create_cleanup_failed_signup($pdo, $tenant_id);
                         $driverCode = isset($e->errorInfo[1]) ? (int) $e->errorInfo[1] : 0;
                         if ($attempt < $maxAttempts && $driverCode === 1062) {
                             continue;
