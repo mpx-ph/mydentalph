@@ -37,59 +37,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($stmt->fetchColumn() > 0) {
                 $error = "Username or email already exists.";
             } else {
-                $pdo->beginTransaction();
+                // MAX(varchar) is lexicographic; tbl_users also has P-/M- style IDs — only bump numeric USER_/TNT_ sequences.
+                $maxAttempts = 8;
+                for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+                    try {
+                        $pdo->beginTransaction();
 
-                // 1) Create tenant first (no owner_user_id yet)
-                $stmt = $pdo->query("SELECT MAX(tenant_id) FROM tbl_tenants");
-                $max_tenant = $stmt->fetchColumn();
-                if ($max_tenant) {
-                    $num = intval(substr($max_tenant, 4)) + 1;
-                } else {
-                    $num = 1;
+                        // 1) Create tenant first (no owner_user_id yet)
+                        $stmt = $pdo->query("SELECT COALESCE(MAX(CAST(SUBSTRING(tenant_id, 5) AS UNSIGNED)), 0) FROM tbl_tenants WHERE tenant_id REGEXP '^TNT_[0-9]+$'");
+                        $num = (int) $stmt->fetchColumn() + 1;
+                        $tenant_id = 'TNT_' . str_pad((string) $num, 5, '0', STR_PAD_LEFT);
+                        $stmt = $pdo->prepare("INSERT INTO tbl_tenants (tenant_id, clinic_name, country_region) VALUES (?, ?, ?)");
+                        $stmt->execute([$tenant_id, $clinic_name, $country_region]);
+
+                        // 2) Create tenant owner user (role = tenant_owner)
+                        $stmt = $pdo->query("SELECT COALESCE(MAX(CAST(SUBSTRING(user_id, 6) AS UNSIGNED)), 0) FROM tbl_users WHERE user_id REGEXP '^USER_[0-9]+$'");
+                        $unum = (int) $stmt->fetchColumn() + 1;
+                        $user_id = 'USER_' . str_pad((string) $unum, 5, '0', STR_PAD_LEFT);
+                        $password_hash = password_hash($password, PASSWORD_DEFAULT);
+                        $full_name = trim($_POST['full_name'] ?? '') !== '' ? trim($_POST['full_name']) : $username;
+                        $stmt = $pdo->prepare("INSERT INTO tbl_users (user_id, tenant_id, username, email, full_name, password_hash, role) VALUES (?, ?, ?, ?, ?, ?, 'tenant_owner')");
+                        $stmt->execute([$user_id, $tenant_id, $username, $email, $full_name, $password_hash]);
+
+                        // 3) Set tenant's official owner
+                        $stmt = $pdo->prepare("UPDATE tbl_tenants SET owner_user_id = ? WHERE tenant_id = ?");
+                        $stmt->execute([$user_id, $tenant_id]);
+
+                        // 4) Email verification OTP (6 digits, expires in 15 min)
+                        $otp_code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+                        $otp_hash = password_hash($otp_code, PASSWORD_DEFAULT);
+                        $otp_expires = date('Y-m-d H:i:s', time() + 900);
+                        $stmt = $pdo->prepare("INSERT INTO tbl_email_verifications (tenant_id, user_id, otp_hash, otp_expires_at, attempts) VALUES (?, ?, ?, ?, 0)");
+                        $stmt->execute([$tenant_id, $user_id, $otp_hash, $otp_expires]);
+
+                        $pdo->commit();
+
+                        // Send OTP email (Gmail SMTP)
+                        send_otp_email($email, $otp_code);
+
+                        // Store onboarding session and redirect to OTP (do not log in yet)
+                        $_SESSION['onboarding_user_id'] = $user_id;
+                        $_SESSION['onboarding_tenant_id'] = $tenant_id;
+                        $_SESSION['onboarding_email'] = $email;
+                        $_SESSION['onboarding_plan'] = $plan;
+                        $_SESSION['onboarding_full_name'] = isset($full_name) ? $full_name : $username;
+                        $_SESSION['onboarding_username'] = $username;
+                        header('Location: ProviderOTP.php');
+                        exit;
+                    } catch (PDOException $e) {
+                        if (isset($pdo) && $pdo->inTransaction()) {
+                            $pdo->rollBack();
+                        }
+                        $driverCode = isset($e->errorInfo[1]) ? (int) $e->errorInfo[1] : 0;
+                        if ($attempt < $maxAttempts && $driverCode === 1062) {
+                            continue;
+                        }
+                        $error = "Database error: " . $e->getMessage();
+                        break;
+                    }
                 }
-                $tenant_id = 'TNT_' . str_pad($num, 5, '0', STR_PAD_LEFT);
-                $stmt = $pdo->prepare("INSERT INTO tbl_tenants (tenant_id, clinic_name, country_region) VALUES (?, ?, ?)");
-                $stmt->execute([$tenant_id, $clinic_name, $country_region]);
-
-                // 2) Create tenant owner user (role = tenant_owner)
-                $stmt = $pdo->query("SELECT MAX(user_id) FROM tbl_users");
-                $max_user = $stmt->fetchColumn();
-                if ($max_user) {
-                    $unum = intval(substr($max_user, 5)) + 1;
-                } else {
-                    $unum = 1;
-                }
-                $user_id = 'USER_' . str_pad($unum, 5, '0', STR_PAD_LEFT);
-                $password_hash = password_hash($password, PASSWORD_DEFAULT);
-                $full_name = trim($_POST['full_name'] ?? '') !== '' ? trim($_POST['full_name']) : $username;
-                $stmt = $pdo->prepare("INSERT INTO tbl_users (user_id, tenant_id, username, email, full_name, password_hash, role) VALUES (?, ?, ?, ?, ?, ?, 'tenant_owner')");
-                $stmt->execute([$user_id, $tenant_id, $username, $email, $full_name, $password_hash]);
-
-                // 3) Set tenant's official owner
-                $stmt = $pdo->prepare("UPDATE tbl_tenants SET owner_user_id = ? WHERE tenant_id = ?");
-                $stmt->execute([$user_id, $tenant_id]);
-
-                // 4) Email verification OTP (6 digits, expires in 15 min)
-                $otp_code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-                $otp_hash = password_hash($otp_code, PASSWORD_DEFAULT);
-                $otp_expires = date('Y-m-d H:i:s', time() + 900);
-                $stmt = $pdo->prepare("INSERT INTO tbl_email_verifications (tenant_id, user_id, otp_hash, otp_expires_at, attempts) VALUES (?, ?, ?, ?, 0)");
-                $stmt->execute([$tenant_id, $user_id, $otp_hash, $otp_expires]);
-
-                $pdo->commit();
-
-                // Send OTP email (Gmail SMTP)
-                send_otp_email($email, $otp_code);
-
-                // Store onboarding session and redirect to OTP (do not log in yet)
-                $_SESSION['onboarding_user_id'] = $user_id;
-                $_SESSION['onboarding_tenant_id'] = $tenant_id;
-                $_SESSION['onboarding_email'] = $email;
-                $_SESSION['onboarding_plan'] = $plan;
-                $_SESSION['onboarding_full_name'] = isset($full_name) ? $full_name : $username;
-                $_SESSION['onboarding_username'] = $username;
-                header('Location: ProviderOTP.php');
-                exit;
             }
         } catch (PDOException $e) {
             if (isset($pdo) && $pdo->inTransaction()) {

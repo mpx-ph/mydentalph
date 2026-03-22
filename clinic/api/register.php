@@ -202,15 +202,10 @@ function registerPublicClient(array $data) {
 
     $hashedPassword = password_hash($data['password'], PASSWORD_DEFAULT);
 
-    // Generate provider-level user_id without touching clinic `users` table
-    $stmt = $pdo->query("SELECT MAX(user_id) FROM tbl_users");
-    $maxUserId = $stmt->fetchColumn();
-    if ($maxUserId) {
-        $num = intval(substr($maxUserId, 5)) + 1;
-    } else {
-        $num = 1;
-    }
-    $userId = 'USER_' . str_pad($num, 5, '0', STR_PAD_LEFT);
+    // Generate provider-level user_id (numeric USER_* only; MAX(varchar) mixes P-/M- style ids)
+    $stmt = $pdo->query("SELECT COALESCE(MAX(CAST(SUBSTRING(user_id, 6) AS UNSIGNED)), 0) FROM tbl_users WHERE user_id REGEXP '^USER_[0-9]+$'");
+    $num = (int) $stmt->fetchColumn() + 1;
+    $userId = 'USER_' . str_pad((string) $num, 5, '0', STR_PAD_LEFT);
 
     // Public signups in provider tbl_users: mark as active client for this tenant
     $status = 'active';
