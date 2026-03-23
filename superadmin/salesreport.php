@@ -110,6 +110,58 @@ function salesreport_format_date_for_table(string $dateTime): string
     return $ts ? date('M j, Y', $ts) : $dateTime;
 }
 
+/** Per-section pagination: preserve other query params when changing one page. */
+function salesreport_pagination_url(string $pageKey, int $page): string
+{
+    $params = $_GET;
+    if ($page <= 1) {
+        unset($params[$pageKey]);
+    } else {
+        $params[$pageKey] = (string) $page;
+    }
+    $q = http_build_query($params);
+    return htmlspecialchars($_SERVER['PHP_SELF'] ?? 'salesreport.php') . ($q !== '' ? '?' . $q : '');
+}
+
+function salesreport_pagination_controls(
+    string $pageKey,
+    int $currentPage,
+    int $totalPages,
+    int $totalItems,
+    int $perPage,
+    int $itemCountOnPage
+): void {
+    if ($totalItems === 0) {
+        echo '<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">0 results</p>';
+        return;
+    }
+    $from = ($currentPage - 1) * $perPage + 1;
+    $to = ($currentPage - 1) * $perPage + $itemCountOnPage;
+    $prev = max(1, $currentPage - 1);
+    $next = min($totalPages, $currentPage + 1);
+    $prevDisabled = $currentPage <= 1;
+    $nextDisabled = $currentPage >= $totalPages;
+    ?>
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">
+<?php echo htmlspecialchars(number_format($from)); ?>–<?php echo htmlspecialchars(number_format($to)); ?> of <?php echo htmlspecialchars(number_format($totalItems)); ?> · Page <?php echo htmlspecialchars((string) $currentPage); ?> of <?php echo htmlspecialchars((string) max(1, $totalPages)); ?>
+</p>
+<div class="flex items-center gap-2">
+<?php if ($prevDisabled): ?>
+<span class="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/40 border border-white/50 cursor-not-allowed">Prev</span>
+<?php else: ?>
+<a href="<?php echo salesreport_pagination_url($pageKey, $prev); ?>" class="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/30 hover:bg-primary/5 transition-colors">Prev</a>
+<?php endif; ?>
+<?php if ($nextDisabled): ?>
+<span class="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/40 border border-white/50 cursor-not-allowed">Next</span>
+<?php else: ?>
+<a href="<?php echo salesreport_pagination_url($pageKey, $next); ?>" class="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/30 hover:bg-primary/5 transition-colors">Next</a>
+<?php endif; ?>
+</div>
+</div>
+    <?php
+}
+
 // Revenue stats use paid subscription payments across all tenants.
 $todayStart = new DateTime('today');
 $todayStart->setTime(0, 0, 0);
@@ -161,13 +213,25 @@ try {
     error_log('salesreport revenue stats error: ' . $e->getMessage());
 }
 
-// Recent daily revenue: last 5 days (including today), paid subscriptions.
-$recentDailyRevenue = [];
-$dailyStart = clone $todayStart;
-$dailyStart->modify('-4 days');
-$dailyEnd = clone $todayEnd; // exclusive
+// Recent daily revenue: paginated calendar days (newest first), paid subscriptions.
+$dailyPerPage = 5;
+$maxDaysBack = 365;
+$totalDailyPages = max(1, (int) ceil($maxDaysBack / $dailyPerPage));
+$dailyPage = (int) ($_GET['daily_page'] ?? 1);
+if ($dailyPage < 1) {
+    $dailyPage = 1;
+} elseif ($dailyPage > $totalDailyPages) {
+    $dailyPage = $totalDailyPages;
+}
+$minDaysAgo = ($dailyPage - 1) * $dailyPerPage;
 
+$recentDailyRevenue = [];
 try {
+    $rangeOldestDaysAgo = $minDaysAgo + $dailyPerPage - 1;
+    $rangeStart = clone $todayStart;
+    $rangeStart->modify('-' . $rangeOldestDaysAgo . ' days');
+    $rangeEnd = clone $todayEnd;
+
     $stmt = $pdo->prepare("
         SELECT
             DATE(created_at) as payment_day,
@@ -179,7 +243,7 @@ try {
         GROUP BY DATE(created_at)
         ORDER BY payment_day ASC
     ");
-    $stmt->execute([$dailyStart->format('Y-m-d H:i:s'), $dailyEnd->format('Y-m-d H:i:s')]);
+    $stmt->execute([$rangeStart->format('Y-m-d H:i:s'), $rangeEnd->format('Y-m-d H:i:s')]);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $revenueByDay = [];
     foreach ($rows as $row) {
@@ -189,10 +253,13 @@ try {
         }
     }
 
-    // Render latest -> oldest
-    for ($i = 4; $i >= 0; $i--) {
-        $d = clone $dailyStart;
-        $d->modify('+' . $i . ' days');
+    for ($k = 0; $k < $dailyPerPage; $k++) {
+        $daysAgo = $minDaysAgo + $k;
+        if ($daysAgo >= $maxDaysBack) {
+            break;
+        }
+        $d = clone $todayStart;
+        $d->modify('-' . $daysAgo . ' days');
         $key = $d->format('Y-m-d');
         $recentDailyRevenue[] = [
             'label' => $d->format('M j'),
@@ -202,10 +269,27 @@ try {
 } catch (Exception $e) {
     error_log('salesreport recent daily revenue error: ' . $e->getMessage());
 }
+$dailyTotalItems = $maxDaysBack;
 
-// Recent transactions table: latest 5 paid subscription records across all tenants.
+// Recent transactions table: paid subscription records across all tenants (paginated).
+$txPerPage = 10;
 $recentTransactions = [];
+$totalTxCount = 0;
+$txTotalPages = 1;
+$txPage = (int) ($_GET['tx_page'] ?? 1);
+if ($txPage < 1) {
+    $txPage = 1;
+}
 try {
+    $cntStmt = $pdo->query("
+        SELECT COUNT(*) FROM tbl_tenant_subscriptions WHERE payment_status = 'paid'
+    ");
+    $totalTxCount = (int) $cntStmt->fetchColumn();
+    $txTotalPages = max(1, (int) ceil($totalTxCount / $txPerPage));
+    if ($txPage > $txTotalPages) {
+        $txPage = $txTotalPages;
+    }
+    $txOffset = ($txPage - 1) * $txPerPage;
     $stmt = $pdo->prepare("
         SELECT
             ts.created_at as payment_date,
@@ -220,7 +304,7 @@ try {
         LEFT JOIN tbl_subscription_plans sp ON ts.plan_id = sp.plan_id
         WHERE ts.payment_status = 'paid'
         ORDER BY ts.created_at DESC, ts.id DESC
-        LIMIT 5
+        LIMIT " . (int) $txPerPage . " OFFSET " . (int) $txOffset . "
     ");
     $stmt->execute();
     $recentTransactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -228,9 +312,31 @@ try {
     error_log('salesreport recent transactions error: ' . $e->getMessage());
 }
 
-// Top clinics ranking by total paid subscription spend.
+// Top clinics ranking by total paid subscription spend (paginated).
+$clinicsPerPage = 10;
 $topClinics = [];
+$totalClinicsCount = 0;
+$clinicsTotalPages = 1;
+$clinicsPage = (int) ($_GET['clinics_page'] ?? 1);
+if ($clinicsPage < 1) {
+    $clinicsPage = 1;
+}
 try {
+    $cntStmt = $pdo->query("
+        SELECT COUNT(*) FROM (
+            SELECT ts.tenant_id
+            FROM tbl_tenant_subscriptions ts
+            INNER JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
+            WHERE ts.payment_status = 'paid'
+            GROUP BY ts.tenant_id, t.clinic_name
+        ) ranked_clinics
+    ");
+    $totalClinicsCount = (int) $cntStmt->fetchColumn();
+    $clinicsTotalPages = max(1, (int) ceil($totalClinicsCount / $clinicsPerPage));
+    if ($clinicsPage > $clinicsTotalPages) {
+        $clinicsPage = $clinicsTotalPages;
+    }
+    $clinicsOffset = ($clinicsPage - 1) * $clinicsPerPage;
     $stmt = $pdo->prepare("
         SELECT
             t.clinic_name,
@@ -241,6 +347,7 @@ try {
         WHERE ts.payment_status = 'paid'
         GROUP BY ts.tenant_id, t.clinic_name
         ORDER BY total_spend DESC, paid_transactions DESC, t.clinic_name ASC
+        LIMIT " . (int) $clinicsPerPage . " OFFSET " . (int) $clinicsOffset . "
     ");
     $stmt->execute();
     $topClinics = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -340,11 +447,11 @@ require __DIR__ . '/superadmin_header.php';
 <div class="flex items-start justify-between gap-4">
 <div>
 <h3 class="text-xl font-extrabold font-headline text-on-surface tracking-tight">Recent Daily Revenue</h3>
-<p class="text-sm text-on-surface-variant font-medium mt-1">Revenue per day (last 5 days, paid subscriptions)</p>
+<p class="text-sm text-on-surface-variant font-medium mt-1">Revenue per day, paid subscriptions (<?php echo (int) $dailyPerPage; ?> days per page, up to <?php echo (int) $maxDaysBack; ?> days)</p>
 </div>
 <div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-60">
 <span class="material-symbols-outlined text-lg">insights</span>
-<span>Last 5 Days</span>
+<span>Daily</span>
 </div>
 </div>
 <div class="overflow-x-auto mt-8">
@@ -372,9 +479,7 @@ require __DIR__ . '/superadmin_header.php';
 </table>
 </div>
 <div class="px-8 py-5 border-t border-white/50">
-<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">
-<?php echo htmlspecialchars(number_format(count($recentDailyRevenue))); ?> results · Page 1 of 1
-</p>
+<?php salesreport_pagination_controls('daily_page', $dailyPage, $totalDailyPages, $dailyTotalItems, $dailyPerPage, count($recentDailyRevenue)); ?>
 </div>
 </section>
 
@@ -408,7 +513,7 @@ require __DIR__ . '/superadmin_header.php';
 <?php else: ?>
 <?php foreach ($topClinics as $idx => $clinic): ?>
 <?php
-$rank = $idx + 1;
+$rank = ($clinicsPage - 1) * $clinicsPerPage + $idx + 1;
 $rankBadgeClasses = 'bg-surface-container-high text-on-surface-variant';
 if ($rank === 1) {
     $rankBadgeClasses = 'bg-amber-50 text-amber-600';
@@ -434,9 +539,7 @@ if ($rank === 1) {
 </table>
 </div>
 <div class="px-10 py-5 border-t border-white/50">
-<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">
-<?php echo htmlspecialchars(number_format(count($topClinics))); ?> results · Page 1 of 1
-</p>
+<?php salesreport_pagination_controls('clinics_page', $clinicsPage, $clinicsTotalPages, $totalClinicsCount, $clinicsPerPage, count($topClinics)); ?>
 </div>
 </section>
 </div>
@@ -523,9 +626,7 @@ $amount = (float) ($tx['amount'] ?? 0);
 </table>
 </div>
 <div class="px-10 py-5 border-t border-white/50">
-<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">
-<?php echo htmlspecialchars(number_format(count($recentTransactions))); ?> results · Page 1 of 1
-</p>
+<?php salesreport_pagination_controls('tx_page', $txPage, $txTotalPages, $totalTxCount, $txPerPage, count($recentTransactions)); ?>
 </div>
 </div>
 </div>

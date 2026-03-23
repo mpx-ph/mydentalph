@@ -285,35 +285,6 @@ require __DIR__ . '/superadmin_header.php';
 </button>
 </div>
 </div>
-<!-- Footer Grid (Same style as SCREEN_4) -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-<div class="p-10 bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow flex items-center justify-between group cursor-pointer hover:-translate-y-1 transition-all">
-<div>
-<h4 class="text-xl font-extrabold font-headline text-on-surface">Report Templates</h4>
-<p class="text-sm text-on-surface-variant mt-2 font-medium">Create customized templates for recurring clinic analytics.</p>
-<button class="mt-6 px-6 py-2.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-2xl text-xs font-bold transition-all flex items-center gap-2">
-                            Manage Templates
-                            <span class="material-symbols-outlined text-sm">settings</span>
-</button>
-</div>
-<div class="w-24 h-24 rounded-[2rem] bg-primary/5 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-<span class="material-symbols-outlined text-4xl text-primary">description</span>
-</div>
-</div>
-<div class="p-10 bg-gradient-to-br from-[#ffdcc3] to-[#ffb77e] rounded-[2.5rem] shadow-xl shadow-orange-900/10 flex items-center justify-between group cursor-pointer hover:-translate-y-1 transition-all">
-<div>
-<h4 class="text-xl font-extrabold font-headline text-[#2f1500]">System Health</h4>
-<p class="text-sm text-[#6e3900]/80 mt-2 font-medium leading-relaxed">Infrastructure status and report generation latency metrics.</p>
-<button class="mt-6 px-6 py-2.5 bg-white/30 text-[#2f1500] hover:bg-white/50 rounded-2xl text-xs font-bold transition-all flex items-center gap-2">
-                            View Status
-                            <span class="material-symbols-outlined text-sm">cloud_done</span>
-</button>
-</div>
-<div class="w-24 h-24 rounded-[2rem] bg-white/20 flex items-center justify-center group-hover:scale-105 transition-transform">
-<span class="material-symbols-outlined text-4xl text-[#2f1500]">analytics</span>
-</div>
-</div>
-</div>
 </div>
 </main>
 </body></html>
