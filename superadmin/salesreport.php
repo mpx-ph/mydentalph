@@ -233,10 +233,6 @@ try {
     error_log('salesreport top clinics error: ' . $e->getMessage());
 }
 
-$recentDailyRevenueCount = is_array($recentDailyRevenue) ? count($recentDailyRevenue) : 0;
-$topClinicsCount = is_array($topClinics) ? count($topClinics) : 0;
-$recentTransactionsCount = is_array($recentTransactions) ? count($recentTransactions) : 0;
-
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
 ?>
@@ -334,9 +330,6 @@ require __DIR__ . '/superadmin_header.php';
 <div>
 <h3 class="text-xl font-extrabold font-headline text-on-surface tracking-tight">Recent Daily Revenue</h3>
 <p class="text-sm text-on-surface-variant font-medium mt-1">Revenue per day (last 5 days, completed payments)</p>
-<p class="text-[10px] font-bold text-on-surface-variant/70 uppercase tracking-widest opacity-60 mt-2">
-    <?php echo (int) $recentDailyRevenueCount; ?> results · Page 1 of 1
-</p>
 </div>
 <div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-60">
 <span class="material-symbols-outlined text-lg">insights</span>
@@ -367,6 +360,11 @@ require __DIR__ . '/superadmin_header.php';
 </tbody>
 </table>
 </div>
+<div class="px-8 py-5 border-t border-white/50">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">
+<?php echo htmlspecialchars(number_format(count($recentDailyRevenue))); ?> results · Page 1 of 1
+</p>
+</div>
 </section>
 
 <!-- Top Clinics Ranking -->
@@ -375,9 +373,6 @@ require __DIR__ . '/superadmin_header.php';
 <div>
 <h3 class="text-xl font-extrabold font-headline text-on-surface tracking-tight">Top Clinics</h3>
 <p class="text-sm text-on-surface-variant font-medium mt-1">Ranked by total paid subscription spend</p>
-<p class="text-[10px] font-bold text-on-surface-variant/70 uppercase tracking-widest opacity-60 mt-2">
-    <?php echo (int) $topClinicsCount; ?> results · Page 1 of 1
-</p>
 </div>
 <div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-60">
 <span class="material-symbols-outlined text-lg">leaderboard</span>
@@ -427,18 +422,18 @@ if ($rank === 1) {
 </tbody>
 </table>
 </div>
+<div class="px-10 py-5 border-t border-white/50">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">
+<?php echo htmlspecialchars(number_format(count($topClinics))); ?> results · Page 1 of 1
+</p>
+</div>
 </section>
 </div>
 
 <!-- Recent Transactions Table (Styled like SCREEN_4 table) -->
 <div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
 <div class="px-10 py-8 flex items-center justify-between border-b border-white/50">
-<div>
 <h3 class="text-xl font-extrabold font-headline text-on-surface tracking-tight">Recent Transactions</h3>
-<p class="text-[10px] font-bold text-on-surface-variant/70 uppercase tracking-widest opacity-60 mt-2">
-    <?php echo (int) $recentTransactionsCount; ?> results · Page 1 of 1
-</p>
-</div>
 <button class="text-primary font-bold text-sm hover:underline">View All History</button>
 </div>
 <div class="overflow-x-auto">
@@ -515,6 +510,11 @@ $amount = (float) ($tx['amount'] ?? 0);
 <?php endif; ?>
 </tbody>
 </table>
+</div>
+<div class="px-10 py-5 border-t border-white/50">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">
+<?php echo htmlspecialchars(number_format(count($recentTransactions))); ?> results · Page 1 of 1
+</p>
 </div>
 </div>
 </div>
