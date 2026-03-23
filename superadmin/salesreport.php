@@ -65,19 +65,19 @@
             display: none;
         }
         .export-modal-backdrop {
-            background: rgba(5, 16, 45, 0.72);
+            background: rgba(19, 28, 37, 0.35);
             backdrop-filter: blur(4px);
             -webkit-backdrop-filter: blur(4px);
         }
         .export-modal-panel {
-            background: linear-gradient(180deg, #0f1b47 0%, #0b1538 100%);
-            color: #d7e3ff;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 30px 80px -25px rgba(0, 0, 0, 0.6);
+            background: rgba(255, 255, 255, 0.92);
+            color: #131c25;
+            border: 1px solid rgba(224, 233, 246, 0.85);
+            box-shadow: 0 30px 80px -25px rgba(19, 28, 37, 0.25);
         }
         .export-option-card {
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: rgba(237, 244, 255, 0.7);
+            border: 1px solid rgba(192, 199, 212, 0.45);
         }
     </style>
 </head>
@@ -340,7 +340,7 @@ require __DIR__ . '/superadmin_header.php';
 <div class="flex items-start justify-between gap-4">
 <div>
 <h3 class="text-xl font-extrabold font-headline text-on-surface tracking-tight">Recent Daily Revenue</h3>
-<p class="text-sm text-on-surface-variant font-medium mt-1">Revenue per day (last 5 days, completed payments)</p>
+<p class="text-sm text-on-surface-variant font-medium mt-1">Revenue per day (last 5 days, paid subscriptions)</p>
 </div>
 <div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-60">
 <span class="material-symbols-outlined text-lg">insights</span>
@@ -539,71 +539,78 @@ $amount = (float) ($tx['amount'] ?? 0);
 <!-- Sales Report Export Modal -->
 <div id="sales-export-modal" class="fixed inset-0 z-[70] hidden export-modal-backdrop items-center justify-center p-4 sm:p-8">
 <div class="export-modal-panel w-full max-w-3xl rounded-[2rem] overflow-hidden">
-<div class="px-8 py-6 border-b border-white/10 flex items-start justify-between gap-4">
+<div class="px-8 py-6 border-b border-outline-variant/40 flex items-start justify-between gap-4">
 <div>
 <h3 class="text-2xl font-extrabold tracking-tight">
-<span class="text-white">Export</span> <span class="text-cyan-300">Options</span>
+<span class="text-on-surface">Export</span> <span class="text-primary">Options</span>
 </h3>
-<p class="mt-2 text-xs font-bold uppercase tracking-[0.2em] text-white/45">Select categories to include in your report</p>
+<p class="mt-2 text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant/60">Select categories to include in your report</p>
 </div>
-<button id="close-sales-export-modal" type="button" class="w-14 h-14 rounded-2xl bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center text-white/80">
+<button id="close-sales-export-modal" type="button" class="w-14 h-14 rounded-2xl bg-surface-container-low hover:bg-white transition-colors flex items-center justify-center text-on-surface-variant">
 <span class="material-symbols-outlined">close</span>
 </button>
 </div>
 <form action="salesreport_export_pdf.php" method="get" class="max-h-[70vh] overflow-y-auto p-8 space-y-7">
 <div>
-<h4 class="text-sm font-bold uppercase tracking-[0.16em] text-white/45 mb-4">Revenue Breakdown</h4>
+<h4 class="text-sm font-bold uppercase tracking-[0.16em] text-on-surface-variant/70 mb-4">Revenue Breakdown</h4>
 <div class="space-y-4">
 <label class="export-option-card rounded-3xl p-5 flex items-center justify-between gap-3 cursor-pointer">
 <span class="flex items-center gap-3">
-<input type="checkbox" name="include_today" value="1" checked class="w-5 h-5 rounded border-white/20 bg-transparent text-cyan-300 focus:ring-cyan-300/40"/>
-<span class="font-extrabold text-white">Today's Revenue</span>
+<input type="hidden" name="include_today" value="0"/>
+<input type="checkbox" name="include_today" value="1" checked class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
+<span class="font-extrabold text-on-surface">Today's Revenue</span>
 </span>
-<span class="text-cyan-300 font-black"><?php echo htmlspecialchars(salesreport_format_money_exact((float) $todayRevenue)); ?></span>
+<span class="text-primary font-black"><?php echo htmlspecialchars(salesreport_format_money_exact((float) $todayRevenue)); ?></span>
 </label>
 <label class="export-option-card rounded-3xl p-5 flex items-center justify-between gap-3 cursor-pointer">
 <span class="flex items-center gap-3">
-<input type="checkbox" name="include_week" value="1" checked class="w-5 h-5 rounded border-white/20 bg-transparent text-cyan-300 focus:ring-cyan-300/40"/>
-<span class="font-extrabold text-white">Weekly Revenue</span>
+<input type="hidden" name="include_week" value="0"/>
+<input type="checkbox" name="include_week" value="1" checked class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
+<span class="font-extrabold text-on-surface">Weekly Revenue</span>
 </span>
-<span class="text-cyan-300 font-black"><?php echo htmlspecialchars(salesreport_format_money_exact((float) $weekRevenue)); ?></span>
+<span class="text-primary font-black"><?php echo htmlspecialchars(salesreport_format_money_exact((float) $weekRevenue)); ?></span>
 </label>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 <label class="export-option-card rounded-3xl p-5 flex items-center justify-between gap-3 cursor-pointer">
 <span class="flex items-center gap-3">
-<input type="checkbox" name="include_month" value="1" checked class="w-5 h-5 rounded border-white/20 bg-transparent text-cyan-300 focus:ring-cyan-300/40"/>
-<span class="font-extrabold text-white">Monthly</span>
+<input type="hidden" name="include_month" value="0"/>
+<input type="checkbox" name="include_month" value="1" checked class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
+<span class="font-extrabold text-on-surface">Monthly</span>
 </span>
-<span class="text-cyan-300 font-black"><?php echo htmlspecialchars(salesreport_format_money_exact((float) $monthRevenue)); ?></span>
+<span class="text-primary font-black"><?php echo htmlspecialchars(salesreport_format_money_exact((float) $monthRevenue)); ?></span>
 </label>
 <label class="export-option-card rounded-3xl p-5 flex items-center justify-between gap-3 cursor-pointer">
 <span class="flex items-center gap-3">
-<input type="checkbox" name="include_year" value="1" checked class="w-5 h-5 rounded border-white/20 bg-transparent text-cyan-300 focus:ring-cyan-300/40"/>
-<span class="font-extrabold text-white">Yearly</span>
+<input type="hidden" name="include_year" value="0"/>
+<input type="checkbox" name="include_year" value="1" checked class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
+<span class="font-extrabold text-on-surface">Yearly</span>
 </span>
-<span class="text-cyan-300 font-black"><?php echo htmlspecialchars(salesreport_format_money_exact((float) $yearRevenue)); ?></span>
+<span class="text-primary font-black"><?php echo htmlspecialchars(salesreport_format_money_exact((float) $yearRevenue)); ?></span>
 </label>
 </div>
 <label class="export-option-card rounded-3xl p-5 flex items-center gap-3 cursor-pointer">
-<input type="checkbox" name="include_daily" value="1" checked class="w-5 h-5 rounded border-white/20 bg-transparent text-cyan-300 focus:ring-cyan-300/40"/>
-<span class="font-extrabold text-white">Daily Revenue List (Recent)</span>
+<input type="hidden" name="include_daily" value="0"/>
+<input type="checkbox" name="include_daily" value="1" checked class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
+<span class="font-extrabold text-on-surface">Daily Revenue List (Recent)</span>
 </label>
 <label class="export-option-card rounded-3xl p-5 flex items-center gap-3 cursor-pointer">
-<input type="checkbox" name="include_transactions" value="1" class="w-5 h-5 rounded border-white/20 bg-transparent text-cyan-300 focus:ring-cyan-300/40"/>
-<span class="font-extrabold text-white">Full Transaction Log (Paid Subscriptions)</span>
+<input type="hidden" name="include_transactions" value="0"/>
+<input type="checkbox" name="include_transactions" value="1" class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
+<span class="font-extrabold text-on-surface">Full Transaction Log (Paid Subscriptions)</span>
 </label>
 </div>
 </div>
 <div>
-<h4 class="text-sm font-bold uppercase tracking-[0.16em] text-white/45 mb-4">Other Insights</h4>
+<h4 class="text-sm font-bold uppercase tracking-[0.16em] text-on-surface-variant/70 mb-4">Other Insights</h4>
 <label class="export-option-card rounded-3xl p-5 flex items-center gap-3 cursor-pointer">
-<input type="checkbox" name="include_top_clinics" value="1" checked class="w-5 h-5 rounded border-white/20 bg-transparent text-cyan-300 focus:ring-cyan-300/40"/>
-<span class="font-extrabold text-white">Clinic Performance Leaderboard</span>
+<input type="hidden" name="include_top_clinics" value="0"/>
+<input type="checkbox" name="include_top_clinics" value="1" checked class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
+<span class="font-extrabold text-on-surface">Clinic Performance Leaderboard</span>
 </label>
 </div>
 <div class="pt-2 flex justify-end gap-3">
-<button type="button" id="cancel-sales-export-modal" class="px-6 py-3 rounded-2xl text-sm font-bold text-white/80 bg-white/10 hover:bg-white/15 transition-colors">Cancel</button>
-<button type="submit" class="px-7 py-3 rounded-2xl text-sm font-bold text-[#04213d] bg-cyan-300 hover:bg-cyan-200 transition-colors">Download PDF</button>
+<button type="button" id="cancel-sales-export-modal" class="px-6 py-3 rounded-2xl text-sm font-bold text-on-surface-variant bg-surface-container-low hover:bg-white transition-colors">Cancel</button>
+<button type="submit" class="px-7 py-3 rounded-2xl text-sm font-bold text-white bg-primary hover:brightness-110 transition-colors">Download PDF</button>
 </div>
 </form>
 </div>

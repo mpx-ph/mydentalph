@@ -90,13 +90,31 @@ $yearStart->setTime(0, 0, 0);
 $yearEnd = clone $yearStart;
 $yearEnd->modify('+1 year');
 
-$includeToday = salesreport_pdf_bool('include_today', true);
-$includeWeek = salesreport_pdf_bool('include_week', true);
-$includeMonth = salesreport_pdf_bool('include_month', true);
-$includeYear = salesreport_pdf_bool('include_year', true);
-$includeDaily = salesreport_pdf_bool('include_daily', true);
+$optionKeys = [
+    'include_today',
+    'include_week',
+    'include_month',
+    'include_year',
+    'include_daily',
+    'include_transactions',
+    'include_top_clinics',
+];
+$hasExplicitOptions = false;
+foreach ($optionKeys as $k) {
+    if (isset($_GET[$k])) {
+        $hasExplicitOptions = true;
+        break;
+    }
+}
+
+// Default selection when opened directly (without option params): include key sections.
+$includeToday = salesreport_pdf_bool('include_today', !$hasExplicitOptions);
+$includeWeek = salesreport_pdf_bool('include_week', !$hasExplicitOptions);
+$includeMonth = salesreport_pdf_bool('include_month', !$hasExplicitOptions);
+$includeYear = salesreport_pdf_bool('include_year', !$hasExplicitOptions);
+$includeDaily = salesreport_pdf_bool('include_daily', !$hasExplicitOptions);
 $includeTransactions = salesreport_pdf_bool('include_transactions', false);
-$includeTopClinics = salesreport_pdf_bool('include_top_clinics', true);
+$includeTopClinics = salesreport_pdf_bool('include_top_clinics', !$hasExplicitOptions);
 
 $todayRevenue = 0.0;
 $weekRevenue = 0.0;
@@ -227,12 +245,13 @@ if ($tcpdfPath !== null) {
         $pdf->SetFont('helvetica', '', 10);
         $pdf->AddPage();
 
-        $pdf->SetFont('helvetica', 'B', 16);
+        $pdf->SetFont('helvetica', 'B', 18);
         $pdf->SetTextColor(0, 102, 255);
         $pdf->Cell(0, 8, 'MyDental Sales Report', 0, 1, 'L');
-        $pdf->SetFont('helvetica', '', 9.5);
+        $pdf->SetFont('helvetica', '', 10);
         $pdf->SetTextColor(80, 90, 100);
         $pdf->Cell(0, 6, 'Paid subscription analytics across all clinics', 0, 1, 'L');
+        $pdf->Cell(0, 6, 'Generated: ' . date('M j, Y g:i A'), 0, 1, 'L');
         $pdf->Ln(2);
         $pdf->SetDrawColor(0, 102, 255);
         $pdf->Line(15, $pdf->GetY(), 195, $pdf->GetY());
@@ -250,9 +269,13 @@ if ($tcpdfPath !== null) {
             if ($includeYear) $summaryLines[] = "Yearly Revenue: " . salesreport_money($yearRevenue);
             if (empty($summaryLines)) $summaryLines[] = 'No revenue summary metrics selected.';
 
+            $pdf->SetFont('helvetica', 'B', 11);
+            $pdf->SetTextColor(25, 35, 50);
+            $pdf->Cell(0, 6, 'Executive Summary', 0, 1, 'L');
             $pdf->SetFillColor(240, 245, 255);
             $pdf->SetDrawColor(190, 205, 235);
             $pdf->SetFont('helvetica', '', 9.5);
+            $pdf->SetTextColor(45, 55, 65);
             $pdf->MultiCell(0, 6, implode('  |  ', $summaryLines), 1, 'L', true);
             $pdf->Ln(4);
 
@@ -260,7 +283,7 @@ if ($tcpdfPath !== null) {
                 $pdf->SetFont('helvetica', 'B', 11);
                 $pdf->SetTextColor(25, 35, 50);
                 $pdf->Cell(0, 6, 'Recent daily revenue (last 5 days)', 0, 1, 'L');
-                $html = '<table border="1" cellpadding="4" cellspacing="0" width="100%" style="font-size:9pt;">';
+                $html = '<table border="1" cellpadding="5" cellspacing="0" width="100%" style="font-size:9pt;">';
                 $html .= '<tr style="background-color:#1e293b;color:#ffffff;"><th width="60%">Date</th><th width="40%" align="right">Revenue</th></tr>';
                 foreach ($recentDailyRevenue as $r) {
                     $html .= '<tr><td>' . htmlspecialchars((string) $r['label'], ENT_QUOTES, 'UTF-8') . '</td><td align="right">' . htmlspecialchars(salesreport_money((float) $r['revenue']), ENT_QUOTES, 'UTF-8') . '</td></tr>';
@@ -273,7 +296,7 @@ if ($tcpdfPath !== null) {
             if ($includeTopClinics) {
                 $pdf->SetFont('helvetica', 'B', 11);
                 $pdf->Cell(0, 6, 'Top clinics by total subscription spend', 0, 1, 'L');
-                $html = '<table border="1" cellpadding="4" cellspacing="0" width="100%" style="font-size:8.8pt;">';
+                $html = '<table border="1" cellpadding="5" cellspacing="0" width="100%" style="font-size:8.8pt;">';
                 $html .= '<tr style="background-color:#1e293b;color:#ffffff;"><th width="12%">Rank</th><th width="44%">Clinic</th><th width="20%" align="right">Transactions</th><th width="24%" align="right">Total Spend</th></tr>';
                 if (empty($topClinics)) {
                     $html .= '<tr><td colspan="4" align="center">No paid subscription data found.</td></tr>';
@@ -293,6 +316,7 @@ if ($tcpdfPath !== null) {
             }
 
             if ($includeTransactions) {
+                $pdf->AddPage();
                 $pdf->SetFont('helvetica', 'B', 11);
                 $pdf->Cell(0, 6, 'Full transaction log (paid subscriptions)', 0, 1, 'L');
                 $html = '<table border="1" cellpadding="3" cellspacing="0" width="100%" style="font-size:8.3pt;">';
@@ -351,6 +375,7 @@ try {
     $pdf->SetFont('Helvetica', '', 9);
     $pdf->SetTextColor(80, 90, 100);
     $pdf->Cell(0, 6, salesreport_pdf_latin1_safe('Paid subscription analytics across all clinics'), 0, 1, 'L');
+    $pdf->Cell(0, 6, salesreport_pdf_latin1_safe('Generated: ' . date('M j, Y g:i A')), 0, 1, 'L');
     $pdf->Ln(3);
 
     if ($dbError !== null) {
@@ -377,6 +402,52 @@ try {
                 $pdf->Cell(80, 6, salesreport_pdf_latin1_safe(salesreport_money((float) $r['revenue'])), 1, 1, 'R');
             }
             $pdf->Ln(3);
+        }
+
+        if ($includeTopClinics) {
+            $pdf->SetFont('Helvetica', '', 11);
+            $pdf->Cell(0, 6, salesreport_pdf_latin1_safe('Top clinics by total subscription spend'), 0, 1, 'L');
+            $pdf->SetFont('Helvetica', '', 8.5);
+            $pdf->Cell(16, 7, '#', 1, 0, 'C');
+            $pdf->Cell(86, 7, salesreport_pdf_latin1_safe('Clinic'), 1, 0, 'L');
+            $pdf->Cell(36, 7, salesreport_pdf_latin1_safe('Transactions'), 1, 0, 'R');
+            $pdf->Cell(42, 7, salesreport_pdf_latin1_safe('Total Spend'), 1, 1, 'R');
+            if (empty($topClinics)) {
+                $pdf->Cell(180, 7, salesreport_pdf_latin1_safe('No paid subscription data found.'), 1, 1, 'C');
+            } else {
+                foreach ($topClinics as $i => $c) {
+                    $pdf->Cell(16, 6, (string) ($i + 1), 1, 0, 'C');
+                    $pdf->Cell(86, 6, salesreport_pdf_latin1_safe((string) ($c['clinic_name'] ?? 'Unknown Clinic')), 1, 0, 'L');
+                    $pdf->Cell(36, 6, number_format((int) ($c['paid_transactions'] ?? 0)), 1, 0, 'R');
+                    $pdf->Cell(42, 6, salesreport_pdf_latin1_safe(salesreport_money((float) ($c['total_spend'] ?? 0))), 1, 1, 'R');
+                }
+            }
+            $pdf->Ln(3);
+        }
+
+        if ($includeTransactions) {
+            $pdf->AddPage();
+            $pdf->SetFont('Helvetica', '', 11);
+            $pdf->Cell(0, 6, salesreport_pdf_latin1_safe('Full transaction log (paid subscriptions)'), 0, 1, 'L');
+            $pdf->SetFont('Helvetica', '', 7.8);
+            $pdf->Cell(40, 7, salesreport_pdf_latin1_safe('Date'), 1, 0, 'L');
+            $pdf->Cell(50, 7, salesreport_pdf_latin1_safe('Clinic'), 1, 0, 'L');
+            $pdf->Cell(34, 7, salesreport_pdf_latin1_safe('Plan'), 1, 0, 'L');
+            $pdf->Cell(28, 7, salesreport_pdf_latin1_safe('Amount'), 1, 0, 'R');
+            $pdf->Cell(28, 7, salesreport_pdf_latin1_safe('Reference'), 1, 1, 'L');
+            if (empty($transactionRows)) {
+                $pdf->Cell(180, 7, salesreport_pdf_latin1_safe('No paid subscription transactions found.'), 1, 1, 'C');
+            } else {
+                foreach ($transactionRows as $row) {
+                    $ts = strtotime((string) ($row['created_at'] ?? ''));
+                    $dateLabel = $ts ? date('M j, Y H:i', $ts) : '-';
+                    $pdf->Cell(40, 6, salesreport_pdf_latin1_safe($dateLabel), 1, 0, 'L');
+                    $pdf->Cell(50, 6, salesreport_pdf_latin1_safe((string) ($row['clinic_name'] ?? 'Unknown Clinic')), 1, 0, 'L');
+                    $pdf->Cell(34, 6, salesreport_pdf_latin1_safe((string) ($row['plan_name'] ?? 'N/A')), 1, 0, 'L');
+                    $pdf->Cell(28, 6, salesreport_pdf_latin1_safe(salesreport_money((float) ($row['amount_paid'] ?? 0))), 1, 0, 'R');
+                    $pdf->Cell(28, 6, salesreport_pdf_latin1_safe((string) ($row['reference_number'] ?? '-')), 1, 1, 'L');
+                }
+            }
         }
     }
 
