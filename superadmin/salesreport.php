@@ -95,7 +95,7 @@ function salesreport_format_date_for_table(string $dateTime): string
     return $ts ? date('M j, Y', $ts) : $dateTime;
 }
 
-// Revenue stats use completed payments across all tenants.
+// Revenue stats use paid subscription payments across all tenants.
 $todayStart = new DateTime('today');
 $todayStart->setTime(0, 0, 0);
 $todayEnd = clone $todayStart;
@@ -123,13 +123,14 @@ $yearEnd->modify('+1 year');
 
 try {
     $stmt = $pdo->prepare("
-        SELECT COALESCE(SUM(amount), 0) as revenue
-        FROM payments
-        WHERE status = 'completed'
-          AND payment_date >= ?
-          AND payment_date < ?
+        SELECT COALESCE(SUM(amount_paid), 0) as revenue
+        FROM tbl_tenant_subscriptions
+        WHERE payment_status = 'paid'
+          AND created_at >= ?
+          AND created_at < ?
     ");
 
+    // NOTE: tbl_tenant_subscriptions uses created_at as the transaction date.
     $stmt->execute([$todayStart->format('Y-m-d H:i:s'), $todayEnd->format('Y-m-d H:i:s')]);
     $todayRevenue = (float) ($stmt->fetch()['revenue'] ?? 0);
 
@@ -145,7 +146,7 @@ try {
     error_log('salesreport revenue stats error: ' . $e->getMessage());
 }
 
-// Recent daily revenue: last 5 days (including today), completed payments.
+// Recent daily revenue: last 5 days (including today), paid subscriptions.
 $recentDailyRevenue = [];
 $dailyStart = clone $todayStart;
 $dailyStart->modify('-4 days');
@@ -154,13 +155,13 @@ $dailyEnd = clone $todayEnd; // exclusive
 try {
     $stmt = $pdo->prepare("
         SELECT
-            DATE(payment_date) as payment_day,
-            COALESCE(SUM(amount), 0) as revenue
-        FROM payments
-        WHERE status = 'completed'
-          AND payment_date >= ?
-          AND payment_date < ?
-        GROUP BY DATE(payment_date)
+            DATE(created_at) as payment_day,
+            COALESCE(SUM(amount_paid), 0) as revenue
+        FROM tbl_tenant_subscriptions
+        WHERE payment_status = 'paid'
+          AND created_at >= ?
+          AND created_at < ?
+        GROUP BY DATE(created_at)
         ORDER BY payment_day ASC
     ");
     $stmt->execute([$dailyStart->format('Y-m-d H:i:s'), $dailyEnd->format('Y-m-d H:i:s')]);
@@ -186,25 +187,24 @@ try {
     error_log('salesreport recent daily revenue error: ' . $e->getMessage());
 }
 
-// Recent transactions table: last 3 payments across all tenants.
+// Recent transactions table: latest 5 paid subscription records across all tenants.
 $recentTransactions = [];
 try {
     $stmt = $pdo->prepare("
         SELECT
-            p.payment_date,
-            p.amount,
-            p.status,
-            p.payment_id,
-            p.booking_id,
-            a.service_type,
+            ts.created_at as payment_date,
+            ts.amount_paid as amount,
+            ts.payment_status as status,
+            ts.reference_number as payment_id,
+            NULL as booking_id,
+            sp.plan_name as service_type,
             t.clinic_name
-        FROM payments p
-        LEFT JOIN tbl_tenants t ON p.tenant_id = t.tenant_id
-        LEFT JOIN appointments a
-            ON p.tenant_id = a.tenant_id
-           AND p.booking_id = a.booking_id
-        ORDER BY p.payment_date DESC, p.id DESC
-        LIMIT 3
+        FROM tbl_tenant_subscriptions ts
+        LEFT JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
+        LEFT JOIN tbl_subscription_plans sp ON ts.plan_id = sp.plan_id
+        WHERE ts.payment_status = 'paid'
+        ORDER BY ts.created_at DESC, ts.id DESC
+        LIMIT 5
     ");
     $stmt->execute();
     $recentTransactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -370,7 +370,7 @@ $status = (string) ($tx['status'] ?? '');
 $badgeLabel = 'Unknown';
 $badgeClasses = 'bg-on-surface-variant/5 text-on-surface-variant';
 $dotClasses = 'bg-on-surface-variant';
-if ($status === 'completed') {
+if ($status === 'paid') {
     $badgeLabel = 'Paid';
     $badgeClasses = 'bg-green-50 text-green-600';
     $dotClasses = 'bg-green-600';
@@ -378,7 +378,7 @@ if ($status === 'completed') {
     $badgeLabel = 'Pending';
     $badgeClasses = 'bg-amber-50 text-amber-600';
     $dotClasses = 'bg-amber-600';
-} elseif ($status === 'cancelled' || $status === 'refunded') {
+} elseif ($status === 'failed' || $status === 'cancelled') {
     $badgeLabel = 'Cancelled';
     $badgeClasses = 'bg-error/10 text-error';
     $dotClasses = 'bg-error';
