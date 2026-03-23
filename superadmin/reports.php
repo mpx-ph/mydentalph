@@ -97,53 +97,166 @@ function reports_format_date_for_table($date): string
     return $ts ? date('M j, Y', $ts) : (string) $date;
 }
 
-$dbError = null;
-$yesterdayStart = null;
-$yesterdayEnd = null;
-$yesterdayLabel = '';
+/**
+ * Resolve [start, end) for reports (Asia/Manila). End is exclusive except we use < end in SQL.
+ * For "today" and current week/month/year, end is min(now, period_end) for a live window.
+ *
+ * @return array{0:DateTime,1:DateTime,2:string} start, end, label
+ */
+function reports_resolve_date_range(string $period, ?string $dateFrom, ?string $dateTo): array
+{
+    $tz = new DateTimeZone('Asia/Manila');
+    $now = new DateTime('now', $tz);
+    $todayStart = clone $now;
+    $todayStart->setTime(0, 0, 0);
 
-// Note: this file uses the shared `$pdo` provided by `superadmin_sidebar.php`.
+    $period = strtolower(trim($period));
+    $allowed = ['today', 'yesterday', 'week', 'month', 'year', 'custom'];
+    if (!in_array($period, $allowed, true)) {
+        $period = 'yesterday';
+    }
+
+    if ($period === 'today') {
+        return [$todayStart, $now, 'Today (live)'];
+    }
+
+    if ($period === 'yesterday') {
+        $start = clone $todayStart;
+        $start->modify('-1 day');
+        $end = clone $todayStart;
+        return [$start, $end, $start->format('M j, Y')];
+    }
+
+    if ($period === 'week') {
+        $dow = (int) $now->format('N');
+        $start = clone $todayStart;
+        $start->modify('-' . ($dow - 1) . ' days');
+        $nextWeek = clone $start;
+        $nextWeek->modify('+7 days');
+        $end = ($now < $nextWeek) ? $now : $nextWeek;
+        $label = 'This week · ' . $start->format('M j') . ' – ' . $end->format('M j, Y');
+        return [$start, $end, $label];
+    }
+
+    if ($period === 'month') {
+        $start = clone $todayStart;
+        $start->modify('first day of this month');
+        $nextM = clone $start;
+        $nextM->modify('+1 month');
+        $end = ($now < $nextM) ? $now : $nextM;
+        return [$start, $end, 'This month · ' . $start->format('F Y')];
+    }
+
+    if ($period === 'year') {
+        $start = new DateTime($now->format('Y') . '-01-01 00:00:00', $tz);
+        $nextY = clone $start;
+        $nextY->modify('+1 year');
+        $end = ($now < $nextY) ? $now : $nextY;
+        return [$start, $end, 'This year · ' . $start->format('Y')];
+    }
+
+    // custom
+    $okFrom = $dateFrom && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom);
+    $okTo = $dateTo && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo);
+    if (!$okFrom || !$okTo) {
+        $start = clone $todayStart;
+        $start->modify('-1 day');
+        $end = clone $todayStart;
+        return [$start, $end, 'Custom · yesterday (set From and To)'];
+    }
+    $start = new DateTime($dateFrom . ' 00:00:00', $tz);
+    $toDay = new DateTime($dateTo . ' 00:00:00', $tz);
+    if ($start > $toDay) {
+        $tmp = $start;
+        $start = $toDay;
+        $toDay = $tmp;
+    }
+    $end = clone $toDay;
+    $end->modify('+1 day');
+    $label = 'Custom · ' . $start->format('M j, Y') . ' – ' . $toDay->format('M j, Y');
+    return [$start, $end, $label];
+}
+
+$dbError = null;
 $totalMyDentalVisits = 0;
 $userRegistrationsTotal = 0;
 $registrationRows = [];
+$tenantsList = [];
+$filterPeriod = isset($_GET['period']) ? (string) $_GET['period'] : 'yesterday';
+$filterDateFrom = isset($_GET['date_from']) ? trim((string) $_GET['date_from']) : '';
+$filterDateTo = isset($_GET['date_to']) ? trim((string) $_GET['date_to']) : '';
+$filterClinicId = isset($_GET['clinic']) ? trim((string) $_GET['clinic']) : '';
+$filterClinicLabel = 'All clinics';
+$periodLabel = '—';
+$reportsFormAction = htmlspecialchars(basename(isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : 'reports.php'), ENT_QUOTES, 'UTF-8');
+
+if (strtolower($filterPeriod) === 'custom' && $filterDateFrom === '' && $filterDateTo === '') {
+    $y = new DateTime('yesterday', new DateTimeZone('Asia/Manila'));
+    $filterDateFrom = $y->format('Y-m-d');
+    $filterDateTo = $filterDateFrom;
+}
 
 try {
-    $yesterdayStart = new DateTime('yesterday');
-    $yesterdayStart->setTime(0, 0, 0);
-    $yesterdayEnd = clone $yesterdayStart;
-    $yesterdayEnd->modify('+1 day');
-    $yesterdayLabel = $yesterdayStart->format('M j, Y');
+    $tenantsStmt = $pdo->query('SELECT tenant_id, clinic_name FROM tbl_tenants ORDER BY clinic_name ASC');
+    $tenantsList = $tenantsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    $startStr = $yesterdayStart->format('Y-m-d H:i:s');
-    $endStr = $yesterdayEnd->format('Y-m-d H:i:s');
+    [$rangeStart, $rangeEnd, $periodLabel] = reports_resolve_date_range(
+        $filterPeriod,
+        $filterDateFrom !== '' ? $filterDateFrom : null,
+        $filterDateTo !== '' ? $filterDateTo : null
+    );
 
+    if ($filterClinicId !== '') {
+        $found = false;
+        foreach ($tenantsList as $t) {
+            if ((string) ($t['tenant_id'] ?? '') === $filterClinicId) {
+                $filterClinicLabel = (string) $t['clinic_name'];
+                $found = true;
+                break;
+            }
+        }
+        if (!$found) {
+            $filterClinicId = '';
+            $filterClinicLabel = 'All clinics';
+        }
+    }
+
+    $startStr = $rangeStart->format('Y-m-d H:i:s');
+    $endStr = $rangeEnd->format('Y-m-d H:i:s');
+
+    $visitParams = [$startStr, $endStr];
+    $visitSql = "
+        SELECT COUNT(DISTINCT ip_address) AS cnt
+        FROM tbl_website_visits
+        WHERE created_at >= ?
+          AND created_at < ?
+          AND ip_address IS NOT NULL
+          AND TRIM(ip_address) <> ''
+    ";
+    if ($filterClinicId !== '') {
+        $visitSql .= ' AND tenant_id = ?';
+        $visitParams[] = $filterClinicId;
+    }
     try {
-        $stmt = $pdo->prepare("
-            SELECT COUNT(DISTINCT ip_address) AS cnt
-            FROM tbl_website_visits
-            WHERE created_at >= ?
-              AND created_at < ?
-              AND ip_address IS NOT NULL
-              AND TRIM(ip_address) <> ''
-        ");
-        $stmt->execute([$startStr, $endStr]);
+        $stmt = $pdo->prepare($visitSql);
+        $stmt->execute($visitParams);
         $totalMyDentalVisits = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['cnt'] ?? 0);
     } catch (Throwable $e) {
         error_log('superadmin/reports.php tbl_website_visits: ' . $e->getMessage());
         $totalMyDentalVisits = 0;
     }
 
-    // Registrations created yesterday (tbl_users.created_at).
-    $stmt = $pdo->prepare('
-        SELECT COUNT(*) AS cnt
-        FROM tbl_users
-        WHERE created_at >= ?
-          AND created_at < ?
-    ');
-    $stmt->execute([$startStr, $endStr]);
+    $regParams = [$startStr, $endStr];
+    $regWhere = 'WHERE u.created_at >= ? AND u.created_at < ?';
+    if ($filterClinicId !== '') {
+        $regWhere .= ' AND u.tenant_id = ?';
+        $regParams[] = $filterClinicId;
+    }
+
+    $stmt = $pdo->prepare("SELECT COUNT(*) AS cnt FROM tbl_users u {$regWhere}");
+    $stmt->execute($regParams);
     $userRegistrationsTotal = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['cnt'] ?? 0);
 
-    // Table: last_active preferred when column exists (migration 006).
     $sqlReg = "
         SELECT
             DATE(u.created_at) AS created_date,
@@ -153,35 +266,37 @@ try {
             COALESCE(u.last_active, u.last_login) AS last_active_at
         FROM tbl_users u
         LEFT JOIN tbl_tenants t ON t.tenant_id = u.tenant_id
-        WHERE u.created_at >= ?
-          AND u.created_at < ?
+        {$regWhere}
         ORDER BY u.created_at DESC
     ";
     try {
         $stmt = $pdo->prepare($sqlReg);
-        $stmt->execute([$startStr, $endStr]);
+        $stmt->execute($regParams);
         $registrationRows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     } catch (Throwable $e) {
-        $stmt = $pdo->prepare("
-            SELECT
-                DATE(u.created_at) AS created_date,
-                t.clinic_name AS tenant_name,
-                COALESCE(NULLIF(TRIM(u.full_name), ''), u.username) AS user_name,
-                u.email AS user_email,
-                u.last_login AS last_active_at
-            FROM tbl_users u
-            LEFT JOIN tbl_tenants t ON t.tenant_id = u.tenant_id
-            WHERE u.created_at >= ?
-              AND u.created_at < ?
-            ORDER BY u.created_at DESC
-        ");
-        $stmt->execute([$startStr, $endStr]);
+        $sqlFallback = str_replace(
+            'COALESCE(u.last_active, u.last_login)',
+            'u.last_login',
+            $sqlReg
+        );
+        $stmt = $pdo->prepare($sqlFallback);
+        $stmt->execute($regParams);
         $registrationRows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 } catch (Throwable $e) {
     $dbError = 'Unable to load reports.';
     error_log('superadmin/reports.php: ' . $e->getMessage());
 }
+
+$periodOptions = [
+    'today' => 'Today (live)',
+    'yesterday' => 'Yesterday',
+    'week' => 'This week',
+    'month' => 'This month',
+    'year' => 'This year',
+    'custom' => 'Custom date range',
+];
+$isCustomPeriod = (strtolower($filterPeriod) === 'custom');
 ?>
 <!-- Main Content Area -->
 <main class="ml-64 pt-20 min-h-screen">
@@ -201,6 +316,48 @@ try {
                     </button>
 </div>
 </section>
+<!-- Filters (summary cards + table use the same range and clinic) -->
+<section class="bg-white/70 backdrop-blur-xl rounded-[2rem] editorial-shadow border border-white/60 px-8 py-6">
+<form method="get" action="<?php echo $reportsFormAction; ?>" id="reportsFilters" class="flex flex-col gap-4">
+<div class="flex flex-col xl:flex-row xl:flex-wrap xl:items-end gap-4">
+<div class="flex flex-col gap-1.5 min-w-[200px]">
+<label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/70" for="reportsPeriod">Date period</label>
+<select name="period" id="reportsPeriod" class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-5 pr-10 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
+<?php foreach ($periodOptions as $val => $lab): ?>
+<option value="<?php echo htmlspecialchars($val, ENT_QUOTES, 'UTF-8'); ?>"<?php echo strtolower($filterPeriod) === $val ? ' selected' : ''; ?>><?php echo htmlspecialchars($lab, ENT_QUOTES, 'UTF-8'); ?></option>
+<?php endforeach; ?>
+</select>
+</div>
+<div id="reportsCustomDates" class="flex flex-wrap items-end gap-3 <?php echo $isCustomPeriod ? '' : 'hidden'; ?>">
+<div class="flex flex-col gap-1.5">
+<label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/70" for="reportsDateFrom">From</label>
+<input type="date" name="date_from" id="reportsDateFrom" value="<?php echo htmlspecialchars($filterDateFrom, ENT_QUOTES, 'UTF-8'); ?>" class="bg-surface-container-low/50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-on-surface focus:ring-2 focus:ring-primary/20"/>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/70" for="reportsDateTo">To</label>
+<input type="date" name="date_to" id="reportsDateTo" value="<?php echo htmlspecialchars($filterDateTo, ENT_QUOTES, 'UTF-8'); ?>" class="bg-surface-container-low/50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-on-surface focus:ring-2 focus:ring-primary/20"/>
+</div>
+</div>
+<div class="flex flex-col gap-1.5 min-w-[220px] flex-1 max-w-md">
+<label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/70" for="reportsClinic">Clinic</label>
+<select name="clinic" id="reportsClinic" class="w-full appearance-none bg-surface-container-low/50 border-none rounded-xl px-5 pr-10 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
+<option value=""<?php echo $filterClinicId === '' ? ' selected' : ''; ?>>All clinics</option>
+<?php foreach ($tenantsList as $t): ?>
+<option value="<?php echo htmlspecialchars((string) ($t['tenant_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"<?php echo $filterClinicId === (string) ($t['tenant_id'] ?? '') ? ' selected' : ''; ?>><?php echo htmlspecialchars((string) ($t['clinic_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></option>
+<?php endforeach; ?>
+</select>
+</div>
+<div class="flex items-end pb-0.5">
+<button type="submit" class="bg-primary text-white px-6 py-2.5 rounded-xl text-sm font-bold primary-glow hover:brightness-110 transition-all">Apply filters</button>
+</div>
+</div>
+<p class="text-on-surface-variant text-xs font-medium">
+<?php echo htmlspecialchars($periodLabel, ENT_QUOTES, 'UTF-8'); ?>
+<span class="opacity-60"> · </span>
+<?php echo htmlspecialchars($filterClinicLabel, ENT_QUOTES, 'UTF-8'); ?>
+</p>
+</form>
+</section>
 <!-- Metrics Grid -->
 <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
 <div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all">
@@ -212,7 +369,7 @@ try {
 <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Total mydental Visits</p>
 <h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo htmlspecialchars(number_format($totalMyDentalVisits), ENT_QUOTES, 'UTF-8'); ?></h3>
 <p class="text-on-surface-variant text-xs font-medium mt-2">
-    Yesterday · <?php echo htmlspecialchars($yesterdayLabel ?: '—', ENT_QUOTES, 'UTF-8'); ?>
+    <?php echo htmlspecialchars($periodLabel, ENT_QUOTES, 'UTF-8'); ?> · <?php echo htmlspecialchars($filterClinicLabel, ENT_QUOTES, 'UTF-8'); ?>
 </p>
 </div>
 <div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all border-r-4 border-primary/20">
@@ -224,10 +381,20 @@ try {
 <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">User Registration</p>
 <h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo htmlspecialchars(number_format($userRegistrationsTotal), ENT_QUOTES, 'UTF-8'); ?></h3>
 <p class="text-on-surface-variant text-xs font-medium mt-2">
-    Yesterday · <?php echo htmlspecialchars($yesterdayLabel ?: '—', ENT_QUOTES, 'UTF-8'); ?>
+    <?php echo htmlspecialchars($periodLabel, ENT_QUOTES, 'UTF-8'); ?> · <?php echo htmlspecialchars($filterClinicLabel, ENT_QUOTES, 'UTF-8'); ?>
 </p>
 </div>
 </section>
+<script>
+(function () {
+  var sel = document.getElementById('reportsPeriod');
+  var box = document.getElementById('reportsCustomDates');
+  if (!sel || !box) return;
+  function sync() { box.classList.toggle('hidden', sel.value !== 'custom'); }
+  sel.addEventListener('change', sync);
+  sync();
+})();
+</script>
 <!-- Export Buttons -->
 <div class="flex items-center gap-3">
 <button class="px-6 py-2.5 bg-white/60 text-primary text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
@@ -239,33 +406,10 @@ try {
 </div>
 <!-- Table Container -->
 <div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
-<!-- Table Controls -->
+<!-- Table header (same filters as summary cards — use form above) -->
 <div class="px-8 py-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/50">
-<div class="flex items-center gap-4">
-<div class="relative group">
-<select class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
-<option>Yesterday</option>
-<option>Last 7 Days</option>
-<option>Last 30 Days</option>
-</select>
-<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xl">expand_more</span>
-</div>
-<div class="relative group">
-<select class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
-<option>All Clinics</option>
-<option>Downtown Branch</option>
-<option>Westside Dental</option>
-</select>
-<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xl">filter_list</span>
-</div>
-<div class="relative group">
-<select class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
-<option>All Types</option>
-<option>Financial</option>
-<option>Staff Performance</option>
-</select>
-<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xl">tune</span>
-</div>
+<div class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60 max-w-xl">
+    Same period and clinic as above · <?php echo htmlspecialchars($periodLabel, ENT_QUOTES, 'UTF-8'); ?> · <?php echo htmlspecialchars($filterClinicLabel, ENT_QUOTES, 'UTF-8'); ?>
 </div>
 <div class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">
     <?php $registrationRowsCount = count($registrationRows); ?>
@@ -312,7 +456,7 @@ try {
         <?php if ($dbError): ?>
             <?php echo htmlspecialchars($dbError, ENT_QUOTES, 'UTF-8'); ?>
         <?php else: ?>
-            No registrations for this day.
+            No registrations for this period.
         <?php endif; ?>
     </td>
 </tr>
