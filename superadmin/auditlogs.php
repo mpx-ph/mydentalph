@@ -240,24 +240,40 @@ require __DIR__ . '/superadmin_header.php';
 <?php else: ?>
 <?php
     // `tbl_audit_logs.created_at` is a timezone-naive DATETIME in MySQL.
-    // MySQL writes it using its configured timezone (CURRENT_TIMESTAMP).
-    // To ensure we show the correct time, detect MySQL's session timezone and convert into GMT+08:00.
-    $targetTz = new DateTimeZone('+08:00');
+    // We infer MySQL's effective session offset by comparing `NOW()` (session) vs `UTC_TIMESTAMP()` (UTC),
+    // then convert `created_at` into GMT+08:00.
+    // Display using PHP's/server "system" timezone so it matches your clock.
+    try {
+        $targetTz = new DateTimeZone(date_default_timezone_get());
+    } catch (Throwable $e) {
+        $targetTz = new DateTimeZone('+08:00'); // last-resort fallback
+    }
     $sourceTz = new DateTimeZone('+00:00'); // safe default
     try {
-        $dbTzRaw = $pdo->query('SELECT @@session.time_zone AS tz')->fetchColumn();
-        $dbTzRaw = is_string($dbTzRaw) ? trim($dbTzRaw) : '';
+        $nowUtcRaw = $pdo->query('SELECT UTC_TIMESTAMP() AS t')->fetchColumn();
+        $nowLocalRaw = $pdo->query('SELECT NOW() AS t')->fetchColumn();
 
-        // Typical values: '+00:00', '+08:00', 'UTC', 'SYSTEM', etc.
-        if ($dbTzRaw !== '' && preg_match('/^[+-]\d{2}:\d{2}$/', $dbTzRaw) === 1) {
-            $sourceTz = new DateTimeZone($dbTzRaw);
-        } elseif ($dbTzRaw === '' || strtoupper($dbTzRaw) === 'SYSTEM') {
-            $sourceTz = new DateTimeZone(date_default_timezone_get());
-        } elseif ($dbTzRaw !== '') {
-            $sourceTz = new DateTimeZone($dbTzRaw);
+        $nowUtcRaw = is_string($nowUtcRaw) ? trim($nowUtcRaw) : '';
+        $nowLocalRaw = is_string($nowLocalRaw) ? trim($nowLocalRaw) : '';
+
+        // Strip microseconds if present.
+        $nowUtcRaw = preg_replace('/\.\d+$/', '', $nowUtcRaw);
+        $nowLocalRaw = preg_replace('/\.\d+$/', '', $nowLocalRaw);
+
+        if ($nowUtcRaw !== '' && $nowLocalRaw !== '') {
+            $dtUtc = new DateTime($nowUtcRaw, new DateTimeZone('+00:00'));
+            // Treat session-local time as if it were UTC to compute offset.
+            $dtLocalAsUtc = new DateTime($nowLocalRaw, new DateTimeZone('+00:00'));
+            $offsetSeconds = $dtLocalAsUtc->getTimestamp() - $dtUtc->getTimestamp();
+
+            $abs = abs($offsetSeconds);
+            $hours = (int) floor($abs / 3600);
+            $mins = (int) floor(($abs % 3600) / 60);
+            $sign = $offsetSeconds >= 0 ? '+' : '-';
+
+            $sourceTz = new DateTimeZone($sign . sprintf('%02d:%02d', $hours, $mins));
         }
     } catch (Throwable $e) {
-        // If timezone detection fails, fall back to UTC.
         $sourceTz = new DateTimeZone('UTC');
     }
 ?>
