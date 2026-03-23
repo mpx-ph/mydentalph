@@ -174,7 +174,8 @@ try {
         }
     }
 
-    for ($i = 0; $i < 5; $i++) {
+    // Render latest -> oldest
+    for ($i = 4; $i >= 0; $i--) {
         $d = clone $dailyStart;
         $d->modify('+' . $i . ' days');
         $key = $d->format('Y-m-d');
@@ -210,6 +211,26 @@ try {
     $recentTransactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
     error_log('salesreport recent transactions error: ' . $e->getMessage());
+}
+
+// Top clinics ranking by total paid subscription spend.
+$topClinics = [];
+try {
+    $stmt = $pdo->prepare("
+        SELECT
+            t.clinic_name,
+            COUNT(ts.id) as paid_transactions,
+            COALESCE(SUM(ts.amount_paid), 0) as total_spend
+        FROM tbl_tenant_subscriptions ts
+        INNER JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
+        WHERE ts.payment_status = 'paid'
+        GROUP BY ts.tenant_id, t.clinic_name
+        ORDER BY total_spend DESC, paid_transactions DESC, t.clinic_name ASC
+    ");
+    $stmt->execute();
+    $topClinics = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    error_log('salesreport top clinics error: ' . $e->getMessage());
 }
 
 require __DIR__ . '/superadmin_sidebar.php';
@@ -332,6 +353,63 @@ require __DIR__ . '/superadmin_header.php';
 <tr class="hover:bg-primary/5 transition-colors">
 <td class="px-8 py-6 text-sm font-bold text-on-surface-variant"><?php echo htmlspecialchars((string) $day['label']); ?></td>
 <td class="px-8 py-6 text-right text-sm font-black text-on-surface"><?php echo htmlspecialchars(salesreport_format_money_exact((float) $day['revenue'])); ?></td>
+</tr>
+<?php endforeach; ?>
+<?php endif; ?>
+</tbody>
+</table>
+</div>
+</section>
+
+<!-- Top Clinics Ranking -->
+<section class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
+<div class="px-10 py-8 flex items-center justify-between border-b border-white/50">
+<div>
+<h3 class="text-xl font-extrabold font-headline text-on-surface tracking-tight">Top Clinics</h3>
+<p class="text-sm text-on-surface-variant font-medium mt-1">Ranked by total paid subscription spend</p>
+</div>
+<div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-60">
+<span class="material-symbols-outlined text-lg">leaderboard</span>
+<span>All Clinics</span>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/60">
+<th class="px-10 py-5">Rank</th>
+<th class="px-8 py-5">Clinic</th>
+<th class="px-8 py-5 text-right">Paid Transactions</th>
+<th class="px-10 py-5 text-right">Total Spend</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-white/40">
+<?php if (empty($topClinics)): ?>
+<tr>
+<td class="px-10 py-6 text-sm font-bold text-on-surface-variant" colspan="4">No paid subscription data found.</td>
+</tr>
+<?php else: ?>
+<?php foreach ($topClinics as $idx => $clinic): ?>
+<?php
+$rank = $idx + 1;
+$rankBadgeClasses = 'bg-surface-container-high text-on-surface-variant';
+if ($rank === 1) {
+    $rankBadgeClasses = 'bg-amber-50 text-amber-600';
+} elseif ($rank === 2) {
+    $rankBadgeClasses = 'bg-slate-100 text-slate-600';
+} elseif ($rank === 3) {
+    $rankBadgeClasses = 'bg-orange-50 text-orange-600';
+}
+?>
+<tr class="hover:bg-primary/5 transition-colors">
+<td class="px-10 py-6">
+<span class="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider <?php echo htmlspecialchars($rankBadgeClasses); ?>">
+<?php echo htmlspecialchars((string) $rank); ?>
+</span>
+</td>
+<td class="px-8 py-6 text-sm font-bold text-on-surface"><?php echo htmlspecialchars((string) ($clinic['clinic_name'] ?? 'Unknown Clinic')); ?></td>
+<td class="px-8 py-6 text-right text-sm font-bold text-on-surface-variant"><?php echo htmlspecialchars(number_format((int) ($clinic['paid_transactions'] ?? 0))); ?></td>
+<td class="px-10 py-6 text-right text-sm font-black text-on-surface"><?php echo htmlspecialchars(salesreport_format_money_exact((float) ($clinic['total_spend'] ?? 0))); ?></td>
 </tr>
 <?php endforeach; ?>
 <?php endif; ?>
