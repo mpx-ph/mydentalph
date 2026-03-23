@@ -323,6 +323,7 @@ require __DIR__ . '/superadmin_header.php';
 <h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline tracking-tighter"><?php echo htmlspecialchars(salesreport_format_money_card((float) $yearRevenue)); ?></h3>
 </div>
 </section>
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
 <!-- Recent Daily Revenue -->
 <section class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] p-10 editorial-shadow overflow-hidden">
 <div class="flex items-start justify-between gap-4">
@@ -417,6 +418,7 @@ if ($rank === 1) {
 </table>
 </div>
 </section>
+</div>
 
 <!-- Recent Transactions Table (Styled like SCREEN_4 table) -->
 <div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
