@@ -64,6 +64,24 @@
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
+        @media print {
+            body {
+                background: #ffffff !important;
+            }
+            aside,
+            header.fixed,
+            .no-print {
+                display: none !important;
+            }
+            main {
+                margin-left: 0 !important;
+                padding-top: 0 !important;
+            }
+            .editorial-shadow {
+                box-shadow: none !important;
+                border: 1px solid #e5e7eb !important;
+            }
+        }
     </style>
 </head>
 <body class="mesh-bg font-body text-on-surface antialiased min-h-screen">
@@ -246,12 +264,8 @@ require __DIR__ . '/superadmin_header.php';
 <h2 class="text-4xl font-extrabold font-headline tracking-tight text-on-surface">Sales Report</h2>
 <p class="text-on-surface-variant mt-2 font-medium">View and analyze clinic sales performance across all branches.</p>
 </div>
-<div class="flex items-center gap-3">
-<button class="bg-white/60 backdrop-blur-md border border-white text-on-surface px-6 py-2.5 rounded-2xl text-sm font-bold shadow-sm flex items-center gap-2 hover:bg-white transition-all">
-<span class="material-symbols-outlined text-lg">description</span>
-                        Excel Export
-                    </button>
-<button class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all">
+<div class="flex items-center gap-3 no-print">
+<button id="pdf-export-btn" type="button" class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all">
 <span class="material-symbols-outlined text-lg">picture_as_pdf</span>
                         PDF Export
                     </button>
@@ -520,9 +534,18 @@ $amount = (float) ($tx['amount'] ?? 0);
 </div>
 </main>
 <!-- Floating Action Button (Matches SCREEN_4 aesthetic) -->
-<div class="fixed bottom-10 right-10 z-50">
+<div class="fixed bottom-10 right-10 z-50 no-print">
 <button class="w-16 h-16 rounded-3xl bg-primary text-white primary-glow flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
 <span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">add</span>
 </button>
 </div>
+<script>
+    (function () {
+        var pdfBtn = document.getElementById('pdf-export-btn');
+        if (!pdfBtn) return;
+        pdfBtn.addEventListener('click', function () {
+            window.print();
+        });
+    })();
+</script>
 </body></html>
