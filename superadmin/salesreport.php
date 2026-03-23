@@ -110,17 +110,18 @@ function salesreport_format_date_for_table(string $dateTime): string
     return $ts ? date('M j, Y', $ts) : $dateTime;
 }
 
-/** Per-section pagination: preserve other query params when changing one page. */
-function salesreport_pagination_url(string $pageKey, int $page): string
+/** Per-section pagination: merge with canonical page params (not raw $_GET). */
+function salesreport_pagination_url(string $pageKey, int $page, array $baseParams): string
 {
-    $params = $_GET;
+    $params = $baseParams;
     if ($page <= 1) {
         unset($params[$pageKey]);
     } else {
         $params[$pageKey] = (string) $page;
     }
     $q = http_build_query($params);
-    return htmlspecialchars($_SERVER['PHP_SELF'] ?? 'salesreport.php') . ($q !== '' ? '?' . $q : '');
+    $script = $_SERVER['SCRIPT_NAME'] ?? ('/' . basename(__FILE__));
+    return htmlspecialchars($script, ENT_QUOTES, 'UTF-8') . ($q !== '' ? '?' . $q : '');
 }
 
 function salesreport_pagination_controls(
@@ -129,14 +130,19 @@ function salesreport_pagination_controls(
     int $totalPages,
     int $totalItems,
     int $perPage,
-    int $itemCountOnPage
+    int $itemCountOnPage,
+    array $queryParams
 ): void {
     if ($totalItems === 0) {
         echo '<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">0 results</p>';
         return;
     }
+    if ($itemCountOnPage <= 0) {
+        echo '<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">No rows on this page.</p>';
+        return;
+    }
     $from = ($currentPage - 1) * $perPage + 1;
-    $to = ($currentPage - 1) * $perPage + $itemCountOnPage;
+    $to = min($totalItems, $from + $itemCountOnPage - 1);
     $prev = max(1, $currentPage - 1);
     $next = min($totalPages, $currentPage + 1);
     $prevDisabled = $currentPage <= 1;
@@ -150,12 +156,12 @@ function salesreport_pagination_controls(
 <?php if ($prevDisabled): ?>
 <span class="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/40 border border-white/50 cursor-not-allowed">Prev</span>
 <?php else: ?>
-<a href="<?php echo salesreport_pagination_url($pageKey, $prev); ?>" class="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/30 hover:bg-primary/5 transition-colors">Prev</a>
+<a href="<?php echo salesreport_pagination_url($pageKey, $prev, $queryParams); ?>" class="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/30 hover:bg-primary/5 transition-colors">Prev</a>
 <?php endif; ?>
 <?php if ($nextDisabled): ?>
 <span class="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/40 border border-white/50 cursor-not-allowed">Next</span>
 <?php else: ?>
-<a href="<?php echo salesreport_pagination_url($pageKey, $next); ?>" class="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/30 hover:bg-primary/5 transition-colors">Next</a>
+<a href="<?php echo salesreport_pagination_url($pageKey, $next, $queryParams); ?>" class="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/30 hover:bg-primary/5 transition-colors">Next</a>
 <?php endif; ?>
 </div>
 </div>
@@ -217,8 +223,8 @@ try {
 $dailyPerPage = 5;
 $maxDaysBack = 365;
 $totalDailyPages = max(1, (int) ceil($maxDaysBack / $dailyPerPage));
-$dailyPage = (int) ($_GET['daily_page'] ?? 1);
-if ($dailyPage < 1) {
+$dailyPage = filter_var($_GET['daily_page'] ?? null, FILTER_VALIDATE_INT);
+if ($dailyPage === false || $dailyPage < 1) {
     $dailyPage = 1;
 } elseif ($dailyPage > $totalDailyPages) {
     $dailyPage = $totalDailyPages;
@@ -276,8 +282,8 @@ $txPerPage = 10;
 $recentTransactions = [];
 $totalTxCount = 0;
 $txTotalPages = 1;
-$txPage = (int) ($_GET['tx_page'] ?? 1);
-if ($txPage < 1) {
+$txPage = filter_var($_GET['tx_page'] ?? null, FILTER_VALIDATE_INT);
+if ($txPage === false || $txPage < 1) {
     $txPage = 1;
 }
 try {
@@ -285,9 +291,12 @@ try {
         SELECT COUNT(*) FROM tbl_tenant_subscriptions WHERE payment_status = 'paid'
     ");
     $totalTxCount = (int) $cntStmt->fetchColumn();
-    $txTotalPages = max(1, (int) ceil($totalTxCount / $txPerPage));
-    if ($txPage > $txTotalPages) {
+    $txTotalPages = $totalTxCount > 0 ? max(1, (int) ceil($totalTxCount / $txPerPage)) : 1;
+    if ($totalTxCount > 0 && $txPage > $txTotalPages) {
         $txPage = $txTotalPages;
+    }
+    if ($totalTxCount === 0) {
+        $txPage = 1;
     }
     $txOffset = ($txPage - 1) * $txPerPage;
     $stmt = $pdo->prepare("
@@ -317,8 +326,8 @@ $clinicsPerPage = 10;
 $topClinics = [];
 $totalClinicsCount = 0;
 $clinicsTotalPages = 1;
-$clinicsPage = (int) ($_GET['clinics_page'] ?? 1);
-if ($clinicsPage < 1) {
+$clinicsPage = filter_var($_GET['clinics_page'] ?? null, FILTER_VALIDATE_INT);
+if ($clinicsPage === false || $clinicsPage < 1) {
     $clinicsPage = 1;
 }
 try {
@@ -332,9 +341,12 @@ try {
         ) ranked_clinics
     ");
     $totalClinicsCount = (int) $cntStmt->fetchColumn();
-    $clinicsTotalPages = max(1, (int) ceil($totalClinicsCount / $clinicsPerPage));
-    if ($clinicsPage > $clinicsTotalPages) {
+    $clinicsTotalPages = $totalClinicsCount > 0 ? max(1, (int) ceil($totalClinicsCount / $clinicsPerPage)) : 1;
+    if ($totalClinicsCount > 0 && $clinicsPage > $clinicsTotalPages) {
         $clinicsPage = $clinicsTotalPages;
+    }
+    if ($totalClinicsCount === 0) {
+        $clinicsPage = 1;
     }
     $clinicsOffset = ($clinicsPage - 1) * $clinicsPerPage;
     $stmt = $pdo->prepare("
@@ -353,6 +365,23 @@ try {
     $topClinics = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
     error_log('salesreport top clinics error: ' . $e->getMessage());
+}
+
+// Canonical query string for pagination links (avoids broken/duplicate page params from raw $_GET).
+$salesreportQueryParams = [];
+foreach ($_GET as $k => $v) {
+    if (!in_array($k, ['daily_page', 'clinics_page', 'tx_page'], true)) {
+        $salesreportQueryParams[$k] = $v;
+    }
+}
+if ($dailyPage > 1) {
+    $salesreportQueryParams['daily_page'] = (string) $dailyPage;
+}
+if ($clinicsPage > 1) {
+    $salesreportQueryParams['clinics_page'] = (string) $clinicsPage;
+}
+if ($txPage > 1) {
+    $salesreportQueryParams['tx_page'] = (string) $txPage;
 }
 
 require __DIR__ . '/superadmin_sidebar.php';
@@ -479,7 +508,7 @@ require __DIR__ . '/superadmin_header.php';
 </table>
 </div>
 <div class="px-8 py-5 border-t border-white/50">
-<?php salesreport_pagination_controls('daily_page', $dailyPage, $totalDailyPages, $dailyTotalItems, $dailyPerPage, count($recentDailyRevenue)); ?>
+<?php salesreport_pagination_controls('daily_page', $dailyPage, $totalDailyPages, $dailyTotalItems, $dailyPerPage, count($recentDailyRevenue), $salesreportQueryParams); ?>
 </div>
 </section>
 
@@ -539,7 +568,7 @@ if ($rank === 1) {
 </table>
 </div>
 <div class="px-10 py-5 border-t border-white/50">
-<?php salesreport_pagination_controls('clinics_page', $clinicsPage, $clinicsTotalPages, $totalClinicsCount, $clinicsPerPage, count($topClinics)); ?>
+<?php salesreport_pagination_controls('clinics_page', $clinicsPage, $clinicsTotalPages, $totalClinicsCount, $clinicsPerPage, count($topClinics), $salesreportQueryParams); ?>
 </div>
 </section>
 </div>
@@ -626,7 +655,7 @@ $amount = (float) ($tx['amount'] ?? 0);
 </table>
 </div>
 <div class="px-10 py-5 border-t border-white/50">
-<?php salesreport_pagination_controls('tx_page', $txPage, $txTotalPages, $totalTxCount, $txPerPage, count($recentTransactions)); ?>
+<?php salesreport_pagination_controls('tx_page', $txPage, $txTotalPages, $totalTxCount, $txPerPage, count($recentTransactions), $salesreportQueryParams); ?>
 </div>
 </div>
 </div>
