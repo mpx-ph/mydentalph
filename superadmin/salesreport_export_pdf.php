@@ -369,83 +369,122 @@ try {
     $pdf->SetAutoPageBreak(true, 20);
     $pdf->AddPage();
 
-    $pdf->SetFont('Helvetica', '', 16);
+    // Header
+    $pdf->SetFillColor(237, 244, 255);
+    $pdf->SetDrawColor(190, 205, 235);
+    $pdf->Rect(15, 14, 180, 26, 'DF');
+    $pdf->SetY(19);
+
+    $pdf->SetFont('Helvetica', '', 17);
     $pdf->SetTextColor(0, 102, 255);
     $pdf->Cell(0, 8, salesreport_pdf_latin1_safe('MyDental Sales Report'), 0, 1, 'L');
-    $pdf->SetFont('Helvetica', '', 9);
+    $pdf->SetFont('Helvetica', '', 10);
     $pdf->SetTextColor(80, 90, 100);
     $pdf->Cell(0, 6, salesreport_pdf_latin1_safe('Paid subscription analytics across all clinics'), 0, 1, 'L');
-    $pdf->Cell(0, 6, salesreport_pdf_latin1_safe('Generated: ' . date('M j, Y g:i A')), 0, 1, 'L');
-    $pdf->Ln(3);
+    $pdf->SetFont('Helvetica', '', 9);
+    $pdf->Cell(0, 5, salesreport_pdf_latin1_safe('Generated: ' . date('M j, Y g:i A')), 0, 1, 'L');
+    $pdf->Ln(6);
 
     if ($dbError !== null) {
         $pdf->SetFillColor(255, 235, 235);
         $pdf->SetDrawColor(220, 180, 180);
         $pdf->MultiCell(0, 6, salesreport_pdf_latin1_safe('Data could not be loaded: ' . $dbError), 1, 'L', true);
     } else {
-        $summary = [];
-        if ($includeToday) $summary[] = "Today's Revenue: " . salesreport_money($todayRevenue);
-        if ($includeWeek) $summary[] = "Weekly Revenue: " . salesreport_money($weekRevenue);
-        if ($includeMonth) $summary[] = "Monthly Revenue: " . salesreport_money($monthRevenue);
-        if ($includeYear) $summary[] = "Yearly Revenue: " . salesreport_money($yearRevenue);
-        if (empty($summary)) $summary[] = 'No revenue summary metrics selected.';
+        // Executive summary card
+        $pdf->SetFont('Helvetica', '', 11);
+        $pdf->SetTextColor(25, 35, 50);
+        $pdf->Cell(0, 6, salesreport_pdf_latin1_safe('Executive Summary'), 0, 1, 'L');
+        $pdf->SetFillColor(246, 249, 255);
+        $pdf->SetDrawColor(205, 215, 235);
+        $pdf->Rect(15, $pdf->GetY(), 180, 26, 'DF');
+        $pdf->SetXY(19, $pdf->GetY() + 4);
         $pdf->SetFont('Helvetica', '', 9);
-        $pdf->MultiCell(0, 6, salesreport_pdf_latin1_safe(implode(' | ', $summary)), 1, 'L', false);
-        $pdf->Ln(3);
+        $pdf->SetTextColor(45, 55, 65);
+        $summaryLines = [];
+        if ($includeToday) $summaryLines[] = "- Today's Revenue: " . salesreport_money($todayRevenue);
+        if ($includeWeek) $summaryLines[] = "- Weekly Revenue: " . salesreport_money($weekRevenue);
+        if ($includeMonth) $summaryLines[] = "- Monthly Revenue: " . salesreport_money($monthRevenue);
+        if ($includeYear) $summaryLines[] = "- Yearly Revenue: " . salesreport_money($yearRevenue);
+        if (empty($summaryLines)) $summaryLines[] = '- No revenue summary metrics selected.';
+        $pdf->MultiCell(172, 5, salesreport_pdf_latin1_safe(implode("\n", $summaryLines)), 0, 'L', false);
+        $pdf->Ln(8);
 
         if ($includeDaily) {
             $pdf->SetFont('Helvetica', '', 11);
+            $pdf->SetTextColor(25, 35, 50);
             $pdf->Cell(0, 6, salesreport_pdf_latin1_safe('Recent daily revenue (last 5 days)'), 0, 1, 'L');
             $pdf->SetFont('Helvetica', '', 9);
+            $pdf->SetFillColor(30, 41, 59);
+            $pdf->SetTextColor(255, 255, 255);
+            $pdf->Cell(110, 7, salesreport_pdf_latin1_safe('Date'), 1, 0, 'L', true);
+            $pdf->Cell(70, 7, salesreport_pdf_latin1_safe('Revenue'), 1, 1, 'R', true);
+            $pdf->SetTextColor(35, 45, 55);
+            $rowToggle = false;
             foreach ($recentDailyRevenue as $r) {
-                $pdf->Cell(100, 6, salesreport_pdf_latin1_safe((string) $r['label']), 1, 0, 'L');
-                $pdf->Cell(80, 6, salesreport_pdf_latin1_safe(salesreport_money((float) $r['revenue'])), 1, 1, 'R');
+                $pdf->SetFillColor($rowToggle ? 250 : 242, $rowToggle ? 252 : 247, 255);
+                $pdf->Cell(110, 7, salesreport_pdf_latin1_safe((string) $r['label']), 1, 0, 'L', true);
+                $pdf->Cell(70, 7, salesreport_pdf_latin1_safe(salesreport_money((float) $r['revenue'])), 1, 1, 'R', true);
+                $rowToggle = !$rowToggle;
             }
-            $pdf->Ln(3);
+            $pdf->Ln(5);
         }
 
         if ($includeTopClinics) {
             $pdf->SetFont('Helvetica', '', 11);
+            $pdf->SetTextColor(25, 35, 50);
             $pdf->Cell(0, 6, salesreport_pdf_latin1_safe('Top clinics by total subscription spend'), 0, 1, 'L');
             $pdf->SetFont('Helvetica', '', 8.5);
-            $pdf->Cell(16, 7, '#', 1, 0, 'C');
-            $pdf->Cell(86, 7, salesreport_pdf_latin1_safe('Clinic'), 1, 0, 'L');
-            $pdf->Cell(36, 7, salesreport_pdf_latin1_safe('Transactions'), 1, 0, 'R');
-            $pdf->Cell(42, 7, salesreport_pdf_latin1_safe('Total Spend'), 1, 1, 'R');
+            $pdf->SetFillColor(30, 41, 59);
+            $pdf->SetTextColor(255, 255, 255);
+            $pdf->Cell(16, 7, '#', 1, 0, 'C', true);
+            $pdf->Cell(86, 7, salesreport_pdf_latin1_safe('Clinic'), 1, 0, 'L', true);
+            $pdf->Cell(36, 7, salesreport_pdf_latin1_safe('Transactions'), 1, 0, 'R', true);
+            $pdf->Cell(42, 7, salesreport_pdf_latin1_safe('Total Spend'), 1, 1, 'R', true);
+            $pdf->SetTextColor(35, 45, 55);
             if (empty($topClinics)) {
                 $pdf->Cell(180, 7, salesreport_pdf_latin1_safe('No paid subscription data found.'), 1, 1, 'C');
             } else {
+                $rowToggle = false;
                 foreach ($topClinics as $i => $c) {
-                    $pdf->Cell(16, 6, (string) ($i + 1), 1, 0, 'C');
-                    $pdf->Cell(86, 6, salesreport_pdf_latin1_safe((string) ($c['clinic_name'] ?? 'Unknown Clinic')), 1, 0, 'L');
-                    $pdf->Cell(36, 6, number_format((int) ($c['paid_transactions'] ?? 0)), 1, 0, 'R');
-                    $pdf->Cell(42, 6, salesreport_pdf_latin1_safe(salesreport_money((float) ($c['total_spend'] ?? 0))), 1, 1, 'R');
+                    $pdf->SetFillColor($rowToggle ? 250 : 242, $rowToggle ? 252 : 247, 255);
+                    $pdf->Cell(16, 7, (string) ($i + 1), 1, 0, 'C', true);
+                    $pdf->Cell(86, 7, salesreport_pdf_latin1_safe((string) ($c['clinic_name'] ?? 'Unknown Clinic')), 1, 0, 'L', true);
+                    $pdf->Cell(36, 7, number_format((int) ($c['paid_transactions'] ?? 0)), 1, 0, 'R', true);
+                    $pdf->Cell(42, 7, salesreport_pdf_latin1_safe(salesreport_money((float) ($c['total_spend'] ?? 0))), 1, 1, 'R', true);
+                    $rowToggle = !$rowToggle;
                 }
             }
-            $pdf->Ln(3);
+            $pdf->Ln(5);
         }
 
         if ($includeTransactions) {
             $pdf->AddPage();
             $pdf->SetFont('Helvetica', '', 11);
+            $pdf->SetTextColor(25, 35, 50);
             $pdf->Cell(0, 6, salesreport_pdf_latin1_safe('Full transaction log (paid subscriptions)'), 0, 1, 'L');
             $pdf->SetFont('Helvetica', '', 7.8);
-            $pdf->Cell(40, 7, salesreport_pdf_latin1_safe('Date'), 1, 0, 'L');
-            $pdf->Cell(50, 7, salesreport_pdf_latin1_safe('Clinic'), 1, 0, 'L');
-            $pdf->Cell(34, 7, salesreport_pdf_latin1_safe('Plan'), 1, 0, 'L');
-            $pdf->Cell(28, 7, salesreport_pdf_latin1_safe('Amount'), 1, 0, 'R');
-            $pdf->Cell(28, 7, salesreport_pdf_latin1_safe('Reference'), 1, 1, 'L');
+            $pdf->SetFillColor(30, 41, 59);
+            $pdf->SetTextColor(255, 255, 255);
+            $pdf->Cell(40, 7, salesreport_pdf_latin1_safe('Date'), 1, 0, 'L', true);
+            $pdf->Cell(50, 7, salesreport_pdf_latin1_safe('Clinic'), 1, 0, 'L', true);
+            $pdf->Cell(34, 7, salesreport_pdf_latin1_safe('Plan'), 1, 0, 'L', true);
+            $pdf->Cell(28, 7, salesreport_pdf_latin1_safe('Amount'), 1, 0, 'R', true);
+            $pdf->Cell(28, 7, salesreport_pdf_latin1_safe('Reference'), 1, 1, 'L', true);
+            $pdf->SetTextColor(35, 45, 55);
             if (empty($transactionRows)) {
                 $pdf->Cell(180, 7, salesreport_pdf_latin1_safe('No paid subscription transactions found.'), 1, 1, 'C');
             } else {
+                $rowToggle = false;
                 foreach ($transactionRows as $row) {
                     $ts = strtotime((string) ($row['created_at'] ?? ''));
                     $dateLabel = $ts ? date('M j, Y H:i', $ts) : '-';
-                    $pdf->Cell(40, 6, salesreport_pdf_latin1_safe($dateLabel), 1, 0, 'L');
-                    $pdf->Cell(50, 6, salesreport_pdf_latin1_safe((string) ($row['clinic_name'] ?? 'Unknown Clinic')), 1, 0, 'L');
-                    $pdf->Cell(34, 6, salesreport_pdf_latin1_safe((string) ($row['plan_name'] ?? 'N/A')), 1, 0, 'L');
-                    $pdf->Cell(28, 6, salesreport_pdf_latin1_safe(salesreport_money((float) ($row['amount_paid'] ?? 0))), 1, 0, 'R');
-                    $pdf->Cell(28, 6, salesreport_pdf_latin1_safe((string) ($row['reference_number'] ?? '-')), 1, 1, 'L');
+                    $pdf->SetFillColor($rowToggle ? 250 : 242, $rowToggle ? 252 : 247, 255);
+                    $pdf->Cell(40, 6, salesreport_pdf_latin1_safe($dateLabel), 1, 0, 'L', true);
+                    $pdf->Cell(50, 6, salesreport_pdf_latin1_safe((string) ($row['clinic_name'] ?? 'Unknown Clinic')), 1, 0, 'L', true);
+                    $pdf->Cell(34, 6, salesreport_pdf_latin1_safe((string) ($row['plan_name'] ?? 'N/A')), 1, 0, 'L', true);
+                    $pdf->Cell(28, 6, salesreport_pdf_latin1_safe(salesreport_money((float) ($row['amount_paid'] ?? 0))), 1, 0, 'R', true);
+                    $pdf->Cell(28, 6, salesreport_pdf_latin1_safe((string) ($row['reference_number'] ?? '-')), 1, 1, 'L', true);
+                    $rowToggle = !$rowToggle;
                 }
             }
         }
