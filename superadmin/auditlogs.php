@@ -238,6 +238,12 @@ require __DIR__ . '/superadmin_header.php';
 <td class="px-10 py-5 text-sm text-on-surface-variant font-bold" colspan="4">No login/logout events found.</td>
 </tr>
 <?php else: ?>
+<?php
+    // Align displayed timestamps with the application's "system" timezone.
+    // `tbl_audit_logs.created_at` is a timezone-naive DATETIME in MySQL (typically stored as UTC).
+    $systemTz = new DateTimeZone(date_default_timezone_get());
+    $sourceTz = new DateTimeZone('UTC');
+?>
 <?php foreach ($eventRows as $row): ?>
 <?php
     $action = (string) ($row['action'] ?? '');
@@ -256,6 +262,26 @@ require __DIR__ . '/superadmin_header.php';
     if ($displayName === '') {
         $displayName = 'System';
     }
+
+    $createdAtRaw = trim((string) ($row['created_at'] ?? ''));
+    // If MySQL returns microseconds, strip them so DateTime parsing is predictable.
+    $createdAtRaw = preg_replace('/\.\d+$/', '', $createdAtRaw);
+
+    $createdAtDate = '-';
+    $createdAtTime = '';
+    if ($createdAtRaw !== '') {
+        try {
+            $dt = new DateTime($createdAtRaw, $sourceTz);
+            $dt->setTimezone($systemTz);
+            $createdAtDate = $dt->format('M d, Y');
+            $createdAtTime = $dt->format('H:i:s');
+        } catch (Throwable $e) {
+            // Fallback: preserve old behavior if conversion fails.
+            $ts = strtotime($createdAtRaw);
+            $createdAtDate = $ts ? date('M d, Y', $ts) : '-';
+            $createdAtTime = $ts ? date('H:i:s', $ts) : '';
+        }
+    }
 ?>
 <tr class="hover:bg-primary/5 transition-colors group">
 <td class="px-10 py-5">
@@ -271,8 +297,8 @@ require __DIR__ . '/superadmin_header.php';
 </td>
 <td class="px-8 py-5">
 <div class="text-xs">
-<p class="text-on-surface font-black"><?php echo htmlspecialchars(date('M d, Y', strtotime((string) $row['created_at']))); ?></p>
-<p class="text-on-surface-variant font-bold"><?php echo htmlspecialchars(date('H:i:s', strtotime((string) $row['created_at']))); ?></p>
+<p class="text-on-surface font-black"><?php echo htmlspecialchars($createdAtDate); ?></p>
+<p class="text-on-surface-variant font-bold"><?php echo htmlspecialchars($createdAtTime); ?></p>
 </div>
 </td>
 <td class="px-8 py-5">
