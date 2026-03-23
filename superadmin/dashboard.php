@@ -16,6 +16,15 @@ $revenue_series = [
 ];
 $tenant_growth = ['labels' => [], 'counts' => []];
 $top_performing = [];
+$clinic_activity = [
+    'total_units' => 0,
+    'active_units' => 0,
+    'inactive_units' => 0,
+    'suspended_units' => 0,
+    'active_pct' => 0,
+    'inactive_pct' => 0,
+    'suspended_pct' => 0,
+];
 
 try {
     $metrics['total_registered_clinics'] = (int) $pdo->query('SELECT COUNT(*) FROM tbl_tenants')->fetchColumn();
@@ -171,6 +180,39 @@ try {
             'name' => (string) $row['clinic_name'],
             'revenue' => (float) $row['revenue'],
         ];
+    }
+
+    // Clinic activity distribution (donut)
+    $clinic_total_units = (int) $pdo->query('SELECT COUNT(*) FROM tbl_tenants')->fetchColumn();
+    $clinic_activity['total_units'] = $clinic_total_units;
+
+    $statusCounts = [
+        'active' => 0,
+        'inactive' => 0,
+        'suspended' => 0,
+    ];
+    $stmt = $pdo->query("
+        SELECT subscription_status, COUNT(*) AS cnt
+        FROM tbl_tenants
+        GROUP BY subscription_status
+    ");
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $status = (string) ($row['subscription_status'] ?? '');
+        $cnt = (int) ($row['cnt'] ?? 0);
+        if (array_key_exists($status, $statusCounts)) {
+            $statusCounts[$status] = $cnt;
+        }
+    }
+
+    $clinic_activity['active_units'] = (int) $statusCounts['active'];
+    $clinic_activity['inactive_units'] = (int) $statusCounts['inactive'];
+    $clinic_activity['suspended_units'] = (int) $statusCounts['suspended'];
+
+    if ($clinic_total_units > 0) {
+        $clinic_activity['active_pct'] = (int) round(($clinic_activity['active_units'] / $clinic_total_units) * 100);
+        $clinic_activity['inactive_pct'] = (int) round(($clinic_activity['inactive_units'] / $clinic_total_units) * 100);
+        // Keep the UI consistent (always render a 100% donut).
+        $clinic_activity['suspended_pct'] = max(0, 100 - $clinic_activity['active_pct'] - $clinic_activity['inactive_pct']);
     }
 } catch (PDOException $e) {
     error_log('superadmin dashboard metrics: ' . $e->getMessage());
@@ -796,13 +838,43 @@ for ($ti = 0; $ti < $tg_n; $ti++) {
 <div class="bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow">
 <h4 class="text-lg font-extrabold font-headline mb-6">Clinic Activity</h4>
 <div class="relative w-48 h-48 mx-auto flex items-center justify-center">
+<?php
+$clinic_total_units = (int) ($clinic_activity['total_units'] ?? 0);
+$clinic_active_units = (int) ($clinic_activity['active_units'] ?? 0);
+$clinic_inactive_units = (int) ($clinic_activity['inactive_units'] ?? 0);
+
+$clinic_circumference = 2 * pi() * 40;
+
+// Compute dash lengths from counts (avoids rounding drift in the donut visualization).
+$clinic_active_dash = $clinic_total_units > 0 ? ($clinic_active_units / $clinic_total_units) * $clinic_circumference : 0.0;
+$clinic_inactive_dash = $clinic_total_units > 0 ? ($clinic_inactive_units / $clinic_total_units) * $clinic_circumference : 0.0;
+$clinic_suspended_dash = max(0.0, $clinic_circumference - $clinic_active_dash - $clinic_inactive_dash);
+
+$clinic_circ_str = number_format($clinic_circumference, 2, '.', '');
+$clinic_active_dash_str = number_format($clinic_active_dash, 2, '.', '');
+$clinic_inactive_dash_str = number_format($clinic_inactive_dash, 2, '.', '');
+$clinic_suspended_dash_str = number_format($clinic_suspended_dash, 2, '.', '');
+$clinic_active_inactive_dash_str = number_format($clinic_active_dash + $clinic_inactive_dash, 2, '.', '');
+?>
 <svg class="w-full h-full -rotate-90" viewbox="0 0 100 100">
 <circle cx="50" cy="50" fill="transparent" r="40" stroke="#f1f5f9" stroke-width="10"></circle>
-<circle class="drop-shadow-[0_0_8px_rgba(0,102,255,0.4)]" cx="50" cy="50" fill="transparent" r="40" stroke="#0066ff" stroke-dasharray="170 251" stroke-linecap="round" stroke-width="12"></circle>
-<circle cx="50" cy="50" fill="transparent" r="40" stroke="#ba1a1a" stroke-dasharray="30 251" stroke-dashoffset="-170" stroke-linecap="round" stroke-width="12"></circle>
+<circle class="drop-shadow-[0_0_8px_rgba(0,102,255,0.4)]" cx="50" cy="50" fill="transparent" r="40"
+        stroke="#0066ff"
+        stroke-dasharray="<?php echo htmlspecialchars($clinic_active_dash_str); ?> <?php echo htmlspecialchars($clinic_circ_str); ?>"
+        stroke-linecap="round" stroke-width="12"></circle>
+<circle cx="50" cy="50" fill="transparent" r="40"
+        stroke="#94a3b8"
+        stroke-dasharray="<?php echo htmlspecialchars($clinic_inactive_dash_str); ?> <?php echo htmlspecialchars($clinic_circ_str); ?>"
+        stroke-dashoffset="-<?php echo htmlspecialchars($clinic_active_dash_str); ?>"
+        stroke-linecap="round" stroke-width="12"></circle>
+<circle cx="50" cy="50" fill="transparent" r="40"
+        stroke="#ba1a1a"
+        stroke-dasharray="<?php echo htmlspecialchars($clinic_suspended_dash_str); ?> <?php echo htmlspecialchars($clinic_circ_str); ?>"
+        stroke-dashoffset="-<?php echo htmlspecialchars($clinic_active_inactive_dash_str); ?>"
+        stroke-linecap="round" stroke-width="12"></circle>
 </svg>
 <div class="absolute flex flex-col items-center">
-<span class="text-4xl font-extrabold font-headline text-on-surface">942</span>
+<span class="text-4xl font-extrabold font-headline text-on-surface"><?php echo htmlspecialchars((string) ($clinic_activity['total_units'] ?? 0)); ?></span>
 <span class="text-[10px] uppercase font-bold text-on-surface-variant tracking-widest opacity-60">Total Units</span>
 </div>
 </div>
@@ -812,21 +884,21 @@ for ($ti = 0; $ti < $tg_n; $ti++) {
 <div class="w-3 h-3 rounded-full bg-primary group-hover:scale-125 transition-transform"></div>
 <span class="text-sm font-semibold">Active</span>
 </div>
-<span class="text-sm font-bold text-primary">84%</span>
+<span class="text-sm font-bold text-primary"><?php echo htmlspecialchars((string) ($clinic_activity['active_pct'] ?? 0)); ?>%</span>
 </div>
 <div class="flex items-center justify-between p-3 rounded-xl hover:bg-slate-100 transition-colors cursor-default group">
 <div class="flex items-center gap-3">
 <div class="w-3 h-3 rounded-full bg-surface-container-high group-hover:scale-125 transition-transform"></div>
 <span class="text-sm font-semibold">Inactive</span>
 </div>
-<span class="text-sm font-bold">12%</span>
+<span class="text-sm font-bold"><?php echo htmlspecialchars((string) ($clinic_activity['inactive_pct'] ?? 0)); ?>%</span>
 </div>
 <div class="flex items-center justify-between p-3 rounded-xl hover:bg-error/5 transition-colors cursor-default group">
 <div class="flex items-center gap-3">
 <div class="w-3 h-3 rounded-full bg-error group-hover:scale-125 transition-transform"></div>
 <span class="text-sm font-semibold">Suspended</span>
 </div>
-<span class="text-sm font-bold text-error">4%</span>
+<span class="text-sm font-bold text-error"><?php echo htmlspecialchars((string) ($clinic_activity['suspended_pct'] ?? 0)); ?>%</span>
 </div>
 </div>
 </div>
