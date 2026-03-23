@@ -693,11 +693,8 @@ require __DIR__ . '/superadmin_header.php';
                     hit.setAttribute('cx', pt.x);
                     hit.setAttribute('cy', pt.y);
                     hit.setAttribute('r', '32');
-                    // Use a nearly-invisible painted fill so SVG hit-testing triggers mouseenter reliably.
-                    hit.setAttribute('fill', '#0066ff');
-                    hit.setAttribute('fill-opacity', '0.01');
+                    hit.setAttribute('fill', 'transparent');
                     hit.setAttribute('stroke', 'none');
-                    hit.setAttribute('pointer-events', 'all');
                     var vis = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                     vis.setAttribute('class', 'revenue-point-dot transition-all duration-150');
                     vis.setAttribute('cx', pt.x);
@@ -861,20 +858,20 @@ $clinic_active_inactive_dash_str = number_format($clinic_active_dash + $clinic_i
 ?>
 <svg class="w-full h-full -rotate-90" viewbox="0 0 100 100">
 <circle cx="50" cy="50" fill="transparent" r="40" stroke="#f1f5f9" stroke-width="10"></circle>
-<circle class="drop-shadow-[0_0_8px_rgba(0,102,255,0.4)]" cx="50" cy="50" fill="transparent" r="40"
+<circle id="clinic-activity-segment-active" data-clinic-status="active" class="drop-shadow-[0_0_8px_rgba(0,102,255,0.4)]" cx="50" cy="50" fill="transparent" r="40"
         stroke="#0066ff"
         stroke-dasharray="<?php echo htmlspecialchars($clinic_active_dash_str); ?> <?php echo htmlspecialchars($clinic_circ_str); ?>"
-        stroke-linecap="round" stroke-width="12"></circle>
+        stroke-linecap="round" stroke-width="12" style="cursor:pointer; pointer-events:stroke"></circle>
 <circle cx="50" cy="50" fill="transparent" r="40"
-        stroke="#94a3b8"
+        stroke="#94a3b8" id="clinic-activity-segment-inactive" data-clinic-status="inactive"
         stroke-dasharray="<?php echo htmlspecialchars($clinic_inactive_dash_str); ?> <?php echo htmlspecialchars($clinic_circ_str); ?>"
         stroke-dashoffset="-<?php echo htmlspecialchars($clinic_active_dash_str); ?>"
-        stroke-linecap="round" stroke-width="12"></circle>
+        stroke-linecap="round" stroke-width="12" style="cursor:pointer; pointer-events:stroke"></circle>
 <circle cx="50" cy="50" fill="transparent" r="40"
-        stroke="#ba1a1a"
+        stroke="#ba1a1a" id="clinic-activity-segment-suspended" data-clinic-status="suspended"
         stroke-dasharray="<?php echo htmlspecialchars($clinic_suspended_dash_str); ?> <?php echo htmlspecialchars($clinic_circ_str); ?>"
         stroke-dashoffset="-<?php echo htmlspecialchars($clinic_active_inactive_dash_str); ?>"
-        stroke-linecap="round" stroke-width="12"></circle>
+        stroke-linecap="round" stroke-width="12" style="cursor:pointer; pointer-events:stroke"></circle>
 </svg>
 <div class="absolute flex flex-col items-center">
 <span class="text-4xl font-extrabold font-headline text-on-surface"><?php echo htmlspecialchars((string) ($clinic_activity['total_units'] ?? 0)); ?></span>
@@ -882,21 +879,21 @@ $clinic_active_inactive_dash_str = number_format($clinic_active_dash + $clinic_i
 </div>
 </div>
 <div class="mt-8 space-y-4">
-<div class="flex items-center justify-between p-3 rounded-xl hover:bg-primary/5 transition-colors cursor-default group">
+<div class="flex items-center justify-between p-3 rounded-xl hover:bg-primary/5 transition-colors cursor-pointer group" data-clinic-activity-status="active" role="button" tabindex="0" aria-label="Active clinics">
 <div class="flex items-center gap-3">
 <div class="w-3 h-3 rounded-full bg-primary group-hover:scale-125 transition-transform"></div>
 <span class="text-sm font-semibold">Active</span>
 </div>
 <span class="text-sm font-bold text-primary"><?php echo htmlspecialchars((string) ($clinic_activity['active_pct'] ?? 0)); ?>%</span>
 </div>
-<div class="flex items-center justify-between p-3 rounded-xl hover:bg-slate-100 transition-colors cursor-default group">
+<div class="flex items-center justify-between p-3 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer group" data-clinic-activity-status="inactive" role="button" tabindex="0" aria-label="Inactive clinics">
 <div class="flex items-center gap-3">
 <div class="w-3 h-3 rounded-full bg-surface-container-high group-hover:scale-125 transition-transform"></div>
 <span class="text-sm font-semibold">Inactive</span>
 </div>
 <span class="text-sm font-bold"><?php echo htmlspecialchars((string) ($clinic_activity['inactive_pct'] ?? 0)); ?>%</span>
 </div>
-<div class="flex items-center justify-between p-3 rounded-xl hover:bg-error/5 transition-colors cursor-default group">
+<div class="flex items-center justify-between p-3 rounded-xl hover:bg-error/5 transition-colors cursor-pointer group" data-clinic-activity-status="suspended" role="button" tabindex="0" aria-label="Suspended clinics">
 <div class="flex items-center gap-3">
 <div class="w-3 h-3 rounded-full bg-error group-hover:scale-125 transition-transform"></div>
 <span class="text-sm font-semibold">Suspended</span>
@@ -982,6 +979,89 @@ $tp_pct = max(0, min(100, $tp_pct));
 </section>
 </div>
 </main>
+<script>
+    (function () {
+        function initClinicActivityHover() {
+            var circles = {
+                active: document.getElementById('clinic-activity-segment-active'),
+                inactive: document.getElementById('clinic-activity-segment-inactive'),
+                suspended: document.getElementById('clinic-activity-segment-suspended'),
+            };
+
+            var legendItems = document.querySelectorAll('[data-clinic-activity-status]');
+            if (!legendItems || legendItems.length === 0) return;
+
+            function setFocus(status) {
+                Object.keys(circles).forEach(function (k) {
+                    var el = circles[k];
+                    if (!el) return;
+
+                    if (k === status) {
+                        el.style.strokeOpacity = '1';
+                        el.style.strokeWidth = '16';
+                    } else {
+                        el.style.strokeOpacity = '0.25';
+                        el.style.strokeWidth = '12';
+                    }
+                });
+            }
+
+            function clearFocus() {
+                Object.keys(circles).forEach(function (k) {
+                    var el = circles[k];
+                    if (!el) return;
+                    el.style.strokeOpacity = '1';
+                    el.style.strokeWidth = '12';
+                });
+            }
+
+            legendItems.forEach(function (item) {
+                var status = item.getAttribute('data-clinic-activity-status');
+                if (!status || !circles[status]) return;
+
+                item.addEventListener('mouseenter', function () {
+                    setFocus(status);
+                });
+                item.addEventListener('mouseleave', function () {
+                    clearFocus();
+                });
+                item.addEventListener('focus', function () {
+                    setFocus(status);
+                });
+                item.addEventListener('blur', function () {
+                    clearFocus();
+                });
+            });
+
+            Object.keys(circles).forEach(function (status) {
+                var el = circles[status];
+                if (!el) return;
+
+                el.addEventListener('mouseenter', function () {
+                    setFocus(status);
+                });
+                el.addEventListener('mouseleave', function () {
+                    clearFocus();
+                });
+                el.addEventListener('focus', function () {
+                    setFocus(status);
+                });
+                el.addEventListener('blur', function () {
+                    clearFocus();
+                });
+                el.setAttribute('tabindex', '0');
+                el.setAttribute('role', 'img');
+                el.setAttribute('aria-label', status + ' clinics');
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initClinicActivityHover);
+        } else {
+            initClinicActivityHover();
+        }
+    })();
+</script>
 <script>
     (function () {
         var title = document.getElementById('dashboard-analytics-title');
