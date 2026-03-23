@@ -74,7 +74,16 @@ $superadmin_nav = 'reports';
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
 
-date_default_timezone_set('Asia/Manila');
+// Match PHP display to server / php.ini (same idea as auditlogs.php — avoid hardcoded TZ vs MySQL mismatch).
+$__reports_ini_tz = @ini_get('date.timezone');
+if (is_string($__reports_ini_tz) && $__reports_ini_tz !== '') {
+    @date_default_timezone_set($__reports_ini_tz);
+} elseif (function_exists('date_default_timezone_get') && @date_default_timezone_get()) {
+    // already set
+} else {
+    @date_default_timezone_set('UTC');
+}
+unset($__reports_ini_tz);
 
 /**
  * Human-friendly datetime for small dashboard tables.
@@ -98,18 +107,13 @@ function reports_format_date_for_table($date): string
 }
 
 /**
- * Resolve [start, end) for reports (Asia/Manila). End is exclusive except we use < end in SQL.
- * For "today" and current week/month/year, end is min(now, period_end) for a live window.
+ * Date range using MySQL CURDATE()/NOW() so filters match stored DATETIME the same way the DB counts "today"
+ * (avoids PHP TZ vs MySQL session TZ drift — same approach as auditlogs.php display alignment).
  *
- * @return array{0:DateTime,1:DateTime,2:string} start, end, label
+ * @return array{start:string,end:string,label:string,end_inclusive:bool}
  */
-function reports_resolve_date_range(string $period, ?string $dateFrom, ?string $dateTo): array
+function reports_mysql_period_range(PDO $pdo, string $period, ?string $dateFrom, ?string $dateTo): array
 {
-    $tz = new DateTimeZone('Asia/Manila');
-    $now = new DateTime('now', $tz);
-    $todayStart = clone $now;
-    $todayStart->setTime(0, 0, 0);
-
     $period = strtolower(trim($period));
     $allowed = ['today', 'yesterday', 'week', 'month', 'year', 'custom'];
     if (!in_array($period, $allowed, true)) {
@@ -117,64 +121,141 @@ function reports_resolve_date_range(string $period, ?string $dateFrom, ?string $
     }
 
     if ($period === 'today') {
-        return [$todayStart, $now, 'Today (live)'];
+        $row = $pdo->query("
+            SELECT CONCAT(CURDATE(), ' 00:00:00') AS s,
+                   DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s') AS e
+        ")->fetch(PDO::FETCH_ASSOC);
+        return [
+            'start' => (string) ($row['s'] ?? ''),
+            'end' => (string) ($row['e'] ?? ''),
+            'label' => 'Today (live)',
+            'end_inclusive' => true,
+        ];
     }
 
     if ($period === 'yesterday') {
-        $start = clone $todayStart;
-        $start->modify('-1 day');
-        $end = clone $todayStart;
-        return [$start, $end, $start->format('M j, Y')];
+        $row = $pdo->query("
+            SELECT CONCAT(DATE_SUB(CURDATE(), INTERVAL 1 DAY), ' 00:00:00') AS s,
+                   CONCAT(CURDATE(), ' 00:00:00') AS e
+        ")->fetch(PDO::FETCH_ASSOC);
+        $d = $pdo->query('SELECT DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 DAY), \'%Y-%m-%d\')')->fetchColumn();
+        $label = $d ? date('M j, Y', strtotime((string) $d . ' 12:00:00')) : 'Yesterday';
+        return [
+            'start' => (string) ($row['s'] ?? ''),
+            'end' => (string) ($row['e'] ?? ''),
+            'label' => $label,
+            'end_inclusive' => false,
+        ];
     }
 
     if ($period === 'week') {
-        $dow = (int) $now->format('N');
-        $start = clone $todayStart;
-        $start->modify('-' . ($dow - 1) . ' days');
-        $nextWeek = clone $start;
-        $nextWeek->modify('+7 days');
-        $end = ($now < $nextWeek) ? $now : $nextWeek;
-        $label = 'This week · ' . $start->format('M j') . ' – ' . $end->format('M j, Y');
-        return [$start, $end, $label];
+        $row = $pdo->query("
+            SELECT
+                CONCAT(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), ' 00:00:00') AS s,
+                LEAST(
+                    NOW(),
+                    DATE_ADD(CONCAT(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), ' 00:00:00'), INTERVAL 7 DAY)
+                ) AS e
+        ")->fetch(PDO::FETCH_ASSOC);
+        $ds = $pdo->query("SELECT DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), '%Y-%m-%d')")->fetchColumn();
+        $de = $pdo->query("
+            SELECT DATE_FORMAT(
+                LEAST(
+                    NOW(),
+                    DATE_ADD(CONCAT(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), ' 00:00:00'), INTERVAL 7 DAY)
+                ),
+                '%Y-%m-%d'
+            )
+        ")->fetchColumn();
+        $label = 'This week · ' . date('M j', strtotime((string) $ds . ' 12:00:00'))
+            . ' – ' . date('M j, Y', strtotime((string) $de . ' 12:00:00'));
+        return [
+            'start' => (string) ($row['s'] ?? ''),
+            'end' => (string) ($row['e'] ?? ''),
+            'label' => $label,
+            'end_inclusive' => true,
+        ];
     }
 
     if ($period === 'month') {
-        $start = clone $todayStart;
-        $start->modify('first day of this month');
-        $nextM = clone $start;
-        $nextM->modify('+1 month');
-        $end = ($now < $nextM) ? $now : $nextM;
-        return [$start, $end, 'This month · ' . $start->format('F Y')];
+        $row = $pdo->query("
+            SELECT
+                CONCAT(DATE_FORMAT(CURDATE(), '%Y-%m-01'), ' 00:00:00') AS s,
+                LEAST(
+                    NOW(),
+                    DATE_ADD(CONCAT(DATE_FORMAT(CURDATE(), '%Y-%m-01'), ' 00:00:00'), INTERVAL 1 MONTH)
+                ) AS e
+        ")->fetch(PDO::FETCH_ASSOC);
+        $m = $pdo->query("SELECT DATE_FORMAT(CURDATE(), '%M %Y')")->fetchColumn();
+        return [
+            'start' => (string) ($row['s'] ?? ''),
+            'end' => (string) ($row['e'] ?? ''),
+            'label' => 'This month · ' . (string) $m,
+            'end_inclusive' => true,
+        ];
     }
 
     if ($period === 'year') {
-        $start = new DateTime($now->format('Y') . '-01-01 00:00:00', $tz);
-        $nextY = clone $start;
-        $nextY->modify('+1 year');
-        $end = ($now < $nextY) ? $now : $nextY;
-        return [$start, $end, 'This year · ' . $start->format('Y')];
+        $row = $pdo->query("
+            SELECT
+                CONCAT(YEAR(CURDATE()), '-01-01 00:00:00') AS s,
+                LEAST(
+                    NOW(),
+                    DATE_ADD(CONCAT(YEAR(CURDATE()), '-01-01 00:00:00'), INTERVAL 1 YEAR)
+                ) AS e
+        ")->fetch(PDO::FETCH_ASSOC);
+        $y = $pdo->query('SELECT YEAR(CURDATE())')->fetchColumn();
+        return [
+            'start' => (string) ($row['s'] ?? ''),
+            'end' => (string) ($row['e'] ?? ''),
+            'label' => 'This year · ' . (string) $y,
+            'end_inclusive' => true,
+        ];
     }
 
-    // custom
+    // custom — calendar days in MySQL session (matches how CURDATE() works)
     $okFrom = $dateFrom && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom);
     $okTo = $dateTo && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo);
     if (!$okFrom || !$okTo) {
-        $start = clone $todayStart;
-        $start->modify('-1 day');
-        $end = clone $todayStart;
-        return [$start, $end, 'Custom · yesterday (set From and To)'];
+        $row = $pdo->query("
+            SELECT CONCAT(DATE_SUB(CURDATE(), INTERVAL 1 DAY), ' 00:00:00') AS s,
+                   CONCAT(CURDATE(), ' 00:00:00') AS e
+        ")->fetch(PDO::FETCH_ASSOC);
+        return [
+            'start' => (string) ($row['s'] ?? ''),
+            'end' => (string) ($row['e'] ?? ''),
+            'label' => 'Custom · yesterday (set From and To)',
+            'end_inclusive' => false,
+        ];
     }
-    $start = new DateTime($dateFrom . ' 00:00:00', $tz);
-    $toDay = new DateTime($dateTo . ' 00:00:00', $tz);
-    if ($start > $toDay) {
-        $tmp = $start;
-        $start = $toDay;
-        $toDay = $tmp;
+    $df = $dateFrom;
+    $dt = $dateTo;
+    if ($df > $dt) {
+        $tmp = $df;
+        $df = $dt;
+        $dt = $tmp;
     }
-    $end = clone $toDay;
-    $end->modify('+1 day');
-    $label = 'Custom · ' . $start->format('M j, Y') . ' – ' . $toDay->format('M j, Y');
-    return [$start, $end, $label];
+    $stmt = $pdo->prepare('SELECT CONCAT(?, \' 00:00:00\') AS s, DATE_ADD(CONCAT(?, \' 00:00:00\'), INTERVAL 1 DAY) AS e');
+    $stmt->execute([$df, $dt]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $label = 'Custom · ' . date('M j, Y', strtotime($df . ' 12:00:00')) . ' – ' . date('M j, Y', strtotime($dt . ' 12:00:00'));
+    return [
+        'start' => (string) ($row['s'] ?? ''),
+        'end' => (string) ($row['e'] ?? ''),
+        'label' => $label,
+        'end_inclusive' => false,
+    ];
+}
+
+/**
+ * Build datetime predicate for range queries.
+ */
+function reports_datetime_predicate(string $column, bool $endInclusive): string
+{
+    if ($endInclusive) {
+        return "{$column} >= ? AND {$column} <= ?";
+    }
+    return "{$column} >= ? AND {$column} < ?";
 }
 
 $dbError = null;
@@ -190,21 +271,25 @@ $filterClinicLabel = 'All clinics';
 $periodLabel = '—';
 $reportsFormAction = htmlspecialchars(basename(isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : 'reports.php'), ENT_QUOTES, 'UTF-8');
 
-if (strtolower($filterPeriod) === 'custom' && $filterDateFrom === '' && $filterDateTo === '') {
-    $y = new DateTime('yesterday', new DateTimeZone('Asia/Manila'));
-    $filterDateFrom = $y->format('Y-m-d');
-    $filterDateTo = $filterDateFrom;
-}
-
 try {
     $tenantsStmt = $pdo->query('SELECT tenant_id, clinic_name FROM tbl_tenants ORDER BY clinic_name ASC');
     $tenantsList = $tenantsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    [$rangeStart, $rangeEnd, $periodLabel] = reports_resolve_date_range(
+    if (strtolower($filterPeriod) === 'custom' && $filterDateFrom === '' && $filterDateTo === '') {
+        $filterDateFrom = (string) $pdo->query("SELECT DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 DAY), '%Y-%m-%d')")->fetchColumn();
+        $filterDateTo = $filterDateFrom;
+    }
+
+    $range = reports_mysql_period_range(
+        $pdo,
         $filterPeriod,
         $filterDateFrom !== '' ? $filterDateFrom : null,
         $filterDateTo !== '' ? $filterDateTo : null
     );
+    $startStr = $range['start'];
+    $endStr = $range['end'];
+    $periodLabel = $range['label'];
+    $endInclusive = !empty($range['end_inclusive']);
 
     if ($filterClinicId !== '') {
         $found = false;
@@ -221,15 +306,12 @@ try {
         }
     }
 
-    $startStr = $rangeStart->format('Y-m-d H:i:s');
-    $endStr = $rangeEnd->format('Y-m-d H:i:s');
-
+    $visitPred = reports_datetime_predicate('created_at', $endInclusive);
     $visitParams = [$startStr, $endStr];
     $visitSql = "
         SELECT COUNT(DISTINCT ip_address) AS cnt
         FROM tbl_website_visits
-        WHERE created_at >= ?
-          AND created_at < ?
+        WHERE {$visitPred}
           AND ip_address IS NOT NULL
           AND TRIM(ip_address) <> ''
     ";
@@ -247,7 +329,8 @@ try {
     }
 
     $regParams = [$startStr, $endStr];
-    $regWhere = 'WHERE u.created_at >= ? AND u.created_at < ?';
+    $regPred = reports_datetime_predicate('u.created_at', $endInclusive);
+    $regWhere = "WHERE {$regPred}";
     if ($filterClinicId !== '') {
         $regWhere .= ' AND u.tenant_id = ?';
         $regParams[] = $filterClinicId;
