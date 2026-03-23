@@ -18,7 +18,14 @@ require_once __DIR__ . '/tenant.php';
  * @param string|null $description
  */
 /**
- * Update last login / last active on successful sign-in (tbl_users).
+ * Update last_login and last_active on successful sign-in (tbl_users).
+ *
+ * Called from:
+ * - loginUser() after password login (clinic api/login.php — patient + staff/admin forms)
+ * - ProviderLogin.php (provider portal)
+ * - AdminLoginPage.php MyDental SSO (after this fix)
+ *
+ * Not updated: users who have never logged in; failed logins; superadmin-only flows that bypass tbl_users.
  */
 function auth_update_user_last_activity($pdo, $userId) {
     $userId = trim((string) $userId);

@@ -66,19 +66,35 @@ $_SESSION['public_tenant_id']   = $currentTenantId;
 $_SESSION['public_tenant_slug'] = $currentTenantSlug;
 
 /**
- * Log one anonymous website visit per request for public (patient-facing) pages only.
- * Superadmin reports count these — not logins.
+ * Anonymous website visits (tbl_website_visits) — how it works:
+ * - Requires migration 005_website_visits.sql (table must exist).
+ * - Only runs when this file is loaded with a valid ?clinic_slug= (or rewrite adds it).
+ *   Example: https://yoursite.com/my-clinic/ → clinic/MainPageClient.php?clinic_slug=my-clinic
+ * - Skips staff/admin dashboards (Admin* / Dentist_* / Staff_*) so we only count patient-facing traffic.
+ * - Script name is detected from SCRIPT_NAME (preferred) or SCRIPT_FILENAME — some hosts set these differently.
  */
-$__tb_script = basename(isset($_SERVER['SCRIPT_FILENAME']) ? (string) $_SERVER['SCRIPT_FILENAME'] : (isset($_SERVER['SCRIPT_NAME']) ? (string) $_SERVER['SCRIPT_NAME'] : ''));
-$__tb_publicScripts = [
-    'MainPageClient.php',
-    'AboutUsClient.php',
-    'ContactUsClient.php',
-    'RegisterClient.php',
-    'Login.php',
-    'DownloadApp.php',
-];
-if (in_array($__tb_script, $__tb_publicScripts, true)) {
+$__tb_script = '';
+foreach (['SCRIPT_NAME', 'SCRIPT_FILENAME', 'PHP_SELF'] as $__tb_key) {
+    if (empty($_SERVER[$__tb_key])) {
+        continue;
+    }
+    $raw = (string) $_SERVER[$__tb_key];
+    $p = parse_url($raw, PHP_URL_PATH);
+    if ($p === null || $p === '') {
+        $p = $raw;
+    }
+    $__tb_script = basename(str_replace('\\', '/', $p));
+    if ($__tb_script !== '') {
+        break;
+    }
+}
+// Exclude clinic back-office pages; everything else with tenant_bootstrap counts as a public visit.
+$__tb_skipVisit = $__tb_script !== '' && (
+    preg_match('/^Admin/i', $__tb_script)
+    || preg_match('/^Dentist_/i', $__tb_script)
+    || preg_match('/^Staff_/i', $__tb_script)
+);
+if (!$__tb_skipVisit && $__tb_script !== '') {
     try {
         $ip = '';
         if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
@@ -90,9 +106,9 @@ if (in_array($__tb_script, $__tb_publicScripts, true)) {
         $stmt = $pdo->prepare('INSERT INTO tbl_website_visits (tenant_id, ip_address, visit_path) VALUES (?, ?, ?)');
         $stmt->execute([$currentTenantId, $ip !== '' ? $ip : null, $path]);
     } catch (Throwable $e) {
-        // Table may not exist until migration 005 is applied; never break the page.
+        // Table missing, bad permissions, etc. — never break the page.
         error_log('tbl_website_visits insert: ' . $e->getMessage());
     }
 }
-unset($__tb_script, $__tb_publicScripts);
+unset($__tb_script, $__tb_skipVisit, $__tb_key);
 

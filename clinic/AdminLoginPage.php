@@ -124,6 +124,7 @@ if ($ssoData !== null) {
             $_SESSION['user_id'] = $sessionId;
             $_SESSION['user_name'] = $sessionName ?: $email;
             $_SESSION['user_type'] = $sessionType;
+            auth_update_user_last_activity($pdo, (string) $sessionId);
             $dest = ($sessionType === 'manager') ? 'AdminDashboard.php' : (($sessionType === 'doctor') ? 'Dentist_Dashboard.php' : 'Staff_Dashboard.php');
             header('Location: ' . clinicPageUrl($dest));
             exit;
