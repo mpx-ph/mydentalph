@@ -17,6 +17,27 @@ require_once __DIR__ . '/tenant.php';
  * @param string $action
  * @param string|null $description
  */
+/**
+ * Update last login / last active on successful sign-in (tbl_users).
+ */
+function auth_update_user_last_activity($pdo, $userId) {
+    $userId = trim((string) $userId);
+    if ($userId === '') {
+        return;
+    }
+    try {
+        $st = $pdo->prepare('UPDATE tbl_users SET last_active = CURRENT_TIMESTAMP, last_login = CURRENT_TIMESTAMP WHERE user_id = ?');
+        $st->execute([$userId]);
+    } catch (Throwable $e) {
+        try {
+            $st = $pdo->prepare('UPDATE tbl_users SET last_login = CURRENT_TIMESTAMP WHERE user_id = ?');
+            $st->execute([$userId]);
+        } catch (Throwable $e2) {
+            error_log('auth_update_user_last_activity: ' . $e2->getMessage());
+        }
+    }
+}
+
 function writeAuditLog($tenantId, $userId, $action, $description = null) {
     if (!function_exists('getDBConnection')) {
         require_once __DIR__ . '/../config/database.php';
@@ -213,6 +234,8 @@ function loginUser($email, $password, $userType) {
         'LOGIN',
         'User logged in as ' . $userDbType
     );
+
+    auth_update_user_last_activity($pdo, (string) $user['user_id']);
 
     return [
         'success' => true,

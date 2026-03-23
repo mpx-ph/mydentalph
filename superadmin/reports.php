@@ -103,9 +103,7 @@ $yesterdayEnd = null;
 $yesterdayLabel = '';
 
 // Note: this file uses the shared `$pdo` provided by `superadmin_sidebar.php`.
-// Total mydental Visits = unique visitors (by IP) yesterday on public clinic pages (tbl_website_visits).
 $totalMyDentalVisits = 0;
-// User Registration = all rows in tbl_users (full registration list + total count).
 $userRegistrationsTotal = 0;
 $registrationRows = [];
 
@@ -119,7 +117,6 @@ try {
     $startStr = $yesterdayStart->format('Y-m-d H:i:s');
     $endStr = $yesterdayEnd->format('Y-m-d H:i:s');
 
-    // Anonymous website visits (logged in tenant_bootstrap.php for public pages; not logins).
     try {
         $stmt = $pdo->prepare("
             SELECT COUNT(DISTINCT ip_address) AS cnt
@@ -132,27 +129,55 @@ try {
         $stmt->execute([$startStr, $endStr]);
         $totalMyDentalVisits = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['cnt'] ?? 0);
     } catch (Throwable $e) {
-        // Table missing until migration 005_website_visits.sql is applied — show 0, do not break page.
         error_log('superadmin/reports.php tbl_website_visits: ' . $e->getMessage());
         $totalMyDentalVisits = 0;
     }
 
-    // All registrations from tbl_users (uses created_at).
-    $stmt = $pdo->query('SELECT COUNT(*) AS cnt FROM tbl_users');
+    // Registrations created yesterday (tbl_users.created_at).
+    $stmt = $pdo->prepare('
+        SELECT COUNT(*) AS cnt
+        FROM tbl_users
+        WHERE created_at >= ?
+          AND created_at < ?
+    ');
+    $stmt->execute([$startStr, $endStr]);
     $userRegistrationsTotal = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['cnt'] ?? 0);
 
-    $stmt = $pdo->query("
+    // Table: last_active preferred when column exists (migration 006).
+    $sqlReg = "
         SELECT
             DATE(u.created_at) AS created_date,
             t.clinic_name AS tenant_name,
             COALESCE(NULLIF(TRIM(u.full_name), ''), u.username) AS user_name,
             u.email AS user_email,
-            u.last_login AS last_active_at
+            COALESCE(u.last_active, u.last_login) AS last_active_at
         FROM tbl_users u
         LEFT JOIN tbl_tenants t ON t.tenant_id = u.tenant_id
+        WHERE u.created_at >= ?
+          AND u.created_at < ?
         ORDER BY u.created_at DESC
-    ");
-    $registrationRows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    ";
+    try {
+        $stmt = $pdo->prepare($sqlReg);
+        $stmt->execute([$startStr, $endStr]);
+        $registrationRows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        $stmt = $pdo->prepare("
+            SELECT
+                DATE(u.created_at) AS created_date,
+                t.clinic_name AS tenant_name,
+                COALESCE(NULLIF(TRIM(u.full_name), ''), u.username) AS user_name,
+                u.email AS user_email,
+                u.last_login AS last_active_at
+            FROM tbl_users u
+            LEFT JOIN tbl_tenants t ON t.tenant_id = u.tenant_id
+            WHERE u.created_at >= ?
+              AND u.created_at < ?
+            ORDER BY u.created_at DESC
+        ");
+        $stmt->execute([$startStr, $endStr]);
+        $registrationRows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
 } catch (Throwable $e) {
     $dbError = 'Unable to load reports.';
     error_log('superadmin/reports.php: ' . $e->getMessage());
@@ -187,7 +212,7 @@ try {
 <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Total mydental Visits</p>
 <h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo htmlspecialchars(number_format($totalMyDentalVisits), ENT_QUOTES, 'UTF-8'); ?></h3>
 <p class="text-on-surface-variant text-xs font-medium mt-2">
-    Yesterday (<?php echo htmlspecialchars($yesterdayLabel ?: '—', ENT_QUOTES, 'UTF-8'); ?>): unique visitors by IP on public clinic pages (anonymous; not logins).
+    Yesterday · <?php echo htmlspecialchars($yesterdayLabel ?: '—', ENT_QUOTES, 'UTF-8'); ?>
 </p>
 </div>
 <div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all border-r-4 border-primary/20">
@@ -199,7 +224,7 @@ try {
 <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">User Registration</p>
 <h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo htmlspecialchars(number_format($userRegistrationsTotal), ENT_QUOTES, 'UTF-8'); ?></h3>
 <p class="text-on-surface-variant text-xs font-medium mt-2">
-    Total users in <span class="font-bold">tbl_users</span> (all roles).
+    Yesterday · <?php echo htmlspecialchars($yesterdayLabel ?: '—', ENT_QUOTES, 'UTF-8'); ?>
 </p>
 </div>
 </section>
@@ -287,7 +312,7 @@ try {
         <?php if ($dbError): ?>
             <?php echo htmlspecialchars($dbError, ENT_QUOTES, 'UTF-8'); ?>
         <?php else: ?>
-            No user registrations found.
+            No registrations for this day.
         <?php endif; ?>
     </td>
 </tr>

@@ -90,6 +90,7 @@ CREATE TABLE IF NOT EXISTS tbl_users (
     photo VARCHAR(500),
     status ENUM('active','inactive','suspended') DEFAULT 'active',
     last_login TIMESTAMP NULL DEFAULT NULL,
+    last_active TIMESTAMP NULL DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 

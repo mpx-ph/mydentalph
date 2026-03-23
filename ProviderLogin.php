@@ -90,6 +90,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'Provider user logged in.'
                 );
 
+                try {
+                    $st = $pdo->prepare('UPDATE tbl_users SET last_active = CURRENT_TIMESTAMP, last_login = CURRENT_TIMESTAMP WHERE user_id = ?');
+                    $st->execute([(string) $user['user_id']]);
+                } catch (Throwable $e) {
+                    try {
+                        $st = $pdo->prepare('UPDATE tbl_users SET last_login = CURRENT_TIMESTAMP WHERE user_id = ?');
+                        $st->execute([(string) $user['user_id']]);
+                    } catch (Throwable $e2) {
+                        error_log('ProviderLogin last_active: ' . $e2->getMessage());
+                    }
+                }
+
                 $redirect = isset($_GET['redirect']) ? trim($_GET['redirect']) : '';
                 if (($user['role'] ?? '') === 'superadmin') {
                     if ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)
