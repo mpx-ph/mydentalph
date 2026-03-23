@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/require_superadmin.php';
 require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/debug_agent_tz_log.php';
 
 $totalLogs = 0;
 $loginEvents = 0;
@@ -41,6 +42,22 @@ try {
     ");
     $eventRows = $eventsStmt->fetchAll(PDO::FETCH_ASSOC);
     $totalEventRows = count($eventRows);
+
+    // #region agent log
+    try {
+        $tzrow = $pdo->query('SELECT NOW() AS n, UTC_TIMESTAMP() AS u, @@session.time_zone AS stz')->fetch(PDO::FETCH_ASSOC);
+        agent_debug_tz_log('H2', 'auditlogs.php:mysql_clocks', 'MySQL vs PHP', [
+            'mysql_NOW' => $tzrow['n'] ?? null,
+            'mysql_UTC_TIMESTAMP' => $tzrow['u'] ?? null,
+            'session_time_zone' => $tzrow['stz'] ?? null,
+            'php_ini_tz' => (string) @ini_get('date.timezone'),
+            'date_default_timezone_get' => @date_default_timezone_get(),
+            'php_now' => date('Y-m-d H:i:s'),
+        ]);
+    } catch (Throwable $e) {
+        agent_debug_tz_log('H2', 'auditlogs.php:mysql_clocks', 'mysql tz query failed', ['err' => $e->getMessage()]);
+    }
+    // #endregion
 } catch (Throwable $e) {
     $dbError = 'Unable to load audit logs right now.';
 }
@@ -276,6 +293,14 @@ require __DIR__ . '/superadmin_header.php';
     } catch (Throwable $e) {
         $sourceTz = new DateTimeZone('UTC');
     }
+
+    // #region agent log
+    agent_debug_tz_log('H3', 'auditlogs.php:tz_chain', 'Display conversion chain', [
+        'sourceTz_name' => $sourceTz->getName(),
+        'targetTz_name' => $targetTz->getName(),
+        'first_created_at_raw' => isset($eventRows[0]['created_at']) ? (string) $eventRows[0]['created_at'] : null,
+    ]);
+    // #endregion
 ?>
 <?php foreach ($eventRows as $row): ?>
 <?php
