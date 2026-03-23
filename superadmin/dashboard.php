@@ -693,8 +693,11 @@ require __DIR__ . '/superadmin_header.php';
                     hit.setAttribute('cx', pt.x);
                     hit.setAttribute('cy', pt.y);
                     hit.setAttribute('r', '32');
-                    hit.setAttribute('fill', 'transparent');
+                    // Use a nearly-invisible painted fill so SVG hit-testing triggers mouseenter reliably.
+                    hit.setAttribute('fill', '#0066ff');
+                    hit.setAttribute('fill-opacity', '0.01');
                     hit.setAttribute('stroke', 'none');
+                    hit.setAttribute('pointer-events', 'all');
                     var vis = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                     vis.setAttribute('class', 'revenue-point-dot transition-all duration-150');
                     vis.setAttribute('cx', pt.x);
