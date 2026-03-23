@@ -70,6 +70,148 @@
 <?php
 $superadmin_nav = 'salesreport';
 $superadmin_header_search_placeholder = 'Search clinic data...';
+require_once __DIR__ . '/../db.php';
+date_default_timezone_set('Asia/Manila');
+
+function salesreport_format_money_card(float $amount): string
+{
+    if ($amount >= 1000000) {
+        return '₱' . number_format($amount / 1000000, 1, '.', '') . 'M';
+    }
+    if ($amount >= 1000) {
+        return '₱' . number_format($amount / 1000, 1, '.', '') . 'k';
+    }
+    return '₱' . number_format($amount, 0, '.', ',');
+}
+
+function salesreport_format_money_exact(float $amount): string
+{
+    return '₱' . number_format($amount, 2, '.', ',');
+}
+
+function salesreport_format_date_for_table(string $dateTime): string
+{
+    $ts = strtotime($dateTime);
+    return $ts ? date('M j, Y', $ts) : $dateTime;
+}
+
+// Revenue stats use completed payments across all tenants.
+$todayStart = new DateTime('today');
+$todayStart->setTime(0, 0, 0);
+$todayEnd = clone $todayStart;
+$todayEnd->modify('+1 day');
+$todayRevenue = 0.0;
+$weekRevenue = 0.0;
+$monthRevenue = 0.0;
+$yearRevenue = 0.0;
+
+$weekStart = clone $todayStart;
+$weekdayN = (int) $weekStart->format('N'); // 1..7 (Mon..Sun)
+$weekStart->modify('-' . ($weekdayN - 1) . ' days');
+$weekEnd = clone $weekStart;
+$weekEnd->modify('+7 days');
+
+$monthStart = new DateTime('first day of this month');
+$monthStart->setTime(0, 0, 0);
+$monthEnd = clone $monthStart;
+$monthEnd->modify('+1 month');
+
+$yearStart = new DateTime('first day of January ' . $todayStart->format('Y'));
+$yearStart->setTime(0, 0, 0);
+$yearEnd = clone $yearStart;
+$yearEnd->modify('+1 year');
+
+try {
+    $stmt = $pdo->prepare("
+        SELECT COALESCE(SUM(amount), 0) as revenue
+        FROM payments
+        WHERE status = 'completed'
+          AND payment_date >= ?
+          AND payment_date < ?
+    ");
+
+    $stmt->execute([$todayStart->format('Y-m-d H:i:s'), $todayEnd->format('Y-m-d H:i:s')]);
+    $todayRevenue = (float) ($stmt->fetch()['revenue'] ?? 0);
+
+    $stmt->execute([$weekStart->format('Y-m-d H:i:s'), $weekEnd->format('Y-m-d H:i:s')]);
+    $weekRevenue = (float) ($stmt->fetch()['revenue'] ?? 0);
+
+    $stmt->execute([$monthStart->format('Y-m-d H:i:s'), $monthEnd->format('Y-m-d H:i:s')]);
+    $monthRevenue = (float) ($stmt->fetch()['revenue'] ?? 0);
+
+    $stmt->execute([$yearStart->format('Y-m-d H:i:s'), $yearEnd->format('Y-m-d H:i:s')]);
+    $yearRevenue = (float) ($stmt->fetch()['revenue'] ?? 0);
+} catch (Exception $e) {
+    error_log('salesreport revenue stats error: ' . $e->getMessage());
+}
+
+// Recent daily revenue: last 5 days (including today), completed payments.
+$recentDailyRevenue = [];
+$dailyStart = clone $todayStart;
+$dailyStart->modify('-4 days');
+$dailyEnd = clone $todayEnd; // exclusive
+
+try {
+    $stmt = $pdo->prepare("
+        SELECT
+            DATE(payment_date) as payment_day,
+            COALESCE(SUM(amount), 0) as revenue
+        FROM payments
+        WHERE status = 'completed'
+          AND payment_date >= ?
+          AND payment_date < ?
+        GROUP BY DATE(payment_date)
+        ORDER BY payment_day ASC
+    ");
+    $stmt->execute([$dailyStart->format('Y-m-d H:i:s'), $dailyEnd->format('Y-m-d H:i:s')]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $revenueByDay = [];
+    foreach ($rows as $row) {
+        $dayKey = (string) ($row['payment_day'] ?? '');
+        if ($dayKey !== '') {
+            $revenueByDay[$dayKey] = (float) ($row['revenue'] ?? 0);
+        }
+    }
+
+    for ($i = 0; $i < 5; $i++) {
+        $d = clone $dailyStart;
+        $d->modify('+' . $i . ' days');
+        $key = $d->format('Y-m-d');
+        $recentDailyRevenue[] = [
+            'label' => $d->format('M j'),
+            'revenue' => (float) ($revenueByDay[$key] ?? 0),
+        ];
+    }
+} catch (Exception $e) {
+    error_log('salesreport recent daily revenue error: ' . $e->getMessage());
+}
+
+// Recent transactions table: last 3 payments across all tenants.
+$recentTransactions = [];
+try {
+    $stmt = $pdo->prepare("
+        SELECT
+            p.payment_date,
+            p.amount,
+            p.status,
+            p.payment_id,
+            p.booking_id,
+            a.service_type,
+            t.clinic_name
+        FROM payments p
+        LEFT JOIN tbl_tenants t ON p.tenant_id = t.tenant_id
+        LEFT JOIN appointments a
+            ON p.tenant_id = a.tenant_id
+           AND p.booking_id = a.booking_id
+        ORDER BY p.payment_date DESC, p.id DESC
+        LIMIT 3
+    ");
+    $stmt->execute();
+    $recentTransactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    error_log('salesreport recent transactions error: ' . $e->getMessage());
+}
+
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
 ?>
@@ -126,127 +268,78 @@ require __DIR__ . '/superadmin_header.php';
 <div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all">
 <div class="flex justify-between items-start mb-4">
 <div class="p-2.5 bg-blue-50 text-primary rounded-xl shadow-sm">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">payments</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">calendar_today</span>
 </div>
-<span class="text-[10px] font-extrabold text-green-600 bg-green-50 px-2 py-1 rounded-lg uppercase">+15%</span>
 </div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Total Sales</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline tracking-tighter">$1.2M</h3>
+<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Today Revenue</p>
+<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline tracking-tighter"><?php echo htmlspecialchars(salesreport_format_money_card((float) $todayRevenue)); ?></h3>
 </div>
 <div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all">
 <div class="flex justify-between items-start mb-4">
 <div class="p-2.5 bg-blue-50 text-primary rounded-xl shadow-sm">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">analytics</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">schedule</span>
 </div>
-<span class="text-[10px] font-extrabold text-green-600 bg-green-50 px-2 py-1 rounded-lg uppercase">+8%</span>
 </div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Monthly Revenue</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline tracking-tighter">$124k</h3>
+<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">This Week Revenue</p>
+<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline tracking-tighter"><?php echo htmlspecialchars(salesreport_format_money_card((float) $weekRevenue)); ?></h3>
 </div>
 <div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all border-r-4 border-primary/20">
 <div class="flex justify-between items-start mb-4">
 <div class="p-2.5 bg-primary/5 text-primary rounded-xl shadow-sm">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">stars</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event</span>
 </div>
-<span class="text-[10px] font-extrabold text-primary bg-primary/5 px-2 py-1 rounded-lg uppercase">Main Driver</span>
 </div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Best Service</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline tracking-tighter">Orthodontics</h3>
+<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">This Month Revenue</p>
+<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline tracking-tighter"><?php echo htmlspecialchars(salesreport_format_money_card((float) $monthRevenue)); ?></h3>
 </div>
 <div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all">
 <div class="flex justify-between items-start mb-4">
 <div class="p-2.5 bg-blue-50 text-primary rounded-xl shadow-sm">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person_add</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">campaign</span>
 </div>
-<span class="text-[10px] font-extrabold text-primary bg-primary/5 px-2 py-1 rounded-lg uppercase">This Month</span>
 </div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">New Clients</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline tracking-tighter">45</h3>
+<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">This Year Revenue</p>
+<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline tracking-tighter"><?php echo htmlspecialchars(salesreport_format_money_card((float) $yearRevenue)); ?></h3>
 </div>
 </section>
-<!-- Charts Section (Bento Grid Style) -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-<!-- Monthly Sales Trends -->
-<div class="lg:col-span-2 bg-white/70 backdrop-blur-xl rounded-[2.5rem] p-10 editorial-shadow">
-<div class="flex items-center justify-between mb-8">
+<!-- Recent Daily Revenue -->
+<section class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] p-10 editorial-shadow overflow-hidden">
+<div class="flex items-start justify-between gap-4">
 <div>
-<h3 class="text-xl font-extrabold text-on-surface font-headline tracking-tight">Monthly Sales Trends</h3>
-<p class="text-sm text-on-surface-variant font-medium">Revenue growth over time</p>
+<h3 class="text-xl font-extrabold font-headline text-on-surface tracking-tight">Recent Daily Revenue</h3>
+<p class="text-sm text-on-surface-variant font-medium mt-1">Revenue per day (last 5 days, completed payments)</p>
 </div>
-<div class="flex bg-surface-container-low/50 rounded-full p-1 border border-white/50">
-<button class="px-6 py-1.5 rounded-full bg-white text-primary text-xs font-bold shadow-sm">Year</button>
-<button class="px-6 py-1.5 rounded-full text-on-surface-variant text-xs font-bold hover:text-on-surface transition-colors">Quarter</button>
-</div>
-</div>
-<div class="relative h-[300px] w-full mt-4 flex items-end justify-between px-2">
-<div class="absolute inset-0 flex flex-col justify-between opacity-20 pointer-events-none">
-<div class="border-b border-outline-variant w-full h-0"></div>
-<div class="border-b border-outline-variant w-full h-0"></div>
-<div class="border-b border-outline-variant w-full h-0"></div>
-<div class="border-b border-outline-variant w-full h-0"></div>
-</div>
-<div class="relative w-full h-full">
-<svg class="absolute bottom-0 left-0 w-full h-full overflow-visible" preserveaspectratio="none">
-<defs>
-<lineargradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
-<stop offset="0%" stop-color="#0066ff" stop-opacity="0.2"></stop>
-<stop offset="100%" stop-color="#0066ff" stop-opacity="0"></stop>
-</lineargradient>
-</defs>
-<path d="M0 240 Q 100 200, 200 220 T 400 120 T 600 150 T 800 60" fill="none" stroke="#0066ff" stroke-linecap="round" stroke-width="4"></path>
-<path d="M0 240 Q 100 200, 200 220 T 400 120 T 600 150 T 800 60 V 300 H 0 Z" fill="url(#chartGradient)"></path>
-<circle cx="400" cy="120" fill="#0066ff" r="6" stroke="white" stroke-width="2"></circle>
-</svg>
-<div class="absolute left-1/2 top-[100px] -translate-x-1/2 bg-on-surface text-white px-3 py-1.5 rounded-xl text-[10px] font-bold shadow-xl">
-                                JUN: $142,000
-                            </div>
+<div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-60">
+<span class="material-symbols-outlined text-lg">insights</span>
+<span>Last 5 Days</span>
 </div>
 </div>
-<div class="flex justify-between mt-8 px-2 text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em] opacity-60">
-<span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span>
+<div class="overflow-x-auto mt-8">
+<table class="w-full text-left">
+<thead>
+<tr class="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/60">
+<th class="px-8 py-5">Date</th>
+<th class="px-8 py-5 text-right">Revenue</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-white/40">
+<?php if (empty($recentDailyRevenue)): ?>
+<tr>
+<td class="px-8 py-6 text-sm font-bold text-on-surface-variant" colspan="2">No revenue data.</td>
+</tr>
+<?php else: ?>
+<?php foreach ($recentDailyRevenue as $day): ?>
+<tr class="hover:bg-primary/5 transition-colors">
+<td class="px-8 py-6 text-sm font-bold text-on-surface-variant"><?php echo htmlspecialchars((string) $day['label']); ?></td>
+<td class="px-8 py-6 text-right text-sm font-black text-on-surface"><?php echo htmlspecialchars(salesreport_format_money_exact((float) $day['revenue'])); ?></td>
+</tr>
+<?php endforeach; ?>
+<?php endif; ?>
+</tbody>
+</table>
 </div>
-</div>
-<!-- Sales by Service (Donut) -->
-<div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] p-10 editorial-shadow flex flex-col">
-<h3 class="text-xl font-extrabold text-on-surface font-headline tracking-tight mb-1">Sales by Service</h3>
-<p class="text-sm text-on-surface-variant font-medium mb-10">Revenue distribution</p>
-<div class="relative h-64 w-full flex items-center justify-center">
-<svg class="w-48 h-48 -rotate-90">
-<circle cx="96" cy="96" fill="none" r="80" stroke="#f0f4f8" stroke-width="24"></circle>
-<circle cx="96" cy="96" fill="none" r="80" stroke="#0066ff" stroke-dasharray="311 502" stroke-dashoffset="0" stroke-linecap="round" stroke-width="24"></circle>
-<circle cx="96" cy="96" fill="none" r="80" stroke="#404752" stroke-dasharray="115 502" stroke-dashoffset="-311" stroke-linecap="round" stroke-width="24"></circle>
-<circle cx="96" cy="96" fill="none" r="80" stroke="#c0c7d4" stroke-dasharray="75 502" stroke-dashoffset="-426" stroke-linecap="round" stroke-width="24"></circle>
-</svg>
-<div class="absolute inset-0 flex flex-col items-center justify-center">
-<span class="text-3xl font-black text-on-surface font-headline">62%</span>
-<span class="text-[10px] uppercase font-bold text-primary tracking-widest">Orthodontics</span>
-</div>
-</div>
-<div class="mt-8 space-y-4">
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-3">
-<span class="w-3 h-3 rounded-full bg-primary"></span>
-<span class="text-sm font-bold text-on-surface">Orthodontics</span>
-</div>
-<span class="text-sm font-bold text-on-surface">62%</span>
-</div>
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-3">
-<span class="w-3 h-3 rounded-full bg-on-surface-variant"></span>
-<span class="text-sm font-bold text-on-surface">Implants</span>
-</div>
-<span class="text-sm font-bold text-on-surface">23%</span>
-</div>
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-3">
-<span class="w-3 h-3 rounded-full bg-outline-variant"></span>
-<span class="text-sm font-bold text-on-surface">Cleaning</span>
-</div>
-<span class="text-sm font-bold text-on-surface">15%</span>
-</div>
-</div>
-</div>
-</div>
+</section>
+
 <!-- Recent Transactions Table (Styled like SCREEN_4 table) -->
 <div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
 <div class="px-10 py-8 flex items-center justify-between border-b border-white/50">
@@ -266,26 +359,56 @@ require __DIR__ . '/superadmin_header.php';
 </tr>
 </thead>
 <tbody class="divide-y divide-white/40">
-<!-- Row 1 -->
+<?php if (empty($recentTransactions)): ?>
+<tr>
+<td class="px-10 py-6 text-sm font-bold text-on-surface-variant" colspan="6">No recent transactions found.</td>
+</tr>
+<?php else: ?>
+<?php foreach ($recentTransactions as $tx): ?>
+<?php
+$status = (string) ($tx['status'] ?? '');
+$badgeLabel = 'Unknown';
+$badgeClasses = 'bg-on-surface-variant/5 text-on-surface-variant';
+$dotClasses = 'bg-on-surface-variant';
+if ($status === 'completed') {
+    $badgeLabel = 'Paid';
+    $badgeClasses = 'bg-green-50 text-green-600';
+    $dotClasses = 'bg-green-600';
+} elseif ($status === 'pending') {
+    $badgeLabel = 'Pending';
+    $badgeClasses = 'bg-amber-50 text-amber-600';
+    $dotClasses = 'bg-amber-600';
+} elseif ($status === 'cancelled' || $status === 'refunded') {
+    $badgeLabel = 'Cancelled';
+    $badgeClasses = 'bg-error/10 text-error';
+    $dotClasses = 'bg-error';
+} else {
+    $badgeLabel = ucfirst($status);
+}
+
+$clinicName = (string) ($tx['clinic_name'] ?? 'Unknown Clinic');
+$serviceType = (string) ($tx['service_type'] ?? 'N/A');
+$amount = (float) ($tx['amount'] ?? 0);
+?>
 <tr class="hover:bg-primary/5 transition-colors group">
-<td class="px-10 py-6 text-sm font-bold text-on-surface-variant">Oct 12, 2023</td>
+<td class="px-10 py-6 text-sm font-bold text-on-surface-variant"><?php echo htmlspecialchars(salesreport_format_date_for_table((string) ($tx['payment_date'] ?? ''))); ?></td>
 <td class="px-8 py-6">
 <div class="flex items-center gap-3">
 <div class="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-primary shadow-sm border border-white">
 <span class="material-symbols-outlined text-lg">domain</span>
 </div>
-<span class="text-sm font-bold text-on-surface">Downtown Branch</span>
+<span class="text-sm font-bold text-on-surface"><?php echo htmlspecialchars($clinicName); ?></span>
 </div>
 </td>
 <td class="px-8 py-6">
-<span class="px-3 py-1.5 bg-primary/5 text-primary rounded-xl text-[10px] font-bold uppercase tracking-wider">Invisalign</span>
+<span class="px-3 py-1.5 bg-primary/5 text-primary rounded-xl text-[10px] font-bold uppercase tracking-wider"><?php echo htmlspecialchars($serviceType); ?></span>
 </td>
-<td class="px-8 py-6 font-black text-sm text-on-surface">$4,500.00</td>
+<td class="px-8 py-6 font-black text-sm text-on-surface"><?php echo htmlspecialchars(salesreport_format_money_exact($amount)); ?></td>
 <td class="px-8 py-6">
-<span class="px-3 py-1.5 bg-green-50 text-green-600 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center w-fit gap-1.5">
-<span class="w-1.5 h-1.5 rounded-full bg-green-600"></span>
-                                        Paid
-                                    </span>
+<span class="px-3 py-1.5 <?php echo htmlspecialchars($badgeClasses); ?> rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center w-fit gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full <?php echo htmlspecialchars($dotClasses); ?>"></span>
+                                        <?php echo htmlspecialchars($badgeLabel); ?>
+</span>
 </td>
 <td class="px-10 py-6 text-right">
 <button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
@@ -293,75 +416,10 @@ require __DIR__ . '/superadmin_header.php';
 </button>
 </td>
 </tr>
-<!-- Row 2 -->
-<tr class="hover:bg-primary/5 transition-colors group">
-<td class="px-10 py-6 text-sm font-bold text-on-surface-variant">Oct 11, 2023</td>
-<td class="px-8 py-6">
-<div class="flex items-center gap-3">
-<div class="w-9 h-9 rounded-xl bg-surface-container-high flex items-center justify-center text-on-surface-variant shadow-sm border border-white">
-<span class="material-symbols-outlined text-lg">domain</span>
-</div>
-<span class="text-sm font-bold text-on-surface">Eastside Medical</span>
-</div>
-</td>
-<td class="px-8 py-6">
-<span class="px-3 py-1.5 bg-on-surface-variant/5 text-on-surface-variant rounded-xl text-[10px] font-bold uppercase tracking-wider">Dental Implant</span>
-</td>
-<td class="px-8 py-6 font-black text-sm text-on-surface">$2,850.00</td>
-<td class="px-8 py-6">
-<span class="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center w-fit gap-1.5">
-<span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
-                                        Pending
-                                    </span>
-</td>
-<td class="px-10 py-6 text-right">
-<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
-<span class="material-symbols-outlined">more_horiz</span>
-</button>
-</td>
-</tr>
-<!-- Row 3 -->
-<tr class="hover:bg-primary/5 transition-colors group">
-<td class="px-10 py-6 text-sm font-bold text-on-surface-variant">Oct 10, 2023</td>
-<td class="px-8 py-6">
-<div class="flex items-center gap-3">
-<div class="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-primary shadow-sm border border-white">
-<span class="material-symbols-outlined text-lg">domain</span>
-</div>
-<span class="text-sm font-bold text-on-surface">Downtown Branch</span>
-</div>
-</td>
-<td class="px-8 py-6">
-<span class="px-3 py-1.5 bg-primary/5 text-primary rounded-xl text-[10px] font-bold uppercase tracking-wider">Teeth Whitening</span>
-</td>
-<td class="px-8 py-6 font-black text-sm text-on-surface">$650.00</td>
-<td class="px-8 py-6">
-<span class="px-3 py-1.5 bg-error/10 text-error rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center w-fit gap-1.5">
-<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
-                                        Overdue
-                                    </span>
-</td>
-<td class="px-10 py-6 text-right">
-<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
-<span class="material-symbols-outlined">more_horiz</span>
-</button>
-</td>
-</tr>
+<?php endforeach; ?>
+<?php endif; ?>
 </tbody>
 </table>
-</div>
-<!-- Pagination -->
-<div class="px-10 py-8 flex items-center justify-between border-t border-white/50">
-<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">Showing 3 of 1,240 transactions</p>
-<div class="flex gap-2">
-<button class="w-10 h-10 bg-white/60 text-on-surface-variant hover:bg-white rounded-xl border border-white flex items-center justify-center transition-all shadow-sm">
-<span class="material-symbols-outlined text-lg">chevron_left</span>
-</button>
-<button class="w-10 h-10 bg-primary text-white rounded-xl font-bold text-sm active-glow flex items-center justify-center">1</button>
-<button class="w-10 h-10 bg-white/60 text-on-surface-variant hover:bg-white rounded-xl border border-white flex items-center justify-center transition-all shadow-sm">
-<span class="material-symbols-outlined text-lg">chevron_right</span>
-</button>
-</div>
 </div>
 </div>
 </div>
