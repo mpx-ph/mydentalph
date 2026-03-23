@@ -345,6 +345,8 @@ function dashboard_format_int(int $n): string
 <body class="mesh-bg font-body text-on-surface selection:bg-primary/10 min-h-screen">
 <?php
 $superadmin_nav = 'dashboard';
+// Remove the default header search bar and instead provide a slot for the scrolling title.
+$superadmin_header_center = '<div id="dashboard-header-title-slot" class="flex items-center justify-center w-full max-w-md overflow-hidden"></div>';
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
 ?>
@@ -357,7 +359,8 @@ require __DIR__ . '/superadmin_header.php';
 <!-- Header Section -->
 <section class="flex flex-col md:flex-row md:items-end justify-between gap-4">
 <div>
-<h2 class="text-4xl font-extrabold font-headline tracking-tight text-on-surface">Dashboard Analytics</h2>
+<div id="dashboard-analytics-title-sentinel" class="h-0"></div>
+<h2 id="dashboard-analytics-title" class="text-4xl font-extrabold font-headline tracking-tight text-on-surface">Dashboard Analytics</h2>
 <p class="text-on-surface-variant mt-2 font-medium">Real-time performance metrics for Clinical Precision ecosystem.</p>
 </div>
 <div class="flex items-center gap-3">
@@ -904,4 +907,123 @@ $tp_pct = max(0, min(100, $tp_pct));
 </section>
 </div>
 </main>
+<script>
+    (function () {
+        var title = document.getElementById('dashboard-analytics-title');
+        var sentinel = document.getElementById('dashboard-analytics-title-sentinel');
+        var headerSlot = document.getElementById('dashboard-header-title-slot');
+        var header = document.querySelector('header.fixed');
+        if (!title || !sentinel || !headerSlot || !header) return;
+
+        var prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        var heroParent = title.parentElement;
+        var heroNext = title.nextElementSibling; // expected to be the hero subtitle <p>
+
+        var originalTitleClasses = title.className;
+        var transitionClasses = 'transition-[opacity,transform] duration-220 ease-out will-change-transform';
+
+        function heroToHeaderClasses() {
+            // Keep the existing look, but reduce size for the header and prevent overflow.
+            var scrolled = originalTitleClasses.replace(/\btext-4xl\b/g, 'text-xl sm:text-2xl');
+            if (scrolled.indexOf('truncate') === -1) scrolled += ' truncate';
+            return scrolled + ' ' + transitionClasses;
+        }
+
+        function heroClasses() {
+            if (originalTitleClasses.indexOf('transition-[') === -1 && originalTitleClasses.indexOf('will-change-transform') === -1) {
+                return originalTitleClasses + ' ' + transitionClasses;
+            }
+            return originalTitleClasses;
+        }
+
+        title.className = heroClasses();
+
+        var spacer = null;
+        var state = 'top';
+        var animToken = 0;
+
+        function ensureSpacer() {
+            if (spacer) return;
+            spacer = document.createElement('div');
+            spacer.setAttribute('aria-hidden', 'true');
+            spacer.style.height = Math.max(0, title.getBoundingClientRect().height) + 'px';
+            heroParent.insertBefore(spacer, title);
+        }
+
+        function removeSpacer() {
+            if (spacer) {
+                spacer.remove();
+                spacer = null;
+            }
+        }
+
+        function moveToHeader() {
+            ensureSpacer();
+            headerSlot.appendChild(title);
+            title.className = heroToHeaderClasses();
+        }
+
+        function moveToHero() {
+            removeSpacer();
+            if (heroNext && heroNext.parentElement === heroParent) {
+                heroParent.insertBefore(title, heroNext);
+            } else {
+                heroParent.appendChild(title);
+            }
+            title.className = heroClasses();
+        }
+
+        function setState(nextState) {
+            if (nextState === state) return;
+            state = nextState;
+
+            if (prefersReducedMotion) {
+                if (nextState === 'scrolled') moveToHeader();
+                else moveToHero();
+                return;
+            }
+
+            var token = ++animToken;
+            title.style.opacity = '0';
+            title.style.transform = 'translateY(-8px)';
+
+            window.setTimeout(function () {
+                if (token !== animToken) return;
+                if (nextState === 'scrolled') moveToHeader();
+                else moveToHero();
+
+                requestAnimationFrame(function () {
+                    title.style.opacity = '1';
+                    title.style.transform = 'translateY(0)';
+                });
+            }, 120);
+        }
+
+        var ticking = false;
+
+        function tick() {
+            ticking = false;
+            var headerH = header.getBoundingClientRect().height;
+            // When the sentinel crosses under the fixed header, switch states.
+            var sentinelTop = sentinel.getBoundingClientRect().top;
+            var shouldBeScrolled = sentinelTop <= headerH - 8;
+            setState(shouldBeScrolled ? 'scrolled' : 'top');
+        }
+
+        function onScroll() {
+            if (ticking) return;
+            ticking = true;
+            requestAnimationFrame(tick);
+        }
+
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', function () {
+            tick();
+        });
+
+        // Init (handles refresh with scroll already down).
+        tick();
+    })();
+</script>
 </body></html>
