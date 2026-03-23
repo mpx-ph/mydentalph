@@ -241,7 +241,12 @@ require __DIR__ . '/superadmin_header.php';
 <?php
     // Align displayed timestamps with the application's "system" timezone.
     // `tbl_audit_logs.created_at` is a timezone-naive DATETIME in MySQL (typically stored as UTC).
-    $systemTz = new DateTimeZone(date_default_timezone_get());
+    // Force GMT+08:00 to match the user's expected local time.
+    try {
+        $systemTz = new DateTimeZone('+08:00');
+    } catch (Throwable $e) {
+        $systemTz = new DateTimeZone(date_default_timezone_get());
+    }
     $sourceTz = new DateTimeZone('UTC');
 ?>
 <?php foreach ($eventRows as $row): ?>
