@@ -239,15 +239,27 @@ require __DIR__ . '/superadmin_header.php';
 </tr>
 <?php else: ?>
 <?php
-    // Align displayed timestamps with the application's "system" timezone.
-    // `tbl_audit_logs.created_at` is a timezone-naive DATETIME in MySQL (typically stored as UTC).
-    // Force GMT+08:00 to match the user's expected local time.
+    // `tbl_audit_logs.created_at` is a timezone-naive DATETIME in MySQL.
+    // MySQL writes it using its configured timezone (CURRENT_TIMESTAMP).
+    // To ensure we show the correct time, detect MySQL's session timezone and convert into GMT+08:00.
+    $targetTz = new DateTimeZone('+08:00');
+    $sourceTz = new DateTimeZone('+00:00'); // safe default
     try {
-        $systemTz = new DateTimeZone('+08:00');
+        $dbTzRaw = $pdo->query('SELECT @@session.time_zone AS tz')->fetchColumn();
+        $dbTzRaw = is_string($dbTzRaw) ? trim($dbTzRaw) : '';
+
+        // Typical values: '+00:00', '+08:00', 'UTC', 'SYSTEM', etc.
+        if ($dbTzRaw !== '' && preg_match('/^[+-]\d{2}:\d{2}$/', $dbTzRaw) === 1) {
+            $sourceTz = new DateTimeZone($dbTzRaw);
+        } elseif ($dbTzRaw === '' || strtoupper($dbTzRaw) === 'SYSTEM') {
+            $sourceTz = new DateTimeZone(date_default_timezone_get());
+        } elseif ($dbTzRaw !== '') {
+            $sourceTz = new DateTimeZone($dbTzRaw);
+        }
     } catch (Throwable $e) {
-        $systemTz = new DateTimeZone(date_default_timezone_get());
+        // If timezone detection fails, fall back to UTC.
+        $sourceTz = new DateTimeZone('UTC');
     }
-    $sourceTz = new DateTimeZone('UTC');
 ?>
 <?php foreach ($eventRows as $row): ?>
 <?php
@@ -277,7 +289,7 @@ require __DIR__ . '/superadmin_header.php';
     if ($createdAtRaw !== '') {
         try {
             $dt = new DateTime($createdAtRaw, $sourceTz);
-            $dt->setTimezone($systemTz);
+            $dt->setTimezone($targetTz);
             $createdAtDate = $dt->format('M d, Y');
             $createdAtTime = $dt->format('H:i:s');
         } catch (Throwable $e) {
