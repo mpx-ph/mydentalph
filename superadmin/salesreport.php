@@ -64,23 +64,20 @@
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
-        @media print {
-            body {
-                background: #ffffff !important;
-            }
-            aside,
-            header.fixed,
-            .no-print {
-                display: none !important;
-            }
-            main {
-                margin-left: 0 !important;
-                padding-top: 0 !important;
-            }
-            .editorial-shadow {
-                box-shadow: none !important;
-                border: 1px solid #e5e7eb !important;
-            }
+        .export-modal-backdrop {
+            background: rgba(5, 16, 45, 0.72);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        .export-modal-panel {
+            background: linear-gradient(180deg, #0f1b47 0%, #0b1538 100%);
+            color: #d7e3ff;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 30px 80px -25px rgba(0, 0, 0, 0.6);
+        }
+        .export-option-card {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
         }
     </style>
 </head>
@@ -264,8 +261,8 @@ require __DIR__ . '/superadmin_header.php';
 <h2 class="text-4xl font-extrabold font-headline tracking-tight text-on-surface">Sales Report</h2>
 <p class="text-on-surface-variant mt-2 font-medium">View and analyze clinic sales performance across all branches.</p>
 </div>
-<div class="flex items-center gap-3 no-print">
-<button id="pdf-export-btn" type="button" class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all">
+<div class="flex items-center gap-3">
+<button id="open-sales-export-modal" type="button" class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all">
 <span class="material-symbols-outlined text-lg">picture_as_pdf</span>
                         PDF Export
                     </button>
@@ -534,18 +531,113 @@ $amount = (float) ($tx['amount'] ?? 0);
 </div>
 </main>
 <!-- Floating Action Button (Matches SCREEN_4 aesthetic) -->
-<div class="fixed bottom-10 right-10 z-50 no-print">
+<div class="fixed bottom-10 right-10 z-50">
 <button class="w-16 h-16 rounded-3xl bg-primary text-white primary-glow flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
 <span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">add</span>
 </button>
 </div>
+<!-- Sales Report Export Modal -->
+<div id="sales-export-modal" class="fixed inset-0 z-[70] hidden export-modal-backdrop items-center justify-center p-4 sm:p-8">
+<div class="export-modal-panel w-full max-w-3xl rounded-[2rem] overflow-hidden">
+<div class="px-8 py-6 border-b border-white/10 flex items-start justify-between gap-4">
+<div>
+<h3 class="text-2xl font-extrabold tracking-tight">
+<span class="text-white">Export</span> <span class="text-cyan-300">Options</span>
+</h3>
+<p class="mt-2 text-xs font-bold uppercase tracking-[0.2em] text-white/45">Select categories to include in your report</p>
+</div>
+<button id="close-sales-export-modal" type="button" class="w-14 h-14 rounded-2xl bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center text-white/80">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<form action="salesreport_export_pdf.php" method="get" class="max-h-[70vh] overflow-y-auto p-8 space-y-7">
+<div>
+<h4 class="text-sm font-bold uppercase tracking-[0.16em] text-white/45 mb-4">Revenue Breakdown</h4>
+<div class="space-y-4">
+<label class="export-option-card rounded-3xl p-5 flex items-center justify-between gap-3 cursor-pointer">
+<span class="flex items-center gap-3">
+<input type="checkbox" name="include_today" value="1" checked class="w-5 h-5 rounded border-white/20 bg-transparent text-cyan-300 focus:ring-cyan-300/40"/>
+<span class="font-extrabold text-white">Today's Revenue</span>
+</span>
+<span class="text-cyan-300 font-black"><?php echo htmlspecialchars(salesreport_format_money_exact((float) $todayRevenue)); ?></span>
+</label>
+<label class="export-option-card rounded-3xl p-5 flex items-center justify-between gap-3 cursor-pointer">
+<span class="flex items-center gap-3">
+<input type="checkbox" name="include_week" value="1" checked class="w-5 h-5 rounded border-white/20 bg-transparent text-cyan-300 focus:ring-cyan-300/40"/>
+<span class="font-extrabold text-white">Weekly Revenue</span>
+</span>
+<span class="text-cyan-300 font-black"><?php echo htmlspecialchars(salesreport_format_money_exact((float) $weekRevenue)); ?></span>
+</label>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<label class="export-option-card rounded-3xl p-5 flex items-center justify-between gap-3 cursor-pointer">
+<span class="flex items-center gap-3">
+<input type="checkbox" name="include_month" value="1" checked class="w-5 h-5 rounded border-white/20 bg-transparent text-cyan-300 focus:ring-cyan-300/40"/>
+<span class="font-extrabold text-white">Monthly</span>
+</span>
+<span class="text-cyan-300 font-black"><?php echo htmlspecialchars(salesreport_format_money_exact((float) $monthRevenue)); ?></span>
+</label>
+<label class="export-option-card rounded-3xl p-5 flex items-center justify-between gap-3 cursor-pointer">
+<span class="flex items-center gap-3">
+<input type="checkbox" name="include_year" value="1" checked class="w-5 h-5 rounded border-white/20 bg-transparent text-cyan-300 focus:ring-cyan-300/40"/>
+<span class="font-extrabold text-white">Yearly</span>
+</span>
+<span class="text-cyan-300 font-black"><?php echo htmlspecialchars(salesreport_format_money_exact((float) $yearRevenue)); ?></span>
+</label>
+</div>
+<label class="export-option-card rounded-3xl p-5 flex items-center gap-3 cursor-pointer">
+<input type="checkbox" name="include_daily" value="1" checked class="w-5 h-5 rounded border-white/20 bg-transparent text-cyan-300 focus:ring-cyan-300/40"/>
+<span class="font-extrabold text-white">Daily Revenue List (Recent)</span>
+</label>
+<label class="export-option-card rounded-3xl p-5 flex items-center gap-3 cursor-pointer">
+<input type="checkbox" name="include_transactions" value="1" class="w-5 h-5 rounded border-white/20 bg-transparent text-cyan-300 focus:ring-cyan-300/40"/>
+<span class="font-extrabold text-white">Full Transaction Log (Paid Subscriptions)</span>
+</label>
+</div>
+</div>
+<div>
+<h4 class="text-sm font-bold uppercase tracking-[0.16em] text-white/45 mb-4">Other Insights</h4>
+<label class="export-option-card rounded-3xl p-5 flex items-center gap-3 cursor-pointer">
+<input type="checkbox" name="include_top_clinics" value="1" checked class="w-5 h-5 rounded border-white/20 bg-transparent text-cyan-300 focus:ring-cyan-300/40"/>
+<span class="font-extrabold text-white">Clinic Performance Leaderboard</span>
+</label>
+</div>
+<div class="pt-2 flex justify-end gap-3">
+<button type="button" id="cancel-sales-export-modal" class="px-6 py-3 rounded-2xl text-sm font-bold text-white/80 bg-white/10 hover:bg-white/15 transition-colors">Cancel</button>
+<button type="submit" class="px-7 py-3 rounded-2xl text-sm font-bold text-[#04213d] bg-cyan-300 hover:bg-cyan-200 transition-colors">Download PDF</button>
+</div>
+</form>
+</div>
+</div>
 <script>
-    (function () {
-        var pdfBtn = document.getElementById('pdf-export-btn');
-        if (!pdfBtn) return;
-        pdfBtn.addEventListener('click', function () {
-            window.print();
-        });
-    })();
+(function () {
+    var openBtn = document.getElementById('open-sales-export-modal');
+    var closeBtn = document.getElementById('close-sales-export-modal');
+    var cancelBtn = document.getElementById('cancel-sales-export-modal');
+    var modal = document.getElementById('sales-export-modal');
+    if (!openBtn || !modal) return;
+
+    function openModal() {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeModal() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.style.overflow = '';
+    }
+
+    openBtn.addEventListener('click', openModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', function (e) {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+})();
 </script>
 </body></html>
