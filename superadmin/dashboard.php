@@ -346,7 +346,7 @@ function dashboard_format_int(int $n): string
 <?php
 $superadmin_nav = 'dashboard';
 // Remove the default header search bar and instead provide a slot for the scrolling title.
-$superadmin_header_center = '<div id="dashboard-header-title-slot" class="flex items-center justify-center w-full max-w-md overflow-hidden"></div>';
+$superadmin_header_center = '<div id="dashboard-header-title-slot" class="flex items-center justify-start w-full max-w-md overflow-hidden"></div>';
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
 ?>
@@ -927,6 +927,7 @@ $tp_pct = max(0, min(100, $tp_pct));
             // Keep the existing look, but reduce size for the header and prevent overflow.
             var scrolled = originalTitleClasses.replace(/\btext-4xl\b/g, 'text-xl sm:text-2xl');
             if (scrolled.indexOf('truncate') === -1) scrolled += ' truncate';
+            if (scrolled.indexOf('text-left') === -1) scrolled += ' text-left';
             return scrolled + ' ' + transitionClasses;
         }
 
