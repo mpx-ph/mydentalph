@@ -81,48 +81,46 @@ require __DIR__ . '/superadmin_header.php';
 <div class="absolute top-40 right-10 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10"></div>
 <!-- Header Section -->
 <section class="flex flex-col md:flex-row md:items-end justify-between gap-4">
-<div>
+<div class="max-w-3xl">
 <h2 class="text-4xl font-extrabold font-headline tracking-tight text-on-surface">Reports</h2>
-<p class="text-on-surface-variant mt-2 font-medium">View and generate detailed reports</p>
+<p class="text-on-surface-variant mt-2 font-medium leading-relaxed">Contains generated summaries of system data: tenant activity, user registrations, usage metrics, and exports filtered by date, tenant, and other criteria.</p>
 </div>
-<div class="flex items-center gap-3">
-<button class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all">
+<div class="flex items-center gap-3 shrink-0">
+<button type="button" class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all">
 <span class="material-symbols-outlined text-lg">add_circle</span>
                         Generate New Report
                     </button>
 </div>
 </section>
-<!-- Metrics Grid -->
-<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
-<div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all">
-<div class="flex justify-between items-start mb-4">
-<div class="p-2.5 bg-blue-50 text-primary rounded-xl shadow-sm">
-<span class="material-symbols-outlined">article</span>
+<!-- Report scope: what this area covers -->
+<section aria-label="Report types and filtering capabilities" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+<div class="bg-white/60 backdrop-blur-md p-6 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all">
+<div class="p-2.5 bg-blue-50 text-primary rounded-xl shadow-sm w-fit mb-4">
+<span class="material-symbols-outlined">domain</span>
 </div>
-<span class="text-[10px] font-extrabold text-green-600 bg-green-50 px-2 py-1 rounded-lg uppercase">+15%</span>
+<h3 class="text-sm font-extrabold text-on-surface font-headline">Tenant activity reports</h3>
+<p class="text-on-surface-variant text-sm mt-2 leading-relaxed">Logins, sessions, and actions per tenant for compliance and support.</p>
 </div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Total Reports</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">2,410</h3>
+<div class="bg-white/60 backdrop-blur-md p-6 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all">
+<div class="p-2.5 bg-purple-50 text-purple-600 rounded-xl shadow-sm w-fit mb-4">
+<span class="material-symbols-outlined">person_add</span>
 </div>
-<div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all border-r-4 border-error/20">
-<div class="flex justify-between items-start mb-4">
-<div class="p-2.5 bg-error-container/10 text-error rounded-xl shadow-sm">
-<span class="material-symbols-outlined">pending_actions</span>
+<h3 class="text-sm font-extrabold text-on-surface font-headline">User registration reports</h3>
+<p class="text-on-surface-variant text-sm mt-2 leading-relaxed">New accounts, roles, and verification status across the platform.</p>
 </div>
-<span class="text-[10px] font-extrabold text-error bg-error-container px-2 py-1 rounded-lg uppercase">Action Required</span>
+<div class="bg-white/60 backdrop-blur-md p-6 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all">
+<div class="p-2.5 bg-green-50 text-green-600 rounded-xl shadow-sm w-fit mb-4">
+<span class="material-symbols-outlined">bar_chart</span>
 </div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Pending Reports</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">42</h3>
+<h3 class="text-sm font-extrabold text-on-surface font-headline">Usage statistics</h3>
+<p class="text-on-surface-variant text-sm mt-2 leading-relaxed">Feature use, API volume, and resource consumption over time.</p>
 </div>
-<div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all">
-<div class="flex justify-between items-start mb-4">
-<div class="p-2.5 bg-green-50 text-green-600 rounded-xl shadow-sm">
-<span class="material-symbols-outlined">task_alt</span>
+<div class="bg-white/60 backdrop-blur-md p-6 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all border border-primary/10">
+<div class="p-2.5 bg-primary/10 text-primary rounded-xl shadow-sm w-fit mb-4">
+<span class="material-symbols-outlined">filter_alt</span>
 </div>
-<span class="text-[10px] font-extrabold text-green-600 bg-green-50 px-2 py-1 rounded-lg uppercase">+12%</span>
-</div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Completed Reports</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">2,368</h3>
+<h3 class="text-sm font-extrabold text-on-surface font-headline">Filtered data</h3>
+<p class="text-on-surface-variant text-sm mt-2 leading-relaxed">Narrow results by date range, tenant, report type, and more before export.</p>
 </div>
 </section>
 <!-- Export Buttons -->
@@ -148,18 +146,20 @@ require __DIR__ . '/superadmin_header.php';
 <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xl">expand_more</span>
 </div>
 <div class="relative group">
-<select class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
-<option>All Clinics</option>
-<option>Downtown Branch</option>
-<option>Westside Dental</option>
+<select class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all" aria-label="Tenant filter">
+<option>All tenants</option>
+<option>Acme Dental Group</option>
+<option>Metro Oral Care</option>
+<option>Harborview Clinic</option>
 </select>
-<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xl">filter_list</span>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xl">domain</span>
 </div>
 <div class="relative group">
-<select class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
-<option>All Types</option>
-<option>Financial</option>
-<option>Staff Performance</option>
+<select class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all" aria-label="Report type">
+<option>All report types</option>
+<option>Tenant activity</option>
+<option>User registration</option>
+<option>Usage statistics</option>
 </select>
 <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xl">tune</span>
 </div>
@@ -173,9 +173,9 @@ require __DIR__ . '/superadmin_header.php';
 <table class="w-full text-left">
 <thead>
 <tr class="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/60">
-<th class="px-10 py-5">Report Name</th>
-<th class="px-8 py-5">Clinic</th>
-<th class="px-8 py-5">Date Created</th>
+<th class="px-10 py-5">Report</th>
+<th class="px-8 py-5">Tenant</th>
+<th class="px-8 py-5">Generated</th>
 <th class="px-8 py-5">Status</th>
 <th class="px-10 py-5 text-right">Actions</th>
 </tr>
@@ -189,13 +189,13 @@ require __DIR__ . '/superadmin_header.php';
 <span class="material-symbols-outlined">monitoring</span>
 </div>
 <div>
-<p class="text-sm font-bold text-on-surface">Q3 Revenue Growth Analysis</p>
-<p class="text-[10px] text-on-surface-variant font-medium">Financial Report</p>
+<p class="text-sm font-bold text-on-surface">Tenant activity — weekly summary</p>
+<p class="text-[10px] text-on-surface-variant font-medium">Tenant activity report</p>
 </div>
 </div>
 </td>
 <td class="px-8 py-5">
-<span class="text-sm font-semibold text-on-surface-variant">Downtown Branch</span>
+<span class="text-sm font-semibold text-on-surface-variant">Acme Dental Group</span>
 </td>
 <td class="px-8 py-5 text-xs font-medium text-on-surface-variant">Oct 24, 2023, 14:30</td>
 <td class="px-8 py-5">
@@ -217,13 +217,13 @@ require __DIR__ . '/superadmin_header.php';
 <span class="material-symbols-outlined">person_search</span>
 </div>
 <div>
-<p class="text-sm font-bold text-on-surface">Patient Retention Survey</p>
-<p class="text-[10px] text-on-surface-variant font-medium">Patient Experience</p>
+<p class="text-sm font-bold text-on-surface">New user registrations — September</p>
+<p class="text-[10px] text-on-surface-variant font-medium">User registration report</p>
 </div>
 </div>
 </td>
 <td class="px-8 py-5">
-<span class="text-sm font-semibold text-on-surface-variant">All Clinics</span>
+<span class="text-sm font-semibold text-on-surface-variant">All tenants</span>
 </td>
 <td class="px-8 py-5 text-xs font-medium text-on-surface-variant">Oct 23, 2023, 09:15</td>
 <td class="px-8 py-5">
@@ -242,16 +242,16 @@ require __DIR__ . '/superadmin_header.php';
 <td class="px-10 py-5">
 <div class="flex items-center gap-4">
 <div class="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 shadow-sm border border-white">
-<span class="material-symbols-outlined">clinical_notes</span>
+<span class="material-symbols-outlined">data_usage</span>
 </div>
 <div>
-<p class="text-sm font-bold text-on-surface">Surgical Supplies Audit</p>
-<p class="text-[10px] text-on-surface-variant font-medium">Inventory Report</p>
+<p class="text-sm font-bold text-on-surface">Platform usage — API &amp; storage</p>
+<p class="text-[10px] text-on-surface-variant font-medium">Usage statistics</p>
 </div>
 </div>
 </td>
 <td class="px-8 py-5">
-<span class="text-sm font-semibold text-on-surface-variant">Westside Dental</span>
+<span class="text-sm font-semibold text-on-surface-variant">Metro Oral Care</span>
 </td>
 <td class="px-8 py-5 text-xs font-medium text-on-surface-variant">Oct 21, 2023, 11:00</td>
 <td class="px-8 py-5">
