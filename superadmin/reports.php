@@ -73,6 +73,98 @@
 $superadmin_nav = 'reports';
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
+
+date_default_timezone_set('Asia/Manila');
+
+/**
+ * Human-friendly datetime for small dashboard tables.
+ */
+function reports_format_datetime_for_table($dateTime): string
+{
+    if (empty($dateTime)) {
+        return '—';
+    }
+    $ts = strtotime((string) $dateTime);
+    return $ts ? date('M j, Y g:i A', $ts) : (string) $dateTime;
+}
+
+function reports_format_date_for_table($date): string
+{
+    if (empty($date)) {
+        return '—';
+    }
+    $ts = strtotime((string) $date);
+    return $ts ? date('M j, Y', $ts) : (string) $date;
+}
+
+$dbError = null;
+$yesterdayStart = null;
+$yesterdayEnd = null;
+$yesterdayLabel = '';
+
+// Metrics for "yesterday" only (platform-wide).
+// Note: this file uses the shared `$pdo` provided by `superadmin_sidebar.php`.
+$totalMyDentalVisits = 0;
+$userRegistrationsTotal = 0;
+$registrationRows = [];
+
+try {
+    $yesterdayStart = new DateTime('yesterday');
+    $yesterdayStart->setTime(0, 0, 0);
+    $yesterdayEnd = clone $yesterdayStart;
+    $yesterdayEnd->modify('+1 day');
+    $yesterdayLabel = $yesterdayStart->format('M j, Y');
+
+    $startStr = $yesterdayStart->format('Y-m-d H:i:s');
+    $endStr = $yesterdayEnd->format('Y-m-d H:i:s');
+
+    // "Total mydental Visits": count distinct visitor IPs who hit login endpoints yesterday.
+    // (The app logs logins into tbl_audit_logs with action='LOGIN'.)
+    $stmt = $pdo->prepare("
+        SELECT COUNT(DISTINCT ip_address) AS cnt
+        FROM tbl_audit_logs
+        WHERE created_at >= ?
+          AND created_at < ?
+          AND ip_address IS NOT NULL
+          AND TRIM(ip_address) <> ''
+          AND LOWER(action) LIKE '%login%'
+    ");
+    $stmt->execute([$startStr, $endStr]);
+    $totalMyDentalVisits = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['cnt'] ?? 0);
+
+    // "User Registration": count of new client accounts created yesterday.
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) AS cnt
+        FROM tbl_users
+        WHERE role = 'client'
+          AND created_at >= ?
+          AND created_at < ?
+    ");
+    $stmt->execute([$startStr, $endStr]);
+    $userRegistrationsTotal = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['cnt'] ?? 0);
+
+    // Table: new client registrations for yesterday
+    $stmt = $pdo->prepare("
+        SELECT
+            DATE(u.created_at) AS created_date,
+            t.clinic_name AS tenant_name,
+            u.username AS user_name,
+            u.email AS user_email,
+            u.last_login AS last_active_at
+        FROM tbl_users u
+        INNER JOIN tbl_tenants t ON t.tenant_id = u.tenant_id
+        WHERE u.role = 'client'
+          AND u.created_at >= ?
+          AND u.created_at < ?
+        ORDER BY u.created_at DESC
+    ");
+    $stmt->execute([$startStr, $endStr]);
+    $registrationRows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+} catch (Throwable $e) {
+    $dbError = 'Unable to load yesterday reports.';
+    // Keep page rendering even if DB queries fail.
+    error_log('superadmin/reports.php: ' . $e->getMessage());
+}
 ?>
 <!-- Main Content Area -->
 <main class="ml-64 pt-20 min-h-screen">
@@ -93,36 +185,30 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 </section>
 <!-- Metrics Grid -->
-<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<section class="grid grid-cols-1 md:grid-cols-2 gap-6">
 <div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all">
 <div class="flex justify-between items-start mb-4">
 <div class="p-2.5 bg-blue-50 text-primary rounded-xl shadow-sm">
 <span class="material-symbols-outlined">article</span>
 </div>
-<span class="text-[10px] font-extrabold text-green-600 bg-green-50 px-2 py-1 rounded-lg uppercase">+15%</span>
 </div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Total Reports</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">2,410</h3>
+<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Total mydental Visits</p>
+<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo htmlspecialchars(number_format($totalMyDentalVisits), ENT_QUOTES, 'UTF-8'); ?></h3>
+<p class="text-on-surface-variant text-xs font-medium mt-2">
+    Yesterday: <?php echo htmlspecialchars($yesterdayLabel ?: '—', ENT_QUOTES, 'UTF-8'); ?>
+</p>
 </div>
-<div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all border-r-4 border-error/20">
+<div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all border-r-4 border-primary/20">
 <div class="flex justify-between items-start mb-4">
-<div class="p-2.5 bg-error-container/10 text-error rounded-xl shadow-sm">
-<span class="material-symbols-outlined">pending_actions</span>
+<div class="p-2.5 bg-primary/10 text-primary rounded-xl shadow-sm">
+<span class="material-symbols-outlined">person_add</span>
 </div>
-<span class="text-[10px] font-extrabold text-error bg-error-container px-2 py-1 rounded-lg uppercase">Action Required</span>
 </div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Pending Reports</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">42</h3>
-</div>
-<div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all">
-<div class="flex justify-between items-start mb-4">
-<div class="p-2.5 bg-green-50 text-green-600 rounded-xl shadow-sm">
-<span class="material-symbols-outlined">task_alt</span>
-</div>
-<span class="text-[10px] font-extrabold text-green-600 bg-green-50 px-2 py-1 rounded-lg uppercase">+12%</span>
-</div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Completed Reports</p>
-<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline">2,368</h3>
+<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">User Registration</p>
+<h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo htmlspecialchars(number_format($userRegistrationsTotal), ENT_QUOTES, 'UTF-8'); ?></h3>
+<p class="text-on-surface-variant text-xs font-medium mt-2">
+    Yesterday: <?php echo htmlspecialchars($yesterdayLabel ?: '—', ENT_QUOTES, 'UTF-8'); ?>
+</p>
 </div>
 </section>
 <!-- Export Buttons -->
@@ -141,9 +227,9 @@ require __DIR__ . '/superadmin_header.php';
 <div class="flex items-center gap-4">
 <div class="relative group">
 <select class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
-<option>Last 30 Days</option>
+<option>Yesterday</option>
 <option>Last 7 Days</option>
-<option>Last Quarter</option>
+<option>Last 30 Days</option>
 </select>
 <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xl">expand_more</span>
 </div>
@@ -165,124 +251,57 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 </div>
 <div class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">
-                        Showing <span class="text-primary opacity-100">1-4</span> of 2,410 reports
-                    </div>
+    <?php $registrationRowsCount = count($registrationRows); ?>
+    Showing <span class="text-primary opacity-100"><?php echo htmlspecialchars($registrationRowsCount > 0 ? ('1-' . (string) $registrationRowsCount) : '0', ENT_QUOTES, 'UTF-8'); ?></span>
+    of <?php echo htmlspecialchars(number_format($userRegistrationsTotal), ENT_QUOTES, 'UTF-8'); ?> registrations
+</div>
 </div>
 <!-- Table Content -->
 <div class="overflow-x-auto">
 <table class="w-full text-left">
 <thead>
 <tr class="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/60">
-<th class="px-10 py-5">Report Name</th>
-<th class="px-8 py-5">Clinic</th>
-<th class="px-8 py-5">Date Created</th>
-<th class="px-8 py-5">Status</th>
-<th class="px-10 py-5 text-right">Actions</th>
+<th class="px-8 py-5">Date</th>
+<th class="px-10 py-5">Tenant Name</th>
+<th class="px-10 py-5">User Name</th>
+<th class="px-10 py-5">User Email</th>
+<th class="px-10 py-5">Last Active</th>
 </tr>
 </thead>
 <tbody class="divide-y divide-white/40">
-<!-- Row 1 -->
+<?php if (!empty($registrationRows)): ?>
+<?php foreach ($registrationRows as $row): ?>
 <tr class="hover:bg-primary/5 transition-colors group">
-<td class="px-10 py-5">
-<div class="flex items-center gap-4">
-<div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-primary shadow-sm border border-white">
-<span class="material-symbols-outlined">monitoring</span>
-</div>
-<div>
-<p class="text-sm font-bold text-on-surface">Q3 Revenue Growth Analysis</p>
-<p class="text-[10px] text-on-surface-variant font-medium">Financial Report</p>
-</div>
-</div>
-</td>
-<td class="px-8 py-5">
-<span class="text-sm font-semibold text-on-surface-variant">Downtown Branch</span>
-</td>
-<td class="px-8 py-5 text-xs font-medium text-on-surface-variant">Oct 24, 2023, 14:30</td>
-<td class="px-8 py-5">
-<span class="px-3 py-1.5 bg-green-50 text-green-600 rounded-xl text-[10px] font-bold uppercase tracking-wider">Completed</span>
-</td>
-<td class="px-10 py-5 text-right">
-<div class="flex justify-end gap-2">
-<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-xl">visibility</span></button>
-<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-xl">download</span></button>
-<button class="p-2 text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-xl">delete</span></button>
-</div>
-</td>
+    <td class="px-8 py-5 text-xs font-medium text-on-surface-variant">
+        <?php echo htmlspecialchars(reports_format_date_for_table($row['created_date'] ?? null), ENT_QUOTES, 'UTF-8'); ?>
+    </td>
+    <td class="px-10 py-5">
+        <span class="text-sm font-semibold text-on-surface-variant"><?php echo htmlspecialchars((string) ($row['tenant_name'] ?? '—'), ENT_QUOTES, 'UTF-8'); ?></span>
+    </td>
+    <td class="px-10 py-5">
+        <span class="text-sm font-semibold text-on-surface-variant"><?php echo htmlspecialchars((string) ($row['user_name'] ?? '—'), ENT_QUOTES, 'UTF-8'); ?></span>
+    </td>
+    <td class="px-10 py-5">
+        <span class="text-sm font-semibold text-on-surface-variant break-words"><?php echo htmlspecialchars((string) ($row['user_email'] ?? '—'), ENT_QUOTES, 'UTF-8'); ?></span>
+    </td>
+    <td class="px-10 py-5 text-xs font-medium text-on-surface-variant">
+        <?php echo htmlspecialchars(reports_format_datetime_for_table($row['last_active_at'] ?? null), ENT_QUOTES, 'UTF-8'); ?>
+    </td>
 </tr>
-<!-- Row 2 -->
-<tr class="hover:bg-primary/5 transition-colors group">
-<td class="px-10 py-5">
-<div class="flex items-center gap-4">
-<div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-tertiary shadow-sm border border-white">
-<span class="material-symbols-outlined">person_search</span>
-</div>
-<div>
-<p class="text-sm font-bold text-on-surface">Patient Retention Survey</p>
-<p class="text-[10px] text-on-surface-variant font-medium">Patient Experience</p>
-</div>
-</div>
-</td>
-<td class="px-8 py-5">
-<span class="text-sm font-semibold text-on-surface-variant">All Clinics</span>
-</td>
-<td class="px-8 py-5 text-xs font-medium text-on-surface-variant">Oct 23, 2023, 09:15</td>
-<td class="px-8 py-5">
-<span class="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-bold uppercase tracking-wider">In Progress</span>
-</td>
-<td class="px-10 py-5 text-right">
-<div class="flex justify-end gap-2">
-<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-xl">visibility</span></button>
-<button class="p-2 text-on-surface-variant/30 cursor-not-allowed"><span class="material-symbols-outlined text-xl">download</span></button>
-<button class="p-2 text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-xl">delete</span></button>
-</div>
-</td>
+<?php endforeach; ?>
+<?php else: ?>
+<tr>
+    <td colspan="5" class="px-8 py-10 text-center text-on-surface-variant/70 text-sm font-bold">
+        <?php if ($dbError): ?>
+            <?php echo htmlspecialchars($dbError, ENT_QUOTES, 'UTF-8'); ?>
+        <?php else: ?>
+            No user registrations found for yesterday.
+        <?php endif; ?>
+    </td>
 </tr>
-<!-- Row 3 -->
-<tr class="hover:bg-primary/5 transition-colors group">
-<td class="px-10 py-5">
-<div class="flex items-center gap-4">
-<div class="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 shadow-sm border border-white">
-<span class="material-symbols-outlined">clinical_notes</span>
-</div>
-<div>
-<p class="text-sm font-bold text-on-surface">Surgical Supplies Audit</p>
-<p class="text-[10px] text-on-surface-variant font-medium">Inventory Report</p>
-</div>
-</div>
-</td>
-<td class="px-8 py-5">
-<span class="text-sm font-semibold text-on-surface-variant">Westside Dental</span>
-</td>
-<td class="px-8 py-5 text-xs font-medium text-on-surface-variant">Oct 21, 2023, 11:00</td>
-<td class="px-8 py-5">
-<span class="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-xl text-[10px] font-bold uppercase tracking-wider">Pending</span>
-</td>
-<td class="px-10 py-5 text-right">
-<div class="flex justify-end gap-2">
-<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-xl">visibility</span></button>
-<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-xl">download</span></button>
-<button class="p-2 text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-xl">delete</span></button>
-</div>
-</td>
-</tr>
+<?php endif; ?>
 </tbody>
 </table>
-</div>
-<!-- Pagination (Matches SCREEN_4) -->
-<div class="px-10 py-8 flex items-center justify-between border-t border-white/50">
-<button class="px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2 disabled:opacity-40" disabled="">
-<span class="material-symbols-outlined text-lg">chevron_left</span> Previous
-                    </button>
-<div class="flex items-center gap-2">
-<button class="w-10 h-10 bg-primary text-white rounded-xl font-bold text-sm active-glow">1</button>
-<button class="w-10 h-10 bg-white/40 text-on-surface-variant hover:bg-white rounded-xl font-bold text-sm transition-all">2</button>
-<button class="w-10 h-10 bg-white/40 text-on-surface-variant hover:bg-white rounded-xl font-bold text-sm transition-all">3</button>
-<span class="px-2 opacity-40">...</span>
-<button class="w-10 h-10 bg-white/40 text-on-surface-variant hover:bg-white rounded-xl font-bold text-sm transition-all">241</button>
-</div>
-<button class="px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
-                        Next <span class="material-symbols-outlined text-lg">chevron_right</span>
-</button>
 </div>
 </div>
 </div>
