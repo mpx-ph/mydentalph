@@ -65,3 +65,34 @@ $currentTenantData = $tenant;
 $_SESSION['public_tenant_id']   = $currentTenantId;
 $_SESSION['public_tenant_slug'] = $currentTenantSlug;
 
+/**
+ * Log one anonymous website visit per request for public (patient-facing) pages only.
+ * Superadmin reports count these — not logins.
+ */
+$__tb_script = basename(isset($_SERVER['SCRIPT_FILENAME']) ? (string) $_SERVER['SCRIPT_FILENAME'] : (isset($_SERVER['SCRIPT_NAME']) ? (string) $_SERVER['SCRIPT_NAME'] : ''));
+$__tb_publicScripts = [
+    'MainPageClient.php',
+    'AboutUsClient.php',
+    'ContactUsClient.php',
+    'RegisterClient.php',
+    'Login.php',
+    'DownloadApp.php',
+];
+if (in_array($__tb_script, $__tb_publicScripts, true)) {
+    try {
+        $ip = '';
+        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            $ip = trim((string) explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
+        } elseif (!empty($_SERVER['REMOTE_ADDR'])) {
+            $ip = trim((string) $_SERVER['REMOTE_ADDR']);
+        }
+        $path = isset($_SERVER['REQUEST_URI']) ? substr((string) $_SERVER['REQUEST_URI'], 0, 512) : null;
+        $stmt = $pdo->prepare('INSERT INTO tbl_website_visits (tenant_id, ip_address, visit_path) VALUES (?, ?, ?)');
+        $stmt->execute([$currentTenantId, $ip !== '' ? $ip : null, $path]);
+    } catch (Throwable $e) {
+        // Table may not exist until migration 005 is applied; never break the page.
+        error_log('tbl_website_visits insert: ' . $e->getMessage());
+    }
+}
+unset($__tb_script, $__tb_publicScripts);
+

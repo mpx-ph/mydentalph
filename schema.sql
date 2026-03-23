@@ -624,5 +624,21 @@ CREATE TABLE IF NOT EXISTS tbl_superadmin_settings (
 INSERT IGNORE INTO tbl_superadmin_settings (id, system_name, brand_logo_path, brand_tagline)
 VALUES (1, 'MyDental', 'MyDental Logo.svg', 'MANAGEMENT CONSOLE');
 
+-- ============================================
+-- ANONYMOUS WEBSITE VISITS (public clinic pages)
+-- ============================================
+-- No FK to tbl_tenants (avoids errno 150 when parent table is MyISAM or charset differs).
+CREATE TABLE IF NOT EXISTS tbl_website_visits (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    ip_address VARCHAR(45) DEFAULT NULL,
+    visit_path VARCHAR(512) DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_tenant_created (tenant_id, created_at),
+    KEY idx_created (created_at),
+    KEY idx_ip_created (ip_address, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
