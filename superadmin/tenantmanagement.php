@@ -80,6 +80,7 @@ $inactiveTenants = 0;
 $suspendedTenants = 0;
 $plans = [];
 $tenants = [];
+$tenantWorkforce = [];
 $totalRows = 0;
 $totalPages = 1;
 $dbError = null;
@@ -177,6 +178,19 @@ try {
     $lstmt = $pdo->prepare($listSql);
     $lstmt->execute($params);
     $tenants = $lstmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $workforceSql = "
+        SELECT
+            t.tenant_id,
+            t.clinic_name,
+            COALESCE(SUM(CASE WHEN u.role = 'staff' THEN 1 ELSE 0 END), 0) AS staff_count,
+            COALESCE(SUM(CASE WHEN u.role = 'dentist' THEN 1 ELSE 0 END), 0) AS doctor_count
+        FROM tbl_tenants t
+        LEFT JOIN tbl_users u ON u.tenant_id = t.tenant_id
+        GROUP BY t.tenant_id, t.clinic_name
+        ORDER BY t.clinic_name ASC
+    ";
+    $tenantWorkforce = $pdo->query($workforceSql)->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
     $dbError = $e->getMessage();
 }
@@ -486,33 +500,56 @@ require __DIR__ . '/superadmin_header.php';
 <?php endif; ?>
 </div>
 </div>
-<!-- Footer Grid (Styled like Bottom Section in SCREEN_2) -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-<div class="p-10 bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow flex items-center justify-between group cursor-pointer hover:-translate-y-1 transition-all">
+<!-- Clinic Workforce Table -->
+<div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
+<div class="px-8 py-6 border-b border-white/50 flex items-center justify-between gap-4">
 <div>
-<h4 class="text-xl font-extrabold font-headline text-on-surface">Data Export Center</h4>
-<p class="text-sm text-on-surface-variant mt-2 font-medium">Download monthly reports for all clinic activity.</p>
-<button class="mt-6 px-6 py-2.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-2xl text-xs font-bold transition-all flex items-center gap-2">
-                        Go to Reports
-                        <span class="material-symbols-outlined text-sm">arrow_forward</span>
-</button>
+<h4 class="text-xl font-extrabold font-headline text-on-surface">Clinic Workforce</h4>
+<p class="text-sm text-on-surface-variant mt-1 font-medium">Staff and doctor headcount per tenant clinic.</p>
 </div>
-<div class="w-24 h-24 rounded-[2rem] bg-primary/5 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-<span class="material-symbols-outlined text-4xl text-primary">analytics</span>
+<span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/70">All Tenants</span>
 </div>
-</div>
-<div class="p-10 bg-gradient-to-br from-[#ffdcc3] to-[#ffb77e] rounded-[2.5rem] shadow-xl shadow-orange-900/10 flex items-center justify-between group cursor-pointer hover:-translate-y-1 transition-all">
-<div>
-<h4 class="text-xl font-extrabold font-headline text-[#2f1500]">Service Health</h4>
-<p class="text-sm text-[#6e3900]/80 mt-2 font-medium leading-relaxed">Cloud infrastructure status and API latency metrics.</p>
-<button class="mt-6 px-6 py-2.5 bg-white/30 text-[#2f1500] hover:bg-white/50 rounded-2xl text-xs font-bold transition-all flex items-center gap-2">
-                        System Status
-                        <span class="material-symbols-outlined text-sm">cloud_done</span>
-</button>
-</div>
-<div class="w-24 h-24 rounded-[2rem] bg-white/20 flex items-center justify-center group-hover:scale-105 transition-transform">
-<span class="material-symbols-outlined text-4xl text-[#2f1500]">dns</span>
-</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/60">
+<th class="px-10 py-5">Tenant ID</th>
+<th class="px-8 py-5">Clinic Name</th>
+<th class="px-8 py-5">Staff Count</th>
+<th class="px-10 py-5">Doctor Count</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-white/40">
+<?php if ($dbError !== null): ?>
+<tr>
+<td colspan="4" class="px-10 py-12 text-center text-sm text-error font-medium">Unable to load clinic workforce data.</td>
+</tr>
+<?php elseif (empty($tenantWorkforce)): ?>
+<tr>
+<td colspan="4" class="px-10 py-12 text-center text-sm text-on-surface-variant font-medium">No clinic workforce records found.</td>
+</tr>
+<?php else: ?>
+<?php foreach ($tenantWorkforce as $wf): ?>
+<tr class="hover:bg-primary/5 transition-colors">
+<td class="px-10 py-5 text-sm font-semibold text-on-surface"><?php echo htmlspecialchars((string) $wf['tenant_id'], ENT_QUOTES, 'UTF-8'); ?></td>
+<td class="px-8 py-5 text-sm font-medium text-on-surface-variant"><?php echo htmlspecialchars((string) $wf['clinic_name'], ENT_QUOTES, 'UTF-8'); ?></td>
+<td class="px-8 py-5">
+<span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50 text-primary text-xs font-bold">
+<span class="material-symbols-outlined text-base">groups</span>
+<?php echo number_format((int) $wf['staff_count']); ?>
+</span>
+</td>
+<td class="px-10 py-5">
+<span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold">
+<span class="material-symbols-outlined text-base">stethoscope</span>
+<?php echo number_format((int) $wf['doctor_count']); ?>
+</span>
+</td>
+</tr>
+<?php endforeach; ?>
+<?php endif; ?>
+</tbody>
+</table>
 </div>
 </div>
 </div>
