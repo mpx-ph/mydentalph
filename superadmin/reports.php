@@ -280,8 +280,12 @@ $reportsFormAction = htmlspecialchars(basename(isset($_SERVER['SCRIPT_NAME']) ? 
 try {
     try {
         $pdo->exec("SET time_zone = '+08:00'");
+        $tzOffsetMinutes = (int) $pdo->query('SELECT TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), NOW())')->fetchColumn();
+        if ($tzOffsetMinutes !== 480) {
+            throw new RuntimeException('MySQL session time_zone is not +08:00.');
+        }
     } catch (Throwable $e) {
-        // If hosting disallows SET time_zone, CURDATE()/NOW() stay server-default; Manila PHP still formats display.
+        throw new RuntimeException('Reports requires Asia/Manila (+08:00) MySQL timezone.');
     }
 
     $tenantsStmt = $pdo->query('SELECT tenant_id, clinic_name FROM tbl_tenants ORDER BY clinic_name ASC');
@@ -379,7 +383,7 @@ try {
         $registrationRows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 } catch (Throwable $e) {
-    $dbError = 'Unable to load reports.';
+    $dbError = 'Unable to load reports. Asia/Manila (+08:00) database timezone is required.';
     error_log('superadmin/reports.php: ' . $e->getMessage());
 }
 

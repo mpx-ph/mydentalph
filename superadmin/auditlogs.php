@@ -20,8 +20,12 @@ try {
 
     try {
         $pdo->exec("SET time_zone = '+08:00'");
+        $tzOffsetMinutes = (int) $pdo->query('SELECT TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), NOW())')->fetchColumn();
+        if ($tzOffsetMinutes !== 480) {
+            throw new RuntimeException('MySQL session time_zone is not +08:00.');
+        }
     } catch (Throwable $e) {
-        // Hosting may block SET time_zone; page still uses Manila for PHP display.
+        throw new RuntimeException('Audit Logs requires Asia/Manila (+08:00) MySQL timezone.');
     }
 
     $totalLogs = (int) $pdo->query('SELECT COUNT(*) FROM tbl_audit_logs')->fetchColumn();
@@ -56,7 +60,7 @@ try {
     $eventRows = $eventsStmt->fetchAll(PDO::FETCH_ASSOC);
     $totalEventRows = count($eventRows);
 } catch (Throwable $e) {
-    $dbError = 'Unable to load audit logs right now.';
+    $dbError = 'Unable to load audit logs. Asia/Manila (+08:00) database timezone is required.';
 }
 ?>
 <!DOCTYPE html>
