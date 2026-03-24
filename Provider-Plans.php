@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/provider_redirect_superadmin.php';
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/superadmin/superadmin_settings_lib.php';
 
 $go_to_purchase = false;
 $max_sites_reached = false;
@@ -23,6 +24,13 @@ if (!empty($_SESSION['user_id']) && !empty($_SESSION['tenant_id'])) {
     }
 }
 $plan_base = $go_to_purchase ? 'ProviderPurchase.php' : 'ProviderCreate.php';
+$settings = superadmin_get_settings($pdo);
+$providerPlans = isset($settings['provider_plans']) && is_array($settings['provider_plans'])
+    ? $settings['provider_plans']
+    : superadmin_default_provider_plans();
+$starter = isset($providerPlans['starter']) && is_array($providerPlans['starter']) ? $providerPlans['starter'] : [];
+$professional = isset($providerPlans['professional']) && is_array($providerPlans['professional']) ? $providerPlans['professional'] : [];
+$enterprise = isset($providerPlans['enterprise']) && is_array($providerPlans['enterprise']) ? $providerPlans['enterprise'] : [];
 ?>
 <!DOCTYPE html>
 
@@ -87,37 +95,27 @@ $plan_base = $go_to_purchase ? 'ProviderPurchase.php' : 'ProviderCreate.php';
 <!-- Starter Plan -->
 <div class="flex flex-col rounded-2xl border border-primary/10 bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-primary/10 dark:bg-slate-900/50">
 <div class="mb-8">
-<h3 class="text-lg font-bold text-primary uppercase tracking-wider">Starter</h3>
+<h3 class="text-lg font-bold text-primary uppercase tracking-wider"><?php echo htmlspecialchars((string) ($starter['name'] ?? 'Starter'), ENT_QUOTES, 'UTF-8'); ?></h3>
 <div class="mt-4 flex items-baseline gap-1">
-<span class="text-4xl font-black text-slate-900 dark:text-white">₱999</span>
+<span class="text-4xl font-black text-slate-900 dark:text-white"><?php echo htmlspecialchars((string) ($starter['price'] ?? '₱999'), ENT_QUOTES, 'UTF-8'); ?></span>
 <span class="text-sm font-semibold text-slate-500">/mo</span>
 </div>
-<p class="mt-4 text-sm text-slate-600 dark:text-slate-400">Essential tools for independent clinics starting their digital journey.</p>
+<p class="mt-4 text-sm text-slate-600 dark:text-slate-400"><?php echo htmlspecialchars((string) ($starter['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
 </div>
 <?php if ($max_sites_reached): ?>
-<span class="mb-8 flex w-full cursor-not-allowed items-center justify-center rounded-xl border-2 border-slate-200 bg-slate-100 py-3 text-sm font-semibold text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">Choose Starter</span>
+<span class="mb-8 flex w-full cursor-not-allowed items-center justify-center rounded-xl border-2 border-slate-200 bg-slate-100 py-3 text-sm font-semibold text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"><?php echo htmlspecialchars((string) ($starter['cta'] ?? 'Choose Starter'), ENT_QUOTES, 'UTF-8'); ?></span>
                         <?php else: ?>
 <a href="<?php echo htmlspecialchars($plan_base); ?>?plan=starter" class="mb-8 flex w-full items-center justify-center rounded-xl border-2 border-primary/20 bg-primary/5 py-3 text-sm font-bold text-primary hover:bg-primary hover:text-white transition-all">
-                            Choose Starter
+                            <?php echo htmlspecialchars((string) ($starter['cta'] ?? 'Choose Starter'), ENT_QUOTES, 'UTF-8'); ?>
                         </a>
                         <?php endif; ?>
 <ul class="flex-1 space-y-4">
+<?php foreach ((array) ($starter['features'] ?? []) as $feature): ?>
 <li class="flex items-start gap-3 text-sm">
 <span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-<span class="text-slate-700 dark:text-slate-300">Unlimited Patient Records</span>
+<span class="text-slate-700 dark:text-slate-300"><?php echo htmlspecialchars((string) $feature, ENT_QUOTES, 'UTF-8'); ?></span>
 </li>
-<li class="flex items-start gap-3 text-sm">
-<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-<span class="text-slate-700 dark:text-slate-300">Basic Calendar Scheduling</span>
-</li>
-<li class="flex items-start gap-3 text-sm">
-<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-<span class="text-slate-700 dark:text-slate-300">Email Support</span>
-</li>
-<li class="flex items-start gap-3 text-sm">
-<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-<span class="text-slate-700 dark:text-slate-300">Treatment Charting</span>
-</li>
+<?php endforeach; ?>
 </ul>
 </div>
 <!-- Professional Plan -->
@@ -126,81 +124,53 @@ $plan_base = $go_to_purchase ? 'ProviderPurchase.php' : 'ProviderCreate.php';
                             Most Popular
                         </div>
 <div class="mb-8">
-<h3 class="text-lg font-bold text-primary uppercase tracking-wider">Professional</h3>
+<h3 class="text-lg font-bold text-primary uppercase tracking-wider"><?php echo htmlspecialchars((string) ($professional['name'] ?? 'Professional'), ENT_QUOTES, 'UTF-8'); ?></h3>
 <div class="mt-4 flex items-baseline gap-1">
-<span class="text-4xl font-black text-slate-900 dark:text-white">₱2,499</span>
+<span class="text-4xl font-black text-slate-900 dark:text-white"><?php echo htmlspecialchars((string) ($professional['price'] ?? '₱2,499'), ENT_QUOTES, 'UTF-8'); ?></span>
 <span class="text-sm font-semibold text-slate-500">/mo</span>
 </div>
-<p class="mt-4 text-sm text-slate-600 dark:text-slate-400">Comprehensive features for busy practices looking to automate.</p>
+<p class="mt-4 text-sm text-slate-600 dark:text-slate-400"><?php echo htmlspecialchars((string) ($professional['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
 </div>
 <?php if ($max_sites_reached): ?>
-<span class="mb-8 flex w-full cursor-not-allowed items-center justify-center rounded-xl border-2 border-slate-200 bg-slate-100 py-3 text-sm font-semibold text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">Choose Professional</span>
+<span class="mb-8 flex w-full cursor-not-allowed items-center justify-center rounded-xl border-2 border-slate-200 bg-slate-100 py-3 text-sm font-semibold text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"><?php echo htmlspecialchars((string) ($professional['cta'] ?? 'Choose Professional'), ENT_QUOTES, 'UTF-8'); ?></span>
                         <?php else: ?>
 <a href="<?php echo htmlspecialchars($plan_base); ?>?plan=professional" class="mb-8 flex w-full items-center justify-center rounded-xl bg-primary py-3 text-sm font-bold text-white shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all">
-                            Choose Professional
+                            <?php echo htmlspecialchars((string) ($professional['cta'] ?? 'Choose Professional'), ENT_QUOTES, 'UTF-8'); ?>
                         </a>
                         <?php endif; ?>
 <ul class="flex-1 space-y-4">
+<?php foreach ((array) ($professional['features'] ?? []) as $feature): ?>
 <li class="flex items-start gap-3 text-sm">
 <span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-<span class="text-slate-700 dark:text-slate-300 font-semibold">Everything in Starter</span>
+<span class="text-slate-700 dark:text-slate-300"><?php echo htmlspecialchars((string) $feature, ENT_QUOTES, 'UTF-8'); ?></span>
 </li>
-<li class="flex items-start gap-3 text-sm">
-<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-<span class="text-slate-700 dark:text-slate-300">Advanced Analytics Dashboards</span>
-</li>
-<li class="flex items-start gap-3 text-sm">
-<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-<span class="text-slate-700 dark:text-slate-300">Automated SMS Reminders</span>
-</li>
-<li class="flex items-start gap-3 text-sm">
-<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-<span class="text-slate-700 dark:text-slate-300">24/7 Priority Support</span>
-</li>
-<li class="flex items-start gap-3 text-sm">
-<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-<span class="text-slate-700 dark:text-slate-300">Multi-user Access Control</span>
-</li>
+<?php endforeach; ?>
 </ul>
 </div>
 <!-- Enterprise Plan -->
 <div class="flex flex-col rounded-2xl border border-primary/10 bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-primary/10 dark:bg-slate-900/50">
 <div class="mb-8">
-<h3 class="text-lg font-bold text-primary uppercase tracking-wider">Enterprise</h3>
+<h3 class="text-lg font-bold text-primary uppercase tracking-wider"><?php echo htmlspecialchars((string) ($enterprise['name'] ?? 'Enterprise'), ENT_QUOTES, 'UTF-8'); ?></h3>
 <div class="mt-4 flex items-baseline gap-1">
-<span class="text-4xl font-black text-slate-900 dark:text-white">₱4,999</span>
+<span class="text-4xl font-black text-slate-900 dark:text-white"><?php echo htmlspecialchars((string) ($enterprise['price'] ?? '₱4,999'), ENT_QUOTES, 'UTF-8'); ?></span>
 <span class="text-sm font-semibold text-slate-500">/mo</span>
 </div>
-<p class="mt-4 text-sm text-slate-600 dark:text-slate-400">Customized solutions for dental networks and multi-branch clinics.</p>
+<p class="mt-4 text-sm text-slate-600 dark:text-slate-400"><?php echo htmlspecialchars((string) ($enterprise['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
 </div>
 <?php if ($max_sites_reached): ?>
-<span class="mb-8 flex w-full cursor-not-allowed items-center justify-center rounded-xl border-2 border-slate-200 bg-slate-100 py-3 text-sm font-semibold text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">Choose Enterprise</span>
+<span class="mb-8 flex w-full cursor-not-allowed items-center justify-center rounded-xl border-2 border-slate-200 bg-slate-100 py-3 text-sm font-semibold text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"><?php echo htmlspecialchars((string) ($enterprise['cta'] ?? 'Choose Enterprise'), ENT_QUOTES, 'UTF-8'); ?></span>
                         <?php else: ?>
 <a href="<?php echo htmlspecialchars($plan_base); ?>?plan=enterprise" class="mb-8 flex w-full items-center justify-center rounded-xl border-2 border-primary/20 bg-primary/5 py-3 text-sm font-bold text-primary hover:bg-primary hover:text-white transition-all">
-                            Choose Enterprise
+                            <?php echo htmlspecialchars((string) ($enterprise['cta'] ?? 'Choose Enterprise'), ENT_QUOTES, 'UTF-8'); ?>
                         </a>
                         <?php endif; ?>
 <ul class="flex-1 space-y-4">
+<?php foreach ((array) ($enterprise['features'] ?? []) as $feature): ?>
 <li class="flex items-start gap-3 text-sm">
 <span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-<span class="text-slate-700 dark:text-slate-300 font-semibold">Everything in Professional</span>
+<span class="text-slate-700 dark:text-slate-300"><?php echo htmlspecialchars((string) $feature, ENT_QUOTES, 'UTF-8'); ?></span>
 </li>
-<li class="flex items-start gap-3 text-sm">
-<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-<span class="text-slate-700 dark:text-slate-300">Custom API Integrations</span>
-</li>
-<li class="flex items-start gap-3 text-sm">
-<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-<span class="text-slate-700 dark:text-slate-300">Unlimited Cloud Storage</span>
-</li>
-<li class="flex items-start gap-3 text-sm">
-<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-<span class="text-slate-700 dark:text-slate-300">Dedicated Account Manager</span>
-</li>
-<li class="flex items-start gap-3 text-sm">
-<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-<span class="text-slate-700 dark:text-slate-300">White-label Patient Portal</span>
-</li>
+<?php endforeach; ?>
 </ul>
 </div>
 </div>

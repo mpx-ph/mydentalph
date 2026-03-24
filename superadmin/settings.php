@@ -7,10 +7,26 @@ $saveMessage = '';
 $saveError = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_superadmin_settings'])) {
+    $providerPlans = [];
+    $planKeys = ['starter', 'professional', 'enterprise'];
+    foreach ($planKeys as $planKey) {
+        $featuresText = isset($_POST['provider_plan_' . $planKey . '_features'])
+            ? (string) $_POST['provider_plan_' . $planKey . '_features']
+            : '';
+        $providerPlans[$planKey] = [
+            'name' => isset($_POST['provider_plan_' . $planKey . '_name']) ? (string) $_POST['provider_plan_' . $planKey . '_name'] : '',
+            'price' => isset($_POST['provider_plan_' . $planKey . '_price']) ? (string) $_POST['provider_plan_' . $planKey . '_price'] : '',
+            'description' => isset($_POST['provider_plan_' . $planKey . '_description']) ? (string) $_POST['provider_plan_' . $planKey . '_description'] : '',
+            'cta' => isset($_POST['provider_plan_' . $planKey . '_cta']) ? (string) $_POST['provider_plan_' . $planKey . '_cta'] : '',
+            'features' => preg_split('/\r\n|\r|\n/', $featuresText) ?: [],
+        ];
+    }
+
     $data = [
         'system_name' => isset($_POST['system_name']) ? (string) $_POST['system_name'] : '',
         'brand_tagline' => isset($_POST['brand_tagline']) ? (string) $_POST['brand_tagline'] : '',
         'brand_logo_path' => isset($_POST['brand_logo_path']) ? (string) $_POST['brand_logo_path'] : '',
+        'provider_plans' => $providerPlans,
     ];
 
     if (!empty($_FILES['brand_logo_file']['name']) && isset($_FILES['brand_logo_file']['tmp_name'])
@@ -77,6 +93,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_superadmin_setti
 }
 
 $settings = superadmin_get_settings($pdo);
+$providerPlans = isset($settings['provider_plans']) && is_array($settings['provider_plans'])
+    ? $settings['provider_plans']
+    : superadmin_default_provider_plans();
 $pageTitle = htmlspecialchars($settings['system_name'], ENT_QUOTES, 'UTF-8');
 ?>
 <!DOCTYPE html>
@@ -225,6 +244,67 @@ require __DIR__ . '/superadmin_header.php';
 <button class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow inline-flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all" type="submit">
 <span class="material-symbols-outlined text-lg">save</span>
 Save general settings
+</button>
+</div>
+</form>
+</section>
+
+<section class="bg-white/60 backdrop-blur-md rounded-[2rem] editorial-shadow p-8 md:p-10 space-y-8">
+<div class="flex items-start gap-4">
+<div class="p-3 bg-blue-50 text-primary rounded-xl shadow-sm shrink-0">
+<span class="material-symbols-outlined text-2xl">sell</span>
+</div>
+<div class="min-w-0 flex-1">
+<h3 class="text-xl font-bold font-headline text-on-surface">Provider plans</h3>
+<p class="text-on-surface-variant text-sm mt-1">Update plan details shown in the public Provider Plans page.</p>
+</div>
+</div>
+
+<form method="post" action="" class="space-y-6">
+<input type="hidden" name="save_superadmin_settings" value="1"/>
+<?php
+$planLabels = ['starter' => 'Starter', 'professional' => 'Professional', 'enterprise' => 'Enterprise'];
+foreach ($planLabels as $planKey => $planLabel):
+    $plan = isset($providerPlans[$planKey]) && is_array($providerPlans[$planKey]) ? $providerPlans[$planKey] : [];
+    $planName = isset($plan['name']) ? (string) $plan['name'] : $planLabel;
+    $planPrice = isset($plan['price']) ? (string) $plan['price'] : '';
+    $planDesc = isset($plan['description']) ? (string) $plan['description'] : '';
+    $planCta = isset($plan['cta']) ? (string) $plan['cta'] : 'Choose ' . $planLabel;
+    $planFeatures = isset($plan['features']) && is_array($plan['features']) ? implode("\n", $plan['features']) : '';
+?>
+<div class="rounded-2xl border border-white/80 bg-surface-container-low/30 p-5 space-y-4">
+<h4 class="text-sm font-bold uppercase tracking-wider text-on-surface-variant"><?php echo htmlspecialchars($planLabel, ENT_QUOTES, 'UTF-8'); ?> plan</h4>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2" for="provider_plan_<?php echo $planKey; ?>_name">Plan name</label>
+<input class="w-full bg-white/80 border border-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20" id="provider_plan_<?php echo $planKey; ?>_name" name="provider_plan_<?php echo $planKey; ?>_name" type="text" maxlength="80" value="<?php echo htmlspecialchars($planName, ENT_QUOTES, 'UTF-8'); ?>"/>
+</div>
+<div>
+<label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2" for="provider_plan_<?php echo $planKey; ?>_price">Price label</label>
+<input class="w-full bg-white/80 border border-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20" id="provider_plan_<?php echo $planKey; ?>_price" name="provider_plan_<?php echo $planKey; ?>_price" type="text" maxlength="40" value="<?php echo htmlspecialchars($planPrice, ENT_QUOTES, 'UTF-8'); ?>" placeholder="e.g. ₱999"/>
+</div>
+</div>
+<div>
+<label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2" for="provider_plan_<?php echo $planKey; ?>_description">Description</label>
+<input class="w-full bg-white/80 border border-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20" id="provider_plan_<?php echo $planKey; ?>_description" name="provider_plan_<?php echo $planKey; ?>_description" type="text" maxlength="255" value="<?php echo htmlspecialchars($planDesc, ENT_QUOTES, 'UTF-8'); ?>"/>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2" for="provider_plan_<?php echo $planKey; ?>_cta">Button text</label>
+<input class="w-full bg-white/80 border border-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20" id="provider_plan_<?php echo $planKey; ?>_cta" name="provider_plan_<?php echo $planKey; ?>_cta" type="text" maxlength="60" value="<?php echo htmlspecialchars($planCta, ENT_QUOTES, 'UTF-8'); ?>"/>
+</div>
+<div>
+<label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2" for="provider_plan_<?php echo $planKey; ?>_features">Features (one per line)</label>
+<textarea class="w-full bg-white/80 border border-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 min-h-[140px]" id="provider_plan_<?php echo $planKey; ?>_features" name="provider_plan_<?php echo $planKey; ?>_features"><?php echo htmlspecialchars($planFeatures, ENT_QUOTES, 'UTF-8'); ?></textarea>
+</div>
+</div>
+</div>
+<?php endforeach; ?>
+
+<div class="pt-2">
+<button class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow inline-flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all" type="submit">
+<span class="material-symbols-outlined text-lg">save</span>
+Save provider plan details
 </button>
 </div>
 </form>

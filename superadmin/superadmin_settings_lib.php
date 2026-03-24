@@ -21,27 +21,157 @@ function superadmin_settings_ensure_table(PDO $pdo): void
         $pdo->exec("INSERT INTO tbl_superadmin_settings (id, system_name, brand_logo_path, brand_tagline)
             VALUES (1, 'MyDental', 'MyDental Logo.svg', 'MANAGEMENT CONSOLE')");
     }
+
+    // Add new columns on existing installs without requiring manual migrations.
+    $col = $pdo->query("SHOW COLUMNS FROM tbl_superadmin_settings LIKE 'provider_plans_json'")->fetch(PDO::FETCH_ASSOC);
+    if (!$col) {
+        $pdo->exec("ALTER TABLE tbl_superadmin_settings ADD COLUMN provider_plans_json LONGTEXT NULL AFTER brand_tagline");
+    }
 }
 
 /**
- * @return array{system_name: string, brand_logo_path: string, brand_tagline: string}
+ * @return array<string, array{name: string, price: string, description: string, cta: string, features: array<int, string>}>
+ */
+function superadmin_default_provider_plans(): array
+{
+    return [
+        'starter' => [
+            'name' => 'Starter',
+            'price' => '₱999',
+            'description' => 'Essential tools for independent clinics starting their digital journey.',
+            'cta' => 'Choose Starter',
+            'features' => [
+                'Unlimited Patient Records',
+                'Basic Calendar Scheduling',
+                'Email Support',
+                'Treatment Charting',
+            ],
+        ],
+        'professional' => [
+            'name' => 'Professional',
+            'price' => '₱2,499',
+            'description' => 'Comprehensive features for busy practices looking to automate.',
+            'cta' => 'Choose Professional',
+            'features' => [
+                'Everything in Starter',
+                'Advanced Analytics Dashboards',
+                'Automated SMS Reminders',
+                '24/7 Priority Support',
+                'Multi-user Access Control',
+            ],
+        ],
+        'enterprise' => [
+            'name' => 'Enterprise',
+            'price' => '₱4,999',
+            'description' => 'Customized solutions for dental networks and multi-branch clinics.',
+            'cta' => 'Choose Enterprise',
+            'features' => [
+                'Everything in Professional',
+                'Custom API Integrations',
+                'Unlimited Cloud Storage',
+                'Dedicated Account Manager',
+                'White-label Patient Portal',
+            ],
+        ],
+    ];
+}
+
+function superadmin_trim(string $value, int $length): string
+{
+    $value = trim($value);
+    if (function_exists('mb_substr')) {
+        return mb_substr($value, 0, $length);
+    }
+    return substr($value, 0, $length);
+}
+
+/**
+ * @param mixed $raw
+ * @return array<string, array{name: string, price: string, description: string, cta: string, features: array<int, string>}>
+ */
+function superadmin_sanitize_provider_plans($raw): array
+{
+    $defaults = superadmin_default_provider_plans();
+    if (!is_array($raw)) {
+        return $defaults;
+    }
+
+    $result = $defaults;
+    foreach ($defaults as $key => $defPlan) {
+        $plan = isset($raw[$key]) && is_array($raw[$key]) ? $raw[$key] : [];
+        $name = isset($plan['name']) ? superadmin_trim((string) $plan['name'], 80) : $defPlan['name'];
+        $price = isset($plan['price']) ? superadmin_trim((string) $plan['price'], 40) : $defPlan['price'];
+        $desc = isset($plan['description']) ? superadmin_trim((string) $plan['description'], 255) : $defPlan['description'];
+        $cta = isset($plan['cta']) ? superadmin_trim((string) $plan['cta'], 60) : $defPlan['cta'];
+
+        if ($name === '') {
+            $name = $defPlan['name'];
+        }
+        if ($price === '') {
+            $price = $defPlan['price'];
+        }
+        if ($desc === '') {
+            $desc = $defPlan['description'];
+        }
+        if ($cta === '') {
+            $cta = $defPlan['cta'];
+        }
+
+        $features = $defPlan['features'];
+        if (isset($plan['features']) && is_array($plan['features'])) {
+            $tmp = [];
+            foreach ($plan['features'] as $feature) {
+                $feature = superadmin_trim((string) $feature, 120);
+                if ($feature !== '') {
+                    $tmp[] = $feature;
+                }
+            }
+            if (!empty($tmp)) {
+                $features = array_values(array_slice($tmp, 0, 8));
+            }
+        }
+
+        $result[$key] = [
+            'name' => $name,
+            'price' => $price,
+            'description' => $desc,
+            'cta' => $cta,
+            'features' => $features,
+        ];
+    }
+    return $result;
+}
+
+/**
+ * @return array{system_name: string, brand_logo_path: string, brand_tagline: string, provider_plans: array<string, array{name: string, price: string, description: string, cta: string, features: array<int, string>}>}
  */
 function superadmin_get_settings(PDO $pdo): array
 {
     superadmin_settings_ensure_table($pdo);
-    $stmt = $pdo->query('SELECT system_name, brand_logo_path, brand_tagline FROM tbl_superadmin_settings WHERE id = 1');
+    $stmt = $pdo->query('SELECT system_name, brand_logo_path, brand_tagline, provider_plans_json FROM tbl_superadmin_settings WHERE id = 1');
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) {
         return [
             'system_name' => 'MyDental',
             'brand_logo_path' => 'MyDental Logo.svg',
             'brand_tagline' => 'MANAGEMENT CONSOLE',
+            'provider_plans' => superadmin_default_provider_plans(),
         ];
     }
+
+    $plansRaw = null;
+    if (!empty($row['provider_plans_json'])) {
+        $decoded = json_decode((string) $row['provider_plans_json'], true);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            $plansRaw = $decoded;
+        }
+    }
+
     return [
         'system_name' => (string) $row['system_name'],
         'brand_logo_path' => (string) $row['brand_logo_path'],
         'brand_tagline' => (string) $row['brand_tagline'],
+        'provider_plans' => superadmin_sanitize_provider_plans($plansRaw),
     ];
 }
 
@@ -62,7 +192,7 @@ function superadmin_sanitize_logo_relative_path(string $path): string
 }
 
 /**
- * @param array{system_name?: string, brand_logo_path?: string, brand_tagline?: string} $data
+ * @param array{system_name?: string, brand_logo_path?: string, brand_tagline?: string, provider_plans?: array<string, array{name?: string, price?: string, description?: string, cta?: string, features?: array<int, string>}|mixed>} $data
  */
 function superadmin_save_settings(PDO $pdo, array $data): void
 {
@@ -94,6 +224,20 @@ function superadmin_save_settings(PDO $pdo, array $data): void
         $tag = substr($tag, 0, 255);
     }
 
-    $stmt = $pdo->prepare('UPDATE tbl_superadmin_settings SET system_name = ?, brand_logo_path = ?, brand_tagline = ? WHERE id = 1');
-    $stmt->execute([$name, $logo, $tag]);
+    $plans = superadmin_default_provider_plans();
+    if (isset($data['provider_plans'])) {
+        $plans = superadmin_sanitize_provider_plans($data['provider_plans']);
+    } else {
+        $current = superadmin_get_settings($pdo);
+        if (isset($current['provider_plans']) && is_array($current['provider_plans'])) {
+            $plans = superadmin_sanitize_provider_plans($current['provider_plans']);
+        }
+    }
+    $plansJson = json_encode($plans, JSON_UNESCAPED_UNICODE);
+    if ($plansJson === false) {
+        $plansJson = json_encode(superadmin_default_provider_plans(), JSON_UNESCAPED_UNICODE);
+    }
+
+    $stmt = $pdo->prepare('UPDATE tbl_superadmin_settings SET system_name = ?, brand_logo_path = ?, brand_tagline = ?, provider_plans_json = ? WHERE id = 1');
+    $stmt->execute([$name, $logo, $tag, (string) $plansJson]);
 }
