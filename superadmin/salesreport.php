@@ -87,15 +87,10 @@ $superadmin_nav = 'salesreport';
 $superadmin_header_search_placeholder = 'Search clinic data...';
 require_once __DIR__ . '/../db.php';
 date_default_timezone_set('Asia/Manila');
-$salesreportDbError = null;
 try {
     $pdo->exec("SET time_zone = '+08:00'");
-    $tzOffsetMinutes = (int) $pdo->query('SELECT TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), NOW())')->fetchColumn();
-    if ($tzOffsetMinutes !== 480) {
-        throw new RuntimeException('MySQL session time_zone is not +08:00.');
-    }
 } catch (Throwable $e) {
-    $salesreportDbError = 'Sales Report requires Asia/Manila (+08:00) database timezone.';
+    // Keep PHP display in Manila even when hosting disallows session time_zone changes.
 }
 
 function salesreport_format_money_card(float $amount): string
@@ -210,31 +205,29 @@ $yearStart->setTime(0, 0, 0);
 $yearEnd = clone $yearStart;
 $yearEnd->modify('+1 year');
 
-if ($salesreportDbError === null) {
-    try {
-        $stmt = $pdo->prepare("
-            SELECT COALESCE(SUM(amount_paid), 0) as revenue
-            FROM tbl_tenant_subscriptions
-            WHERE payment_status = 'paid'
-              AND created_at >= ?
-              AND created_at < ?
-        ");
+try {
+    $stmt = $pdo->prepare("
+        SELECT COALESCE(SUM(amount_paid), 0) as revenue
+        FROM tbl_tenant_subscriptions
+        WHERE payment_status = 'paid'
+          AND created_at >= ?
+          AND created_at < ?
+    ");
 
-        // NOTE: tbl_tenant_subscriptions uses created_at as the transaction date.
-        $stmt->execute([$todayStart->format('Y-m-d H:i:s'), $todayEnd->format('Y-m-d H:i:s')]);
-        $todayRevenue = (float) ($stmt->fetch()['revenue'] ?? 0);
+    // NOTE: tbl_tenant_subscriptions uses created_at as the transaction date.
+    $stmt->execute([$todayStart->format('Y-m-d H:i:s'), $todayEnd->format('Y-m-d H:i:s')]);
+    $todayRevenue = (float) ($stmt->fetch()['revenue'] ?? 0);
 
-        $stmt->execute([$weekStart->format('Y-m-d H:i:s'), $weekEnd->format('Y-m-d H:i:s')]);
-        $weekRevenue = (float) ($stmt->fetch()['revenue'] ?? 0);
+    $stmt->execute([$weekStart->format('Y-m-d H:i:s'), $weekEnd->format('Y-m-d H:i:s')]);
+    $weekRevenue = (float) ($stmt->fetch()['revenue'] ?? 0);
 
-        $stmt->execute([$monthStart->format('Y-m-d H:i:s'), $monthEnd->format('Y-m-d H:i:s')]);
-        $monthRevenue = (float) ($stmt->fetch()['revenue'] ?? 0);
+    $stmt->execute([$monthStart->format('Y-m-d H:i:s'), $monthEnd->format('Y-m-d H:i:s')]);
+    $monthRevenue = (float) ($stmt->fetch()['revenue'] ?? 0);
 
-        $stmt->execute([$yearStart->format('Y-m-d H:i:s'), $yearEnd->format('Y-m-d H:i:s')]);
-        $yearRevenue = (float) ($stmt->fetch()['revenue'] ?? 0);
-    } catch (Exception $e) {
-        error_log('salesreport revenue stats error: ' . $e->getMessage());
-    }
+    $stmt->execute([$yearStart->format('Y-m-d H:i:s'), $yearEnd->format('Y-m-d H:i:s')]);
+    $yearRevenue = (float) ($stmt->fetch()['revenue'] ?? 0);
+} catch (Exception $e) {
+    error_log('salesreport revenue stats error: ' . $e->getMessage());
 }
 
 // Recent daily revenue: paginated calendar days (newest first), paid subscriptions.
@@ -250,50 +243,48 @@ if ($dailyPage === false || $dailyPage < 1) {
 $minDaysAgo = ($dailyPage - 1) * $dailyPerPage;
 
 $recentDailyRevenue = [];
-if ($salesreportDbError === null) {
-    try {
-        $rangeOldestDaysAgo = $minDaysAgo + $dailyPerPage - 1;
-        $rangeStart = clone $todayStart;
-        $rangeStart->modify('-' . $rangeOldestDaysAgo . ' days');
-        $rangeEnd = clone $todayEnd;
+try {
+    $rangeOldestDaysAgo = $minDaysAgo + $dailyPerPage - 1;
+    $rangeStart = clone $todayStart;
+    $rangeStart->modify('-' . $rangeOldestDaysAgo . ' days');
+    $rangeEnd = clone $todayEnd;
 
-        $stmt = $pdo->prepare("
-            SELECT
-                DATE(created_at) as payment_day,
-                COALESCE(SUM(amount_paid), 0) as revenue
-            FROM tbl_tenant_subscriptions
-            WHERE payment_status = 'paid'
-              AND created_at >= ?
-              AND created_at < ?
-            GROUP BY DATE(created_at)
-            ORDER BY payment_day ASC
-        ");
-        $stmt->execute([$rangeStart->format('Y-m-d H:i:s'), $rangeEnd->format('Y-m-d H:i:s')]);
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $revenueByDay = [];
-        foreach ($rows as $row) {
-            $dayKey = (string) ($row['payment_day'] ?? '');
-            if ($dayKey !== '') {
-                $revenueByDay[$dayKey] = (float) ($row['revenue'] ?? 0);
-            }
+    $stmt = $pdo->prepare("
+        SELECT
+            DATE(created_at) as payment_day,
+            COALESCE(SUM(amount_paid), 0) as revenue
+        FROM tbl_tenant_subscriptions
+        WHERE payment_status = 'paid'
+          AND created_at >= ?
+          AND created_at < ?
+        GROUP BY DATE(created_at)
+        ORDER BY payment_day ASC
+    ");
+    $stmt->execute([$rangeStart->format('Y-m-d H:i:s'), $rangeEnd->format('Y-m-d H:i:s')]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $revenueByDay = [];
+    foreach ($rows as $row) {
+        $dayKey = (string) ($row['payment_day'] ?? '');
+        if ($dayKey !== '') {
+            $revenueByDay[$dayKey] = (float) ($row['revenue'] ?? 0);
         }
-
-        for ($k = 0; $k < $dailyPerPage; $k++) {
-            $daysAgo = $minDaysAgo + $k;
-            if ($daysAgo >= $maxDaysBack) {
-                break;
-            }
-            $d = clone $todayStart;
-            $d->modify('-' . $daysAgo . ' days');
-            $key = $d->format('Y-m-d');
-            $recentDailyRevenue[] = [
-                'label' => $d->format('M j'),
-                'revenue' => (float) ($revenueByDay[$key] ?? 0),
-            ];
-        }
-    } catch (Exception $e) {
-        error_log('salesreport recent daily revenue error: ' . $e->getMessage());
     }
+
+    for ($k = 0; $k < $dailyPerPage; $k++) {
+        $daysAgo = $minDaysAgo + $k;
+        if ($daysAgo >= $maxDaysBack) {
+            break;
+        }
+        $d = clone $todayStart;
+        $d->modify('-' . $daysAgo . ' days');
+        $key = $d->format('Y-m-d');
+        $recentDailyRevenue[] = [
+            'label' => $d->format('M j'),
+            'revenue' => (float) ($revenueByDay[$key] ?? 0),
+        ];
+    }
+} catch (Exception $e) {
+    error_log('salesreport recent daily revenue error: ' . $e->getMessage());
 }
 $dailyTotalItems = $maxDaysBack;
 
@@ -306,41 +297,39 @@ $txPage = filter_var($_GET['tx_page'] ?? null, FILTER_VALIDATE_INT);
 if ($txPage === false || $txPage < 1) {
     $txPage = 1;
 }
-if ($salesreportDbError === null) {
-    try {
-        $cntStmt = $pdo->query("
-            SELECT COUNT(*) FROM tbl_tenant_subscriptions WHERE payment_status = 'paid'
-        ");
-        $totalTxCount = (int) $cntStmt->fetchColumn();
-        $txTotalPages = $totalTxCount > 0 ? max(1, (int) ceil($totalTxCount / $txPerPage)) : 1;
-        if ($totalTxCount > 0 && $txPage > $txTotalPages) {
-            $txPage = $txTotalPages;
-        }
-        if ($totalTxCount === 0) {
-            $txPage = 1;
-        }
-        $txOffset = ($txPage - 1) * $txPerPage;
-        $stmt = $pdo->prepare("
-            SELECT
-                ts.created_at as payment_date,
-                ts.amount_paid as amount,
-                ts.payment_status as status,
-                ts.reference_number as payment_id,
-                NULL as booking_id,
-                sp.plan_name as service_type,
-                t.clinic_name
-            FROM tbl_tenant_subscriptions ts
-            LEFT JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
-            LEFT JOIN tbl_subscription_plans sp ON ts.plan_id = sp.plan_id
-            WHERE ts.payment_status = 'paid'
-            ORDER BY ts.created_at DESC, ts.id DESC
-            LIMIT " . (int) $txPerPage . " OFFSET " . (int) $txOffset . "
-        ");
-        $stmt->execute();
-        $recentTransactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Exception $e) {
-        error_log('salesreport recent transactions error: ' . $e->getMessage());
+try {
+    $cntStmt = $pdo->query("
+        SELECT COUNT(*) FROM tbl_tenant_subscriptions WHERE payment_status = 'paid'
+    ");
+    $totalTxCount = (int) $cntStmt->fetchColumn();
+    $txTotalPages = $totalTxCount > 0 ? max(1, (int) ceil($totalTxCount / $txPerPage)) : 1;
+    if ($totalTxCount > 0 && $txPage > $txTotalPages) {
+        $txPage = $txTotalPages;
     }
+    if ($totalTxCount === 0) {
+        $txPage = 1;
+    }
+    $txOffset = ($txPage - 1) * $txPerPage;
+    $stmt = $pdo->prepare("
+        SELECT
+            ts.created_at as payment_date,
+            ts.amount_paid as amount,
+            ts.payment_status as status,
+            ts.reference_number as payment_id,
+            NULL as booking_id,
+            sp.plan_name as service_type,
+            t.clinic_name
+        FROM tbl_tenant_subscriptions ts
+        LEFT JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
+        LEFT JOIN tbl_subscription_plans sp ON ts.plan_id = sp.plan_id
+        WHERE ts.payment_status = 'paid'
+        ORDER BY ts.created_at DESC, ts.id DESC
+        LIMIT " . (int) $txPerPage . " OFFSET " . (int) $txOffset . "
+    ");
+    $stmt->execute();
+    $recentTransactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    error_log('salesreport recent transactions error: ' . $e->getMessage());
 }
 
 // Top clinics ranking by total paid subscription spend (paginated).
@@ -352,43 +341,41 @@ $clinicsPage = filter_var($_GET['clinics_page'] ?? null, FILTER_VALIDATE_INT);
 if ($clinicsPage === false || $clinicsPage < 1) {
     $clinicsPage = 1;
 }
-if ($salesreportDbError === null) {
-    try {
-        $cntStmt = $pdo->query("
-            SELECT COUNT(*) FROM (
-                SELECT ts.tenant_id
-                FROM tbl_tenant_subscriptions ts
-                INNER JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
-                WHERE ts.payment_status = 'paid'
-                GROUP BY ts.tenant_id, t.clinic_name
-            ) ranked_clinics
-        ");
-        $totalClinicsCount = (int) $cntStmt->fetchColumn();
-        $clinicsTotalPages = $totalClinicsCount > 0 ? max(1, (int) ceil($totalClinicsCount / $clinicsPerPage)) : 1;
-        if ($totalClinicsCount > 0 && $clinicsPage > $clinicsTotalPages) {
-            $clinicsPage = $clinicsTotalPages;
-        }
-        if ($totalClinicsCount === 0) {
-            $clinicsPage = 1;
-        }
-        $clinicsOffset = ($clinicsPage - 1) * $clinicsPerPage;
-        $stmt = $pdo->prepare("
-            SELECT
-                t.clinic_name,
-                COUNT(ts.id) as paid_transactions,
-                COALESCE(SUM(ts.amount_paid), 0) as total_spend
+try {
+    $cntStmt = $pdo->query("
+        SELECT COUNT(*) FROM (
+            SELECT ts.tenant_id
             FROM tbl_tenant_subscriptions ts
             INNER JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
             WHERE ts.payment_status = 'paid'
             GROUP BY ts.tenant_id, t.clinic_name
-            ORDER BY total_spend DESC, paid_transactions DESC, t.clinic_name ASC
-            LIMIT " . (int) $clinicsPerPage . " OFFSET " . (int) $clinicsOffset . "
-        ");
-        $stmt->execute();
-        $topClinics = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Exception $e) {
-        error_log('salesreport top clinics error: ' . $e->getMessage());
+        ) ranked_clinics
+    ");
+    $totalClinicsCount = (int) $cntStmt->fetchColumn();
+    $clinicsTotalPages = $totalClinicsCount > 0 ? max(1, (int) ceil($totalClinicsCount / $clinicsPerPage)) : 1;
+    if ($totalClinicsCount > 0 && $clinicsPage > $clinicsTotalPages) {
+        $clinicsPage = $clinicsTotalPages;
     }
+    if ($totalClinicsCount === 0) {
+        $clinicsPage = 1;
+    }
+    $clinicsOffset = ($clinicsPage - 1) * $clinicsPerPage;
+    $stmt = $pdo->prepare("
+        SELECT
+            t.clinic_name,
+            COUNT(ts.id) as paid_transactions,
+            COALESCE(SUM(ts.amount_paid), 0) as total_spend
+        FROM tbl_tenant_subscriptions ts
+        INNER JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
+        WHERE ts.payment_status = 'paid'
+        GROUP BY ts.tenant_id, t.clinic_name
+        ORDER BY total_spend DESC, paid_transactions DESC, t.clinic_name ASC
+        LIMIT " . (int) $clinicsPerPage . " OFFSET " . (int) $clinicsOffset . "
+    ");
+    $stmt->execute();
+    $topClinics = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    error_log('salesreport top clinics error: ' . $e->getMessage());
 }
 
 // Canonical query string for pagination links (avoids broken/duplicate page params from raw $_GET).
@@ -413,11 +400,6 @@ require __DIR__ . '/superadmin_header.php';
 ?>
 <main class="ml-64 pt-20 min-h-screen">
 <div class="pt-8 px-10 pb-16 space-y-10 relative">
-<?php if ($salesreportDbError !== null): ?>
-<div class="rounded-2xl border border-error/20 bg-error-container px-6 py-4 text-sm font-bold text-error">
-<?php echo htmlspecialchars($salesreportDbError, ENT_QUOTES, 'UTF-8'); ?>
-</div>
-<?php endif; ?>
 <!-- Decorative blur shape -->
 <div class="absolute top-40 right-10 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10"></div>
 <!-- Page Header -->
