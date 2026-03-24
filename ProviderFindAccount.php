@@ -39,6 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
                 $_SESSION['provider_password_reset_user_id'] = (string) $user['user_id'];
                 $_SESSION['provider_password_reset_email'] = (string) $user['email'];
+                $_SESSION['provider_password_reset_otp_hash'] = $otp_hash;
+                $_SESSION['provider_password_reset_otp_expires_at'] = time() + 900;
                 $_SESSION['provider_password_reset_verified'] = false;
 
                 $stmt = $pdo->prepare(
