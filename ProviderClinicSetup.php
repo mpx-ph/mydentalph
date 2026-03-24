@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $stmt = $pdo->prepare("UPDATE tbl_tenants SET clinic_name = ?, clinic_slug = ? WHERE tenant_id = ?");
             $stmt->execute([$clinic_name, $clinic_slug, $tenant_id]);
-            header('Location: ProviderPurchase.php');
+            header('Location: VerifyBusiness.php');
             exit;
         }
     }
@@ -153,15 +153,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 </div>
 <button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-lg shadow-lg shadow-primary/20 transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 text-lg" type="submit">
-                        Complete Setup
+                        Continue to Business Verification
                         <span class="material-symbols-outlined">arrow_forward</span>
 </button>
 </form>
 </div>
 <div class="bg-slate-50 px-8 py-4 border-t border-slate-100 flex justify-between items-center text-xs text-slate-400 font-medium">
-<span>Step 1 of 3</span>
+<span>Step 1 of 4</span>
 <div class="flex gap-1.5">
 <div class="w-8 h-1.5 rounded-full bg-primary"></div>
+<div class="w-8 h-1.5 rounded-full bg-slate-200"></div>
 <div class="w-8 h-1.5 rounded-full bg-slate-200"></div>
 <div class="w-8 h-1.5 rounded-full bg-slate-200"></div>
 </div>

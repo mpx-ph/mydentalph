@@ -41,6 +41,26 @@ if ($tenant_id === null || $user_id === null) {
     exit;
 }
 
+// Require business permit verification before purchase step.
+$business_verification = null;
+try {
+    $stmt = $pdo->prepare("
+        SELECT verification_id
+        FROM tbl_tenant_business_verifications
+        WHERE tenant_id = ? AND verification_status = 'submitted'
+        ORDER BY verification_id DESC
+        LIMIT 1
+    ");
+    $stmt->execute([$tenant_id]);
+    $business_verification = $stmt->fetch(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+    $business_verification = null;
+}
+if (!$business_verification) {
+    header('Location: VerifyBusiness.php');
+    exit;
+}
+
 // Simulate payment failure (for testing)
 if (isset($_GET['simulate']) && $_GET['simulate'] === 'fail') {
     $_SESSION = [];
