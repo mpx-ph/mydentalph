@@ -258,6 +258,10 @@ if ($selectedDateRange !== 'all') {
         $filterRangeStart->modify('-' . ($daysBack - 1) . ' days');
     }
 }
+$exportPeriodStartDate = $filterRangeStart ? $filterRangeStart->format('Y-m-d') : $todayStart->format('Y-m-d');
+$exportPeriodEndDate = $filterRangeEnd
+    ? ((clone $filterRangeEnd)->modify('-1 day')->format('Y-m-d'))
+    : $todayStart->format('Y-m-d');
 
 $filterClinics = [];
 try {
@@ -855,6 +859,24 @@ $amount = (float) ($tx['amount'] ?? 0);
 <input type="checkbox" name="include_transactions" value="1" class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
 <span class="font-extrabold text-on-surface">Full Transaction Log (Paid Subscriptions)</span>
 </label>
+<div class="export-option-card rounded-3xl p-5 space-y-4">
+<label class="flex items-center gap-3 cursor-pointer">
+<input type="hidden" name="include_custom_period" value="0"/>
+<input type="checkbox" name="include_custom_period" value="1" checked class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
+<span class="font-extrabold text-on-surface">Custom Period Revenue + Transactions</span>
+</label>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<label class="flex flex-col gap-1.5 text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+<span>Start Date</span>
+<input type="date" name="custom_start_date" value="<?php echo htmlspecialchars($exportPeriodStartDate); ?>" class="rounded-xl border border-outline-variant/60 bg-white px-3 py-2 text-sm font-semibold text-on-surface focus:border-primary focus:ring-primary/25"/>
+</label>
+<label class="flex flex-col gap-1.5 text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+<span>End Date</span>
+<input type="date" name="custom_end_date" value="<?php echo htmlspecialchars($exportPeriodEndDate); ?>" class="rounded-xl border border-outline-variant/60 bg-white px-3 py-2 text-sm font-semibold text-on-surface focus:border-primary focus:ring-primary/25"/>
+</label>
+</div>
+<p class="text-[11px] font-semibold text-on-surface-variant/80">Exports all paid transactions within the selected inclusive date range and includes a total revenue summary for that period.</p>
+</div>
 </div>
 </div>
 <div>

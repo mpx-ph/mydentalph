@@ -72,6 +72,20 @@ function salesreport_money($amount): string
     return 'PHP ' . number_format((float) $amount, 2);
 }
 
+function salesreport_parse_input_date(string $value): ?DateTime
+{
+    $value = trim($value);
+    if ($value === '') {
+        return null;
+    }
+    $dt = DateTime::createFromFormat('Y-m-d', $value);
+    if ($dt === false) {
+        return null;
+    }
+    $dt->setTime(0, 0, 0);
+    return $dt;
+}
+
 date_default_timezone_set('Asia/Manila');
 $todayStart = new DateTime('today');
 $todayStart->setTime(0, 0, 0);
@@ -98,6 +112,7 @@ $optionKeys = [
     'include_daily',
     'include_transactions',
     'include_top_clinics',
+    'include_custom_period',
 ];
 $hasExplicitOptions = false;
 foreach ($optionKeys as $k) {
@@ -115,6 +130,28 @@ $includeYear = salesreport_pdf_bool('include_year', !$hasExplicitOptions);
 $includeDaily = salesreport_pdf_bool('include_daily', !$hasExplicitOptions);
 $includeTransactions = salesreport_pdf_bool('include_transactions', false);
 $includeTopClinics = salesreport_pdf_bool('include_top_clinics', !$hasExplicitOptions);
+$includeCustomPeriod = salesreport_pdf_bool('include_custom_period', !$hasExplicitOptions);
+
+$customStartInput = isset($_GET['custom_start_date']) ? (string) $_GET['custom_start_date'] : '';
+$customEndInput = isset($_GET['custom_end_date']) ? (string) $_GET['custom_end_date'] : '';
+$customStartDate = salesreport_parse_input_date($customStartInput);
+$customEndDate = salesreport_parse_input_date($customEndInput);
+$customPeriodError = null;
+$customRangeStart = null;
+$customRangeEndExclusive = null;
+$customPeriodLabel = null;
+if ($includeCustomPeriod) {
+    if ($customStartDate === null || $customEndDate === null) {
+        $customPeriodError = 'Custom period dates are invalid or missing.';
+    } elseif ($customStartDate > $customEndDate) {
+        $customPeriodError = 'Custom period start date cannot be later than end date.';
+    } else {
+        $customRangeStart = clone $customStartDate;
+        $customRangeEndExclusive = clone $customEndDate;
+        $customRangeEndExclusive->modify('+1 day');
+        $customPeriodLabel = $customStartDate->format('M j, Y') . ' to ' . $customEndDate->format('M j, Y');
+    }
+}
 
 $todayRevenue = 0.0;
 $weekRevenue = 0.0;
@@ -122,6 +159,8 @@ $monthRevenue = 0.0;
 $yearRevenue = 0.0;
 $recentDailyRevenue = [];
 $transactionRows = [];
+$customPeriodTransactions = [];
+$customPeriodRevenue = 0.0;
 $topClinics = [];
 $dbError = null;
 
@@ -187,6 +226,42 @@ try {
         ");
         $txStmt->execute();
         $transactionRows = $txStmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    if ($includeCustomPeriod && $customPeriodError === null && $customRangeStart !== null && $customRangeEndExclusive !== null) {
+        $periodSumStmt = $pdo->prepare("
+            SELECT COALESCE(SUM(amount_paid), 0) AS revenue
+            FROM tbl_tenant_subscriptions
+            WHERE payment_status = 'paid'
+              AND created_at >= ?
+              AND created_at < ?
+        ");
+        $periodSumStmt->execute([
+            $customRangeStart->format('Y-m-d H:i:s'),
+            $customRangeEndExclusive->format('Y-m-d H:i:s'),
+        ]);
+        $customPeriodRevenue = (float) ($periodSumStmt->fetchColumn() ?: 0);
+
+        $periodTxStmt = $pdo->prepare("
+            SELECT
+                ts.created_at,
+                ts.amount_paid,
+                ts.reference_number,
+                t.clinic_name,
+                sp.plan_name
+            FROM tbl_tenant_subscriptions ts
+            LEFT JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
+            LEFT JOIN tbl_subscription_plans sp ON ts.plan_id = sp.plan_id
+            WHERE ts.payment_status = 'paid'
+              AND ts.created_at >= ?
+              AND ts.created_at < ?
+            ORDER BY ts.created_at DESC, ts.id DESC
+        ");
+        $periodTxStmt->execute([
+            $customRangeStart->format('Y-m-d H:i:s'),
+            $customRangeEndExclusive->format('Y-m-d H:i:s'),
+        ]);
+        $customPeriodTransactions = $periodTxStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     if ($includeTopClinics) {
@@ -267,6 +342,9 @@ if ($tcpdfPath !== null) {
             if ($includeWeek) $summaryLines[] = "Weekly Revenue: " . salesreport_money($weekRevenue);
             if ($includeMonth) $summaryLines[] = "Monthly Revenue: " . salesreport_money($monthRevenue);
             if ($includeYear) $summaryLines[] = "Yearly Revenue: " . salesreport_money($yearRevenue);
+            if ($includeCustomPeriod && $customPeriodError === null && $customPeriodLabel !== null) {
+                $summaryLines[] = "Custom Period ({$customPeriodLabel}) Revenue: " . salesreport_money($customPeriodRevenue);
+            }
             if (empty($summaryLines)) $summaryLines[] = 'No revenue summary metrics selected.';
 
             $pdf->SetFont('helvetica', 'B', 11);
@@ -339,6 +417,49 @@ if ($tcpdfPath !== null) {
                 $html .= '</table>';
                 $pdf->writeHTML($html, true, false, true, false, '');
             }
+
+            if ($includeCustomPeriod) {
+                $pdf->AddPage();
+                $pdf->SetFont('helvetica', 'B', 11);
+                $pdf->Cell(0, 6, 'Custom period revenue report', 0, 1, 'L');
+                $pdf->SetFont('helvetica', '', 9.5);
+                if ($customPeriodError !== null) {
+                    $pdf->SetFillColor(255, 235, 235);
+                    $pdf->SetDrawColor(220, 180, 180);
+                    $pdf->MultiCell(0, 6, 'Custom period export error: ' . $customPeriodError, 1, 'L', true);
+                } else {
+                    $pdf->SetFillColor(240, 245, 255);
+                    $pdf->SetDrawColor(190, 205, 235);
+                    $pdf->MultiCell(
+                        0,
+                        6,
+                        'Period: ' . $customPeriodLabel . '  |  Total Revenue: ' . salesreport_money($customPeriodRevenue) . '  |  Transactions: ' . number_format(count($customPeriodTransactions)),
+                        1,
+                        'L',
+                        true
+                    );
+                    $pdf->Ln(3);
+                    $html = '<table border="1" cellpadding="3" cellspacing="0" width="100%" style="font-size:8.3pt;">';
+                    $html .= '<tr style="background-color:#1e293b;color:#ffffff;"><th width="24%">Date</th><th width="28%">Clinic</th><th width="20%">Plan</th><th width="14%" align="right">Amount</th><th width="14%">Reference</th></tr>';
+                    if (empty($customPeriodTransactions)) {
+                        $html .= '<tr><td colspan="5" align="center">No paid subscription transactions found for the selected period.</td></tr>';
+                    } else {
+                        foreach ($customPeriodTransactions as $row) {
+                            $ts = strtotime((string) ($row['created_at'] ?? ''));
+                            $dateLabel = $ts ? date('M j, Y H:i', $ts) : '-';
+                            $html .= '<tr>';
+                            $html .= '<td>' . htmlspecialchars($dateLabel, ENT_QUOTES, 'UTF-8') . '</td>';
+                            $html .= '<td>' . htmlspecialchars((string) ($row['clinic_name'] ?? 'Unknown Clinic'), ENT_QUOTES, 'UTF-8') . '</td>';
+                            $html .= '<td>' . htmlspecialchars((string) ($row['plan_name'] ?? 'N/A'), ENT_QUOTES, 'UTF-8') . '</td>';
+                            $html .= '<td align="right">' . htmlspecialchars(salesreport_money((float) ($row['amount_paid'] ?? 0)), ENT_QUOTES, 'UTF-8') . '</td>';
+                            $html .= '<td>' . htmlspecialchars((string) ($row['reference_number'] ?? '-'), ENT_QUOTES, 'UTF-8') . '</td>';
+                            $html .= '</tr>';
+                        }
+                    }
+                    $html .= '</table>';
+                    $pdf->writeHTML($html, true, false, true, false, '');
+                }
+            }
         }
 
         $pdfData = $pdf->Output($filename, 'S');
@@ -405,6 +526,9 @@ try {
         if ($includeWeek) $summaryLines[] = "- Weekly Revenue: " . salesreport_money($weekRevenue);
         if ($includeMonth) $summaryLines[] = "- Monthly Revenue: " . salesreport_money($monthRevenue);
         if ($includeYear) $summaryLines[] = "- Yearly Revenue: " . salesreport_money($yearRevenue);
+        if ($includeCustomPeriod && $customPeriodError === null && $customPeriodLabel !== null) {
+            $summaryLines[] = '- Custom Period (' . $customPeriodLabel . ') Revenue: ' . salesreport_money($customPeriodRevenue);
+        }
         if (empty($summaryLines)) $summaryLines[] = '- No revenue summary metrics selected.';
         $pdf->MultiCell(172, 5, salesreport_pdf_latin1_safe(implode("\n", $summaryLines)), 0, 'L', false);
         $pdf->Ln(8);
@@ -485,6 +609,50 @@ try {
                     $pdf->Cell(28, 6, salesreport_pdf_latin1_safe(salesreport_money((float) ($row['amount_paid'] ?? 0))), 1, 0, 'R', true);
                     $pdf->Cell(28, 6, salesreport_pdf_latin1_safe((string) ($row['reference_number'] ?? '-')), 1, 1, 'L', true);
                     $rowToggle = !$rowToggle;
+                }
+            }
+        }
+
+        if ($includeCustomPeriod) {
+            $pdf->AddPage();
+            $pdf->SetFont('Helvetica', '', 11);
+            $pdf->SetTextColor(25, 35, 50);
+            $pdf->Cell(0, 6, salesreport_pdf_latin1_safe('Custom period revenue report'), 0, 1, 'L');
+            $pdf->SetFont('Helvetica', '', 9);
+            if ($customPeriodError !== null) {
+                $pdf->SetFillColor(255, 235, 235);
+                $pdf->SetDrawColor(220, 180, 180);
+                $pdf->MultiCell(0, 6, salesreport_pdf_latin1_safe('Custom period export error: ' . $customPeriodError), 1, 'L', true);
+            } else {
+                $pdf->SetFillColor(246, 249, 255);
+                $pdf->SetDrawColor(205, 215, 235);
+                $summaryText = 'Period: ' . $customPeriodLabel . ' | Total Revenue: ' . salesreport_money($customPeriodRevenue) . ' | Transactions: ' . number_format(count($customPeriodTransactions));
+                $pdf->MultiCell(0, 6, salesreport_pdf_latin1_safe($summaryText), 1, 'L', true);
+                $pdf->Ln(3);
+                $pdf->SetFont('Helvetica', '', 7.8);
+                $pdf->SetFillColor(30, 41, 59);
+                $pdf->SetTextColor(255, 255, 255);
+                $pdf->Cell(40, 7, salesreport_pdf_latin1_safe('Date'), 1, 0, 'L', true);
+                $pdf->Cell(50, 7, salesreport_pdf_latin1_safe('Clinic'), 1, 0, 'L', true);
+                $pdf->Cell(34, 7, salesreport_pdf_latin1_safe('Plan'), 1, 0, 'L', true);
+                $pdf->Cell(28, 7, salesreport_pdf_latin1_safe('Amount'), 1, 0, 'R', true);
+                $pdf->Cell(28, 7, salesreport_pdf_latin1_safe('Reference'), 1, 1, 'L', true);
+                $pdf->SetTextColor(35, 45, 55);
+                if (empty($customPeriodTransactions)) {
+                    $pdf->Cell(180, 7, salesreport_pdf_latin1_safe('No paid subscription transactions found for the selected period.'), 1, 1, 'C');
+                } else {
+                    $rowToggle = false;
+                    foreach ($customPeriodTransactions as $row) {
+                        $ts = strtotime((string) ($row['created_at'] ?? ''));
+                        $dateLabel = $ts ? date('M j, Y H:i', $ts) : '-';
+                        $pdf->SetFillColor($rowToggle ? 250 : 242, $rowToggle ? 252 : 247, 255);
+                        $pdf->Cell(40, 6, salesreport_pdf_latin1_safe($dateLabel), 1, 0, 'L', true);
+                        $pdf->Cell(50, 6, salesreport_pdf_latin1_safe((string) ($row['clinic_name'] ?? 'Unknown Clinic')), 1, 0, 'L', true);
+                        $pdf->Cell(34, 6, salesreport_pdf_latin1_safe((string) ($row['plan_name'] ?? 'N/A')), 1, 0, 'L', true);
+                        $pdf->Cell(28, 6, salesreport_pdf_latin1_safe(salesreport_money((float) ($row['amount_paid'] ?? 0))), 1, 0, 'R', true);
+                        $pdf->Cell(28, 6, salesreport_pdf_latin1_safe((string) ($row['reference_number'] ?? '-')), 1, 1, 'L', true);
+                        $rowToggle = !$rowToggle;
+                    }
                 }
             }
         }
