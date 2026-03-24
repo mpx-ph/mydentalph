@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please enter a valid email address.';
     } else {
         try {
-            $stmt = $pdo->prepare("SELECT user_id, email FROM tbl_users WHERE email = ? LIMIT 1");
+            $stmt = $pdo->prepare("SELECT user_id, tenant_id, email FROM tbl_users WHERE email = ? LIMIT 1");
             $stmt->execute([$email]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -25,6 +25,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'No account found for that email.';
             } else {
                 $otp_code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+                $otp_hash = password_hash($otp_code, PASSWORD_DEFAULT);
+                $otp_expires = date('Y-m-d H:i:s', time() + 900);
                 // Clear signup onboarding state to avoid OTP mode collision.
                 unset(
                     $_SESSION['onboarding_pending_id'],
@@ -37,9 +39,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
                 $_SESSION['provider_password_reset_user_id'] = (string) $user['user_id'];
                 $_SESSION['provider_password_reset_email'] = (string) $user['email'];
-                $_SESSION['provider_password_reset_otp_hash'] = password_hash($otp_code, PASSWORD_DEFAULT);
-                $_SESSION['provider_password_reset_otp_expires_at'] = time() + 900;
                 $_SESSION['provider_password_reset_verified'] = false;
+
+                $stmt = $pdo->prepare(
+                    "SELECT id FROM tbl_email_verifications WHERE user_id = ? AND verified_at IS NULL ORDER BY id DESC LIMIT 1"
+                );
+                $stmt->execute([(string) $user['user_id']]);
+                $otp_row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($otp_row) {
+                    $stmt = $pdo->prepare(
+                        "UPDATE tbl_email_verifications
+                         SET otp_hash = ?, otp_expires_at = ?, attempts = 0, last_sent_at = NOW(), token_hash = NULL, token_expires_at = NULL
+                         WHERE id = ?"
+                    );
+                    $stmt->execute([$otp_hash, $otp_expires, (int) $otp_row['id']]);
+                } else {
+                    $stmt = $pdo->prepare(
+                        "INSERT INTO tbl_email_verifications (tenant_id, user_id, otp_hash, otp_expires_at, attempts, last_sent_at)
+                         VALUES (?, ?, ?, ?, 0, NOW())"
+                    );
+                    $stmt->execute([(string) $user['tenant_id'], (string) $user['user_id'], $otp_hash, $otp_expires]);
+                }
 
                 if (send_otp_email((string) $user['email'], $otp_code)) {
                     header('Location: ResetPasswordOTP.php');

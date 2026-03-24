@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/mail_config.php';
 
 $error = '';
@@ -19,11 +20,37 @@ if (
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? 'verify';
+    $user_id = (string) ($_SESSION['provider_password_reset_user_id'] ?? '');
     if ($action === 'resend') {
         $otp_code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        $_SESSION['provider_password_reset_otp_hash'] = password_hash($otp_code, PASSWORD_DEFAULT);
-        $_SESSION['provider_password_reset_otp_expires_at'] = time() + 900;
+        $otp_hash = password_hash($otp_code, PASSWORD_DEFAULT);
+        $otp_expires = date('Y-m-d H:i:s', time() + 900);
         $_SESSION['provider_password_reset_verified'] = false;
+        $stmt = $pdo->prepare(
+            "SELECT id FROM tbl_email_verifications WHERE user_id = ? AND verified_at IS NULL ORDER BY id DESC LIMIT 1"
+        );
+        $stmt->execute([$user_id]);
+        $otp_row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($otp_row) {
+            $stmt = $pdo->prepare(
+                "UPDATE tbl_email_verifications
+                 SET otp_hash = ?, otp_expires_at = ?, attempts = 0, last_sent_at = NOW(), token_hash = NULL, token_expires_at = NULL
+                 WHERE id = ?"
+            );
+            $stmt->execute([$otp_hash, $otp_expires, (int) $otp_row['id']]);
+        } else {
+            $stmt = $pdo->prepare("SELECT tenant_id FROM tbl_users WHERE user_id = ? LIMIT 1");
+            $stmt->execute([$user_id]);
+            $tenant_id = (string) ($stmt->fetchColumn() ?: '');
+            if ($tenant_id !== '') {
+                $stmt = $pdo->prepare(
+                    "INSERT INTO tbl_email_verifications (tenant_id, user_id, otp_hash, otp_expires_at, attempts, last_sent_at)
+                     VALUES (?, ?, ?, ?, 0, NOW())"
+                );
+                $stmt->execute([$tenant_id, $user_id, $otp_hash, $otp_expires]);
+            }
+        }
         if (send_otp_email((string) $_SESSION['provider_password_reset_email'], $otp_code)) {
             $resend_message = 'A new code has been sent to your email.';
         } else {
@@ -35,20 +62,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Please enter a valid 6-digit code.';
         } else {
             $dev_otp = defined('DEV_OTP') ? DEV_OTP : null;
-            $hash = $_SESSION['provider_password_reset_otp_hash'] ?? '';
-            $expires_at = (int) ($_SESSION['provider_password_reset_otp_expires_at'] ?? 0);
-            if ($hash === '' || $expires_at === 0) {
+            $stmt = $pdo->prepare(
+                "SELECT id, otp_hash, otp_expires_at
+                 FROM tbl_email_verifications
+                 WHERE user_id = ? AND verified_at IS NULL
+                 ORDER BY id DESC
+                 LIMIT 1"
+            );
+            $stmt->execute([$user_id]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
                 $error = 'No reset request found. Please start again.';
             } elseif ($dev_otp !== null && $otp_code === $dev_otp) {
                 $_SESSION['provider_password_reset_verified'] = true;
+                $stmt = $pdo->prepare('UPDATE tbl_email_verifications SET verified_at = NOW() WHERE id = ?');
+                $stmt->execute([(int) $row['id']]);
                 header('Location: ProviderResetPassword.php');
                 exit;
-            } elseif ($expires_at < time()) {
+            } elseif (strtotime((string) $row['otp_expires_at']) < time()) {
                 $error = 'This code has expired. Please request a new one.';
-            } elseif (!password_verify($otp_code, $hash)) {
+            } elseif (!password_verify($otp_code, (string) $row['otp_hash'])) {
+                $stmt = $pdo->prepare('UPDATE tbl_email_verifications SET attempts = attempts + 1 WHERE id = ?');
+                $stmt->execute([(int) $row['id']]);
                 $error = 'Invalid verification code. Please try again.';
             } else {
                 $_SESSION['provider_password_reset_verified'] = true;
+                $stmt = $pdo->prepare('UPDATE tbl_email_verifications SET verified_at = NOW() WHERE id = ?');
+                $stmt->execute([(int) $row['id']]);
                 header('Location: ProviderResetPassword.php');
                 exit;
             }
