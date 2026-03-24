@@ -5,6 +5,9 @@
  */
 require_once __DIR__ . '/require_superadmin.php';
 require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/auditlogs_tz_helper.php';
+
+@date_default_timezone_set('Asia/Manila');
 
 @ini_set('memory_limit', '128M');
 @set_time_limit(60);
@@ -88,8 +91,11 @@ $loginEvents = 0;
 $logoutEvents = 0;
 $eventRows = [];
 $dbError = null;
+$auditLogStorageTz = new DateTimeZone('+00:00');
 
 try {
+    $auditLogStorageTz = auditlogs_infer_mysql_storage_timezone($pdo);
+
     $totalLogs = (int) $pdo->query('SELECT COUNT(*) FROM tbl_audit_logs')->fetchColumn();
 
     $loginStmt = $pdo->query("
@@ -257,9 +263,9 @@ if ($tcpdfPath !== null) {
                     $ip = trim((string) ($row['ip_address'] ?? ''));
                     $ipLabel = $ip !== '' ? $ip : '-';
 
-                    $ts = strtotime((string) ($row['created_at']));
-                    $dateStr = $ts ? date('M j, Y', $ts) : '-';
-                    $timeStr = $ts ? date('H:i:s', $ts) : '';
+                    $fmt = auditlogs_format_created_at_manila((string) ($row['created_at'] ?? ''), $auditLogStorageTz);
+                    $dateStr = $fmt['date'];
+                    $timeStr = $fmt['time'];
 
                     $html .= '<tr>';
                     $html .= '<td><strong>' . htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') . '</strong><br/>';
@@ -408,9 +414,9 @@ try {
                 $ip = trim((string) ($row['ip_address'] ?? ''));
                 $ipLabel = $ip !== '' ? $ip : '-';
 
-                $ts = strtotime((string) ($row['created_at']));
-                $dateStr = $ts ? date('M j, Y', $ts) : '-';
-                $timeStr = $ts ? date('H:i:s', $ts) : '';
+                $fmt = auditlogs_format_created_at_manila((string) ($row['created_at'] ?? ''), $auditLogStorageTz);
+                $dateStr = $fmt['date'];
+                $timeStr = $fmt['time'];
 
                 $userCol = $displayName . ' | IP: ' . $ipLabel;
                 $userCol = auditlogs_pdf_latin1_safe($userCol);

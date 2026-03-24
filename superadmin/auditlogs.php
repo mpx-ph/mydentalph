@@ -2,8 +2,11 @@
 require_once __DIR__ . '/require_superadmin.php';
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/debug_agent_tz_log.php';
+require_once __DIR__ . '/auditlogs_tz_helper.php';
 
 @date_default_timezone_set('Asia/Manila');
+
+$auditLogStorageTz = new DateTimeZone('+00:00');
 
 $totalLogs = 0;
 $loginEvents = 0;
@@ -13,6 +16,15 @@ $eventRows = [];
 $dbError = null;
 
 try {
+    // Rows use MySQL CURRENT_TIMESTAMP in the connection's zone (usually SYSTEM) — infer BEFORE SET +08.
+    $auditLogStorageTz = auditlogs_infer_mysql_storage_timezone($pdo);
+
+    // #region agent log
+    agent_debug_tz_log('H5', 'auditlogs.php:storage_tz', 'Inferred naive-DATETIME storage offset (pre-SET)', [
+        'storage_tz_name' => $auditLogStorageTz->getName(),
+    ]);
+    // #endregion
+
     try {
         $pdo->exec("SET time_zone = '+08:00'");
     } catch (Throwable $e) {
@@ -264,18 +276,17 @@ require __DIR__ . '/superadmin_header.php';
 </tr>
 <?php else: ?>
 <?php
-    // `tbl_audit_logs.created_at`: naive DATETIME — interpret and show as Asia/Manila (same as reports.php).
-    try {
-        $displayTz = new DateTimeZone('Asia/Manila');
-    } catch (Throwable $e) {
-        $displayTz = new DateTimeZone('+08:00');
-    }
+    $firstFmt = isset($eventRows[0]['created_at'])
+        ? auditlogs_format_created_at_manila((string) $eventRows[0]['created_at'], $auditLogStorageTz)
+        : null;
 
     // #region agent log
-    agent_debug_tz_log('H3', 'auditlogs.php:tz_chain', 'Display (Manila naive)', [
-        'displayTz_name' => $displayTz->getName(),
+    agent_debug_tz_log('H3', 'auditlogs.php:tz_chain', 'Display storageTz -> Manila', [
+        'storage_tz_name' => $auditLogStorageTz->getName(),
         'php_default_tz' => @date_default_timezone_get(),
         'first_created_at_raw' => isset($eventRows[0]['created_at']) ? (string) $eventRows[0]['created_at'] : null,
+        'first_display_date' => $firstFmt['date'] ?? null,
+        'first_display_time' => $firstFmt['time'] ?? null,
     ]);
     // #endregion
 ?>
@@ -302,20 +313,9 @@ require __DIR__ . '/superadmin_header.php';
     // If MySQL returns microseconds, strip them so DateTime parsing is predictable.
     $createdAtRaw = preg_replace('/\.\d+$/', '', $createdAtRaw);
 
-    $createdAtDate = '-';
-    $createdAtTime = '';
-    if ($createdAtRaw !== '') {
-        try {
-            $dt = new DateTime($createdAtRaw, $displayTz);
-            $createdAtDate = $dt->format('M d, Y');
-            $createdAtTime = $dt->format('H:i:s');
-        } catch (Throwable $e) {
-            // Fallback: preserve old behavior if conversion fails.
-            $ts = strtotime($createdAtRaw);
-            $createdAtDate = $ts ? date('M d, Y', $ts) : '-';
-            $createdAtTime = $ts ? date('H:i:s', $ts) : '';
-        }
-    }
+    $fmt = auditlogs_format_created_at_manila($createdAtRaw, $auditLogStorageTz);
+    $createdAtDate = $fmt['date'];
+    $createdAtTime = $fmt['time'];
 ?>
 <tr class="hover:bg-primary/5 transition-colors group">
 <td class="px-10 py-5">
