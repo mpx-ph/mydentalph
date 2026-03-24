@@ -266,6 +266,21 @@ $rangeEnd = $totalRows === 0 ? 0 : min($totalRows, $offset + count($tenants));
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
+        .export-modal-backdrop {
+            background: rgba(19, 28, 37, 0.35);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        .export-modal-panel {
+            background: rgba(255, 255, 255, 0.92);
+            color: #131c25;
+            border: 1px solid rgba(224, 233, 246, 0.85);
+            box-shadow: 0 30px 80px -25px rgba(19, 28, 37, 0.25);
+        }
+        .export-option-card {
+            background: rgba(237, 244, 255, 0.7);
+            border: 1px solid rgba(192, 199, 212, 0.45);
+        }
     </style>
 </head>
 <body class="mesh-bg font-body text-on-surface antialiased min-h-screen">
@@ -300,9 +315,9 @@ require __DIR__ . '/superadmin_header.php';
 <p class="text-on-surface-variant mt-2 font-medium">View and manage clinic tenant accounts across the network.</p>
 </div>
 <div class="flex items-center gap-3">
-<button class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all">
-<span class="material-symbols-outlined text-lg">add</span>
-                    Add New Tenant
+<button id="open-tenant-export-modal" type="button" class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all">
+<span class="material-symbols-outlined text-lg">picture_as_pdf</span>
+                    PDF Export
                 </button>
 </div>
 </section>
@@ -554,4 +569,80 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 </div>
 </main>
+<!-- Tenant Management Export Modal -->
+<div id="tenant-export-modal" class="fixed inset-0 z-[70] hidden export-modal-backdrop items-center justify-center p-4 sm:p-8">
+<div class="export-modal-panel w-full max-w-3xl rounded-[2rem] overflow-hidden">
+<div class="px-8 py-6 border-b border-outline-variant/40 flex items-start justify-between gap-4">
+<div>
+<h3 class="text-2xl font-extrabold tracking-tight">
+<span class="text-on-surface">Export</span> <span class="text-primary">Options</span>
+</h3>
+<p class="mt-2 text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant/60">Select sections to include in your PDF</p>
+</div>
+<button id="close-tenant-export-modal" type="button" class="w-14 h-14 rounded-2xl bg-surface-container-low hover:bg-white transition-colors flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<form action="tenantmanagement_export_pdf.php" method="get" class="max-h-[70vh] overflow-y-auto p-8 space-y-7">
+<input type="hidden" name="status" value="<?php echo htmlspecialchars($filterBase['status'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<input type="hidden" name="plan" value="<?php echo htmlspecialchars($filterBase['plan'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<input type="hidden" name="q" value="<?php echo htmlspecialchars($filterBase['q'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<div>
+<h4 class="text-sm font-bold uppercase tracking-[0.16em] text-on-surface-variant/70 mb-4">Report sections</h4>
+<div class="space-y-4">
+<label class="export-option-card rounded-3xl p-5 flex items-center gap-3 cursor-pointer">
+<input type="hidden" name="include_summary" value="0"/>
+<input type="checkbox" name="include_summary" value="1" checked class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
+<span class="font-extrabold text-on-surface">Summary metrics (total, active, inactive, suspended)</span>
+</label>
+<label class="export-option-card rounded-3xl p-5 flex items-center gap-3 cursor-pointer">
+<input type="hidden" name="include_tenant_directory" value="0"/>
+<input type="checkbox" name="include_tenant_directory" value="1" checked class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
+<span class="font-extrabold text-on-surface">Tenant directory <span class="text-on-surface-variant font-semibold text-sm">(all rows matching current filters)</span></span>
+</label>
+<label class="export-option-card rounded-3xl p-5 flex items-center gap-3 cursor-pointer">
+<input type="hidden" name="include_workforce" value="0"/>
+<input type="checkbox" name="include_workforce" value="1" checked class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
+<span class="font-extrabold text-on-surface">Clinic workforce (staff &amp; doctor counts)</span>
+</label>
+</div>
+</div>
+<p class="text-xs text-on-surface-variant font-medium">Filters from this page (status, plan, search) apply to the tenant directory in the PDF.</p>
+<div class="pt-2 flex justify-end gap-3">
+<button type="button" id="cancel-tenant-export-modal" class="px-6 py-3 rounded-2xl text-sm font-bold text-on-surface-variant bg-surface-container-low hover:bg-white transition-colors">Cancel</button>
+<button type="submit" class="px-7 py-3 rounded-2xl text-sm font-bold text-white bg-primary hover:brightness-110 transition-colors">Download PDF</button>
+</div>
+</form>
+</div>
+</div>
+<script>
+(function () {
+    var openBtn = document.getElementById('open-tenant-export-modal');
+    var closeBtn = document.getElementById('close-tenant-export-modal');
+    var cancelBtn = document.getElementById('cancel-tenant-export-modal');
+    var modal = document.getElementById('tenant-export-modal');
+    if (!openBtn || !modal) return;
+    function openModal() {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeModal() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.style.overflow = '';
+    }
+    openBtn.addEventListener('click', openModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', function (e) {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+})();
+</script>
 </body></html>

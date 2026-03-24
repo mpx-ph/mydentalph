@@ -66,6 +66,21 @@
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
+        .export-modal-backdrop {
+            background: rgba(19, 28, 37, 0.35);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        .export-modal-panel {
+            background: rgba(255, 255, 255, 0.92);
+            color: #131c25;
+            border: 1px solid rgba(224, 233, 246, 0.85);
+            box-shadow: 0 30px 80px -25px rgba(19, 28, 37, 0.25);
+        }
+        .export-option-card {
+            background: rgba(237, 244, 255, 0.7);
+            border: 1px solid rgba(192, 199, 212, 0.45);
+        }
     </style>
 </head>
 <body class="mesh-bg font-body text-on-surface antialiased min-h-screen">
@@ -477,7 +492,7 @@ $isCustomPeriod = (strtolower($filterPeriod) === 'custom');
 </script>
 <!-- Export Buttons -->
 <div class="flex items-center gap-3">
-<button class="px-6 py-2.5 bg-white/60 text-primary text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
+<button type="button" id="open-reports-export-modal" class="px-6 py-2.5 bg-white/60 text-primary text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
 <span class="material-symbols-outlined text-lg">picture_as_pdf</span> Export PDF
                 </button>
 <button class="px-6 py-2.5 bg-white/60 text-primary text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
@@ -547,4 +562,87 @@ $isCustomPeriod = (strtolower($filterPeriod) === 'custom');
 </div>
 </div>
 </main>
+<!-- Reports PDF Export Modal -->
+<div id="reports-export-modal" class="fixed inset-0 z-[70] hidden export-modal-backdrop items-center justify-center p-4 sm:p-8">
+<div class="export-modal-panel w-full max-w-3xl rounded-[2rem] overflow-hidden">
+<div class="px-8 py-6 border-b border-outline-variant/40 flex items-start justify-between gap-4">
+<div>
+<h3 class="text-2xl font-extrabold tracking-tight">
+<span class="text-on-surface">Export</span> <span class="text-primary">Options</span>
+</h3>
+<p class="mt-2 text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant/60">Select sections to include in your PDF</p>
+</div>
+<button id="close-reports-export-modal" type="button" class="w-14 h-14 rounded-2xl bg-surface-container-low hover:bg-white transition-colors flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<form action="reports_export_pdf.php" method="get" class="max-h-[70vh] overflow-y-auto p-8 space-y-7">
+<input type="hidden" name="period" value="<?php echo htmlspecialchars(strtolower($filterPeriod), ENT_QUOTES, 'UTF-8'); ?>"/>
+<input type="hidden" name="date_from" value="<?php echo htmlspecialchars($filterDateFrom, ENT_QUOTES, 'UTF-8'); ?>"/>
+<input type="hidden" name="date_to" value="<?php echo htmlspecialchars($filterDateTo, ENT_QUOTES, 'UTF-8'); ?>"/>
+<input type="hidden" name="clinic" value="<?php echo htmlspecialchars($filterClinicId, ENT_QUOTES, 'UTF-8'); ?>"/>
+<div>
+<h4 class="text-sm font-bold uppercase tracking-[0.16em] text-on-surface-variant/70 mb-4">Report sections</h4>
+<div class="space-y-4">
+<label class="export-option-card rounded-3xl p-5 flex items-center justify-between gap-3 cursor-pointer">
+<span class="flex items-center gap-3">
+<input type="hidden" name="include_visits_metric" value="0"/>
+<input type="checkbox" name="include_visits_metric" value="1" checked class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
+<span class="font-extrabold text-on-surface">Total mydental visits</span>
+</span>
+<span class="text-primary font-black"><?php echo htmlspecialchars(number_format($totalMyDentalVisits), ENT_QUOTES, 'UTF-8'); ?></span>
+</label>
+<label class="export-option-card rounded-3xl p-5 flex items-center justify-between gap-3 cursor-pointer">
+<span class="flex items-center gap-3">
+<input type="hidden" name="include_registrations_metric" value="0"/>
+<input type="checkbox" name="include_registrations_metric" value="1" checked class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
+<span class="font-extrabold text-on-surface">User registrations (count)</span>
+</span>
+<span class="text-primary font-black"><?php echo htmlspecialchars(number_format($userRegistrationsTotal), ENT_QUOTES, 'UTF-8'); ?></span>
+</label>
+<label class="export-option-card rounded-3xl p-5 flex items-center gap-3 cursor-pointer">
+<input type="hidden" name="include_registration_table" value="0"/>
+<input type="checkbox" name="include_registration_table" value="1" checked class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
+<span class="font-extrabold text-on-surface">User registrations table <span class="text-on-surface-variant font-semibold text-sm">(full list for the current filters)</span></span>
+</label>
+</div>
+</div>
+<p class="text-xs text-on-surface-variant font-medium">Uses the same date period and clinic as the filters above (apply filters first if needed).</p>
+<div class="pt-2 flex justify-end gap-3">
+<button type="button" id="cancel-reports-export-modal" class="px-6 py-3 rounded-2xl text-sm font-bold text-on-surface-variant bg-surface-container-low hover:bg-white transition-colors">Cancel</button>
+<button type="submit" class="px-7 py-3 rounded-2xl text-sm font-bold text-white bg-primary hover:brightness-110 transition-colors">Download PDF</button>
+</div>
+</form>
+</div>
+</div>
+<script>
+(function () {
+    var openBtn = document.getElementById('open-reports-export-modal');
+    var closeBtn = document.getElementById('close-reports-export-modal');
+    var cancelBtn = document.getElementById('cancel-reports-export-modal');
+    var modal = document.getElementById('reports-export-modal');
+    if (!openBtn || !modal) return;
+    function openModal() {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeModal() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.style.overflow = '';
+    }
+    openBtn.addEventListener('click', openModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', function (e) {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+})();
+</script>
 </body></html>
