@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['provider_password_reset_verified'] = false;
 
                 if (send_otp_email((string) $user['email'], $otp_code)) {
-                    header('Location: ProviderOTP.php');
+                    header('Location: ResetPasswordOTP.php');
                     exit;
                 }
                 $error = 'Could not send verification code right now. Please try again.';
