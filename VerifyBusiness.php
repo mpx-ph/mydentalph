@@ -23,6 +23,13 @@ function normalize_spaces(string $value): string
     return trim(preg_replace('/\s+/', ' ', $value));
 }
 
+function has_extracted_business_details(string $ocn_tin_branch, string $taxpayer_name, string $registered_address): bool
+{
+    return normalize_spaces($ocn_tin_branch) !== ''
+        || normalize_spaces($taxpayer_name) !== ''
+        || normalize_spaces($registered_address) !== '';
+}
+
 function extract_business_fields(string $text): array
 {
     $result = [
@@ -115,11 +122,17 @@ $registered_address = $existing['registered_address'] ?? '';
 $verification_status = $existing['verification_status'] ?? 'pending';
 $submitted_at = $existing['submitted_at'] ?? null;
 $uploaded_file_path = $existing['uploaded_file_path'] ?? '';
+$has_extracted_details = has_extracted_business_details($ocn_tin_branch, $taxpayer_name, $registered_address);
+$is_effectively_submitted = $verification_status === 'submitted' && $has_extracted_details;
+
+if ($verification_status === 'submitted' && !$has_extracted_details) {
+    $error = 'Business permit is not valid yet. Please upload the correct permit file so extracted details are filled.';
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? 'submit_verification';
 
-    if ($action === 'continue' && $verification_status === 'submitted') {
+    if ($action === 'continue' && $is_effectively_submitted) {
         header('Location: ProviderPurchase.php');
         exit;
     }
@@ -161,29 +174,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $ocn_tin_branch = $fields['ocn_tin_branch'];
                             $taxpayer_name = $fields['taxpayer_name'];
                             $registered_address = $fields['registered_address'];
+                            $has_extracted_details = has_extracted_business_details($ocn_tin_branch, $taxpayer_name, $registered_address);
 
-                            try {
-                                $stmt = $pdo->prepare("
-                                    INSERT INTO tbl_tenant_business_verifications
-                                    (tenant_id, uploaded_file_path, uploaded_file_name, ocr_raw_text, ocn_tin_branch, taxpayer_name, registered_address, verification_status, submitted_at)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, 'submitted', NOW())
-                                ");
-                                $stmt->execute([
-                                    $tenant_id,
-                                    $stored_relative,
-                                    $original_name,
-                                    $ocr['text'],
-                                    $ocn_tin_branch,
-                                    $taxpayer_name,
-                                    $registered_address,
-                                ]);
-                                $verification_status = 'submitted';
-                                $submitted_at = date('Y-m-d H:i:s');
-                                $uploaded_file_path = $stored_relative;
-                                $success = 'Business permit verified and submitted. You can now continue to purchase.';
-                            } catch (Throwable $e) {
-                                $error = 'Could not save verification details. Please try again.';
+                            if (!$has_extracted_details) {
+                                $error = 'We could not extract any required details from this file. Please upload a valid business permit document.';
+                            } else {
+
+                                try {
+                                    $stmt = $pdo->prepare("
+                                        INSERT INTO tbl_tenant_business_verifications
+                                        (tenant_id, uploaded_file_path, uploaded_file_name, ocr_raw_text, ocn_tin_branch, taxpayer_name, registered_address, verification_status, submitted_at)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, 'submitted', NOW())
+                                    ");
+                                    $stmt->execute([
+                                        $tenant_id,
+                                        $stored_relative,
+                                        $original_name,
+                                        $ocr['text'],
+                                        $ocn_tin_branch,
+                                        $taxpayer_name,
+                                        $registered_address,
+                                    ]);
+                                    $verification_status = 'submitted';
+                                    $submitted_at = date('Y-m-d H:i:s');
+                                    $uploaded_file_path = $stored_relative;
+                                    $success = 'Business permit verified and submitted. You can now continue to purchase.';
+                                } catch (Throwable $e) {
+                                    $error = 'Could not save verification details. Please try again.';
+                                }
                             }
+                            $is_effectively_submitted = $verification_status === 'submitted' && $has_extracted_details;
                         }
                     }
                 }
@@ -231,7 +251,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         name="business_permit"
                         accept=".pdf,.jpg,.jpeg,.png"
                         class="w-full text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-blue-600 file:px-4 file:py-2.5 file:text-white hover:file:bg-blue-700"
-                        <?php echo $verification_status === 'submitted' ? '' : 'required'; ?>
+                        <?php echo $is_effectively_submitted ? '' : 'required'; ?>
                     />
                     <p class="mt-2 text-xs text-slate-500">Allowed: PDF, JPG, PNG. Max size: 10MB.</p>
                     <?php if ($uploaded_file_path !== ''): ?>
@@ -260,16 +280,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <div class="pt-2 border-t border-slate-100 text-sm">
                     <span class="font-semibold">Status:</span>
-                    <?php if ($verification_status === 'submitted'): ?>
+                    <?php if ($is_effectively_submitted): ?>
                         <span class="text-emerald-700 font-semibold">Submitted</span>
                         <?php if ($submitted_at): ?>
                             <span class="text-slate-500">(<?php echo htmlspecialchars($submitted_at); ?>)</span>
                         <?php endif; ?>
                     <?php else: ?>
-                        <span class="text-amber-700 font-semibold">Pending Submission</span>
+                        <span class="text-amber-700 font-semibold">Pending Submission (missing extracted details)</span>
                     <?php endif; ?>
                 </div>
-                <?php if ($verification_status === 'submitted'): ?>
+                <?php if ($is_effectively_submitted): ?>
                     <form method="POST">
                         <input type="hidden" name="action" value="continue"/>
                         <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg">
