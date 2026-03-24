@@ -1,7 +1,6 @@
 <?php
 require_once __DIR__ . '/require_superadmin.php';
 require_once __DIR__ . '/../db.php';
-require_once __DIR__ . '/debug_agent_tz_log.php';
 require_once __DIR__ . '/auditlogs_tz_helper.php';
 
 @date_default_timezone_set('Asia/Manila');
@@ -18,12 +17,6 @@ $dbError = null;
 try {
     // Rows use MySQL CURRENT_TIMESTAMP in the connection's zone (usually SYSTEM) — infer BEFORE SET +08.
     $auditLogStorageTz = auditlogs_infer_mysql_storage_timezone($pdo);
-
-    // #region agent log
-    agent_debug_tz_log('H5', 'auditlogs.php:storage_tz', 'Inferred naive-DATETIME storage offset (pre-SET)', [
-        'storage_tz_name' => $auditLogStorageTz->getName(),
-    ]);
-    // #endregion
 
     try {
         $pdo->exec("SET time_zone = '+08:00'");
@@ -62,22 +55,6 @@ try {
     ");
     $eventRows = $eventsStmt->fetchAll(PDO::FETCH_ASSOC);
     $totalEventRows = count($eventRows);
-
-    // #region agent log
-    try {
-        $tzrow = $pdo->query('SELECT NOW() AS n, UTC_TIMESTAMP() AS u, @@session.time_zone AS stz')->fetch(PDO::FETCH_ASSOC);
-        agent_debug_tz_log('H2', 'auditlogs.php:mysql_clocks', 'MySQL vs PHP', [
-            'mysql_NOW' => $tzrow['n'] ?? null,
-            'mysql_UTC_TIMESTAMP' => $tzrow['u'] ?? null,
-            'session_time_zone' => $tzrow['stz'] ?? null,
-            'php_ini_tz' => (string) @ini_get('date.timezone'),
-            'date_default_timezone_get' => @date_default_timezone_get(),
-            'php_now' => date('Y-m-d H:i:s'),
-        ]);
-    } catch (Throwable $e) {
-        agent_debug_tz_log('H2', 'auditlogs.php:mysql_clocks', 'mysql tz query failed', ['err' => $e->getMessage()]);
-    }
-    // #endregion
 } catch (Throwable $e) {
     $dbError = 'Unable to load audit logs right now.';
 }
@@ -275,21 +252,6 @@ require __DIR__ . '/superadmin_header.php';
 <td class="px-10 py-5 text-sm text-on-surface-variant font-bold" colspan="4">No login/logout events found.</td>
 </tr>
 <?php else: ?>
-<?php
-    $firstFmt = isset($eventRows[0]['created_at'])
-        ? auditlogs_format_created_at_manila((string) $eventRows[0]['created_at'], $auditLogStorageTz)
-        : null;
-
-    // #region agent log
-    agent_debug_tz_log('H3', 'auditlogs.php:tz_chain', 'Display storageTz -> Manila', [
-        'storage_tz_name' => $auditLogStorageTz->getName(),
-        'php_default_tz' => @date_default_timezone_get(),
-        'first_created_at_raw' => isset($eventRows[0]['created_at']) ? (string) $eventRows[0]['created_at'] : null,
-        'first_display_date' => $firstFmt['date'] ?? null,
-        'first_display_time' => $firstFmt['time'] ?? null,
-    ]);
-    // #endregion
-?>
 <?php foreach ($eventRows as $row): ?>
 <?php
     $action = (string) ($row['action'] ?? '');

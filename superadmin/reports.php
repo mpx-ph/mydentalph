@@ -73,18 +73,9 @@
 $superadmin_nav = 'reports';
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
-require_once __DIR__ . '/debug_agent_tz_log.php';
 
 // Superadmin reports: Manila wall clock + MySQL session +08:00 (see try { SET time_zone }).
 @date_default_timezone_set('Asia/Manila');
-
-// #region agent log
-agent_debug_tz_log('H1', 'reports.php:after_ini_tz', 'PHP timezone before queries', [
-    'ini_date_timezone' => (string) @ini_get('date.timezone'),
-    'date_default_timezone_get' => @date_default_timezone_get(),
-    'php_now' => date('Y-m-d H:i:s'),
-]);
-// #endregion
 
 /**
  * Human-friendly datetime for small dashboard tables.
@@ -277,21 +268,6 @@ try {
     } catch (Throwable $e) {
         // If hosting disallows SET time_zone, CURDATE()/NOW() stay server-default; Manila PHP still formats display.
     }
-
-    // #region agent log
-    try {
-        $tzrow = $pdo->query('SELECT NOW() AS n, UTC_TIMESTAMP() AS u, @@session.time_zone AS stz, @@global.time_zone AS gtz')->fetch(PDO::FETCH_ASSOC);
-        agent_debug_tz_log('H2', 'reports.php:mysql_clocks', 'MySQL vs PHP', [
-            'mysql_NOW' => $tzrow['n'] ?? null,
-            'mysql_UTC_TIMESTAMP' => $tzrow['u'] ?? null,
-            'session_time_zone' => $tzrow['stz'] ?? null,
-            'global_time_zone' => $tzrow['gtz'] ?? null,
-            'php_now_repeat' => date('Y-m-d H:i:s'),
-        ]);
-    } catch (Throwable $e) {
-        agent_debug_tz_log('H2', 'reports.php:mysql_clocks', 'mysql tz query failed', ['err' => $e->getMessage()]);
-    }
-    // #endregion
 
     $tenantsStmt = $pdo->query('SELECT tenant_id, clinic_name FROM tbl_tenants ORDER BY clinic_name ASC');
     $tenantsList = $tenantsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
