@@ -71,6 +71,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_SESSION['onboarding_full_name'] = $full_name;
                         $_SESSION['onboarding_username'] = $username;
                         unset($_SESSION['onboarding_user_id'], $_SESSION['onboarding_tenant_id']);
+                        // Prevent OTP page from accidentally entering reset flow.
+                        unset(
+                            $_SESSION['provider_password_reset_user_id'],
+                            $_SESSION['provider_password_reset_email'],
+                            $_SESSION['provider_password_reset_otp_hash'],
+                            $_SESSION['provider_password_reset_otp_expires_at'],
+                            $_SESSION['provider_password_reset_verified']
+                        );
                         header('Location: ProviderOTP.php');
                         exit;
                     } catch (PDOException $e) {

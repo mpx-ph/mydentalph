@@ -25,6 +25,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'No account found for that email.';
             } else {
                 $otp_code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+                // Clear signup onboarding state to avoid OTP mode collision.
+                unset(
+                    $_SESSION['onboarding_pending_id'],
+                    $_SESSION['onboarding_email'],
+                    $_SESSION['onboarding_plan'],
+                    $_SESSION['onboarding_full_name'],
+                    $_SESSION['onboarding_username'],
+                    $_SESSION['onboarding_user_id'],
+                    $_SESSION['onboarding_tenant_id']
+                );
                 $_SESSION['provider_password_reset_user_id'] = (string) $user['user_id'];
                 $_SESSION['provider_password_reset_email'] = (string) $user['email'];
                 $_SESSION['provider_password_reset_otp_hash'] = password_hash($otp_code, PASSWORD_DEFAULT);

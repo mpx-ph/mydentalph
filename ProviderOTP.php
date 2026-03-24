@@ -12,9 +12,11 @@ $verify_button_text = 'Verify Email';
 $title_text = 'Verify Your Email';
 $subtitle_text = "We've sent a 6-digit verification code to your email. Please enter it below to continue.";
 
+$has_signup_pending = !empty($_SESSION['onboarding_pending_id']);
 $is_reset_mode = isset($_SESSION['provider_password_reset_user_id'], $_SESSION['provider_password_reset_email']);
 
-if ($is_reset_mode) {
+// If both flows left session data, prefer signup while pending signup exists.
+if ($is_reset_mode && !$has_signup_pending) {
     $mode = 'password_reset';
     $email_for_display = $_SESSION['provider_password_reset_email'];
     $verify_button_text = 'Verify Code';
