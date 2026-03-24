@@ -65,7 +65,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     header('Location: ProviderClinicSetup.php');
                     exit;
                 } catch (Throwable $e) {
+                    error_log('Provider signup finalize failed: ' . $e->getMessage());
                     $error = 'Could not complete registration. Please try again or contact support.';
+                    $error .= ' [Debug: ' . $e->getMessage() . ']';
                 }
             }
         }

@@ -25,8 +25,13 @@ function provider_signup_finalize_from_pending(PDO $pdo, int $pendingId): array
             $num = (int) $stmt->fetchColumn() + 1;
             $tenant_id = 'TNT_' . str_pad((string) $num, 5, '0', STR_PAD_LEFT);
 
-            $stmt = $pdo->prepare('INSERT INTO tbl_tenants (tenant_id, clinic_name, country_region) VALUES (?, ?, ?)');
-            $stmt->execute([$tenant_id, $p['clinic_name'], $p['country_region']]);
+            if (provider_table_has_column($pdo, 'tbl_tenants', 'country_region')) {
+                $stmt = $pdo->prepare('INSERT INTO tbl_tenants (tenant_id, clinic_name, country_region) VALUES (?, ?, ?)');
+                $stmt->execute([$tenant_id, $p['clinic_name'], $p['country_region']]);
+            } else {
+                $stmt = $pdo->prepare('INSERT INTO tbl_tenants (tenant_id, clinic_name) VALUES (?, ?)');
+                $stmt->execute([$tenant_id, $p['clinic_name']]);
+            }
 
             $stmt = $pdo->query("SELECT COALESCE(MAX(CAST(SUBSTRING(user_id, 6) AS UNSIGNED)), 0) FROM tbl_users WHERE user_id REGEXP '^USER_[0-9]+$'");
             $unum = (int) $stmt->fetchColumn() + 1;
@@ -98,4 +103,18 @@ function provider_signup_cleanup_partial(PDO $pdo, ?string $tenant_id): void
         $pdo->prepare('DELETE FROM tbl_tenants WHERE tenant_id = ?')->execute([$tenant_id]);
     } catch (PDOException $e) {
     }
+}
+
+function provider_table_has_column(PDO $pdo, string $tableName, string $columnName): bool
+{
+    $stmt = $pdo->prepare(
+        'SELECT 1
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = ?
+           AND COLUMN_NAME = ?
+         LIMIT 1'
+    );
+    $stmt->execute([$tableName, $columnName]);
+    return (bool) $stmt->fetchColumn();
 }
