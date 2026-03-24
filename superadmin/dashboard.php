@@ -2,6 +2,48 @@
 require_once __DIR__ . '/require_superadmin.php';
 require_once __DIR__ . '/../db.php';
 
+$filter_period = isset($_GET['period']) ? strtolower(trim((string) $_GET['period'])) : 'last30';
+$allowed_periods = ['last30', 'today', 'week', 'month', 'year'];
+if (!in_array($filter_period, $allowed_periods, true)) {
+    $filter_period = 'last30';
+}
+
+$filter_end = new DateTime('today');
+$filter_end->setTime(23, 59, 59);
+$filter_start = clone $filter_end;
+switch ($filter_period) {
+    case 'today':
+        $filter_start->setTime(0, 0, 0);
+        break;
+    case 'week':
+        $dow = (int) $filter_start->format('N');
+        $filter_start->modify('-' . ($dow - 1) . ' days');
+        $filter_start->setTime(0, 0, 0);
+        break;
+    case 'month':
+        $filter_start = new DateTime('first day of this month 00:00:00');
+        break;
+    case 'year':
+        $filter_start = new DateTime('first day of January ' . date('Y') . ' 00:00:00');
+        break;
+    case 'last30':
+    default:
+        $filter_start->modify('-29 days');
+        $filter_start->setTime(0, 0, 0);
+        break;
+}
+$filter_start_sql = $filter_start->format('Y-m-d H:i:s');
+$filter_end_sql = $filter_end->format('Y-m-d H:i:s');
+
+$filter_labels = [
+    'last30' => 'Last 30 Days',
+    'today' => 'Today',
+    'week' => 'This Week',
+    'month' => 'This Month',
+    'year' => 'This Year',
+];
+$active_filter_label = $filter_labels[$filter_period] ?? 'Last 30 Days';
+
 $metrics = [
     'total_registered_clinics' => 0,
     'active_clinics' => 0,
@@ -41,25 +83,35 @@ try {
     ");
     $metrics['active_clinics'] = (int) $stmt->fetchColumn();
 
-    $stmt = $pdo->query("
+    $stmt = $pdo->prepare("
         SELECT COALESCE(SUM(COALESCE(amount_paid, 0)), 0)
         FROM tbl_tenant_subscriptions
         WHERE payment_status = 'paid'
-          AND YEAR(created_at) = YEAR(CURDATE())
-          AND MONTH(created_at) = MONTH(CURDATE())
+          AND created_at >= ?
+          AND created_at <= ?
     ");
+    $stmt->execute([$filter_start_sql, $filter_end_sql]);
     $metrics['monthly_revenue'] = (float) $stmt->fetchColumn();
 
-    $metrics['total_patient_records'] = (int) $pdo->query('SELECT COUNT(*) FROM tbl_patients')->fetchColumn();
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM tbl_patients
+        WHERE created_at >= ?
+          AND created_at <= ?
+    ");
+    $stmt->execute([$filter_start_sql, $filter_end_sql]);
+    $metrics['total_patient_records'] = (int) $stmt->fetchColumn();
 
     // Subscriptions ending within the next 30 days (still current as of today)
-    $stmt = $pdo->query("
+    $stmt = $pdo->prepare("
         SELECT COUNT(DISTINCT s.tenant_id)
         FROM tbl_tenant_subscriptions s
         WHERE s.payment_status = 'paid'
           AND s.subscription_end IS NOT NULL
-          AND s.subscription_end BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+          AND s.subscription_end BETWEEN ? AND DATE_ADD(?, INTERVAL 30 DAY)
     ");
+    $today_date = (new DateTime('today'))->format('Y-m-d');
+    $stmt->execute([$today_date, $today_date]);
     $metrics['expiring_subscriptions'] = (int) $stmt->fetchColumn();
 
     // Revenue Analytics chart: paid subscription amounts by period (created_at)
@@ -151,9 +203,10 @@ try {
         SELECT DATE_FORMAT(created_at, '%Y-%m') AS ym, COUNT(*) AS cnt
         FROM tbl_patients
         WHERE created_at >= ?
+          AND created_at <= ?
         GROUP BY ym
     ");
-    $stmt->execute([$growthMonthKeys[0] . '-01 00:00:00']);
+    $stmt->execute([$filter_start_sql, $filter_end_sql]);
     $patientMonthData = [];
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $patientMonthData[$row['ym']] = (int) $row['cnt'];
@@ -165,16 +218,19 @@ try {
     }
 
     // Top performing tenants by total paid subscription revenue
-    $stmt = $pdo->query("
+    $stmt = $pdo->prepare("
         SELECT t.clinic_name,
                COALESCE(SUM(COALESCE(s.amount_paid, 0)), 0) AS revenue
         FROM tbl_tenants t
         INNER JOIN tbl_tenant_subscriptions s
             ON s.tenant_id = t.tenant_id AND s.payment_status = 'paid'
+        WHERE s.created_at >= ?
+          AND s.created_at <= ?
         GROUP BY t.tenant_id, t.clinic_name
         ORDER BY revenue DESC
         LIMIT 5
     ");
+    $stmt->execute([$filter_start_sql, $filter_end_sql]);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $top_performing[] = [
             'name' => (string) $row['clinic_name'],
@@ -373,9 +429,20 @@ function dashboard_format_int(int $n): string
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
-        .ai-glow {
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            box-shadow: 0 20px 40px -15px rgba(0, 102, 255, 0.4);
+        .export-modal-backdrop {
+            background: rgba(19, 28, 37, 0.35);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        .export-modal-panel {
+            background: rgba(255, 255, 255, 0.92);
+            color: #131c25;
+            border: 1px solid rgba(224, 233, 246, 0.85);
+            box-shadow: 0 30px 80px -25px rgba(19, 28, 37, 0.25);
+        }
+        .export-option-card {
+            background: rgba(237, 244, 255, 0.7);
+            border: 1px solid rgba(192, 199, 212, 0.45);
         }
         #revenue-chart-tooltip {
             pointer-events: none;
@@ -406,12 +473,20 @@ require __DIR__ . '/superadmin_header.php';
 <p class="text-on-surface-variant mt-2 font-medium">Real-time performance metrics for Clinical Precision ecosystem.</p>
 </div>
 <div class="flex items-center gap-3">
-<button class="bg-white/80 backdrop-blur-md text-primary px-5 py-2.5 rounded-2xl text-sm font-bold border border-white flex items-center gap-2 hover:bg-white transition-all shadow-sm">
+<form method="get" action="<?php echo htmlspecialchars(basename($_SERVER['SCRIPT_NAME'] ?? 'dashboard.php'), ENT_QUOTES, 'UTF-8'); ?>" class="flex items-center gap-3">
+<label for="dashboard-period" class="sr-only">Select period</label>
+<select id="dashboard-period" name="period" onchange="this.form.submit()" class="bg-white/80 backdrop-blur-md text-primary px-5 py-2.5 rounded-2xl text-sm font-bold border border-white hover:bg-white transition-all shadow-sm cursor-pointer">
+<?php foreach ($filter_labels as $period_key => $period_label): ?>
+<option value="<?php echo htmlspecialchars($period_key, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $filter_period === $period_key ? ' selected' : ''; ?>><?php echo htmlspecialchars($period_label, ENT_QUOTES, 'UTF-8'); ?></option>
+<?php endforeach; ?>
+</select>
+</form>
+<div class="bg-white/80 backdrop-blur-md text-primary px-5 py-2.5 rounded-2xl text-sm font-bold border border-white flex items-center gap-2 shadow-sm">
 <span class="material-symbols-outlined text-lg">calendar_today</span>
-                        Last 30 Days
-                    </button>
-<button class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all">
-<span class="material-symbols-outlined text-lg">download</span>
+                        <?php echo htmlspecialchars($active_filter_label, ENT_QUOTES, 'UTF-8'); ?>
+                    </div>
+<button id="open-dashboard-export-modal-secondary" type="button" class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all">
+<span class="material-symbols-outlined text-lg">picture_as_pdf</span>
                         Export Report
                     </button>
 </div>
@@ -448,7 +523,7 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 <span class="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest">Live</span>
 </div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Monthly Revenue</p>
+<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Revenue (Selected Period)</p>
 <h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo htmlspecialchars(dashboard_format_revenue($metrics['monthly_revenue'])); ?></h3>
 </div>
 <!-- Card 4 -->
@@ -459,7 +534,7 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 <span class="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest">Live</span>
 </div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Total Patient Records</p>
+<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Patient Records (Selected Period)</p>
 <h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo htmlspecialchars(dashboard_format_int($metrics['total_patient_records'])); ?></h3>
 </div>
 <!-- Card 5 -->
@@ -777,7 +852,7 @@ require __DIR__ . '/superadmin_header.php';
     }
 })();
 </script>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="grid grid-cols-1 gap-8">
 <!-- Tenant Growth Bar Chart (new patients per month) -->
 <div class="bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow">
 <h4 class="text-lg font-extrabold font-headline mb-1">Tenant Growth</h4>
@@ -813,22 +888,6 @@ for ($ti = 0; $ti < $tg_n; $ti++) {
 <span class="truncate"><?php echo htmlspecialchars($lab); ?></span>
 <?php endforeach; ?>
 </div>
-</div>
-<!-- AI Insights Widget -->
-<div class="bg-gradient-to-br from-primary via-[#1a80ff] to-[#0052cc] text-white p-8 rounded-[2rem] ai-glow relative overflow-hidden flex flex-col justify-between group">
-<div class="absolute -right-8 -top-8 w-40 h-40 bg-white/10 rounded-full blur-[60px] group-hover:bg-white/20 transition-all duration-700"></div>
-<div class="absolute -left-10 -bottom-10 w-32 h-32 bg-primary-fixed-dim/10 rounded-full blur-[50px]"></div>
-<div>
-<div class="flex items-center gap-2 mb-6">
-<div class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-md">
-<span class="material-symbols-outlined text-white text-lg">psychology</span>
-</div>
-<span class="text-[10px] font-bold uppercase tracking-[0.2em] text-white/90">AI Insights</span>
-</div>
-<h5 class="text-xl font-bold leading-tight font-headline">Tenant growth increased by 18% in the last quarter.</h5>
-<p class="text-white/80 text-sm mt-4 leading-relaxed font-medium">Consider increasing infrastructure capacity in the North-East region to maintain 99.9% uptime.</p>
-</div>
-<button class="w-fit mt-8 px-6 py-2.5 bg-white text-primary hover:bg-white/90 rounded-2xl text-xs font-bold transition-all shadow-xl shadow-black/10">View Full Analysis</button>
 </div>
 </div>
 </div>
@@ -979,6 +1038,86 @@ $tp_pct = max(0, min(100, $tp_pct));
 </section>
 </div>
 </main>
+<div id="dashboard-export-modal" class="fixed inset-0 z-[70] hidden export-modal-backdrop items-center justify-center p-4 sm:p-8">
+<div class="export-modal-panel w-full max-w-3xl rounded-[2rem] overflow-hidden">
+<div class="px-8 py-6 border-b border-outline-variant/40 flex items-start justify-between gap-4">
+<div>
+<h3 class="text-2xl font-extrabold tracking-tight">
+<span class="text-on-surface">Export</span> <span class="text-primary">Options</span>
+</h3>
+<p class="mt-2 text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant/60">Dashboard analytics for current filters</p>
+</div>
+<button id="close-dashboard-export-modal" type="button" class="w-14 h-14 rounded-2xl bg-surface-container-low hover:bg-white transition-colors flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<form action="dashboard_export_pdf.php" method="get" target="_blank" class="max-h-[70vh] overflow-y-auto p-8 space-y-7">
+<input type="hidden" name="period" value="<?php echo htmlspecialchars($filter_period, ENT_QUOTES, 'UTF-8'); ?>"/>
+<div>
+<h4 class="text-sm font-bold uppercase tracking-[0.16em] text-on-surface-variant/70 mb-4">Include sections</h4>
+<div class="space-y-4">
+<label class="export-option-card rounded-3xl p-5 flex items-center justify-between gap-3 cursor-pointer">
+<span class="flex items-center gap-3">
+<input type="hidden" name="include_overview" value="0"/>
+<input type="checkbox" name="include_overview" value="1" checked class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
+<span class="font-extrabold text-on-surface">Overview metrics</span>
+</span>
+<span class="text-primary font-black"><?php echo htmlspecialchars($active_filter_label, ENT_QUOTES, 'UTF-8'); ?></span>
+</label>
+<label class="export-option-card rounded-3xl p-5 flex items-center gap-3 cursor-pointer">
+<input type="hidden" name="include_revenue" value="0"/>
+<input type="checkbox" name="include_revenue" value="1" checked class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
+<span class="font-extrabold text-on-surface">Revenue analytics (monthly, weekly, yearly)</span>
+</label>
+<label class="export-option-card rounded-3xl p-5 flex items-center gap-3 cursor-pointer">
+<input type="hidden" name="include_growth" value="0"/>
+<input type="checkbox" name="include_growth" value="1" checked class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
+<span class="font-extrabold text-on-surface">Tenant growth and top performing clinics</span>
+</label>
+<label class="export-option-card rounded-3xl p-5 flex items-center gap-3 cursor-pointer">
+<input type="hidden" name="include_activity" value="0"/>
+<input type="checkbox" name="include_activity" value="1" checked class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
+<span class="font-extrabold text-on-surface">Clinic activity distribution</span>
+</label>
+</div>
+</div>
+<div class="pt-2 flex justify-end gap-3">
+<button type="button" id="cancel-dashboard-export-modal" class="px-6 py-3 rounded-2xl text-sm font-bold text-on-surface-variant bg-surface-container-low hover:bg-white transition-colors">Cancel</button>
+<button type="submit" class="px-7 py-3 rounded-2xl text-sm font-bold text-white bg-primary hover:brightness-110 transition-colors">Preview PDF</button>
+</div>
+</form>
+</div>
+</div>
+<script>
+(function () {
+    var openBtn = document.getElementById('open-dashboard-export-modal-secondary');
+    var closeBtn = document.getElementById('close-dashboard-export-modal');
+    var cancelBtn = document.getElementById('cancel-dashboard-export-modal');
+    var modal = document.getElementById('dashboard-export-modal');
+    if (!openBtn || !modal) return;
+    function openModal() {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeModal() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.style.overflow = '';
+    }
+    openBtn.addEventListener('click', openModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', function (e) {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+})();
+</script>
 <script>
     (function () {
         function initClinicActivityHover() {
