@@ -33,8 +33,10 @@ function extract_business_fields(string $text): array
 
     $clean = str_replace("\r", "\n", $text);
 
-    if (preg_match('/(?:OCN|TIN|BRANCH\s*CODE)[^\n]{0,80}([A-Z0-9\-\s\/]{6,})/i', $clean, $m)) {
+    if (preg_match('/TIN\s*&?\s*BRANCH\s*CODE\s*[:\-]?\s*([A-Z0-9\-\s\/]{6,})/i', $clean, $m)) {
         $result['ocn_tin_branch'] = normalize_spaces($m[1]);
+    } elseif (preg_match('/TIN\s*[:\-]?\s*([A-Z0-9\-]{6,})[^\n]{0,40}BRANCH\s*CODE\s*[:\-]?\s*([A-Z0-9\-]{1,})/i', $clean, $m)) {
+        $result['ocn_tin_branch'] = normalize_spaces($m[1] . ' / ' . $m[2]);
     }
     if (preg_match('/NAME\s+OF\s+TAXPAYER\s*[:\-]?\s*([^\n]+)/i', $clean, $m)) {
         $result['taxpayer_name'] = normalize_spaces($m[1]);
@@ -208,7 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight">Verify Business Permit</h1>
             <p class="text-slate-600 mt-2">Upload your clinic business permit so we can validate onboarding details through OCR.</p>
             <div class="mt-4 text-xs text-slate-500 bg-slate-100 border border-slate-200 rounded-lg p-3">
-                Required fields from OCR: OCN / TIN / BRANCH CODE, NAME OF TAXPAYER, and REGISTERED ADDRESS.
+                Required fields from OCR: TIN &amp; BRANCH CODE, NAME OF TAXPAYER, and REGISTERED ADDRESS.
             </div>
         </div>
 
@@ -245,16 +247,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
                 <h2 class="text-lg font-bold">Extracted Details</h2>
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">OCN / TIN / Branch Code</label>
-                    <input type="text" readonly value="<?php echo htmlspecialchars($ocn_tin_branch); ?>" class="w-full rounded-lg border-slate-200 bg-slate-50"/>
+                    <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">TIN &amp; Branch Code</label>
+                    <input type="text" readonly disabled value="<?php echo htmlspecialchars($ocn_tin_branch); ?>" class="w-full rounded-lg border-slate-200 bg-slate-50"/>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Name of Taxpayer</label>
-                    <input type="text" readonly value="<?php echo htmlspecialchars($taxpayer_name); ?>" class="w-full rounded-lg border-slate-200 bg-slate-50"/>
+                    <input type="text" readonly disabled value="<?php echo htmlspecialchars($taxpayer_name); ?>" class="w-full rounded-lg border-slate-200 bg-slate-50"/>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Registered Address</label>
-                    <textarea readonly rows="3" class="w-full rounded-lg border-slate-200 bg-slate-50"><?php echo htmlspecialchars($registered_address); ?></textarea>
+                    <textarea readonly disabled rows="3" class="w-full rounded-lg border-slate-200 bg-slate-50"><?php echo htmlspecialchars($registered_address); ?></textarea>
                 </div>
                 <div class="pt-2 border-t border-slate-100 text-sm">
                     <span class="font-semibold">Status:</span>
