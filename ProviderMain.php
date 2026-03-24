@@ -1,20 +1,6 @@
 <?php
 session_start();
 require_once __DIR__ . '/provider_redirect_superadmin.php';
-
-// Canonicalize this page to the root domain URL.
-$requestUri = $_SERVER['REQUEST_URI'] ?? '';
-if (stripos($requestUri, '/ProviderMain.php') !== false) {
-    $queryString = $_SERVER['QUERY_STRING'] ?? '';
-    $targetUrl = 'https://mydentalph.ct.ws/';
-
-    if ($queryString !== '') {
-        $targetUrl .= '?' . $queryString;
-    }
-
-    header('Location: ' . $targetUrl, true, 301);
-    exit;
-}
 ?>
 <!DOCTYPE html>
 

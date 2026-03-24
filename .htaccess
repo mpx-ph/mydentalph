@@ -1,5 +1,12 @@
 RewriteEngine On
 
+# Force clean provider landing URL
+# /ProviderMain.php -> /
+RewriteRule ^ProviderMain\.php$ / [R=301,L]
+
+# Main domain root serves ProviderMain.php internally
+RewriteRule ^$ ProviderMain.php [L]
+
 # Allow existing files and directories to be served normally
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
