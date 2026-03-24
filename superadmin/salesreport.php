@@ -680,7 +680,7 @@ $amount = (float) ($tx['amount'] ?? 0);
 <span class="material-symbols-outlined">close</span>
 </button>
 </div>
-<form action="salesreport_export_pdf.php" method="get" class="max-h-[70vh] overflow-y-auto p-8 space-y-7">
+<form action="salesreport_export_pdf.php" method="get" target="_blank" class="max-h-[70vh] overflow-y-auto p-8 space-y-7">
 <div>
 <h4 class="text-sm font-bold uppercase tracking-[0.16em] text-on-surface-variant/70 mb-4">Revenue Breakdown</h4>
 <div class="space-y-4">
@@ -740,7 +740,7 @@ $amount = (float) ($tx['amount'] ?? 0);
 </div>
 <div class="pt-2 flex justify-end gap-3">
 <button type="button" id="cancel-sales-export-modal" class="px-6 py-3 rounded-2xl text-sm font-bold text-on-surface-variant bg-surface-container-low hover:bg-white transition-colors">Cancel</button>
-<button type="submit" class="px-7 py-3 rounded-2xl text-sm font-bold text-white bg-primary hover:brightness-110 transition-colors">Download PDF</button>
+<button type="submit" class="px-7 py-3 rounded-2xl text-sm font-bold text-white bg-primary hover:brightness-110 transition-colors">Preview PDF</button>
 </div>
 </form>
 </div>

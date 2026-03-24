@@ -147,7 +147,7 @@ require __DIR__ . '/superadmin_header.php';
 <p class="text-on-surface-variant mt-2 font-medium">Track and monitor system activities across all clinic modules.</p>
 </div>
 <div class="flex items-center gap-3">
-<a href="auditlogs_export_pdf.php" class="inline-flex bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all no-underline">
+<a href="auditlogs_export_pdf.php" target="_blank" rel="noopener noreferrer" class="inline-flex bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all no-underline">
 <span class="material-symbols-outlined text-lg">picture_as_pdf</span>
                     PDF Export
                 </a>

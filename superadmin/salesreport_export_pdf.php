@@ -44,7 +44,7 @@ function salesreport_send_pdf_download($pdfBinary, $downloadName)
         $downloadName = 'sales_report.pdf';
     }
     header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="' . $downloadName . '"');
+    header('Content-Disposition: inline; filename="' . $downloadName . '"');
     header('Cache-Control: private, max-age=0, must-revalidate');
     header('Pragma: public');
     header('Content-Length: ' . strlen($pdfBinary));

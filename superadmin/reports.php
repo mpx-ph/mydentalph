@@ -576,7 +576,7 @@ $isCustomPeriod = (strtolower($filterPeriod) === 'custom');
 <span class="material-symbols-outlined">close</span>
 </button>
 </div>
-<form action="reports_export_pdf.php" method="get" class="max-h-[70vh] overflow-y-auto p-8 space-y-7">
+<form action="reports_export_pdf.php" method="get" target="_blank" class="max-h-[70vh] overflow-y-auto p-8 space-y-7">
 <input type="hidden" name="period" value="<?php echo htmlspecialchars(strtolower($filterPeriod), ENT_QUOTES, 'UTF-8'); ?>"/>
 <input type="hidden" name="date_from" value="<?php echo htmlspecialchars($filterDateFrom, ENT_QUOTES, 'UTF-8'); ?>"/>
 <input type="hidden" name="date_to" value="<?php echo htmlspecialchars($filterDateTo, ENT_QUOTES, 'UTF-8'); ?>"/>
@@ -610,7 +610,7 @@ $isCustomPeriod = (strtolower($filterPeriod) === 'custom');
 <p class="text-xs text-on-surface-variant font-medium">Uses the same date period and clinic as the filters above (apply filters first if needed).</p>
 <div class="pt-2 flex justify-end gap-3">
 <button type="button" id="cancel-reports-export-modal" class="px-6 py-3 rounded-2xl text-sm font-bold text-on-surface-variant bg-surface-container-low hover:bg-white transition-colors">Cancel</button>
-<button type="submit" class="px-7 py-3 rounded-2xl text-sm font-bold text-white bg-primary hover:brightness-110 transition-colors">Download PDF</button>
+<button type="submit" class="px-7 py-3 rounded-2xl text-sm font-bold text-white bg-primary hover:brightness-110 transition-colors">Preview PDF</button>
 </div>
 </form>
 </div>

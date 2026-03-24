@@ -583,7 +583,7 @@ require __DIR__ . '/superadmin_header.php';
 <span class="material-symbols-outlined">close</span>
 </button>
 </div>
-<form action="tenantmanagement_export_pdf.php" method="get" class="max-h-[70vh] overflow-y-auto p-8 space-y-7">
+<form action="tenantmanagement_export_pdf.php" method="get" target="_blank" class="max-h-[70vh] overflow-y-auto p-8 space-y-7">
 <input type="hidden" name="status" value="<?php echo htmlspecialchars($filterBase['status'], ENT_QUOTES, 'UTF-8'); ?>"/>
 <input type="hidden" name="plan" value="<?php echo htmlspecialchars($filterBase['plan'], ENT_QUOTES, 'UTF-8'); ?>"/>
 <input type="hidden" name="q" value="<?php echo htmlspecialchars($filterBase['q'], ENT_QUOTES, 'UTF-8'); ?>"/>
@@ -610,7 +610,7 @@ require __DIR__ . '/superadmin_header.php';
 <p class="text-xs text-on-surface-variant font-medium">Filters from this page (status, plan, search) apply to the tenant directory in the PDF.</p>
 <div class="pt-2 flex justify-end gap-3">
 <button type="button" id="cancel-tenant-export-modal" class="px-6 py-3 rounded-2xl text-sm font-bold text-on-surface-variant bg-surface-container-low hover:bg-white transition-colors">Cancel</button>
-<button type="submit" class="px-7 py-3 rounded-2xl text-sm font-bold text-white bg-primary hover:brightness-110 transition-colors">Download PDF</button>
+<button type="submit" class="px-7 py-3 rounded-2xl text-sm font-bold text-white bg-primary hover:brightness-110 transition-colors">Preview PDF</button>
 </div>
 </form>
 </div>
