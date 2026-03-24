@@ -6,27 +6,54 @@ require_once 'mail_config.php';
 
 $error = '';
 $resend_message = '';
+$mode = 'signup';
+$email_for_display = $_SESSION['onboarding_email'] ?? 'your email';
+$verify_button_text = 'Verify Email';
+$title_text = 'Verify Your Email';
+$subtitle_text = "We've sent a 6-digit verification code to your email. Please enter it below to continue.";
 
-if (empty($_SESSION['onboarding_pending_id'])) {
+$is_reset_mode = isset($_SESSION['provider_password_reset_user_id'], $_SESSION['provider_password_reset_email']);
+
+if ($is_reset_mode) {
+    $mode = 'password_reset';
+    $email_for_display = $_SESSION['provider_password_reset_email'];
+    $verify_button_text = 'Verify Code';
+    $title_text = 'Verify Reset Code';
+    $subtitle_text = "We've sent a 6-digit verification code to your email. Enter it to continue resetting your password.";
+}
+
+if ($mode === 'signup' && empty($_SESSION['onboarding_pending_id'])) {
     header('Location: ProviderCreate.php');
     exit;
 }
 
-$pending_id = (int) $_SESSION['onboarding_pending_id'];
+$pending_id = isset($_SESSION['onboarding_pending_id']) ? (int) $_SESSION['onboarding_pending_id'] : 0;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? 'verify';
     if ($action === 'resend') {
-        $otp_code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        $otp_hash = password_hash($otp_code, PASSWORD_DEFAULT);
-        $otp_expires = date('Y-m-d H:i:s', time() + 900);
-        $stmt = $pdo->prepare('UPDATE tbl_provider_pending_signups SET otp_hash = ?, otp_expires_at = ?, attempts = 0, last_sent_at = NOW() WHERE id = ?');
-        $stmt->execute([$otp_hash, $otp_expires, $pending_id]);
-        $to_email = $_SESSION['onboarding_email'] ?? '';
-        if ($to_email && send_otp_email($to_email, $otp_code)) {
-            $resend_message = 'A new code has been sent to your email.';
+        if ($mode === 'password_reset') {
+            $otp_code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $_SESSION['provider_password_reset_otp_hash'] = password_hash($otp_code, PASSWORD_DEFAULT);
+            $_SESSION['provider_password_reset_otp_expires_at'] = time() + 900;
+            $_SESSION['provider_password_reset_verified'] = false;
+            if (send_otp_email((string) $_SESSION['provider_password_reset_email'], $otp_code)) {
+                $resend_message = 'A new code has been sent to your email.';
+            } else {
+                $resend_message = 'We could not send the email. Please check your address or try again later.';
+            }
         } else {
-            $resend_message = 'We could not send the email. Please check your address or try again later.';
+            $otp_code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $otp_hash = password_hash($otp_code, PASSWORD_DEFAULT);
+            $otp_expires = date('Y-m-d H:i:s', time() + 900);
+            $stmt = $pdo->prepare('UPDATE tbl_provider_pending_signups SET otp_hash = ?, otp_expires_at = ?, attempts = 0, last_sent_at = NOW() WHERE id = ?');
+            $stmt->execute([$otp_hash, $otp_expires, $pending_id]);
+            $to_email = $_SESSION['onboarding_email'] ?? '';
+            if ($to_email && send_otp_email($to_email, $otp_code)) {
+                $resend_message = 'A new code has been sent to your email.';
+            } else {
+                $resend_message = 'We could not send the email. Please check your address or try again later.';
+            }
         }
     } else {
         $otp_code = trim($_POST['otp_code'] ?? '');
@@ -34,34 +61,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Please enter a valid 6-digit code.';
         } else {
             $dev_otp = defined('DEV_OTP') ? DEV_OTP : null;
-            $stmt = $pdo->prepare('SELECT id, otp_hash, otp_expires_at FROM tbl_provider_pending_signups WHERE id = ?');
-            $stmt->execute([$pending_id]);
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            $proceed = false;
-            if (!$row) {
-                unset($_SESSION['onboarding_pending_id']);
-                $error = 'No pending registration found. Please start over.';
-            } elseif ($dev_otp !== null && $otp_code === $dev_otp) {
-                $proceed = true;
-            } elseif (strtotime($row['otp_expires_at']) < time()) {
-                $error = 'This code has expired. Please request a new one.';
-            } elseif (!password_verify($otp_code, $row['otp_hash'])) {
-                $stmt = $pdo->prepare('UPDATE tbl_provider_pending_signups SET attempts = attempts + 1 WHERE id = ?');
-                $stmt->execute([$pending_id]);
-                $error = 'Invalid verification code. Please try again.';
-            } else {
-                $proceed = true;
-            }
-            if ($proceed) {
-                try {
-                    $ids = provider_signup_finalize_from_pending($pdo, $pending_id);
-                    unset($_SESSION['onboarding_pending_id']);
-                    $_SESSION['onboarding_user_id'] = $ids['user_id'];
-                    $_SESSION['onboarding_tenant_id'] = $ids['tenant_id'];
-                    header('Location: ProviderClinicSetup.php');
+            if ($mode === 'password_reset') {
+                $hash = $_SESSION['provider_password_reset_otp_hash'] ?? '';
+                $expires_at = (int) ($_SESSION['provider_password_reset_otp_expires_at'] ?? 0);
+                if ($hash === '' || $expires_at === 0) {
+                    $error = 'No reset request found. Please start again.';
+                } elseif ($dev_otp !== null && $otp_code === $dev_otp) {
+                    $_SESSION['provider_password_reset_verified'] = true;
+                    header('Location: ProviderResetPassword.php');
                     exit;
-                } catch (Throwable $e) {
-                    $error = 'Could not complete registration. Please try again or contact support.';
+                } elseif ($expires_at < time()) {
+                    $error = 'This code has expired. Please request a new one.';
+                } elseif (!password_verify($otp_code, $hash)) {
+                    $error = 'Invalid verification code. Please try again.';
+                } else {
+                    $_SESSION['provider_password_reset_verified'] = true;
+                    header('Location: ProviderResetPassword.php');
+                    exit;
+                }
+            } else {
+                $stmt = $pdo->prepare('SELECT id, otp_hash, otp_expires_at FROM tbl_provider_pending_signups WHERE id = ?');
+                $stmt->execute([$pending_id]);
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                $proceed = false;
+                if (!$row) {
+                    unset($_SESSION['onboarding_pending_id']);
+                    $error = 'No pending registration found. Please start over.';
+                } elseif ($dev_otp !== null && $otp_code === $dev_otp) {
+                    $proceed = true;
+                } elseif (strtotime($row['otp_expires_at']) < time()) {
+                    $error = 'This code has expired. Please request a new one.';
+                } elseif (!password_verify($otp_code, $row['otp_hash'])) {
+                    $stmt = $pdo->prepare('UPDATE tbl_provider_pending_signups SET attempts = attempts + 1 WHERE id = ?');
+                    $stmt->execute([$pending_id]);
+                    $error = 'Invalid verification code. Please try again.';
+                } else {
+                    $proceed = true;
+                }
+                if ($proceed) {
+                    try {
+                        $ids = provider_signup_finalize_from_pending($pdo, $pending_id);
+                        unset($_SESSION['onboarding_pending_id']);
+                        $_SESSION['onboarding_user_id'] = $ids['user_id'];
+                        $_SESSION['onboarding_tenant_id'] = $ids['tenant_id'];
+                        header('Location: ProviderClinicSetup.php');
+                        exit;
+                    } catch (Throwable $e) {
+                        $error = 'Could not complete registration. Please try again or contact support.';
+                    }
                 }
             }
         }
@@ -73,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Verify Email - MyDental.com</title>
+<title>Verify Code - MyDental.com</title>
 <!-- BEGIN: Scripts and Configuration -->
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script>
@@ -122,9 +169,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
 </svg>
 </div>
-<h1 class="text-3xl font-bold text-mydental-dark mb-3">Verify Your Email</h1>
+<h1 class="text-3xl font-bold text-mydental-dark mb-3"><?php echo htmlspecialchars($title_text); ?></h1>
 <p class="text-gray-500 text-sm leading-relaxed">
-        We've sent a 6-digit verification code to <?php echo htmlspecialchars($_SESSION['onboarding_email'] ?? 'your email'); ?>. Please enter it below to continue.
+        <?php echo htmlspecialchars(str_replace('your email', (string) $email_for_display, $subtitle_text)); ?>
       </p>
 </header>
 <!-- END: Header Section -->
@@ -150,7 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <!-- Action Button -->
 <div class="pt-2">
 <button class="w-full py-4 bg-mydental-blue hover:bg-blue-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 transition-colors focus:ring-4 focus:ring-blue-200" type="submit">
-          Verify Email
+          <?php echo htmlspecialchars($verify_button_text); ?>
         </button>
 </div>
 </form>

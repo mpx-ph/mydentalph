@@ -3,6 +3,7 @@ session_start();
 require_once __DIR__ . '/db.php';
 
 $error = '';
+$success = '';
 
 function providerWriteAuditLog($pdo, $tenantId, $userId, $action, $description = null) {
     try {
@@ -124,6 +125,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
+if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
+    $success = 'Password updated successfully. Please log in with your new password.';
+}
 ?>
 <!DOCTYPE html>
 
@@ -182,6 +187,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php echo htmlspecialchars($error); ?>
 </div>
 <?php endif; ?>
+<?php if ($success): ?>
+<div class="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 px-4 py-3 text-sm text-green-700 dark:text-green-300">
+<?php echo htmlspecialchars($success); ?>
+</div>
+<?php endif; ?>
 <!-- Login Form -->
 <form class="flex flex-col gap-5" method="post" action="">
 <!-- Email Field -->
@@ -198,7 +208,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="flex flex-col gap-2">
 <div class="flex justify-between items-center">
 <label class="text-slate-700 dark:text-slate-300 text-sm font-semibold leading-normal" for="password">Password</label>
-<a class="text-xs font-semibold text-primary hover:underline" href="#">Forgot password?</a>
+<a class="text-xs font-semibold text-primary hover:underline" href="ProviderFindAccount.php">Forgot password?</a>
 </div>
 <div class="relative group">
 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary transition-colors">
