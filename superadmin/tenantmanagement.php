@@ -66,6 +66,20 @@ function tenant_tm_initials(string $name): string {
     return $up($sub($name, 0, min(2, $len)));
 }
 
+function tenant_tm_verification_status_label(?string $status): string {
+    $s = strtolower(trim((string) $status));
+    if ($s === 'submitted') {
+        return 'Submitted';
+    }
+    if ($s === 'approved') {
+        return 'Approved';
+    }
+    if ($s === 'rejected') {
+        return 'Rejected';
+    }
+    return 'Pending';
+}
+
 $filterBase = [
     'status' => isset($_GET['status']) ? (string) $_GET['status'] : '',
     'plan' => isset($_GET['plan']) ? (string) $_GET['plan'] : '',
@@ -107,6 +121,103 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['tenant_action'], $_PO
     }
     $redir = tenant_tm_url($filterBase, ['page' => $page]);
     header('Location: ' . $redir, true, 303);
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['tenant_details'])) {
+    $tenantId = trim((string) $_GET['tenant_details']);
+    header('Content-Type: application/json; charset=utf-8');
+    if ($tenantId === '' || strlen($tenantId) > 20) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'message' => 'Invalid tenant id']);
+        exit;
+    }
+    try {
+        $tenantSql = "
+            SELECT
+                t.tenant_id,
+                t.clinic_name,
+                t.contact_email,
+                t.contact_phone,
+                t.clinic_address,
+                t.subscription_status,
+                t.created_at,
+                u.full_name AS owner_name,
+                u.email AS owner_email,
+                u.phone AS owner_phone
+            FROM tbl_tenants t
+            LEFT JOIN tbl_users u ON u.user_id = t.owner_user_id
+            WHERE t.tenant_id = ?
+            LIMIT 1
+        ";
+        $tenantStmt = $pdo->prepare($tenantSql);
+        $tenantStmt->execute([$tenantId]);
+        $tenant = $tenantStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$tenant) {
+            http_response_code(404);
+            echo json_encode(['ok' => false, 'message' => 'Tenant not found']);
+            exit;
+        }
+
+        $verificationSql = "
+            SELECT
+                verification_id,
+                uploaded_file_path,
+                uploaded_file_name,
+                ocn_tin_branch,
+                taxpayer_name,
+                registered_address,
+                verification_status,
+                submitted_at,
+                reviewed_at,
+                reviewer_notes
+            FROM tbl_tenant_business_verifications
+            WHERE tenant_id = ?
+            ORDER BY verification_id DESC
+            LIMIT 1
+        ";
+        $verificationStmt = $pdo->prepare($verificationSql);
+        $verificationStmt->execute([$tenantId]);
+        $verification = $verificationStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+        $status = $verification['verification_status'] ?? 'pending';
+        $filePath = (string) ($verification['uploaded_file_path'] ?? '');
+        $safePath = ltrim(str_replace('\\', '/', $filePath), '/');
+        $permitUrl = $safePath !== '' ? '../' . $safePath : '';
+
+        echo json_encode([
+            'ok' => true,
+            'tenant' => [
+                'tenant_id' => (string) ($tenant['tenant_id'] ?? ''),
+                'clinic_name' => (string) ($tenant['clinic_name'] ?? ''),
+                'subscription_status' => (string) ($tenant['subscription_status'] ?? ''),
+                'created_at' => (string) ($tenant['created_at'] ?? ''),
+                'contact_email' => (string) ($tenant['contact_email'] ?? ''),
+                'contact_phone' => (string) ($tenant['contact_phone'] ?? ''),
+                'clinic_address' => (string) ($tenant['clinic_address'] ?? ''),
+                'owner_name' => (string) ($tenant['owner_name'] ?? ''),
+                'owner_email' => (string) ($tenant['owner_email'] ?? ''),
+                'owner_phone' => (string) ($tenant['owner_phone'] ?? ''),
+            ],
+            'verification' => [
+                'exists' => $verification !== null,
+                'verification_id' => (string) ($verification['verification_id'] ?? ''),
+                'verification_status' => tenant_tm_verification_status_label($status),
+                'uploaded_file_name' => (string) ($verification['uploaded_file_name'] ?? ''),
+                'uploaded_file_path' => $filePath,
+                'permit_url' => $permitUrl,
+                'ocn_tin_branch' => (string) ($verification['ocn_tin_branch'] ?? ''),
+                'taxpayer_name' => (string) ($verification['taxpayer_name'] ?? ''),
+                'registered_address' => (string) ($verification['registered_address'] ?? ''),
+                'submitted_at' => (string) ($verification['submitted_at'] ?? ''),
+                'reviewed_at' => (string) ($verification['reviewed_at'] ?? ''),
+                'reviewer_notes' => (string) ($verification['reviewer_notes'] ?? ''),
+            ],
+        ]);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['ok' => false, 'message' => 'Could not load tenant details']);
+    }
     exit;
 }
 
@@ -454,7 +565,13 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 </td>
 <td class="px-8 py-5">
-<span class="text-sm font-semibold text-on-surface-variant"><?php echo htmlspecialchars((string) ($row['clinic_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
+<button
+    type="button"
+    class="js-open-tenant-details text-sm font-semibold text-primary hover:underline"
+    data-tenant-id="<?php echo htmlspecialchars((string) $row['tenant_id'], ENT_QUOTES, 'UTF-8'); ?>"
+>
+<?php echo htmlspecialchars((string) ($row['clinic_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+</button>
 </td>
 <td class="px-8 py-5">
 <?php echo $badge; ?>
@@ -547,7 +664,15 @@ require __DIR__ . '/superadmin_header.php';
 <?php foreach ($tenantWorkforce as $wf): ?>
 <tr class="hover:bg-primary/5 transition-colors">
 <td class="px-10 py-5 text-sm font-semibold text-on-surface"><?php echo htmlspecialchars((string) $wf['tenant_id'], ENT_QUOTES, 'UTF-8'); ?></td>
-<td class="px-8 py-5 text-sm font-medium text-on-surface-variant"><?php echo htmlspecialchars((string) $wf['clinic_name'], ENT_QUOTES, 'UTF-8'); ?></td>
+<td class="px-8 py-5 text-sm font-medium text-on-surface-variant">
+<button
+    type="button"
+    class="js-open-tenant-details text-sm font-semibold text-primary hover:underline"
+    data-tenant-id="<?php echo htmlspecialchars((string) $wf['tenant_id'], ENT_QUOTES, 'UTF-8'); ?>"
+>
+<?php echo htmlspecialchars((string) $wf['clinic_name'], ENT_QUOTES, 'UTF-8'); ?>
+</button>
+</td>
 <td class="px-8 py-5">
 <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50 text-primary text-xs font-bold">
 <span class="material-symbols-outlined text-base">groups</span>
@@ -569,6 +694,26 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 </div>
 </main>
+<!-- Tenant Details Modal -->
+<div id="tenant-details-modal" class="fixed inset-0 z-[80] hidden export-modal-backdrop items-center justify-center p-4 sm:p-8">
+<div class="export-modal-panel w-full max-w-4xl rounded-[2rem] overflow-hidden">
+<div class="px-8 py-6 border-b border-outline-variant/40 flex items-start justify-between gap-4">
+<div>
+<h3 class="text-2xl font-extrabold tracking-tight text-on-surface">Tenant Details</h3>
+<p id="tenant-details-subtitle" class="mt-2 text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant/60">Loading...</p>
+</div>
+<button id="close-tenant-details-modal" type="button" class="w-14 h-14 rounded-2xl bg-surface-container-low hover:bg-white transition-colors flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<div id="tenant-details-body" class="max-h-[70vh] overflow-y-auto p-8 space-y-7">
+<p class="text-sm text-on-surface-variant">Select a clinic to view details.</p>
+</div>
+<div class="px-8 py-5 border-t border-outline-variant/40 flex justify-end">
+<button id="close-tenant-details-modal-footer" type="button" class="px-6 py-3 rounded-2xl text-sm font-bold text-on-surface-variant bg-surface-container-low hover:bg-white transition-colors">Close</button>
+</div>
+</div>
+</div>
 <!-- Tenant Management Export Modal -->
 <div id="tenant-export-modal" class="fixed inset-0 z-[70] hidden export-modal-backdrop items-center justify-center p-4 sm:p-8">
 <div class="export-modal-panel w-full max-w-3xl rounded-[2rem] overflow-hidden">
@@ -635,6 +780,127 @@ require __DIR__ . '/superadmin_header.php';
     openBtn.addEventListener('click', openModal);
     if (closeBtn) closeBtn.addEventListener('click', closeModal);
     if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', function (e) {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+})();
+</script>
+<script>
+(function () {
+    var modal = document.getElementById('tenant-details-modal');
+    var subtitle = document.getElementById('tenant-details-subtitle');
+    var body = document.getElementById('tenant-details-body');
+    var closeBtn = document.getElementById('close-tenant-details-modal');
+    var closeFooterBtn = document.getElementById('close-tenant-details-modal-footer');
+    var triggerButtons = document.querySelectorAll('.js-open-tenant-details');
+    if (!modal || !subtitle || !body || !triggerButtons.length) return;
+
+    function setBodyHtml(html) {
+        body.innerHTML = html;
+    }
+
+    function displayOrDash(value) {
+        return value && String(value).trim() !== '' ? String(value) : '—';
+    }
+
+    function openModal() {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.style.overflow = '';
+    }
+
+    function renderDetails(payload) {
+        var tenant = payload.tenant || {};
+        var verification = payload.verification || {};
+        subtitle.textContent = (displayOrDash(tenant.clinic_name) + ' (' + displayOrDash(tenant.tenant_id) + ')').toUpperCase();
+        var permitLink = '';
+        if (verification.permit_url) {
+            var fileLabel = displayOrDash(verification.uploaded_file_name || verification.uploaded_file_path);
+            permitLink = '<a href="' + verification.permit_url + '" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:brightness-110 transition"><span class="material-symbols-outlined text-base">description</span>View Business Permit (' + fileLabel + ')</a>';
+        } else {
+            permitLink = '<span class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 text-slate-500 text-xs font-bold"><span class="material-symbols-outlined text-base">description</span>No business permit uploaded</span>';
+        }
+
+        setBodyHtml(
+            '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">' +
+                '<section class="rounded-2xl bg-surface-container-low/60 p-5 space-y-3">' +
+                    '<h4 class="text-sm font-bold uppercase tracking-[0.14em] text-on-surface-variant/70">Tenant Profile</h4>' +
+                    '<p class="text-sm"><span class="font-semibold">Clinic Name:</span> ' + displayOrDash(tenant.clinic_name) + '</p>' +
+                    '<p class="text-sm"><span class="font-semibold">Tenant ID:</span> ' + displayOrDash(tenant.tenant_id) + '</p>' +
+                    '<p class="text-sm"><span class="font-semibold">Subscription Status:</span> ' + displayOrDash(tenant.subscription_status) + '</p>' +
+                    '<p class="text-sm"><span class="font-semibold">Contact Email:</span> ' + displayOrDash(tenant.contact_email) + '</p>' +
+                    '<p class="text-sm"><span class="font-semibold">Contact Phone:</span> ' + displayOrDash(tenant.contact_phone) + '</p>' +
+                    '<p class="text-sm"><span class="font-semibold">Clinic Address:</span> ' + displayOrDash(tenant.clinic_address) + '</p>' +
+                    '<p class="text-sm"><span class="font-semibold">Created At:</span> ' + displayOrDash(tenant.created_at) + '</p>' +
+                '</section>' +
+                '<section class="rounded-2xl bg-surface-container-low/60 p-5 space-y-3">' +
+                    '<h4 class="text-sm font-bold uppercase tracking-[0.14em] text-on-surface-variant/70">Owner Details</h4>' +
+                    '<p class="text-sm"><span class="font-semibold">Owner Name:</span> ' + displayOrDash(tenant.owner_name) + '</p>' +
+                    '<p class="text-sm"><span class="font-semibold">Owner Email:</span> ' + displayOrDash(tenant.owner_email) + '</p>' +
+                    '<p class="text-sm"><span class="font-semibold">Owner Phone:</span> ' + displayOrDash(tenant.owner_phone) + '</p>' +
+                '</section>' +
+                '<section class="rounded-2xl bg-surface-container-low/60 p-5 space-y-3 lg:col-span-2">' +
+                    '<h4 class="text-sm font-bold uppercase tracking-[0.14em] text-on-surface-variant/70">Business Verification</h4>' +
+                    '<p class="text-sm"><span class="font-semibold">Verification Status:</span> ' + displayOrDash(verification.verification_status) + '</p>' +
+                    '<p class="text-sm"><span class="font-semibold">TIN &amp; Branch:</span> ' + displayOrDash(verification.ocn_tin_branch) + '</p>' +
+                    '<p class="text-sm"><span class="font-semibold">Taxpayer Name:</span> ' + displayOrDash(verification.taxpayer_name) + '</p>' +
+                    '<p class="text-sm"><span class="font-semibold">Registered Address:</span> ' + displayOrDash(verification.registered_address) + '</p>' +
+                    '<p class="text-sm"><span class="font-semibold">Submitted At:</span> ' + displayOrDash(verification.submitted_at) + '</p>' +
+                    '<p class="text-sm"><span class="font-semibold">Reviewed At:</span> ' + displayOrDash(verification.reviewed_at) + '</p>' +
+                    '<p class="text-sm"><span class="font-semibold">Reviewer Notes:</span> ' + displayOrDash(verification.reviewer_notes) + '</p>' +
+                    '<div class="pt-2">' + permitLink + '</div>' +
+                '</section>' +
+            '</div>'
+        );
+    }
+
+    function renderError(message) {
+        subtitle.textContent = 'FAILED TO LOAD DETAILS';
+        setBodyHtml('<div class="rounded-2xl bg-error/10 border border-error/20 text-error p-4 text-sm font-medium">' + message + '</div>');
+    }
+
+    function fetchDetails(tenantId) {
+        subtitle.textContent = 'LOADING...';
+        setBodyHtml('<p class="text-sm text-on-surface-variant">Loading tenant details...</p>');
+        openModal();
+        fetch('tenantmanagement.php?tenant_details=' + encodeURIComponent(tenantId), {
+            headers: {
+                'Accept': 'application/json'
+            }
+        })
+            .then(function (res) { return res.json(); })
+            .then(function (payload) {
+                if (!payload || !payload.ok) {
+                    throw new Error((payload && payload.message) ? payload.message : 'Could not load tenant details.');
+                }
+                renderDetails(payload);
+            })
+            .catch(function (err) {
+                renderError(err && err.message ? err.message : 'Could not load tenant details.');
+            });
+    }
+
+    triggerButtons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var tenantId = btn.getAttribute('data-tenant-id') || '';
+            if (!tenantId) return;
+            fetchDetails(tenantId);
+        });
+    });
+
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (closeFooterBtn) closeFooterBtn.addEventListener('click', closeModal);
     modal.addEventListener('click', function (e) {
         if (e.target === modal) closeModal();
     });
