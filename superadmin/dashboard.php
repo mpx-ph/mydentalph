@@ -481,10 +481,6 @@ require __DIR__ . '/superadmin_header.php';
 <?php endforeach; ?>
 </select>
 </form>
-<div class="bg-white/80 backdrop-blur-md text-primary px-5 py-2.5 rounded-2xl text-sm font-bold border border-white flex items-center gap-2 shadow-sm">
-<span class="material-symbols-outlined text-lg">calendar_today</span>
-                        <?php echo htmlspecialchars($active_filter_label, ENT_QUOTES, 'UTF-8'); ?>
-                    </div>
 <button id="open-dashboard-export-modal-secondary" type="button" class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all">
 <span class="material-symbols-outlined text-lg">picture_as_pdf</span>
                         Export Report
@@ -988,51 +984,6 @@ $tp_pct = max(0, min(100, $tp_pct));
 <?php endif; ?>
 </div>
 <a href="salesreport.php" class="block w-full mt-8 py-3.5 bg-surface-container-low/50 border border-white hover:bg-white text-primary text-sm font-bold rounded-2xl transition-all shadow-sm text-center">Sales report</a>
-</div>
-</div>
-</section>
-<!-- Bottom Section: Recent Activity -->
-<section class="grid grid-cols-1 gap-8">
-<!-- Recent Activity Feed -->
-<div class="bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow">
-<div class="flex justify-between items-center mb-8">
-<h4 class="text-xl font-extrabold font-headline">Recent Activity</h4>
-<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-white shadow-sm hover:shadow-md transition-all">
-<span class="material-symbols-outlined text-on-surface-variant text-xl">filter_list</span>
-</button>
-</div>
-<div class="space-y-8 relative">
-<div class="absolute left-5 top-2 bottom-2 w-[1.5px] bg-slate-100"></div>
-<div class="relative flex gap-6 group">
-<div class="z-10 w-10 h-10 rounded-2xl bg-blue-100 flex items-center justify-center border-4 border-white shadow-sm group-hover:scale-110 transition-transform">
-<span class="material-symbols-outlined text-base text-primary" style="font-variation-settings: 'FILL' 1;">add_business</span>
-</div>
-<div>
-<p class="text-sm font-bold group-hover:text-primary transition-colors">New Tenant: <span>Stellar Orthodontics</span></p>
-<p class="text-xs text-on-surface-variant mt-1.5 font-medium leading-relaxed">Provisioned Pro-Tier environment in US-East node.</p>
-<p class="text-[10px] text-slate-400 mt-2.5 font-bold uppercase tracking-widest">24 mins ago</p>
-</div>
-</div>
-<div class="relative flex gap-6 group">
-<div class="z-10 w-10 h-10 rounded-2xl bg-green-100 flex items-center justify-center border-4 border-white shadow-sm group-hover:scale-110 transition-transform">
-<span class="material-symbols-outlined text-base text-green-600" style="font-variation-settings: 'FILL' 1;">check_circle</span>
-</div>
-<div>
-<p class="text-sm font-bold group-hover:text-green-600 transition-colors">Billing Completed: <span>HealthFirst Group</span></p>
-<p class="text-xs text-on-surface-variant mt-1.5 font-medium leading-relaxed">Annual subscription renewed successfully ($12,400).</p>
-<p class="text-[10px] text-slate-400 mt-2.5 font-bold uppercase tracking-widest">2 hours ago</p>
-</div>
-</div>
-<div class="relative flex gap-6 group">
-<div class="z-10 w-10 h-10 rounded-2xl bg-amber-100 flex items-center justify-center border-4 border-white shadow-sm group-hover:scale-110 transition-transform">
-<span class="material-symbols-outlined text-base text-amber-600" style="font-variation-settings: 'FILL' 1;">sync</span>
-</div>
-<div>
-<p class="text-sm font-bold group-hover:text-amber-600 transition-colors">System Update <span class="text-amber-600">v2.4.1</span></p>
-<p class="text-xs text-on-surface-variant mt-1.5 font-medium leading-relaxed">Automatic backup completed for all European region shards.</p>
-<p class="text-[10px] text-slate-400 mt-2.5 font-bold uppercase tracking-widest">5 hours ago</p>
-</div>
-</div>
 </div>
 </div>
 </section>
