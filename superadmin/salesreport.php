@@ -123,13 +123,12 @@ function salesreport_format_datetime_for_table(string $dateTime): string
 
 /**
  * Build subscription filter SQL fragments and positional params.
- * Supports date range, clinic, and service plan filters.
+ * Supports date range and clinic filters.
  */
 function salesreport_build_subscription_filters(
     ?DateTime $rangeStart,
     ?DateTime $rangeEnd,
-    ?int $clinicId,
-    ?int $planId,
+    ?string $clinicId,
     string $alias = ''
 ): array {
     $prefix = $alias !== '' ? $alias . '.' : '';
@@ -146,10 +145,6 @@ function salesreport_build_subscription_filters(
     if ($clinicId !== null) {
         $where[] = $prefix . "tenant_id = ?";
         $params[] = $clinicId;
-    }
-    if ($planId !== null) {
-        $where[] = $prefix . "plan_id = ?";
-        $params[] = $planId;
     }
     return [$where, $params];
 }
@@ -249,13 +244,9 @@ $selectedDateRange = (string) ($_GET['range'] ?? '30d');
 if (!isset($dateRangeOptions[$selectedDateRange])) {
     $selectedDateRange = '30d';
 }
-$selectedClinicId = filter_var($_GET['clinic'] ?? null, FILTER_VALIDATE_INT);
-if ($selectedClinicId === false || $selectedClinicId <= 0) {
+$selectedClinicId = isset($_GET['clinic']) ? trim((string) $_GET['clinic']) : '';
+if ($selectedClinicId === '') {
     $selectedClinicId = null;
-}
-$selectedPlanId = filter_var($_GET['service'] ?? null, FILTER_VALIDATE_INT);
-if ($selectedPlanId === false || $selectedPlanId <= 0) {
-    $selectedPlanId = null;
 }
 $filterRangeStart = null;
 $filterRangeEnd = null;
@@ -269,7 +260,6 @@ if ($selectedDateRange !== 'all') {
 }
 
 $filterClinics = [];
-$filterServices = [];
 try {
     $clinicStmt = $pdo->query("
         SELECT tenant_id, clinic_name
@@ -277,13 +267,6 @@ try {
         ORDER BY clinic_name ASC
     ");
     $filterClinics = $clinicStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-    $serviceStmt = $pdo->query("
-        SELECT plan_id, plan_name
-        FROM tbl_subscription_plans
-        ORDER BY plan_name ASC
-    ");
-    $filterServices = $serviceStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 } catch (Exception $e) {
     error_log('salesreport filter options error: ' . $e->getMessage());
 }
@@ -345,8 +328,7 @@ try {
         [$dailyWhere, $dailyParams] = salesreport_build_subscription_filters(
             $rangeStart,
             $rangeEnd,
-            $selectedClinicId,
-            $selectedPlanId
+            $selectedClinicId
         );
         $dailySql = "
             SELECT
@@ -406,7 +388,6 @@ try {
         $filterRangeStart,
         $filterRangeEnd,
         $selectedClinicId,
-        $selectedPlanId,
         'ts'
     );
     $txWhereSql = "ts.payment_status = 'paid'";
@@ -462,7 +443,6 @@ try {
         $filterRangeStart,
         $filterRangeEnd,
         $selectedClinicId,
-        $selectedPlanId,
         'ts'
     );
     $clinicsWhereSql = "ts.payment_status = 'paid'";
@@ -564,7 +544,7 @@ require __DIR__ . '/superadmin_header.php';
 <select name="clinic" onchange="this.form.submit()" class="appearance-none bg-transparent border-none text-sm font-bold text-on-surface cursor-pointer focus:ring-0 pr-8">
 <option value="">All Clinics</option>
 <?php foreach ($filterClinics as $clinicOpt): ?>
-<?php $clinicIdOpt = (int) ($clinicOpt['tenant_id'] ?? 0); ?>
+<?php $clinicIdOpt = trim((string) ($clinicOpt['tenant_id'] ?? '')); ?>
 <option value="<?php echo htmlspecialchars((string) $clinicIdOpt); ?>"<?php echo $selectedClinicId === $clinicIdOpt ? ' selected' : ''; ?>>
 <?php echo htmlspecialchars((string) ($clinicOpt['clinic_name'] ?? 'Unknown Clinic')); ?>
 </option>
@@ -572,19 +552,7 @@ require __DIR__ . '/superadmin_header.php';
 </select>
 <span class="material-symbols-outlined absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-lg">filter_list</span>
 </div>
-<div class="relative group">
-<select name="service" onchange="this.form.submit()" class="appearance-none bg-transparent border-none text-sm font-bold text-on-surface cursor-pointer focus:ring-0 pr-8">
-<option value="">All Services</option>
-<?php foreach ($filterServices as $serviceOpt): ?>
-<?php $serviceIdOpt = (int) ($serviceOpt['plan_id'] ?? 0); ?>
-<option value="<?php echo htmlspecialchars((string) $serviceIdOpt); ?>"<?php echo $selectedPlanId === $serviceIdOpt ? ' selected' : ''; ?>>
-<?php echo htmlspecialchars((string) ($serviceOpt['plan_name'] ?? 'Unknown Service')); ?>
-</option>
-<?php endforeach; ?>
-</select>
-<span class="material-symbols-outlined absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-lg">tune</span>
-</div>
-<?php if ($selectedDateRange !== '30d' || $selectedClinicId !== null || $selectedPlanId !== null): ?>
+<?php if ($selectedDateRange !== '30d' || $selectedClinicId !== null): ?>
 <a href="<?php echo htmlspecialchars($_SERVER['SCRIPT_NAME'] ?? 'salesreport.php', ENT_QUOTES, 'UTF-8'); ?>" class="text-xs font-bold text-primary hover:underline">Reset</a>
 <?php endif; ?>
 </form>
