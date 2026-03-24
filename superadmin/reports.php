@@ -75,16 +75,8 @@ require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
 require_once __DIR__ . '/debug_agent_tz_log.php';
 
-// Match PHP display to server / php.ini (same idea as auditlogs.php — avoid hardcoded TZ vs MySQL mismatch).
-$__reports_ini_tz = @ini_get('date.timezone');
-if (is_string($__reports_ini_tz) && $__reports_ini_tz !== '') {
-    @date_default_timezone_set($__reports_ini_tz);
-} elseif (function_exists('date_default_timezone_get') && @date_default_timezone_get()) {
-    // already set
-} else {
-    @date_default_timezone_set('UTC');
-}
-unset($__reports_ini_tz);
+// Superadmin reports: Manila wall clock + MySQL session +08:00 (see try { SET time_zone }).
+@date_default_timezone_set('Asia/Manila');
 
 // #region agent log
 agent_debug_tz_log('H1', 'reports.php:after_ini_tz', 'PHP timezone before queries', [
@@ -116,8 +108,7 @@ function reports_format_date_for_table($date): string
 }
 
 /**
- * Date range using MySQL CURDATE()/NOW() so filters match stored DATETIME the same way the DB counts "today"
- * (avoids PHP TZ vs MySQL session TZ drift — same approach as auditlogs.php display alignment).
+ * Date range using MySQL CURDATE()/NOW() after SET time_zone = '+08:00' so "today" matches Philippines calendar.
  *
  * @return array{start:string,end:string,label:string,end_inclusive:bool}
  */
@@ -281,6 +272,12 @@ $periodLabel = '—';
 $reportsFormAction = htmlspecialchars(basename(isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : 'reports.php'), ENT_QUOTES, 'UTF-8');
 
 try {
+    try {
+        $pdo->exec("SET time_zone = '+08:00'");
+    } catch (Throwable $e) {
+        // If hosting disallows SET time_zone, CURDATE()/NOW() stay server-default; Manila PHP still formats display.
+    }
+
     // #region agent log
     try {
         $tzrow = $pdo->query('SELECT NOW() AS n, UTC_TIMESTAMP() AS u, @@session.time_zone AS stz, @@global.time_zone AS gtz')->fetch(PDO::FETCH_ASSOC);

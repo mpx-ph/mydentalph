@@ -3,6 +3,8 @@ require_once __DIR__ . '/require_superadmin.php';
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/debug_agent_tz_log.php';
 
+@date_default_timezone_set('Asia/Manila');
+
 $totalLogs = 0;
 $loginEvents = 0;
 $logoutEvents = 0;
@@ -11,6 +13,12 @@ $eventRows = [];
 $dbError = null;
 
 try {
+    try {
+        $pdo->exec("SET time_zone = '+08:00'");
+    } catch (Throwable $e) {
+        // Hosting may block SET time_zone; page still uses Manila for PHP display.
+    }
+
     $totalLogs = (int) $pdo->query('SELECT COUNT(*) FROM tbl_audit_logs')->fetchColumn();
 
     $loginStmt = $pdo->query("
@@ -256,48 +264,17 @@ require __DIR__ . '/superadmin_header.php';
 </tr>
 <?php else: ?>
 <?php
-    // `tbl_audit_logs.created_at` is a timezone-naive DATETIME in MySQL.
-    // We infer MySQL's effective session offset by comparing `NOW()` (session) vs `UTC_TIMESTAMP()` (UTC),
-    // then convert `created_at` into GMT+08:00.
-    // Display using PHP's/server "system" timezone so it matches your clock.
+    // `tbl_audit_logs.created_at`: naive DATETIME — interpret and show as Asia/Manila (same as reports.php).
     try {
-        $targetTz = new DateTimeZone(date_default_timezone_get());
+        $displayTz = new DateTimeZone('Asia/Manila');
     } catch (Throwable $e) {
-        $targetTz = new DateTimeZone('+08:00'); // last-resort fallback
-    }
-    $sourceTz = new DateTimeZone('+00:00'); // safe default
-    try {
-        $nowUtcRaw = $pdo->query('SELECT UTC_TIMESTAMP() AS t')->fetchColumn();
-        $nowLocalRaw = $pdo->query('SELECT NOW() AS t')->fetchColumn();
-
-        $nowUtcRaw = is_string($nowUtcRaw) ? trim($nowUtcRaw) : '';
-        $nowLocalRaw = is_string($nowLocalRaw) ? trim($nowLocalRaw) : '';
-
-        // Strip microseconds if present.
-        $nowUtcRaw = preg_replace('/\.\d+$/', '', $nowUtcRaw);
-        $nowLocalRaw = preg_replace('/\.\d+$/', '', $nowLocalRaw);
-
-        if ($nowUtcRaw !== '' && $nowLocalRaw !== '') {
-            $dtUtc = new DateTime($nowUtcRaw, new DateTimeZone('+00:00'));
-            // Treat session-local time as if it were UTC to compute offset.
-            $dtLocalAsUtc = new DateTime($nowLocalRaw, new DateTimeZone('+00:00'));
-            $offsetSeconds = $dtLocalAsUtc->getTimestamp() - $dtUtc->getTimestamp();
-
-            $abs = abs($offsetSeconds);
-            $hours = (int) floor($abs / 3600);
-            $mins = (int) floor(($abs % 3600) / 60);
-            $sign = $offsetSeconds >= 0 ? '+' : '-';
-
-            $sourceTz = new DateTimeZone($sign . sprintf('%02d:%02d', $hours, $mins));
-        }
-    } catch (Throwable $e) {
-        $sourceTz = new DateTimeZone('UTC');
+        $displayTz = new DateTimeZone('+08:00');
     }
 
     // #region agent log
-    agent_debug_tz_log('H3', 'auditlogs.php:tz_chain', 'Display conversion chain', [
-        'sourceTz_name' => $sourceTz->getName(),
-        'targetTz_name' => $targetTz->getName(),
+    agent_debug_tz_log('H3', 'auditlogs.php:tz_chain', 'Display (Manila naive)', [
+        'displayTz_name' => $displayTz->getName(),
+        'php_default_tz' => @date_default_timezone_get(),
         'first_created_at_raw' => isset($eventRows[0]['created_at']) ? (string) $eventRows[0]['created_at'] : null,
     ]);
     // #endregion
@@ -329,8 +306,7 @@ require __DIR__ . '/superadmin_header.php';
     $createdAtTime = '';
     if ($createdAtRaw !== '') {
         try {
-            $dt = new DateTime($createdAtRaw, $sourceTz);
-            $dt->setTimezone($targetTz);
+            $dt = new DateTime($createdAtRaw, $displayTz);
             $createdAtDate = $dt->format('M d, Y');
             $createdAtTime = $dt->format('H:i:s');
         } catch (Throwable $e) {
