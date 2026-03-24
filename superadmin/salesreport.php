@@ -121,6 +121,39 @@ function salesreport_format_datetime_for_table(string $dateTime): string
     return $ts ? date('M j, Y g:i A', $ts) : $dateTime;
 }
 
+/**
+ * Build subscription filter SQL fragments and positional params.
+ * Supports date range, clinic, and service plan filters.
+ */
+function salesreport_build_subscription_filters(
+    ?DateTime $rangeStart,
+    ?DateTime $rangeEnd,
+    ?int $clinicId,
+    ?int $planId,
+    string $alias = ''
+): array {
+    $prefix = $alias !== '' ? $alias . '.' : '';
+    $where = [];
+    $params = [];
+    if ($rangeStart !== null) {
+        $where[] = $prefix . "created_at >= ?";
+        $params[] = $rangeStart->format('Y-m-d H:i:s');
+    }
+    if ($rangeEnd !== null) {
+        $where[] = $prefix . "created_at < ?";
+        $params[] = $rangeEnd->format('Y-m-d H:i:s');
+    }
+    if ($clinicId !== null) {
+        $where[] = $prefix . "tenant_id = ?";
+        $params[] = $clinicId;
+    }
+    if ($planId !== null) {
+        $where[] = $prefix . "plan_id = ?";
+        $params[] = $planId;
+    }
+    return [$where, $params];
+}
+
 /** Per-section pagination: merge with canonical page params (not raw $_GET). */
 function salesreport_pagination_url(string $pageKey, int $page, array $baseParams): string
 {
@@ -205,6 +238,56 @@ $yearStart->setTime(0, 0, 0);
 $yearEnd = clone $yearStart;
 $yearEnd->modify('+1 year');
 
+$dateRangeOptions = [
+    '7d' => 'Last 7 Days',
+    '30d' => 'Last 30 Days',
+    '90d' => 'Last 90 Days',
+    '365d' => 'Last 365 Days',
+    'all' => 'All Time',
+];
+$selectedDateRange = (string) ($_GET['range'] ?? '30d');
+if (!isset($dateRangeOptions[$selectedDateRange])) {
+    $selectedDateRange = '30d';
+}
+$selectedClinicId = filter_var($_GET['clinic'] ?? null, FILTER_VALIDATE_INT);
+if ($selectedClinicId === false || $selectedClinicId <= 0) {
+    $selectedClinicId = null;
+}
+$selectedPlanId = filter_var($_GET['service'] ?? null, FILTER_VALIDATE_INT);
+if ($selectedPlanId === false || $selectedPlanId <= 0) {
+    $selectedPlanId = null;
+}
+$filterRangeStart = null;
+$filterRangeEnd = null;
+if ($selectedDateRange !== 'all') {
+    $daysBack = (int) rtrim($selectedDateRange, 'd');
+    if ($daysBack > 0) {
+        $filterRangeEnd = clone $todayEnd;
+        $filterRangeStart = clone $todayStart;
+        $filterRangeStart->modify('-' . ($daysBack - 1) . ' days');
+    }
+}
+
+$filterClinics = [];
+$filterServices = [];
+try {
+    $clinicStmt = $pdo->query("
+        SELECT tenant_id, clinic_name
+        FROM tbl_tenants
+        ORDER BY clinic_name ASC
+    ");
+    $filterClinics = $clinicStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    $serviceStmt = $pdo->query("
+        SELECT plan_id, plan_name
+        FROM tbl_subscription_plans
+        ORDER BY plan_name ASC
+    ");
+    $filterServices = $serviceStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+} catch (Exception $e) {
+    error_log('salesreport filter options error: ' . $e->getMessage());
+}
+
 try {
     $stmt = $pdo->prepare("
         SELECT COALESCE(SUM(amount_paid), 0) as revenue
@@ -245,23 +328,44 @@ $minDaysAgo = ($dailyPage - 1) * $dailyPerPage;
 $recentDailyRevenue = [];
 try {
     $rangeOldestDaysAgo = $minDaysAgo + $dailyPerPage - 1;
-    $rangeStart = clone $todayStart;
-    $rangeStart->modify('-' . $rangeOldestDaysAgo . ' days');
-    $rangeEnd = clone $todayEnd;
+    $pageStart = clone $todayStart;
+    $pageStart->modify('-' . $rangeOldestDaysAgo . ' days');
+    $pageEnd = clone $todayEnd;
+    $rangeStart = $pageStart;
+    $rangeEnd = $pageEnd;
+    if ($filterRangeStart !== null && $rangeStart < $filterRangeStart) {
+        $rangeStart = clone $filterRangeStart;
+    }
+    if ($filterRangeEnd !== null && $rangeEnd > $filterRangeEnd) {
+        $rangeEnd = clone $filterRangeEnd;
+    }
 
-    $stmt = $pdo->prepare("
-        SELECT
-            DATE(created_at) as payment_day,
-            COALESCE(SUM(amount_paid), 0) as revenue
-        FROM tbl_tenant_subscriptions
-        WHERE payment_status = 'paid'
-          AND created_at >= ?
-          AND created_at < ?
-        GROUP BY DATE(created_at)
-        ORDER BY payment_day ASC
-    ");
-    $stmt->execute([$rangeStart->format('Y-m-d H:i:s'), $rangeEnd->format('Y-m-d H:i:s')]);
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $rows = [];
+    if ($rangeStart < $rangeEnd) {
+        [$dailyWhere, $dailyParams] = salesreport_build_subscription_filters(
+            $rangeStart,
+            $rangeEnd,
+            $selectedClinicId,
+            $selectedPlanId
+        );
+        $dailySql = "
+            SELECT
+                DATE(created_at) as payment_day,
+                COALESCE(SUM(amount_paid), 0) as revenue
+            FROM tbl_tenant_subscriptions
+            WHERE payment_status = 'paid'
+        ";
+        if (!empty($dailyWhere)) {
+            $dailySql .= " AND " . implode(" AND ", $dailyWhere);
+        }
+        $dailySql .= "
+            GROUP BY DATE(created_at)
+            ORDER BY payment_day ASC
+        ";
+        $stmt = $pdo->prepare($dailySql);
+        $stmt->execute($dailyParams);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
     $revenueByDay = [];
     foreach ($rows as $row) {
         $dayKey = (string) ($row['payment_day'] ?? '');
@@ -298,9 +402,21 @@ if ($txPage === false || $txPage < 1) {
     $txPage = 1;
 }
 try {
-    $cntStmt = $pdo->query("
-        SELECT COUNT(*) FROM tbl_tenant_subscriptions WHERE payment_status = 'paid'
+    [$txWhere, $txParams] = salesreport_build_subscription_filters(
+        $filterRangeStart,
+        $filterRangeEnd,
+        $selectedClinicId,
+        $selectedPlanId,
+        'ts'
+    );
+    $txWhereSql = "ts.payment_status = 'paid'";
+    if (!empty($txWhere)) {
+        $txWhereSql .= " AND " . implode(" AND ", $txWhere);
+    }
+    $cntStmt = $pdo->prepare("
+        SELECT COUNT(*) FROM tbl_tenant_subscriptions ts WHERE $txWhereSql
     ");
+    $cntStmt->execute($txParams);
     $totalTxCount = (int) $cntStmt->fetchColumn();
     $txTotalPages = $totalTxCount > 0 ? max(1, (int) ceil($totalTxCount / $txPerPage)) : 1;
     if ($totalTxCount > 0 && $txPage > $txTotalPages) {
@@ -322,11 +438,11 @@ try {
         FROM tbl_tenant_subscriptions ts
         LEFT JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
         LEFT JOIN tbl_subscription_plans sp ON ts.plan_id = sp.plan_id
-        WHERE ts.payment_status = 'paid'
+        WHERE $txWhereSql
         ORDER BY ts.created_at DESC, ts.id DESC
         LIMIT " . (int) $txPerPage . " OFFSET " . (int) $txOffset . "
     ");
-    $stmt->execute();
+    $stmt->execute($txParams);
     $recentTransactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
     error_log('salesreport recent transactions error: ' . $e->getMessage());
@@ -342,15 +458,27 @@ if ($clinicsPage === false || $clinicsPage < 1) {
     $clinicsPage = 1;
 }
 try {
-    $cntStmt = $pdo->query("
+    [$clinicsWhere, $clinicsParams] = salesreport_build_subscription_filters(
+        $filterRangeStart,
+        $filterRangeEnd,
+        $selectedClinicId,
+        $selectedPlanId,
+        'ts'
+    );
+    $clinicsWhereSql = "ts.payment_status = 'paid'";
+    if (!empty($clinicsWhere)) {
+        $clinicsWhereSql .= " AND " . implode(" AND ", $clinicsWhere);
+    }
+    $cntStmt = $pdo->prepare("
         SELECT COUNT(*) FROM (
             SELECT ts.tenant_id
             FROM tbl_tenant_subscriptions ts
             INNER JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
-            WHERE ts.payment_status = 'paid'
+            WHERE $clinicsWhereSql
             GROUP BY ts.tenant_id, t.clinic_name
         ) ranked_clinics
     ");
+    $cntStmt->execute($clinicsParams);
     $totalClinicsCount = (int) $cntStmt->fetchColumn();
     $clinicsTotalPages = $totalClinicsCount > 0 ? max(1, (int) ceil($totalClinicsCount / $clinicsPerPage)) : 1;
     if ($totalClinicsCount > 0 && $clinicsPage > $clinicsTotalPages) {
@@ -367,12 +495,12 @@ try {
             COALESCE(SUM(ts.amount_paid), 0) as total_spend
         FROM tbl_tenant_subscriptions ts
         INNER JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
-        WHERE ts.payment_status = 'paid'
+        WHERE $clinicsWhereSql
         GROUP BY ts.tenant_id, t.clinic_name
         ORDER BY total_spend DESC, paid_transactions DESC, t.clinic_name ASC
         LIMIT " . (int) $clinicsPerPage . " OFFSET " . (int) $clinicsOffset . "
     ");
-    $stmt->execute();
+    $stmt->execute($clinicsParams);
     $topClinics = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
     error_log('salesreport top clinics error: ' . $e->getMessage());
@@ -420,26 +548,46 @@ require __DIR__ . '/superadmin_header.php';
 <div class="bg-white/60 backdrop-blur-md px-6 py-3 rounded-2xl editorial-shadow flex items-center gap-4">
 <div class="flex items-center gap-2 text-primary font-bold bg-primary/5 px-3 py-1.5 rounded-xl text-xs">
 <span class="material-symbols-outlined text-[18px]">calendar_today</span>
-                        Last 30 Days
+                        Filter
                     </div>
 <div class="h-6 w-px bg-outline-variant/30"></div>
+<form method="get" class="flex flex-wrap items-center gap-4">
 <div class="relative group">
-<select class="appearance-none bg-transparent border-none text-sm font-bold text-on-surface cursor-pointer focus:ring-0 pr-8">
-<option>All Clinics</option>
-<option>Downtown Branch</option>
-<option>Eastside Medical</option>
+<select name="range" onchange="this.form.submit()" class="appearance-none bg-transparent border-none text-sm font-bold text-on-surface cursor-pointer focus:ring-0 pr-8">
+<?php foreach ($dateRangeOptions as $rangeValue => $rangeLabel): ?>
+<option value="<?php echo htmlspecialchars($rangeValue); ?>"<?php echo $selectedDateRange === $rangeValue ? ' selected' : ''; ?>><?php echo htmlspecialchars($rangeLabel); ?></option>
+<?php endforeach; ?>
 </select>
 <span class="material-symbols-outlined absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-lg">expand_more</span>
 </div>
 <div class="relative group">
-<select class="appearance-none bg-transparent border-none text-sm font-bold text-on-surface cursor-pointer focus:ring-0 pr-8">
-<option>All Services</option>
-<option>Orthodontics</option>
-<option>Implants</option>
-<option>Cleaning</option>
+<select name="clinic" onchange="this.form.submit()" class="appearance-none bg-transparent border-none text-sm font-bold text-on-surface cursor-pointer focus:ring-0 pr-8">
+<option value="">All Clinics</option>
+<?php foreach ($filterClinics as $clinicOpt): ?>
+<?php $clinicIdOpt = (int) ($clinicOpt['tenant_id'] ?? 0); ?>
+<option value="<?php echo htmlspecialchars((string) $clinicIdOpt); ?>"<?php echo $selectedClinicId === $clinicIdOpt ? ' selected' : ''; ?>>
+<?php echo htmlspecialchars((string) ($clinicOpt['clinic_name'] ?? 'Unknown Clinic')); ?>
+</option>
+<?php endforeach; ?>
 </select>
 <span class="material-symbols-outlined absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-lg">filter_list</span>
 </div>
+<div class="relative group">
+<select name="service" onchange="this.form.submit()" class="appearance-none bg-transparent border-none text-sm font-bold text-on-surface cursor-pointer focus:ring-0 pr-8">
+<option value="">All Services</option>
+<?php foreach ($filterServices as $serviceOpt): ?>
+<?php $serviceIdOpt = (int) ($serviceOpt['plan_id'] ?? 0); ?>
+<option value="<?php echo htmlspecialchars((string) $serviceIdOpt); ?>"<?php echo $selectedPlanId === $serviceIdOpt ? ' selected' : ''; ?>>
+<?php echo htmlspecialchars((string) ($serviceOpt['plan_name'] ?? 'Unknown Service')); ?>
+</option>
+<?php endforeach; ?>
+</select>
+<span class="material-symbols-outlined absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-lg">tune</span>
+</div>
+<?php if ($selectedDateRange !== '30d' || $selectedClinicId !== null || $selectedPlanId !== null): ?>
+<a href="<?php echo htmlspecialchars($_SERVER['SCRIPT_NAME'] ?? 'salesreport.php', ENT_QUOTES, 'UTF-8'); ?>" class="text-xs font-bold text-primary hover:underline">Reset</a>
+<?php endif; ?>
+</form>
 </div>
 </div>
 <!-- Summary Cards (Styled like SCREEN_4 metrics) -->
