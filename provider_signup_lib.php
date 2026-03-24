@@ -45,13 +45,19 @@ function provider_signup_finalize_from_pending(PDO $pdo, int $pendingId): array
             $stmt = $pdo->prepare('UPDATE tbl_tenants SET owner_user_id = ? WHERE tenant_id = ?');
             $stmt->execute([$user_id, $tenant_id]);
 
-            $stmt = $pdo->prepare('INSERT INTO tbl_email_verifications (tenant_id, user_id, otp_hash, otp_expires_at, attempts, verified_at) VALUES (?, ?, ?, ?, 0, NOW())');
-            $stmt->execute([
-                $tenant_id,
-                $user_id,
-                $p['otp_hash'],
-                $p['otp_expires_at'],
-            ]);
+            // Backward-compatible: some environments may not have the latest
+            // tbl_email_verifications schema yet. Do not block signup completion.
+            try {
+                $stmt = $pdo->prepare('INSERT INTO tbl_email_verifications (tenant_id, user_id, otp_hash, otp_expires_at, attempts, verified_at) VALUES (?, ?, ?, ?, 0, NOW())');
+                $stmt->execute([
+                    $tenant_id,
+                    $user_id,
+                    $p['otp_hash'],
+                    $p['otp_expires_at'],
+                ]);
+            } catch (PDOException $e) {
+                error_log('provider_signup_finalize_from_pending: email verification insert skipped: ' . $e->getMessage());
+            }
 
             $stmt = $pdo->prepare('DELETE FROM tbl_provider_pending_signups WHERE id = ?');
             $stmt->execute([$pendingId]);
