@@ -87,6 +87,11 @@ $superadmin_nav = 'salesreport';
 $superadmin_header_search_placeholder = 'Search clinic data...';
 require_once __DIR__ . '/../db.php';
 date_default_timezone_set('Asia/Manila');
+try {
+    $pdo->exec("SET time_zone = '+08:00'");
+} catch (Throwable $e) {
+    // Keep PHP display in Manila even when hosting disallows session time_zone changes.
+}
 
 function salesreport_format_money_card(float $amount): string
 {
@@ -108,6 +113,12 @@ function salesreport_format_date_for_table(string $dateTime): string
 {
     $ts = strtotime($dateTime);
     return $ts ? date('M j, Y', $ts) : $dateTime;
+}
+
+function salesreport_format_datetime_for_table(string $dateTime): string
+{
+    $ts = strtotime($dateTime);
+    return $ts ? date('M j, Y g:i A', $ts) : $dateTime;
 }
 
 /** Per-section pagination: merge with canonical page params (not raw $_GET). */
@@ -583,7 +594,7 @@ if ($rank === 1) {
 <table class="w-full text-left">
 <thead>
 <tr class="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/60">
-<th class="px-10 py-5">Date</th>
+<th class="px-10 py-5">Date &amp; Time</th>
 <th class="px-8 py-5">Tenant/Clinic</th>
 <th class="px-8 py-5">Service</th>
 <th class="px-8 py-5">Amount</th>
@@ -624,7 +635,7 @@ $serviceType = (string) ($tx['service_type'] ?? 'N/A');
 $amount = (float) ($tx['amount'] ?? 0);
 ?>
 <tr class="hover:bg-primary/5 transition-colors group">
-<td class="px-10 py-6 text-sm font-bold text-on-surface-variant"><?php echo htmlspecialchars(salesreport_format_date_for_table((string) ($tx['payment_date'] ?? ''))); ?></td>
+<td class="px-10 py-6 text-sm font-bold text-on-surface-variant"><?php echo htmlspecialchars(salesreport_format_datetime_for_table((string) ($tx['payment_date'] ?? ''))); ?></td>
 <td class="px-8 py-6">
 <div class="flex items-center gap-3">
 <div class="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-primary shadow-sm border border-white">
