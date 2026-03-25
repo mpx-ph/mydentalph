@@ -58,8 +58,8 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
         /* Scroll-reveal animation (section-level) */
         .reveal {
             opacity: 0;
-            transform: translateY(26px) scale(0.99);
-            filter: blur(8px);
+            transform: translateY(34px) scale(0.985);
+            filter: blur(12px);
             transition:
                 opacity 900ms cubic-bezier(0.22, 1, 0.36, 1),
                 transform 900ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -182,15 +182,15 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <div class="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10">
 <!-- Feature 1: Staggered Up -->
 <div class="md:col-span-5 lg:col-span-4 md:mt-24">
-<div class="group h-full bg-white p-12 rounded-[2.5rem] border border-on-surface/5 hover:border-primary/20 transition-all duration-500 transform-gpu hover:-translate-y-1 hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.08)] relative overflow-hidden">
+<div class="group h-full bg-white p-12 rounded-[2.5rem] border border-on-surface/5 transition-all duration-500 transform-gpu hover:-translate-y-1 hover:bg-primary hover:border-primary/20 hover:shadow-[0_50px_100px_-20px_rgba(43,139,235,0.22)] relative overflow-hidden">
 <div class="absolute -right-8 -top-8 w-32 h-32 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors"></div>
-<div class="w-14 h-14 bg-surface-container-low rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:scale-110">
+<div class="w-14 h-14 bg-surface-container-low rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:scale-110 group-hover:bg-white/10 group-hover:text-white group-hover:border group-hover:border-white/20">
 <span class="material-symbols-outlined text-3xl font-light">monitoring</span>
 </div>
-<h3 class="font-headline text-3xl font-extrabold mb-6 tracking-tight">Tenant Monitoring</h3>
-<p class="text-on-surface-variant text-lg leading-relaxed font-medium mb-8">Real-time oversight across multiple clinic branches. Monitor chair occupancy, staff performance, and inventory health instantly.</p>
-<div class="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-widest tracking-[0.3em]">
-<span class="w-8 h-[1px] bg-primary/30"></span> Live Node Access
+<h3 class="font-headline text-3xl font-extrabold mb-6 tracking-tight transition-colors group-hover:text-white">Tenant Monitoring</h3>
+<p class="text-on-surface-variant text-lg leading-relaxed font-medium mb-8 transition-colors group-hover:text-white/80">Real-time oversight across multiple clinic branches. Monitor chair occupancy, staff performance, and inventory health instantly.</p>
+<div class="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-widest tracking-[0.3em] transition-colors group-hover:text-white">
+<span class="w-8 h-[1px] bg-primary/30 transition-colors group-hover:bg-white/30"></span> Live Node Access
                         </div>
 </div>
 </div>
@@ -208,8 +208,8 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <div class="w-14 h-14 bg-surface-container-low rounded-2xl flex items-center justify-center mb-10 text-primary border border-on-surface/5 transition-colors group-hover:bg-white/10 group-hover:text-white group-hover:border-white/20">
 <span class="material-symbols-outlined text-3xl font-light">analytics</span>
 </div>
-<h3 class="font-headline text-4xl font-extrabold mb-6 tracking-tight leading-tight text-on-surface transition-colors group-hover:text-white">Advanced<br/>Analytics Engine</h3>
-<p class="text-on-surface-variant/90 text-xl leading-relaxed font-medium mb-12 transition-colors group-hover:text-white/80">Deep-dive into clinical outcomes and operational ROI with automated reporting and predictive diagnostic modeling.</p>
+<h3 class="font-headline text-3xl font-extrabold mb-6 tracking-tight leading-tight text-on-surface transition-colors group-hover:text-white">Advanced<br/>Analytics Engine</h3>
+<p class="text-on-surface-variant text-lg leading-relaxed font-medium mb-0 transition-colors group-hover:text-white/80">Deep-dive into clinical outcomes and operational ROI with automated reporting and predictive diagnostic modeling.</p>
 </div>
 <a href="Provider-HowItWorks.php" class="bg-white text-primary w-full py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-surface-container-low transition-colors transform-gpu hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 text-center">
                             Explore Metrics
@@ -218,14 +218,14 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </div>
 <!-- Feature 3: Staggered Down / Glassmorphism -->
 <div class="md:col-span-12 lg:col-span-4 lg:mt-36">
-<div class="group h-full glass-card p-12 rounded-[2.5rem] border border-on-surface/5 hover:border-primary/30 transition-all duration-500 transform-gpu hover:-translate-y-1 hover:shadow-xl relative overflow-hidden">
-<div class="w-14 h-14 bg-surface-container-low rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:scale-110">
+<div class="group h-full glass-card p-12 rounded-[2.5rem] border border-on-surface/5 transition-all duration-500 transform-gpu hover:-translate-y-1 hover:bg-primary hover:border-primary/30 hover:shadow-xl relative overflow-hidden">
+<div class="w-14 h-14 bg-surface-container-low rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:scale-110 group-hover:bg-white/10 group-hover:text-white group-hover:border group-hover:border-white/20">
 <span class="material-symbols-outlined text-3xl font-light">groups</span>
 </div>
-<h3 class="font-headline text-3xl font-extrabold mb-6 tracking-tight">Patient CRM</h3>
-<p class="text-on-surface-variant text-lg leading-relaxed font-medium mb-8">Automated engagement workflows, digital records management, and omnichannel patient communication in one hub.</p>
-<div class="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-widest tracking-[0.3em]">
-<span class="w-8 h-[1px] bg-primary/30"></span> Core Integration
+<h3 class="font-headline text-3xl font-extrabold mb-6 tracking-tight transition-colors group-hover:text-white">Patient CRM</h3>
+<p class="text-on-surface-variant text-lg leading-relaxed font-medium mb-8 transition-colors group-hover:text-white/80">Automated engagement workflows, digital records management, and omnichannel patient communication in one hub.</p>
+<div class="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-widest tracking-[0.3em] transition-colors group-hover:text-white">
+<span class="w-8 h-[1px] bg-primary/30 transition-colors group-hover:bg-white/30"></span> Core Integration
                         </div>
 </div>
 </div>
@@ -351,11 +351,12 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
             return;
         }
 
-        var observer = new IntersectionObserver(function (entries, obs) {
+        var observer = new IntersectionObserver(function (entries) {
             entries.forEach(function (entry) {
                 if (entry.isIntersecting) {
                     entry.target.classList.add('is-visible');
-                    obs.unobserve(entry.target);
+                } else {
+                    entry.target.classList.remove('is-visible');
                 }
             });
         }, { threshold: 0.18, rootMargin: '0px 0px -10% 0px' });
