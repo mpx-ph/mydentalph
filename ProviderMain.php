@@ -47,22 +47,38 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
         }
-        @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .fade-up {
-            animation: fadeUp 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
         @keyframes slowFloat {
             0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
+            50% { transform: translateY(-14px); }
         }
         .slow-float {
-            animation: slowFloat 7s ease-in-out infinite;
+            animation: slowFloat 10s ease-in-out infinite;
         }
+
+        /* Scroll-reveal animation (section-level) */
+        .reveal {
+            opacity: 0;
+            transform: translateY(26px) scale(0.99);
+            filter: blur(8px);
+            transition:
+                opacity 900ms cubic-bezier(0.22, 1, 0.36, 1),
+                transform 900ms cubic-bezier(0.22, 1, 0.36, 1),
+                filter 900ms cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: opacity, transform, filter;
+        }
+        .reveal.is-visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            filter: blur(0);
+        }
+
         @media (prefers-reduced-motion: reduce) {
-            .fade-up { animation: none; }
+            .reveal {
+                opacity: 1;
+                transform: none;
+                filter: none;
+                transition: none;
+            }
             .slow-float { animation: none; }
         }
         .glass-card {
@@ -95,14 +111,14 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <?php include 'ProviderNavbar.php'; ?>
 <main>
 <!-- Asymmetrical Hero Section -->
-<section class="relative min-h-[85vh] flex items-center mesh-gradient pt-8 overflow-hidden">
+<section class="relative min-h-[85vh] flex items-center mesh-gradient pt-8 overflow-hidden reveal" data-reveal="section">
 <div class="max-w-[1800px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-0 items-center px-6 sm:px-8 lg:px-10">
 <div class="lg:col-span-6 z-10 py-10 pr-8">
-<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8 fade-up">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8">
                     <img src="MyDental%20Logo.svg" alt="My Dental Logo" class="h-4 w-auto" />
                     Platform Management
                 </div>
-<h1 class="font-headline text-[clamp(2.6rem,5.5vw,4.6rem)] font-extrabold tracking-[-0.05em] text-on-surface mb-6 leading-[0.88] fade-up">
+<h1 class="font-headline text-[clamp(2.6rem,5.5vw,4.6rem)] font-extrabold tracking-[-0.05em] text-on-surface mb-6 leading-[0.88]">
 <span class="block">Modernize Your</span>
 <span class="relative block">
 <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Practice.</span>
@@ -111,7 +127,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
                     with My Dental
                 </span>
 </h1>
-<p class="font-body text-lg max-w-lg mb-8 leading-relaxed text-on-surface-variant font-medium fade-up">
+<p class="font-body text-lg max-w-lg mb-8 leading-relaxed text-on-surface-variant font-medium">
                     The My Dental OS: a unified dental management suite designed for efficiency, architectural precision, and multi-tenant clinic scaling.
                 </p>
 <div class="flex items-center gap-10">
@@ -146,15 +162,15 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </div>
 </section>
 <!-- System Features: Clinical Intelligence -->
-<section class="py-20 px-6 sm:px-8 lg:px-10 bg-white relative overflow-hidden" id="features">
+<section class="py-20 px-6 sm:px-8 lg:px-10 bg-white relative overflow-hidden reveal" data-reveal="section" id="features">
 <div class="max-w-[1800px] mx-auto">
 <div class="flex flex-col lg:flex-row justify-between items-start mb-20 gap-12">
 <div class="max-w-3xl">
 <div class="text-primary font-bold text-xs uppercase mb-6 flex items-center gap-4 tracking-[0.3em]">
 <span class="w-12 h-[1.5px] bg-primary"></span> System Capability
                     </div>
-<h2 class="font-headline text-4xl md:text-6xl font-extrabold tracking-tighter leading-[0.95] mb-6 fade-up">Clinical <br/> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Intelligence</span></h2>
-<p class="text-on-surface-variant text-xl leading-relaxed max-w-xl font-medium fade-up">
+<h2 class="font-headline text-4xl md:text-6xl font-extrabold tracking-tighter leading-[0.95] mb-6">Clinical <br/> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Intelligence</span></h2>
+<p class="text-on-surface-variant text-xl leading-relaxed max-w-xl font-medium">
                         Sophisticated architectural tooling designed for high-performance healthcare systems.
                     </p>
 </div>
@@ -166,7 +182,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <div class="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10">
 <!-- Feature 1: Staggered Up -->
 <div class="md:col-span-5 lg:col-span-4 md:mt-24">
-<div class="group h-full bg-white p-12 rounded-[2.5rem] border border-on-surface/5 hover:border-primary/20 transition-all duration-500 transform-gpu hover:-translate-y-1 hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.08)] relative overflow-hidden fade-up">
+<div class="group h-full bg-white p-12 rounded-[2.5rem] border border-on-surface/5 hover:border-primary/20 transition-all duration-500 transform-gpu hover:-translate-y-1 hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.08)] relative overflow-hidden">
 <div class="absolute -right-8 -top-8 w-32 h-32 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors"></div>
 <div class="w-14 h-14 bg-surface-container-low rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:scale-110">
 <span class="material-symbols-outlined text-3xl font-light">monitoring</span>
@@ -180,20 +196,20 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </div>
 <!-- Feature 2: Large / Primary -->
 <div class="md:col-span-7 lg:col-span-4">
-<div class="group h-full bg-primary p-12 rounded-[2.5rem] shadow-[0_50px_100px_-20px_rgba(43,139,235,0.3)] transition-all duration-500 transform-gpu hover:-translate-y-1 relative overflow-hidden flex flex-col justify-between fade-up">
-<div class="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none">
-<svg class="w-full h-full stroke-white fill-none" viewbox="0 0 100 100">
+<div class="group h-full bg-white p-12 rounded-[2.5rem] border border-on-surface/5 transition-all duration-500 transform-gpu hover:-translate-y-1 hover:bg-primary hover:border-primary/20 hover:shadow-[0_50px_100px_-20px_rgba(43,139,235,0.3)] relative overflow-hidden flex flex-col justify-between">
+<div class="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none transition-opacity group-hover:opacity-12">
+<svg class="w-full h-full stroke-primary/30 fill-none transition-colors group-hover:stroke-white/45" viewbox="0 0 100 100">
 <circle cx="100" cy="0" r="80" stroke-width="0.5"></circle>
 <circle cx="100" cy="0" r="60" stroke-width="0.5"></circle>
 <circle cx="100" cy="0" r="40" stroke-width="0.5"></circle>
 </svg>
 </div>
 <div>
-<div class="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-10 text-white border border-white/20">
+<div class="w-14 h-14 bg-surface-container-low rounded-2xl flex items-center justify-center mb-10 text-primary border border-on-surface/5 transition-colors group-hover:bg-white/10 group-hover:text-white group-hover:border-white/20">
 <span class="material-symbols-outlined text-3xl font-light">analytics</span>
 </div>
-<h3 class="font-headline text-4xl font-extrabold mb-6 tracking-tight text-white leading-tight">Advanced<br/>Analytics Engine</h3>
-<p class="text-white/80 text-xl leading-relaxed font-medium mb-12">Deep-dive into clinical outcomes and operational ROI with automated reporting and predictive diagnostic modeling.</p>
+<h3 class="font-headline text-4xl font-extrabold mb-6 tracking-tight leading-tight text-on-surface transition-colors group-hover:text-white">Advanced<br/>Analytics Engine</h3>
+<p class="text-on-surface-variant/90 text-xl leading-relaxed font-medium mb-12 transition-colors group-hover:text-white/80">Deep-dive into clinical outcomes and operational ROI with automated reporting and predictive diagnostic modeling.</p>
 </div>
 <a href="Provider-HowItWorks.php" class="bg-white text-primary w-full py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-surface-container-low transition-colors transform-gpu hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 text-center">
                             Explore Metrics
@@ -202,7 +218,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </div>
 <!-- Feature 3: Staggered Down / Glassmorphism -->
 <div class="md:col-span-12 lg:col-span-4 lg:mt-36">
-<div class="group h-full glass-card p-12 rounded-[2.5rem] border border-on-surface/5 hover:border-primary/30 transition-all duration-500 transform-gpu hover:-translate-y-1 hover:shadow-xl relative overflow-hidden fade-up">
+<div class="group h-full glass-card p-12 rounded-[2.5rem] border border-on-surface/5 hover:border-primary/30 transition-all duration-500 transform-gpu hover:-translate-y-1 hover:shadow-xl relative overflow-hidden">
 <div class="w-14 h-14 bg-surface-container-low rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:scale-110">
 <span class="material-symbols-outlined text-3xl font-light">groups</span>
 </div>
@@ -217,14 +233,14 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </div>
 </section>
 <!-- Onboarding Protocol -->
-<section class="py-24 bg-[#fdfdfe] relative border-y border-on-surface/5" id="boarding">
+<section class="py-24 bg-[#fdfdfe] relative border-y border-on-surface/5 reveal" data-reveal="section" id="boarding">
 <div class="max-w-[1800px] mx-auto px-6 sm:px-8 lg:px-10">
 <div class="flex flex-col items-center text-center mb-24">
 <div class="inline-flex items-center gap-4 px-4 py-2 rounded-full bg-primary/5 text-primary text-[10px] font-black uppercase tracking-[0.4em] mb-6">
 <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span> Implementation
                 </div>
-<h2 class="font-headline text-4xl md:text-6xl font-extrabold tracking-tighter text-on-surface mb-6 leading-[1.1] fade-up">The Onboarding <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Protocol</span></h2>
-<p class="text-on-surface-variant text-lg font-medium max-w-2xl fade-up">A precision-engineered pathway to institutional activation.</p>
+<h2 class="font-headline text-4xl md:text-6xl font-extrabold tracking-tighter text-on-surface mb-6 leading-[1.1]">The Onboarding <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Protocol</span></h2>
+<p class="text-on-surface-variant text-lg font-medium max-w-2xl">A precision-engineered pathway to institutional activation.</p>
 </div>
 <!-- Integrated Visual Flow -->
 <div class="relative">
@@ -233,7 +249,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-24 relative z-10">
 <!-- Step 1 -->
 <div class="relative group">
-<div class="bg-white rounded-[2rem] p-12 border border-on-surface/5 transition-all duration-500 transform-gpu group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5 fade-up">
+<div class="bg-white rounded-[2rem] p-12 border border-on-surface/5 transition-all duration-500 transform-gpu group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5">
 <div class="absolute -top-6 left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30">
                                 01
                             </div>
@@ -250,7 +266,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </div>
 <!-- Step 2 -->
 <div class="relative group">
-<div class="bg-white rounded-[2rem] p-12 border border-on-surface/5 transition-all duration-500 transform-gpu group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5 fade-up">
+<div class="bg-white rounded-[2rem] p-12 border border-on-surface/5 transition-all duration-500 transform-gpu group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5">
 <div class="absolute -top-6 left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30">
                                 02
                             </div>
@@ -267,7 +283,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </div>
 <!-- Step 3 -->
 <div class="relative group">
-<div class="bg-white rounded-[2rem] p-12 border border-on-surface/5 transition-all duration-500 transform-gpu group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5 fade-up">
+<div class="bg-white rounded-[2rem] p-12 border border-on-surface/5 transition-all duration-500 transform-gpu group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5">
 <div class="absolute -top-6 left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30">
                                 03
                             </div>
@@ -287,14 +303,14 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </div>
 </section>
 <!-- Final CTA Section -->
-<section class="py-20 px-6 sm:px-8 lg:px-10">
+<section class="py-20 px-6 sm:px-8 lg:px-10 reveal" data-reveal="section">
 <div class="mx-auto rounded-[4rem] bg-primary relative overflow-hidden flex flex-col items-center text-center shadow-[0_40px_100px_-20px_rgba(43,139,235,0.4)] max-w-6xl py-20 px-6 sm:px-8 md:px-14 lg:px-20">
 <div class="relative z-10 max-w-3xl">
 <div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-10">
                     Institutional Boarding
                 </div>
-<h2 class="font-headline text-4xl font-extrabold text-white tracking-tighter leading-[0.85] md:text-5xl mb-7 fade-up">Ready to evolve your practice?</h2>
-<p class="text-white/70 text-lg md:text-xl max-w-xl mx-auto leading-relaxed mb-10 fade-up">Join hundreds of dental clinics streamlining their clinical operations through the My Dental ecosystem.</p>
+<h2 class="font-headline text-4xl font-extrabold text-white tracking-tighter leading-[0.85] md:text-5xl mb-7">Ready to evolve your practice?</h2>
+<p class="text-white/70 text-lg md:text-xl max-w-xl mx-auto leading-relaxed mb-10">Join hundreds of dental clinics streamlining their clinical operations through the My Dental ecosystem.</p>
 <a href="Provider-Plans.php" class="bg-white text-primary px-16 py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:scale-[1.03] transition-transform duration-200 shadow-2xl active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 inline-block">
                     Start Your Subscription
                 </a>
@@ -307,7 +323,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </section>
 </main>
 <!-- Footer -->
-<footer class="w-full border-t border-slate-200 bg-slate-50">
+<footer class="w-full border-t border-slate-200 bg-slate-50 reveal" data-reveal="section">
 <div class="flex flex-col md:flex-row justify-between items-center py-12 px-8 max-w-screen-2xl mx-auto gap-4">
 <div class="flex items-center gap-3 text-lg font-bold text-slate-900 font-headline">
 <img src="MyDental%20Logo.svg" alt="My Dental Logo" class="h-8 w-auto"/>
@@ -324,5 +340,28 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
         </div>
 </div>
 </footer>
+<script>
+    (function () {
+        var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var elements = document.querySelectorAll('[data-reveal="section"]');
+
+        if (!elements || !elements.length) return;
+        if (prefersReduced || !('IntersectionObserver' in window)) {
+            elements.forEach(function (el) { el.classList.add('is-visible'); });
+            return;
+        }
+
+        var observer = new IntersectionObserver(function (entries, obs) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                    obs.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.18, rootMargin: '0px 0px -10% 0px' });
+
+        elements.forEach(function (el) { observer.observe(el); });
+    })();
+</script>
 </body>
 </html>
