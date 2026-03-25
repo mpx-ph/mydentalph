@@ -144,7 +144,6 @@ $user_display_name = $_SESSION['full_name'] ?? $_SESSION['username'] ?? $_SESSIO
     ?? $_SESSION['onboarding_full_name'] ?? $_SESSION['onboarding_email'] ?? 'Account';
 $user_initial = mb_strtoupper(mb_substr(trim($user_display_name), 0, 1)) ?: '?';
 ?>
-<?php /*
 <header style="position: sticky; top: 0; z-index: 50;" class="sticky top-0 z-50 w-full border-b border-on-surface/5 bg-white/70 dark:bg-background-dark/70 backdrop-blur-xl">
 <div class="mx-auto max-w-[1800px] px-6 sm:px-8 lg:px-10">
 <div class="flex h-16 items-center justify-between">
@@ -153,7 +152,7 @@ $user_initial = mb_strtoupper(mb_substr(trim($user_display_name), 0, 1)) ?: '?';
 </div>
 <nav class="hidden md:flex items-center gap-2 lg:gap-3">
 <a class="rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-on-surface/70 hover:text-primary hover:bg-primary/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" href="ProviderMain.php">Home</a>
-<a class="rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-on-surface/70 hover:text-primary hover:bg-primary/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" href="Provider-HowItWorks.php">More Features</a>
+<a class="rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-on-surface/70 hover:text-primary hover:bg-primary/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" href="ProviderMain.php#features">Features</a>
 <a class="rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-on-surface/70 hover:text-primary hover:bg-primary/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" href="Provider-Plans.php">Pricing</a>
 <a class="rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-on-surface/70 hover:text-primary hover:bg-primary/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" href="ProviderContact.php">Contact Us</a>
 <a class="rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-on-surface/70 hover:text-primary hover:bg-primary/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" href="ProviderFAQs.php">FAQs</a>
@@ -189,17 +188,17 @@ $user_initial = mb_strtoupper(mb_substr(trim($user_display_name), 0, 1)) ?: '?';
 </details>
 </div>
 <?php else: ?>
-<a href="ProviderLogin.php" class="px-8 py-3 bg-primary text-white font-black rounded-full overflow-hidden transition-transform hover:scale-[1.02] active:scale-95 text-[11px] uppercase tracking-[0.22em] text-center transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 shadow-lg shadow-primary/25">
-Login
+<a href="ProviderLogin.php" class="px-8 py-3 bg-primary text-white font-black rounded-full overflow-hidden transition-transform hover:scale-[1.02] active:scale-95 text-[11px] uppercase tracking-[0.22em] text-center transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 shadow-lg shadow-primary/25 whitespace-nowrap">
+Log In
 </a>
 <?php endif; ?>
 </div>
 </div>
 </div>
-</header>*/ ?>
+</header>
 <main>
 <!-- Asymmetrical Hero Section -->
-<section class="relative h-[85vh] flex items-stretch mesh-gradient pt-0 overflow-hidden reveal" data-reveal="section">
+<section class="relative min-h-[85vh] flex items-stretch mesh-gradient pt-20 lg:pt-24 overflow-hidden reveal" data-reveal="section">
 <div class="max-w-[1800px] mx-auto w-full h-full grid grid-cols-1 lg:grid-cols-12 gap-0 items-stretch px-6 sm:px-8 lg:px-10">
 <div class="lg:col-span-6 z-10 py-10 pr-8 self-center">
 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8">
