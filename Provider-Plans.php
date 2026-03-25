@@ -41,25 +41,35 @@ $enterprise = isset($providerPlans['enterprise']) && is_array($providerPlans['en
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@1,400;1,700&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
-      tailwind.config = {
-        darkMode: "class",
-        theme: {
-          extend: {
-            colors: {
-              "primary": "#2b8cee",
-              "background-light": "#f6f7f8",
-              "background-dark": "#101922",
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2b8beb",
+                        "on-surface": "#131c25",
+                        "surface": "#ffffff",
+                        "surface-variant": "#f7f9ff",
+                        "on-surface-variant": "#404752",
+                        "outline-variant": "#c0c7d4",
+                        "primary-fixed": "#d4e3ff",
+                        "on-primary-fixed-variant": "#004883",
+                        "surface-container-low": "#edf4ff",
+                        "inverse-surface": "#131c25",
+
+                        /* Keep existing app colors used by ProviderNavbar */
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "editorial": ["Playfair Display", "serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1.5rem", "3xl": "2.5rem", "full": "9999px" },
+                },
             },
-            fontFamily: {
-              "headline": ["Manrope", "sans-serif"],
-              "body": ["Inter", "sans-serif"],
-              "editorial": ["Playfair Display", "serif"],
-              "display": ["Manrope"]
-            },
-            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
-          },
-        },
-      }
+        }
     </script>
 <style>
         .material-symbols-outlined {
@@ -119,13 +129,12 @@ $enterprise = isset($providerPlans['enterprise']) && is_array($providerPlans['en
     </style>
 <title>Pricing Plans | MyDental.com</title>
 </head>
-<body class="bg-background-light dark:bg-background-dark font-body text-slate-900 dark:text-slate-100 transition-colors duration-200">
-<div class="relative flex min-h-screen flex-col">
+<body class="bg-background-light font-body text-on-surface dark:bg-background-dark dark:text-surface antialiased">
 <!-- Header / Navigation -->
 <?php include 'ProviderNavbar.php'; ?>
-<main class="flex-grow mesh-gradient overflow-x-hidden">
+<main class="overflow-x-hidden">
 <!-- Hero Section -->
-<section class="max-w-[1800px] mx-auto px-10 mb-12 pt-16 text-center reveal" data-reveal="section">
+<section class="max-w-[1800px] mx-auto px-10 mb-12 pt-16 text-center reveal mesh-gradient" data-reveal="section">
 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8">
                 Simple Clinical Pricing
             </div>
@@ -345,5 +354,4 @@ $enterprise = isset($providerPlans['enterprise']) && is_array($providerPlans['en
         elements.forEach(function (el) { observer.observe(el); });
     })();
 </script>
-</div>
 </body></html>
