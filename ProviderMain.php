@@ -88,19 +88,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
             border: 1px solid rgba(255, 255, 255, 0.3);
         }
         .slanted-container {
-            /* Use skew instead of clip-path so the photo fills the full slanted shape */
-            transform: skewX(-12deg);
-            transform-origin: top left;
-        }
-        .slanted-container > img {
-            /* Counter-skew so the image itself doesn't look distorted */
-            transform: skewX(12deg) scale(1.15);
-            transform-origin: top left;
-        }
-        .slanted-container > .absolute {
-            /* Keep overlay alignment consistent with the counter-skewed image */
-            transform: skewX(12deg) scale(1.15);
-            transform-origin: top left;
+            clip-path: polygon(15% 0%, 100% 0%, 100% 100%, 0% 100%);
         }
         .mesh-gradient {
             background-color: #ffffff;
@@ -154,9 +142,17 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </div>
 </div>
 <div class="lg:col-span-6 relative h-[65vh] -mr-6 self-start">
-<div class="group slanted-container h-full w-[115%] -ml-[7.5%] bg-slate-100 overflow-hidden shadow-2xl relative">
-<img alt="Modern dental clinic with advanced technology" class="block w-full h-full object-cover transition-none" style="object-position: top left;" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKSToKSubciBNDHHIIhBLQWuwv70uupwQdixl7SdJZDmgnDrO7KwPH0nU9Tuyv8aNshhWTfTeP75EKGGbML5Ge0AweBfsy2V4AmVWId5nTGtpGe6_7fZcwoTag1cM1PJdBpkLGRE47XjINHeAHov0gmJegOGXOaY4Xsbphb11ypnokm_GnMy42Lk5byi_6B13so8CQ8mAtQE0e6twPfwumg6xkxXcDNMUMRCwqnTWdqYYK6EWku_TTChy4ON47ltF4FcaFeaL3nCw"/>
-<div class="absolute inset-0 bg-primary/5 mix-blend-multiply"></div>
+<div class="group slanted-container h-full w-full bg-slate-100 overflow-hidden shadow-2xl relative">
+<div
+    class="absolute inset-0 bg-slate-100"
+    style="background-image:url('https://lh3.googleusercontent.com/aida-public/AB6AXuAKSToKSubciBNDHHIIhBLQWuwv70uupwQdixl7SdJZDmgnDrO7KwPH0nU9Tuyv8aNshhWTfTeP75EKGGbML5Ge0AweBfsy2V4AmVWId5nTGtpGe6_7fZcwoTag1cM1PJdBpkLGRE47XjINHeAHov0gmJegOGXOaY4Xsbphb11ypnokm_GnMy42Lk5byi_6B13so8CQ8mAtQE0e6twPfwumg6xkxXcDNMUMRCwqnTWdqYYK6EWku_TTChy4ON47ltF4FcaFeaL3nCw'); background-size:cover; background-position:top right; background-repeat:no-repeat;">
+</div>
+<img
+    alt="Modern dental clinic with advanced technology"
+    class="relative z-10 block w-full h-full object-contain transition-none"
+    style="object-position: top right;"
+    src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKSToKSubciBNDHHIIhBLQWuwv70uupwQdixl7SdJZDmgnDrO7KwPH0nU9Tuyv8aNshhWTfTeP75EKGGbML5Ge0AweBfsy2V4AmVWId5nTGtpGe6_7fZcwoTag1cM1PJdBpkLGRE47XjINHeAHov0gmJegOGXOaY4Xsbphb11ypnokm_GnMy42Lk5byi_6B13so8CQ8mAtQE0e6twPfwumg6xkxXcDNMUMRCwqnTWdqYYK6EWku_TTChy4ON47ltF4FcaFeaL3nCw"/>
+<div class="absolute inset-0 bg-primary/5 mix-blend-multiply z-20"></div>
 </div>
 <div class="absolute bottom-12 -left-6 glass-card p-6 rounded-2xl shadow-xl max-w-xs border border-white/40 transition-all duration-500 transform-gpu hover:-translate-y-1 hover:shadow-2xl">
 <div class="flex gap-4 items-start">
