@@ -35,20 +35,35 @@ $user_display_name = $_SESSION['full_name'] ?? $_SESSION['username'] ?? $_SESSIO
 $user_initial = mb_strtoupper(mb_substr(trim($user_display_name), 0, 1)) ?: '?';
 ?>
 <!-- Navigation -->
-<header class="sticky top-0 z-50 w-full border-b border-primary/10 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md">
+<header class="sticky top-0 z-50 w-full border-b border-primary/10 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-xl shadow-sm">
 <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 <div class="flex h-16 items-center justify-between">
 <div class="flex items-center gap-2">
 <img src="MyDental%20Logo.svg" alt="MyDental Logo" class="h-10 w-auto" />
 </div>
-<nav class="hidden md:flex items-center gap-8">
-<a class="text-sm font-semibold hover:text-primary transition-colors" href="ProviderMain.php">Home</a>
-<a class="text-sm font-semibold hover:text-primary transition-colors" href="Provider-HowItWorks.php">More Features</a>
-<a class="text-sm font-semibold hover:text-primary transition-colors" href="Provider-Plans.php">Pricing</a>
-<a class="text-sm font-semibold hover:text-primary transition-colors" href="ProviderContact.php">Contact Us</a>
-<a class="text-sm font-semibold hover:text-primary transition-colors" href="ProviderFAQs.php">FAQs</a>
+<nav class="hidden md:flex items-center gap-2">
+<a class="text-sm font-semibold px-3 py-2 rounded-lg hover:bg-primary/5 hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20" href="ProviderMain.php">Home</a>
+<a class="text-sm font-semibold px-3 py-2 rounded-lg hover:bg-primary/5 hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20" href="Provider-HowItWorks.php">More Features</a>
+<a class="text-sm font-semibold px-3 py-2 rounded-lg hover:bg-primary/5 hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20" href="Provider-Plans.php">Pricing</a>
+<a class="text-sm font-semibold px-3 py-2 rounded-lg hover:bg-primary/5 hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20" href="ProviderContact.php">Contact Us</a>
+<a class="text-sm font-semibold px-3 py-2 rounded-lg hover:bg-primary/5 hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20" href="ProviderFAQs.php">FAQs</a>
 </nav>
 <div class="flex items-center gap-3">
+<!-- Mobile navigation -->
+<details class="relative md:hidden">
+<summary class="list-none cursor-pointer rounded-xl border border-primary/20 bg-white/70 dark:bg-slate-900/40 px-3 py-2 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all focus:outline-none focus:ring-2 focus:ring-primary/20">
+<span class="material-symbols-outlined text-slate-600 dark:text-slate-300">menu</span>
+</summary>
+<div class="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg overflow-hidden">
+<nav class="flex flex-col p-2">
+<a class="px-3 py-2 rounded-lg text-sm font-semibold hover:bg-primary/5 hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20" href="ProviderMain.php">Home</a>
+<a class="px-3 py-2 rounded-lg text-sm font-semibold hover:bg-primary/5 hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 mt-1" href="Provider-HowItWorks.php">More Features</a>
+<a class="px-3 py-2 rounded-lg text-sm font-semibold hover:bg-primary/5 hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 mt-1" href="Provider-Plans.php">Pricing</a>
+<a class="px-3 py-2 rounded-lg text-sm font-semibold hover:bg-primary/5 hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 mt-1" href="ProviderContact.php">Contact Us</a>
+<a class="px-3 py-2 rounded-lg text-sm font-semibold hover:bg-primary/5 hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 mt-1" href="ProviderFAQs.php">FAQs</a>
+</nav>
+</div>
+</details>
 <?php if ($logged_in): ?>
 <!-- Logged-in user card with dropdown -->
 <div class="relative">
