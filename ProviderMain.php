@@ -123,7 +123,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <span class="relative block">
 <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Practice.</span>
 </span>
-<span class="block text-[clamp(1.2rem,2vw,2rem)] font-body font-semibold tracking-tight text-on-surface/80 mt-2">
+<span class="block text-[clamp(1.2rem,2vw,2rem)] font-headline font-semibold tracking-tight text-on-surface/80 mt-2">
                     with My Dental
                 </span>
 </h1>
