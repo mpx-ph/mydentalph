@@ -41,10 +41,10 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <div class="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:items-center">
 <div class="flex flex-col gap-8">
 <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-6xl">
-                            Manage Your Dental Clinic <span class="text-primary">Efficiently</span> with MyDental
+                            Manage Your PWET Dental Clinic <span class="text-primary">Efficiently</span> with MyDental
                         </h1>
 <p class="text-lg leading-8 text-slate-600 dark:text-slate-400">
-                            MyDental is a multi-tenant dental clinic management platform designed to streamline operations, enhance patient care, and coordinate staff across multiple locations effortlessly.
+                            MyDental pwet is a multi-tenant dental clinic management platform designed to streamline operations, enhance patient care, and coordinate staff across multiple locations effortlessly.
                         </p>
 <div class="flex flex-wrap gap-4">
 <a href="Provider-Plans.php" class="rounded-xl bg-primary px-8 py-4 text-base font-bold text-white shadow-xl shadow-primary/30 hover:bg-primary/90 hover:scale-[1.02] transition-all">
