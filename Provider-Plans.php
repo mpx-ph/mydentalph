@@ -34,13 +34,12 @@ $enterprise = isset($providerPlans['enterprise']) && is_array($providerPlans['en
 ?>
 <!DOCTYPE html>
 
-<html lang="en"><head>
+<html class="scroll-smooth" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@1,400;1,700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
       tailwind.config = {
         darkMode: "class",
@@ -52,6 +51,9 @@ $enterprise = isset($providerPlans['enterprise']) && is_array($providerPlans['en
               "background-dark": "#101922",
             },
             fontFamily: {
+              "headline": ["Manrope", "sans-serif"],
+              "body": ["Inter", "sans-serif"],
+              "editorial": ["Playfair Display", "serif"],
               "display": ["Manrope"]
             },
             borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
@@ -59,21 +61,45 @@ $enterprise = isset($providerPlans['enterprise']) && is_array($providerPlans['en
         },
       }
     </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .mesh-gradient {
+            background-color: #ffffff;
+            background-image:
+                radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.08) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.06) 0px, transparent 50%);
+        }
+        .dark .mesh-gradient {
+            background-color: #101922;
+            background-image:
+                radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.14) 0px, transparent 55%),
+                radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.10) 0px, transparent 55%);
+        }
+        .editorial-word {
+            text-shadow: 0 0 12px rgba(43, 139, 235, 0.12);
+            letter-spacing: -0.02em;
+        }
+    </style>
 <title>Pricing Plans | MyDental.com</title>
 </head>
-<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 transition-colors duration-200">
+<body class="bg-background-light dark:bg-background-dark font-body text-slate-900 dark:text-slate-100 transition-colors duration-200">
 <div class="relative flex min-h-screen flex-col">
 <!-- Header / Navigation -->
 <?php include 'ProviderNavbar.php'; ?>
-<main class="flex-grow">
+<main class="flex-grow mesh-gradient overflow-x-hidden">
 <!-- Hero Section -->
-<section class="mx-auto max-w-5xl px-6 py-16 text-center lg:py-24">
-<h1 class="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-6xl">
-                    Choose Your Plan
-                </h1>
-<p class="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-400">
-                    Affordable dental management solutions designed to help your practice grow. From solo practitioners to large multi-clinic enterprises.
-                </p>
+<section class="max-w-[1800px] mx-auto px-10 mb-12 pt-16 text-center">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8">
+                Simple Clinical Pricing
+            </div>
+<h1 class="font-headline font-extrabold text-[clamp(2.4rem,5vw,4.2rem)] tracking-[-0.04em] text-slate-900 dark:text-white mb-8 leading-[1.1]">
+                Flexible plans for <br class="hidden md:block"/>every modern <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">practice.</span>
+            </h1>
+<p class="font-body text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto font-semibold leading-relaxed">
+                Choose the billing flow that fits your clinic operations. Upgrade when you are ready to scale.
+            </p>
 </section>
 <?php if ($max_sites_reached): ?>
 <!-- Max sites warning -->
@@ -90,95 +116,160 @@ $enterprise = isset($providerPlans['enterprise']) && is_array($providerPlans['en
 </section>
 <?php endif; ?>
 <!-- Pricing Grid -->
-<section class="mx-auto max-w-7xl px-6 pb-24">
-<div class="grid grid-cols-1 gap-8 md:grid-cols-3 lg:gap-6">
+<section class="mx-auto max-w-6xl px-6 pb-20">
+<div class="grid grid-cols-1 gap-8 md:grid-cols-3 lg:gap-6 items-stretch">
 <!-- Starter Plan -->
-<div class="flex flex-col rounded-2xl border border-primary/10 bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-primary/10 dark:bg-slate-900/50">
-<div class="mb-8">
-<h3 class="text-lg font-bold text-primary uppercase tracking-wider"><?php echo htmlspecialchars((string) ($starter['name'] ?? 'Starter'), ENT_QUOTES, 'UTF-8'); ?></h3>
-<div class="mt-4 flex items-baseline gap-1">
-<span class="text-4xl font-black text-slate-900 dark:text-white"><?php echo htmlspecialchars((string) ($starter['price'] ?? '₱999'), ENT_QUOTES, 'UTF-8'); ?></span>
-<span class="text-sm font-semibold text-slate-500">/mo</span>
+<div class="bg-white p-10 md:p-14 rounded-[3rem] border border-slate-100 flex flex-col justify-between hover:border-primary/20 transition-all duration-500 shadow-sm hover:shadow-2xl group">
+<div>
+<div class="flex justify-between items-start mb-10">
+<div>
+<span class="text-primary font-bold text-[10px] uppercase tracking-[0.4em] mb-4 block">Flexible Access</span>
+<h3 class="font-headline text-4xl text-slate-900 dark:text-white font-editorial italic font-normal text-primary editorial-word"><?php echo htmlspecialchars((string) ($starter['name'] ?? 'Starter'), ENT_QUOTES, 'UTF-8'); ?></h3>
 </div>
-<p class="mt-4 text-sm text-slate-600 dark:text-slate-400"><?php echo htmlspecialchars((string) ($starter['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
+<div class="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-primary/5 transition-colors">
+<span class="material-symbols-outlined text-primary">calendar_today</span>
 </div>
-<?php if ($max_sites_reached): ?>
-<span class="mb-8 flex w-full cursor-not-allowed items-center justify-center rounded-xl border-2 border-slate-200 bg-slate-100 py-3 text-sm font-semibold text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"><?php echo htmlspecialchars((string) ($starter['cta'] ?? 'Choose Starter'), ENT_QUOTES, 'UTF-8'); ?></span>
-                        <?php else: ?>
-<a href="<?php echo htmlspecialchars($plan_base); ?>?plan=starter" class="mb-8 flex w-full items-center justify-center rounded-xl border-2 border-primary/20 bg-primary/5 py-3 text-sm font-bold text-primary hover:bg-primary hover:text-white transition-all">
-                            <?php echo htmlspecialchars((string) ($starter['cta'] ?? 'Choose Starter'), ENT_QUOTES, 'UTF-8'); ?>
-                        </a>
-                        <?php endif; ?>
-<ul class="flex-1 space-y-4">
+</div>
+<div class="flex items-baseline gap-1 mb-10">
+<span class="text-6xl font-headline font-black text-slate-900 dark:text-white"><?php echo htmlspecialchars((string) ($starter['price'] ?? '₱999'), ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="text-slate-500 dark:text-slate-400 font-bold text-lg">/mo</span>
+</div>
+<p class="text-sm text-slate-600 dark:text-slate-300 mb-10"><?php echo htmlspecialchars((string) ($starter['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
+<ul class="space-y-6 mb-12">
 <?php foreach ((array) ($starter['features'] ?? []) as $feature): ?>
-<li class="flex items-start gap-3 text-sm">
-<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-<span class="text-slate-700 dark:text-slate-300"><?php echo htmlspecialchars((string) $feature, ENT_QUOTES, 'UTF-8'); ?></span>
+<li class="flex items-start gap-4 text-slate-600 dark:text-slate-300">
+<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-base font-bold leading-relaxed"><?php echo htmlspecialchars((string) $feature, ENT_QUOTES, 'UTF-8'); ?></span>
 </li>
 <?php endforeach; ?>
 </ul>
+</div>
+<?php if ($max_sites_reached): ?>
+<span class="w-full py-5 cursor-not-allowed bg-slate-100 text-slate-400 font-black text-xs uppercase tracking-[0.2em] rounded-2xl border border-slate-200 text-center active:scale-95">
+                        <?php echo htmlspecialchars((string) ($starter['cta'] ?? 'Choose Starter'), ENT_QUOTES, 'UTF-8'); ?>
+                    </span>
+<?php else: ?>
+<a href="<?php echo htmlspecialchars($plan_base); ?>?plan=starter" class="w-full py-5 bg-primary text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl hover:bg-primary/90 transition-all duration-300 shadow-lg active:scale-95 text-center">
+                        <?php echo htmlspecialchars((string) ($starter['cta'] ?? 'Choose Starter'), ENT_QUOTES, 'UTF-8'); ?>
+                    </a>
+<?php endif; ?>
 </div>
 <!-- Professional Plan -->
-<div class="relative flex flex-col rounded-2xl border-2 border-primary bg-white p-8 shadow-xl shadow-primary/10 transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/20 scale-105 z-10 dark:bg-slate-900">
-<div class="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-1 text-xs font-bold text-white uppercase tracking-widest">
-                            Most Popular
-                        </div>
-<div class="mb-8">
-<h3 class="text-lg font-bold text-primary uppercase tracking-wider"><?php echo htmlspecialchars((string) ($professional['name'] ?? 'Professional'), ENT_QUOTES, 'UTF-8'); ?></h3>
-<div class="mt-4 flex items-baseline gap-1">
-<span class="text-4xl font-black text-slate-900 dark:text-white"><?php echo htmlspecialchars((string) ($professional['price'] ?? '₱2,499'), ENT_QUOTES, 'UTF-8'); ?></span>
-<span class="text-sm font-semibold text-slate-500">/mo</span>
+<div class="relative bg-primary p-10 md:p-14 rounded-[3rem] flex flex-col justify-between shadow-2xl shadow-primary/30 overflow-hidden group">
+<div class="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none">
+<svg class="w-full h-full stroke-white fill-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+<circle cx="100" cy="0" r="90" stroke-width="0.3"></circle>
+<circle cx="100" cy="0" r="70" stroke-width="0.3"></circle>
+<circle cx="100" cy="0" r="50" stroke-width="0.3"></circle>
+</svg>
 </div>
-<p class="mt-4 text-sm text-slate-600 dark:text-slate-400"><?php echo htmlspecialchars((string) ($professional['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
+<div class="relative z-10">
+<div class="flex justify-between items-start mb-10">
+<div>
+<div class="inline-block bg-white/20 text-white px-3 py-1 rounded-full text-[9px] font-black tracking-[0.2em] uppercase mb-4">
+                                Best Value
+                            </div>
+<h3 class="font-headline text-4xl text-white font-editorial italic font-normal editorial-word"><?php echo htmlspecialchars((string) ($professional['name'] ?? 'Professional'), ENT_QUOTES, 'UTF-8'); ?></h3>
 </div>
+<div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-white">verified</span>
+</div>
+</div>
+<div class="flex items-baseline gap-1 mb-10">
+<span class="text-6xl font-headline font-black text-white"><?php echo htmlspecialchars((string) ($professional['price'] ?? '₱2,499'), ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="text-white/60 font-bold text-lg">/mo</span>
+</div>
+<p class="text-sm text-white/80 mb-10"><?php echo htmlspecialchars((string) ($professional['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
+<ul class="space-y-6 mb-12">
+<?php foreach ((array) ($professional['features'] ?? []) as $feature): ?>
+<li class="flex items-start gap-4 text-white">
+<span class="material-symbols-outlined text-white text-xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-base font-bold leading-relaxed"><?php echo htmlspecialchars((string) $feature, ENT_QUOTES, 'UTF-8'); ?></span>
+</li>
+<?php endforeach; ?>
+</ul>
+</div>
+<div class="relative z-10">
 <?php if ($max_sites_reached): ?>
-<span class="mb-8 flex w-full cursor-not-allowed items-center justify-center rounded-xl border-2 border-slate-200 bg-slate-100 py-3 text-sm font-semibold text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"><?php echo htmlspecialchars((string) ($professional['cta'] ?? 'Choose Professional'), ENT_QUOTES, 'UTF-8'); ?></span>
-                        <?php else: ?>
-<a href="<?php echo htmlspecialchars($plan_base); ?>?plan=professional" class="mb-8 flex w-full items-center justify-center rounded-xl bg-primary py-3 text-sm font-bold text-white shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all">
+<span class="w-full py-5 cursor-not-allowed bg-white/10 text-white/60 font-black text-xs uppercase tracking-[0.2em] rounded-2xl border border-white/15 text-center active:scale-95">
+                            <?php echo htmlspecialchars((string) ($professional['cta'] ?? 'Choose Professional'), ENT_QUOTES, 'UTF-8'); ?>
+                        </span>
+<?php else: ?>
+<a href="<?php echo htmlspecialchars($plan_base); ?>?plan=professional" class="w-full py-5 bg-white text-primary font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl hover:scale-[1.03] transition-all duration-300 active:scale-95 text-center">
                             <?php echo htmlspecialchars((string) ($professional['cta'] ?? 'Choose Professional'), ENT_QUOTES, 'UTF-8'); ?>
                         </a>
-                        <?php endif; ?>
-<ul class="flex-1 space-y-4">
-<?php foreach ((array) ($professional['features'] ?? []) as $feature): ?>
-<li class="flex items-start gap-3 text-sm">
-<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-<span class="text-slate-700 dark:text-slate-300"><?php echo htmlspecialchars((string) $feature, ENT_QUOTES, 'UTF-8'); ?></span>
-</li>
-<?php endforeach; ?>
-</ul>
+<?php endif; ?>
+</div>
 </div>
 <!-- Enterprise Plan -->
-<div class="flex flex-col rounded-2xl border border-primary/10 bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-primary/10 dark:bg-slate-900/50">
-<div class="mb-8">
-<h3 class="text-lg font-bold text-primary uppercase tracking-wider"><?php echo htmlspecialchars((string) ($enterprise['name'] ?? 'Enterprise'), ENT_QUOTES, 'UTF-8'); ?></h3>
-<div class="mt-4 flex items-baseline gap-1">
-<span class="text-4xl font-black text-slate-900 dark:text-white"><?php echo htmlspecialchars((string) ($enterprise['price'] ?? '₱4,999'), ENT_QUOTES, 'UTF-8'); ?></span>
-<span class="text-sm font-semibold text-slate-500">/mo</span>
+<div class="bg-white p-10 md:p-14 rounded-[3rem] border border-slate-100 flex flex-col justify-between hover:border-primary/20 transition-all duration-500 shadow-sm hover:shadow-2xl group">
+<div>
+<div class="flex justify-between items-start mb-10">
+<div>
+<span class="text-primary font-bold text-[10px] uppercase tracking-[0.4em] mb-4 block">Scalable for Teams</span>
+<h3 class="font-headline text-4xl text-slate-900 dark:text-white font-editorial italic font-normal text-primary editorial-word"><?php echo htmlspecialchars((string) ($enterprise['name'] ?? 'Enterprise'), ENT_QUOTES, 'UTF-8'); ?></h3>
 </div>
-<p class="mt-4 text-sm text-slate-600 dark:text-slate-400"><?php echo htmlspecialchars((string) ($enterprise['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
+<div class="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-primary/5 transition-colors">
+<span class="material-symbols-outlined text-primary">groups</span>
 </div>
-<?php if ($max_sites_reached): ?>
-<span class="mb-8 flex w-full cursor-not-allowed items-center justify-center rounded-xl border-2 border-slate-200 bg-slate-100 py-3 text-sm font-semibold text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"><?php echo htmlspecialchars((string) ($enterprise['cta'] ?? 'Choose Enterprise'), ENT_QUOTES, 'UTF-8'); ?></span>
-                        <?php else: ?>
-<a href="<?php echo htmlspecialchars($plan_base); ?>?plan=enterprise" class="mb-8 flex w-full items-center justify-center rounded-xl border-2 border-primary/20 bg-primary/5 py-3 text-sm font-bold text-primary hover:bg-primary hover:text-white transition-all">
-                            <?php echo htmlspecialchars((string) ($enterprise['cta'] ?? 'Choose Enterprise'), ENT_QUOTES, 'UTF-8'); ?>
-                        </a>
-                        <?php endif; ?>
-<ul class="flex-1 space-y-4">
+</div>
+<div class="flex items-baseline gap-1 mb-10">
+<span class="text-6xl font-headline font-black text-slate-900 dark:text-white"><?php echo htmlspecialchars((string) ($enterprise['price'] ?? '₱4,999'), ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="text-slate-500 dark:text-slate-400 font-bold text-lg">/mo</span>
+</div>
+<p class="text-sm text-slate-600 dark:text-slate-300 mb-10"><?php echo htmlspecialchars((string) ($enterprise['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
+<ul class="space-y-6 mb-12">
 <?php foreach ((array) ($enterprise['features'] ?? []) as $feature): ?>
-<li class="flex items-start gap-3 text-sm">
-<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-<span class="text-slate-700 dark:text-slate-300"><?php echo htmlspecialchars((string) $feature, ENT_QUOTES, 'UTF-8'); ?></span>
+<li class="flex items-start gap-4 text-slate-600 dark:text-slate-300">
+<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-base font-bold leading-relaxed"><?php echo htmlspecialchars((string) $feature, ENT_QUOTES, 'UTF-8'); ?></span>
 </li>
 <?php endforeach; ?>
 </ul>
 </div>
+<?php if ($max_sites_reached): ?>
+<span class="w-full py-5 cursor-not-allowed bg-slate-100 text-slate-400 font-black text-xs uppercase tracking-[0.2em] rounded-2xl border border-slate-200 text-center active:scale-95">
+                        <?php echo htmlspecialchars((string) ($enterprise['cta'] ?? 'Choose Enterprise'), ENT_QUOTES, 'UTF-8'); ?>
+                    </span>
+<?php else: ?>
+<a href="<?php echo htmlspecialchars($plan_base); ?>?plan=enterprise" class="w-full py-5 bg-primary text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl hover:bg-primary/90 transition-all duration-300 shadow-lg active:scale-95 text-center">
+                        <?php echo htmlspecialchars((string) ($enterprise['cta'] ?? 'Choose Enterprise'), ENT_QUOTES, 'UTF-8'); ?>
+                    </a>
+<?php endif; ?>
+</div>
+</div>
+ </section>
+<!-- Final CTA -->
+<section class="py-12 px-6">
+<div class="mx-auto rounded-[3.5rem] bg-primary relative overflow-hidden flex flex-col items-center text-center shadow-2xl max-w-6xl py-24 px-10">
+<div class="relative z-10 max-w-3xl">
+<div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-10">
+                        Institutional Boarding
+                    </div>
+<h2 class="font-headline text-5xl font-extrabold text-white tracking-tighter leading-tight md:text-6xl mb-8">
+                        Ready to curate your clinical future?
+                    </h2>
+<p class="text-white/70 text-xl font-bold max-w-xl mx-auto leading-relaxed mb-10">
+                        Join clinics using MyDental OS to deliver premium patient experiences.
+                    </p>
+<div class="flex flex-col md:flex-row gap-6 justify-center">
+<a href="ProviderContact.php" class="bg-white text-primary px-16 py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-xl active:scale-95">
+                            Request a Demo
+                        </a>
+<a href="Provider-HowItWorks.php" class="bg-white/10 text-white border border-white/20 px-10 py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:bg-white/20 transition-all">
+                            Feature Guide
+                        </a>
+</div>
+</div>
+<!-- Abstract Accents -->
+<div class="absolute top-0 right-0 w-1/3 h-full border-l border-white/10 pointer-events-none"></div>
+<div class="absolute -right-20 -bottom-20 w-80 h-80 bg-white/5 rounded-full blur-3xl"></div>
 </div>
 </section>
 <!-- FAQ Section -->
 <section class="mx-auto max-w-3xl px-6 pb-24">
-<h2 class="mb-8 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Frequently Asked Questions</h2>
-<div class="divide-y divide-primary/10">
+<h2 class="mb-8 text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Frequently Asked Questions</h2>
+<div class="divide-y divide-primary/10 rounded-3xl border border-primary/10 bg-white/60 dark:bg-slate-900/30 backdrop-blur px-6">
 <details class="group py-4" open="">
 <summary class="flex cursor-pointer list-none items-center justify-between text-base font-semibold text-slate-900 dark:text-slate-100">
                             Can I switch plans later?
@@ -219,7 +310,7 @@ $enterprise = isset($providerPlans['enterprise']) && is_array($providerPlans['en
 </section>
 </main>
 <!-- Footer -->
-<footer class="border-t border-primary/10 bg-white py-12 dark:bg-slate-950">
+<footer class="w-full border-t border-slate-100 bg-white py-12 dark:bg-slate-950">
 <div class="mx-auto max-w-7xl px-6 lg:px-10">
 <div class="flex flex-col items-center justify-between gap-6 md:flex-row">
 <div class="flex items-center gap-3">
