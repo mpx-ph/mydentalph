@@ -47,11 +47,48 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
         }
+        @keyframes slowFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-14px); }
+        }
+        .slow-float {
+            animation: slowFloat 10s ease-in-out infinite;
+        }
+
+        /* Scroll-reveal animation (section-level) */
+        .reveal {
+            opacity: 0;
+            transform: translateY(34px) scale(0.985);
+            filter: blur(12px);
+            transition:
+                opacity 900ms cubic-bezier(0.22, 1, 0.36, 1),
+                transform 900ms cubic-bezier(0.22, 1, 0.36, 1),
+                filter 900ms cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: opacity, transform, filter;
+        }
+        .reveal.is-visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            filter: blur(0);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .reveal {
+                opacity: 1;
+                transform: none;
+                filter: none;
+                transition: none;
+            }
+            .slow-float { animation: none; }
+        }
         .glass-card {
             background: rgba(255, 255, 255, 0.7);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .slanted-container {
+            clip-path: polygon(15% 0%, 100% 0%, 100% 100%, 0% 100%);
         }
         .mesh-gradient {
             background-color: #ffffff;
@@ -59,20 +96,24 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
                 radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.05) 0px, transparent 50%),
                 radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.03) 0px, transparent 50%);
         }
+        .step-connector {
+            background: linear-gradient(90deg, #2b8beb 0%, #2b8beb 50%, transparent 50%, transparent 100%);
+            background-size: 20px 1px;
+        }
         .editorial-word {
             text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
             letter-spacing: -0.02em;
         }
     </style>
 </head>
-<body class="bg-surface font-body text-on-surface">
+<body class="bg-background-light font-body text-on-surface dark:bg-background-dark dark:text-surface antialiased">
 <div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
 <!-- Navigation -->
 <?php include 'ProviderNavbar.php'; ?>
 
 <main class="flex-1">
 <!-- Hero Section -->
-<section class="relative py-20 md:py-24 bg-white overflow-hidden mesh-gradient">
+<section class="relative py-20 md:py-24 bg-white overflow-hidden mesh-gradient reveal" data-reveal="section">
 <div class="max-w-7xl mx-auto px-10 text-center relative z-10">
 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-6">
                     The Clinical Precision Framework
@@ -91,7 +132,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </section>
 
 <!-- Features Content -->
-<section class="py-16 space-y-24 max-w-7xl mx-auto px-10">
+<section class="py-16 space-y-24 max-w-7xl mx-auto px-10 reveal" data-reveal="section">
 <!-- Feature 1: Appointment Scheduling -->
 <div class="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
 <div class="lg:w-1/2 order-2 lg:order-1">
@@ -262,7 +303,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </section>
 
 <!-- Final CTA Section -->
-<section class="py-16 px-10">
+<section class="py-16 px-10 reveal" data-reveal="section">
 <div class="mx-auto rounded-[3rem] md:rounded-[4rem] bg-primary relative overflow-hidden flex flex-col items-center text-center shadow-[0_40px_100px_-20px_rgba(43,139,235,0.4)] max-w-6xl py-16 px-10 md:px-20">
 <div class="relative z-10 max-w-3xl">
 <div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-8">
@@ -283,7 +324,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </main>
 
 <!-- Footer -->
-<footer class="w-full border-t border-slate-200 bg-slate-50">
+<footer class="w-full border-t border-slate-200 bg-slate-50 reveal" data-reveal="section">
 <div class="flex flex-col md:flex-row justify-between items-center py-10 px-8 max-w-screen-2xl mx-auto gap-4">
 <div class="text-lg font-bold text-slate-900 font-headline">Aetheris Systems</div>
 <div class="flex flex-wrap justify-center gap-8 text-xs font-inter text-slate-500">
@@ -298,6 +339,30 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </div>
 </footer>
 </div>
+<script>
+    (function () {
+        var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var elements = document.querySelectorAll('[data-reveal="section"]');
+
+        if (!elements || !elements.length) return;
+        if (prefersReduced || !('IntersectionObserver' in window)) {
+            elements.forEach(function (el) { el.classList.add('is-visible'); });
+            return;
+        }
+
+        var observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                } else {
+                    entry.target.classList.remove('is-visible');
+                }
+            });
+        }, { threshold: 0.18, rootMargin: '0px 0px -10% 0px' });
+
+        elements.forEach(function (el) { observer.observe(el); });
+    })();
+</script>
 </body></html>
 <?php exit; ?>
 
