@@ -85,7 +85,7 @@ $user_display_name = $_SESSION['full_name'] ?? $_SESSION['username'] ?? $_SESSIO
 $user_initial = mb_strtoupper(mb_substr(trim($user_display_name), 0, 1)) ?: '?';
 ?>
 <!-- Navigation -->
-<header class="sticky top-0 z-50 w-full border-b border-on-surface/5 bg-white/70 dark:bg-background-dark/70 backdrop-blur-xl">
+<header style="position: sticky; top: 0; z-index: 50;" class="sticky top-0 z-50 w-full border-b border-on-surface/5 bg-white/70 dark:bg-background-dark/70 backdrop-blur-xl">
 <div class="mx-auto max-w-[1800px] px-6 sm:px-8 lg:px-10">
 <div class="flex h-16 items-center justify-between">
 <div class="flex items-center gap-3">
