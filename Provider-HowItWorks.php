@@ -93,8 +93,8 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
         .mesh-gradient {
             background-color: #ffffff;
             background-image:
-                radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.05) 0px, transparent 50%),
-                radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.03) 0px, transparent 50%);
+                radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.1) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.05) 0px, transparent 50%);
         }
         .step-connector {
             background: linear-gradient(90deg, #2b8beb 0%, #2b8beb 50%, transparent 50%, transparent 100%);
@@ -106,12 +106,11 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
         }
     </style>
 </head>
-<body class="bg-background-light font-body text-on-surface dark:bg-background-dark dark:text-surface antialiased overflow-x-hidden">
-<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+<body class="bg-background-light font-body text-on-surface dark:bg-background-dark dark:text-surface antialiased">
 <!-- Navigation -->
 <?php include 'ProviderNavbar.php'; ?>
 
-<main class="flex-1">
+<main>
 <!-- Hero Section -->
 <section class="relative py-20 md:py-24 bg-white overflow-hidden mesh-gradient reveal" data-reveal="section">
 <div class="max-w-7xl mx-auto px-10 text-center relative z-10">
@@ -138,7 +137,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <div class="lg:w-1/2 order-2 lg:order-1">
 <div class="relative group">
 <div class="bg-surface-variant p-8 rounded-[2.5rem] border border-on-surface/5 overflow-hidden transition-all duration-700 group-hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.08)]">
-<img alt="AI smart scheduling dashboard" class="rounded-2xl shadow-2xl w-full transition-transform duration-700 group-hover:scale-[1.02]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDl1RL8H3aP1H2gLu52d_-r5jan-Mi994yrkmLfNq9_GCqbx-O78JMUybjSkFf7hF1ceyIr9FkkzS2jnG-OLeV21IJl_Wxq_VT5MGo_QTDs6cGvo1-kzccYtdYs9m4bdtK9Mu0szsn3MVIsiKryw1_GIq4n66xBwy46WHwmXydC_cAGl9KAjcxucMqkGAgJx1aV_vd_Jt8A1X-hr7m57uP0sekl-eXJqAPsSYuVzrFzYfVYQkalMIinayHjBb3YepggQHJVJ1fH_T4"/>
+<img alt="AI smart scheduling dashboard" class="rounded-2xl shadow-2xl w-full aspect-video object-cover transition-transform duration-700 group-hover:scale-[1.02]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDl1RL8H3aP1H2gLu52d_-r5jan-Mi994yrkmLfNq9_GCqbx-O78JMUybjSkFf7hF1ceyIr9FkkzS2jnG-OLeV21IJl_Wxq_VT5MGo_QTDs6cGvo1-kzccYtdYs9m4bdtK9Mu0szsn3MVIsiKryw1_GIq4n66xBwy46WHwmXydC_cAGl9KAjcxucMqkGAgJx1aV_vd_Jt8A1X-hr7m57uP0sekl-eXJqAPsSYuVzrFzYfVYQkalMIinayHjBb3YepggQHJVJ1fH_T4"/>
 <div class="absolute top-12 right-12 bg-primary text-white text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest shadow-lg">AI-Powered</div>
 </div>
 </div>
@@ -171,7 +170,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <div class="lg:w-1/2">
 <div class="relative group">
 <div class="bg-surface-variant p-8 rounded-[2.5rem] border border-on-surface/5 overflow-hidden transition-all duration-700 group-hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.08)]">
-<img alt="Dental imaging analysis" class="rounded-2xl shadow-2xl w-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDt3paASEq-UQQDjSRGiZBZ7hVe66UAMo6xIq9h4aGmQQXTFGkLll2XiGwuRci9conA7peAGiNnTgZdfg0X7_XJZeYRTQFDbtGKxbCWIynOVAJR-rWXTMAR6EWmhzOhRpEl5YiuSDq-3wWjtG8WDhvQID2-VmUBXNuZNw5xdZSUBIvWh8pZ9ea1acGmN3eoYDECRpIRd9Y39eMVFvQjHYOKf356PFOFqTQFxjGYZUPBJ8b_S7QfhLh9N_d42-LOspVKMaWKUcVIqmU"/>
+<img alt="Dental imaging analysis" class="rounded-2xl shadow-2xl w-full aspect-video object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDt3paASEq-UQQDjSRGiZBZ7hVe66UAMo6xIq9h4aGmQQXTFGkLll2XiGwuRci9conA7peAGiNnTgZdfg0X7_XJZeYRTQFDbtGKxbCWIynOVAJR-rWXTMAR6EWmhzOhRpEl5YiuSDq-3wWjtG8WDhvQID2-VmUBXNuZNw5xdZSUBIvWh8pZ9ea1acGmN3eoYDECRpIRd9Y39eMVFvQjHYOKf356PFOFqTQFxjGYZUPBJ8b_S7QfhLh9N_d42-LOspVKMaWKUcVIqmU"/>
 </div>
 </div>
 </div>
@@ -338,7 +337,6 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
             </div>
 </div>
 </footer>
-</div>
 <script>
     (function () {
         var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
