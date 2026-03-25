@@ -4,6 +4,604 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 ?>
 <!DOCTYPE html>
 
+<html class="scroll-smooth" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Features | Aetheris OS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@1,400;1,700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2b8beb",
+                        "on-surface": "#131c25",
+                        "surface": "#ffffff",
+                        "surface-variant": "#f7f9ff",
+                        "on-surface-variant": "#404752",
+                        "outline-variant": "#c0c7d4",
+                        "primary-fixed": "#d4e3ff",
+                        "on-primary-fixed-variant": "#004883",
+                        "surface-container-low": "#edf4ff",
+                        "inverse-surface": "#131c25",
+
+                        /* Existing app colors used by ProviderNavbar */
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "editorial": ["Playfair Display", "serif"],
+                        "inter": ["Inter", "sans-serif"],
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1.5rem", "3xl": "2.5rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .mesh-gradient {
+            background-color: #ffffff;
+            background-image:
+                radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.05) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.03) 0px, transparent 50%);
+        }
+        .editorial-word {
+            text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
+            letter-spacing: -0.02em;
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+<!-- Navigation -->
+<?php include 'ProviderNavbar.php'; ?>
+
+<main class="flex-1">
+<!-- Hero Section -->
+<section class="relative py-20 md:py-24 bg-white overflow-hidden mesh-gradient">
+<div class="max-w-7xl mx-auto px-10 text-center relative z-10">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-6">
+                    The Clinical Precision Framework
+                </div>
+<h1 class="font-headline text-[clamp(3rem,6vw,5.5rem)] font-extrabold tracking-[-0.04em] text-on-surface mb-6 leading-[1.1]">Precision Engineered <br/>
+<span class="font-editorial italic font-normal text-primary editorial-word inline-block">System Capabilities.</span></h1>
+<p class="font-body text-xl md:text-2xl max-w-2xl mx-auto mb-10 leading-relaxed text-on-surface-variant font-medium">
+                    Aetheris OS redefines dental management through a clinical lens. Every feature is curated to serve practitioners and patients with uncompromising accuracy.
+                </p>
+<div class="flex flex-wrap justify-center gap-6">
+<a href="ProviderContact.php" class="px-10 py-5 bg-primary text-white font-bold rounded-full shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all active:scale-95">
+                        Request Live Demo
+                    </a>
+</div>
+</div>
+</section>
+
+<!-- Features Content -->
+<section class="py-16 space-y-24 max-w-7xl mx-auto px-10">
+<!-- Feature 1: Appointment Scheduling -->
+<div class="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
+<div class="lg:w-1/2 order-2 lg:order-1">
+<div class="relative group">
+<div class="bg-surface-variant p-8 rounded-[2.5rem] border border-on-surface/5 overflow-hidden transition-all duration-700 group-hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.08)]">
+<img alt="AI smart scheduling dashboard" class="rounded-2xl shadow-2xl w-full transition-transform duration-700 group-hover:scale-[1.02]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDl1RL8H3aP1H2gLu52d_-r5jan-Mi994yrkmLfNq9_GCqbx-O78JMUybjSkFf7hF1ceyIr9FkkzS2jnG-OLeV21IJl_Wxq_VT5MGo_QTDs6cGvo1-kzccYtdYs9m4bdtK9Mu0szsn3MVIsiKryw1_GIq4n66xBwy46WHwmXydC_cAGl9KAjcxucMqkGAgJx1aV_vd_Jt8A1X-hr7m57uP0sekl-eXJqAPsSYuVzrFzYfVYQkalMIinayHjBb3YepggQHJVJ1fH_T4"/>
+<div class="absolute top-12 right-12 bg-primary text-white text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest shadow-lg">AI-Powered</div>
+</div>
+</div>
+</div>
+<div class="lg:w-1/2 order-1 lg:order-2">
+<div class="text-primary font-bold text-xs uppercase tracking-[0.4em] mb-6 flex items-center gap-4">
+<span class="w-12 h-[1.5px] bg-primary"></span> Optimization
+                    </div>
+<h2 class="font-headline text-5xl md:text-6xl font-extrabold tracking-tighter leading-tight mb-8">
+                        Appointment <br/><span class="text-primary"><span class="font-editorial italic font-normal text-primary editorial-word inline-block">Scheduling</span></span>
+</h2>
+<p class="text-on-surface-variant text-xl leading-relaxed font-medium mb-10">
+                        Our proprietary AI-driven gap prediction engine analyzes historical data to optimize your chair time. It automatically identifies potential no-shows and suggests fills in real-time.
+                    </p>
+<div class="space-y-4">
+<div class="flex items-center gap-4 p-4 rounded-2xl border border-on-surface/5 hover:border-primary/20 transition-all bg-white shadow-sm">
+<span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">dynamic_feed</span>
+<span class="font-bold text-on-surface">Dynamic queue management</span>
+</div>
+<div class="flex items-center gap-4 p-4 rounded-2xl border border-on-surface/5 hover:border-primary/20 transition-all bg-white shadow-sm">
+<span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">account_tree</span>
+<span class="font-bold text-on-surface">Multi-resource coordination</span>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Feature 2: Patient Intelligence -->
+<div class="flex flex-col lg:flex-row-reverse items-center gap-12 lg:gap-20">
+<div class="lg:w-1/2">
+<div class="relative group">
+<div class="bg-surface-variant p-8 rounded-[2.5rem] border border-on-surface/5 overflow-hidden transition-all duration-700 group-hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.08)]">
+<img alt="Dental imaging analysis" class="rounded-2xl shadow-2xl w-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDt3paASEq-UQQDjSRGiZBZ7hVe66UAMo6xIq9h4aGmQQXTFGkLll2XiGwuRci9conA7peAGiNnTgZdfg0X7_XJZeYRTQFDbtGKxbCWIynOVAJR-rWXTMAR6EWmhzOhRpEl5YiuSDq-3wWjtG8WDhvQID2-VmUBXNuZNw5xdZSUBIvWh8pZ9ea1acGmN3eoYDECRpIRd9Y39eMVFvQjHYOKf356PFOFqTQFxjGYZUPBJ8b_S7QfhLh9N_d42-LOspVKMaWKUcVIqmU"/>
+</div>
+</div>
+</div>
+<div class="lg:w-1/2">
+<div class="text-primary font-bold text-xs uppercase tracking-[0.4em] mb-6 flex items-center gap-4">
+<span class="w-12 h-[1.5px] bg-primary"></span> Data Architecture
+                    </div>
+<h2 class="font-headline text-5xl md:text-6xl font-extrabold tracking-tighter leading-tight mb-8">
+                        Unified Patient <br/><span class="text-primary"><span class="font-editorial italic font-normal text-primary editorial-word inline-block">Intelligence</span></span>
+</h2>
+<p class="text-on-surface-variant text-xl leading-relaxed font-medium mb-10">
+                        Centralize high-resolution 3D X-rays, treatment plans, and clinical notes in one high-velocity interface. The "Digital Curator" view provides an editorialized look at patient progress.
+                    </p>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+<div class="p-6 rounded-[2rem] bg-surface-container-low border border-primary/10 transition-all hover:bg-white hover:shadow-xl group">
+<div class="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">imagesmode</span>
+</div>
+<p class="text-lg font-bold mb-1">DICOM Ready</p>
+<p class="text-sm text-on-surface-variant">Seamless imaging integration</p>
+</div>
+<div class="p-6 rounded-[2rem] bg-surface-container-low border border-primary/10 transition-all hover:bg-white hover:shadow-xl group">
+<div class="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">encrypted</span>
+</div>
+<p class="text-lg font-bold mb-1">Secure Vault</p>
+<p class="text-sm text-on-surface-variant">HIPAA compliant encryption</p>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Feature 3 & 4: Billing & Staff -->
+<div class="grid lg:grid-cols-12 gap-8 lg:gap-10">
+<div class="lg:col-span-7 bg-white p-10 md:p-12 rounded-[2.5rem] border border-on-surface/5 transition-all duration-700 hover:shadow-2xl relative overflow-hidden group">
+<div class="absolute -right-8 -top-8 w-48 h-48 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors"></div>
+<div class="relative z-10">
+<div class="w-14 h-14 bg-surface-container-low rounded-2xl flex items-center justify-center mb-6 text-primary">
+<span class="material-symbols-outlined text-3xl">payments</span>
+</div>
+<h2 class="font-headline text-5xl md:text-6xl font-extrabold tracking-tighter leading-tight mb-8">Billing &amp; <br/><span class="text-primary"><span class="font-editorial italic font-normal text-primary editorial-word inline-block">Collections</span></span></h2>
+<p class="text-on-surface-variant text-lg font-medium mb-8 max-w-md">Fintech-grade tracking ensures no procedure goes unbilled. Integrated payment gateways for instant checkout.</p>
+<img alt="Financial dashboard" class="w-full h-72 object-cover rounded-2xl shadow-lg transition-transform group-hover:scale-[1.01]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdH09SxKkP3BTr1H_b5xfWro-U3MSLNKHsTsCkIrGzX2zlaJ_xhQy09tTxDRpzWsJumuc73djtIZXd6EBqBUTdHBGo2VERbysG5mxqcwAoLcATIh7m4RV0iUe523jqMMFf3JueLxrxlwj_wTKliv5or9iOqsxBrwxrkYV_fv-c2z51g95rgIwJDYr7gVoQ-JJbU8QOStlFzbqTdiNMEXAwTGgrXSZIJp4bNevxukNZvzH360Y_408xVpMKrCl9tx81klilnqKTVqA"/>
+</div>
+</div>
+<div class="lg:col-span-5 bg-primary p-10 md:p-12 rounded-[2.5rem] shadow-xl text-white relative overflow-hidden flex flex-col">
+<div class="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none">
+<svg class="w-full h-full stroke-white fill-none" viewbox="0 0 100 100">
+<circle cx="100" cy="0" r="80" stroke-width="0.5"></circle>
+<circle cx="100" cy="0" r="60" stroke-width="0.5"></circle>
+</svg>
+</div>
+<div class="relative z-10">
+<div class="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6 text-white border border-white/20">
+<span class="material-symbols-outlined text-3xl font-light">admin_panel_settings</span>
+</div>
+<h3 class="font-headline text-4xl font-extrabold mb-6 tracking-tight">Staff Hierarchy</h3>
+<p class="text-white/80 text-lg font-medium mb-8">Granular permissions and role-based access control. Define exactly who sees clinical data vs. financial reports.</p>
+<div class="space-y-4">
+<div class="flex justify-between items-center py-4 border-b border-white/20">
+<span class="font-bold">Admin Access</span>
+<span class="material-symbols-outlined">toggle_on</span>
+</div>
+<div class="flex justify-between items-center py-4 border-b border-white/20">
+<span class="font-bold">Clinical Only</span>
+<span class="material-symbols-outlined">toggle_on</span>
+</div>
+<div class="flex justify-between items-center py-4">
+<span class="font-bold">Front Desk</span>
+<span class="material-symbols-outlined">toggle_on</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Feature 5 & 6: Insights & Comms -->
+<div class="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
+<div class="lg:w-1/2 order-2 lg:order-1">
+<div class="grid grid-cols-2 gap-6">
+<div class="space-y-6">
+<div class="aspect-square rounded-3xl bg-surface-variant flex flex-col justify-end p-8 border border-on-surface/5 group hover:border-primary/30 transition-all">
+<span class="material-symbols-outlined text-primary text-4xl mb-4 group-hover:scale-110 transition-transform">bar_chart</span>
+<p class="text-xl font-bold">Analytics</p>
+</div>
+<div class="h-40 rounded-3xl bg-primary-fixed flex flex-col justify-end p-8 transition-all hover:shadow-lg">
+<span class="material-symbols-outlined text-primary text-4xl mb-4">campaign</span>
+<p class="text-xl font-bold text-on-primary-fixed-variant">Omnichannel</p>
+</div>
+</div>
+<div class="space-y-6 pt-12">
+<div class="h-40 rounded-3xl bg-surface-container-low border border-primary/10 flex flex-col justify-end p-8">
+<span class="material-symbols-outlined text-primary text-4xl mb-4">mark_email_unread</span>
+<p class="text-xl font-bold">Alerts</p>
+</div>
+<div class="aspect-square rounded-3xl bg-primary text-white flex flex-col justify-end p-8 shadow-xl">
+<span class="material-symbols-outlined text-4xl mb-4">dashboard_customize</span>
+<p class="text-xl font-bold">Dynamic Reports</p>
+</div>
+</div>
+</div>
+</div>
+<div class="lg:w-1/2 order-1 lg:order-2">
+<div class="text-primary font-bold text-xs uppercase tracking-[0.4em] mb-6 flex items-center gap-4">
+<span class="w-12 h-[1.5px] bg-primary"></span> Intelligence
+                    </div>
+<h2 class="font-headline text-5xl md:text-6xl font-extrabold tracking-tighter leading-tight mb-8">
+                        Reports &amp; <br/><span class="text-primary"><span class="font-editorial italic font-normal text-primary editorial-word inline-block">Notifications</span></span>
+</h2>
+<p class="text-on-surface-variant text-xl leading-relaxed font-medium mb-10">
+                        Stay ahead of clinic performance with dynamic dashboards. Automate patient reminders via SMS, Email, and Push notifications to virtually eliminate late arrivals.
+                    </p>
+<div class="flex items-center gap-6 p-6 rounded-[2rem] border border-on-surface/5 bg-white">
+<div class="flex -space-x-3">
+<div class="w-12 h-12 rounded-full bg-primary flex items-center justify-center border-4 border-white shadow-sm">
+<span class="material-symbols-outlined text-xs text-white">sms</span>
+</div>
+<div class="w-12 h-12 rounded-full bg-primary-fixed flex items-center justify-center border-4 border-white shadow-sm">
+<span class="material-symbols-outlined text-xs text-primary">mail</span>
+</div>
+<div class="w-12 h-12 rounded-full bg-on-surface flex items-center justify-center border-4 border-white shadow-sm">
+<span class="material-symbols-outlined text-xs text-white">notifications_active</span>
+</div>
+</div>
+<p class="font-bold text-on-surface">Omnichannel Ready Notification Protocol</p>
+</div>
+</div>
+</div>
+</section>
+
+<!-- Final CTA Section -->
+<section class="py-16 px-10">
+<div class="mx-auto rounded-[3rem] md:rounded-[4rem] bg-primary relative overflow-hidden flex flex-col items-center text-center shadow-[0_40px_100px_-20px_rgba(43,139,235,0.4)] max-w-6xl py-16 px-10 md:px-20">
+<div class="relative z-10 max-w-3xl">
+<div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-8">
+                        Institutional Scale
+                    </div>
+<h2 class="font-headline text-5xl font-extrabold text-white tracking-tighter leading-[0.85] md:text-6xl mb-8">Ready to scale your clinic?</h2>
+<p class="text-white/70 text-xl md:text-2xl max-w-xl mx-auto leading-relaxed mb-10">Join over 500+ practices worldwide using Aetheris OS to streamline operations and enhance patient care.</p>
+<a href="Provider-Plans.php" class="bg-white text-primary px-16 py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-2xl active:scale-95 inline-block">
+                        Explore Pricing Plans
+                    </a>
+</div>
+<!-- Abstract Architectural Accents -->
+<div class="absolute top-0 right-0 w-1/3 h-full border-l border-white/10 pointer-events-none"></div>
+<div class="absolute bottom-0 left-0 w-full h-1/4 border-t border-white/10 pointer-events-none"></div>
+<div class="absolute -right-20 -bottom-20 w-80 h-80 bg-white/5 rounded-full blur-3xl"></div>
+</div>
+</section>
+</main>
+
+<!-- Footer -->
+<footer class="w-full border-t border-slate-200 bg-slate-50">
+<div class="flex flex-col md:flex-row justify-between items-center py-10 px-8 max-w-screen-2xl mx-auto gap-4">
+<div class="text-lg font-bold text-slate-900 font-headline">Aetheris Systems</div>
+<div class="flex flex-wrap justify-center gap-8 text-xs font-inter text-slate-500">
+<a class="hover:text-blue-500 hover:underline transition-all" href="#">Privacy Policy</a>
+<a class="hover:text-blue-500 hover:underline transition-all" href="#">Terms of Service</a>
+<a class="hover:text-blue-500 hover:underline transition-all" href="#">Interoperability Standards</a>
+<a class="hover:text-blue-500 hover:underline transition-all" href="#">Contact Sales</a>
+</div>
+<div class="text-xs text-slate-500 font-inter opacity-80 hover:opacity-100">
+                © 2024 Clinical Precision Framework. All rights reserved.
+            </div>
+</div>
+</footer>
+</div>
+</body></html>
+<?php exit; ?>
+
+<?php
+session_start();
+require_once __DIR__ . '/provider_redirect_superadmin.php';
+?>
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Features | Aetheris OS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@1,400;1,700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2b8beb",
+                        "on-surface": "#131c25",
+                        "surface": "#ffffff",
+                        "surface-variant": "#f7f9ff",
+                        "on-surface-variant": "#404752",
+                        "outline-variant": "#c0c7d4",
+                        "primary-fixed": "#d4e3ff",
+                        "on-primary-fixed-variant": "#004883",
+                        "surface-container-low": "#edf4ff",
+                        "inverse-surface": "#131c25",
+
+                        /* Existing app colors used by ProviderNavbar */
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "editorial": ["Playfair Display", "serif"],
+                        "inter": ["Inter", "sans-serif"],
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1.5rem", "3xl": "2.5rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .mesh-gradient {
+            background-color: #ffffff;
+            background-image:
+                radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.05) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.03) 0px, transparent 50%);
+        }
+        .editorial-word {
+            text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
+            letter-spacing: -0.02em;
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+<!-- Navigation -->
+<?php include 'ProviderNavbar.php'; ?>
+<main class="flex-1">
+<!-- Hero Section -->
+<section class="relative py-20 md:py-24 bg-white overflow-hidden mesh-gradient">
+<div class="max-w-7xl mx-auto px-10 text-center relative z-10">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-6">
+                    The Clinical Precision Framework
+                </div>
+<h1 class="font-headline text-[clamp(3rem,6vw,5.5rem)] font-extrabold tracking-[-0.04em] text-on-surface mb-6 leading-[1.1]">Precision Engineered <br/>
+<span class="font-editorial italic font-normal text-primary editorial-word inline-block">System Capabilities.</span></h1>
+<p class="font-body text-xl md:text-2xl max-w-2xl mx-auto mb-10 leading-relaxed text-on-surface-variant font-medium">
+                    Aetheris OS redefines dental management through a clinical lens. Every feature is curated to serve practitioners and patients with uncompromising accuracy.
+                </p>
+<div class="flex flex-wrap justify-center gap-6">
+<a href="ProviderContact.php" class="px-10 py-5 bg-primary text-white font-bold rounded-full shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all active:scale-95">
+                        Request Live Demo
+                    </a>
+</div>
+</div>
+</section>
+<!-- Features Content -->
+<section class="py-16 space-y-24 max-w-7xl mx-auto px-10">
+<!-- Feature 1: Appointment Scheduling -->
+<div class="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
+<div class="lg:w-1/2 order-2 lg:order-1">
+<div class="relative group">
+<div class="bg-surface-variant p-8 rounded-[2.5rem] border border-on-surface/5 overflow-hidden transition-all duration-700 group-hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.08)]">
+<img alt="AI smart scheduling dashboard" class="rounded-2xl shadow-2xl w-full transition-transform duration-700 group-hover:scale-[1.02]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDl1RL8H3aP1H2gLu52d_-r5jan-Mi994yrkmLfNq9_GCqbx-O78JMUybjSkFf7hF1ceyIr9FkkzS2jnG-OLeV21IJl_Wxq_VT5MGo_QTDs6cGvo1-kzccYtdYs9m4bdtK9Mu0szsn3MVIsiKryw1_GIq4n66xBwy46WHwmXydC_cAGl9KAjcxucMqkGAgJx1aV_vd_Jt8A1X-hr7m57uP0sekl-eXJqAPsSYuVzrFzYfVYQkalMIinayHjBb3YepggQHJVJ1fH_T4"/>
+<div class="absolute top-12 right-12 bg-primary text-white text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest shadow-lg">AI-Powered</div>
+</div>
+</div>
+</div>
+<div class="lg:w-1/2 order-1 lg:order-2">
+<div class="text-primary font-bold text-xs uppercase tracking-[0.4em] mb-6 flex items-center gap-4">
+<span class="w-12 h-[1.5px] bg-primary"></span> Optimization
+                    </div>
+<h2 class="font-headline text-5xl md:text-6xl font-extrabold tracking-tighter leading-tight mb-8">
+                        Appointment <br/><span class="text-primary"><span class="font-editorial italic font-normal text-primary editorial-word inline-block">Scheduling</span></span>
+</h2>
+<p class="text-on-surface-variant text-xl leading-relaxed font-medium mb-10">
+                        Our proprietary AI-driven gap prediction engine analyzes historical data to optimize your chair time. It automatically identifies potential no-shows and suggests fills in real-time.
+                    </p>
+<div class="space-y-4">
+<div class="flex items-center gap-4 p-4 rounded-2xl border border-on-surface/5 hover:border-primary/20 transition-all bg-white shadow-sm">
+<span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">dynamic_feed</span>
+<span class="font-bold text-on-surface">Dynamic queue management</span>
+</div>
+<div class="flex items-center gap-4 p-4 rounded-2xl border border-on-surface/5 hover:border-primary/20 transition-all bg-white shadow-sm">
+<span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">account_tree</span>
+<span class="font-bold text-on-surface">Multi-resource coordination</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Feature 2: Patient Intelligence -->
+<div class="flex flex-col lg:flex-row-reverse items-center gap-12 lg:gap-20">
+<div class="lg:w-1/2">
+<div class="relative group">
+<div class="bg-surface-variant p-8 rounded-[2.5rem] border border-on-surface/5 overflow-hidden transition-all duration-700 group-hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.08)]">
+<img alt="Dental imaging analysis" class="rounded-2xl shadow-2xl w-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDt3paASEq-UQQDjSRGiZBZ7hVe66UAMo6xIq9h4aGmQQXTFGkLll2XiGwuRci9conA7peAGiNnTgZdfg0X7_XJZeYRTQFDbtGKxbCWIynOVAJR-rWXTMAR6EWmhzOhRpEl5YiuSDq-3wWjtG8WDhvQID2-VmUBXNuZNw5xdZSUBIvWh8pZ9ea1acGmN3eoYDECRpIRd9Y39eMVFvQjHYOKf356PFOFqTQFxjGYZUPBJ8b_S7QfhLh9N_d42-LOspVKMaWKUcVIqmU"/>
+</div>
+</div>
+</div>
+<div class="lg:w-1/2">
+<div class="text-primary font-bold text-xs uppercase tracking-[0.4em] mb-6 flex items-center gap-4">
+<span class="w-12 h-[1.5px] bg-primary"></span> Data Architecture
+                    </div>
+<h2 class="font-headline text-5xl md:text-6xl font-extrabold tracking-tighter leading-tight mb-8">
+                        Unified Patient <br/><span class="text-primary"><span class="font-editorial italic font-normal text-primary editorial-word inline-block">Intelligence</span></span>
+</h2>
+<p class="text-on-surface-variant text-xl leading-relaxed font-medium mb-10">
+                        Centralize high-resolution 3D X-rays, treatment plans, and clinical notes in one high-velocity interface. The "Digital Curator" view provides an editorialized look at patient progress.
+                    </p>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+<div class="p-6 rounded-[2rem] bg-surface-container-low border border-primary/10 transition-all hover:bg-white hover:shadow-xl group">
+<div class="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">imagesmode</span>
+</div>
+<p class="text-lg font-bold mb-1">DICOM Ready</p>
+<p class="text-sm text-on-surface-variant">Seamless imaging integration</p>
+</div>
+<div class="p-6 rounded-[2rem] bg-surface-container-low border border-primary/10 transition-all hover:bg-white hover:shadow-xl group">
+<div class="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">encrypted</span>
+</div>
+<p class="text-lg font-bold mb-1">Secure Vault</p>
+<p class="text-sm text-on-surface-variant">HIPAA compliant encryption</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Feature 3 & 4: Billing & Staff -->
+<div class="grid lg:grid-cols-12 gap-8 lg:gap-10">
+<div class="lg:col-span-7 bg-white p-10 md:p-12 rounded-[2.5rem] border border-on-surface/5 transition-all duration-700 hover:shadow-2xl relative overflow-hidden group">
+<div class="absolute -right-8 -top-8 w-48 h-48 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors"></div>
+<div class="relative z-10">
+<div class="w-14 h-14 bg-surface-container-low rounded-2xl flex items-center justify-center mb-6 text-primary">
+<span class="material-symbols-outlined text-3xl">payments</span>
+</div>
+<h2 class="font-headline text-5xl md:text-6xl font-extrabold tracking-tighter leading-tight mb-8">Billing &amp; <br/><span class="text-primary"><span class="font-editorial italic font-normal text-primary editorial-word inline-block">Collections</span></span></h2>
+<p class="text-on-surface-variant text-lg font-medium mb-8 max-w-md">Fintech-grade tracking ensures no procedure goes unbilled. Integrated payment gateways for instant checkout.</p>
+<img alt="Financial dashboard" class="w-full h-72 object-cover rounded-2xl shadow-lg transition-transform group-hover:scale-[1.01]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdH09SxKkP3BTr1H_b5xfWro-U3MSLNKHsTsCkIrGzX2zlaJ_xhQy09tTxDRpzWsJumuc73djtIZXd6EBqBUTdHBGo2VERbysG5mxqcwAoLcATIh7m4RV0iUe523jqMMFf3JueLxrxlwj_wTKliv5or9iOqsxBrwxrkYV_fv-c2z51g95rgIwJDYr7gVoQ-JJbU8QOStlFzbqTdiNMEXAwTGgrXSZIJp4bNevxukNZvzH360Y_408xVpMKrCl9tx81klilnqKTVqA"/>
+</div>
+</div>
+<div class="lg:col-span-5 bg-primary p-10 md:p-12 rounded-[2.5rem] shadow-xl text-white relative overflow-hidden flex flex-col">
+<div class="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none">
+<svg class="w-full h-full stroke-white fill-none" viewbox="0 0 100 100">
+<circle cx="100" cy="0" r="80" stroke-width="0.5"></circle>
+<circle cx="100" cy="0" r="60" stroke-width="0.5"></circle>
+</svg>
+</div>
+<div class="relative z-10">
+<div class="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6 text-white border border-white/20">
+<span class="material-symbols-outlined text-3xl font-light">admin_panel_settings</span>
+</div>
+<h3 class="font-headline text-4xl font-extrabold mb-6 tracking-tight">Staff Hierarchy</h3>
+<p class="text-white/80 text-lg font-medium mb-8">Granular permissions and role-based access control. Define exactly who sees clinical data vs. financial reports.</p>
+<div class="space-y-4">
+<div class="flex justify-between items-center py-4 border-b border-white/20">
+<span class="font-bold">Admin Access</span>
+<span class="material-symbols-outlined">toggle_on</span>
+</div>
+<div class="flex justify-between items-center py-4 border-b border-white/20">
+<span class="font-bold">Clinical Only</span>
+<span class="material-symbols-outlined">toggle_on</span>
+</div>
+<div class="flex justify-between items-center py-4">
+<span class="font-bold">Front Desk</span>
+<span class="material-symbols-outlined">toggle_on</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Feature 5 & 6: Insights & Comms -->
+<div class="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
+<div class="lg:w-1/2 order-2 lg:order-1">
+<div class="grid grid-cols-2 gap-6">
+<div class="space-y-6">
+<div class="aspect-square rounded-3xl bg-surface-variant flex flex-col justify-end p-8 border border-on-surface/5 group hover:border-primary/30 transition-all">
+<span class="material-symbols-outlined text-primary text-4xl mb-4 group-hover:scale-110 transition-transform">bar_chart</span>
+<p class="text-xl font-bold">Analytics</p>
+</div>
+<div class="h-40 rounded-3xl bg-primary-fixed flex flex-col justify-end p-8 transition-all hover:shadow-lg">
+<span class="material-symbols-outlined text-primary text-4xl mb-4">campaign</span>
+<p class="text-xl font-bold text-on-primary-fixed-variant">Omnichannel</p>
+</div>
+</div>
+<div class="space-y-6 pt-12">
+<div class="h-40 rounded-3xl bg-surface-container-low border border-primary/10 flex flex-col justify-end p-8">
+<span class="material-symbols-outlined text-primary text-4xl mb-4">mark_email_unread</span>
+<p class="text-xl font-bold">Alerts</p>
+</div>
+<div class="aspect-square rounded-3xl bg-primary text-white flex flex-col justify-end p-8 shadow-xl">
+<span class="material-symbols-outlined text-4xl mb-4">dashboard_customize</span>
+<p class="text-xl font-bold">Dynamic Reports</p>
+</div>
+</div>
+</div>
+</div>
+<div class="lg:w-1/2 order-1 lg:order-2">
+<div class="text-primary font-bold text-xs uppercase tracking-[0.4em] mb-6 flex items-center gap-4">
+<span class="w-12 h-[1.5px] bg-primary"></span> Intelligence
+                    </div>
+<h2 class="font-headline text-5xl md:text-6xl font-extrabold tracking-tighter leading-tight mb-8">
+                        Reports &amp; <br/><span class="text-primary"><span class="font-editorial italic font-normal text-primary editorial-word inline-block">Notifications</span></span>
+</h2>
+<p class="text-on-surface-variant text-xl leading-relaxed font-medium mb-10">
+                        Stay ahead of clinic performance with dynamic dashboards. Automate patient reminders via SMS, Email, and Push notifications to virtually eliminate late arrivals.
+                    </p>
+<div class="flex items-center gap-6 p-6 rounded-[2rem] border border-on-surface/5 bg-white">
+<div class="flex -space-x-3">
+<div class="w-12 h-12 rounded-full bg-primary flex items-center justify-center border-4 border-white shadow-sm">
+<span class="material-symbols-outlined text-xs text-white">sms</span>
+</div>
+<div class="w-12 h-12 rounded-full bg-primary-fixed flex items-center justify-center border-4 border-white shadow-sm">
+<span class="material-symbols-outlined text-xs text-primary">mail</span>
+</div>
+<div class="w-12 h-12 rounded-full bg-on-surface flex items-center justify-center border-4 border-white shadow-sm">
+<span class="material-symbols-outlined text-xs text-white">notifications_active</span>
+</div>
+</div>
+<p class="font-bold text-on-surface">Omnichannel Ready Notification Protocol</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Final CTA Section -->
+<section class="py-16 px-10">
+<div class="mx-auto rounded-[3rem] md:rounded-[4rem] bg-primary relative overflow-hidden flex flex-col items-center text-center shadow-[0_40px_100px_-20px_rgba(43,139,235,0.4)] max-w-6xl py-16 px-10 md:px-20">
+<div class="relative z-10 max-w-3xl">
+<div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-8">
+                        Institutional Scale
+                    </div>
+<h2 class="font-headline text-5xl font-extrabold text-white tracking-tighter leading-[0.85] md:text-6xl mb-8">Ready to scale your clinic?</h2>
+<p class="text-white/70 text-xl md:text-2xl max-w-xl mx-auto leading-relaxed mb-10">Join over 500+ practices worldwide using Aetheris OS to streamline operations and enhance patient care.</p>
+<a href="Provider-Plans.php" class="bg-white text-primary px-16 py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-2xl active:scale-95 inline-block">
+                        Explore Pricing Plans
+                    </a>
+</div>
+<!-- Abstract Architectural Accents -->
+<div class="absolute top-0 right-0 w-1/3 h-full border-l border-white/10 pointer-events-none"></div>
+<div class="absolute bottom-0 left-0 w-full h-1/4 border-t border-white/10 pointer-events-none"></div>
+<div class="absolute -right-20 -bottom-20 w-80 h-80 bg-white/5 rounded-full blur-3xl"></div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full border-t border-slate-200 bg-slate-50">
+<div class="flex flex-col md:flex-row justify-between items-center py-10 px-8 max-w-screen-2xl mx-auto gap-4">
+<div class="text-lg font-bold text-slate-900 font-headline">Aetheris Systems</div>
+<div class="flex flex-wrap justify-center gap-8 text-xs font-inter text-slate-500">
+<a class="hover:text-blue-500 hover:underline transition-all" href="#">Privacy Policy</a>
+<a class="hover:text-blue-500 hover:underline transition-all" href="#">Terms of Service</a>
+<a class="hover:text-blue-500 hover:underline transition-all" href="#">Interoperability Standards</a>
+<a class="hover:text-blue-500 hover:underline transition-all" href="#">Contact Sales</a>
+</div>
+<div class="text-xs text-slate-500 font-inter opacity-80 hover:opacity-100">
+                © 2024 Clinical Precision Framework. All rights reserved.
+            </div>
+</div>
+</footer>
+</div>
+</body></html>
+
+<?php
+session_start();
+require_once __DIR__ . '/provider_redirect_superadmin.php';
+?>
+<!DOCTYPE html>
+
 <html class="light" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
