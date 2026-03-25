@@ -151,10 +151,10 @@ $enterprise = isset($providerPlans['enterprise']) && is_array($providerPlans['en
 </section>
 <?php endif; ?>
 <!-- Pricing Grid -->
-<section class="mx-auto max-w-6xl px-6 pb-20 reveal" data-reveal="section">
-<div class="grid grid-cols-1 gap-8 md:grid-cols-3 lg:gap-6 items-stretch">
+<section class="mx-auto max-w-7xl px-6 pb-20 reveal" data-reveal="section">
+<div class="grid grid-cols-1 gap-8 md:grid-cols-3 lg:gap-5 items-stretch">
 <!-- Starter Plan -->
-<div class="group bg-white p-10 md:p-14 rounded-[3rem] border border-slate-100 flex flex-col justify-between hover:border-primary/20 transition-all duration-500 shadow-sm hover:shadow-2xl transform-gpu hover:-translate-y-1 group-hover:bg-primary group-hover:border-primary/30 group-hover:text-white">
+<div class="group bg-white p-10 md:p-14 rounded-[3rem] border border-slate-200/70 flex flex-col justify-between hover:border-primary/40 hover:bg-primary hover:text-white transition-all duration-500 shadow-sm hover:shadow-2xl transform-gpu hover:-translate-y-1">
 <div>
 <div class="flex justify-between items-start mb-10">
 <div>
@@ -190,7 +190,7 @@ $enterprise = isset($providerPlans['enterprise']) && is_array($providerPlans['en
 <?php endif; ?>
 </div>
 <!-- Professional Plan -->
-<div class="relative group bg-white p-10 md:p-14 rounded-[3rem] flex flex-col justify-between border border-slate-100 shadow-sm hover:shadow-2xl overflow-hidden transition-all duration-500 transform-gpu hover:-translate-y-1 group-hover:bg-primary group-hover:border-primary/30 group-hover:text-white">
+<div class="relative group bg-white p-10 md:p-14 rounded-[3rem] flex flex-col justify-between border border-slate-200/70 shadow-sm hover:shadow-2xl overflow-hidden hover:border-primary/40 hover:bg-primary hover:text-white transition-all duration-500 transform-gpu hover:-translate-y-1">
 <div class="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none transition-opacity group-hover:opacity-12">
 <svg class="w-full h-full stroke-primary/30 fill-none transition-colors group-hover:stroke-white/45" viewBox="0 0 100 100" preserveAspectRatio="none">
 <circle cx="100" cy="0" r="90" stroke-width="0.3"></circle>
@@ -237,7 +237,7 @@ $enterprise = isset($providerPlans['enterprise']) && is_array($providerPlans['en
 </div>
 </div>
 <!-- Enterprise Plan -->
-<div class="group bg-white p-10 md:p-14 rounded-[3rem] border border-slate-100 flex flex-col justify-between hover:border-primary/20 transition-all duration-500 shadow-sm hover:shadow-2xl transform-gpu hover:-translate-y-1 group-hover:bg-primary group-hover:border-primary/30 group-hover:text-white">
+<div class="group bg-white p-10 md:p-14 rounded-[3rem] border border-slate-200/70 flex flex-col justify-between hover:border-primary/40 hover:bg-primary hover:text-white transition-all duration-500 shadow-sm hover:shadow-2xl transform-gpu hover:-translate-y-1">
 <div>
 <div class="flex justify-between items-start mb-10">
 <div>
