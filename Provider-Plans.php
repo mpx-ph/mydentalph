@@ -72,6 +72,9 @@ $enterprise = isset($providerPlans['enterprise']) && is_array($providerPlans['en
         }
     </script>
 <style>
+        html, body {
+            overflow-x: hidden;
+        }
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
         }
