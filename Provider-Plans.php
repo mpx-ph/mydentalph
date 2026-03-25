@@ -231,11 +231,11 @@ $enterprise = isset($providerPlans['enterprise']) && is_array($providerPlans['en
 </div>
 <div class="relative z-10">
 <?php if ($max_sites_reached): ?>
-<span class="w-full py-5 cursor-not-allowed bg-slate-100 text-slate-400 font-black text-xs uppercase tracking-[0.2em] rounded-2xl border border-slate-200 text-center active:scale-95 group-hover:bg-white/10 group-hover:text-white/60 group-hover:border-white/15">
+<span class="block w-full py-5 cursor-not-allowed bg-slate-100 text-slate-400 font-black text-xs uppercase tracking-[0.2em] rounded-2xl border border-slate-200 text-center active:scale-95 group-hover:bg-white/10 group-hover:text-white/60 group-hover:border-white/15">
                             <?php echo htmlspecialchars((string) ($professional['cta'] ?? 'Choose Professional'), ENT_QUOTES, 'UTF-8'); ?>
                         </span>
 <?php else: ?>
-<a href="<?php echo htmlspecialchars($plan_base); ?>?plan=professional" class="w-full py-5 bg-primary text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl hover:scale-[1.03] transition-all duration-300 active:scale-95 text-center hover:bg-primary/90 group-hover:bg-white group-hover:text-primary group-hover:hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+<a href="<?php echo htmlspecialchars($plan_base); ?>?plan=professional" class="block w-full py-5 bg-primary text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl hover:scale-[1.03] transition-all duration-300 active:scale-95 text-center hover:bg-primary/90 group-hover:bg-white group-hover:text-primary group-hover:hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
                             <?php echo htmlspecialchars((string) ($professional['cta'] ?? 'Choose Professional'), ENT_QUOTES, 'UTF-8'); ?>
                         </a>
 <?php endif; ?>
