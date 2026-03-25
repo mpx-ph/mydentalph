@@ -34,11 +34,12 @@ $enterprise = isset($providerPlans['enterprise']) && is_array($providerPlans['en
 ?>
 <!DOCTYPE html>
 
-<html class="scroll-smooth" lang="en"><head>
+<html class="scroll-smooth" lang="en">
+<head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@1,400;1,700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@1,400;1,700&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
         tailwind.config = {
@@ -72,26 +73,11 @@ $enterprise = isset($providerPlans['enterprise']) && is_array($providerPlans['en
         }
     </script>
 <style>
-        html, body {
-            overflow-x: hidden;
-        }
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
         }
-        .mesh-gradient {
-            background-color: #ffffff;
-            background-image:
-                radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.08) 0px, transparent 50%),
-                radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.06) 0px, transparent 50%);
-        }
-        .dark .mesh-gradient {
-            background-color: #101922;
-            background-image:
-                radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.14) 0px, transparent 55%),
-                radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.10) 0px, transparent 55%);
-        }
         .editorial-word {
-            text-shadow: 0 0 12px rgba(43, 139, 235, 0.12);
+            text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
             letter-spacing: -0.02em;
         }
 
@@ -129,15 +115,22 @@ $enterprise = isset($providerPlans['enterprise']) && is_array($providerPlans['en
             }
             .slow-float { animation: none; }
         }
+
+        .mesh-gradient {
+            background-color: #ffffff;
+            background-image:
+                radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.1) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.05) 0px, transparent 50%);
+        }
     </style>
 <title>Pricing Plans | MyDental.com</title>
 </head>
 <body class="bg-background-light font-body text-on-surface dark:bg-background-dark dark:text-surface antialiased">
 <!-- Header / Navigation -->
 <?php include 'ProviderNavbar.php'; ?>
-<main class="overflow-x-hidden">
+<main class="mesh-gradient">
 <!-- Hero Section -->
-<section class="max-w-[1800px] mx-auto px-10 mb-12 pt-16 text-center reveal mesh-gradient" data-reveal="section">
+<section class="max-w-[1800px] mx-auto px-10 mb-12 pt-16 text-center reveal" data-reveal="section">
 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8">
                 Simple Clinical Pricing
             </div>
