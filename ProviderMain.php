@@ -111,9 +111,9 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <?php include 'ProviderNavbar.php'; ?>
 <main>
 <!-- Asymmetrical Hero Section -->
-<section class="relative min-h-[85vh] flex items-center mesh-gradient pt-8 overflow-hidden reveal" data-reveal="section">
-<div class="max-w-[1800px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-0 items-center px-6 sm:px-8 lg:px-10">
-<div class="lg:col-span-6 z-10 py-10 pr-8">
+<section class="relative h-[85vh] flex items-stretch mesh-gradient pt-0 overflow-hidden reveal" data-reveal="section">
+<div class="max-w-[1800px] mx-auto w-full h-full grid grid-cols-1 lg:grid-cols-12 gap-0 items-stretch px-6 sm:px-8 lg:px-10">
+<div class="lg:col-span-6 z-10 py-10 pr-8 self-center">
 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8">
                     <img src="MyDental%20Logo.svg" alt="My Dental Logo" class="h-4 w-auto" />
                     Platform Management
@@ -141,18 +141,10 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
                     </a>
 </div>
 </div>
-<div class="lg:col-span-6 relative h-[65vh] -mr-6 self-start">
+<div class="lg:col-span-6 relative h-full -mr-6">
 <div class="group slanted-container h-full w-full bg-slate-100 overflow-hidden shadow-2xl relative">
-<div
-    class="absolute inset-0 bg-slate-100"
-    style="background-image:url('https://lh3.googleusercontent.com/aida-public/AB6AXuAKSToKSubciBNDHHIIhBLQWuwv70uupwQdixl7SdJZDmgnDrO7KwPH0nU9Tuyv8aNshhWTfTeP75EKGGbML5Ge0AweBfsy2V4AmVWId5nTGtpGe6_7fZcwoTag1cM1PJdBpkLGRE47XjINHeAHov0gmJegOGXOaY4Xsbphb11ypnokm_GnMy42Lk5byi_6B13so8CQ8mAtQE0e6twPfwumg6xkxXcDNMUMRCwqnTWdqYYK6EWku_TTChy4ON47ltF4FcaFeaL3nCw'); background-size:cover; background-position:top right; background-repeat:no-repeat;">
-</div>
-<img
-    alt="Modern dental clinic with advanced technology"
-    class="relative z-10 block w-full h-full object-contain transition-none"
-    style="object-position: top right;"
-    src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKSToKSubciBNDHHIIhBLQWuwv70uupwQdixl7SdJZDmgnDrO7KwPH0nU9Tuyv8aNshhWTfTeP75EKGGbML5Ge0AweBfsy2V4AmVWId5nTGtpGe6_7fZcwoTag1cM1PJdBpkLGRE47XjINHeAHov0gmJegOGXOaY4Xsbphb11ypnokm_GnMy42Lk5byi_6B13so8CQ8mAtQE0e6twPfwumg6xkxXcDNMUMRCwqnTWdqYYK6EWku_TTChy4ON47ltF4FcaFeaL3nCw"/>
-<div class="absolute inset-0 bg-primary/5 mix-blend-multiply z-20"></div>
+<img alt="Modern dental clinic with advanced technology" class="block w-full h-full object-cover transition-none" style="object-position: top right;" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKSToKSubciBNDHHIIhBLQWuwv70uupwQdixl7SdJZDmgnDrO7KwPH0nU9Tuyv8aNshhWTfTeP75EKGGbML5Ge0AweBfsy2V4AmVWId5nTGtpGe6_7fZcwoTag1cM1PJdBpkLGRE47XjINHeAHov0gmJegOGXOaY4Xsbphb11ypnokm_GnMy42Lk5byi_6B13so8CQ8mAtQE0e6twPfwumg6xkxXcDNMUMRCwqnTWdqYYK6EWku_TTChy4ON47ltF4FcaFeaL3nCw"/>
+<div class="absolute inset-0 bg-primary/5 mix-blend-multiply"></div>
 </div>
 <div class="absolute bottom-12 -left-6 glass-card p-6 rounded-2xl shadow-xl max-w-xs border border-white/40 transition-all duration-500 transform-gpu hover:-translate-y-1 hover:shadow-2xl">
 <div class="flex gap-4 items-start">
