@@ -141,9 +141,9 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
                     </a>
 </div>
 </div>
-<div class="lg:col-span-6 relative h-[65vh] -mr-6">
+<div class="lg:col-span-6 relative h-[65vh] -mr-6 self-start">
 <div class="group slanted-container h-full w-full bg-slate-100 overflow-hidden shadow-2xl relative">
-<img alt="Modern dental clinic with advanced technology" class="w-full h-full object-cover scale-105 transition-transform duration-700 ease-out group-hover:scale-112" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKSToKSubciBNDHHIIhBLQWuwv70uupwQdixl7SdJZDmgnDrO7KwPH0nU9Tuyv8aNshhWTfTeP75EKGGbML5Ge0AweBfsy2V4AmVWId5nTGtpGe6_7fZcwoTag1cM1PJdBpkLGRE47XjINHeAHov0gmJegOGXOaY4Xsbphb11ypnokm_GnMy42Lk5byi_6B13so8CQ8mAtQE0e6twPfwumg6xkxXcDNMUMRCwqnTWdqYYK6EWku_TTChy4ON47ltF4FcaFeaL3nCw"/>
+<img alt="Modern dental clinic with advanced technology" class="block w-full h-full object-cover transition-none" style="object-position: top right;" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKSToKSubciBNDHHIIhBLQWuwv70uupwQdixl7SdJZDmgnDrO7KwPH0nU9Tuyv8aNshhWTfTeP75EKGGbML5Ge0AweBfsy2V4AmVWId5nTGtpGe6_7fZcwoTag1cM1PJdBpkLGRE47XjINHeAHov0gmJegOGXOaY4Xsbphb11ypnokm_GnMy42Lk5byi_6B13so8CQ8mAtQE0e6twPfwumg6xkxXcDNMUMRCwqnTWdqYYK6EWku_TTChy4ON47ltF4FcaFeaL3nCw"/>
 <div class="absolute inset-0 bg-primary/5 mix-blend-multiply"></div>
 </div>
 <div class="absolute bottom-12 -left-6 glass-card p-6 rounded-2xl shadow-xl max-w-xs border border-white/40 transition-all duration-500 transform-gpu hover:-translate-y-1 hover:shadow-2xl">
