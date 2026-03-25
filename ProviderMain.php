@@ -4,237 +4,307 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 ?>
 <!DOCTYPE html>
 
-<html lang="en"><head>
+<html class="scroll-smooth" lang="en">
+<head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>MyDental PH - Modern Dental Clinic Management</title>
+<title>My Dental | Dental Clinic Management OS</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@1,400;1,700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
             theme: {
                 extend: {
                     colors: {
-                        "primary": "#2b8cee",
+                        "primary": "#2b8beb",
+                        "on-surface": "#131c25",
+                        "surface": "#ffffff",
+                        "surface-variant": "#f7f9ff",
+                        "on-surface-variant": "#404752",
+                        "outline-variant": "#c0c7d4",
+                        "primary-fixed": "#d4e3ff",
+                        "on-primary-fixed-variant": "#004883",
+                        "surface-container-low": "#edf4ff",
+                        "inverse-surface": "#131c25",
+
+                        /* Keep existing app colors used by ProviderNavbar */
                         "background-light": "#f6f7f8",
                         "background-dark": "#101922",
                     },
                     fontFamily: {
-                        "display": ["Manrope"]
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "editorial": ["Playfair Display", "serif"]
                     },
-                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1.5rem", "3xl": "2.5rem", "full": "9999px" },
                 },
             },
         }
     </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .slanted-container {
+            clip-path: polygon(15% 0%, 100% 0%, 100% 100%, 0% 100%);
+        }
+        .mesh-gradient {
+            background-color: #ffffff;
+            background-image:
+                radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.1) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.05) 0px, transparent 50%);
+        }
+        .editorial-word {
+            text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
+            letter-spacing: -0.02em;
+        }
+        .step-connector {
+            background: linear-gradient(90deg, #2b8beb 0%, #2b8beb 50%, transparent 50%, transparent 100%);
+            background-size: 20px 1px;
+        }
+    </style>
 </head>
-<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased">
-<!-- Navigation -->
+<body class="bg-surface font-body text-on-surface dark:bg-background-dark dark:text-surface antialiased">
+<!-- Navigation (preserve existing login functionality) -->
 <?php include 'ProviderNavbar.php'; ?>
 <main>
-<!-- Hero Section -->
-<section class="relative overflow-hidden py-20 lg:py-32">
-<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-<div class="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:items-center">
-<div class="flex flex-col gap-8">
-<h1 class="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-6xl">
-                            Manage Your TAEEE NAMAN Dental Clinic <span class="text-primary">Efficiently</span> with MyDental
-                        </h1>
-<p class="text-lg leading-8 text-slate-600 dark:text-slate-400">
-                            MyDental pwet is a multi-tenant dental clinic management platform designed to streamline operations, enhance patient care, and coordinate staff across multiple locations effortlessly.
-                        </p>
-<div class="flex flex-wrap gap-4">
-<a href="Provider-Plans.php" class="rounded-xl bg-primary px-8 py-4 text-base font-bold text-white shadow-xl shadow-primary/30 hover:bg-primary/90 hover:scale-[1.02] transition-all">
-                                View Plans
-                            </a>
-</div>
-</div>
-<div class="relative">
-<div class="aspect-video w-full rounded-2xl bg-gradient-to-tr from-primary/20 to-primary/5 p-2 ring-1 ring-slate-200 dark:ring-slate-800">
-<div class="h-full w-full overflow-hidden rounded-xl bg-slate-200 dark:bg-slate-800" data-alt="Modern dental clinic office interior with medical equipment" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBDpSRWXg-YjyWE72N5LZpQ6cjCT5W3uvqOQ5JY03SE6CWLISOnFW4zesrQVmCx-Zb_-hL2J0K35B8n7NZfrnUUBCs27GiQ6mVUyEENiio-IXH1LTeKw8o97BoT8WBq_T0R3m_krJcpe5HEiBRbwQ6oZFQ9mH71POo36KFNMDQ_puMGRkoefTpnXs_cg55Eweu_7LvKLa-rgwaj054NQE_a1FvCiU7Hnp18jmh27j_tRhBDkxjxn5mHtyQuVyLdJ5V9k3yr0mllJrM'); background-size: cover; background-position: center;">
-</div>
-</div>
-</div>
-</div>
-</div>
-</section>
-<!-- Introduction -->
-<section class="py-16 bg-white dark:bg-slate-900/50">
-<div class="mx-auto max-w-3xl px-4 text-center">
-<h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-6">Efficiency Redefined for Modern Practices</h2>
-<p class="text-lg text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Empower your dental practice with cutting-edge tools. MyDental provides a comprehensive suite of features tailored for modern clinics to ensure administrative excellence and superior patient experiences.
+<!-- Asymmetrical Hero Section -->
+<section class="relative min-h-[85vh] flex items-center mesh-gradient pt-20 overflow-hidden">
+<div class="max-w-[1800px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-0 items-center px-10">
+<div class="lg:col-span-6 z-10 py-12 pr-12">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8">
+                    <img src="MyDental%20Logo.svg" alt="My Dental Logo" class="h-4 w-auto" />
+                    Platform Management
+                </div>
+<h1 class="font-headline text-[clamp(4rem,8vw,7.5rem)] font-extrabold tracking-[-0.05em] text-on-surface mb-8 leading-[0.82]">
+<span class="block">Modernize Your</span>
+<span class="relative block">
+<span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Practice.</span>
+</span>
+<span class="block text-[clamp(1.2rem,2vw,2rem)] font-body font-semibold tracking-tight text-on-surface/80 mt-2">
+                    with My Dental
+                </span>
+</h1>
+<p class="font-body text-xl max-w-lg mb-10 leading-relaxed text-on-surface-variant font-medium">
+                    The My Dental OS: a unified dental management suite designed for efficiency, architectural precision, and multi-tenant clinic scaling.
                 </p>
+<div class="flex items-center gap-10">
+<a href="Provider-Plans.php" class="group relative px-10 py-5 bg-primary text-white font-bold rounded-full overflow-hidden transition-all hover:pr-14 active:scale-95 text-center">
+<span class="relative z-10">View Your Plans</span>
+<span class="material-symbols-outlined absolute right-4 opacity-0 group-hover:opacity-100 transition-all">arrow_right_alt</span>
+</a>
+<a class="font-bold text-sm uppercase tracking-widest flex items-center gap-3 hover:text-primary transition-colors" href="ProviderContact.php">
+<span class="w-10 h-[1px] bg-on-surface/20"></span>
+                        Request Demo
+                    </a>
 </div>
-</section>
-<!-- Platform Highlights -->
-<section class="py-24">
-<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-<div class="mb-16">
-<h2 class="text-3xl font-extrabold text-slate-900 dark:text-white">Platform Highlights</h2>
-<p class="mt-4 text-lg text-slate-600 dark:text-slate-400">Everything you need to run a successful multi-tenant dental practice.</p>
 </div>
-<div class="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-<!-- Feature 1 -->
-<div class="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 hover:border-primary/50 transition-all">
-<div class="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all">
-<span class="material-symbols-outlined">calendar_month</span>
+<div class="lg:col-span-6 relative h-[80vh] -mr-10">
+<div class="slanted-container h-full w-full bg-slate-100 overflow-hidden shadow-2xl relative">
+<img alt="Modern dental clinic with advanced technology" class="w-full h-full object-cover scale-110" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKSToKSubciBNDHHIIhBLQWuwv70uupwQdixl7SdJZDmgnDrO7KwPH0nU9Tuyv8aNshhWTfTeP75EKGGbML5Ge0AweBfsy2V4AmVWId5nTGtpGe6_7fZcwoTag1cM1PJdBpkLGRE47XjINHeAHov0gmJegOGXOaY4Xsbphb11ypnokm_GnMy42Lk5byi_6B13so8CQ8mAtQE0e6twPfwumg6xkxXcDNMUMRCwqnTWdqYYK6EWku_TTChy4ON47ltF4FcaFeaL3nCw"/>
+<div class="absolute inset-0 bg-primary/5 mix-blend-multiply"></div>
 </div>
-<h3 class="text-xl font-bold text-slate-900 dark:text-white">Appointment Scheduling</h3>
-<p class="mt-3 text-slate-600 dark:text-slate-400">Effortlessly manage bookings, automatic reminders, and cancellations through our intuitive drag-and-drop calendar interface.</p>
+<div class="absolute bottom-20 -left-12 glass-card p-8 rounded-2xl shadow-xl max-w-xs border border-white/40">
+<div class="flex gap-4 items-start">
+<div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0">
+<span class="material-symbols-outlined text-sm">dashboard_customize</span>
 </div>
-<!-- Feature 2 -->
-<div class="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 hover:border-primary/50 transition-all">
-<div class="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all">
-<span class="material-symbols-outlined">folder_shared</span>
+<div>
+<h4 class="font-headline font-extrabold text-sm tracking-tight mb-1">Unified Console</h4>
+<p class="text-[11px] leading-tight text-on-surface-variant font-medium">Manage patient lifecycles, billing, and clinical assets from a single digital command center.</p>
 </div>
-<h3 class="text-xl font-bold text-slate-900 dark:text-white">Patient Record Management</h3>
-<p class="mt-3 text-slate-600 dark:text-slate-400">Securely store and access complete patient medical histories, X-rays, and treatment plans from any authorized device.</p>
 </div>
-<!-- Feature 3 -->
-<div class="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 hover:border-primary/50 transition-all">
-<div class="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all">
-<span class="material-symbols-outlined">group_work</span>
 </div>
-<h3 class="text-xl font-bold text-slate-900 dark:text-white">Staff Coordination</h3>
-<p class="mt-3 text-slate-600 dark:text-slate-400">Coordinate shifts, assign tasks, and manage internal communications across your clinical and administrative teams.</p>
-</div>
-<!-- Feature 4 -->
-<div class="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 hover:border-primary/50 transition-all">
-<div class="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all">
-<span class="material-symbols-outlined">dashboard</span>
-</div>
-<h3 class="text-xl font-bold text-slate-900 dark:text-white">Centralized Dashboard</h3>
-<p class="mt-3 text-slate-600 dark:text-slate-400">Real-time insights into your clinic performance with key metrics, financial reports, and patient satisfaction data.</p>
-</div>
-<!-- Feature 5 -->
-<div class="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 hover:border-primary/50 transition-all">
-<div class="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all">
-<span class="material-symbols-outlined">domain_add</span>
-</div>
-<h3 class="text-xl font-bold text-slate-900 dark:text-white">Multi-Tenant Architecture</h3>
-<p class="mt-3 text-slate-600 dark:text-slate-400">Manage multiple clinic branches seamlessly from one master account with role-based access controls for every location.</p>
-</div>
-<!-- Feature 6 (Generic Support) -->
-<div class="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 hover:border-primary/50 transition-all">
-<div class="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all">
-<span class="material-symbols-outlined">verified_user</span>
-</div>
-<h3 class="text-xl font-bold text-slate-900 dark:text-white">Compliance &amp; Security</h3>
-<p class="mt-3 text-slate-600 dark:text-slate-400">Full HIPAA compliance and enterprise-grade encryption to ensure your patient data remains private and protected.</p>
 </div>
 </div>
 </div>
 </section>
-<!-- How It Works -->
-<section class="py-24 bg-white dark:bg-slate-900">
-<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-<div class="text-center mb-16">
-<h2 class="text-3xl font-extrabold text-slate-900 dark:text-white">How It Works</h2>
-<p class="mt-4 text-lg text-slate-600 dark:text-slate-400">Get your clinic up and running in five simple steps</p>
+<!-- System Features: Clinical Intelligence -->
+<section class="py-24 px-10 bg-white relative overflow-hidden" id="features">
+<div class="max-w-[1800px] mx-auto">
+<div class="flex flex-col lg:flex-row justify-between items-start mb-20 gap-12">
+<div class="max-w-3xl">
+<div class="text-primary font-bold text-xs uppercase mb-6 flex items-center gap-4 tracking-[0.3em]">
+<span class="w-12 h-[1.5px] bg-primary"></span> System Capability
+                    </div>
+<h2 class="font-headline text-6xl md:text-8xl font-extrabold tracking-tighter leading-[0.9] mb-8">Clinical <br/> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Intelligence</span></h2>
+<p class="text-on-surface-variant text-2xl leading-relaxed max-w-xl font-medium">
+                        Sophisticated architectural tooling designed for high-performance healthcare systems.
+                    </p>
 </div>
-<div class="relative grid grid-cols-1 gap-12 md:grid-cols-5">
+<div class="relative hidden lg:block pr-20">
+<span class="text-[16rem] font-headline font-black text-primary/[0.03] leading-none tracking-tighter absolute -right-20 -top-24 select-none">CI</span>
+</div>
+</div>
+<!-- Staggered Card Layout -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10">
+<!-- Feature 1: Staggered Up -->
+<div class="md:col-span-5 lg:col-span-4 md:mt-24">
+<div class="group h-full bg-white p-12 rounded-[2.5rem] border border-on-surface/5 hover:border-primary/20 transition-all duration-700 hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.08)] relative overflow-hidden">
+<div class="absolute -right-8 -top-8 w-32 h-32 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors"></div>
+<div class="w-14 h-14 bg-surface-container-low rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:scale-110">
+<span class="material-symbols-outlined text-3xl font-light">monitoring</span>
+</div>
+<h3 class="font-headline text-3xl font-extrabold mb-6 tracking-tight">Tenant Monitoring</h3>
+<p class="text-on-surface-variant text-lg leading-relaxed font-medium mb-8">Real-time oversight across multiple clinic branches. Monitor chair occupancy, staff performance, and inventory health instantly.</p>
+<div class="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-widest tracking-[0.3em]">
+<span class="w-8 h-[1px] bg-primary/30"></span> Live Node Access
+                        </div>
+</div>
+</div>
+<!-- Feature 2: Large / Primary -->
+<div class="md:col-span-7 lg:col-span-4">
+<div class="group h-full bg-primary p-12 rounded-[2.5rem] shadow-[0_50px_100px_-20px_rgba(43,139,235,0.3)] transition-all duration-700 relative overflow-hidden flex flex-col justify-between">
+<div class="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none">
+<svg class="w-full h-full stroke-white fill-none" viewbox="0 0 100 100">
+<circle cx="100" cy="0" r="80" stroke-width="0.5"></circle>
+<circle cx="100" cy="0" r="60" stroke-width="0.5"></circle>
+<circle cx="100" cy="0" r="40" stroke-width="0.5"></circle>
+</svg>
+</div>
+<div>
+<div class="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-10 text-white border border-white/20">
+<span class="material-symbols-outlined text-3xl font-light">analytics</span>
+</div>
+<h3 class="font-headline text-4xl font-extrabold mb-6 tracking-tight text-white leading-tight">Advanced<br/>Analytics Engine</h3>
+<p class="text-white/80 text-xl leading-relaxed font-medium mb-12">Deep-dive into clinical outcomes and operational ROI with automated reporting and predictive diagnostic modeling.</p>
+</div>
+<a href="Provider-HowItWorks.php" class="bg-white text-primary w-full py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-surface-container-low transition-colors text-center">
+                            Explore Metrics
+                        </a>
+</div>
+</div>
+<!-- Feature 3: Staggered Down / Glassmorphism -->
+<div class="md:col-span-12 lg:col-span-4 lg:mt-36">
+<div class="group h-full glass-card p-12 rounded-[2.5rem] border border-on-surface/5 hover:border-primary/30 transition-all duration-700 hover:shadow-xl relative overflow-hidden">
+<div class="w-14 h-14 bg-surface-container-low rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:scale-110">
+<span class="material-symbols-outlined text-3xl font-light">groups</span>
+</div>
+<h3 class="font-headline text-3xl font-extrabold mb-6 tracking-tight">Patient CRM</h3>
+<p class="text-on-surface-variant text-lg leading-relaxed font-medium mb-8">Automated engagement workflows, digital records management, and omnichannel patient communication in one hub.</p>
+<div class="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-widest tracking-[0.3em]">
+<span class="w-8 h-[1px] bg-primary/30"></span> Core Integration
+                        </div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Onboarding Protocol -->
+<section class="py-32 bg-[#fdfdfe] relative border-y border-on-surface/5" id="boarding">
+<div class="max-w-[1800px] mx-auto px-10">
+<div class="flex flex-col items-center text-center mb-24">
+<div class="inline-flex items-center gap-4 px-4 py-2 rounded-full bg-primary/5 text-primary text-[10px] font-black uppercase tracking-[0.4em] mb-6">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span> Implementation
+                </div>
+<h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter text-on-surface mb-6 leading-[1.1]">The Onboarding <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Protocol</span></h2>
+<p class="text-on-surface-variant text-xl font-medium max-w-2xl">A precision-engineered pathway to institutional activation.</p>
+</div>
+<!-- Integrated Visual Flow -->
+<div class="relative">
+<!-- Desktop Connector Line -->
+<div class="hidden lg:block absolute top-1/2 left-0 w-full h-px step-connector -translate-y-1/2 z-0 opacity-20"></div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-24 relative z-10">
 <!-- Step 1 -->
-<div class="flex flex-col items-center text-center">
-<div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-white text-2xl font-black">1</div>
-<h3 class="font-bold text-slate-900 dark:text-white">Sign Up</h3>
-<p class="mt-2 text-sm text-slate-500">Create your administrative account.</p>
+<div class="relative group">
+<div class="bg-white rounded-[2rem] p-12 border border-on-surface/5 transition-all duration-500 group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5">
+<div class="absolute -top-6 left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30">
+                                01
+                            </div>
+<div class="mb-10 text-primary opacity-40 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-5xl font-light">database_upload</span>
+</div>
+<h4 class="font-headline font-extrabold text-2xl mb-4">Data Migration</h4>
+<p class="text-on-surface-variant leading-relaxed font-medium mb-8">Seamlessly porting legacy patient records and billing history with zero downtime.</p>
+<div class="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">
+<span class="material-symbols-outlined text-lg">verified_user</span>
+                                High-Integrity Port
+                            </div>
+</div>
 </div>
 <!-- Step 2 -->
-<div class="flex flex-col items-center text-center">
-<div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-white text-2xl font-black">2</div>
-<h3 class="font-bold text-slate-900 dark:text-white">Configure Clinics</h3>
-<p class="mt-2 text-sm text-slate-500">Add your locations and branches.</p>
+<div class="relative group">
+<div class="bg-white rounded-[2rem] p-12 border border-on-surface/5 transition-all duration-500 group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5">
+<div class="absolute -top-6 left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30">
+                                02
+                            </div>
+<div class="mb-10 text-primary opacity-40 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-5xl font-light">school</span>
+</div>
+<h4 class="font-headline font-extrabold text-2xl mb-4">Staff Certification</h4>
+<p class="text-on-surface-variant leading-relaxed font-medium mb-8">Comprehensive modules ensuring every clinician masters the OS efficiency tools.</p>
+<div class="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">
+<span class="material-symbols-outlined text-lg">military_tech</span>
+                                Expert Accreditation
+                            </div>
+</div>
 </div>
 <!-- Step 3 -->
-<div class="flex flex-col items-center text-center">
-<div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-white text-2xl font-black">3</div>
-<h3 class="font-bold text-slate-900 dark:text-white">Invite Team</h3>
-<p class="mt-2 text-sm text-slate-500">Add doctors, staff, and admins.</p>
+<div class="relative group">
+<div class="bg-white rounded-[2rem] p-12 border border-on-surface/5 transition-all duration-500 group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5">
+<div class="absolute -top-6 left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30">
+                                03
+                            </div>
+<div class="mb-10 text-primary opacity-40 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-5xl font-light">rocket_launch</span>
 </div>
-<!-- Step 4 -->
-<div class="flex flex-col items-center text-center">
-<div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-white text-2xl font-black">4</div>
-<h3 class="font-bold text-slate-900 dark:text-white">Import Data</h3>
-<p class="mt-2 text-sm text-slate-500">Migrate your existing patient records.</p>
+<h4 class="font-headline font-extrabold text-2xl mb-4">System Activation</h4>
+<p class="text-on-surface-variant leading-relaxed font-medium mb-8">Switching to the unified command center with real-time support specialists.</p>
+<div class="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">
+<span class="material-symbols-outlined text-lg">bolt</span>
+                                Node Activation
+                            </div>
 </div>
-<!-- Step 5 -->
-<div class="flex flex-col items-center text-center">
-<div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-white text-2xl font-black">5</div>
-<h3 class="font-bold text-slate-900 dark:text-white">Start Operating</h3>
-<p class="mt-2 text-sm text-slate-500">Go live and manage everything.</p>
+</div>
 </div>
 </div>
 </div>
 </section>
-<!-- CTA Section -->
-<section class="py-24">
-<div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-<div class="relative overflow-hidden rounded-3xl bg-primary px-8 py-16 shadow-2xl sm:px-16 text-center">
-<div class="relative z-10 mx-auto max-w-2xl">
-<h2 class="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Ready to transform your clinic?</h2>
-<p class="mt-6 text-lg text-white/90">
-                            Join over 500+ dental clinics that trust MyDental to manage their daily operations and provide better patient care.
-                        </p>
-<div class="mt-10 flex flex-wrap items-center justify-center gap-6">
-<button class="rounded-xl bg-white px-8 py-4 text-base font-bold text-primary shadow-lg hover:bg-slate-50 transition-all">
-                                Get Started
-                            </button>
+<!-- Final CTA Section -->
+<section class="py-24 px-10">
+<div class="mx-auto rounded-[4rem] bg-primary relative overflow-hidden flex flex-col items-center text-center shadow-[0_40px_100px_-20px_rgba(43,139,235,0.4)] max-w-6xl py-24 px-10 md:px-20">
+<div class="relative z-10 max-w-3xl">
+<div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-10">
+                    Institutional Boarding
+                </div>
+<h2 class="font-headline text-5xl font-extrabold text-white tracking-tighter leading-[0.85] md:text-6xl mb-8">Ready to evolve your practice?</h2>
+<p class="text-white/70 text-xl md:text-2xl max-w-xl mx-auto leading-relaxed mb-10">Join hundreds of dental clinics streamlining their clinical operations through the My Dental ecosystem.</p>
+<a href="Provider-Plans.php" class="bg-white text-primary px-16 py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-2xl active:scale-95 inline-block">
+                    Start Your Subscription
+                </a>
 </div>
-</div>
-<!-- Abstract Background Shape -->
-<div class="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl"></div>
-<div class="absolute -left-20 -bottom-20 h-64 w-64 rounded-full bg-white/10 blur-3xl"></div>
-</div>
+<!-- Abstract Architectural Accents -->
+<div class="absolute top-0 right-0 w-1/3 h-full border-l border-white/10 pointer-events-none"></div>
+<div class="absolute bottom-0 left-0 w-full h-1/4 border-t border-white/10 pointer-events-none"></div>
+<div class="absolute -right-20 -bottom-20 w-80 h-80 bg-white/5 rounded-full blur-3xl"></div>
 </div>
 </section>
 </main>
 <!-- Footer -->
-<footer class="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark py-12">
-<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-<div class="grid grid-cols-2 gap-8 md:grid-cols-4 lg:grid-cols-5">
-<div class="col-span-2 lg:col-span-2">
-<div class="flex items-center gap-2 mb-6">
-<div class="flex h-8 w-8 items-center justify-center rounded bg-primary text-white">
-<span class="material-symbols-outlined text-sm">dentistry</span>
+<footer class="w-full border-t border-slate-200 bg-slate-50">
+<div class="flex flex-col md:flex-row justify-between items-center py-12 px-8 max-w-screen-2xl mx-auto gap-4">
+<div class="flex items-center gap-3 text-lg font-bold text-slate-900 font-headline">
+<img src="MyDental%20Logo.svg" alt="My Dental Logo" class="h-8 w-auto"/>
+                    My Dental
+                </div>
+<div class="flex flex-wrap justify-center gap-8 text-xs font-inter text-slate-500">
+<a class="hover:text-blue-500 hover:underline transition-all" href="#">Privacy Policy</a>
+<a class="hover:text-blue-500 hover:underline transition-all" href="#">Terms of Service</a>
+<a class="hover:text-blue-500 hover:underline transition-all" href="#">Interoperability Standards</a>
+<a class="hover:text-blue-500 hover:underline transition-all" href="#">Contact Sales</a>
 </div>
-<span class="text-lg font-bold text-slate-900 dark:text-white">MyDental</span>
-</div>
-<p class="text-sm text-slate-500 max-w-xs">The world's most comprehensive management system for growing dental practices and multi-location clinics.</p>
-</div>
-<div>
-<h4 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-4">Product</h4>
-<ul class="space-y-2 text-sm text-slate-500">
-<li><a class="hover:text-primary" href="#">Features</a></li>
-<li><a class="hover:text-primary" href="#">Security</a></li>
-<li><a class="hover:text-primary" href="#">Pricing</a></li>
-<li><a class="hover:text-primary" href="#">Roadmap</a></li>
-</ul>
-</div>
-<div>
-<h4 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-4">Company</h4>
-<ul class="space-y-2 text-sm text-slate-500">
-<li><a class="hover:text-primary" href="#">About Us</a></li>
-<li><a class="hover:text-primary" href="#">Careers</a></li>
-<li><a class="hover:text-primary" href="#">Blog</a></li>
-<li><a class="hover:text-primary" href="#">Contact</a></li>
-</ul>
-</div>
-<div>
-<h4 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-4">Legal</h4>
-<ul class="space-y-2 text-sm text-slate-500">
-<li><a class="hover:text-primary" href="#">Privacy</a></li>
-<li><a class="hover:text-primary" href="#">Terms</a></li>
-<li><a class="hover:text-primary" href="#">HIPAA</a></li>
-</ul>
-</div>
-</div>
-<div class="mt-12 border-t border-slate-100 dark:border-slate-800 pt-8 text-center text-sm text-slate-500">
-                © 2024 MyDental Inc. All rights reserved.
-            </div>
+<div class="text-xs text-slate-500 font-inter opacity-80 hover:opacity-100">
+            © 2024 My Dental Inc. All rights reserved.
+        </div>
 </div>
 </footer>
-</body></html>
+</body>
+</html>
