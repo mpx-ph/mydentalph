@@ -33,52 +33,29 @@ if (!$logged_in && (!empty($_SESSION['onboarding_user_id']) || !empty($_SESSION[
 $user_display_name = $_SESSION['full_name'] ?? $_SESSION['username'] ?? $_SESSION['email']
     ?? $_SESSION['onboarding_full_name'] ?? $_SESSION['onboarding_email'] ?? 'Account';
 $user_initial = mb_strtoupper(mb_substr(trim($user_display_name), 0, 1)) ?: '?';
-
-$current_page = basename($_SERVER['PHP_SELF'] ?? '');
-$nav_items = [
-    ['href' => 'ProviderMain.php', 'label' => 'Home'],
-    ['href' => 'Provider-HowItWorks.php', 'label' => 'More Features'],
-    ['href' => 'Provider-Plans.php', 'label' => 'Pricing'],
-    ['href' => 'ProviderContact.php', 'label' => 'Contact Us'],
-    ['href' => 'ProviderFAQs.php', 'label' => 'FAQs'],
-];
 ?>
 <!-- Navigation -->
-<header class="sticky top-0 z-50 w-full border-b border-primary/10 bg-background-light/75 dark:bg-background-dark/75 backdrop-blur-xl shadow-sm">
+<header class="sticky top-0 z-50 w-full border-b border-primary/10 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md">
 <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 <div class="flex h-16 items-center justify-between">
-<a class="flex items-center gap-3 rounded-xl px-2 py-1 transition-colors hover:bg-white/60 dark:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" href="ProviderMain.php">
-<img src="MyDental%20Logo.svg" alt="My Dental Logo" class="h-9 w-auto" />
-<div class="hidden sm:block leading-none">
-<div class="text-sm font-extrabold tracking-tight text-slate-900 dark:text-white font-headline">My Dental</div>
-<div class="mt-0.5 text-[11px] font-semibold tracking-tight text-slate-500 dark:text-slate-400">Clinic Management OS</div>
+<div class="flex items-center gap-2">
+<img src="MyDental%20Logo.svg" alt="MyDental Logo" class="h-10 w-auto" />
 </div>
-</a>
-</div>
-<nav class="hidden md:flex items-center gap-2 rounded-full border border-slate-200/70 dark:border-slate-700/60 bg-white/60 dark:bg-white/5 px-2 py-1">
-<?php foreach ($nav_items as $item): ?>
-<?php $is_active = ($current_page === $item['href']); ?>
-<a
-  href="<?php echo htmlspecialchars($item['href']); ?>"
-  class="<?php echo $is_active
-      ? 'relative rounded-full px-4 py-2 text-sm font-extrabold tracking-tight text-primary bg-primary/10 ring-1 ring-primary/20'
-      : 'relative rounded-full px-4 py-2 text-sm font-semibold tracking-tight text-slate-700 dark:text-slate-200 hover:text-primary hover:bg-primary/5 transition-colors'; ?>"
->
-  <?php echo htmlspecialchars($item['label']); ?>
-  <?php if ($is_active): ?>
-    <span class="pointer-events-none absolute left-1/2 -bottom-1.5 h-1 w-1 -translate-x-1/2 rounded-full bg-primary shadow-[0_0_0_4px_rgba(43,139,235,0.12)]"></span>
-  <?php endif; ?>
-</a>
-<?php endforeach; ?>
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-sm font-semibold hover:text-primary transition-colors" href="ProviderMain.php">Home</a>
+<a class="text-sm font-semibold hover:text-primary transition-colors" href="Provider-HowItWorks.php">More Features</a>
+<a class="text-sm font-semibold hover:text-primary transition-colors" href="Provider-Plans.php">Pricing</a>
+<a class="text-sm font-semibold hover:text-primary transition-colors" href="ProviderContact.php">Contact Us</a>
+<a class="text-sm font-semibold hover:text-primary transition-colors" href="ProviderFAQs.php">FAQs</a>
 </nav>
 <div class="flex items-center gap-3">
 <?php if ($logged_in): ?>
 <!-- Logged-in user card with dropdown -->
 <div class="relative">
 <details class="relative group">
-<summary class="flex cursor-pointer list-none items-center gap-2 rounded-xl border border-primary/20 bg-white/90 dark:bg-slate-800/80 px-3 py-2 shadow-sm hover:border-primary/40 hover:bg-white dark:hover:bg-slate-800 transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 [&::-webkit-details-marker]:hidden">
+<summary class="flex cursor-pointer list-none items-center gap-2 rounded-xl border border-primary/20 bg-white dark:bg-slate-800/80 px-3 py-2 shadow-sm hover:border-primary/40 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 [&::-webkit-details-marker]:hidden">
 <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary text-sm font-bold"><?php echo htmlspecialchars($user_initial); ?></span>
-<span class="hidden sm:inline text-sm font-semibold tracking-tight text-slate-700 dark:text-slate-200 max-w-[140px] truncate"><?php echo htmlspecialchars($user_display_name); ?></span>
+<span class="hidden sm:inline text-sm font-semibold text-slate-700 dark:text-slate-200 max-w-[120px] truncate"><?php echo htmlspecialchars($user_display_name); ?></span>
 <span class="material-symbols-outlined text-slate-500 dark:text-slate-400 text-lg transition-transform group-open:rotate-180">expand_more</span>
 </summary>
 <div class="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 py-1 shadow-lg">
