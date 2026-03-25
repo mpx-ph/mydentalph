@@ -77,14 +77,14 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <?php include 'ProviderNavbar.php'; ?>
 <main>
 <!-- Asymmetrical Hero Section -->
-<section class="relative min-h-[85vh] flex items-center mesh-gradient pt-20 overflow-hidden">
-<div class="max-w-[1800px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-0 items-center px-10">
-<div class="lg:col-span-6 z-10 py-12 pr-12">
+<section class="relative min-h-[85vh] flex items-center mesh-gradient pt-8 overflow-hidden">
+<div class="max-w-[1800px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-0 items-center px-6">
+<div class="lg:col-span-6 z-10 py-10 pr-8">
 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8">
                     <img src="MyDental%20Logo.svg" alt="My Dental Logo" class="h-4 w-auto" />
                     Platform Management
                 </div>
-<h1 class="font-headline text-[clamp(4rem,8vw,7.5rem)] font-extrabold tracking-[-0.05em] text-on-surface mb-8 leading-[0.82]">
+<h1 class="font-headline text-[clamp(2.6rem,5.5vw,4.6rem)] font-extrabold tracking-[-0.05em] text-on-surface mb-6 leading-[0.88]">
 <span class="block">Modernize Your</span>
 <span class="relative block">
 <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Practice.</span>
@@ -93,7 +93,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
                     with My Dental
                 </span>
 </h1>
-<p class="font-body text-xl max-w-lg mb-10 leading-relaxed text-on-surface-variant font-medium">
+<p class="font-body text-lg max-w-lg mb-8 leading-relaxed text-on-surface-variant font-medium">
                     The My Dental OS: a unified dental management suite designed for efficiency, architectural precision, and multi-tenant clinic scaling.
                 </p>
 <div class="flex items-center gap-10">
@@ -107,12 +107,12 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
                     </a>
 </div>
 </div>
-<div class="lg:col-span-6 relative h-[80vh] -mr-10">
+<div class="lg:col-span-6 relative h-[65vh] -mr-6">
 <div class="slanted-container h-full w-full bg-slate-100 overflow-hidden shadow-2xl relative">
 <img alt="Modern dental clinic with advanced technology" class="w-full h-full object-cover scale-110" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKSToKSubciBNDHHIIhBLQWuwv70uupwQdixl7SdJZDmgnDrO7KwPH0nU9Tuyv8aNshhWTfTeP75EKGGbML5Ge0AweBfsy2V4AmVWId5nTGtpGe6_7fZcwoTag1cM1PJdBpkLGRE47XjINHeAHov0gmJegOGXOaY4Xsbphb11ypnokm_GnMy42Lk5byi_6B13so8CQ8mAtQE0e6twPfwumg6xkxXcDNMUMRCwqnTWdqYYK6EWku_TTChy4ON47ltF4FcaFeaL3nCw"/>
 <div class="absolute inset-0 bg-primary/5 mix-blend-multiply"></div>
 </div>
-<div class="absolute bottom-20 -left-12 glass-card p-8 rounded-2xl shadow-xl max-w-xs border border-white/40">
+<div class="absolute bottom-12 -left-6 glass-card p-6 rounded-2xl shadow-xl max-w-xs border border-white/40">
 <div class="flex gap-4 items-start">
 <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0">
 <span class="material-symbols-outlined text-sm">dashboard_customize</span>
@@ -128,15 +128,15 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </div>
 </section>
 <!-- System Features: Clinical Intelligence -->
-<section class="py-24 px-10 bg-white relative overflow-hidden" id="features">
+<section class="py-20 px-6 bg-white relative overflow-hidden" id="features">
 <div class="max-w-[1800px] mx-auto">
 <div class="flex flex-col lg:flex-row justify-between items-start mb-20 gap-12">
 <div class="max-w-3xl">
 <div class="text-primary font-bold text-xs uppercase mb-6 flex items-center gap-4 tracking-[0.3em]">
 <span class="w-12 h-[1.5px] bg-primary"></span> System Capability
                     </div>
-<h2 class="font-headline text-6xl md:text-8xl font-extrabold tracking-tighter leading-[0.9] mb-8">Clinical <br/> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Intelligence</span></h2>
-<p class="text-on-surface-variant text-2xl leading-relaxed max-w-xl font-medium">
+<h2 class="font-headline text-4xl md:text-6xl font-extrabold tracking-tighter leading-[0.95] mb-6">Clinical <br/> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Intelligence</span></h2>
+<p class="text-on-surface-variant text-xl leading-relaxed max-w-xl font-medium">
                         Sophisticated architectural tooling designed for high-performance healthcare systems.
                     </p>
 </div>
@@ -199,14 +199,14 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </div>
 </section>
 <!-- Onboarding Protocol -->
-<section class="py-32 bg-[#fdfdfe] relative border-y border-on-surface/5" id="boarding">
-<div class="max-w-[1800px] mx-auto px-10">
+<section class="py-24 bg-[#fdfdfe] relative border-y border-on-surface/5" id="boarding">
+<div class="max-w-[1800px] mx-auto px-6">
 <div class="flex flex-col items-center text-center mb-24">
 <div class="inline-flex items-center gap-4 px-4 py-2 rounded-full bg-primary/5 text-primary text-[10px] font-black uppercase tracking-[0.4em] mb-6">
 <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span> Implementation
                 </div>
-<h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter text-on-surface mb-6 leading-[1.1]">The Onboarding <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Protocol</span></h2>
-<p class="text-on-surface-variant text-xl font-medium max-w-2xl">A precision-engineered pathway to institutional activation.</p>
+<h2 class="font-headline text-4xl md:text-6xl font-extrabold tracking-tighter text-on-surface mb-6 leading-[1.1]">The Onboarding <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Protocol</span></h2>
+<p class="text-on-surface-variant text-lg font-medium max-w-2xl">A precision-engineered pathway to institutional activation.</p>
 </div>
 <!-- Integrated Visual Flow -->
 <div class="relative">
@@ -269,14 +269,14 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </div>
 </section>
 <!-- Final CTA Section -->
-<section class="py-24 px-10">
+<section class="py-20 px-6">
 <div class="mx-auto rounded-[4rem] bg-primary relative overflow-hidden flex flex-col items-center text-center shadow-[0_40px_100px_-20px_rgba(43,139,235,0.4)] max-w-6xl py-24 px-10 md:px-20">
 <div class="relative z-10 max-w-3xl">
 <div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-10">
                     Institutional Boarding
                 </div>
-<h2 class="font-headline text-5xl font-extrabold text-white tracking-tighter leading-[0.85] md:text-6xl mb-8">Ready to evolve your practice?</h2>
-<p class="text-white/70 text-xl md:text-2xl max-w-xl mx-auto leading-relaxed mb-10">Join hundreds of dental clinics streamlining their clinical operations through the My Dental ecosystem.</p>
+<h2 class="font-headline text-4xl font-extrabold text-white tracking-tighter leading-[0.85] md:text-5xl mb-7">Ready to evolve your practice?</h2>
+<p class="text-white/70 text-lg md:text-xl max-w-xl mx-auto leading-relaxed mb-10">Join hundreds of dental clinics streamlining their clinical operations through the My Dental ecosystem.</p>
 <a href="Provider-Plans.php" class="bg-white text-primary px-16 py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-2xl active:scale-95 inline-block">
                     Start Your Subscription
                 </a>
