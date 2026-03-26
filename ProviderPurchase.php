@@ -15,7 +15,11 @@ if (!empty($_SESSION['onboarding_user_id']) && !empty($_SESSION['onboarding_tena
     $plan_slug = $_SESSION['onboarding_plan'] ?? 'professional';
 } elseif (!empty($_SESSION['user_id']) && !empty($_SESSION['tenant_id'])) {
     $tid = $_SESSION['tenant_id'];
-    $subscriptionState = provider_get_tenant_subscription_state($pdo, (string) $tid);
+    try {
+        $subscriptionState = provider_get_tenant_subscription_state($pdo, (string) $tid);
+    } catch (Throwable $e) {
+        $subscriptionState = ['has_active_subscription' => false];
+    }
     $has_active = !empty($subscriptionState['has_active_subscription']);
     if ($has_active) {
         header('Location: ProviderTenantDashboard.php');
@@ -64,21 +68,39 @@ if (isset($_GET['simulate']) && $_GET['simulate'] === 'fail') {
 }
 
 // Get tenant (clinic) and owner user details
-$stmt = $pdo->prepare("
-    SELECT t.clinic_name, t.contact_email, t.contact_phone, t.clinic_address,
-           u.full_name AS owner_name, u.email AS owner_email, u.phone AS owner_phone
-    FROM tbl_tenants t
-    LEFT JOIN tbl_users u ON t.owner_user_id = u.user_id
-    WHERE t.tenant_id = ?
-");
-$stmt->execute([$tenant_id]);
-$tenant = $stmt->fetch(PDO::FETCH_ASSOC);
-$stmt = $pdo->prepare("SELECT plan_id, plan_name, price FROM tbl_subscription_plans WHERE plan_slug = ? LIMIT 1");
-$stmt->execute([$plan_slug]);
-$plan = $stmt->fetch(PDO::FETCH_ASSOC);
+$tenant = [];
+try {
+    $stmt = $pdo->prepare("
+        SELECT t.clinic_name, t.contact_email, t.contact_phone, t.clinic_address,
+               u.full_name AS owner_name, u.email AS owner_email, u.phone AS owner_phone
+        FROM tbl_tenants t
+        LEFT JOIN tbl_users u ON t.owner_user_id = u.user_id
+        WHERE t.tenant_id = ?
+    ");
+    $stmt->execute([$tenant_id]);
+    $tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+} catch (Throwable $e) {
+    $tenant = [];
+}
+
+$plan = null;
+try {
+    $stmt = $pdo->prepare("SELECT plan_id, plan_name, price FROM tbl_subscription_plans WHERE plan_slug = ? LIMIT 1");
+    $stmt->execute([$plan_slug]);
+    $plan = $stmt->fetch(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+    $plan = null;
+}
 if (!$plan) {
-    $stmt = $pdo->query("SELECT plan_id, plan_name, price FROM tbl_subscription_plans WHERE plan_slug = 'professional' LIMIT 1");
-    $plan = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['plan_id' => 1, 'plan_name' => 'Professional', 'price' => 2499];
+    try {
+        $stmt = $pdo->query("SELECT plan_id, plan_name, price FROM tbl_subscription_plans ORDER BY plan_id ASC LIMIT 1");
+        $plan = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
+    } catch (Throwable $e) {
+        $plan = null;
+    }
+}
+if (!$plan) {
+    $plan = ['plan_id' => 1, 'plan_name' => 'Professional', 'price' => 2499];
 }
 $plan_name = $plan['plan_name'] ?? 'Professional';
 $plan_price = $plan['price'] ?? 2499;

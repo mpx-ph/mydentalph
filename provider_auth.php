@@ -47,16 +47,20 @@ function provider_get_verification_request_status(PDO $pdo, string $tenantId, st
         return null;
     }
 
-    $stmt = $pdo->prepare("
-        SELECT status
-        FROM tbl_tenant_verification_requests
-        WHERE tenant_id = ? AND owner_user_id = ?
-        ORDER BY request_id DESC
-        LIMIT 1
-    ");
-    $stmt->execute([$tenantId, $ownerUserId]);
-    $status = $stmt->fetchColumn();
-    return $status !== false ? provider_normalize_status((string) $status) : null;
+    try {
+        $stmt = $pdo->prepare("
+            SELECT status
+            FROM tbl_tenant_verification_requests
+            WHERE tenant_id = ? AND owner_user_id = ?
+            ORDER BY request_id DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$tenantId, $ownerUserId]);
+        $status = $stmt->fetchColumn();
+        return $status !== false ? provider_normalize_status((string) $status) : null;
+    } catch (Throwable $e) {
+        return null;
+    }
 }
 
 function provider_is_email_verified(PDO $pdo, string $tenantId, string $ownerUserId): bool
@@ -71,14 +75,18 @@ function provider_is_email_verified(PDO $pdo, string $tenantId, string $ownerUse
         return true;
     }
 
-    $stmt = $pdo->prepare("
-        SELECT 1
-        FROM tbl_email_verifications
-        WHERE tenant_id = ? AND user_id = ? AND verified_at IS NOT NULL
-        LIMIT 1
-    ");
-    $stmt->execute([$tenantId, $ownerUserId]);
-    return (bool) $stmt->fetchColumn();
+    try {
+        $stmt = $pdo->prepare("
+            SELECT 1
+            FROM tbl_email_verifications
+            WHERE tenant_id = ? AND user_id = ? AND verified_at IS NOT NULL
+            LIMIT 1
+        ");
+        $stmt->execute([$tenantId, $ownerUserId]);
+        return (bool) $stmt->fetchColumn();
+    } catch (Throwable $e) {
+        return false;
+    }
 }
 
 function provider_has_submitted_clinic_docs(PDO $pdo, string $tenantId, string $ownerUserId): bool
@@ -93,15 +101,19 @@ function provider_has_submitted_clinic_docs(PDO $pdo, string $tenantId, string $
         return true;
     }
 
-    $stmt = $pdo->prepare("
-        SELECT 1
-        FROM tbl_tenant_verification_requests
-        WHERE tenant_id = ? AND submitted_at IS NOT NULL
-        ORDER BY request_id DESC
-        LIMIT 1
-    ");
-    $stmt->execute([$tenantId]);
-    return (bool) $stmt->fetchColumn();
+    try {
+        $stmt = $pdo->prepare("
+            SELECT 1
+            FROM tbl_tenant_verification_requests
+            WHERE tenant_id = ? AND submitted_at IS NOT NULL
+            ORDER BY request_id DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$tenantId]);
+        return (bool) $stmt->fetchColumn();
+    } catch (Throwable $e) {
+        return false;
+    }
 }
 
 function provider_require_approved_for_provider_portal(): void
@@ -132,7 +144,11 @@ function provider_require_approved_for_provider_portal(): void
         return; // truly unauthenticated visitor
     }
 
-    $status = provider_get_verification_request_status($pdo, $tenantId, $ownerUserId);
+    try {
+        $status = provider_get_verification_request_status($pdo, $tenantId, $ownerUserId);
+    } catch (Throwable $e) {
+        $status = null;
+    }
     if ($status === 'approved') {
         // Also require the provider owner account to be active.
         $stmt = $pdo->prepare("SELECT 1 FROM tbl_users WHERE user_id = ? AND tenant_id = ? AND status = 'active' LIMIT 1");
