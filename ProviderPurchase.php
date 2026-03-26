@@ -26,9 +26,14 @@ if (!empty($_SESSION['onboarding_user_id']) && !empty($_SESSION['onboarding_tena
         $subscriptionState = ['has_active_subscription' => false];
     }
     $has_active = !empty($subscriptionState['has_active_subscription']);
-    if ($has_active) {
+    // Allow exactly one revisit to this page right after a successful purchase.
+    $allow_revisit_once = !empty($_SESSION['allow_purchase_page_once_after_payment']);
+    if ($has_active && !$allow_revisit_once) {
         header('Location: ProviderTenantDashboard.php');
         exit;
+    }
+    if ($allow_revisit_once) {
+        unset($_SESSION['allow_purchase_page_once_after_payment']);
     }
     $tenant_id = $tid;
     $user_id = $uid;
@@ -227,6 +232,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $t = $stmt2->fetch(PDO::FETCH_ASSOC);
                 $_SESSION['is_owner'] = ($t && isset($t['owner_user_id']) && $t['owner_user_id'] === $user['user_id']);
             }
+            $_SESSION['allow_purchase_page_once_after_payment'] = true;
             unset($_SESSION['onboarding_user_id'], $_SESSION['onboarding_tenant_id'], $_SESSION['onboarding_pending_id'], $_SESSION['onboarding_email'], $_SESSION['onboarding_plan'], $_SESSION['onboarding_full_name'], $_SESSION['onboarding_username']);
             header('Location: ProviderTenantDashboard.php');
             exit;
