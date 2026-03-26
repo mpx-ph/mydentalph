@@ -163,10 +163,10 @@ if ($nav_onboarding_tenant_id !== null) {
 </div>
 <!-- Action Section -->
 <div class="flex flex-col items-center gap-8">
-<button class="group relative px-12 py-5 bg-primary text-white font-bold rounded-full overflow-hidden transition-all hover:pr-16 active:scale-95 shadow-xl shadow-primary/20">
+<a href="ProviderMain.php" class="group relative px-12 py-5 bg-primary text-white font-bold rounded-full overflow-hidden transition-all hover:pr-16 active:scale-95 shadow-xl shadow-primary/20 inline-flex items-center justify-center" role="button" aria-label="Go to Home">
 <span class="relative z-10 font-headline text-base uppercase tracking-widest">Go to Home</span>
 <span class="material-symbols-outlined absolute right-6 opacity-0 group-hover:opacity-100 transition-all">arrow_right_alt</span>
-</button>
+</a>
 <!-- Status Note -->
 <div class="flex items-center gap-3 px-8 py-4 bg-surface-container-low rounded-2xl border border-primary/10">
 <span class="material-symbols-outlined text-primary text-2xl">schedule</span>
