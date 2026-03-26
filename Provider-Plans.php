@@ -5,20 +5,22 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/provider_auth.php';
 require_once __DIR__ . '/superadmin/superadmin_settings_lib.php';
 
-$go_to_purchase = false;
 $max_sites_reached = false;
 if (provider_has_authenticated_provider_session()) {
-    $identity = provider_get_authenticated_provider_identity_from_session();
-    $tid = $identity[0];
-    $subscriptionState = provider_get_tenant_subscription_state($pdo, (string) $tid);
-    $has_active = !empty($subscriptionState['has_active_subscription']);
-    if ($has_active) {
-        $max_sites_reached = true;
-    } else {
-        $go_to_purchase = true;
+    try {
+        $identity = provider_get_authenticated_provider_identity_from_session();
+        $tid = $identity[0];
+        $subscriptionState = provider_get_tenant_subscription_state($pdo, (string) $tid);
+        $has_active = !empty($subscriptionState['has_active_subscription']);
+        if ($has_active) {
+            $max_sites_reached = true;
+        }
+    } catch (Throwable $e) {
+        // Keep button routing based on helper resolution below.
     }
 }
-$plan_base = $go_to_purchase ? 'ProviderPurchase.php' : 'ProviderCreate.php';
+
+$plan_base = provider_resolve_plan_selection_redirect($pdo);
 $settings = superadmin_get_settings($pdo);
 $providerPlans = isset($settings['provider_plans']) && is_array($settings['provider_plans'])
     ? $settings['provider_plans']

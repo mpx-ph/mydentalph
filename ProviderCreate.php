@@ -15,7 +15,12 @@ if (!in_array($chosen_plan, $allowed_plans, true)) {
 
 // Authenticated providers should continue subscription flow, not re-enter account creation.
 if (provider_has_authenticated_provider_session()) {
-    $redirect = 'ProviderPurchase.php?plan=' . urlencode($chosen_plan);
+    $_SESSION['onboarding_plan'] = $chosen_plan;
+    $redirectBase = provider_resolve_plan_selection_redirect($pdo);
+    $redirect = $redirectBase;
+    if ($redirectBase === 'ProviderClinicSetup.php') {
+        $redirect .= '?plan=' . urlencode($chosen_plan);
+    }
     header('Location: ' . $redirect);
     exit;
 }

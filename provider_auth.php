@@ -319,3 +319,29 @@ function provider_get_tenant_subscription_state(PDO $pdo, string $tenantId): arr
     return $result;
 }
 
+/**
+ * Resolve destination after selecting a plan.
+ *
+ * Rules:
+ * - Not logged in: go to account creation.
+ * - Logged in with active subscription: restrict to dashboard.
+ * - Logged in without active subscription: proceed to clinic setup.
+ */
+function provider_resolve_plan_selection_redirect(PDO $pdo): string
+{
+    if (!provider_has_authenticated_provider_session()) {
+        return 'ProviderCreate.php';
+    }
+
+    [$tenantId, ] = provider_get_authenticated_provider_identity_from_session();
+    try {
+        $subscriptionState = provider_get_tenant_subscription_state($pdo, (string) $tenantId);
+        $hasActiveSubscription = !empty($subscriptionState['has_active_subscription']);
+    } catch (Throwable $e) {
+        // Fail open for onboarding: on state lookup failure, do not block setup.
+        $hasActiveSubscription = false;
+    }
+
+    return $hasActiveSubscription ? 'ProviderTenantDashboard.php' : 'ProviderClinicSetup.php';
+}
+

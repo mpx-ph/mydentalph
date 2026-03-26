@@ -19,6 +19,10 @@ $tenant_id = '';
 $approved_request = null;
 $user_id = '';
 $token_attempted = ($setup_token !== '' || $setup_request_id > 0);
+$chosen_plan = isset($_GET['plan']) ? strtolower(trim((string) $_GET['plan'])) : '';
+if (in_array($chosen_plan, ['starter', 'professional', 'enterprise'], true)) {
+    $_SESSION['onboarding_plan'] = $chosen_plan;
+}
 
 function setup_log_error(string $message, Throwable $e = null): void
 {
