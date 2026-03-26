@@ -24,16 +24,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $otp_code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         $otp_hash = password_hash($otp_code, PASSWORD_DEFAULT);
         $otp_expires = date('Y-m-d H:i:s', time() + 900);
-        $stmt = $pdo->prepare('UPDATE tbl_provider_pending_signups SET otp_hash = ?, otp_expires_at = ?, attempts = 0, last_sent_at = NOW() WHERE id = ?');
-        $stmt->execute([$otp_hash, $otp_expires, $pending_id]);
-        $to_email = $_SESSION['onboarding_email'] ?? '';
-        if ($to_email && send_otp_email($to_email, $otp_code)) {
-            $resend_message = 'A new code has been sent to your email.';
+        $stmt = $pdo->prepare('SELECT id FROM tbl_provider_pending_signups WHERE id = ? LIMIT 1');
+        $stmt->execute([$pending_id]);
+        $exists = (bool) $stmt->fetchColumn();
+        if (!$exists) {
+            unset($_SESSION['onboarding_pending_id']);
+            $error = 'No pending registration found. Please start over.';
         } else {
-            $resend_message = 'We could not send the email. Please check your address or try again later.';
+            $stmt = $pdo->prepare('UPDATE tbl_provider_pending_signups SET otp_hash = ?, otp_expires_at = ?, attempts = 0, last_sent_at = NOW() WHERE id = ?');
+            $stmt->execute([$otp_hash, $otp_expires, $pending_id]);
+            $to_email = $_SESSION['onboarding_email'] ?? '';
+            if ($to_email && send_otp_email($to_email, $otp_code)) {
+                $resend_message = 'A new code has been sent to your email.';
+            } else {
+                $resend_message = 'We could not send the email. Please check your address or try again later.';
+            }
         }
     } else {
-        $otp_code = trim($_POST['otp_code'] ?? '');
+            $otp_code = trim($_POST['otp_code'] ?? '');
         if (strlen($otp_code) !== 6 || !ctype_digit($otp_code)) {
             $error = 'Please enter a valid 6-digit code.';
         } else {
@@ -45,16 +53,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$row) {
                 unset($_SESSION['onboarding_pending_id']);
                 $error = 'No pending registration found. Please start over.';
-            } elseif ($dev_otp !== null && $otp_code === $dev_otp) {
-                $proceed = true;
-            } elseif (strtotime($row['otp_expires_at']) < time()) {
-                $error = 'This code has expired. Please request a new one.';
-            } elseif (!password_verify($otp_code, $row['otp_hash'])) {
-                $stmt = $pdo->prepare('UPDATE tbl_provider_pending_signups SET attempts = attempts + 1 WHERE id = ?');
-                $stmt->execute([$pending_id]);
-                $error = 'Invalid verification code. Please try again.';
             } else {
-                $proceed = true;
+                $otp_expires_ts = strtotime((string) $row['otp_expires_at']);
+                if ($otp_expires_ts === false || $otp_expires_ts < time()) {
+                    $error = 'This code has expired. Please request a new one.';
+                } elseif ($dev_otp !== null && $otp_code === $dev_otp) {
+                    // DEV override (only allowed when code is not expired).
+                    $proceed = true;
+                } elseif (!password_verify($otp_code, $row['otp_hash'])) {
+                    $stmt = $pdo->prepare('UPDATE tbl_provider_pending_signups SET attempts = attempts + 1 WHERE id = ?');
+                    $stmt->execute([$pending_id]);
+                    $error = 'Invalid verification code. Please try again.';
+                } else {
+                    $proceed = true;
+                }
             }
             if ($proceed) {
                 try {

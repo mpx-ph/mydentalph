@@ -63,6 +63,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $pending_id = (int) $pdo->lastInsertId();
                         }
 
+                        // Starting onboarding should not create or activate any login session.
+                        unset(
+                            $_SESSION['user_id'],
+                            $_SESSION['tenant_id'],
+                            $_SESSION['username'],
+                            $_SESSION['email'],
+                            $_SESSION['full_name'],
+                            $_SESSION['role'],
+                            $_SESSION['is_owner']
+                        );
+
                         send_otp_email($email, $otp_code);
 
                         $_SESSION['onboarding_pending_id'] = $pending_id;

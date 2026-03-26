@@ -26,7 +26,13 @@ if ($is_superadmin) {
         unset($_SESSION['user_id'], $_SESSION['tenant_id'], $_SESSION['username'], $_SESSION['email'], $_SESSION['full_name'], $_SESSION['role'], $_SESSION['is_owner']);
     }
 }
-if (!$logged_in && (!empty($_SESSION['onboarding_user_id']) || !empty($_SESSION['onboarding_pending_id']))) {
+// Only treat onboarding as "logged in" after OTP verification (onboarding_user_id is set).
+// Pending signups (onboarding_pending_id) must NOT affect logged-in state.
+if (
+    !$logged_in
+    && !empty($_SESSION['onboarding_user_id'])
+    && !empty($_SESSION['onboarding_tenant_id'])
+) {
     $logged_in = true;
 }
 
