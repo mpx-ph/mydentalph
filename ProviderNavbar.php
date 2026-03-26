@@ -12,7 +12,20 @@ $logged_in = $is_superadmin || $has_provider_session;
 
 $user_display_name = $_SESSION['name'] ?? $_SESSION['full_name'] ?? $_SESSION['username'] ?? $_SESSION['email']
     ?? $_SESSION['onboarding_full_name'] ?? $_SESSION['onboarding_email'] ?? 'Account';
-$user_initial = mb_strtoupper(mb_substr(trim($user_display_name), 0, 1)) ?: '?';
+$display_name_trimmed = trim((string) $user_display_name);
+if (function_exists('mb_substr')) {
+    $first_char = (string) mb_substr($display_name_trimmed, 0, 1);
+} else {
+    $first_char = (string) substr($display_name_trimmed, 0, 1);
+}
+if (function_exists('mb_strtoupper')) {
+    $user_initial = (string) mb_strtoupper($first_char);
+} else {
+    $user_initial = (string) strtoupper($first_char);
+}
+if ($user_initial === '') {
+    $user_initial = '?';
+}
 ?>
 <!-- Navigation -->
 <style>
