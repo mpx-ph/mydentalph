@@ -1,48 +1,70 @@
 <?php
 session_start();
+require_once __DIR__ . '/provider_redirect_superadmin.php';
 require_once __DIR__ . '/db.php';
 
 $error = '';
 $setup_access_granted = false;
-$setup_token = trim((string) ($_GET['setup_token'] ?? ''));
+$debug_mode = isset($_GET['debug']) && $_GET['debug'] === '1';
+if ($debug_mode) {
+    ini_set('display_errors', '1');
+    ini_set('display_startup_errors', '1');
+    error_reporting(E_ALL);
+}
+
+$setup_token = trim((string) ($_GET['setup_token'] ?? $_POST['setup_token'] ?? $_SESSION['onboarding_setup_token'] ?? ''));
 $tenant_id = '';
 $approved_request = null;
+$user_id = '';
+
+function setup_log_error(string $message, Throwable $e = null): void
+{
+    $line = '[ProviderClinicSetup] ' . $message;
+    if ($e !== null) {
+        $line .= ' | ' . $e->getMessage();
+    }
+    error_log($line);
+}
 
 if ($setup_token !== '') {
-    $stmt = $pdo->prepare("
-        SELECT request_id, tenant_id, owner_user_id, status, setup_token_hash, setup_token_expires_at, setup_token_used_at
-        FROM tbl_tenant_verification_requests
-        WHERE status = 'approved' AND setup_token_expires_at IS NOT NULL
-        ORDER BY request_id DESC
-    ");
-    $stmt->execute();
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    try {
+        $stmt = $pdo->prepare("
+            SELECT request_id, tenant_id, owner_user_id, status, setup_token_hash, setup_token_expires_at, setup_token_used_at
+            FROM tbl_tenant_verification_requests
+            WHERE status = 'approved' AND setup_token_expires_at IS NOT NULL
+            ORDER BY request_id DESC
+        ");
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    foreach ($rows as $row) {
-        $token_hash = (string) ($row['setup_token_hash'] ?? '');
-        $expires_at = (string) ($row['setup_token_expires_at'] ?? '');
-        $used_at = (string) ($row['setup_token_used_at'] ?? '');
-        if ($token_hash === '' || $expires_at === '') {
-            continue;
+        foreach ($rows as $row) {
+            $token_hash = (string) ($row['setup_token_hash'] ?? '');
+            $expires_at = (string) ($row['setup_token_expires_at'] ?? '');
+            $used_at = (string) ($row['setup_token_used_at'] ?? '');
+            if ($token_hash === '' || $expires_at === '' || $used_at !== '') {
+                continue;
+            }
+            $expires_ts = strtotime($expires_at);
+            if ($expires_ts === false || $expires_ts < time()) {
+                continue;
+            }
+            if (password_verify($setup_token, $token_hash)) {
+                $setup_access_granted = true;
+                $approved_request = $row;
+                $tenant_id = (string) ($row['tenant_id'] ?? '');
+                $user_id = (string) ($row['owner_user_id'] ?? '');
+                $_SESSION['onboarding_tenant_id'] = $tenant_id;
+                $_SESSION['onboarding_user_id'] = $user_id;
+                $_SESSION['onboarding_setup_token'] = $setup_token;
+                break;
+            }
         }
-        if ($used_at !== '') {
-            continue;
-        }
-        $expires_ts = strtotime($expires_at);
-        if ($expires_ts === false || $expires_ts < time()) {
-            continue;
-        }
-        if (password_verify($setup_token, $token_hash)) {
-            $setup_access_granted = true;
-            $approved_request = $row;
-            $tenant_id = (string) ($row['tenant_id'] ?? '');
-            $_SESSION['onboarding_tenant_id'] = $tenant_id;
-            $_SESSION['onboarding_user_id'] = (string) ($row['owner_user_id'] ?? '');
-            break;
-        }
+    } catch (Throwable $e) {
+        setup_log_error('Token validation failed.', $e);
+        $error = 'Could not validate setup link right now. Please try again.';
     }
 
-    if (!$setup_access_granted) {
+    if (!$setup_access_granted && $error === '') {
         $error = 'This setup link is invalid or expired. Please contact support.';
     }
 }
@@ -53,64 +75,95 @@ if (!$setup_access_granted) {
     if ($session_user_id !== '' && $session_tenant_id !== '') {
         $tenant_id = $session_tenant_id;
         $user_id = $session_user_id;
-    $stmt = $pdo->prepare("
-        SELECT request_id, tenant_id, owner_user_id, status
-        FROM tbl_tenant_verification_requests
-        WHERE tenant_id = ? AND owner_user_id = ? AND status = 'approved'
-        LIMIT 1
-    ");
-        $stmt->execute([$tenant_id, $user_id]);
-        $approved_request = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-        $setup_access_granted = (bool) $approved_request;
+        try {
+            $stmt = $pdo->prepare("
+                SELECT request_id, tenant_id, owner_user_id, status
+                FROM tbl_tenant_verification_requests
+                WHERE tenant_id = ? AND owner_user_id = ? AND status = 'approved'
+                LIMIT 1
+            ");
+            $stmt->execute([$tenant_id, $user_id]);
+            $approved_request = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+            $setup_access_granted = (bool) $approved_request;
+        } catch (Throwable $e) {
+            setup_log_error('Session approval lookup failed.', $e);
+            $error = 'Could not verify your approval status right now. Please try again.';
+        }
     }
 }
 
 if (!$setup_access_granted) {
-    // Pending/rejected users must not reach setup.
     header('Location: ProviderApprovalStatus.php');
     exit;
 }
 
-// Pre-fill clinic name from tenant
 $tenant = [];
 if ($tenant_id !== '') {
-    $stmt = $pdo->prepare("SELECT clinic_name, clinic_slug FROM tbl_tenants WHERE tenant_id = ?");
-    $stmt->execute([$tenant_id]);
-    $tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    try {
+        $stmt = $pdo->prepare("SELECT clinic_name, clinic_slug FROM tbl_tenants WHERE tenant_id = ?");
+        $stmt->execute([$tenant_id]);
+        $tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        setup_log_error('Tenant prefill failed.', $e);
+        $error = 'Could not load clinic details right now. Please refresh and try again.';
+    }
 }
-$current_clinic_name = $tenant['clinic_name'] ?? '';
-$current_slug = $tenant['clinic_slug'] ?? '';
+$current_clinic_name = (string) ($tenant['clinic_name'] ?? '');
+$current_slug = (string) ($tenant['clinic_slug'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $setup_access_granted) {
-    $clinic_name = trim($_POST['clinic_name'] ?? '');
-    $clinic_slug = trim($_POST['clinic_slug'] ?? '');
-    $clinic_slug = preg_replace('/[^a-z0-9\-]/', '', strtolower($clinic_slug));
+    $clinic_name = trim((string) ($_POST['clinic_name'] ?? ''));
+    $clinic_slug_raw = trim((string) ($_POST['clinic_slug'] ?? ''));
+    $clinic_slug = preg_replace('/[^a-z0-9\-]/', '', strtolower($clinic_slug_raw));
 
-    if (empty($clinic_name)) {
-        $error = "Clinic name is required.";
-    } elseif (empty($clinic_slug)) {
-        $error = "Clinic URL slug is required.";
+    if ($clinic_name === '') {
+        $error = 'Clinic name is required.';
+    } elseif (strlen($clinic_name) > 255) {
+        $error = 'Clinic name must not exceed 255 characters.';
+    } elseif ($clinic_slug === '') {
+        $error = 'Clinic URL slug is required.';
+    } elseif (!preg_match('/^[a-z0-9\-]+$/', $clinic_slug)) {
+        $error = 'Clinic URL can only contain lowercase letters, numbers, and hyphens.';
+    } elseif (strlen($clinic_slug) < 3 || strlen($clinic_slug) > 100) {
+        $error = 'Clinic URL must be between 3 and 100 characters.';
     } else {
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM tbl_tenants WHERE clinic_slug = ? AND tenant_id != ?");
-        $stmt->execute([$clinic_slug, $tenant_id]);
+        try {
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM tbl_tenants WHERE clinic_slug = ? AND tenant_id != ?");
+            $stmt->execute([$clinic_slug, $tenant_id]);
+            if ((int) $stmt->fetchColumn() > 0) {
+                $error = 'This clinic URL is already taken. Please choose another.';
+            } else {
+                $stmt = $pdo->prepare("UPDATE tbl_tenants SET clinic_name = ?, clinic_slug = ? WHERE tenant_id = ?");
+                $stmt->execute([$clinic_name, $clinic_slug, $tenant_id]);
 
-        if ($stmt->fetchColumn() > 0) {
-            $error = "This clinic URL is already taken. Please choose another.";
-        } else {
-            $stmt = $pdo->prepare("UPDATE tbl_tenants SET clinic_name = ?, clinic_slug = ? WHERE tenant_id = ?");
-            $stmt->execute([$clinic_name, $clinic_slug, $tenant_id]);
-            if ($setup_token !== '' && !empty($approved_request['request_id'])) {
-                $mark_used = $pdo->prepare("UPDATE tbl_tenant_verification_requests SET setup_token_used_at = NOW() WHERE request_id = ?");
-                $mark_used->execute([(int) $approved_request['request_id']]);
+                if ($setup_token !== '' && !empty($approved_request['request_id'])) {
+                    $mark_used = $pdo->prepare("UPDATE tbl_tenant_verification_requests SET setup_token_used_at = NOW() WHERE request_id = ?");
+                    $mark_used->execute([(int) $approved_request['request_id']]);
+                }
+
+                $_SESSION['onboarding_tenant_id'] = $tenant_id;
+                $_SESSION['onboarding_user_id'] = (string) ($approved_request['owner_user_id'] ?? $user_id);
+                $_SESSION['onboarding_setup_completed_at'] = time();
+
+                $redirect = 'VerifyBusiness.php';
+                if ($debug_mode) {
+                    $redirect .= '?debug=1';
+                }
+                header('Location: ' . $redirect);
+                exit;
             }
-            header('Location: VerifyBusiness.php');
-            exit;
+        } catch (Throwable $e) {
+            setup_log_error('Clinic setup save failed.', $e);
+            $error = 'Could not save clinic setup right now. Please try again.';
+            if ($debug_mode) {
+                $error .= ' Debug: ' . $e->getMessage();
+            }
         }
     }
-} else {
-    if ($current_slug === '' && $current_clinic_name !== '') {
-        $current_slug = preg_replace('/[^a-z0-9\-]/', '', strtolower(str_replace(' ', '', $current_clinic_name)));
-    }
+}
+
+if ($current_slug === '' && $current_clinic_name !== '') {
+    $current_slug = preg_replace('/[^a-z0-9\-]/', '', strtolower(str_replace(' ', '', $current_clinic_name)));
 }
 ?>
 <!DOCTYPE html>
@@ -240,7 +293,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $setup_access_granted) {
             </div>
         <?php endif; ?>
 
-        <form method="POST" action="" class="space-y-8 max-w-md mx-auto">
+        <form method="POST" action="<?php echo htmlspecialchars((string) ($_SERVER['REQUEST_URI'] ?? '')); ?>" class="space-y-8 max-w-md mx-auto">
+            <input type="hidden" name="setup_token" value="<?php echo htmlspecialchars($setup_token); ?>"/>
             <div class="space-y-6">
                 <!-- Clinic Name Field -->
                 <div class="group">

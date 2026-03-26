@@ -5,6 +5,12 @@ require_once __DIR__ . '/db.php';
 
 $error = '';
 $success = '';
+$debug_mode = isset($_GET['debug']) && $_GET['debug'] === '1';
+if ($debug_mode) {
+    ini_set('display_errors', '1');
+    ini_set('display_startup_errors', '1');
+    error_reporting(E_ALL);
+}
 
 if (empty($_SESSION['onboarding_user_id']) || empty($_SESSION['onboarding_tenant_id'])) {
     header('Location: ProviderOTP.php');
@@ -110,15 +116,25 @@ function run_ocr_space(string $file_path, string $mime): array
     return ['ok' => true, 'text' => trim($parsed_text)];
 }
 
-$stmt = $pdo->prepare("
-    SELECT verification_id, uploaded_file_path, ocn_tin_branch, taxpayer_name, registered_address, verification_status, submitted_at
-    FROM tbl_tenant_business_verifications
-    WHERE tenant_id = ?
-    ORDER BY verification_id DESC
-    LIMIT 1
-");
-$stmt->execute([$tenant_id]);
-$existing = $stmt->fetch(PDO::FETCH_ASSOC);
+$existing = [];
+try {
+    $stmt = $pdo->prepare("
+        SELECT verification_id, uploaded_file_path, ocn_tin_branch, taxpayer_name, registered_address, verification_status, submitted_at
+        FROM tbl_tenant_business_verifications
+        WHERE tenant_id = ?
+        ORDER BY verification_id DESC
+        LIMIT 1
+    ");
+    $stmt->execute([$tenant_id]);
+    $existing = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+} catch (Throwable $e) {
+    error_log('[VerifyBusiness] Existing verification lookup failed: ' . $e->getMessage());
+    $existing = [];
+    $error = 'Could not load current business verification details. Please try again.';
+    if ($debug_mode) {
+        $error .= ' Debug: ' . $e->getMessage();
+    }
+}
 
 $ocn_tin_branch = $existing['ocn_tin_branch'] ?? '';
 $taxpayer_name = $existing['taxpayer_name'] ?? '';
@@ -148,10 +164,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tmp_name = $_FILES['business_permit']['tmp_name'];
             $original_name = $_FILES['business_permit']['name'] ?? 'business_permit';
             $file_size = (int) ($_FILES['business_permit']['size'] ?? 0);
-            $mime = (string) mime_content_type($tmp_name);
+            $mime = (string) (mime_content_type($tmp_name) ?: '');
+            if ($mime === '' || stripos($mime, 'octet-stream') !== false) {
+                $ext_guess = strtolower((string) pathinfo($original_name, PATHINFO_EXTENSION));
+                if ($ext_guess === 'pdf') {
+                    $mime = 'application/pdf';
+                } elseif (in_array($ext_guess, ['jpg', 'jpeg'], true)) {
+                    $mime = 'image/jpeg';
+                } elseif ($ext_guess === 'png') {
+                    $mime = 'image/png';
+                }
+            }
 
             if (!in_array($mime, $allowed_mimes, true)) {
                 $error = 'Unsupported file type. Please upload PDF, JPG, or PNG only.';
+            } elseif ($file_size <= 0) {
+                $error = 'Uploaded file is empty. Please select a valid document.';
             } elseif ($file_size > 10 * 1024 * 1024) {
                 $error = 'File is too large. Maximum size is 10MB.';
             } else {
