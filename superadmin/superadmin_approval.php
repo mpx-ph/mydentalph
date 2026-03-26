@@ -68,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $scheme = $is_https ? 'https' : 'http';
                         $host = $_SERVER['HTTP_HOST'] ?? '';
                         $base = rtrim($scheme . '://' . $host, '/');
-                        $setup_url = $base . '/ProviderClinicSetup.php?setup_token=' . urlencode($raw_token);
+                        $setup_url = $base . '/ProviderClinicSetup.php?request_id=' . urlencode((string) $request_id) . '&setup_token=' . urlencode($raw_token);
                         $safe_owner = htmlspecialchars((string) ($request['owner_name'] ?? 'Clinic Owner'), ENT_QUOTES, 'UTF-8');
                         $safe_clinic = htmlspecialchars((string) ($request['clinic_name'] ?? 'Clinic'), ENT_QUOTES, 'UTF-8');
                         $safe_setup_url = htmlspecialchars($setup_url, ENT_QUOTES, 'UTF-8');

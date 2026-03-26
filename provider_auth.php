@@ -141,3 +141,34 @@ function provider_require_approved_for_provider_portal(): void
     exit;
 }
 
+/**
+ * Establish a standard authenticated provider session.
+ * Use this after non-password auth flows (e.g., secure onboarding links).
+ *
+ * @param array{
+ *   user_id:string,
+ *   tenant_id:string,
+ *   username:string,
+ *   email:string,
+ *   full_name:string,
+ *   role:string,
+ *   is_owner:bool
+ * } $user
+ */
+function provider_establish_authenticated_session(array $user): void
+{
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    session_regenerate_id(true);
+
+    $_SESSION['user_id'] = (string) ($user['user_id'] ?? '');
+    $_SESSION['tenant_id'] = (string) ($user['tenant_id'] ?? '');
+    $_SESSION['username'] = (string) ($user['username'] ?? '');
+    $_SESSION['email'] = (string) ($user['email'] ?? '');
+    $_SESSION['full_name'] = (string) ($user['full_name'] ?? '');
+    $_SESSION['role'] = (string) ($user['role'] ?? '');
+    $_SESSION['is_owner'] = (bool) ($user['is_owner'] ?? false);
+}
+

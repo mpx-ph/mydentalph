@@ -12,6 +12,8 @@ if ($tenantId === '' || $ownerUserId === '') {
 
 $verificationStatus = provider_get_verification_request_status($pdo, $tenantId, $ownerUserId);
 $verificationStatus = $verificationStatus !== null ? $verificationStatus : 'pending';
+$setupLinkError = trim((string) ($_SESSION['provider_setup_link_error'] ?? ''));
+unset($_SESSION['provider_setup_link_error']);
 
 $emailVerified = provider_is_email_verified($pdo, $tenantId, $ownerUserId);
 $docsSubmitted = provider_has_submitted_clinic_docs($pdo, $tenantId, $ownerUserId);
@@ -50,6 +52,11 @@ if ($verificationStatus === 'approved') {
 <main class="pt-20 pb-16 px-6">
     <div class="max-w-2xl mx-auto">
         <div class="bg-white/90 dark:bg-slate-950/60 border border-on-surface/5 rounded-[2rem] p-8 shadow">
+            <?php if ($setupLinkError !== ''): ?>
+                <div class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 font-semibold">
+                    <?php echo htmlspecialchars($setupLinkError, ENT_QUOTES, 'UTF-8'); ?>
+                </div>
+            <?php endif; ?>
             <div class="flex items-start gap-4">
                 <div class="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                     <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">schedule</span>

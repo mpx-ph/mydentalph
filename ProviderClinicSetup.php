@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/provider_redirect_superadmin.php';
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/provider_auth.php';
 
 $error = '';
 $setup_access_granted = false;
@@ -12,10 +13,12 @@ if ($debug_mode) {
     error_reporting(E_ALL);
 }
 
-$setup_token = trim((string) ($_GET['setup_token'] ?? $_POST['setup_token'] ?? $_SESSION['onboarding_setup_token'] ?? ''));
+$setup_token = trim((string) ($_GET['setup_token'] ?? ''));
+$setup_request_id = (int) ($_GET['request_id'] ?? 0);
 $tenant_id = '';
 $approved_request = null;
 $user_id = '';
+$token_attempted = ($setup_token !== '' || $setup_request_id > 0);
 
 function setup_log_error(string $message, Throwable $e = null): void
 {
@@ -26,50 +29,129 @@ function setup_log_error(string $message, Throwable $e = null): void
     error_log($line);
 }
 
-if ($setup_token !== '') {
+if ($setup_token !== '' && $setup_request_id > 0) {
     try {
-        $stmt = $pdo->prepare("
-            SELECT request_id, tenant_id, owner_user_id, status, setup_token_hash, setup_token_expires_at, setup_token_used_at
-            FROM tbl_tenant_verification_requests
-            WHERE status = 'approved' AND setup_token_expires_at IS NOT NULL
-            ORDER BY request_id DESC
-        ");
-        $stmt->execute();
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $pdo->beginTransaction();
 
-        foreach ($rows as $row) {
+        $stmt = $pdo->prepare("
+            SELECT
+                r.request_id,
+                r.tenant_id,
+                r.owner_user_id,
+                r.status,
+                r.setup_token_hash,
+                r.setup_token_expires_at,
+                r.setup_token_used_at,
+                t.clinic_name,
+                t.clinic_slug,
+                u.user_id,
+                u.tenant_id AS user_tenant_id,
+                u.username,
+                u.email,
+                u.full_name,
+                u.role,
+                u.status AS user_status
+            FROM tbl_tenant_verification_requests r
+            INNER JOIN tbl_tenants t ON t.tenant_id = r.tenant_id
+            INNER JOIN tbl_users u ON u.user_id = r.owner_user_id
+            WHERE r.request_id = ?
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $stmt->execute([$setup_request_id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+        if (!$row) {
+            $error = 'This setup link is invalid or already unavailable.';
+            $pdo->rollBack();
+        } else {
             $token_hash = (string) ($row['setup_token_hash'] ?? '');
             $expires_at = (string) ($row['setup_token_expires_at'] ?? '');
             $used_at = (string) ($row['setup_token_used_at'] ?? '');
-            if ($token_hash === '' || $expires_at === '' || $used_at !== '') {
-                continue;
-            }
             $expires_ts = strtotime($expires_at);
-            if ($expires_ts === false || $expires_ts < time()) {
-                continue;
+
+            $is_valid = true;
+            if ((string) ($row['status'] ?? '') !== 'approved') {
+                $is_valid = false;
+                $error = 'Your account is not approved for clinic setup yet.';
+            } elseif ((string) ($row['role'] ?? '') !== 'tenant_owner' || (string) ($row['user_status'] ?? '') !== 'active') {
+                $is_valid = false;
+                $error = 'Your account is not active for clinic setup.';
+            } elseif ((string) ($row['tenant_id'] ?? '') === '' || (string) ($row['tenant_id'] ?? '') !== (string) ($row['user_tenant_id'] ?? '')) {
+                $is_valid = false;
+                $error = 'Tenant identity validation failed for this setup link.';
+            } elseif ($token_hash === '' || $expires_at === '' || $expires_ts === false || $expires_ts < time()) {
+                $is_valid = false;
+                $error = 'This setup link has expired. Please contact support for a new link.';
+            } elseif ($used_at !== '') {
+                $is_valid = false;
+                $error = 'This setup link has already been used.';
+            } elseif (!password_verify($setup_token, $token_hash)) {
+                $is_valid = false;
+                $error = 'This setup link is invalid.';
             }
-            if (password_verify($setup_token, $token_hash)) {
+
+            if ($is_valid) {
+                $mark_used = $pdo->prepare("
+                    UPDATE tbl_tenant_verification_requests
+                    SET setup_token_used_at = NOW()
+                    WHERE request_id = ? AND setup_token_used_at IS NULL
+                    LIMIT 1
+                ");
+                $mark_used->execute([(int) $row['request_id']]);
+
+                if ($mark_used->rowCount() !== 1) {
+                    $is_valid = false;
+                    $error = 'This setup link has already been used.';
+                }
+            }
+
+            if ($is_valid) {
+                $pdo->commit();
+
                 $setup_access_granted = true;
                 $approved_request = $row;
                 $tenant_id = (string) ($row['tenant_id'] ?? '');
                 $user_id = (string) ($row['owner_user_id'] ?? '');
+
+                provider_establish_authenticated_session([
+                    'user_id' => (string) ($row['user_id'] ?? ''),
+                    'tenant_id' => (string) ($row['tenant_id'] ?? ''),
+                    'username' => (string) ($row['username'] ?? ''),
+                    'email' => (string) ($row['email'] ?? ''),
+                    'full_name' => (string) ($row['full_name'] ?? ''),
+                    'role' => (string) ($row['role'] ?? ''),
+                    'is_owner' => true,
+                ]);
+
                 $_SESSION['onboarding_tenant_id'] = $tenant_id;
                 $_SESSION['onboarding_user_id'] = $user_id;
-                $_SESSION['onboarding_setup_token'] = $setup_token;
-                break;
+                $_SESSION['onboarding_setup_autologin_at'] = time();
+
+                $redirect = 'ProviderClinicSetup.php';
+                if ($debug_mode) {
+                    $redirect .= '?debug=1';
+                }
+                header('Location: ' . $redirect);
+                exit;
+            }
+
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
             }
         }
     } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         setup_log_error('Token validation failed.', $e);
         $error = 'Could not validate setup link right now. Please try again.';
     }
-
-    if (!$setup_access_granted && $error === '') {
-        $error = 'This setup link is invalid or expired. Please contact support.';
-    }
+} elseif ($setup_token !== '' || $setup_request_id > 0) {
+    $error = 'This setup link is invalid. Please use the full link from your approval email.';
 }
 
-if (!$setup_access_granted) {
+if (!$setup_access_granted && !$token_attempted) {
     $session_user_id = (string) ($_SESSION['onboarding_user_id'] ?? $_SESSION['user_id'] ?? '');
     $session_tenant_id = (string) ($_SESSION['onboarding_tenant_id'] ?? $_SESSION['tenant_id'] ?? '');
     if ($session_user_id !== '' && $session_tenant_id !== '') {
@@ -77,9 +159,10 @@ if (!$setup_access_granted) {
         $user_id = $session_user_id;
         try {
             $stmt = $pdo->prepare("
-                SELECT request_id, tenant_id, owner_user_id, status
-                FROM tbl_tenant_verification_requests
-                WHERE tenant_id = ? AND owner_user_id = ? AND status = 'approved'
+                SELECT r.request_id, r.tenant_id, r.owner_user_id, r.status
+                FROM tbl_tenant_verification_requests r
+                INNER JOIN tbl_users u ON u.user_id = r.owner_user_id AND u.tenant_id = r.tenant_id
+                WHERE r.tenant_id = ? AND r.owner_user_id = ? AND r.status = 'approved' AND u.status = 'active'
                 LIMIT 1
             ");
             $stmt->execute([$tenant_id, $user_id]);
@@ -93,6 +176,9 @@ if (!$setup_access_granted) {
 }
 
 if (!$setup_access_granted) {
+    if ($error !== '') {
+        $_SESSION['provider_setup_link_error'] = $error;
+    }
     header('Location: ProviderApprovalStatus.php');
     exit;
 }
@@ -135,11 +221,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $setup_access_granted) {
             } else {
                 $stmt = $pdo->prepare("UPDATE tbl_tenants SET clinic_name = ?, clinic_slug = ? WHERE tenant_id = ?");
                 $stmt->execute([$clinic_name, $clinic_slug, $tenant_id]);
-
-                if ($setup_token !== '' && !empty($approved_request['request_id'])) {
-                    $mark_used = $pdo->prepare("UPDATE tbl_tenant_verification_requests SET setup_token_used_at = NOW() WHERE request_id = ?");
-                    $mark_used->execute([(int) $approved_request['request_id']]);
-                }
 
                 $_SESSION['onboarding_tenant_id'] = $tenant_id;
                 $_SESSION['onboarding_user_id'] = (string) ($approved_request['owner_user_id'] ?? $user_id);
@@ -294,7 +375,6 @@ if ($current_slug === '' && $current_clinic_name !== '') {
         <?php endif; ?>
 
         <form method="POST" action="<?php echo htmlspecialchars((string) ($_SERVER['REQUEST_URI'] ?? '')); ?>" class="space-y-8 max-w-md mx-auto">
-            <input type="hidden" name="setup_token" value="<?php echo htmlspecialchars($setup_token); ?>"/>
             <div class="space-y-6">
                 <!-- Clinic Name Field -->
                 <div class="group">
