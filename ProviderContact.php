@@ -97,6 +97,15 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
         }
         .slow-float { animation: none; }
       }
+
+      @keyframes popIn {
+        0% { transform: translateY(10px) scale(0.985); }
+        60% { transform: translateY(-3px) scale(1.01); }
+        100% { transform: translateY(0) scale(1); }
+      }
+      .pop-up {
+        animation: popIn 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
 </style>
 </head>
 <body class="bg-background-light font-body text-on-surface dark:bg-background-dark dark:text-surface antialiased">
@@ -122,54 +131,54 @@ Elevating dental practice management through clinical precision and digital cura
 
 <!-- Form & Info Section -->
 <section class="max-w-[1800px] mx-auto px-10 mb-16 reveal is-visible" data-reveal="section">
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
 <!-- Left Column: Contact Information -->
 <div class="space-y-6">
-<div class="bg-white dark:bg-slate-900/70 p-9 rounded-[2.1rem] border border-on-surface/5 shadow-[0_20px_50px_-15px_rgba(43,139,235,0.05)] space-y-8">
+<div class="bg-white dark:bg-slate-900/70 p-8 rounded-[2rem] border border-on-surface/5 shadow-[0_20px_50px_-15px_rgba(43,139,235,0.05)] space-y-7 pop-up">
 <div>
-<div class="text-primary font-bold text-xs uppercase mb-8 flex items-center gap-4 tracking-[0.3em]">
-<span class="w-12 h-[1.5px] bg-primary"></span> Contact Information
+<div class="text-primary font-bold text-xs uppercase mb-7 flex items-center gap-4 tracking-[0.3em]">
+  <span class="w-12 h-[1.5px] bg-primary"></span> Contact Information
 </div>
-<div class="space-y-8">
+<div class="space-y-7">
 <div class="flex items-start gap-6 group">
-<div class="w-14 h-14 rounded-2xl bg-surface-container-low flex items-center justify-center text-primary transition-all duration-500 group-hover:scale-110">
-<span class="material-symbols-outlined text-3xl font-light" data-icon="location_on">location_on</span>
+<div class="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center text-primary transition-all duration-500 group-hover:scale-110">
+<span class="material-symbols-outlined text-2xl font-light" data-icon="location_on">location_on</span>
 </div>
 <div>
-<p class="font-headline font-extrabold text-on-surface text-xl mb-1 tracking-tight">Office Address</p>
+<p class="font-headline font-extrabold text-on-surface text-lg mb-1 tracking-tight">Office Address</p>
 <p class="text-on-surface-variant font-medium leading-relaxed">Quezon City, Philippines</p>
 </div>
 </div>
 <div class="flex items-start gap-6 group">
-<div class="w-14 h-14 rounded-2xl bg-surface-container-low flex items-center justify-center text-primary transition-all duration-500 group-hover:scale-110">
-<span class="material-symbols-outlined text-3xl font-light" data-icon="call">call</span>
+<div class="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center text-primary transition-all duration-500 group-hover:scale-110">
+<span class="material-symbols-outlined text-2xl font-light" data-icon="call">call</span>
 </div>
 <div>
-<p class="font-headline font-extrabold text-on-surface text-xl mb-1 tracking-tight">Phone</p>
+<p class="font-headline font-extrabold text-on-surface text-lg mb-1 tracking-tight">Phone</p>
 <p class="text-on-surface-variant font-medium leading-relaxed">+63 912 345 6789</p>
 </div>
 </div>
 <div class="flex items-start gap-6 group">
-<div class="w-14 h-14 rounded-2xl bg-surface-container-low flex items-center justify-center text-primary transition-all duration-500 group-hover:scale-110">
-<span class="material-symbols-outlined text-3xl font-light" data-icon="mail">mail</span>
+<div class="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center text-primary transition-all duration-500 group-hover:scale-110">
+<span class="material-symbols-outlined text-2xl font-light" data-icon="mail">mail</span>
 </div>
 <div>
-<p class="font-headline font-extrabold text-on-surface text-xl mb-1 tracking-tight">Email</p>
+<p class="font-headline font-extrabold text-on-surface text-lg mb-1 tracking-tight">Email</p>
 <p class="text-on-surface-variant font-medium leading-relaxed">support@mydental.com</p>
 </div>
 </div>
 <div class="flex items-start gap-6 group">
-<div class="w-14 h-14 rounded-2xl bg-surface-container-low flex items-center justify-center text-primary transition-all duration-500 group-hover:scale-110">
-<span class="material-symbols-outlined text-3xl font-light" data-icon="schedule">schedule</span>
+<div class="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center text-primary transition-all duration-500 group-hover:scale-110">
+<span class="material-symbols-outlined text-2xl font-light" data-icon="schedule">schedule</span>
 </div>
 <div>
-<p class="font-headline font-extrabold text-on-surface text-xl mb-1 tracking-tight">Support Hours</p>
+<p class="font-headline font-extrabold text-on-surface text-lg mb-1 tracking-tight">Support Hours</p>
 <p class="text-on-surface-variant font-medium leading-relaxed">Mon - Fri: 8:00 AM - 6:00 PM<br/>24/7 Priority Emergency Support</p>
 </div>
 </div>
 </div>
 </div>
-<div class="pt-10 border-t border-on-surface/5">
+<div class="pt-9 border-t border-on-surface/5">
 <p class="text-primary font-bold text-[10px] uppercase tracking-[0.4em] mb-6">Clinical Network</p>
 <div class="flex gap-4">
 <div class="h-12 w-12 rounded-full bg-surface-container-low flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all cursor-pointer">
@@ -184,27 +193,27 @@ Elevating dental practice management through clinical precision and digital cura
 </div>
 
 <!-- Right Column: Contact Form -->
-<div class="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-9 rounded-[2.1rem] shadow-[0_40px_100px_-30px_rgba(43,139,235,0.15)] border border-primary/10 border-t-4 border-t-primary relative overflow-hidden">
+<div class="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-8 rounded-[2rem] shadow-[0_40px_100px_-30px_rgba(43,139,235,0.15)] border border-primary/10 border-t-4 border-t-primary relative overflow-hidden pop-up">
 <form class="space-y-8">
 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
 <div class="space-y-3">
 <label class="text-xs font-black uppercase tracking-[0.2em] text-on-surface-variant/60 ml-1 font-headline text-primary/70">Name</label>
-<input class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-5 py-4 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="Dr. Julian Pierce" type="text"/>
+<input class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-4 py-3 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="Dr. Julian Pierce" type="text"/>
 </div>
 <div class="space-y-3">
 <label class="text-xs font-black uppercase tracking-[0.2em] text-on-surface-variant/60 ml-1 font-headline text-primary/70">Clinic Name</label>
-<input class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-5 py-4 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="Apex Dental Group" type="text"/>
+<input class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-4 py-3 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="Apex Dental Group" type="text"/>
 </div>
 </div>
 <div class="space-y-3">
 <label class="text-xs font-black uppercase tracking-[0.2em] text-on-surface-variant/60 ml-1 font-headline text-primary/70">Email</label>
-<input class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-5 py-4 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="julian@apexdental.com" type="email"/>
+<input class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-4 py-3 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="julian@apexdental.com" type="email"/>
 </div>
 <div class="space-y-3">
 <label class="text-xs font-black uppercase tracking-[0.2em] text-on-surface-variant/60 ml-1 font-headline text-primary/70">Message</label>
-<textarea class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-5 py-4 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="Describe your clinic's needs..." rows="5"></textarea>
+<textarea class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-4 py-3 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="Describe your clinic's needs..." rows="5"></textarea>
 </div>
-<button class="w-full bg-primary text-white font-headline font-black text-sm uppercase tracking-[0.2em] py-5 rounded-2xl shadow-[0_20px_40px_-10px_rgba(43,139,235,0.4)] hover:shadow-[0_25px_50px_-12px_rgba(43,139,235,0.6)] hover:-translate-y-0.5 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group" type="button">
+<button class="w-full bg-primary text-white font-headline font-black text-sm uppercase tracking-[0.2em] py-4 rounded-2xl shadow-[0_20px_40px_-10px_rgba(43,139,235,0.4)] hover:shadow-[0_25px_50px_-12px_rgba(43,139,235,0.6)] hover:-translate-y-0.5 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group" type="button">
 Send Inquiry
 <span class="material-symbols-outlined transition-transform group-hover:translate-x-1" data-icon="arrow_forward">arrow_right_alt</span>
 </button>
