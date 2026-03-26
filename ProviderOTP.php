@@ -74,7 +74,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     unset($_SESSION['onboarding_pending_id']);
                     $_SESSION['onboarding_user_id'] = $ids['user_id'];
                     $_SESSION['onboarding_tenant_id'] = $ids['tenant_id'];
-                    header('Location: ProviderClinicSetup.php');
+                    // Resilience: sometimes the optional email-verification row insert may fail.
+                    // Keep a server-side flag so onboarding step guards can still work.
+                    $_SESSION['onboarding_email_verified_at'] = time();
+                    header('Location: ProviderClinicVerif.php');
                     exit;
                 } catch (Throwable $e) {
                     error_log('Provider signup finalize failed: ' . $e->getMessage());
