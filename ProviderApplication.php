@@ -120,31 +120,9 @@ if (!$has_submitted_clinic_docs) {
     </style>
 </head>
 <body class="bg-surface text-on-surface font-body min-h-screen flex flex-col mesh-gradient">
-<!-- Navigation -->
-<nav class="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl shadow-sm">
-<div class="flex justify-between items-center h-20 px-8 max-w-screen-2xl mx-auto">
-<div class="text-2xl font-bold tracking-tighter font-headline flex items-center gap-2">
-<div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-<span class="material-symbols-outlined text-white text-lg">select_check_box</span>
-</div>
-                Aetheris
-            </div>
-<div class="hidden md:flex items-center space-x-12 text-sm font-semibold tracking-tight text-on-surface/60 font-headline">
-<a class="text-primary border-b-2 border-primary pb-1" href="#">Home</a>
-<a class="hover:text-primary transition-colors" href="#">Features</a>
-<a class="hover:text-primary transition-colors" href="#">Pricing</a>
-<a class="hover:text-primary transition-colors" href="#">Contact Us</a>
-<a class="hover:text-primary transition-colors" href="#">FAQs</a>
-</div>
-<div class="flex items-center gap-4">
-<button class="text-on-surface font-semibold text-sm hover:text-primary transition-all font-headline">Login</button>
-<button class="bg-primary text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95 font-headline">
-                    Get Started
-                </button>
-</div>
-</div>
-</nav>
-<main class="flex-grow flex items-center justify-center px-6 pt-32 pb-16">
+<!-- Navigation (shared Provider navbar) -->
+<?php include 'ProviderNavbar.php'; ?>
+<main class="flex-grow flex items-center justify-center px-6 py-16">
 <!-- Main Application Card -->
 <div class="max-w-3xl w-full">
 <div class="bg-surface-container-lowest rounded-[3rem] p-10 md:p-20 shadow-[0_40px_80px_-20px_rgba(43,139,235,0.08)] text-center relative overflow-hidden border border-on-surface/5">
@@ -198,19 +176,4 @@ if (!$has_submitted_clinic_docs) {
 </div>
 </div>
 </main>
-<!-- Footer -->
-<footer class="w-full border-t border-slate-200 bg-slate-50 mt-auto">
-<div class="flex flex-col md:flex-row justify-between items-center py-12 px-8 max-w-screen-2xl mx-auto gap-4">
-<div class="text-lg font-bold text-slate-900 font-headline">Aetheris Systems</div>
-<div class="flex flex-wrap justify-center gap-8 text-xs font-medium font-body text-slate-500">
-<a class="hover:text-primary transition-all" href="#">Privacy Policy</a>
-<a class="hover:text-primary transition-all" href="#">Terms of Service</a>
-<a class="hover:text-primary transition-all" href="#">Interoperability Standards</a>
-<a class="hover:text-primary transition-all" href="#">Contact Sales</a>
-</div>
-<div class="text-xs text-slate-500 font-body opacity-80">
-                © 2024 Clinical Precision Framework. All rights reserved.
-            </div>
-</div>
-</footer>
 </body></html>
