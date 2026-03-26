@@ -188,7 +188,7 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
     <title>Provider Portal Login - MyDental</title>
 </head>
 
-<body class="mesh-gradient min-h-screen flex flex-col items-center selection:bg-primary/20 bg-background-light dark:bg-background-dark text-on-surface dark:text-slate-100 antialiased">
+<body class="mesh-gradient h-screen overflow-hidden flex flex-col items-center selection:bg-primary/20 bg-background-light dark:bg-background-dark text-on-surface dark:text-slate-100 antialiased">
 <nav class="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl shadow-sm">
     <div class="flex justify-between items-center h-20 px-8 max-w-screen-2xl mx-auto">
         <div class="text-2xl font-bold tracking-tighter font-headline flex items-center gap-2">
@@ -213,7 +213,7 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
     </div>
 </nav>
 
-<main class="flex-grow flex items-center justify-center w-full px-4 sm:px-6 lg:px-8 relative pt-24 pb-12">
+<main class="flex-1 w-full grid place-items-center px-4 sm:px-6 lg:px-8 relative pt-20">
     <div class="w-full max-w-lg">
         <!-- Login Card -->
         <div class="login-card rounded-[2.5rem] overflow-hidden p-12 space-y-10">
@@ -302,7 +302,7 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
         </div>
 
         <!-- Trust Badges / Security -->
-        <div class="mt-12 flex justify-center items-center space-x-10 opacity-30 hover:opacity-60 transition-all duration-500">
+        <div class="mt-8 flex justify-center items-center space-x-10 opacity-30 hover:opacity-60 transition-all duration-500">
             <div class="flex items-center space-x-2">
                 <span class="material-symbols-outlined text-lg">verified_user</span>
                 <span class="text-[10px] uppercase font-black tracking-[0.2em]">HIPAA Compliant</span>
@@ -315,20 +315,8 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
     </div>
 </main>
 
-<footer class="w-full border-t border-slate-200 bg-slate-50/50 backdrop-blur-sm">
-    <div class="flex flex-col md:flex-row justify-between items-center py-12 px-10 max-w-screen-2xl mx-auto gap-8">
-        <div class="text-lg font-bold text-on-surface font-headline">MyDental Systems</div>
-        <div class="flex flex-wrap justify-center gap-10 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">
-            <a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
-            <a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
-            <a class="hover:text-primary transition-colors" href="#">Help Center</a>
-        </div>
-        <div class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40">© 2024 MyDental Health Systems. All rights reserved.</div>
-    </div>
-</footer>
-
 <!-- Security Badge (Floating) -->
-<div class="fixed bottom-6 right-6 hidden md:flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-2 rounded-full shadow-lg border border-slate-100 dark:border-slate-700">
+<div class="fixed bottom-4 right-4 hidden md:flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-2 rounded-full shadow-lg border border-slate-100 dark:border-slate-700">
     <span class="material-symbols-outlined text-green-500 text-lg">verified_user</span>
     <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Secure AES-256 Encryption</span>
 </div>
