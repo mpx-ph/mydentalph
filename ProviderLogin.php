@@ -85,6 +85,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($userRole !== 'tenant_owner') {
                         $allowed = false;
                         $error = 'Only approved tenant owners can log in.';
+                    } else {
+                        // Start as allowed, then apply owner/approval/active guards below.
+                        $allowed = true;
                     }
 
                     // Ensure this user is the tenant owner record.
