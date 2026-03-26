@@ -294,11 +294,11 @@ require __DIR__ . '/superadmin_header.php';
 <?php endif; ?>
 <div class="flex items-center justify-between mb-2">
 <div class="flex gap-2 p-1.5 bg-white/40 backdrop-blur-md rounded-2xl border border-white/60">
-<a href="?status=pending" class="px-5 py-2 rounded-xl text-xs font-bold <?php echo $status_filter === 'pending' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Pending Tenants</a>
+<a href="?status=pending" class="px-5 py-2 rounded-xl text-xs font-bold transition-colors <?php echo $status_filter === 'pending' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Pending Tenants</a>
 <a href="?status=approved" class="px-5 py-2 rounded-xl text-xs font-bold <?php echo $status_filter === 'approved' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Approved</a>
 <a href="?status=rejected" class="px-5 py-2 rounded-xl text-xs font-bold <?php echo $status_filter === 'rejected' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Rejected</a>
 </div>
-<span class="text-xs font-bold text-on-surface-variant/70"><?php echo count($requests); ?> result(s)</span>
+<span class="text-xs font-bold text-on-surface-variant/70 px-4 py-2 bg-white/60 border border-white rounded-xl"><?php echo count($requests); ?> result(s)</span>
 </div>
 <div class="space-y-6">
 <?php if (empty($requests)): ?>
@@ -307,10 +307,10 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 <?php endif; ?>
 <?php foreach ($requests as $r): ?>
-<a href="?status=<?php echo urlencode($status_filter); ?>&request_id=<?php echo (int) $r['request_id']; ?>" class="block bg-white/80 backdrop-blur-md p-6 rounded-[2rem] editorial-shadow border-l-[6px] <?php echo ((int) $r['request_id'] === $selected_request_id) ? 'border-primary active-glow' : 'border-transparent'; ?> transition-all cursor-pointer group">
+<a href="?status=<?php echo urlencode($status_filter); ?>&request_id=<?php echo (int) $r['request_id']; ?>" class="block backdrop-blur-md p-6 rounded-[2rem] editorial-shadow border-l-[6px] <?php echo ((int) $r['request_id'] === $selected_request_id) ? 'bg-white/80 border-primary active-glow' : 'bg-white/45 border-transparent hover:bg-white/65'; ?> transition-all cursor-pointer group">
 <div class="flex items-start justify-between gap-4">
 <div class="flex gap-5">
-<div class="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center text-primary">
+<div class="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
 <span class="material-symbols-outlined text-3xl">dentistry</span>
 </div>
 <div>
@@ -331,7 +331,7 @@ require __DIR__ . '/superadmin_header.php';
 <aside class="w-2/5 border-l border-white/40 bg-white/30 backdrop-blur-md p-10 overflow-y-auto no-scrollbar">
 <div class="space-y-10">
 <?php if (!$selected): ?>
-<div class="bg-white/70 border border-white rounded-2xl p-6">
+<div class="bg-white/70 border border-white rounded-[2rem] p-8 editorial-shadow">
 <p class="text-sm font-semibold text-on-surface-variant">Select a tenant request to view details.</p>
 </div>
 <?php else: ?>
@@ -340,46 +340,78 @@ require __DIR__ . '/superadmin_header.php';
 <h4 class="font-headline font-extrabold text-2xl text-on-surface">Review Details</h4>
 <span class="text-[10px] font-extrabold text-primary px-3 py-1.5 bg-blue-50 rounded-xl border border-blue-100 uppercase tracking-widest">REF: #<?php echo (int) $selected['request_id']; ?></span>
 </div>
-<div class="p-6 bg-white/70 rounded-2xl border border-white space-y-2">
-<p class="text-sm font-semibold"><span class="text-on-surface-variant">Clinic:</span> <?php echo htmlspecialchars((string) ($selected['clinic_name'] ?? 'N/A'), ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="text-sm font-semibold"><span class="text-on-surface-variant">Tenant ID:</span> <?php echo htmlspecialchars((string) ($selected['tenant_id'] ?? 'N/A'), ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="text-sm font-semibold"><span class="text-on-surface-variant">Owner:</span> <?php echo htmlspecialchars((string) ($selected['owner_name'] ?? 'N/A'), ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="text-sm font-semibold"><span class="text-on-surface-variant">Email:</span> <?php echo htmlspecialchars((string) ($selected['owner_email'] ?? 'N/A'), ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="text-sm font-semibold"><span class="text-on-surface-variant">Submitted:</span> <?php echo htmlspecialchars((string) ($selected['submitted_at'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="text-sm font-semibold"><span class="text-on-surface-variant">Status:</span> <span class="px-2 py-1 rounded-lg border text-[10px] uppercase tracking-widest <?php echo sa_status_badge_class((string) ($selected['status'] ?? 'pending')); ?>"><?php echo htmlspecialchars((string) ($selected['status'] ?? 'pending'), ENT_QUOTES, 'UTF-8'); ?></span></p>
+<div class="p-8 bg-gradient-to-br from-primary via-[#1a80ff] to-[#0052cc] rounded-[2rem] text-white shadow-xl shadow-primary/20 relative overflow-hidden group">
+<div class="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-[40px] group-hover:bg-white/20 transition-all duration-700"></div>
+<h3 class="font-headline font-extrabold text-xl relative z-10"><?php echo htmlspecialchars((string) ($selected['clinic_name'] ?? 'Clinic'), ENT_QUOTES, 'UTF-8'); ?></h3>
+<p class="text-blue-100 text-sm font-medium opacity-90 relative z-10 mt-1">Tenant ID: <?php echo htmlspecialchars((string) ($selected['tenant_id'] ?? 'N/A'), ENT_QUOTES, 'UTF-8'); ?></p>
+<div class="mt-8 space-y-4 relative z-10">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-xl opacity-80">person</span>
+<span class="text-xs font-medium leading-relaxed opacity-90"><?php echo htmlspecialchars((string) ($selected['owner_name'] ?? 'N/A'), ENT_QUOTES, 'UTF-8'); ?></span>
+</div>
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-xl opacity-80">mail</span>
+<span class="text-xs font-medium leading-relaxed opacity-90"><?php echo htmlspecialchars((string) ($selected['owner_email'] ?? 'N/A'), ENT_QUOTES, 'UTF-8'); ?></span>
+</div>
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-xl opacity-80">calendar_today</span>
+<span class="text-xs font-medium leading-relaxed opacity-90">Submitted: <?php echo htmlspecialchars((string) ($selected['submitted_at'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
+</div>
+</div>
+</div>
+<div class="bg-white/60 backdrop-blur-md rounded-[2rem] p-6 editorial-shadow">
+<div class="flex items-center justify-between border-b border-on-surface/5 pb-4">
+<span class="text-[11px] font-extrabold text-on-surface-variant uppercase tracking-widest">Verification Status</span>
+<span class="px-2 py-1 rounded-lg border text-[10px] uppercase tracking-widest font-extrabold <?php echo sa_status_badge_class((string) ($selected['status'] ?? 'pending')); ?>"><?php echo htmlspecialchars((string) ($selected['status'] ?? 'pending'), ENT_QUOTES, 'UTF-8'); ?></span>
+</div>
+<p class="text-xs font-semibold text-on-surface-variant mt-4">Reviewed at: <?php echo htmlspecialchars((string) ($selected['reviewed_at'] ?? 'Not reviewed yet'), ENT_QUOTES, 'UTF-8'); ?></p>
 </div>
 <div class="space-y-3">
 <h5 class="text-[10px] font-extrabold text-on-surface-variant uppercase tracking-[0.2em] opacity-60">Submitted Documents</h5>
 <?php if (empty($files)): ?>
 <p class="text-sm font-semibold text-on-surface-variant">No files uploaded.</p>
 <?php else: ?>
+<div class="grid grid-cols-2 gap-4">
 <?php foreach ($files as $f): ?>
-<div class="bg-white/70 border border-white rounded-xl p-3 flex items-start justify-between gap-3">
-<div>
-<p class="text-xs font-black uppercase tracking-widest text-on-surface-variant"><?php echo htmlspecialchars(sa_document_label((string) ($f['document_type'] ?? 'other')), ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="text-sm font-semibold text-on-surface"><?php echo htmlspecialchars((string) ($f['original_file_name'] ?? 'file'), ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="text-xs text-on-surface-variant"><?php echo htmlspecialchars((string) ($f['mime_type'] ?? ''), ENT_QUOTES, 'UTF-8'); ?> • <?php echo number_format(((int) ($f['file_size_bytes'] ?? 0)) / 1024, 1); ?> KB</p>
+<a target="_blank" href="../<?php echo htmlspecialchars((string) ($f['stored_file_path'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" class="group relative aspect-[4/3] rounded-2xl overflow-hidden editorial-shadow bg-white/40 border border-white cursor-pointer">
+<div class="w-full h-full flex flex-col items-center justify-center px-3 text-center bg-gradient-to-br from-white to-blue-50/60">
+<span class="material-symbols-outlined text-4xl text-primary/70">description</span>
+<p class="mt-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant"><?php echo htmlspecialchars(sa_document_label((string) ($f['document_type'] ?? 'other')), ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-[11px] font-bold text-on-surface line-clamp-2"><?php echo htmlspecialchars((string) ($f['original_file_name'] ?? 'file'), ENT_QUOTES, 'UTF-8'); ?></p>
 </div>
-<a target="_blank" href="../<?php echo htmlspecialchars((string) ($f['stored_file_path'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" class="text-xs font-bold text-primary hover:underline">Open</a>
+<div class="absolute inset-0 bg-primary/20 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+<span class="material-symbols-outlined text-white text-3xl">open_in_new</span>
+<span class="text-white text-[10px] font-extrabold tracking-widest">OPEN FILE</span>
 </div>
+<div class="absolute bottom-3 left-3 px-2 py-1 bg-white/90 backdrop-blur-md rounded-lg text-[9px] font-bold text-on-surface border border-white">
+<?php echo htmlspecialchars((string) ($f['mime_type'] ?? 'file'), ENT_QUOTES, 'UTF-8'); ?> • <?php echo number_format(((int) ($f['file_size_bytes'] ?? 0)) / 1024, 1); ?> KB
+</div>
+</a>
 <?php endforeach; ?>
+ </div>
 <?php endif; ?>
 </div>
 
 <?php if (($selected['status'] ?? '') === 'pending'): ?>
-<div class="pt-6 border-t border-white/60">
+<div class="pt-6 border-t border-white/60 space-y-4">
 <form method="POST" class="space-y-4">
 <input type="hidden" name="request_id" value="<?php echo (int) $selected['request_id']; ?>"/>
-<textarea name="reviewer_notes" rows="3" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm" placeholder="Optional notes for this review"></textarea>
+<textarea name="reviewer_notes" rows="3" class="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm bg-white/80 focus:border-primary/40 focus:ring-primary/20" placeholder="Optional notes for this review"></textarea>
 <div class="flex gap-3">
-<button type="submit" name="action" value="approve" class="flex-1 bg-primary text-white font-headline font-extrabold py-4 rounded-2xl">Approve Tenant</button>
-<button type="submit" name="action" value="reject" class="flex-1 bg-white border border-error/20 text-error font-headline font-extrabold py-4 rounded-2xl">Reject</button>
+<button type="submit" name="action" value="approve" class="flex-1 bg-primary text-white font-headline font-extrabold py-4 rounded-[2rem] primary-glow hover:brightness-110 transition-all">Approve Clinic Access</button>
+<button type="submit" name="action" value="reject" class="flex-1 bg-white/80 border border-error/20 text-error font-headline font-extrabold py-4 rounded-[2rem] editorial-shadow hover:bg-error/5 transition-all">Reject Registration</button>
 </div>
 </form>
+<p class="text-[10px] text-center text-on-surface-variant/60 mt-2 font-bold uppercase tracking-widest leading-relaxed">
+Final approval will trigger automated onboarding email to clinic administrator.
+</p>
 </div>
 <?php else: ?>
 <div class="pt-6 border-t border-white/60">
-<p class="text-sm font-semibold text-on-surface-variant">Review notes: <?php echo htmlspecialchars((string) ($selected['reviewer_notes'] ?? 'No notes provided.'), ENT_QUOTES, 'UTF-8'); ?></p>
+<div class="bg-white/60 rounded-2xl p-4 border border-white">
+<p class="text-[10px] font-extrabold text-on-surface-variant uppercase tracking-[0.2em] opacity-60 mb-2">Review Notes</p>
+<p class="text-sm font-semibold text-on-surface-variant"><?php echo htmlspecialchars((string) ($selected['reviewer_notes'] ?? 'No notes provided.'), ENT_QUOTES, 'UTF-8'); ?></p>
+</div>
 </div>
 <?php endif; ?>
 <?php endif; ?>
