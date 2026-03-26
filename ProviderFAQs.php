@@ -131,7 +131,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
         <div class="space-y-6">
           <details data-faq-item data-faq-title="What is MyDental?" class="group bg-white rounded-3xl p-10 border border-on-surface/5 hover:border-primary/20 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 cursor-pointer">
             <summary class="flex justify-between items-center gap-6 list-none outline-none cursor-pointer [&::-webkit-details-marker]:hidden">
-              <h3 class="font-bold tracking-tight text-on-surface text-3xl">What is MyDental?</h3>
+              <h3 class="font-bold tracking-tight text-on-surface text-base md:text-lg">What is MyDental?</h3>
               <div class="w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-primary group-open:bg-primary group-open:text-white transition-all duration-300">
                 <span class="material-symbols-outlined text-lg transition-transform duration-300 group-open:rotate-45" data-icon="add">add</span>
               </div>
@@ -143,7 +143,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 
           <details data-faq-item data-faq-title="How do clinics create accounts?" class="group bg-white rounded-3xl p-10 border border-on-surface/5 hover:border-primary/20 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 cursor-pointer">
             <summary class="flex justify-between items-center gap-6 list-none outline-none cursor-pointer [&::-webkit-details-marker]:hidden">
-              <h3 class="font-bold tracking-tight text-on-surface text-3xl">How do clinics create accounts?</h3>
+              <h3 class="font-bold tracking-tight text-on-surface text-base md:text-lg">How do clinics create accounts?</h3>
               <div class="w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-primary group-open:bg-primary group-open:text-white transition-all duration-300">
                 <span class="material-symbols-outlined text-lg transition-transform duration-300 group-open:rotate-45" data-icon="add">add</span>
               </div>
@@ -155,7 +155,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 
           <details data-faq-item data-faq-title="Will each clinic have its own dashboard?" class="group bg-white rounded-3xl p-10 border border-on-surface/5 hover:border-primary/20 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 cursor-pointer">
             <summary class="flex justify-between items-center gap-6 list-none outline-none cursor-pointer [&::-webkit-details-marker]:hidden">
-              <h3 class="font-bold tracking-tight text-on-surface text-3xl">Will each clinic have its own dashboard?</h3>
+              <h3 class="font-bold tracking-tight text-on-surface text-base md:text-lg">Will each clinic have its own dashboard?</h3>
               <div class="w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-primary group-open:bg-primary group-open:text-white transition-all duration-300">
                 <span class="material-symbols-outlined text-lg transition-transform duration-300 group-open:rotate-45" data-icon="add">add</span>
               </div>
@@ -167,7 +167,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 
           <details data-faq-item data-faq-title="Can multiple clinics use the platform?" class="group bg-white rounded-3xl p-10 border border-on-surface/5 hover:border-primary/20 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 cursor-pointer">
             <summary class="flex justify-between items-center gap-6 list-none outline-none cursor-pointer [&::-webkit-details-marker]:hidden">
-              <h3 class="font-bold tracking-tight text-on-surface text-3xl">Can multiple clinics use the platform?</h3>
+              <h3 class="font-bold tracking-tight text-on-surface text-base md:text-lg">Can multiple clinics use the platform?</h3>
               <div class="w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-primary group-open:bg-primary group-open:text-white transition-all duration-300">
                 <span class="material-symbols-outlined text-lg transition-transform duration-300 group-open:rotate-45" data-icon="add">add</span>
               </div>
@@ -188,7 +188,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
         <div class="space-y-6">
           <details data-faq-item data-faq-title="What are the payment options?" class="group bg-white rounded-3xl p-10 border border-on-surface/5 hover:border-primary/20 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 cursor-pointer">
             <summary class="flex justify-between items-center gap-6 list-none outline-none cursor-pointer [&::-webkit-details-marker]:hidden">
-              <h3 class="font-bold tracking-tight text-on-surface text-3xl">What are the payment options?</h3>
+              <h3 class="font-bold tracking-tight text-on-surface text-base md:text-lg">What are the payment options?</h3>
               <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white transition-all duration-300">
                 <span class="material-symbols-outlined text-lg" data-icon="remove">remove</span>
               </div>
@@ -200,7 +200,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 
           <details data-faq-item data-faq-title="Can I change my plan at any time?" class="group bg-white rounded-3xl p-10 border border-on-surface/5 hover:border-primary/20 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 cursor-pointer">
             <summary class="flex justify-between items-center gap-6 list-none outline-none cursor-pointer [&::-webkit-details-marker]:hidden">
-              <h3 class="font-bold tracking-tight text-on-surface text-3xl">Can I change my plan at any time?</h3>
+              <h3 class="font-bold tracking-tight text-on-surface text-base md:text-lg">Can I change my plan at any time?</h3>
               <div class="w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-primary group-open:bg-primary group-open:text-white transition-all duration-300">
                 <span class="material-symbols-outlined text-lg transition-transform duration-300 group-open:rotate-45" data-icon="add">add</span>
               </div>
