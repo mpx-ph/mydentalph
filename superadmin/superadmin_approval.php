@@ -1,3 +1,7 @@
+<?php
+require_once __DIR__ . '/require_superadmin.php';
+require_once __DIR__ . '/../db.php';
+?>
 <!DOCTYPE html>
 
 <html class="light" lang="en"><head>
@@ -103,114 +107,15 @@
         }
     </style>
 </head>
-<body class="mesh-bg font-body text-on-surface selection:bg-primary/10 min-h-screen flex">
-<!-- SideNavBar -->
-<aside class="fixed left-0 top-0 h-full w-64 z-40 sidebar-glass flex flex-col py-8">
-<div class="px-7 mb-10">
-<h1 class="text-xl font-extrabold text-on-surface tracking-tight font-headline flex items-center gap-2">
-<span class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/30">
-<span class="material-symbols-outlined text-white text-lg">medical_services</span>
-</span>
-                Clinical Precision
-            </h1>
-<p class="text-on-surface-variant text-[10px] font-bold tracking-[0.2em] uppercase mt-2 opacity-60">Management Console</p>
-</div>
-<nav class="flex-1 space-y-1 overflow-y-auto no-scrollbar">
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface transition-colors duration-200 hover:bg-white/50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">dashboard</span>
-<span class="font-headline text-sm font-medium tracking-tight">Dashboard Analytics</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface transition-colors duration-200 hover:bg-white/50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">groups</span>
-<span class="font-headline text-sm font-medium tracking-tight">Tenant Management</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface transition-colors duration-200 hover:bg-white/50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">payments</span>
-<span class="font-headline text-sm font-medium tracking-tight">Sales Report</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface transition-colors duration-200 hover:bg-white/50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">assessment</span>
-<span class="font-headline text-sm font-medium tracking-tight">Reports</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface transition-colors duration-200 hover:bg-white/50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">history_edu</span>
-<span class="font-headline text-sm font-medium tracking-tight">Audit Logs</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface transition-colors duration-200 hover:bg-white/50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">settings_backup_restore</span>
-<span class="font-headline text-sm font-medium tracking-tight">Backup and Restore</span>
-</a>
-</div>
-<div class="relative px-3">
-<a class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl transition-all duration-200 active-glow" href="#">
-<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">verified</span>
-<span class="font-headline text-sm font-bold tracking-tight">Clinic Approvals</span>
-</a>
-<div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full"></div>
-<span class="absolute right-7 top-1/2 -translate-y-1/2 bg-error text-[10px] text-white font-bold px-1.5 py-0.5 rounded-full ring-2 ring-white">12</span>
-</div>
-</nav>
-<div class="px-4 mt-auto">
-<div class="bg-white/40 backdrop-blur-md rounded-2xl p-5 border border-white/60 shadow-sm">
-<button class="w-full py-2.5 bg-white border border-outline-variant/30 hover:border-primary/50 text-on-surface text-xs font-bold rounded-xl transition-all shadow-sm mb-4">
-                    Generate System Report
-                </button>
-<div class="space-y-1">
-<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:text-on-surface text-xs font-medium" href="#">
-<span class="material-symbols-outlined text-lg">support_agent</span> Support
-                    </a>
-<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:text-on-surface text-xs font-medium" href="#">
-<span class="material-symbols-outlined text-lg">logout</span> Logout
-                    </a>
-</div>
-</div>
-</div>
-</aside>
+<body class="mesh-bg font-body text-on-surface selection:bg-primary/10 min-h-screen">
+<?php
+$superadmin_nav = 'superadmin_approval';
+$superadmin_header_center = '<h2 class="text-2xl font-headline font-extrabold text-[#131c25] tracking-tight">Clinic Approvals</h2>';
+require __DIR__ . '/superadmin_sidebar.php';
+require __DIR__ . '/superadmin_header.php';
+?>
 <!-- Main Content Canvas -->
 <main class="ml-64 flex-grow flex flex-col min-h-screen">
-<!-- TopAppBar -->
-<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-20 z-30 bg-white/70 backdrop-blur-xl border-b border-white/50 flex items-center justify-between px-8">
-<div class="flex items-center gap-8">
-<h2 class="text-2xl font-headline font-extrabold text-[#131c25] tracking-tight">Clinic Approvals</h2>
-<div class="relative w-64 group">
-<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-lg" data-icon="search">search</span>
-<input class="w-full bg-surface-container-low/50 border-none focus:ring-2 focus:ring-primary/20 rounded-2xl pl-11 pr-4 py-2.5 text-sm transition-all placeholder:text-on-surface-variant/50" placeholder="Search applications..." type="text"/>
-</div>
-</div>
-<div class="flex items-center gap-4">
-<div class="flex items-center gap-2">
-<button class="p-2.5 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-all relative">
-<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
-<span class="absolute top-2.5 right-2.5 w-2 h-2 bg-error rounded-full border-2 border-white"></span>
-</button>
-<button class="p-2.5 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-all">
-<span class="material-symbols-outlined" data-icon="help">help</span>
-</button>
-<button class="p-2.5 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-all">
-<span class="material-symbols-outlined" data-icon="settings">settings</span>
-</button>
-</div>
-<div class="h-8 w-px bg-outline-variant/30 mx-2"></div>
-<div class="flex items-center gap-3 pl-2">
-<div class="text-right hidden sm:block">
-<p class="text-sm font-bold text-on-surface">Super Admin</p>
-<p class="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest opacity-60">Master Access</p>
-</div>
-<img alt="Super Admin Profile" class="w-10 h-10 rounded-full bg-surface-container-high border-2 border-white shadow-md" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoqcDKTYyD15ksI9ealaPrFOCBwXzw0ZMWyUvmekWDs9EVFoYZRW8vgkkIlRe6Df00zakg5M8wcqhZRzEbxoPfv6HlCRvlYtAFgT5CiJ9izo_p-SvYCDQh0LP9MArR60Rtidsj17nG2AEmy8z_2wpnYdDioTC2fUiokBb70f1-YrfULlmde6S20468dNLbkj88sKisBsXoV1lncyIBB02l0CXeDfpQxs2aAkGjTvoe-Atlg3q_tK_3uP2TmtbCs8c1DvHZVNjfaAw"/>
-</div>
-</div>
-</header>
 <!-- Content Split View -->
 <div class="pt-20 flex flex-grow overflow-hidden relative">
 <!-- Decorative blur shape -->
