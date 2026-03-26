@@ -3,85 +3,11 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-if (!function_exists('provider_normalize_status')) {
-    function provider_normalize_status($status): string {
-        return strtolower(trim((string) $status));
-    }
-}
-
-// If session has a user_id, verify the user still exists and is approved.
-// user_id can be 0 for hardcoded superadmin — empty() treats 0 as empty, so handle superadmin first
-$logged_in = false;
+// Navbar display should follow the active login session directly.
+// Access control and approval enforcement are handled by login + provider_auth guards.
 $is_superadmin = (isset($_SESSION['user_id']) && ($_SESSION['role'] ?? '') === 'superadmin');
-if ($is_superadmin) {
-    $logged_in = true;
-} elseif (isset($_SESSION['user_id']) && !empty($_SESSION['tenant_id'])) {
-    try {
-        require_once __DIR__ . '/db.php';
-        $userId = (string) $_SESSION['user_id'];
-        $tenantId = (string) $_SESSION['tenant_id'];
-
-        $stmt = $pdo->prepare("SELECT 1 FROM tbl_users WHERE user_id = ? AND tenant_id = ? AND status = 'active' LIMIT 1");
-        $stmt->execute([$userId, $tenantId]);
-        $userActive = (bool) $stmt->fetchColumn();
-
-        if (!$userActive) {
-            // User no longer exists or is inactive — clear session so navbar shows Login
-            unset(
-                $_SESSION['user_id'],
-                $_SESSION['tenant_id'],
-                $_SESSION['name'],
-                $_SESSION['username'],
-                $_SESSION['email'],
-                $_SESSION['full_name'],
-                $_SESSION['role'],
-                $_SESSION['status'],
-                $_SESSION['is_owner']
-            );
-        } else {
-            $stmt2 = $pdo->prepare("
-                SELECT status
-                FROM tbl_tenant_verification_requests
-                WHERE tenant_id = ? AND owner_user_id = ?
-                ORDER BY request_id DESC
-                LIMIT 1
-            ");
-            $stmt2->execute([$tenantId, $userId]);
-            $reqStatus = $stmt2->fetchColumn();
-            $isApproved = provider_normalize_status($reqStatus !== false ? (string) $reqStatus : '') === 'approved';
-
-            if ($isApproved) {
-                $logged_in = true;
-            } else {
-                // Pending/rejected users must not see provider menus
-                unset(
-                    $_SESSION['user_id'],
-                    $_SESSION['tenant_id'],
-                    $_SESSION['name'],
-                    $_SESSION['username'],
-                    $_SESSION['email'],
-                    $_SESSION['full_name'],
-                    $_SESSION['role'],
-                    $_SESSION['status'],
-                    $_SESSION['is_owner']
-                );
-            }
-        }
-    } catch (Throwable $e) {
-        // On DB error, clear session to avoid showing stale logged-in state
-        unset(
-            $_SESSION['user_id'],
-            $_SESSION['tenant_id'],
-            $_SESSION['name'],
-            $_SESSION['username'],
-            $_SESSION['email'],
-            $_SESSION['full_name'],
-            $_SESSION['role'],
-            $_SESSION['status'],
-            $_SESSION['is_owner']
-        );
-    }
-}
+$has_provider_session = isset($_SESSION['user_id']) && !empty($_SESSION['tenant_id']);
+$logged_in = $is_superadmin || $has_provider_session;
 
 $user_display_name = $_SESSION['name'] ?? $_SESSION['full_name'] ?? $_SESSION['username'] ?? $_SESSION['email']
     ?? $_SESSION['onboarding_full_name'] ?? $_SESSION['onboarding_email'] ?? 'Account';
