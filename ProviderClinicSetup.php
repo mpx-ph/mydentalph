@@ -189,6 +189,23 @@ if (!$setup_access_granted) {
     exit;
 }
 
+// Clinic setup page is restricted to approved providers with an authenticated session.
+if (!provider_has_authenticated_provider_session()) {
+    $redirect = 'ProviderClinicSetup.php';
+    if ($debug_mode) {
+        $redirect .= '?debug=1';
+    }
+    header('Location: ProviderLogin.php?redirect=' . urlencode($redirect));
+    exit;
+}
+
+[$session_tenant_id, $session_user_id] = provider_get_authenticated_provider_identity_from_session();
+if ((string) $session_tenant_id !== (string) $tenant_id || (string) $session_user_id !== (string) $user_id) {
+    $_SESSION['provider_setup_link_error'] = 'Your session does not match this clinic setup request. Please sign in again.';
+    header('Location: ProviderApprovalStatus.php');
+    exit;
+}
+
 $tenant = [];
 if ($tenant_id !== '') {
     try {
@@ -207,8 +224,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $setup_access_granted) {
     $clinic_name = trim((string) ($_POST['clinic_name'] ?? ''));
     $clinic_slug_raw = trim((string) ($_POST['clinic_slug'] ?? ''));
     $clinic_slug = preg_replace('/[^a-z0-9\-]/', '', strtolower($clinic_slug_raw));
+    $owner_user_id = (string) ($approved_request['owner_user_id'] ?? $user_id);
 
-    if ($clinic_name === '') {
+    if ($tenant_id === '' || $owner_user_id === '') {
+        $error = 'Your onboarding session is incomplete. Please log in again to continue.';
+    } elseif (!provider_has_authenticated_provider_session()) {
+        $error = 'Your session expired. Please log in again.';
+    } elseif ($clinic_name === '') {
         $error = 'Clinic name is required.';
     } elseif (strlen($clinic_name) > 255) {
         $error = 'Clinic name must not exceed 255 characters.';
@@ -229,12 +251,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $setup_access_granted) {
                 $stmt->execute([$clinic_name, $clinic_slug, $tenant_id]);
 
                 $_SESSION['onboarding_tenant_id'] = $tenant_id;
-                $_SESSION['onboarding_user_id'] = (string) ($approved_request['owner_user_id'] ?? $user_id);
+                $_SESSION['onboarding_user_id'] = $owner_user_id;
                 $_SESSION['onboarding_setup_completed_at'] = time();
+                $_SESSION['onboarding_clinic_name'] = $clinic_name;
+                $_SESSION['onboarding_clinic_slug'] = $clinic_slug;
 
-                $redirect = 'VerifyBusiness.php';
-                if ($debug_mode) {
-                    $redirect .= '?debug=1';
+                $next_plan = strtolower(trim((string) ($_SESSION['onboarding_plan'] ?? '')));
+                $redirect = 'ProviderPurchase.php';
+                if (in_array($next_plan, ['starter', 'professional', 'enterprise'], true)) {
+                    $redirect .= '?plan=' . urlencode($next_plan);
                 }
                 header('Location: ' . $redirect);
                 exit;
