@@ -15,7 +15,7 @@ $logged_in = false;
 $is_superadmin = (isset($_SESSION['user_id']) && ($_SESSION['role'] ?? '') === 'superadmin');
 if ($is_superadmin) {
     $logged_in = true;
-} elseif (!empty($_SESSION['user_id']) && !empty($_SESSION['tenant_id'])) {
+} elseif (isset($_SESSION['user_id']) && !empty($_SESSION['tenant_id'])) {
     try {
         require_once __DIR__ . '/db.php';
         $userId = (string) $_SESSION['user_id'];
@@ -30,10 +30,12 @@ if ($is_superadmin) {
             unset(
                 $_SESSION['user_id'],
                 $_SESSION['tenant_id'],
+                $_SESSION['name'],
                 $_SESSION['username'],
                 $_SESSION['email'],
                 $_SESSION['full_name'],
                 $_SESSION['role'],
+                $_SESSION['status'],
                 $_SESSION['is_owner']
             );
         } else {
@@ -55,10 +57,12 @@ if ($is_superadmin) {
                 unset(
                     $_SESSION['user_id'],
                     $_SESSION['tenant_id'],
+                    $_SESSION['name'],
                     $_SESSION['username'],
                     $_SESSION['email'],
                     $_SESSION['full_name'],
                     $_SESSION['role'],
+                    $_SESSION['status'],
                     $_SESSION['is_owner']
                 );
             }
@@ -68,16 +72,18 @@ if ($is_superadmin) {
         unset(
             $_SESSION['user_id'],
             $_SESSION['tenant_id'],
+            $_SESSION['name'],
             $_SESSION['username'],
             $_SESSION['email'],
             $_SESSION['full_name'],
             $_SESSION['role'],
+            $_SESSION['status'],
             $_SESSION['is_owner']
         );
     }
 }
 
-$user_display_name = $_SESSION['full_name'] ?? $_SESSION['username'] ?? $_SESSION['email']
+$user_display_name = $_SESSION['name'] ?? $_SESSION['full_name'] ?? $_SESSION['username'] ?? $_SESSION['email']
     ?? $_SESSION['onboarding_full_name'] ?? $_SESSION['onboarding_email'] ?? 'Account';
 $user_initial = mb_strtoupper(mb_substr(trim($user_display_name), 0, 1)) ?: '?';
 ?>

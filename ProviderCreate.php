@@ -67,10 +67,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         unset(
                             $_SESSION['user_id'],
                             $_SESSION['tenant_id'],
+                            $_SESSION['name'],
                             $_SESSION['username'],
                             $_SESSION['email'],
                             $_SESSION['full_name'],
                             $_SESSION['role'],
+                            $_SESSION['status'],
                             $_SESSION['is_owner']
                         );
 

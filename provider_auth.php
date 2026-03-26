@@ -153,10 +153,12 @@ function provider_require_approved_for_provider_portal(): void
  * @param array{
  *   user_id:string,
  *   tenant_id:string,
+ *   name:string,
  *   username:string,
  *   email:string,
  *   full_name:string,
  *   role:string,
+ *   status:string,
  *   is_owner:bool
  * } $user
  */
@@ -170,10 +172,12 @@ function provider_establish_authenticated_session(array $user): void
 
     $_SESSION['user_id'] = (string) ($user['user_id'] ?? '');
     $_SESSION['tenant_id'] = (string) ($user['tenant_id'] ?? '');
+    $_SESSION['name'] = (string) ($user['name'] ?? ($user['full_name'] ?? $user['username'] ?? ''));
     $_SESSION['username'] = (string) ($user['username'] ?? '');
     $_SESSION['email'] = (string) ($user['email'] ?? '');
     $_SESSION['full_name'] = (string) ($user['full_name'] ?? '');
     $_SESSION['role'] = (string) ($user['role'] ?? '');
+    $_SESSION['status'] = (string) ($user['status'] ?? '');
     $_SESSION['is_owner'] = (bool) ($user['is_owner'] ?? false);
 }
 

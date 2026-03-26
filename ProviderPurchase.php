@@ -186,16 +186,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             $stmt = $pdo->prepare("UPDATE tbl_tenants SET subscription_status = 'active' WHERE tenant_id = ?");
             $stmt->execute([$tenant_id]);
-            $stmt = $pdo->prepare("SELECT user_id, tenant_id, username, email, full_name, role FROM tbl_users WHERE user_id = ?");
+            $stmt = $pdo->prepare("SELECT user_id, tenant_id, username, email, full_name, role, status FROM tbl_users WHERE user_id = ?");
             $stmt->execute([$user_id]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($user) {
                 $_SESSION['user_id'] = $user['user_id'];
                 $_SESSION['tenant_id'] = $user['tenant_id'];
+                $_SESSION['name'] = $user['full_name'] ?: $user['username'];
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['email'] = $user['email'];
                 $_SESSION['full_name'] = $user['full_name'];
                 $_SESSION['role'] = $user['role'];
+                $_SESSION['status'] = $user['status'];
                 $stmt2 = $pdo->prepare("SELECT owner_user_id FROM tbl_tenants WHERE tenant_id = ? LIMIT 1");
                 $stmt2->execute([$user['tenant_id']]);
                 $t = $stmt2->fetch(PDO::FETCH_ASSOC);

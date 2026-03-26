@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please enter your email/username and password.';
     } else {
         try {
-            $stmt = $pdo->prepare("SELECT user_id, tenant_id, username, email, full_name, role, password_hash FROM tbl_users WHERE username = ? OR email = ? LIMIT 1");
+            $stmt = $pdo->prepare("SELECT user_id, tenant_id, username, email, full_name, role, status, password_hash FROM tbl_users WHERE username = ? OR email = ? LIMIT 1");
             $stmt->execute([$login_identifier, $login_identifier]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -143,20 +143,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     unset(
                         $_SESSION['user_id'],
                         $_SESSION['tenant_id'],
+                        $_SESSION['name'],
                         $_SESSION['username'],
                         $_SESSION['email'],
                         $_SESSION['full_name'],
                         $_SESSION['role'],
+                        $_SESSION['status'],
                         $_SESSION['is_owner']
                     );
                 } else {
                     session_regenerate_id(true);
                     $_SESSION['user_id'] = $user['user_id'];
                     $_SESSION['tenant_id'] = $user['tenant_id'];
+                    $_SESSION['name'] = $user['full_name'] ?: $user['username'];
                     $_SESSION['username'] = $user['username'];
                     $_SESSION['email'] = $user['email'];
                     $_SESSION['full_name'] = $user['full_name'];
                     $_SESSION['role'] = $user['role'];
+                    $_SESSION['status'] = $user['status'];
 
                     // Load tenant and set owner status (owner_user_id)
                     $is_owner = false;
