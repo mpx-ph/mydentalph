@@ -246,8 +246,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $error = 'Could not save verification details. Please try again.';
                     }
                 }
-            } else {
-                $error = 'Please upload all required documents before submitting.';
             }
         }
     }
@@ -313,20 +311,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body class="bg-background-light font-body text-on-surface dark:bg-background-dark dark:text-surface antialiased">
 <?php include 'ProviderNavbar.php'; ?>
 <main class="min-h-screen flex items-center justify-center px-6 py-16">
-<!-- Content Header (High-contrast, stylish font treatment) -->
-<div class="max-w-xl text-center mb-10">
-<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-6">
-            Identity Assurance
-        </div>
-<h1 class="font-headline text-4xl md:text-5xl font-extrabold tracking-[-0.04em] text-on-surface mb-6 leading-[1]">
-            Verify Your <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Clinic</span>
-</h1>
-<p class="text-on-surface-variant text-base md:text-lg leading-relaxed max-w-2xl mx-auto font-medium">
-            Upload the required documents to confirm your clinic’s legitimacy. Your account will be activated after a precision architectural review.
-        </p>
-</div>
 <!-- Verification Container -->
 <div class="w-full max-w-xl bg-white rounded-3xl p-6 md:p-8 shadow-[0_40px_100px_-20px_rgba(43,139,235,0.08)] border border-on-surface/5">
+    <!-- Page Header (top of form section) -->
+    <div class="text-center mb-8">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-6">
+            Identity Assurance
+        </div>
+        <h1 class="font-headline text-4xl md:text-5xl font-extrabold tracking-[-0.04em] text-on-surface mb-6 leading-[1]">
+            Verify Your <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Clinic</span>
+        </h1>
+        <p class="text-on-surface-variant text-base md:text-lg leading-relaxed max-w-2xl mx-auto font-medium">
+            Upload the required documents to confirm your clinic’s legitimacy. Your account will be activated after a precision architectural review.
+        </p>
+    </div>
 <?php if (!empty($error)): ?>
 <div class="mb-8 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm text-center font-semibold">
     <?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?>
@@ -334,7 +332,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php endif; ?>
 <?php if (!empty($field_errors)): ?>
 <div class="mb-8 p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl text-sm">
-    <p class="font-bold mb-2">Missing required files:</p>
     <ul class="list-disc list-inside">
         <?php foreach ($field_errors as $fe): ?>
             <li><?php echo htmlspecialchars($fe, ENT_QUOTES, 'UTF-8'); ?></li>
