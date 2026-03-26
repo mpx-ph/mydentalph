@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $clinic_name = trim($_POST['clinic_name'] ?? '');
     $clinic_slug = trim($_POST['clinic_slug'] ?? '');
     $clinic_slug = preg_replace('/[^a-z0-9\-]/', '', strtolower($clinic_slug));
+
     if (empty($clinic_name)) {
         $error = "Clinic name is required.";
     } elseif (empty($clinic_slug)) {
@@ -29,6 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM tbl_tenants WHERE clinic_slug = ? AND tenant_id != ?");
         $stmt->execute([$clinic_slug, $tenant_id]);
+
         if ($stmt->fetchColumn() > 0) {
             $error = "This clinic URL is already taken. Please choose another.";
         } else {
@@ -46,130 +48,229 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 ?>
 <!DOCTYPE html>
 
-<html lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Set Up Your Clinic Workspace - MyDental</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
+<html class="light scroll-smooth" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Set Up Your Clinic Workspace - MyDental</title>
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@1,400;1,700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+    <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
             theme: {
                 extend: {
                     colors: {
+                        "error-container": "#ffdad6",
+                        "secondary-fixed": "#d4e3ff",
+                        "on-background": "#131c25",
+                        "inverse-surface": "#28313b",
+                        "on-tertiary": "#ffffff",
                         "primary": "#2b8beb",
-                        "dark-blue": "#101922",
-                        "background-light": "#f6f6f8",
-                        "background-dark": "#101022",
+                        "secondary": "#456085",
+                        "on-tertiary-fixed-variant": "#6e3900",
+                        "secondary-fixed-dim": "#adc8f3",
+                        "primary-fixed": "#d4e3ff",
+                        "tertiary-container": "#b25f00",
+                        "on-tertiary-fixed": "#2f1500",
+                        "surface-container-low": "#edf4ff",
+                        "on-secondary-fixed": "#001c39",
+                        "on-primary-fixed-variant": "#004883",
+                        "tertiary-fixed": "#ffdcc3",
+                        "outline-variant": "#c0c7d4",
+                        "on-error-container": "#93000a",
+                        "primary-container": "#2b8beb",
+                        "error": "#ba1a1a",
+                        "primary-fixed-dim": "#a4c9ff",
+                        "background": "#f7f9ff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#f7f9ff",
+                        "tertiary-fixed-dim": "#ffb77e",
+                        "on-surface": "#131c25",
+                        "surface-tint": "#2b8beb",
+                        "surface-container": "#e6effc",
+                        "on-primary": "#ffffff",
+                        "inverse-primary": "#a4c9ff",
+                        "surface-container-highest": "#dae3f0",
+                        "on-secondary-fixed-variant": "#2c486c",
+                        "secondary-container": "#b8d3fe",
+                        "tertiary": "#8e4a00",
+                        "surface-variant": "#dae3f0",
+                        "outline": "#717784",
+                        "on-surface-variant": "#404752",
+                        "on-secondary": "#ffffff",
+                        "surface-container-high": "#e0e9f6",
+                        "on-tertiary-container": "#fffbff",
+                        "on-primary-fixed-variant": "#004883",
+                        "surface-dim": "#d2dbe8",
+                        "surface-bright": "#f7f9ff",
+                        "on-primary-container": "#fdfcff",
+                        "inverse-on-surface": "#e8f1ff",
+                        "on-secondary-container": "#405b80",
+                        "on-error": "#ffffff",
+
+                        /* Keep existing app colors used by Provider screens/components */
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922"
                     },
                     fontFamily: {
-                        "display": ["Manrope", "sans-serif"]
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Manrope", "sans-serif"],
+                        "editorial": ["Playfair Display", "serif"]
                     },
                     borderRadius: {
                         "DEFAULT": "0.25rem",
                         "lg": "0.5rem",
                         "xl": "0.75rem",
+                        "2xl": "1.5rem",
+                        "3xl": "2.5rem",
                         "full": "9999px"
                     },
                 },
             },
         }
     </script>
-<style>
-        body {
-            font-family: 'Manrope', sans-serif;
+
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .editorial-word {
+            text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
+            letter-spacing: -0.02em;
         }
     </style>
 </head>
-<body class="bg-background-light dark:bg-background-dark font-display min-h-screen flex flex-col">
-<header class="w-full px-6 py-4 flex items-center justify-between bg-white border-b border-slate-200">
-<div class="flex items-center gap-2">
-<div class="bg-primary p-1.5 rounded-lg">
-<span class="material-symbols-outlined text-white text-2xl">dentistry</span>
-</div>
-<span class="text-dark-blue font-800 text-xl tracking-tight">MyDental</span>
-</div>
-<div class="flex items-center gap-4">
-<div class="text-right hidden sm:block">
-<p class="text-sm font-bold text-dark-blue"><?php echo htmlspecialchars($_SESSION['onboarding_full_name'] ?? 'Account Owner'); ?></p>
-<p class="text-xs text-slate-500">Account Owner</p>
-</div>
-<div class="h-10 w-10 rounded-full bg-slate-200 overflow-hidden border border-slate-200">
-<img class="w-full h-full object-cover" data-alt="Professional portrait of a male dentist" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB3h3yYa1XR0Zi50SZRq69QGo4-HK8E1tlmTStU0u6iG96JTa21-PiT3VgDWZMB8Z0UBgbOpCOQjUtKjBMGicxQFpCk6borrmdEbZ3yxYyZw5vdaWBpF8IF_H5B4CeUGyBGWeX6du5Gil_jGtH41NcqXQ0EgFzRjy6Y35ZB3qVZJGwERQxAvTMmVOdCsEKaA_oWrQGionpkJXkvexW92NOg9GpSbj7RzvDHAhvNGNBM1LK87AxKHFzhTPyC6j2gpsKno8dD3rLUZIw"/>
-</div>
-</div>
-</header>
-<main class="flex-1 flex items-center justify-center p-6">
-<div class="max-w-xl w-full bg-white rounded-xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
-<div class="p-8 md:p-12">
-<div class="mb-10 text-center">
-<div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-6">
-<span class="material-symbols-outlined text-primary text-3xl">settings_account_box</span>
-</div>
-<h1 class="text-3xl font-800 text-dark-blue mb-3">Set Up Your Clinic Workspace</h1>
-<p class="text-slate-500 text-lg">Configure your professional environment in seconds to start managing your patients.</p>
-</div>
-<?php if ($error): ?>
-<div class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm text-center"><?php echo htmlspecialchars($error); ?></div>
-<?php endif; ?>
-<form method="POST" action="" class="space-y-8">
-<div class="space-y-2">
-<label class="block text-sm font-bold text-dark-blue uppercase tracking-wider">Clinic Name</label>
-<div class="relative">
-<input name="clinic_name" class="w-full px-4 py-4 rounded-lg border-slate-200 border bg-slate-50 focus:ring-2 focus:ring-primary focus:border-primary transition-all outline-none text-dark-blue" placeholder="e.g., JRL Dental Clinic" type="text" value="<?php echo htmlspecialchars($current_clinic_name); ?>" required/>
-</div>
-</div>
-<div class="space-y-4">
-<div class="flex justify-between items-end">
-<label class="block text-sm font-bold text-dark-blue uppercase tracking-wider">Clinic URL / Domain</label>
-<span class="text-xs font-semibold text-emerald-600 flex items-center gap-1">
-<span class="material-symbols-outlined text-sm">check_circle</span>
-                                Available
-                            </span>
-</div>
-<div class="flex items-stretch shadow-sm">
-<div class="flex items-center px-4 bg-slate-100 border border-slate-200 border-r-0 rounded-l-lg text-slate-500 font-semibold select-none">
-                                mydental.ct.ws/
+
+<body class="font-body text-on-surface bg-surface min-h-screen flex flex-col dark:bg-background-dark dark:text-surface antialiased">
+<?php include 'ProviderNavbar.php'; ?>
+
+<main class="flex-grow flex items-center justify-center p-6 sm:p-12 relative overflow-hidden">
+    <div class="relative z-10 w-full max-w-xl bg-surface-container-lowest rounded-3xl shadow-[0_32px_64px_-12px_rgba(43,139,235,0.08)] border border-on-surface/5 p-10 md:p-14">
+        <div class="text-center mb-12">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-surface-container-low rounded-2xl mb-8">
+                <span class="material-symbols-outlined text-primary text-4xl">domain</span>
+            </div>
+
+            <h1 class="font-headline text-5xl md:text-6xl font-extrabold text-on-surface tracking-tighter leading-[0.9] mb-6">
+                Set Up Your <br/>
+                <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Clinic Workspace</span>
+            </h1>
+
+            <p class="text-on-surface-variant text-lg font-medium max-w-sm mx-auto">
+                Enter your clinic details below to start managing your workspace.
+            </p>
+        </div>
+
+        <?php if ($error): ?>
+            <div class="mb-6 p-4 bg-error-container border border-on-error-container/25 text-on-error-container rounded-2xl text-sm text-center font-semibold">
+                <?php echo htmlspecialchars($error); ?>
+            </div>
+        <?php endif; ?>
+
+        <form method="POST" action="" class="space-y-8">
+            <div class="space-y-6">
+                <!-- Clinic Name Field -->
+                <div class="group">
+                    <label class="block font-headline text-xs font-bold uppercase tracking-[0.2em] text-on-surface/60 mb-3 px-1" for="clinic-name">Clinic Name</label>
+                    <div class="relative">
+                        <input
+                            class="w-full bg-surface-container-low border border-on-surface/5 focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-2xl py-4.5 px-6 text-on-surface placeholder:text-on-surface-variant/40 transition-all font-body font-medium outline-none"
+                            id="clinic-name"
+                            name="clinic_name"
+                            placeholder="e.g. North Star Dental"
+                            type="text"
+                            value="<?php echo htmlspecialchars($current_clinic_name); ?>"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <!-- Clinic URL Field -->
+                <div class="group">
+                    <div class="flex justify-between items-end mb-3">
+                        <label class="block font-headline text-xs font-bold uppercase tracking-[0.2em] text-on-surface/60 px-1" for="clinic-url">Clinic URL / Domain</label>
+                        <span class="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-600">
+                            <span class="material-symbols-outlined text-sm">check_circle</span>
+                            Available
+                        </span>
+                    </div>
+
+                    <div class="flex items-stretch shadow-sm">
+                        <div class="flex items-center px-4 bg-surface-container-high border border-on-surface/5 border-r-0 rounded-l-2xl text-on-surface/70 font-semibold select-none">
+                            mydental.ct.ws/
+                        </div>
+                        <input
+                            class="flex-1 bg-surface-container-low border border-on-surface/5 border-l-0 focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-r-2xl py-4.5 px-6 text-on-surface placeholder:text-on-surface-variant/40 transition-all font-body font-medium outline-none"
+                            id="clinic-url"
+                            name="clinic_slug"
+                            placeholder="e.g. jrldentalclinic"
+                            type="text"
+                            value="<?php echo htmlspecialchars($current_slug); ?>"
+                            required
+                            pattern="[a-z0-9\-]+"
+                            title="Lowercase letters, numbers and hyphens only"
+                        />
+                    </div>
+
+                    <div class="mt-4 bg-surface-container-lowest p-5 rounded-2xl border border-on-surface/5">
+                        <div class="flex gap-3 items-start">
+                            <span class="material-symbols-outlined text-on-surface/40 text-xl">info</span>
+
+                            <div class="space-y-2">
+                                <p class="text-xs text-on-surface-variant leading-relaxed font-medium">
+                                    Your team will use this URL to access your workspace.
+                                </p>
+
+                                <ul class="text-[11px] font-bold text-on-surface/35 flex flex-wrap gap-x-4 gap-y-1 uppercase tracking-tight">
+                                    <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-on-surface/20"></span> Lowercase</li>
+                                    <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-on-surface/20"></span> No Spaces</li>
+                                    <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-on-surface/20"></span> Alphanumeric Only</li>
+                                </ul>
                             </div>
-<input name="clinic_slug" class="flex-1 px-4 py-4 rounded-r-lg border-slate-200 border-l-0 border bg-white focus:ring-0 focus:border-primary transition-all outline-none text-dark-blue font-medium" type="text" value="<?php echo htmlspecialchars($current_slug); ?>" placeholder="e.g. jrldentalclinic" required pattern="[a-z0-9\-]+" title="Lowercase letters, numbers and hyphens only"/>
-</div>
-<div class="bg-slate-50 p-4 rounded-lg border border-slate-100">
-<div class="flex gap-3">
-<span class="material-symbols-outlined text-slate-400 text-xl">info</span>
-<div class="space-y-2">
-<p class="text-xs text-slate-600 leading-relaxed">
-                                        Your team will use this URL to access your workspace. 
-                                    </p>
-<ul class="text-[11px] font-bold text-slate-400 flex flex-wrap gap-x-4 gap-y-1 uppercase tracking-tight">
-<li class="flex items-center gap-1"><span class="w-1 h-1 rounded-full bg-slate-300"></span> Lowercase</li>
-<li class="flex items-center gap-1"><span class="w-1 h-1 rounded-full bg-slate-300"></span> No Spaces</li>
-<li class="flex items-center gap-1"><span class="w-1 h-1 rounded-full bg-slate-300"></span> Alphanumeric Only</li>
-</ul>
-</div>
-</div>
-</div>
-</div>
-<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-lg shadow-lg shadow-primary/20 transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 text-lg" type="submit">
-                        Continue to Business Verification
-                        <span class="material-symbols-outlined">arrow_forward</span>
-</button>
-</form>
-</div>
-<div class="bg-slate-50 px-8 py-4 border-t border-slate-100 flex justify-between items-center text-xs text-slate-400 font-medium">
-<span>Step 1 of 4</span>
-<div class="flex gap-1.5">
-<div class="w-8 h-1.5 rounded-full bg-primary"></div>
-<div class="w-8 h-1.5 rounded-full bg-slate-200"></div>
-<div class="w-8 h-1.5 rounded-full bg-slate-200"></div>
-<div class="w-8 h-1.5 rounded-full bg-slate-200"></div>
-</div>
-</div>
-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col items-center pt-2">
+                <button
+                    class="w-full bg-primary text-white py-5 px-8 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95"
+                    type="submit"
+                >
+                    Continue to Business Verification
+                    <span class="material-symbols-outlined ml-2" style="vertical-align: middle;">arrow_forward</span>
+                </button>
+
+                <div class="mt-8 flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.4em] text-primary/60">
+                    <span class="w-8 h-[1px] bg-primary/20"></span>
+                    Step 1 of 4: Core Identity
+                    <span class="w-8 h-[1px] bg-primary/20"></span>
+                </div>
+            </div>
+        </form>
+    </div>
 </main>
-<footer class="py-8 text-center text-slate-400 text-sm">
-<p>© 2024 MyDental. All rights reserved.</p>
+
+<footer class="w-full border-t border-slate-200 bg-slate-50">
+    <div class="flex flex-col md:flex-row justify-between items-center py-12 px-8 max-w-screen-2xl mx-auto gap-4">
+        <div class="flex flex-col items-center md:items-start">
+            <div class="text-lg font-bold text-slate-900 font-headline mb-1">MyDental</div>
+            <p class="text-[10px] font-headline font-black uppercase tracking-[0.1em] text-slate-400">© 2024 Clinical Precision Framework. All rights reserved.</p>
+        </div>
+        <div class="flex flex-wrap justify-center gap-8 text-[11px] font-headline font-bold uppercase tracking-widest text-slate-500">
+            <a class="hover:text-primary transition-colors" href="#">Privacy Protocol</a>
+            <a class="hover:text-primary transition-colors" href="#">HIPAA Compliance</a>
+            <a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
+            <a class="hover:text-primary transition-colors" href="#">Support</a>
+        </div>
+    </div>
 </footer>
-</body></html>
+</body>
+</html>
+
