@@ -365,6 +365,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
             letter-spacing: -0.02em;
         }
+        .upload-thumb {
+            width: 44px;
+            height: 44px;
+            border-radius: 0.75rem;
+            object-fit: cover;
+            border: 1px solid rgba(19, 28, 37, 0.08);
+            background: #fff;
+        }
     </style>
 </head>
 <body class="bg-background-light font-body text-on-surface dark:bg-background-dark dark:text-surface antialiased">
@@ -399,7 +407,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 <?php endif; ?>
 <!-- Upload Area -->
-<form method="POST" enctype="multipart/form-data" class="w-full flex flex-col items-center">
+<form method="POST" enctype="multipart/form-data" class="w-full flex flex-col items-center" id="clinic-verification-form">
     <input type="hidden" name="action" value="submit_clinic_verification"/>
 <div class="relative group cursor-pointer mb-8 w-full">
 <div class="border-2 border-dashed border-outline-variant group-hover:border-primary bg-surface-variant/50 group-hover:bg-primary/[0.02] transition-all duration-500 rounded-2xl p-8 text-center flex flex-col items-center justify-center gap-4">
@@ -415,31 +423,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <span class="px-4 py-1.5 bg-white border border-on-surface/5 rounded-full text-[10px] font-black text-on-surface-variant uppercase tracking-widest shadow-sm">8MB Limit</span>
 </div>
 </div>
-<input class="absolute inset-0 opacity-0 cursor-pointer" type="file" name="business_permit_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png"/>
+<input class="absolute inset-0 opacity-0 cursor-pointer clinic-upload-input" type="file" name="business_permit_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png" data-doc-label="Business Permit" data-preview-target="preview-business-permit" data-error-target="error-business-permit"/>
 </div>
 <p class="text-xs text-on-surface-variant font-bold mb-6">Required: Business Permit (PDF/JPG/PNG, multiple files allowed)</p>
+<div id="error-business-permit" class="hidden w-full mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold"></div>
+<div id="preview-business-permit" class="hidden w-full mb-8 rounded-2xl border border-outline-variant/60 bg-white p-4"></div>
 
 <div class="relative group cursor-pointer mb-8 w-full">
 <div class="border-2 border-dashed border-outline-variant group-hover:border-primary bg-surface-variant/50 group-hover:bg-primary/[0.02] transition-all duration-500 rounded-2xl p-6 text-center flex flex-col items-center justify-center gap-3">
 <h3 class="font-headline font-extrabold text-lg text-on-surface tracking-tight">Upload BIR Certificate / Form 2303</h3>
 <p class="text-on-surface-variant font-medium text-xs">Required</p>
 </div>
-<input class="absolute inset-0 opacity-0 cursor-pointer" type="file" name="bir_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png"/>
+<input class="absolute inset-0 opacity-0 cursor-pointer clinic-upload-input" type="file" name="bir_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png" data-doc-label="BIR Certificate / Form 2303" data-preview-target="preview-bir" data-error-target="error-bir"/>
 </div>
+<div id="error-bir" class="hidden w-full mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold"></div>
+<div id="preview-bir" class="hidden w-full mb-8 rounded-2xl border border-outline-variant/60 bg-white p-4"></div>
 
 <div class="relative group cursor-pointer mb-8 w-full">
 <div class="border-2 border-dashed border-outline-variant group-hover:border-primary bg-surface-variant/50 group-hover:bg-primary/[0.02] transition-all duration-500 rounded-2xl p-6 text-center flex flex-col items-center justify-center gap-3">
 <h3 class="font-headline font-extrabold text-lg text-on-surface tracking-tight">Upload SEC/DTI Certificate (Optional)</h3>
 </div>
-<input class="absolute inset-0 opacity-0 cursor-pointer" type="file" name="sec_dti_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png"/>
+<input class="absolute inset-0 opacity-0 cursor-pointer clinic-upload-input" type="file" name="sec_dti_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png" data-doc-label="SEC/DTI Certificate" data-preview-target="preview-sec-dti" data-error-target="error-sec-dti"/>
 </div>
+<div id="error-sec-dti" class="hidden w-full mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold"></div>
+<div id="preview-sec-dti" class="hidden w-full mb-8 rounded-2xl border border-outline-variant/60 bg-white p-4"></div>
 
 <div class="relative group cursor-pointer mb-8 w-full">
 <div class="border-2 border-dashed border-outline-variant group-hover:border-primary bg-surface-variant/50 group-hover:bg-primary/[0.02] transition-all duration-500 rounded-2xl p-6 text-center flex flex-col items-center justify-center gap-3">
 <h3 class="font-headline font-extrabold text-lg text-on-surface tracking-tight">Upload Other Supporting Documents (Optional)</h3>
 </div>
-<input class="absolute inset-0 opacity-0 cursor-pointer" type="file" name="other_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png"/>
+<input class="absolute inset-0 opacity-0 cursor-pointer clinic-upload-input" type="file" name="other_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png" data-doc-label="Other Supporting Document" data-preview-target="preview-other" data-error-target="error-other"/>
 </div>
+<div id="error-other" class="hidden w-full mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold"></div>
+<div id="preview-other" class="hidden w-full mb-8 rounded-2xl border border-outline-variant/60 bg-white p-4"></div>
 <!-- Note & CTA -->
 <div class="space-y-6 w-full">
 <div class="flex items-center justify-center gap-3 text-on-surface-variant">
@@ -453,4 +469,217 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 </form>
 </main>
+<script>
+(() => {
+    const MAX_BYTES = 8 * 1024 * 1024;
+    const ALLOWED_EXTS = ['pdf', 'jpg', 'jpeg', 'png'];
+    const ALLOWED_MIME_PREFIXES = ['image/', 'application/pdf'];
+    const ICON_BY_EXT = {
+        pdf: 'picture_as_pdf',
+        jpg: 'image',
+        jpeg: 'image',
+        png: 'image'
+    };
+
+    function formatSize(bytes) {
+        if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let value = bytes;
+        let idx = 0;
+        while (value >= 1024 && idx < units.length - 1) {
+            value /= 1024;
+            idx++;
+        }
+        return `${value.toFixed(idx === 0 ? 0 : 1)} ${units[idx]}`;
+    }
+
+    function extFromFile(file) {
+        const name = (file.name || '').toLowerCase();
+        const ext = name.includes('.') ? name.split('.').pop() : '';
+        return ext || '';
+    }
+
+    function isAllowed(file) {
+        const ext = extFromFile(file);
+        const byExt = ALLOWED_EXTS.includes(ext);
+        const mime = String(file.type || '').toLowerCase();
+        const byMime = ALLOWED_MIME_PREFIXES.some((prefix) => mime.startsWith(prefix));
+        return byExt || byMime;
+    }
+
+    function isImage(file) {
+        return String(file.type || '').startsWith('image/');
+    }
+
+    function renderError(target, message) {
+        if (!target) return;
+        if (!message) {
+            target.classList.add('hidden');
+            target.textContent = '';
+            return;
+        }
+        target.textContent = message;
+        target.classList.remove('hidden');
+    }
+
+    function createFileRow(file, removeCb) {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between gap-3 rounded-xl border border-outline-variant/50 bg-surface-variant/40 px-3 py-2';
+
+        const left = document.createElement('div');
+        left.className = 'flex items-center gap-3 min-w-0';
+
+        if (isImage(file)) {
+            const thumb = document.createElement('img');
+            thumb.className = 'upload-thumb';
+            thumb.alt = file.name || 'Uploaded image';
+            try {
+                thumb.src = URL.createObjectURL(file);
+                thumb.onload = () => URL.revokeObjectURL(thumb.src);
+            } catch (e) {
+                thumb.remove();
+            }
+            left.appendChild(thumb);
+        } else {
+            const iconWrap = document.createElement('div');
+            iconWrap.className = 'w-11 h-11 rounded-xl bg-white border border-on-surface/10 flex items-center justify-center shrink-0';
+            const icon = document.createElement('span');
+            icon.className = 'material-symbols-outlined text-on-surface-variant text-xl';
+            icon.textContent = ICON_BY_EXT[extFromFile(file)] || 'description';
+            iconWrap.appendChild(icon);
+            left.appendChild(iconWrap);
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'min-w-0';
+        const name = document.createElement('p');
+        name.className = 'text-sm font-semibold text-on-surface truncate';
+        name.textContent = file.name || 'Unnamed file';
+        const details = document.createElement('p');
+        details.className = 'text-xs text-on-surface-variant';
+        details.textContent = `${(file.type || extFromFile(file) || 'Unknown type').toUpperCase()} • ${formatSize(file.size || 0)}`;
+        meta.appendChild(name);
+        meta.appendChild(details);
+        left.appendChild(meta);
+
+        const right = document.createElement('div');
+        right.className = 'flex items-center gap-2 shrink-0';
+
+        const uploaded = document.createElement('span');
+        uploaded.className = 'inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full';
+        uploaded.innerHTML = '<span class="material-symbols-outlined text-sm">check_circle</span>Uploaded';
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'text-xs font-semibold text-red-700 hover:text-red-800 hover:underline';
+        remove.textContent = 'Remove';
+        remove.addEventListener('click', removeCb);
+
+        right.appendChild(uploaded);
+        right.appendChild(remove);
+
+        row.appendChild(left);
+        row.appendChild(right);
+        return row;
+    }
+
+    function setupInput(input) {
+        const previewId = input.dataset.previewTarget || '';
+        const errorId = input.dataset.errorTarget || '';
+        const docLabel = input.dataset.docLabel || 'Document';
+        const preview = document.getElementById(previewId);
+        const errorEl = document.getElementById(errorId);
+        if (!preview) return;
+
+        let selectedFiles = [];
+
+        function syncInputFiles() {
+            const dt = new DataTransfer();
+            selectedFiles.forEach((f) => dt.items.add(f));
+            input.files = dt.files;
+        }
+
+        function renderPreview() {
+            preview.innerHTML = '';
+            if (selectedFiles.length === 0) {
+                preview.classList.add('hidden');
+                return;
+            }
+
+            preview.classList.remove('hidden');
+
+            const heading = document.createElement('div');
+            heading.className = 'flex items-center justify-between mb-3';
+            heading.innerHTML = `
+                <p class="text-sm font-bold text-on-surface">${docLabel} files (${selectedFiles.length})</p>
+                <span class="text-xs font-semibold text-emerald-700 inline-flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">task_alt</span>
+                    Ready to submit
+                </span>
+            `;
+            preview.appendChild(heading);
+
+            const list = document.createElement('div');
+            list.className = 'space-y-2';
+            selectedFiles.forEach((file, index) => {
+                list.appendChild(createFileRow(file, () => {
+                    selectedFiles.splice(index, 1);
+                    syncInputFiles();
+                    renderPreview();
+                    renderError(errorEl, '');
+                }));
+            });
+            preview.appendChild(list);
+        }
+
+        input.addEventListener('change', () => {
+            const picked = Array.from(input.files || []);
+            if (picked.length === 0) {
+                selectedFiles = [];
+                renderError(errorEl, '');
+                renderPreview();
+                return;
+            }
+
+            const invalidType = picked.find((file) => !isAllowed(file));
+            if (invalidType) {
+                selectedFiles = [];
+                syncInputFiles();
+                renderPreview();
+                renderError(errorEl, 'Unsupported file detected. Please upload PDF, JPG, or PNG only.');
+                return;
+            }
+
+            const invalidSize = picked.find((file) => Number(file.size || 0) <= 0 || Number(file.size || 0) > MAX_BYTES);
+            if (invalidSize) {
+                selectedFiles = [];
+                syncInputFiles();
+                renderPreview();
+                renderError(errorEl, 'Each file must be between 1 byte and 8MB.');
+                return;
+            }
+
+            selectedFiles = picked;
+            syncInputFiles();
+            renderError(errorEl, '');
+            renderPreview();
+        });
+    }
+
+    const inputs = document.querySelectorAll('.clinic-upload-input');
+    inputs.forEach(setupInput);
+
+    const form = document.getElementById('clinic-verification-form');
+    if (form) {
+        form.addEventListener('submit', () => {
+            const submitButton = form.querySelector('button[type="submit"]');
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.classList.add('opacity-70', 'cursor-not-allowed');
+                submitButton.innerHTML = 'Submitting...';
+            }
+        });
+    }
+})();
+</script>
 </body></html>
