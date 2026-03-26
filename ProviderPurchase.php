@@ -15,15 +15,8 @@ if (!empty($_SESSION['onboarding_user_id']) && !empty($_SESSION['onboarding_tena
     $plan_slug = $_SESSION['onboarding_plan'] ?? 'professional';
 } elseif (!empty($_SESSION['user_id']) && !empty($_SESSION['tenant_id'])) {
     $tid = $_SESSION['tenant_id'];
-    $stmt = $pdo->prepare("SELECT subscription_status FROM tbl_tenants WHERE tenant_id = ? LIMIT 1");
-    $stmt->execute([$tid]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    $has_active = ($row && ($row['subscription_status'] ?? '') === 'active');
-    if (!$has_active) {
-        $stmt = $pdo->prepare("SELECT 1 FROM tbl_tenant_subscriptions WHERE tenant_id = ? AND payment_status = 'paid' LIMIT 1");
-        $stmt->execute([$tid]);
-        $has_active = (bool) $stmt->fetch();
-    }
+    $subscriptionState = provider_get_tenant_subscription_state($pdo, (string) $tid);
+    $has_active = !empty($subscriptionState['has_active_subscription']);
     if ($has_active) {
         header('Location: ProviderTenantDashboard.php');
         exit;

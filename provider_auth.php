@@ -181,3 +181,97 @@ function provider_establish_authenticated_session(array $user): void
     $_SESSION['is_owner'] = (bool) ($user['is_owner'] ?? false);
 }
 
+/**
+ * Resolve tenant subscription state with strict active checks.
+ *
+ * States:
+ * - none: no subscription record exists
+ * - active: paid and not expired (and tenant not suspended/inactive)
+ * - expired: paid subscription exists but has ended
+ * - inactive: subscription exists but not currently active (pending/failed/cancelled or tenant disabled)
+ *
+ * @return array{
+ *   state:string,
+ *   has_subscription:bool,
+ *   has_active_subscription:bool,
+ *   tenant_subscription_status:string,
+ *   latest_subscription:?array<string,mixed>,
+ *   active_subscription:?array<string,mixed>
+ * }
+ */
+function provider_get_tenant_subscription_state(PDO $pdo, string $tenantId): array
+{
+    $result = [
+        'state' => 'none',
+        'has_subscription' => false,
+        'has_active_subscription' => false,
+        'tenant_subscription_status' => '',
+        'latest_subscription' => null,
+        'active_subscription' => null,
+    ];
+
+    $tenantId = trim($tenantId);
+    if ($tenantId === '') {
+        return $result;
+    }
+
+    $tenantStatusStmt = $pdo->prepare("SELECT subscription_status FROM tbl_tenants WHERE tenant_id = ? LIMIT 1");
+    $tenantStatusStmt->execute([$tenantId]);
+    $tenantSubscriptionStatus = (string) ($tenantStatusStmt->fetchColumn() ?: '');
+    $result['tenant_subscription_status'] = strtolower(trim($tenantSubscriptionStatus));
+
+    $latestStmt = $pdo->prepare("
+        SELECT ts.id, ts.plan_id, ts.subscription_start, ts.subscription_end, ts.payment_status, ts.created_at,
+               p.plan_slug, p.plan_name
+        FROM tbl_tenant_subscriptions ts
+        LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
+        WHERE ts.tenant_id = ?
+        ORDER BY ts.id DESC
+        LIMIT 1
+    ");
+    $latestStmt->execute([$tenantId]);
+    $latest = $latestStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    $result['latest_subscription'] = $latest;
+    $result['has_subscription'] = $latest !== null;
+
+    $activeStmt = $pdo->prepare("
+        SELECT ts.id, ts.plan_id, ts.subscription_start, ts.subscription_end, ts.payment_status, ts.created_at,
+               p.plan_slug, p.plan_name
+        FROM tbl_tenant_subscriptions ts
+        LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
+        WHERE ts.tenant_id = ?
+          AND ts.payment_status = 'paid'
+          AND (ts.subscription_start IS NULL OR ts.subscription_start <= CURDATE())
+          AND (ts.subscription_end IS NULL OR ts.subscription_end >= CURDATE())
+        ORDER BY ts.id DESC
+        LIMIT 1
+    ");
+    $activeStmt->execute([$tenantId]);
+    $active = $activeStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    $result['active_subscription'] = $active;
+
+    $tenantAllowsActive = ($result['tenant_subscription_status'] === '' || $result['tenant_subscription_status'] === 'active');
+    $result['has_active_subscription'] = $active !== null && $tenantAllowsActive;
+
+    if ($result['has_active_subscription']) {
+        $result['state'] = 'active';
+        return $result;
+    }
+
+    if (!$result['has_subscription']) {
+        $result['state'] = 'none';
+        return $result;
+    }
+
+    $latestPaymentStatus = strtolower(trim((string) ($latest['payment_status'] ?? '')));
+    $latestEnd = (string) ($latest['subscription_end'] ?? '');
+    $latestEndTs = $latestEnd !== '' ? strtotime($latestEnd . ' 23:59:59') : false;
+    if ($latestPaymentStatus === 'paid' && $latestEndTs !== false && $latestEndTs < time()) {
+        $result['state'] = 'expired';
+        return $result;
+    }
+
+    $result['state'] = 'inactive';
+    return $result;
+}
+

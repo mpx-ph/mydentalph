@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS tbl_tenants (
     clinic_address TEXT,
     contact_email VARCHAR(255),
     contact_phone VARCHAR(50),
-    subscription_status ENUM('active','inactive','suspended') DEFAULT 'active',
+    subscription_status ENUM('active','inactive','suspended') DEFAULT 'inactive',
     owner_user_id VARCHAR(20) DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (tenant_id),

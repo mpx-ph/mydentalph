@@ -2,21 +2,15 @@
 session_start();
 require_once __DIR__ . '/provider_redirect_superadmin.php';
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/provider_auth.php';
 require_once __DIR__ . '/superadmin/superadmin_settings_lib.php';
 
 $go_to_purchase = false;
 $max_sites_reached = false;
 if (!empty($_SESSION['user_id']) && !empty($_SESSION['tenant_id'])) {
     $tid = $_SESSION['tenant_id'];
-    $stmt = $pdo->prepare("SELECT subscription_status FROM tbl_tenants WHERE tenant_id = ? LIMIT 1");
-    $stmt->execute([$tid]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    $has_active = ($row && ($row['subscription_status'] ?? '') === 'active');
-    if (!$has_active) {
-        $stmt = $pdo->prepare("SELECT 1 FROM tbl_tenant_subscriptions WHERE tenant_id = ? AND payment_status = 'paid' LIMIT 1");
-        $stmt->execute([$tid]);
-        $has_active = (bool) $stmt->fetch();
-    }
+    $subscriptionState = provider_get_tenant_subscription_state($pdo, (string) $tid);
+    $has_active = !empty($subscriptionState['has_active_subscription']);
     if ($has_active) {
         $max_sites_reached = true;
     } else {

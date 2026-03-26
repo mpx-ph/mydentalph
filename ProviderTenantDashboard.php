@@ -50,14 +50,22 @@ try {
 }
 
 $sub = [];
+$subscription_state = 'none';
+$is_subscription_active = false;
 try {
-    $stmt = $pdo->prepare("SELECT plan_name, subscription_end FROM tbl_tenant_subscriptions t JOIN tbl_subscription_plans p ON t.plan_id = p.plan_id WHERE t.tenant_id = ? AND t.payment_status = 'paid' ORDER BY t.id DESC LIMIT 1");
-    $stmt->execute([$tenant_id]);
-    $sub = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $subscription_meta = provider_get_tenant_subscription_state($pdo, (string) $tenant_id);
+    $subscription_state = (string) ($subscription_meta['state'] ?? 'none');
+    $is_subscription_active = !empty($subscription_meta['has_active_subscription']);
+
+    if ($is_subscription_active && !empty($subscription_meta['active_subscription'])) {
+        $sub = (array) $subscription_meta['active_subscription'];
+    } elseif (!empty($subscription_meta['latest_subscription'])) {
+        $sub = (array) $subscription_meta['latest_subscription'];
+    }
 } catch (PDOException $e) {
     $sub = [];
 }
-$plan_name = $sub['plan_name'] ?? 'Professional';
+$plan_name = $sub['plan_name'] ?? ($is_subscription_active ? 'Active Plan' : 'No Active Subscription');
 $renewal_date = !empty($sub['subscription_end']) ? date('M j, Y', strtotime($sub['subscription_end'])) : '—';
 
 $settings_saved = false;
@@ -224,7 +232,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 <div class="flex items-center gap-3">
 <h3 class="text-2xl font-bold text-dental-dark"><?php echo htmlspecialchars($plan_name); ?></h3>
+<?php if ($is_subscription_active): ?>
 <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">Active</span>
+<?php elseif ($subscription_state === 'expired'): ?>
+<span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Expired</span>
+<?php elseif ($subscription_state === 'inactive'): ?>
+<span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-200 text-slate-700">Inactive</span>
+<?php else: ?>
+<span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">None</span>
+<?php endif; ?>
 </div>
 <p class="text-slate-400 text-sm mt-2">Renewal: <?php echo htmlspecialchars($renewal_date); ?></p>
 </div>
