@@ -116,7 +116,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <div class="lg:col-span-6 z-10 py-10 pr-8 self-center">
 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8">
                     <img src="MyDental%20Logo.svg" alt="My Dental Logo" class="h-4 w-auto" />
-                    My Dental OS
+                    Platform Management
                 </div>
 <h1 class="font-headline text-[clamp(2.6rem,5.5vw,4.6rem)] font-extrabold tracking-[-0.05em] text-on-surface mb-6 leading-[0.88]">
 <span class="block">Modernize Your</span>
@@ -124,27 +124,13 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Practice.</span>
 </span>
 <span class="block text-[clamp(1.2rem,2vw,2rem)] font-headline font-semibold tracking-tight text-on-surface/80 mt-2">
-                    with <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">My Dental OS</span>
+                    with <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">My Dental</span>
                 </span>
 </h1>
 <p class="font-body text-lg max-w-lg mb-8 leading-relaxed text-on-surface-variant font-medium">
-                    The My Dental OS unifies clinical, billing, and patient workflows so your practice can scale cleanly across locations.
+                    The My Dental OS: a unified dental management suite designed for efficiency, architectural precision, and multi-tenant clinic scaling.
                 </p>
-<div class="flex flex-wrap gap-3 mb-10">
-<div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/60 backdrop-blur border border-white/50 text-on-surface text-[10px] font-black uppercase tracking-[0.2em]">
-<span class="material-symbols-outlined text-primary text-sm">groups</span>
-                        Multi-Clinic Workflows
-                    </div>
-<div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/60 backdrop-blur border border-white/50 text-on-surface text-[10px] font-black uppercase tracking-[0.2em]">
-<span class="material-symbols-outlined text-primary text-sm">analytics</span>
-                        Clinical & Billing Insights
-                    </div>
-<div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/60 backdrop-blur border border-white/50 text-on-surface text-[10px] font-black uppercase tracking-[0.2em]">
-<span class="material-symbols-outlined text-primary text-sm">verified_user</span>
-                        Secure Role-Based Access
-                    </div>
-</div>
-<div class="flex items-center gap-10 flex-wrap">
+<div class="flex items-center gap-10">
 <a href="Provider-Plans.php" class="group relative px-10 py-5 bg-primary text-white font-bold rounded-full overflow-hidden transition-all hover:pr-14 active:scale-95 text-center transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
 <span class="relative z-10">View Your Plans</span>
 <span class="material-symbols-outlined absolute right-4 opacity-0 group-hover:opacity-100 transition-all">arrow_right_alt</span>
@@ -155,24 +141,14 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
                     </a>
 </div>
 </div>
-<div class="lg:col-span-6 relative h-full -mr-6">
-<div class="group h-full w-full bg-slate-100 overflow-hidden shadow-2xl relative rounded-[2.5rem] border border-white/20 transform-gpu lg:rotate-[1.5deg] transition-transform group-hover:rotate-[1.1deg]">
-<img alt="Modern dental clinic with advanced technology" class="block w-full h-full object-cover transition-none scale-105" style="object-position: center top;" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKSToKSubciBNDHHIIhBLQWuwv70uupwQdixl7SdJZDmgnDrO7KwPH0nU9Tuyv8aNshhWTfTeP75EKGGbML5Ge0AweBfsy2V4AmVWId5nTGtpGe6_7fZcwoTag1cM1PJdBpkLGRE47XjINHeAHov0gmJegOGXOaY4Xsbphb11ypnokm_GnMy42Lk5byi_6B13so8CQ8mAtQE0e6twPfwumg6xkxXcDNMUMRCwqnTWdqYYK6EWku_TTChy4ON47ltF4FcaFeaL3nCw"/>
-<div class="absolute inset-0 bg-gradient-to-tr from-primary/25 via-transparent to-white/10"></div>
-<div class="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.45),transparent_42%)] opacity-70"></div>
-
-<div class="absolute top-6 left-6 px-4 py-2 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-white text-[10px] font-black uppercase tracking-[0.22em]">
-<span class="material-symbols-outlined text-[14px]">monitoring</span>
-                        Live Orchestration
-                    </div>
-<div class="absolute top-6 right-6 hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/15 text-white text-[10px] font-black tracking-[0.22em] uppercase">
-<span class="material-symbols-outlined text-[14px]">schedule</span>
-                        Daily Automation
-                    </div>
+<div class="lg:col-span-6 relative h-full self-center">
+<div class="group slanted-container h-full w-full bg-slate-100 overflow-hidden shadow-2xl relative">
+<img alt="Modern dental clinic with advanced technology" class="block w-full h-full object-cover transition-none" style="object-position: 60% 28%;" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKSToKSubciBNDHHIIhBLQWuwv70uupwQdixl7SdJZDmgnDrO7KwPH0nU9Tuyv8aNshhWTfTeP75EKGGbML5Ge0AweBfsy2V4AmVWId5nTGtpGe6_7fZcwoTag1cM1PJdBpkLGRE47XjINHeAHov0gmJegOGXOaY4Xsbphb11ypnokm_GnMy42Lk5byi_6B13so8CQ8mAtQE0e6twPfwumg6xkxXcDNMUMRCwqnTWdqYYK6EWku_TTChy4ON47ltF4FcaFeaL3nCw"/>
+<div class="absolute inset-0 bg-primary/5 mix-blend-multiply"></div>
 </div>
-<div class="absolute bottom-10 left-10 glass-card p-6 rounded-2xl shadow-xl max-w-xs border border-white/40 transition-all duration-500 transform-gpu hover:-translate-y-1 hover:shadow-2xl">
+<div class="absolute bottom-12 -left-6 glass-card p-6 rounded-2xl shadow-xl max-w-xs border border-white/40 transition-all duration-500 transform-gpu hover:-translate-y-1 hover:shadow-2xl">
 <div class="flex gap-4 items-start">
-<div class="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center text-white shrink-0">
+<div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0">
 <span class="material-symbols-outlined text-sm">dashboard_customize</span>
 </div>
 <div>
