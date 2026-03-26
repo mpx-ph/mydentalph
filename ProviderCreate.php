@@ -331,13 +331,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <span class="material-symbols-outlined text-xl">arrow_forward</span>
                     </button>
 
-                    <div class="rounded-2xl border border-yellow-200 bg-yellow-50 px-5 py-4 text-left">
-                        <p class="text-sm text-yellow-800 font-semibold flex items-center gap-2">
-                            <span class="material-symbols-outlined text-base">warning</span>
-                            This account will be the Administrator Account if you purchase a plan.
-                        </p>
-                    </div>
-
                     <p class="font-headline text-sm font-semibold text-on-surface-variant">
                         Already have an account?
                         <a class="text-primary hover:underline ml-1" href="ProviderLogin.php">Log in</a>
@@ -369,21 +362,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 </main>
-
-<!-- Footer -->
-<footer class="w-full border-t border-slate-200 bg-slate-50 mt-auto reveal" data-reveal="section">
-    <div class="flex flex-col md:flex-row justify-between items-center py-12 px-8 max-w-screen-2xl mx-auto gap-4">
-        <div class="text-lg font-bold text-slate-900 font-headline">MyDental</div>
-        <div class="flex flex-wrap justify-center gap-8 text-xs font-headline font-semibold text-slate-500">
-            <a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
-            <a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
-            <a class="hover:text-primary transition-colors" href="#">Contact Sales</a>
-        </div>
-        <div class="text-xs text-slate-500 font-headline opacity-80 font-medium">
-            © 2024 MyDental. All rights reserved.
-        </div>
-    </div>
-</footer>
 
 <script>
     function togglePassword(inputId, btn) {
