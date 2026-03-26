@@ -88,7 +88,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             foreach ($required_doc_types as $required_type) {
                 $bucket = $files_by_type[$required_type] ?? null;
-                $bucket_names = is_array($bucket['name'] ?? null) ? $bucket['name'] : [];
+                $bucket_names = [];
+                if (is_array($bucket) && isset($bucket['name'])) {
+                    $bucket_names = is_array($bucket['name']) ? $bucket['name'] : [$bucket['name']];
+                }
                 $has_any_name = false;
                 foreach ($bucket_names as $n) {
                     if (is_string($n) && trim($n) !== '') {
@@ -106,10 +109,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $upload_error_found = '';
 
                 foreach ($files_by_type as $doc_type => $docs) {
-                    $names = is_array($docs['name'] ?? null) ? $docs['name'] : [];
-                    $tmp_names = is_array($docs['tmp_name'] ?? null) ? $docs['tmp_name'] : [];
-                    $sizes = is_array($docs['size'] ?? null) ? $docs['size'] : [];
-                    $errors = is_array($docs['error'] ?? null) ? $docs['error'] : [];
+                    if (!is_array($docs)) {
+                        continue; // no files submitted for this doc type
+                    }
+
+                    $names = isset($docs['name']) ? (is_array($docs['name']) ? $docs['name'] : [$docs['name']]) : [];
+                    $tmp_names = isset($docs['tmp_name']) ? (is_array($docs['tmp_name']) ? $docs['tmp_name'] : [$docs['tmp_name']]) : [];
+                    $sizes = isset($docs['size']) ? (is_array($docs['size']) ? $docs['size'] : [$docs['size']]) : [];
+                    $errors = isset($docs['error']) ? (is_array($docs['error']) ? $docs['error'] : [$docs['error']]) : [];
                     $file_count = count($names);
 
                     for ($i = 0; $i < $file_count; $i++) {
@@ -128,21 +135,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
 
                         $original_name = $raw_name !== '' ? $raw_name : 'clinic_doc';
+                        $original_name = basename($original_name); // prevent accidental paths from clients
                         $size = (int) ($sizes[$i] ?? 0);
                         if ($size <= 0 || $size > $max_bytes) {
                             $upload_error_found = 'Each file must be between 1 byte and 8MB.';
                             break 2;
                         }
 
-                        $mime = (string) mime_content_type($tmp);
-                        if (!in_array($mime, $allowed_mimes, true)) {
+                        // MIME detection varies by server and browser; validate using MIME "best effort"
+                        // plus extension fallback so legitimate uploads don't get rejected.
+                        $mime = (string) (mime_content_type($tmp) ?: '');
+
+                        $ext = strtolower(pathinfo($original_name, PATHINFO_EXTENSION));
+                        if ($ext === '') {
+                            if (preg_match('/pdf/i', $mime)) {
+                                $ext = 'pdf';
+                            } elseif (preg_match('/png/i', $mime)) {
+                                $ext = 'png';
+                            } else {
+                                $ext = 'jpg';
+                            }
+                        }
+
+                        $allowed_exts = ['pdf', 'jpg', 'jpeg', 'png'];
+                        if (!in_array($ext, $allowed_exts, true)) {
                             $upload_error_found = 'Unsupported file type. Upload PDF, JPG, or PNG only.';
                             break 2;
                         }
 
-                        $ext = strtolower(pathinfo($original_name, PATHINFO_EXTENSION));
-                        if ($ext === '') {
-                            $ext = ($mime === 'application/pdf') ? 'pdf' : (($mime === 'image/png') ? 'png' : 'jpg');
+                        $mime_ok = in_array($mime, $allowed_mimes, true);
+                        if (!$mime_ok && $mime !== '') {
+                            $mime_ok = (
+                                ($ext === 'pdf' && preg_match('/pdf/i', $mime)) ||
+                                (in_array($ext, ['jpg', 'jpeg'], true) && preg_match('/jpe?g/i', $mime)) ||
+                                ($ext === 'png' && preg_match('/png/i', $mime))
+                            );
+                        }
+
+                        if (!$mime_ok) {
+                            // Some environments return overly generic MIME like application/octet-stream.
+                            // If we have a valid extension and the MIME is generic/empty, allow it.
+                            if ($mime === '' || stripos($mime, 'octet-stream') !== false) {
+                                $mime_ok = in_array($ext, $allowed_exts, true);
+                            }
+                        }
+
+                        if (!$mime_ok) {
+                            $upload_error_found = 'Unsupported file type. Upload PDF, JPG, or PNG only.';
+                            break 2;
                         }
 
                         $safe_name = $tenant_id . '_' . $doc_type . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
