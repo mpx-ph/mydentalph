@@ -4,141 +4,309 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 ?>
 <!DOCTYPE html>
 
-<html class="light" lang="en"><head>
+<html class="scroll-smooth" lang="en">
+<head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>FAQ - MyDental</title>
+<title>FAQs | MyDental.com</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@1,400;1,700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#2b8cee",
-                        "background-light": "#f6f7f8",
-                        "background-dark": "#101922",
-                    },
-                    fontFamily: {
-                        "display": ["Manrope"]
-                    },
-                    borderRadius: {
-                        "DEFAULT": "0.25rem",
-                        "lg": "0.5rem",
-                        "xl": "0.75rem",
-                        "full": "9999px"
-                    },
-                },
-            },
-        }
-    </script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#2b8beb",
+          "on-surface": "#131c25",
+          "surface": "#ffffff",
+          "surface-variant": "#f7f9ff",
+          "on-surface-variant": "#404752",
+          "outline-variant": "#c0c7d4",
+          "primary-fixed": "#d4e3ff",
+          "on-primary-fixed-variant": "#004883",
+          "surface-container-low": "#edf4ff",
+          "inverse-surface": "#131c25",
+
+          /* Keep existing app colors used by ProviderNavbar */
+          "background-light": "#f6f7f8",
+          "background-dark": "#101922",
+        },
+        fontFamily: {
+          headline: ["Manrope", "sans-serif"],
+          body: ["Inter", "sans-serif"],
+          editorial: ["Playfair Display", "serif"],
+        },
+        borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1.5rem", "3xl": "2.5rem", "full": "9999px" },
+      }
+    }
+  }
+</script>
 <style>
-        body {
-            font-family: 'Manrope', sans-serif;
-        }
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-        }
-    </style>
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+  .editorial-word {
+    text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
+    letter-spacing: -0.02em;
+  }
+  .mesh-gradient {
+    background-color: #ffffff;
+    background-image:
+      radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.1) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.05) 0px, transparent 50%);
+  }
+  .reveal {
+    opacity: 0;
+    transform: translateY(34px) scale(0.985);
+    filter: blur(12px);
+    transition:
+      opacity 900ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 900ms cubic-bezier(0.22, 1, 0.36, 1),
+      filter 900ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, transform, filter;
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal {
+      opacity: 1;
+      transform: none;
+      filter: none;
+      transition: none;
+    }
+  }
+  @keyframes slowFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-14px); }
+  }
+  .slow-float {
+    animation: slowFloat 10s ease-in-out infinite;
+  }
+</style>
 </head>
-<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased">
-<div class="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
-<div class="layout-container flex h-full grow flex-col">
-<!-- Navigation Bar -->
+
+<body class="bg-background-light font-body text-on-surface dark:bg-background-dark dark:text-surface antialiased">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
 <?php include 'ProviderNavbar.php'; ?>
-<main class="flex-1">
-<div class="px-6 lg:px-40 flex flex-1 justify-center py-12">
-<div class="layout-content-container flex flex-col max-w-[800px] flex-1">
-<div class="flex flex-col gap-4 mb-10 text-center md:text-left">
-<h1 class="text-slate-900 dark:text-white text-4xl md:text-5xl font-black leading-tight tracking-[-0.033em]">Frequently Asked Questions</h1>
-<p class="text-slate-600 dark:text-slate-400 text-lg font-normal max-w-2xl">
-                            Everything you need to know about the MyDental platform and how it can transform your clinical operations.
-                        </p>
-</div>
-<div class="flex flex-col gap-4">
-<details class="flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4 group shadow-sm hover:shadow-md transition-shadow" open="">
-<summary class="flex cursor-pointer items-center justify-between gap-6 py-2 list-none outline-none">
-<p class="text-slate-900 dark:text-white text-base md:text-lg font-semibold">What is MyDental?</p>
-<div class="text-primary group-open:rotate-180 transition-transform duration-300">
-<span class="material-symbols-outlined">expand_more</span>
-</div>
-</summary>
-<div class="text-slate-600 dark:text-slate-400 text-base leading-relaxed pb-4 pt-2 border-t border-slate-100 dark:border-slate-800 mt-2">
-                                MyDental is a comprehensive, cloud-based dental practice management platform. We provide tools for patient scheduling, electronic health records, billing automation, and clinical imaging, all designed to streamline operations and enhance the patient experience through modern digital interfaces.
-                            </div>
-</details>
-<details class="flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4 group shadow-sm hover:shadow-md transition-shadow">
-<summary class="flex cursor-pointer items-center justify-between gap-6 py-2 list-none outline-none">
-<p class="text-slate-900 dark:text-white text-base md:text-lg font-semibold">How do clinics create accounts?</p>
-<div class="text-primary group-open:rotate-180 transition-transform duration-300">
-<span class="material-symbols-outlined">expand_more</span>
-</div>
-</summary>
-<div class="text-slate-600 dark:text-slate-400 text-base leading-relaxed pb-4 pt-2 border-t border-slate-100 dark:border-slate-800 mt-2">
-                                Registering your clinic is simple. Click on the "Get Started" button on our homepage, provide your clinic's basic information and license details, and our team will verify your credentials within 24 hours. Once verified, you can immediately begin setting up your team profiles and patient database.
-                            </div>
-</details>
-<details class="flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4 group shadow-sm hover:shadow-md transition-shadow">
-<summary class="flex cursor-pointer items-center justify-between gap-6 py-2 list-none outline-none">
-<p class="text-slate-900 dark:text-white text-base md:text-lg font-semibold">Will each clinic have its own dashboard?</p>
-<div class="text-primary group-open:rotate-180 transition-transform duration-300">
-<span class="material-symbols-outlined">expand_more</span>
-</div>
-</summary>
-<div class="text-slate-600 dark:text-slate-400 text-base leading-relaxed pb-4 pt-2 border-t border-slate-100 dark:border-slate-800 mt-2">
-                                Yes, absolutely. Every clinic registered on MyDental receives a private, secure, and fully customizable dashboard. This dashboard provides real-time analytics on patient visits, revenue tracking, inventory management, and staff performance, ensuring you have total visibility into your practice's health.
-                            </div>
-</details>
-<details class="flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4 group shadow-sm hover:shadow-md transition-shadow">
-<summary class="flex cursor-pointer items-center justify-between gap-6 py-2 list-none outline-none">
-<p class="text-slate-900 dark:text-white text-base md:text-lg font-semibold">Can multiple clinics use the platform?</p>
-<div class="text-primary group-open:rotate-180 transition-transform duration-300">
-<span class="material-symbols-outlined">expand_more</span>
-</div>
-</summary>
-<div class="text-slate-600 dark:text-slate-400 text-base leading-relaxed pb-4 pt-2 border-t border-slate-100 dark:border-slate-800 mt-2">
-                                Yes, MyDental is built for scale. Whether you are a single private practice or a large Dental Service Organization (DSO) with hundreds of locations, our platform supports multi-site management. You can switch between locations seamlessly and generate consolidated reports for the entire organization.
-                            </div>
-</details>
-</div>
-<div class="mt-16 p-8 rounded-2xl bg-primary/5 border border-primary/10 flex flex-col md:flex-row items-center justify-between gap-6">
-<div class="text-center md:text-left">
-<h2 class="text-slate-900 dark:text-white text-[22px] font-bold leading-tight tracking-[-0.015em]">Still have questions?</h2>
-<p class="text-slate-600 dark:text-slate-400 text-base font-normal mt-2">
-                                If you cannot find the answer you are looking for, please contact our support team.
-                            </p>
-</div>
-<div class="flex gap-3">
-<button class="flex min-w-[120px] cursor-pointer items-center justify-center rounded-lg h-12 px-6 bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-all">
-                                Contact Support
-                            </button>
-<button class="flex min-w-[120px] cursor-pointer items-center justify-center rounded-lg h-12 px-6 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
-                                View Docs
-                            </button>
-</div>
-</div>
-</div>
-</div>
+
+<main class="mesh-gradient">
+  <!-- Hero Section -->
+  <section class="max-w-[1800px] mx-auto px-10 pt-16 pb-10 text-center reveal" data-reveal="section">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.4em] mb-7">
+      Support Center
+    </div>
+
+    <h1 class="font-headline font-extrabold text-[clamp(2.6rem,5.2vw,4.6rem)] tracking-[-0.05em] text-slate-900 dark:text-white mb-6 leading-[0.95]">
+      Frequently Asked <br/>
+      <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Questions</span>
+    </h1>
+
+    <p class="font-body text-lg md:text-xl max-w-2xl mx-auto leading-relaxed text-on-surface-variant font-medium">
+      Find answers to common questions about the MyDental platform and how it can transform your clinical operations.
+    </p>
+
+    <!-- Search Bar -->
+    <div class="relative max-w-2xl mx-auto mt-10">
+      <div class="absolute inset-y-0 left-6 flex items-center pointer-events-none">
+        <span class="material-symbols-outlined text-primary/40" data-icon="search">search</span>
+      </div>
+      <input id="faq-search" class="w-full pl-16 pr-8 py-6 bg-white border border-on-surface/5 rounded-3xl focus:ring-4 focus:ring-primary/10 focus:border-primary/20 transition-all text-on-surface font-medium placeholder:text-on-surface/30 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.03)] dark:bg-slate-900/40 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-400" placeholder="Search for a topic..." type="text"/>
+    </div>
+  </section>
+
+  <!-- FAQ Content -->
+  <section class="max-w-[900px] mx-auto px-10 pb-20">
+    <div class="space-y-16">
+      <!-- Category: Getting Started -->
+      <div id="getting-started" class="reveal" data-reveal="section">
+        <div class="text-primary font-bold text-xs uppercase mb-8 flex items-center gap-4 tracking-[0.3em]">
+          <span class="w-12 h-[1.5px] bg-primary"></span> Getting Started
+        </div>
+
+        <div class="space-y-6">
+          <details data-faq-item data-faq-title="What is MyDental?" class="group bg-white rounded-3xl p-10 border border-on-surface/5 hover:border-primary/20 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 cursor-pointer">
+            <summary class="flex justify-between items-center gap-6 list-none outline-none cursor-pointer [&::-webkit-details-marker]:hidden">
+              <h3 class="font-bold tracking-tight text-on-surface text-3xl">What is MyDental?</h3>
+              <div class="w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-primary group-open:bg-primary group-open:text-white transition-all duration-300">
+                <span class="material-symbols-outlined text-lg transition-transform duration-300 group-open:rotate-45" data-icon="add">add</span>
+              </div>
+            </summary>
+            <div class="mt-8 text-on-surface-variant text-lg leading-relaxed font-medium border-t border-on-surface/5 pt-8">
+              MyDental is a comprehensive, cloud-based dental practice management platform. We provide tools for patient scheduling, electronic health records, billing automation, and clinical imaging, all designed to streamline operations and enhance the patient experience through modern digital interfaces.
+            </div>
+          </details>
+
+          <details data-faq-item data-faq-title="How do clinics create accounts?" class="group bg-white rounded-3xl p-10 border border-on-surface/5 hover:border-primary/20 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 cursor-pointer">
+            <summary class="flex justify-between items-center gap-6 list-none outline-none cursor-pointer [&::-webkit-details-marker]:hidden">
+              <h3 class="font-bold tracking-tight text-on-surface text-3xl">How do clinics create accounts?</h3>
+              <div class="w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-primary group-open:bg-primary group-open:text-white transition-all duration-300">
+                <span class="material-symbols-outlined text-lg transition-transform duration-300 group-open:rotate-45" data-icon="add">add</span>
+              </div>
+            </summary>
+            <div class="mt-8 text-on-surface-variant text-lg leading-relaxed font-medium border-t border-on-surface/5 pt-8">
+              Registering your clinic is simple. Click on the "Get Started" button on our homepage, provide your clinic's basic information and license details, and our team will verify your credentials within 24 hours. Once verified, you can immediately begin setting up your team profiles and patient database.
+            </div>
+          </details>
+
+          <details data-faq-item data-faq-title="Will each clinic have its own dashboard?" class="group bg-white rounded-3xl p-10 border border-on-surface/5 hover:border-primary/20 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 cursor-pointer">
+            <summary class="flex justify-between items-center gap-6 list-none outline-none cursor-pointer [&::-webkit-details-marker]:hidden">
+              <h3 class="font-bold tracking-tight text-on-surface text-3xl">Will each clinic have its own dashboard?</h3>
+              <div class="w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-primary group-open:bg-primary group-open:text-white transition-all duration-300">
+                <span class="material-symbols-outlined text-lg transition-transform duration-300 group-open:rotate-45" data-icon="add">add</span>
+              </div>
+            </summary>
+            <div class="mt-8 text-on-surface-variant text-lg leading-relaxed font-medium border-t border-on-surface/5 pt-8">
+              Yes, absolutely. Every clinic registered on MyDental receives a private, secure, and fully customizable dashboard. This dashboard provides real-time analytics on patient visits, revenue tracking, inventory management, and staff performance, ensuring you have total visibility into your practice's health.
+            </div>
+          </details>
+
+          <details data-faq-item data-faq-title="Can multiple clinics use the platform?" class="group bg-white rounded-3xl p-10 border border-on-surface/5 hover:border-primary/20 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 cursor-pointer">
+            <summary class="flex justify-between items-center gap-6 list-none outline-none cursor-pointer [&::-webkit-details-marker]:hidden">
+              <h3 class="font-bold tracking-tight text-on-surface text-3xl">Can multiple clinics use the platform?</h3>
+              <div class="w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-primary group-open:bg-primary group-open:text-white transition-all duration-300">
+                <span class="material-symbols-outlined text-lg transition-transform duration-300 group-open:rotate-45" data-icon="add">add</span>
+              </div>
+            </summary>
+            <div class="mt-8 text-on-surface-variant text-lg leading-relaxed font-medium border-t border-on-surface/5 pt-8">
+              Yes, MyDental is built for scale. Whether you are a single private practice or a large Dental Service Organization (DSO) with hundreds of locations, our platform supports multi-site management. You can switch between locations seamlessly and generate consolidated reports for the entire organization.
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <!-- Category: Billing & Plans -->
+      <div id="billing" class="reveal" data-reveal="section">
+        <div class="text-primary font-bold text-xs uppercase mb-8 flex items-center gap-4 tracking-[0.3em]">
+          <span class="w-12 h-[1.5px] bg-primary"></span> Billing &amp; Plans
+        </div>
+
+        <div class="space-y-6">
+          <details data-faq-item data-faq-title="What are the payment options?" class="group bg-white rounded-3xl p-10 border border-on-surface/5 hover:border-primary/20 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 cursor-pointer">
+            <summary class="flex justify-between items-center gap-6 list-none outline-none cursor-pointer [&::-webkit-details-marker]:hidden">
+              <h3 class="font-bold tracking-tight text-on-surface text-3xl">What are the payment options?</h3>
+              <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white transition-all duration-300">
+                <span class="material-symbols-outlined text-lg" data-icon="remove">remove</span>
+              </div>
+            </summary>
+            <div class="mt-8 text-on-surface-variant text-lg leading-relaxed font-medium border-t border-on-surface/5 pt-8">
+              We accept all major credit cards, bank transfers (ACH), and digital wallets including Apple Pay and Google Pay. For enterprise clients, we can also support quarterly and annual invoicing options.
+            </div>
+          </details>
+
+          <details data-faq-item data-faq-title="Can I change my plan at any time?" class="group bg-white rounded-3xl p-10 border border-on-surface/5 hover:border-primary/20 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 cursor-pointer">
+            <summary class="flex justify-between items-center gap-6 list-none outline-none cursor-pointer [&::-webkit-details-marker]:hidden">
+              <h3 class="font-bold tracking-tight text-on-surface text-3xl">Can I change my plan at any time?</h3>
+              <div class="w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-primary group-open:bg-primary group-open:text-white transition-all duration-300">
+                <span class="material-symbols-outlined text-lg transition-transform duration-300 group-open:rotate-45" data-icon="add">add</span>
+              </div>
+            </summary>
+            <div class="mt-8 text-on-surface-variant text-lg leading-relaxed font-medium border-t border-on-surface/5 pt-8">
+              Yes. You can upgrade or adjust your plan whenever you are ready. Changes take effect according to your billing cycle, and our support team can help you choose the best option for your clinic's current needs.
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section class="max-w-6xl mx-auto mt-20 px-4 pb-24 reveal" data-reveal="section">
+    <div class="bg-primary rounded-[4rem] p-24 text-center text-white shadow-[0_40px_100px_-20px_rgba(43,139,235,0.4)] relative overflow-hidden">
+      <div class="relative z-10 max-w-3xl mx-auto">
+        <div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-10">
+          Institutional Boarding
+        </div>
+        <h2 class="text-5xl md:text-6xl font-extrabold tracking-tighter leading-[0.85] mb-8">
+          Still have questions?
+        </h2>
+        <p class="text-white/70 text-xl md:text-2xl max-w-xl mx-auto leading-relaxed mb-12">
+          Our support team is available 24/7 to help you optimize your clinic's workflow and resolve any technical issues.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-6 justify-center">
+          <a href="ProviderContact.php" class="bg-white text-primary px-12 py-5 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-2xl active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40">
+            Contact Support
+          </a>
+          <a href="Provider-HowItWorks.php" class="bg-white/10 text-white backdrop-blur-md border border-white/20 px-12 py-5 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:bg-white/20 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40">
+            View Documentation
+          </a>
+        </div>
+      </div>
+
+      <!-- Abstract Accents -->
+      <div class="absolute top-0 right-0 w-1/3 h-full border-l border-white/10 pointer-events-none"></div>
+      <div class="absolute bottom-0 left-0 w-full h-1/4 border-t border-white/10 pointer-events-none"></div>
+      <div class="absolute -right-20 -bottom-20 w-80 h-80 bg-white/5 rounded-full blur-3xl slow-float pointer-events-none"></div>
+    </div>
+  </section>
 </main>
-<footer class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-6 lg:px-40 py-10">
-<div class="flex flex-col md:flex-row justify-between items-center gap-8">
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-primary text-2xl">dentistry</span>
-<span class="text-slate-900 dark:text-white font-bold text-lg">MyDental</span>
-</div>
-<div class="flex gap-8 text-slate-500 dark:text-slate-400 text-sm">
-<a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
-<a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
-<a class="hover:text-primary transition-colors" href="#">Cookies</a>
-</div>
-<div class="text-slate-400 text-sm">
-                    © 2024 MyDental Inc. All rights reserved.
-                </div>
-</div>
+
+<!-- Footer -->
+<footer class="w-full border-t border-slate-200 bg-slate-50 py-12 dark:bg-slate-950 reveal" data-reveal="section">
+  <div class="mx-auto max-w-7xl px-6 lg:px-10">
+    <div class="flex flex-col md:flex-row justify-between items-center gap-8">
+      <div class="flex items-center gap-3">
+        <span class="material-symbols-outlined text-primary text-2xl">dentistry</span>
+        <span class="text-slate-900 dark:text-slate-50 font-bold text-lg">MyDental</span>
+      </div>
+      <div class="flex flex-wrap justify-center gap-8 text-[12px] font-semibold text-slate-500 dark:text-slate-400">
+        <a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
+        <a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
+        <a class="hover:text-primary transition-colors" href="#">Interoperability Standards</a>
+        <a class="hover:text-primary transition-colors" href="ProviderContact.php">Contact Sales</a>
+      </div>
+      <div class="text-slate-400 text-sm dark:text-slate-400">
+        © 2024 MyDental Inc. All rights reserved.
+      </div>
+    </div>
+  </div>
 </footer>
-</div>
+
+<script>
+  (function () {
+    var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var elements = document.querySelectorAll('[data-reveal="section"]');
+    if (!elements || !elements.length) return;
+
+    if (prefersReduced || !('IntersectionObserver' in window)) {
+      elements.forEach(function (el) { el.classList.add('is-visible'); });
+      return;
+    }
+
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+        } else {
+          entry.target.classList.remove('is-visible');
+        }
+      });
+    }, { threshold: 0.18, rootMargin: '0px 0px -10% 0px' });
+
+    elements.forEach(function (el) { observer.observe(el); });
+  })();
+
+  (function () {
+    var search = document.getElementById('faq-search');
+    if (!search) return;
+
+    var items = Array.prototype.slice.call(document.querySelectorAll('[data-faq-item]'));
+    var normalize = function (s) { return (s || '').toString().toLowerCase(); };
+
+    search.addEventListener('input', function () {
+      var q = normalize(search.value.trim());
+      items.forEach(function (item) {
+        var title = normalize(item.getAttribute('data-faq-title'));
+        var content = normalize(item.innerText);
+        var match = !q || title.indexOf(q) !== -1 || content.indexOf(q) !== -1;
+        item.style.display = match ? '' : 'none';
+      });
+    });
+  })();
+</script>
 </div>
 </body></html>
