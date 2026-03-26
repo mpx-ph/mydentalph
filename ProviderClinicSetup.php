@@ -71,7 +71,7 @@ if ($setup_token !== '' && $setup_request_id > 0) {
             $expires_ts = strtotime($expires_at);
 
             $is_valid = true;
-            if ((string) ($row['status'] ?? '') !== 'approved') {
+            if (strtolower(trim((string) ($row['status'] ?? ''))) !== 'approved') {
                 $is_valid = false;
                 $error = 'Your account is not approved for clinic setup yet.';
             } elseif ((string) ($row['role'] ?? '') !== 'tenant_owner' || (string) ($row['user_status'] ?? '') !== 'active') {
@@ -162,12 +162,14 @@ if (!$setup_access_granted && !$token_attempted) {
                 SELECT r.request_id, r.tenant_id, r.owner_user_id, r.status
                 FROM tbl_tenant_verification_requests r
                 INNER JOIN tbl_users u ON u.user_id = r.owner_user_id AND u.tenant_id = r.tenant_id
-                WHERE r.tenant_id = ? AND r.owner_user_id = ? AND r.status = 'approved' AND u.status = 'active'
+                WHERE r.tenant_id = ? AND r.owner_user_id = ? AND u.status = 'active'
+                ORDER BY r.request_id DESC
                 LIMIT 1
             ");
             $stmt->execute([$tenant_id, $user_id]);
             $approved_request = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-            $setup_access_granted = (bool) $approved_request;
+            $setup_access_granted = (bool) $approved_request
+                && strtolower(trim((string) ($approved_request['status'] ?? ''))) === 'approved';
         } catch (Throwable $e) {
             setup_log_error('Session approval lookup failed.', $e);
             $error = 'Could not verify your approval status right now. Please try again.';

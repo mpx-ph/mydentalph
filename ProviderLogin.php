@@ -5,6 +5,10 @@ require_once __DIR__ . '/db.php';
 $error = '';
 $success = '';
 
+function providerNormalizeStatus($status): string {
+    return strtolower(trim((string) $status));
+}
+
 function providerWriteAuditLog($pdo, $tenantId, $userId, $action, $description = null) {
     try {
         $tenantId = trim((string) $tenantId);
@@ -77,25 +81,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($userRole === 'superadmin') {
                     $allowed = true;
                 } else {
+                    // Provider portal login is reserved for tenant owners.
+                    if ($userRole !== 'tenant_owner') {
+                        $allowed = false;
+                        $error = 'Only approved tenant owners can log in.';
+                    }
+
+                    // Ensure this user is the tenant owner record.
+                    if ($allowed !== false) {
+                        $stmt = $pdo->prepare("SELECT owner_user_id FROM tbl_tenants WHERE tenant_id = ? LIMIT 1");
+                        $stmt->execute([$tenantId]);
+                        $actualOwnerId = (string) ($stmt->fetchColumn() ?: '');
+                        if ($actualOwnerId === '' || $actualOwnerId !== $ownerUserId) {
+                            $allowed = false;
+                            $error = 'Only approved tenant owners can log in.';
+                        }
+                    }
+
                     // Only allow login if the clinic verification request is APPROVED.
                     // Rejected users should get a rejected-specific message.
-                    $stmt = $pdo->prepare("
-                        SELECT status
-                        FROM tbl_tenant_verification_requests
-                        WHERE tenant_id = ? AND owner_user_id = ?
-                        ORDER BY request_id DESC
-                        LIMIT 1
-                    ");
-                    $stmt->execute([$tenantId, $ownerUserId]);
-                    $reqStatus = $stmt->fetchColumn();
-                    $reqStatus = $reqStatus !== false ? (string) $reqStatus : '';
+                    if ($allowed !== false) {
+                        $stmt = $pdo->prepare("
+                            SELECT status
+                            FROM tbl_tenant_verification_requests
+                            WHERE tenant_id = ? AND owner_user_id = ?
+                            ORDER BY request_id DESC
+                            LIMIT 1
+                        ");
+                        $stmt->execute([$tenantId, $ownerUserId]);
+                        $reqStatusRaw = $stmt->fetchColumn();
+                        $reqStatus = providerNormalizeStatus($reqStatusRaw !== false ? (string) $reqStatusRaw : '');
 
-                    if ($reqStatus !== 'approved') {
-                        $allowed = false;
-                        $error = $reqStatus === 'rejected'
-                            ? 'Your account was rejected. You cannot log in.'
-                            : 'Your account is under review. Please wait for approval.';
-                    } else {
+                        if ($reqStatus !== 'approved') {
+                            $allowed = false;
+                            $error = $reqStatus === 'rejected'
+                                ? 'Your account was rejected. You cannot log in.'
+                                : 'Your account is pending approval. Please wait for an approval update.';
+                        }
+                    }
+
+                    if ($allowed !== false) {
                         // Approved request exists; require active provider account status too.
                         $stmt = $pdo->prepare("SELECT 1 FROM tbl_users WHERE user_id = ? AND tenant_id = ? AND status = 'active' LIMIT 1");
                         $stmt->execute([$ownerUserId, $tenantId]);
@@ -105,7 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $allowed = true;
                         } else {
                             $allowed = false;
-                            $error = 'Your account is under review. Please wait for approval.';
+                            $error = 'Your account is not active yet. Please contact support.';
                         }
                     }
                 }
@@ -122,6 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_SESSION['is_owner']
                     );
                 } else {
+                    session_regenerate_id(true);
                     $_SESSION['user_id'] = $user['user_id'];
                     $_SESSION['tenant_id'] = $user['tenant_id'];
                     $_SESSION['username'] = $user['username'];

@@ -11,6 +11,11 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+function provider_normalize_status(string $status): string
+{
+    return strtolower(trim($status));
+}
+
 function provider_get_candidate_identity_from_session(): array
 {
     // Order of precedence: real login session > onboarding session > payment session
@@ -51,7 +56,7 @@ function provider_get_verification_request_status(PDO $pdo, string $tenantId, st
     ");
     $stmt->execute([$tenantId, $ownerUserId]);
     $status = $stmt->fetchColumn();
-    return $status !== false ? (string) $status : null;
+    return $status !== false ? provider_normalize_status((string) $status) : null;
 }
 
 function provider_is_email_verified(PDO $pdo, string $tenantId, string $ownerUserId): bool

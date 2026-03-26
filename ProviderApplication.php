@@ -21,7 +21,7 @@ try {
         LIMIT 1
     ");
     $stmt->execute([$tenant_id, $user_id]);
-    $reqStatus = $stmt->fetchColumn();
+    $reqStatus = strtolower(trim((string) ($stmt->fetchColumn() ?: '')));
     if ($reqStatus === 'approved') {
         header('Location: ProviderTenantDashboard.php');
         exit;

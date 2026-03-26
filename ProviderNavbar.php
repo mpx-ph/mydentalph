@@ -3,6 +3,12 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+if (!function_exists('provider_normalize_status')) {
+    function provider_normalize_status($status): string {
+        return strtolower(trim((string) $status));
+    }
+}
+
 // If session has a user_id, verify the user still exists and is approved.
 // user_id can be 0 for hardcoded superadmin — empty() treats 0 as empty, so handle superadmin first
 $logged_in = false;
@@ -32,13 +38,15 @@ if ($is_superadmin) {
             );
         } else {
             $stmt2 = $pdo->prepare("
-                SELECT 1
+                SELECT status
                 FROM tbl_tenant_verification_requests
-                WHERE tenant_id = ? AND owner_user_id = ? AND status = 'approved'
+                WHERE tenant_id = ? AND owner_user_id = ?
+                ORDER BY request_id DESC
                 LIMIT 1
             ");
             $stmt2->execute([$tenantId, $userId]);
-            $isApproved = (bool) $stmt2->fetchColumn();
+            $reqStatus = $stmt2->fetchColumn();
+            $isApproved = provider_normalize_status($reqStatus !== false ? (string) $reqStatus : '') === 'approved';
 
             if ($isApproved) {
                 $logged_in = true;
