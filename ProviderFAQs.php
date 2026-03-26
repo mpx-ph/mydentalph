@@ -91,10 +91,9 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </head>
 
 <body class="bg-background-light font-body text-on-surface dark:bg-background-dark dark:text-surface antialiased">
-<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
 <?php include 'ProviderNavbar.php'; ?>
 
-<main class="mesh-gradient">
+<main>
   <!-- Hero Section -->
   <section class="max-w-[1800px] mx-auto px-10 pt-16 pb-10 text-center reveal" data-reveal="section">
     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.4em] mb-7">
@@ -246,24 +245,22 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </main>
 
 <!-- Footer -->
-<footer class="w-full border-t border-slate-200 bg-slate-50 py-12 dark:bg-slate-950 reveal" data-reveal="section">
-  <div class="mx-auto max-w-7xl px-6 lg:px-10">
-    <div class="flex flex-col md:flex-row justify-between items-center gap-8">
-      <div class="flex items-center gap-3">
-        <span class="material-symbols-outlined text-primary text-2xl">dentistry</span>
-        <span class="text-slate-900 dark:text-slate-50 font-bold text-lg">MyDental</span>
-      </div>
-      <div class="flex flex-wrap justify-center gap-8 text-[12px] font-semibold text-slate-500 dark:text-slate-400">
-        <a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
-        <a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
-        <a class="hover:text-primary transition-colors" href="#">Interoperability Standards</a>
-        <a class="hover:text-primary transition-colors" href="ProviderContact.php">Contact Sales</a>
-      </div>
-      <div class="text-slate-400 text-sm dark:text-slate-400">
-        © 2024 MyDental Inc. All rights reserved.
-      </div>
-    </div>
-  </div>
+<footer class="w-full border-t border-slate-200 bg-slate-50 reveal" data-reveal="section">
+<div class="flex flex-col md:flex-row justify-between items-center py-12 px-8 max-w-screen-2xl mx-auto gap-4">
+<div class="flex items-center gap-3 text-lg font-bold text-slate-900 font-headline">
+<img src="MyDental%20Logo.svg" alt="My Dental Logo" class="h-8 w-auto"/>
+                    My Dental
+                </div>
+<div class="flex flex-wrap justify-center gap-8 text-xs font-inter text-slate-500">
+<a class="hover:text-blue-500 hover:underline transition-all transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded" href="#">Privacy Policy</a>
+<a class="hover:text-blue-500 hover:underline transition-all transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded" href="#">Terms of Service</a>
+<a class="hover:text-blue-500 hover:underline transition-all transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded" href="#">Interoperability Standards</a>
+<a class="hover:text-blue-500 hover:underline transition-all transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded" href="#">Contact Sales</a>
+</div>
+<div class="text-xs text-slate-500 font-inter opacity-80 hover:opacity-100">
+            © 2024 My Dental Inc. All rights reserved.
+        </div>
+</div>
 </footer>
 
 <script>
@@ -308,5 +305,4 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
     });
   })();
 </script>
-</div>
 </body></html>
