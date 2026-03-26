@@ -2,11 +2,12 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+require_once __DIR__ . '/provider_auth.php';
 
 // Navbar display should follow the active login session directly.
 // Access control and approval enforcement are handled by login + provider_auth guards.
 $is_superadmin = (isset($_SESSION['user_id']) && ($_SESSION['role'] ?? '') === 'superadmin');
-$has_provider_session = isset($_SESSION['user_id']) && !empty($_SESSION['tenant_id']);
+$has_provider_session = provider_has_authenticated_provider_session();
 $logged_in = $is_superadmin || $has_provider_session;
 
 $user_display_name = $_SESSION['name'] ?? $_SESSION['full_name'] ?? $_SESSION['username'] ?? $_SESSION['email']

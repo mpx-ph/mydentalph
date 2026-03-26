@@ -7,8 +7,9 @@ require_once __DIR__ . '/superadmin/superadmin_settings_lib.php';
 
 $go_to_purchase = false;
 $max_sites_reached = false;
-if (!empty($_SESSION['user_id']) && !empty($_SESSION['tenant_id'])) {
-    $tid = $_SESSION['tenant_id'];
+if (provider_has_authenticated_provider_session()) {
+    $identity = provider_get_authenticated_provider_identity_from_session();
+    $tid = $identity[0];
     $subscriptionState = provider_get_tenant_subscription_state($pdo, (string) $tid);
     $has_active = !empty($subscriptionState['has_active_subscription']);
     if ($has_active) {

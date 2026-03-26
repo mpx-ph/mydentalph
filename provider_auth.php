@@ -16,6 +16,34 @@ function provider_normalize_status(string $status): string
     return strtolower(trim($status));
 }
 
+/**
+ * Returns true when the current session is a real provider login.
+ * Onboarding/payment helper sessions are intentionally excluded.
+ */
+function provider_has_authenticated_provider_session(): bool
+{
+    $tenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
+    $userId = isset($_SESSION['user_id']) ? trim((string) $_SESSION['user_id']) : '';
+    return $tenantId !== '' && $userId !== '';
+}
+
+/**
+ * Returns the active provider identity from the authenticated session.
+ *
+ * @return array{0:string,1:string}
+ */
+function provider_get_authenticated_provider_identity_from_session(): array
+{
+    if (!provider_has_authenticated_provider_session()) {
+        return ['', ''];
+    }
+
+    return [
+        (string) $_SESSION['tenant_id'],
+        (string) $_SESSION['user_id'],
+    ];
+}
+
 function provider_get_candidate_identity_from_session(): array
 {
     // Order of precedence: real login session > onboarding session > payment session

@@ -8,13 +8,18 @@ require_once __DIR__ . '/db.php';
 $tenant_id = null;
 $user_id = null;
 $plan_slug = null;
+$allowed = ['starter', 'professional', 'enterprise'];
+$requested_plan_slug = isset($_GET['plan']) ? strtolower(trim((string) $_GET['plan'])) : 'professional';
+if (!in_array($requested_plan_slug, $allowed, true)) {
+    $requested_plan_slug = 'professional';
+}
 
 if (!empty($_SESSION['onboarding_user_id']) && !empty($_SESSION['onboarding_tenant_id'])) {
     $tenant_id = $_SESSION['onboarding_tenant_id'];
     $user_id = $_SESSION['onboarding_user_id'];
     $plan_slug = $_SESSION['onboarding_plan'] ?? 'professional';
-} elseif (!empty($_SESSION['user_id']) && !empty($_SESSION['tenant_id'])) {
-    $tid = $_SESSION['tenant_id'];
+} elseif (provider_has_authenticated_provider_session()) {
+    [$tid, $uid] = provider_get_authenticated_provider_identity_from_session();
     try {
         $subscriptionState = provider_get_tenant_subscription_state($pdo, (string) $tid);
     } catch (Throwable $e) {
@@ -25,18 +30,15 @@ if (!empty($_SESSION['onboarding_user_id']) && !empty($_SESSION['onboarding_tena
         header('Location: ProviderTenantDashboard.php');
         exit;
     }
-    $tenant_id = $_SESSION['tenant_id'];
-    $user_id = $_SESSION['user_id'];
-    $plan_slug = isset($_GET['plan']) ? strtolower(trim($_GET['plan'])) : 'professional';
-    $allowed = ['starter', 'professional', 'enterprise'];
-    if (!in_array($plan_slug, $allowed, true)) {
-        $plan_slug = 'professional';
-    }
+    $tenant_id = $tid;
+    $user_id = $uid;
+    $plan_slug = $requested_plan_slug;
     $_SESSION['onboarding_plan'] = $plan_slug;
 }
 
 if ($tenant_id === null || $user_id === null) {
-    header('Location: ProviderClinicSetup.php');
+    $redirect = 'ProviderPurchase.php?plan=' . urlencode($requested_plan_slug);
+    header('Location: ProviderLogin.php?redirect=' . urlencode($redirect));
     exit;
 }
 

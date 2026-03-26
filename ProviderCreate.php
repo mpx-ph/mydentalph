@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/provider_redirect_superadmin.php';
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/provider_auth.php';
 require_once 'mail_config.php';
 
 $error = '';
@@ -10,6 +11,13 @@ $chosen_plan = isset($_GET['plan']) ? strtolower(trim($_GET['plan'])) : '';
 $allowed_plans = ['starter', 'professional', 'enterprise'];
 if (!in_array($chosen_plan, $allowed_plans, true)) {
     $chosen_plan = 'professional';
+}
+
+// Authenticated providers should continue subscription flow, not re-enter account creation.
+if (provider_has_authenticated_provider_session()) {
+    $redirect = 'ProviderPurchase.php?plan=' . urlencode($chosen_plan);
+    header('Location: ' . $redirect);
+    exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
