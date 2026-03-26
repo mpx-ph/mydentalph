@@ -130,6 +130,7 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
     $success = 'Password updated successfully. Please log in with your new password.';
 }
 ?>
+<!--
 <!DOCTYPE html>
 
 <html lang="en"><head>
@@ -254,3 +255,220 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
 <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Secure AES-256 Encryption</span>
 </div>
 </body></html>
+-->
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,400;1,700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2b8beb",
+                        "on-surface": "#131c25",
+                        "surface": "#ffffff",
+                        "surface-variant": "#f7f9ff",
+                        "on-surface-variant": "#404752",
+                        "outline-variant": "#c0c7d4",
+                        "surface-container-low": "#edf4ff",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922"
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Manrope", "sans-serif"],
+                        "editorial": ["Playfair Display", "serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "1.5rem", "2xl": "2.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+    <style>
+        body { font-family: 'Manrope', sans-serif; }
+        .mesh-gradient {
+            background-color: #ffffff;
+            background-image:
+                radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.1) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.05) 0px, transparent 50%);
+        }
+        .editorial-word {
+            text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
+            letter-spacing: -0.02em;
+        }
+        .login-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 40px 80px -20px rgba(43, 139, 235, 0.08);
+        }
+    </style>
+    <title>Provider Portal Login - MyDental</title>
+</head>
+
+<body class="mesh-gradient min-h-screen flex flex-col items-center selection:bg-primary/20 bg-background-light dark:bg-background-dark text-on-surface dark:text-slate-100 antialiased">
+<nav class="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl shadow-sm">
+    <div class="flex justify-between items-center h-20 px-8 max-w-screen-2xl mx-auto">
+        <div class="text-2xl font-bold tracking-tighter font-headline flex items-center gap-2">
+            <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                <span class="material-symbols-outlined text-white text-lg">select_check_box</span>
+            </div>
+            MyDental
+        </div>
+        <div class="hidden md:flex items-center space-x-12 text-sm font-semibold tracking-tight text-on-surface/60 font-headline">
+            <a class="text-primary border-b-2 border-primary pb-1" href="#">Home</a>
+            <a class="hover:text-primary transition-colors" href="#features">Features</a>
+            <a class="hover:text-primary transition-colors" href="#boarding">Pricing</a>
+            <a class="hover:text-primary transition-colors" href="#">Contact Us</a>
+            <a class="hover:text-primary transition-colors" href="#">FAQs</a>
+        </div>
+        <div class="flex items-center gap-4">
+            <a class="text-on-surface font-semibold text-sm hover:text-primary transition-all" href="ProviderLogin.php">Login</a>
+            <a class="bg-primary text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95" href="ProviderCreate.php">
+                Get Started
+            </a>
+        </div>
+    </div>
+</nav>
+
+<main class="flex-grow flex items-center justify-center w-full px-4 sm:px-6 lg:px-8 relative pt-24 pb-12">
+    <div class="w-full max-w-lg">
+        <!-- Login Card -->
+        <div class="login-card rounded-[2.5rem] overflow-hidden p-12 space-y-10">
+            <!-- Header Content -->
+            <div class="text-center space-y-4">
+                <h1 class="font-headline text-5xl font-extrabold tracking-tighter leading-[1.1] text-on-surface">
+                    Log In to Your
+                    <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Provider Account</span>
+                </h1>
+                <p class="text-on-surface-variant font-medium text-lg leading-relaxed max-w-xs mx-auto">
+                    Access your dashboard to manage clinic settings and subscriptions
+                </p>
+            </div>
+
+            <?php if ($error): ?>
+                <div class="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+                    <?php echo htmlspecialchars($error); ?>
+                </div>
+            <?php endif; ?>
+            <?php if ($success): ?>
+                <div class="rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-sm text-green-700">
+                    <?php echo htmlspecialchars($success); ?>
+                </div>
+            <?php endif; ?>
+
+            <!-- Form -->
+            <form class="space-y-8" method="post" action="">
+                <div class="space-y-6">
+                    <!-- Login identifier Field -->
+                    <div class="space-y-2.5">
+                        <label class="block text-[10px] font-black text-primary uppercase tracking-[0.2em] ml-1" for="login_identifier">Email Address</label>
+                        <div class="relative group">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <span class="material-symbols-outlined text-primary/40 text-xl font-light">mail</span>
+                            </div>
+                            <input class="block w-full pl-12 pr-4 py-4 bg-surface-container-low/50 border rounded-2xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none text-on-surface font-medium transition-all duration-200 placeholder:text-on-surface-variant/40 border-slate-200"
+                                   id="login_identifier"
+                                   name="login_identifier"
+                                   value="<?php echo isset($_POST['login_identifier']) ? htmlspecialchars($_POST['login_identifier']) : ''; ?>"
+                                   placeholder="name@clinic.com"
+                                   type="text"
+                                   autocomplete="username"/>
+                        </div>
+                    </div>
+
+                    <!-- Password Field -->
+                    <div class="space-y-2.5">
+                        <div class="flex justify-between items-center px-1">
+                            <label class="block text-[10px] font-black text-primary uppercase tracking-[0.2em]" for="password">Password</label>
+                            <a class="text-[10px] font-black uppercase tracking-widest text-primary hover:opacity-70 transition-opacity" href="ProviderFindAccount.php">Forgot Password?</a>
+                        </div>
+                        <div class="relative group">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <span class="material-symbols-outlined text-primary/40 text-xl font-light">lock</span>
+                            </div>
+                            <input class="block w-full pl-12 pr-16 py-4 bg-surface-container-low/50 border rounded-2xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none text-on-surface font-medium transition-all duration-200 placeholder:text-on-surface-variant/40 border-slate-200"
+                                   id="password"
+                                   name="password"
+                                   placeholder="********"
+                                   type="password"
+                                   autocomplete="current-password"/>
+                            <button class="absolute inset-y-0 right-0 pr-4 flex items-center text-on-surface-variant hover:text-on-surface transition-colors"
+                                    type="button"
+                                    onclick="var p=document.getElementById('password'); p.type=p.type==='password'?'text':'password';">
+                                <span class="material-symbols-outlined text-xl">visibility</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Remember Me -->
+                <div class="flex items-center px-1">
+                    <input class="h-5 w-5 text-primary focus:ring-primary border-on-surface/10 rounded-lg cursor-pointer transition-all"
+                           id="remember-me"
+                           name="remember-me"
+                           type="checkbox"/>
+                    <label class="ml-3 block text-sm font-semibold text-on-surface-variant cursor-pointer" for="remember-me">Remember Me</label>
+                </div>
+
+                <!-- Action Button -->
+                <button class="w-full py-5 px-6 bg-primary text-white font-black text-sm uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 active:scale-[0.98] transition-all duration-200" type="submit">
+                    Login
+                </button>
+            </form>
+
+            <!-- Footer Link -->
+            <div class="pt-2 text-center">
+                <p class="text-sm font-semibold text-on-surface-variant">
+                    New tenant?
+                    <a class="font-black text-primary hover:underline underline-offset-4 transition-all" href="ProviderCreate.php">Create an Account</a>
+                </p>
+            </div>
+        </div>
+
+        <!-- Trust Badges / Security -->
+        <div class="mt-12 flex justify-center items-center space-x-10 opacity-30 hover:opacity-60 transition-all duration-500">
+            <div class="flex items-center space-x-2">
+                <span class="material-symbols-outlined text-lg">verified_user</span>
+                <span class="text-[10px] uppercase font-black tracking-[0.2em]">HIPAA Compliant</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="material-symbols-outlined text-lg">lock_person</span>
+                <span class="text-[10px] uppercase font-black tracking-[0.2em]">256-bit SSL</span>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer class="w-full border-t border-slate-200 bg-slate-50/50 backdrop-blur-sm">
+    <div class="flex flex-col md:flex-row justify-between items-center py-12 px-10 max-w-screen-2xl mx-auto gap-8">
+        <div class="text-lg font-bold text-on-surface font-headline">MyDental Systems</div>
+        <div class="flex flex-wrap justify-center gap-10 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">
+            <a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
+            <a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
+            <a class="hover:text-primary transition-colors" href="#">Help Center</a>
+        </div>
+        <div class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40">© 2024 MyDental Health Systems. All rights reserved.</div>
+    </div>
+</footer>
+
+<!-- Security Badge (Floating) -->
+<div class="fixed bottom-6 right-6 hidden md:flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-2 rounded-full shadow-lg border border-slate-100 dark:border-slate-700">
+    <span class="material-symbols-outlined text-green-500 text-lg">verified_user</span>
+    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Secure AES-256 Encryption</span>
+</div>
+
+<!-- Decorative Background Accents -->
+<div class="fixed top-[-10%] right-[-5%] w-[40rem] h-[40rem] bg-primary/5 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
+<div class="fixed bottom-[-10%] left-[-5%] w-[30rem] h-[30rem] bg-primary/5 rounded-full blur-[100px] -z-10 pointer-events-none"></div>
+
+</body>
+</html>
