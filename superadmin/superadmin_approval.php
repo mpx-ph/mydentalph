@@ -55,6 +55,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ");
                     $update->execute([$reviewer_id, $notes !== '' ? $notes : null, $token_hash, $token_expires_at, $request_id]);
 
+                    // Activate the provider owner user now that the tenant is approved.
+                    // This prevents pending/rejected tenants from having "active" provider accounts.
+                    if (!empty($request['owner_user_id'])) {
+                        $pdo->prepare("UPDATE tbl_users SET status = 'active' WHERE user_id = ? LIMIT 1")
+                            ->execute([(string) $request['owner_user_id']]);
+                    }
+
                     $to_email = trim((string) ($request['owner_email'] ?? ''));
                     if ($to_email !== '') {
                         $is_https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
@@ -88,6 +95,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         WHERE request_id = ?
                     ");
                     $update->execute([$reviewer_id, $notes !== '' ? $notes : null, $request_id]);
+
+                    // Deactivate the provider owner user on rejection.
+                    if (!empty($request['owner_user_id'])) {
+                        $pdo->prepare("UPDATE tbl_users SET status = 'inactive' WHERE user_id = ? LIMIT 1")
+                            ->execute([(string) $request['owner_user_id']]);
+                    }
+
                     $success = 'Request has been rejected.';
                 }
             }

@@ -3,37 +3,70 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// If session has a user_id, verify the user still exists in DB (e.g. after a DB reset)
-// Also treat onboarding (onboarding_user_id) as "logged in" so Purchase/Setup show the account
+// If session has a user_id, verify the user still exists and is approved.
 // user_id can be 0 for hardcoded superadmin — empty() treats 0 as empty, so handle superadmin first
 $logged_in = false;
 $is_superadmin = (isset($_SESSION['user_id']) && ($_SESSION['role'] ?? '') === 'superadmin');
 if ($is_superadmin) {
     $logged_in = true;
-} elseif (!empty($_SESSION['user_id'])) {
+} elseif (!empty($_SESSION['user_id']) && !empty($_SESSION['tenant_id'])) {
     try {
         require_once __DIR__ . '/db.php';
-        $stmt = $pdo->prepare("SELECT 1 FROM tbl_users WHERE user_id = ? AND status = 'active' LIMIT 1");
-        $stmt->execute([$_SESSION['user_id']]);
-        if ($stmt->fetch()) {
-            $logged_in = true;
-        } else {
+        $userId = (string) $_SESSION['user_id'];
+        $tenantId = (string) $_SESSION['tenant_id'];
+
+        $stmt = $pdo->prepare("SELECT 1 FROM tbl_users WHERE user_id = ? AND tenant_id = ? AND status = 'active' LIMIT 1");
+        $stmt->execute([$userId, $tenantId]);
+        $userActive = (bool) $stmt->fetchColumn();
+
+        if (!$userActive) {
             // User no longer exists or is inactive — clear session so navbar shows Login
-            unset($_SESSION['user_id'], $_SESSION['tenant_id'], $_SESSION['username'], $_SESSION['email'], $_SESSION['full_name'], $_SESSION['role'], $_SESSION['is_owner']);
+            unset(
+                $_SESSION['user_id'],
+                $_SESSION['tenant_id'],
+                $_SESSION['username'],
+                $_SESSION['email'],
+                $_SESSION['full_name'],
+                $_SESSION['role'],
+                $_SESSION['is_owner']
+            );
+        } else {
+            $stmt2 = $pdo->prepare("
+                SELECT 1
+                FROM tbl_tenant_verification_requests
+                WHERE tenant_id = ? AND owner_user_id = ? AND status = 'approved'
+                LIMIT 1
+            ");
+            $stmt2->execute([$tenantId, $userId]);
+            $isApproved = (bool) $stmt2->fetchColumn();
+
+            if ($isApproved) {
+                $logged_in = true;
+            } else {
+                // Pending/rejected users must not see provider menus
+                unset(
+                    $_SESSION['user_id'],
+                    $_SESSION['tenant_id'],
+                    $_SESSION['username'],
+                    $_SESSION['email'],
+                    $_SESSION['full_name'],
+                    $_SESSION['role'],
+                    $_SESSION['is_owner']
+                );
+            }
         }
     } catch (Throwable $e) {
         // On DB error, clear session to avoid showing stale logged-in state
-        unset($_SESSION['user_id'], $_SESSION['tenant_id'], $_SESSION['username'], $_SESSION['email'], $_SESSION['full_name'], $_SESSION['role'], $_SESSION['is_owner']);
+        unset(
+            $_SESSION['user_id'],
+            $_SESSION['tenant_id'],
+            $_SESSION['username'],
+            $_SESSION['email'],
+            $_SESSION['full_name'],
+            $_SESSION['role'],
+            $_SESSION['is_owner']
+        );
     }
-}
-// Only treat onboarding as "logged in" after OTP verification (onboarding_user_id is set).
-// Pending signups (onboarding_pending_id) must NOT affect logged-in state.
-if (
-    !$logged_in
-    && !empty($_SESSION['onboarding_user_id'])
-    && !empty($_SESSION['onboarding_tenant_id'])
-) {
-    $logged_in = true;
 }
 
 $user_display_name = $_SESSION['full_name'] ?? $_SESSION['username'] ?? $_SESSION['email']

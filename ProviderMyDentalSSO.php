@@ -12,6 +12,9 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+require_once __DIR__ . '/provider_auth.php';
+provider_require_approved_for_provider_portal();
+
 // Not logged in as provider/tenant -> send to provider login, then back here
 if (empty($_SESSION['user_id']) || empty($_SESSION['tenant_id'])) {
     $redirect = urlencode('ProviderMyDentalSSO.php');

@@ -11,6 +11,10 @@ if (empty($_SESSION['onboarding_user_id']) || empty($_SESSION['onboarding_tenant
     exit;
 }
 
+// VerifyBusiness is only available after super admin approval.
+require_once __DIR__ . '/provider_auth.php';
+provider_require_approved_for_provider_portal();
+
 $tenant_id = $_SESSION['onboarding_tenant_id'];
 $allowed_mimes = [
     'image/jpeg',

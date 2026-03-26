@@ -66,9 +66,9 @@ if (!$setup_access_granted) {
 }
 
 if (!$setup_access_granted) {
-    if ($error === '') {
-        $error = 'Clinic setup is available only after super admin approval.';
-    }
+    // Pending/rejected users must not reach setup.
+    header('Location: ProviderApprovalStatus.php');
+    exit;
 }
 
 // Pre-fill clinic name from tenant

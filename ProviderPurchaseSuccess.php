@@ -1,5 +1,7 @@
 <?php
 session_start();
+require_once __DIR__ . '/provider_auth.php';
+provider_require_approved_for_provider_portal();
 require_once __DIR__ . '/db.php';
 require_once 'paymongo_config.php';
 

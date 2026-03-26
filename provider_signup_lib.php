@@ -40,7 +40,9 @@ function provider_signup_finalize_from_pending(PDO $pdo, int $pendingId): array
             $unum = max($max_user_num, $max_owner_num) + 1;
             $user_id = 'USER_' . str_pad((string) $unum, 5, '0', STR_PAD_LEFT);
 
-            $stmt = $pdo->prepare("INSERT INTO tbl_users (user_id, tenant_id, username, email, full_name, password_hash, role) VALUES (?, ?, ?, ?, ?, ?, 'tenant_owner')");
+            // Keep provider-owner account inactive until super admin approves the clinic verification request.
+            // This prevents unapproved users from being treated as active accounts.
+            $stmt = $pdo->prepare("INSERT INTO tbl_users (user_id, tenant_id, username, email, full_name, password_hash, role, status) VALUES (?, ?, ?, ?, ?, ?, 'tenant_owner', 'inactive')");
             $stmt->execute([
                 $user_id,
                 $tenant_id,

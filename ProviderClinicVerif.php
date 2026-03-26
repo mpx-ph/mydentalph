@@ -15,6 +15,25 @@ if ($tenant_id === '' || $user_id === '') {
     exit;
 }
 
+// Step guard: if this tenant was already rejected, do not allow further onboarding progress.
+try {
+    $stmt = $pdo->prepare("
+        SELECT status
+        FROM tbl_tenant_verification_requests
+        WHERE tenant_id = ? AND owner_user_id = ?
+        ORDER BY request_id DESC
+        LIMIT 1
+    ");
+    $stmt->execute([$tenant_id, $user_id]);
+    $reqStatus = $stmt->fetchColumn();
+    if ($reqStatus === 'rejected') {
+        header('Location: ProviderApprovalStatus.php');
+        exit;
+    }
+} catch (Throwable $e) {
+    // If verification request can't be read, continue normal onboarding checks.
+}
+
 // Step guard: user must have successfully verified their email first.
 $email_verified = false;
 try {

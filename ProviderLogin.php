@@ -67,59 +67,117 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($user && password_verify($password, $user['password_hash'])) {
-                $_SESSION['user_id'] = $user['user_id'];
-                $_SESSION['tenant_id'] = $user['tenant_id'];
-                $_SESSION['username'] = $user['username'];
-                $_SESSION['email'] = $user['email'];
-                $_SESSION['full_name'] = $user['full_name'];
-                $_SESSION['role'] = $user['role'];
+                $userRole = (string) ($user['role'] ?? '');
+                $tenantId = (string) ($user['tenant_id'] ?? '');
+                $ownerUserId = (string) ($user['user_id'] ?? '');
 
-                // Load tenant and set owner status (owner_user_id)
-                $is_owner = false;
-                if (!empty($user['tenant_id'])) {
-                    $stmt = $pdo->prepare("SELECT owner_user_id FROM tbl_tenants WHERE tenant_id = ? LIMIT 1");
-                    $stmt->execute([$user['tenant_id']]);
-                    $tenant = $stmt->fetch(PDO::FETCH_ASSOC);
-                    $is_owner = ($tenant && isset($tenant['owner_user_id']) && $tenant['owner_user_id'] === $user['user_id']);
-                }
-                $_SESSION['is_owner'] = $is_owner;
-                providerWriteAuditLog(
-                    $pdo,
-                    (string) $user['tenant_id'],
-                    (string) $user['user_id'],
-                    'LOGIN',
-                    'Provider user logged in.'
-                );
+                $allowed = false;
 
-                try {
-                    $st = $pdo->prepare('UPDATE tbl_users SET last_active = CURRENT_TIMESTAMP, last_login = CURRENT_TIMESTAMP WHERE user_id = ?');
-                    $st->execute([(string) $user['user_id']]);
-                } catch (Throwable $e) {
-                    try {
-                        $st = $pdo->prepare('UPDATE tbl_users SET last_login = CURRENT_TIMESTAMP WHERE user_id = ?');
-                        $st->execute([(string) $user['user_id']]);
-                    } catch (Throwable $e2) {
-                        error_log('ProviderLogin last_active: ' . $e2->getMessage());
+                // Super admin bypasses tenant approval checks.
+                if ($userRole === 'superadmin') {
+                    $allowed = true;
+                } else {
+                    // Only allow login if the clinic verification request is APPROVED.
+                    // Rejected users should get a rejected-specific message.
+                    $stmt = $pdo->prepare("
+                        SELECT status
+                        FROM tbl_tenant_verification_requests
+                        WHERE tenant_id = ? AND owner_user_id = ?
+                        ORDER BY request_id DESC
+                        LIMIT 1
+                    ");
+                    $stmt->execute([$tenantId, $ownerUserId]);
+                    $reqStatus = $stmt->fetchColumn();
+                    $reqStatus = $reqStatus !== false ? (string) $reqStatus : '';
+
+                    if ($reqStatus !== 'approved') {
+                        $allowed = false;
+                        $error = $reqStatus === 'rejected'
+                            ? 'Your account was rejected. You cannot log in.'
+                            : 'Your account is under review. Please wait for approval.';
+                    } else {
+                        // Approved request exists; require active provider account status too.
+                        $stmt = $pdo->prepare("SELECT 1 FROM tbl_users WHERE user_id = ? AND tenant_id = ? AND status = 'active' LIMIT 1");
+                        $stmt->execute([$ownerUserId, $tenantId]);
+                        $userActive = (bool) $stmt->fetchColumn();
+
+                        if ($userActive) {
+                            $allowed = true;
+                        } else {
+                            $allowed = false;
+                            $error = 'Your account is under review. Please wait for approval.';
+                        }
                     }
                 }
 
-                $redirect = isset($_GET['redirect']) ? trim($_GET['redirect']) : '';
-                if (($user['role'] ?? '') === 'superadmin') {
-                    if ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)
-                        && strpos($redirect, 'superadmin/') === 0) {
+                if (!$allowed) {
+                    // Never create provider login session for pending/rejected accounts.
+                    unset(
+                        $_SESSION['user_id'],
+                        $_SESSION['tenant_id'],
+                        $_SESSION['username'],
+                        $_SESSION['email'],
+                        $_SESSION['full_name'],
+                        $_SESSION['role'],
+                        $_SESSION['is_owner']
+                    );
+                } else {
+                    $_SESSION['user_id'] = $user['user_id'];
+                    $_SESSION['tenant_id'] = $user['tenant_id'];
+                    $_SESSION['username'] = $user['username'];
+                    $_SESSION['email'] = $user['email'];
+                    $_SESSION['full_name'] = $user['full_name'];
+                    $_SESSION['role'] = $user['role'];
+
+                    // Load tenant and set owner status (owner_user_id)
+                    $is_owner = false;
+                    if (!empty($user['tenant_id'])) {
+                        $stmt = $pdo->prepare("SELECT owner_user_id FROM tbl_tenants WHERE tenant_id = ? LIMIT 1");
+                        $stmt->execute([$user['tenant_id']]);
+                        $tenant = $stmt->fetch(PDO::FETCH_ASSOC);
+                        $is_owner = ($tenant && isset($tenant['owner_user_id']) && $tenant['owner_user_id'] === $user['user_id']);
+                    }
+                    $_SESSION['is_owner'] = $is_owner;
+                    providerWriteAuditLog(
+                        $pdo,
+                        (string) $user['tenant_id'],
+                        (string) $user['user_id'],
+                        'LOGIN',
+                        'Provider user logged in.'
+                    );
+
+                    try {
+                        $st = $pdo->prepare('UPDATE tbl_users SET last_active = CURRENT_TIMESTAMP, last_login = CURRENT_TIMESTAMP WHERE user_id = ?');
+                        $st->execute([(string) $user['user_id']]);
+                    } catch (Throwable $e) {
+                        try {
+                            $st = $pdo->prepare('UPDATE tbl_users SET last_login = CURRENT_TIMESTAMP WHERE user_id = ?');
+                            $st->execute([(string) $user['user_id']]);
+                        } catch (Throwable $e2) {
+                            error_log('ProviderLogin last_active: ' . $e2->getMessage());
+                        }
+                    }
+
+                    $redirect = isset($_GET['redirect']) ? trim($_GET['redirect']) : '';
+                    if (($user['role'] ?? '') === 'superadmin') {
+                        if ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)
+                            && strpos($redirect, 'superadmin/') === 0) {
+                            header('Location: ' . $redirect);
+                        } else {
+                            header('Location: superadmin/dashboard.php');
+                        }
+                    } elseif ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)) {
                         header('Location: ' . $redirect);
                     } else {
-                        header('Location: superadmin/dashboard.php');
+                        header('Location: ProviderMain.php');
                     }
-                } elseif ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)) {
-                    header('Location: ' . $redirect);
-                } else {
-                    header('Location: ProviderMain.php');
+                    exit;
                 }
-                exit;
             }
 
-            $error = 'Invalid email/username or password.';
+            if ($error === '') {
+                $error = 'Invalid email/username or password.';
+            }
         } catch (PDOException $e) {
             $error = 'A temporary error occurred. Please try again.';
         }
