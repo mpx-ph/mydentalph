@@ -147,10 +147,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </style>
 </head>
 
-<body class="font-body text-on-surface bg-surface min-h-screen flex flex-col dark:bg-background-dark dark:text-surface antialiased">
+<body class="font-body text-on-surface bg-surface h-screen overflow-hidden flex flex-col dark:bg-background-dark dark:text-surface antialiased">
 <?php include 'ProviderNavbar.php'; ?>
 
-<main class="flex-grow flex items-center justify-center p-6 sm:p-12 relative overflow-hidden">
+<main class="flex-1 flex items-center justify-center p-6 sm:p-12 relative overflow-hidden">
     <div class="relative z-10 w-full max-w-xl bg-surface-container-lowest rounded-3xl shadow-[0_32px_64px_-12px_rgba(43,139,235,0.08)] border border-on-surface/5 p-10 md:p-14">
         <div class="text-center mb-12">
             <div class="inline-flex items-center justify-center w-16 h-16 bg-surface-container-low rounded-2xl mb-8">
@@ -173,7 +173,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         <?php endif; ?>
 
-        <form method="POST" action="" class="space-y-8">
+        <form method="POST" action="" class="space-y-8 max-w-md mx-auto">
             <div class="space-y-6">
                 <!-- Clinic Name Field -->
                 <div class="group">
@@ -256,21 +256,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </form>
     </div>
 </main>
-
-<footer class="w-full border-t border-slate-200 bg-slate-50">
-    <div class="flex flex-col md:flex-row justify-between items-center py-12 px-8 max-w-screen-2xl mx-auto gap-4">
-        <div class="flex flex-col items-center md:items-start">
-            <div class="text-lg font-bold text-slate-900 font-headline mb-1">MyDental</div>
-            <p class="text-[10px] font-headline font-black uppercase tracking-[0.1em] text-slate-400">© 2024 Clinical Precision Framework. All rights reserved.</p>
-        </div>
-        <div class="flex flex-wrap justify-center gap-8 text-[11px] font-headline font-bold uppercase tracking-widest text-slate-500">
-            <a class="hover:text-primary transition-colors" href="#">Privacy Protocol</a>
-            <a class="hover:text-primary transition-colors" href="#">HIPAA Compliance</a>
-            <a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
-            <a class="hover:text-primary transition-colors" href="#">Support</a>
-        </div>
-    </div>
-</footer>
 </body>
 </html>
 
