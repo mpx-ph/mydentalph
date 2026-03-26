@@ -1,6 +1,160 @@
 <?php
 require_once __DIR__ . '/require_superadmin.php';
 require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../mail_config.php';
+
+$error = '';
+$success = '';
+
+$selected_request_id = isset($_GET['request_id']) ? (int) $_GET['request_id'] : 0;
+$status_filter = isset($_GET['status']) ? strtolower(trim((string) $_GET['status'])) : 'pending';
+$allowed_filters = ['pending', 'approved', 'rejected'];
+if (!in_array($status_filter, $allowed_filters, true)) {
+    $status_filter = 'pending';
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    $request_id = (int) ($_POST['request_id'] ?? 0);
+    $notes = trim((string) ($_POST['reviewer_notes'] ?? ''));
+    $reviewer_id = (string) ($_SESSION['user_id'] ?? '');
+
+    if ($request_id <= 0 || !in_array($action, ['approve', 'reject'], true)) {
+        $error = 'Invalid review action request.';
+    } else {
+        try {
+            $stmt = $pdo->prepare("
+                SELECT request_id, tenant_id, owner_user_id, owner_email, owner_name, clinic_name, status
+                FROM tbl_tenant_verification_requests
+                WHERE request_id = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$request_id]);
+            $request = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$request) {
+                $error = 'Verification request was not found.';
+            } elseif (($request['status'] ?? '') !== 'pending') {
+                $error = 'Only pending verification requests can be reviewed.';
+            } else {
+                if ($action === 'approve') {
+                    $raw_token = bin2hex(random_bytes(32));
+                    $token_hash = password_hash($raw_token, PASSWORD_DEFAULT);
+                    $token_expires_at = date('Y-m-d H:i:s', time() + (60 * 60 * 24 * 7)); // 7 days
+
+                    $update = $pdo->prepare("
+                        UPDATE tbl_tenant_verification_requests
+                        SET status = 'approved',
+                            reviewed_at = NOW(),
+                            reviewed_by = ?,
+                            reviewer_notes = ?,
+                            setup_token_hash = ?,
+                            setup_token_expires_at = ?,
+                            setup_token_used_at = NULL
+                        WHERE request_id = ?
+                    ");
+                    $update->execute([$reviewer_id, $notes !== '' ? $notes : null, $token_hash, $token_expires_at, $request_id]);
+
+                    $to_email = trim((string) ($request['owner_email'] ?? ''));
+                    if ($to_email !== '') {
+                        $is_https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+                        $scheme = $is_https ? 'https' : 'http';
+                        $host = $_SERVER['HTTP_HOST'] ?? '';
+                        $base = rtrim($scheme . '://' . $host, '/');
+                        $setup_url = $base . '/ProviderClinicSetup.php?setup_token=' . urlencode($raw_token);
+                        $safe_owner = htmlspecialchars((string) ($request['owner_name'] ?? 'Clinic Owner'), ENT_QUOTES, 'UTF-8');
+                        $safe_clinic = htmlspecialchars((string) ($request['clinic_name'] ?? 'Clinic'), ENT_QUOTES, 'UTF-8');
+                        $safe_setup_url = htmlspecialchars($setup_url, ENT_QUOTES, 'UTF-8');
+                        $body_text = "Hello {$request['owner_name']},\n\nYour clinic verification for {$request['clinic_name']} has been approved.\nUse this secure link to continue setup:\n{$setup_url}\n\nThis link expires in 7 days.";
+                        $body_html = "<p>Hello {$safe_owner},</p><p>Your clinic verification for <strong>{$safe_clinic}</strong> has been approved.</p><p><a href=\"{$safe_setup_url}\">Continue clinic setup</a></p><p>This secure link expires in 7 days.</p>";
+                        if (!send_smtp_gmail($to_email, 'Clinic Verification Approved - Continue Setup', $body_text, $body_html)) {
+                            $success = 'Request approved. Email could not be sent; check SMTP settings.';
+                        } else {
+                            $success = 'Request approved and setup email was sent.';
+                        }
+                    } else {
+                        $success = 'Request approved, but owner email is missing.';
+                    }
+                } else {
+                    $update = $pdo->prepare("
+                        UPDATE tbl_tenant_verification_requests
+                        SET status = 'rejected',
+                            reviewed_at = NOW(),
+                            reviewed_by = ?,
+                            reviewer_notes = ?,
+                            setup_token_hash = NULL,
+                            setup_token_expires_at = NULL,
+                            setup_token_used_at = NULL
+                        WHERE request_id = ?
+                    ");
+                    $update->execute([$reviewer_id, $notes !== '' ? $notes : null, $request_id]);
+                    $success = 'Request has been rejected.';
+                }
+            }
+        } catch (Throwable $e) {
+            $error = 'Failed to process review action. Please try again.';
+        }
+    }
+}
+
+$list_stmt = $pdo->prepare("
+    SELECT request_id, tenant_id, clinic_name, owner_name, owner_email, status, submitted_at, reviewed_at
+    FROM tbl_tenant_verification_requests
+    WHERE status = ?
+    ORDER BY submitted_at DESC
+");
+$list_stmt->execute([$status_filter]);
+$requests = $list_stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+if ($selected_request_id <= 0 && !empty($requests)) {
+    $selected_request_id = (int) $requests[0]['request_id'];
+}
+
+$selected = null;
+$files = [];
+if ($selected_request_id > 0) {
+    $selected_stmt = $pdo->prepare("
+        SELECT request_id, tenant_id, clinic_name, owner_name, owner_email, status, submitted_at, reviewed_at, reviewer_notes
+        FROM tbl_tenant_verification_requests
+        WHERE request_id = ?
+        LIMIT 1
+    ");
+    $selected_stmt->execute([$selected_request_id]);
+    $selected = $selected_stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+    if ($selected) {
+        $files_stmt = $pdo->prepare("
+            SELECT document_type, original_file_name, stored_file_path, mime_type, file_size_bytes, uploaded_at
+            FROM tbl_tenant_verification_files
+            WHERE request_id = ?
+            ORDER BY file_id ASC
+        ");
+        $files_stmt->execute([$selected_request_id]);
+        $files = $files_stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+}
+
+function sa_status_badge_class(string $status): string
+{
+    if ($status === 'approved') {
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    }
+    if ($status === 'rejected') {
+        return 'bg-rose-50 text-rose-700 border-rose-200';
+    }
+    return 'bg-amber-50 text-amber-700 border-amber-200';
+}
+
+function sa_document_label(string $type): string
+{
+    $map = [
+        'business_permit' => 'Business Permit',
+        'bir_certificate' => 'BIR Certificate',
+        'sec_dti' => 'SEC/DTI',
+        'other' => 'Other',
+    ];
+    return $map[$type] ?? ucfirst(str_replace('_', ' ', $type));
+}
 ?>
 <!DOCTYPE html>
 
@@ -114,197 +268,107 @@ $superadmin_header_center = '<h2 class="text-2xl font-headline font-extrabold te
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
 ?>
-<!-- Main Content Canvas -->
 <main class="ml-64 flex-grow flex flex-col min-h-screen">
-<!-- Content Split View -->
 <div class="pt-20 flex flex-grow overflow-hidden relative">
-<!-- Decorative blur shape -->
 <div class="absolute top-40 right-10 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10"></div>
-<!-- Left Side: Pending List (60%) -->
 <section class="w-3/5 p-10 overflow-y-auto space-y-8 no-scrollbar">
+<?php if ($error !== ''): ?>
+<div class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-sm font-semibold"><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></div>
+<?php endif; ?>
+<?php if ($success !== ''): ?>
+<div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-semibold"><?php echo htmlspecialchars($success, ENT_QUOTES, 'UTF-8'); ?></div>
+<?php endif; ?>
 <div class="flex items-center justify-between mb-2">
 <div class="flex gap-2 p-1.5 bg-white/40 backdrop-blur-md rounded-2xl border border-white/60">
-<button class="px-5 py-2 rounded-xl bg-primary text-white text-xs font-bold shadow-lg shadow-primary/20">Pending (12)</button>
-<button class="px-5 py-2 rounded-xl text-on-surface-variant text-xs font-bold hover:bg-white/50 transition-colors">Approved</button>
-<button class="px-5 py-2 rounded-xl text-on-surface-variant text-xs font-bold hover:bg-white/50 transition-colors">Rejected</button>
+<a href="?status=pending" class="px-5 py-2 rounded-xl text-xs font-bold <?php echo $status_filter === 'pending' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Pending Tenants</a>
+<a href="?status=approved" class="px-5 py-2 rounded-xl text-xs font-bold <?php echo $status_filter === 'approved' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Approved</a>
+<a href="?status=rejected" class="px-5 py-2 rounded-xl text-xs font-bold <?php echo $status_filter === 'rejected' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Rejected</a>
 </div>
-<button class="flex items-center gap-2 text-primary text-xs font-bold hover:opacity-80 transition-opacity px-4 py-2 bg-white/60 rounded-xl border border-white">
-<span class="material-symbols-outlined text-lg" data-icon="filter_list">filter_list</span>
-                        Sort by Date
-                    </button>
+<span class="text-xs font-bold text-on-surface-variant/70"><?php echo count($requests); ?> result(s)</span>
 </div>
-<!-- Clinic Card List -->
 <div class="space-y-6">
-<!-- Selected Card -->
-<div class="bg-white/80 backdrop-blur-md p-6 rounded-[2rem] editorial-shadow border-l-[6px] border-primary transition-all cursor-pointer group active-glow">
-<div class="flex items-start justify-between">
+<?php if (empty($requests)): ?>
+<div class="bg-white/60 backdrop-blur-md p-6 rounded-[2rem] editorial-shadow border border-white/60">
+<p class="text-sm font-semibold text-on-surface-variant">No tenant requests in this status yet.</p>
+</div>
+<?php endif; ?>
+<?php foreach ($requests as $r): ?>
+<a href="?status=<?php echo urlencode($status_filter); ?>&request_id=<?php echo (int) $r['request_id']; ?>" class="block bg-white/80 backdrop-blur-md p-6 rounded-[2rem] editorial-shadow border-l-[6px] <?php echo ((int) $r['request_id'] === $selected_request_id) ? 'border-primary active-glow' : 'border-transparent'; ?> transition-all cursor-pointer group">
+<div class="flex items-start justify-between gap-4">
 <div class="flex gap-5">
-<div class="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
-<span class="material-symbols-outlined text-3xl" data-icon="dentistry">dentistry</span>
+<div class="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">dentistry</span>
 </div>
 <div>
-<h3 class="font-headline font-extrabold text-on-surface text-lg">Bright Smiles Dental Hub</h3>
-<p class="text-on-surface-variant text-xs font-medium mt-1">Owner: Dr. Helena Vance</p>
+<h3 class="font-headline font-extrabold text-on-surface text-lg"><?php echo htmlspecialchars((string) ($r['clinic_name'] ?? 'Clinic'), ENT_QUOTES, 'UTF-8'); ?></h3>
+<p class="text-on-surface-variant text-xs font-medium mt-1">Owner: <?php echo htmlspecialchars((string) ($r['owner_name'] ?? 'N/A'), ENT_QUOTES, 'UTF-8'); ?></p>
 <div class="flex items-center gap-4 mt-4 text-[11px] text-on-surface-variant/70 font-bold uppercase tracking-widest">
-<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-base" data-icon="mail">mail</span> helena.v@brightsmiles.com</span>
-<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-base" data-icon="calendar_today">calendar_today</span> Oct 24, 2023</span>
+<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-base">mail</span><?php echo htmlspecialchars((string) ($r['owner_email'] ?? 'N/A'), ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-base">calendar_today</span><?php echo htmlspecialchars((string) ($r['submitted_at'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
 </div>
 </div>
 </div>
-<span class="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 text-[10px] font-extrabold uppercase tracking-widest border border-amber-100">Pending Review</span>
+<span class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold uppercase tracking-widest border <?php echo sa_status_badge_class((string) ($r['status'] ?? 'pending')); ?>"><?php echo htmlspecialchars(strtoupper((string) ($r['status'] ?? 'pending')), ENT_QUOTES, 'UTF-8'); ?></span>
 </div>
-</div>
-<!-- Other Cards -->
-<div class="bg-white/40 backdrop-blur-md p-6 rounded-[2rem] editorial-shadow border border-white/60 hover:bg-white/60 transition-all cursor-pointer group">
-<div class="flex items-start justify-between">
-<div class="flex gap-5">
-<div class="w-14 h-14 rounded-2xl bg-surface-container-high/50 flex items-center justify-center text-on-surface-variant/60">
-<span class="material-symbols-outlined text-3xl" data-icon="medical_services">medical_services</span>
-</div>
-<div>
-<h3 class="font-headline font-extrabold text-on-surface text-lg">Metro Health Specialist Clinic</h3>
-<p class="text-on-surface-variant text-xs font-medium mt-1">Owner: Michael Chen, MBA</p>
-<div class="flex items-center gap-4 mt-4 text-[11px] text-on-surface-variant/70 font-bold uppercase tracking-widest">
-<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-base" data-icon="mail">mail</span> admin@metrohealth.ph</span>
-<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-base" data-icon="calendar_today">calendar_today</span> Oct 22, 2023</span>
-</div>
-</div>
-</div>
-<span class="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 text-[10px] font-extrabold uppercase tracking-widest border border-amber-100">Pending Review</span>
-</div>
-</div>
-<div class="bg-white/40 backdrop-blur-md p-6 rounded-[2rem] editorial-shadow border border-white/60 hover:bg-white/60 transition-all cursor-pointer group">
-<div class="flex items-start justify-between">
-<div class="flex gap-5">
-<div class="w-14 h-14 rounded-2xl bg-surface-container-high/50 flex items-center justify-center text-on-surface-variant/60">
-<span class="material-symbols-outlined text-3xl" data-icon="radiology">radiology</span>
-</div>
-<div>
-<h3 class="font-headline font-extrabold text-on-surface text-lg">Zenith Imaging Center</h3>
-<p class="text-on-surface-variant text-xs font-medium mt-1">Owner: Roberto San Diego</p>
-<div class="flex items-center gap-4 mt-4 text-[11px] text-on-surface-variant/70 font-bold uppercase tracking-widest">
-<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-base" data-icon="mail">mail</span> imaging@zenith.com</span>
-<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-base" data-icon="calendar_today">calendar_today</span> Oct 21, 2023</span>
-</div>
-</div>
-</div>
-<span class="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 text-[10px] font-extrabold uppercase tracking-widest border border-amber-100">Pending Review</span>
-</div>
-</div>
-<div class="bg-white/40 backdrop-blur-md p-6 rounded-[2rem] editorial-shadow border border-white/60 hover:bg-white/60 transition-all cursor-pointer group">
-<div class="flex items-start justify-between">
-<div class="flex gap-5">
-<div class="w-14 h-14 rounded-2xl bg-surface-container-high/50 flex items-center justify-center text-on-surface-variant/60">
-<span class="material-symbols-outlined text-3xl" data-icon="eye_tracking">eye_tracking</span>
-</div>
-<div>
-<h3 class="font-headline font-extrabold text-on-surface text-lg">Visionary Optometry</h3>
-<p class="text-on-surface-variant text-xs font-medium mt-1">Owner: Dr. Sarah Lopez</p>
-<div class="flex items-center gap-4 mt-4 text-[11px] text-on-surface-variant/70 font-bold uppercase tracking-widest">
-<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-base" data-icon="mail">mail</span> contact@visionary.ph</span>
-<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-base" data-icon="calendar_today">calendar_today</span> Oct 20, 2023</span>
-</div>
-</div>
-</div>
-<span class="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 text-[10px] font-extrabold uppercase tracking-widest border border-amber-100">Pending Review</span>
-</div>
-</div>
+</a>
+<?php endforeach; ?>
 </div>
 </section>
-<!-- Right Side: Details Panel (40%) -->
 <aside class="w-2/5 border-l border-white/40 bg-white/30 backdrop-blur-md p-10 overflow-y-auto no-scrollbar">
 <div class="space-y-10">
-<!-- Header -->
+<?php if (!$selected): ?>
+<div class="bg-white/70 border border-white rounded-2xl p-6">
+<p class="text-sm font-semibold text-on-surface-variant">Select a tenant request to view details.</p>
+</div>
+<?php else: ?>
 <div class="space-y-6">
 <div class="flex items-center justify-between">
 <h4 class="font-headline font-extrabold text-2xl text-on-surface">Review Details</h4>
-<span class="text-[10px] font-extrabold text-primary px-3 py-1.5 bg-blue-50 rounded-xl border border-blue-100 uppercase tracking-widest">REF: #CL-8829</span>
+<span class="text-[10px] font-extrabold text-primary px-3 py-1.5 bg-blue-50 rounded-xl border border-blue-100 uppercase tracking-widest">REF: #<?php echo (int) $selected['request_id']; ?></span>
 </div>
-<div class="p-8 bg-gradient-to-br from-primary via-[#1a80ff] to-[#0052cc] rounded-[2rem] text-white shadow-xl shadow-primary/20 relative overflow-hidden group">
-<div class="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-[40px] group-hover:bg-white/20 transition-all duration-700"></div>
-<h3 class="font-headline font-extrabold text-xl relative z-10">Bright Smiles Dental Hub</h3>
-<p class="text-blue-100 text-sm font-medium opacity-90 relative z-10 mt-1">Dental and Cosmetic Surgery</p>
-<div class="mt-8 space-y-4 relative z-10">
-<div class="flex items-start gap-3">
-<span class="material-symbols-outlined text-xl opacity-80" data-icon="location_on">location_on</span>
-<span class="text-xs font-medium leading-relaxed opacity-90">Suite 402, High Street Corporate Plaza, Bonifacio Global City, Taguig, 1634</span>
+<div class="p-6 bg-white/70 rounded-2xl border border-white space-y-2">
+<p class="text-sm font-semibold"><span class="text-on-surface-variant">Clinic:</span> <?php echo htmlspecialchars((string) ($selected['clinic_name'] ?? 'N/A'), ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-sm font-semibold"><span class="text-on-surface-variant">Tenant ID:</span> <?php echo htmlspecialchars((string) ($selected['tenant_id'] ?? 'N/A'), ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-sm font-semibold"><span class="text-on-surface-variant">Owner:</span> <?php echo htmlspecialchars((string) ($selected['owner_name'] ?? 'N/A'), ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-sm font-semibold"><span class="text-on-surface-variant">Email:</span> <?php echo htmlspecialchars((string) ($selected['owner_email'] ?? 'N/A'), ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-sm font-semibold"><span class="text-on-surface-variant">Submitted:</span> <?php echo htmlspecialchars((string) ($selected['submitted_at'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-sm font-semibold"><span class="text-on-surface-variant">Status:</span> <span class="px-2 py-1 rounded-lg border text-[10px] uppercase tracking-widest <?php echo sa_status_badge_class((string) ($selected['status'] ?? 'pending')); ?>"><?php echo htmlspecialchars((string) ($selected['status'] ?? 'pending'), ENT_QUOTES, 'UTF-8'); ?></span></p>
 </div>
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-xl opacity-80" data-icon="call">call</span>
-<span class="text-xs font-medium opacity-90">+63 917 123 4567</span>
-</div>
-</div>
-</div>
-</div>
-<!-- Document Review -->
-<div class="space-y-6">
+<div class="space-y-3">
 <h5 class="text-[10px] font-extrabold text-on-surface-variant uppercase tracking-[0.2em] opacity-60">Submitted Documents</h5>
-<div class="grid grid-cols-2 gap-4">
-<div class="group relative aspect-[4/3] rounded-2xl overflow-hidden editorial-shadow bg-white/40 border border-white cursor-pointer">
-<img alt="SEC Registration" class="w-full h-full object-cover opacity-60 group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_ZKWL1ueYY6THrElRatbQMvqTecvxMZTv0t5QrncejqK3v8rc7Wc2z4peKdMcIV7vRyOI9vX59XYGngHILXgg337L_en3EwLxx-86zAEThi5FyuuUMchEQU-9UiJEtrVGxgC5xvy77OaOfUPOFxF06ZXQ2vapc0AyG4N_0HmH-lUL4qyAIgGAbJKIPg8L9gegZcgpMuIoLmP5-edRf-RstYBL1DfmFAxwQf9hLfBzmPEqtiDjC3E_k9sBI5jokBudhhC3qI35Kzw"/>
-<div class="absolute inset-0 bg-primary/20 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-<span class="material-symbols-outlined text-white text-3xl" data-icon="zoom_in">zoom_in</span>
-<span class="text-white text-[10px] font-extrabold tracking-widest">VIEW SEC</span>
+<?php if (empty($files)): ?>
+<p class="text-sm font-semibold text-on-surface-variant">No files uploaded.</p>
+<?php else: ?>
+<?php foreach ($files as $f): ?>
+<div class="bg-white/70 border border-white rounded-xl p-3 flex items-start justify-between gap-3">
+<div>
+<p class="text-xs font-black uppercase tracking-widest text-on-surface-variant"><?php echo htmlspecialchars(sa_document_label((string) ($f['document_type'] ?? 'other')), ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-sm font-semibold text-on-surface"><?php echo htmlspecialchars((string) ($f['original_file_name'] ?? 'file'), ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-xs text-on-surface-variant"><?php echo htmlspecialchars((string) ($f['mime_type'] ?? ''), ENT_QUOTES, 'UTF-8'); ?> • <?php echo number_format(((int) ($f['file_size_bytes'] ?? 0)) / 1024, 1); ?> KB</p>
 </div>
-<div class="absolute bottom-3 left-3 px-2 py-1 bg-white/90 backdrop-blur-md rounded-lg text-[9px] font-bold text-on-surface border border-white">SEC_CERT.PDF</div>
+<a target="_blank" href="../<?php echo htmlspecialchars((string) ($f['stored_file_path'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" class="text-xs font-bold text-primary hover:underline">Open</a>
 </div>
-<div class="group relative aspect-[4/3] rounded-2xl overflow-hidden editorial-shadow bg-white/40 border border-white cursor-pointer">
-<img alt="DTI Permit" class="w-full h-full object-cover opacity-60 group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpoP5Sf-5igvvUPsWsXpj7CLC1maP_7NJomEYDj4MgRYOoivTaubGOvKLmsSxwTOT2blQ2ucALqzcT1KzWAdkxMy4fMX765Qdjpb1QkNyi2jt3Jt0v8S-kqgiFhPKoewFHqS0Uu9NSU2tJe3_jWrCjHqYOO4ONqSmB9g2qXdvdEjHvA7Nn3muCGzSsDjHS3oKSg5Y8VlJ0RI7fWFHiWlke8k7pwSNh1nhwsl8JMhj4EkliuQ0szwbUwhimbXQCgYxuL0nO495fEjw"/>
-<div class="absolute inset-0 bg-primary/20 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-<span class="material-symbols-outlined text-white text-3xl" data-icon="zoom_in">zoom_in</span>
-<span class="text-white text-[10px] font-extrabold tracking-widest">VIEW DTI</span>
+<?php endforeach; ?>
+<?php endif; ?>
 </div>
-<div class="absolute bottom-3 left-3 px-2 py-1 bg-white/90 backdrop-blur-md rounded-lg text-[9px] font-bold text-on-surface border border-white">DTI_PERMIT.JPG</div>
+
+<?php if (($selected['status'] ?? '') === 'pending'): ?>
+<div class="pt-6 border-t border-white/60">
+<form method="POST" class="space-y-4">
+<input type="hidden" name="request_id" value="<?php echo (int) $selected['request_id']; ?>"/>
+<textarea name="reviewer_notes" rows="3" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm" placeholder="Optional notes for this review"></textarea>
+<div class="flex gap-3">
+<button type="submit" name="action" value="approve" class="flex-1 bg-primary text-white font-headline font-extrabold py-4 rounded-2xl">Approve Tenant</button>
+<button type="submit" name="action" value="reject" class="flex-1 bg-white border border-error/20 text-error font-headline font-extrabold py-4 rounded-2xl">Reject</button>
 </div>
-<div class="group relative aspect-[4/3] rounded-2xl overflow-hidden editorial-shadow bg-white/40 border border-white cursor-pointer">
-<img alt="BIR Form 2303" class="w-full h-full object-cover opacity-60 group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2f06kbyH9dtNuUtwfNMkszWEjjAMv_jOuCjRQgTbk19c5QQxw3FsOaanJdr-0Kxx75P4FGF5eXemmsnK19vYeyuWQoCSV8N5V4rNHvG2-r9mp9w1LIh54x48Y_g_0LtojzxHvyiBm95z6u3tpu2jlh1Exg-1UWumgXBG4rT3TgCsKajg8oZBEl0_YUUN0-2QmKDMw_wiKKnODsKds4Ug8jbdX2nG-rouA1BxWLW8OsAfXXXqgfHHrFKSEPBO9StQq0_nG9DmOogc"/>
-<div class="absolute inset-0 bg-primary/20 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-<span class="material-symbols-outlined text-white text-3xl" data-icon="zoom_in">zoom_in</span>
-<span class="text-white text-[10px] font-extrabold tracking-widest">VIEW BIR</span>
+</form>
 </div>
-<div class="absolute bottom-3 left-3 px-2 py-1 bg-white/90 backdrop-blur-md rounded-lg text-[9px] font-bold text-on-surface border border-white">BIR_2303.PDF</div>
+<?php else: ?>
+<div class="pt-6 border-t border-white/60">
+<p class="text-sm font-semibold text-on-surface-variant">Review notes: <?php echo htmlspecialchars((string) ($selected['reviewer_notes'] ?? 'No notes provided.'), ENT_QUOTES, 'UTF-8'); ?></p>
 </div>
-<div class="group relative aspect-[4/3] rounded-2xl overflow-hidden editorial-shadow bg-white/40 border border-white cursor-pointer">
-<img alt="Mayor's Permit" class="w-full h-full object-cover opacity-60 group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC-k_x1zBWgzsV71xot0NrKvP3aEojv12ZtAfPqnyc8WQKlLBg4oyxABahErcXBwVYxCnzvqssv05wMnHuSVk_KW5JWIRkat_jTSTiTJGLtVljmniu45ePtaMe7lqotz2y2oJVj1uzcGf2XnZq_mn6WUAmCmM1R2MwL7qMoGwQl4rao-o3SN7P_OgZxh_4Y7DzbqSFAUT5qx0auKnDHmRIZpW-wsAfByBoBc-O62q24UcnVEvDxFolUZXaO5RcZR9Cs6oSEkNxFd_w"/>
-<div class="absolute inset-0 bg-primary/20 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-<span class="material-symbols-outlined text-white text-3xl" data-icon="zoom_in">zoom_in</span>
-<span class="text-white text-[10px] font-extrabold tracking-widest">VIEW PERMIT</span>
-</div>
-<div class="absolute bottom-3 left-3 px-2 py-1 bg-white/90 backdrop-blur-md rounded-lg text-[9px] font-bold text-on-surface border border-white">MAYOR_2023.PDF</div>
-</div>
-</div>
-</div>
-<!-- Verification Checklist -->
-<div class="bg-white/60 backdrop-blur-md rounded-[2rem] p-8 editorial-shadow space-y-5">
-<div class="flex items-center justify-between border-b border-on-surface/5 pb-4">
-<span class="text-[11px] font-extrabold text-on-surface-variant uppercase tracking-widest">Background Check</span>
-<span class="text-[10px] text-primary font-bold bg-blue-50 px-2 py-1 rounded-lg">AUTO-VERIFIED</span>
-</div>
-<div class="space-y-4">
-<div class="flex items-center gap-4 group">
-<div class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)] transition-transform group-hover:scale-125"></div>
-<span class="text-xs font-semibold text-on-surface/80">No duplicate TIN found in system</span>
-</div>
-<div class="flex items-center gap-4 group">
-<div class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)] transition-transform group-hover:scale-125"></div>
-<span class="text-xs font-semibold text-on-surface/80">License #PRC-00921 is active</span>
-</div>
-</div>
-</div>
-<!-- Action Buttons -->
-<div class="pt-10 border-t border-white/60 flex flex-col gap-4">
-<button class="w-full bg-primary text-white font-headline font-extrabold py-5 rounded-[2rem] primary-glow flex items-center justify-center gap-3 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all">
-<span class="material-symbols-outlined text-2xl" data-icon="check_circle">check_circle</span>
-                            Approve Clinic Access
-                        </button>
-<button class="w-full bg-white/80 border border-error/20 text-error font-headline font-extrabold py-4.5 rounded-[2rem] hover:bg-error/5 transition-all editorial-shadow flex items-center justify-center gap-3 active:scale-[0.98]">
-<span class="material-symbols-outlined text-2xl" data-icon="cancel">cancel</span>
-                            Reject Registration
-                        </button>
-<p class="text-[10px] text-center text-on-surface-variant/60 mt-2 font-bold uppercase tracking-widest leading-relaxed">
-                            Final approval will trigger automated onboarding emails to clinic administrator.
-                        </p>
-</div>
+<?php endif; ?>
+<?php endif; ?>
 </div>
 </aside>
 </div>

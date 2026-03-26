@@ -33,7 +33,7 @@ if (!$email_verified) {
 // Step guard: must have uploaded/received clinic verification docs.
 $has_submitted_clinic_docs = false;
 try {
-    $stmt = $pdo->prepare('SELECT 1 FROM tbl_tenant_business_verifications WHERE tenant_id = ? AND submitted_at IS NOT NULL LIMIT 1');
+    $stmt = $pdo->prepare('SELECT 1 FROM tbl_tenant_verification_requests WHERE tenant_id = ? AND submitted_at IS NOT NULL LIMIT 1');
     $stmt->execute([$tenant_id]);
     $has_submitted_clinic_docs = (bool) $stmt->fetchColumn();
 } catch (Throwable $e) {

@@ -3,22 +3,85 @@ session_start();
 require_once __DIR__ . '/db.php';
 
 $error = '';
+$setup_access_granted = false;
+$setup_token = trim((string) ($_GET['setup_token'] ?? ''));
+$tenant_id = '';
+$approved_request = null;
 
-if (empty($_SESSION['onboarding_user_id']) || empty($_SESSION['onboarding_tenant_id'])) {
-    header('Location: ProviderOTP.php');
-    exit;
+if ($setup_token !== '') {
+    $stmt = $pdo->prepare("
+        SELECT request_id, tenant_id, owner_user_id, status, setup_token_hash, setup_token_expires_at, setup_token_used_at
+        FROM tbl_tenant_verification_requests
+        WHERE status = 'approved' AND setup_token_expires_at IS NOT NULL
+        ORDER BY request_id DESC
+    ");
+    $stmt->execute();
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    foreach ($rows as $row) {
+        $token_hash = (string) ($row['setup_token_hash'] ?? '');
+        $expires_at = (string) ($row['setup_token_expires_at'] ?? '');
+        $used_at = (string) ($row['setup_token_used_at'] ?? '');
+        if ($token_hash === '' || $expires_at === '') {
+            continue;
+        }
+        if ($used_at !== '') {
+            continue;
+        }
+        $expires_ts = strtotime($expires_at);
+        if ($expires_ts === false || $expires_ts < time()) {
+            continue;
+        }
+        if (password_verify($setup_token, $token_hash)) {
+            $setup_access_granted = true;
+            $approved_request = $row;
+            $tenant_id = (string) ($row['tenant_id'] ?? '');
+            $_SESSION['onboarding_tenant_id'] = $tenant_id;
+            $_SESSION['onboarding_user_id'] = (string) ($row['owner_user_id'] ?? '');
+            break;
+        }
+    }
+
+    if (!$setup_access_granted) {
+        $error = 'This setup link is invalid or expired. Please contact support.';
+    }
 }
 
-$tenant_id = $_SESSION['onboarding_tenant_id'];
+if (!$setup_access_granted) {
+    $session_user_id = (string) ($_SESSION['onboarding_user_id'] ?? $_SESSION['user_id'] ?? '');
+    $session_tenant_id = (string) ($_SESSION['onboarding_tenant_id'] ?? $_SESSION['tenant_id'] ?? '');
+    if ($session_user_id !== '' && $session_tenant_id !== '') {
+        $tenant_id = $session_tenant_id;
+        $user_id = $session_user_id;
+    $stmt = $pdo->prepare("
+        SELECT request_id, tenant_id, owner_user_id, status
+        FROM tbl_tenant_verification_requests
+        WHERE tenant_id = ? AND owner_user_id = ? AND status = 'approved'
+        LIMIT 1
+    ");
+        $stmt->execute([$tenant_id, $user_id]);
+        $approved_request = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        $setup_access_granted = (bool) $approved_request;
+    }
+}
+
+if (!$setup_access_granted) {
+    if ($error === '') {
+        $error = 'Clinic setup is available only after super admin approval.';
+    }
+}
 
 // Pre-fill clinic name from tenant
-$stmt = $pdo->prepare("SELECT clinic_name, clinic_slug FROM tbl_tenants WHERE tenant_id = ?");
-$stmt->execute([$tenant_id]);
-$tenant = $stmt->fetch(PDO::FETCH_ASSOC);
+$tenant = [];
+if ($tenant_id !== '') {
+    $stmt = $pdo->prepare("SELECT clinic_name, clinic_slug FROM tbl_tenants WHERE tenant_id = ?");
+    $stmt->execute([$tenant_id]);
+    $tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+}
 $current_clinic_name = $tenant['clinic_name'] ?? '';
 $current_slug = $tenant['clinic_slug'] ?? '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $setup_access_granted) {
     $clinic_name = trim($_POST['clinic_name'] ?? '');
     $clinic_slug = trim($_POST['clinic_slug'] ?? '');
     $clinic_slug = preg_replace('/[^a-z0-9\-]/', '', strtolower($clinic_slug));
@@ -36,6 +99,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $stmt = $pdo->prepare("UPDATE tbl_tenants SET clinic_name = ?, clinic_slug = ? WHERE tenant_id = ?");
             $stmt->execute([$clinic_name, $clinic_slug, $tenant_id]);
+            if ($setup_token !== '' && !empty($approved_request['request_id'])) {
+                $mark_used = $pdo->prepare("UPDATE tbl_tenant_verification_requests SET setup_token_used_at = NOW() WHERE request_id = ?");
+                $mark_used->execute([(int) $approved_request['request_id']]);
+            }
             header('Location: VerifyBusiness.php');
             exit;
         }
@@ -187,6 +254,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             type="text"
                             value="<?php echo htmlspecialchars($current_clinic_name); ?>"
                             required
+                            <?php echo $setup_access_granted ? '' : 'disabled'; ?>
                         />
                     </div>
                 </div>
@@ -215,6 +283,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             required
                             pattern="[a-z0-9\-]+"
                             title="Lowercase letters, numbers and hyphens only"
+                            <?php echo $setup_access_granted ? '' : 'disabled'; ?>
                         />
                     </div>
 
@@ -242,8 +311,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <button
                     class="w-full bg-primary text-white py-5 px-8 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95"
                     type="submit"
+                    <?php echo $setup_access_granted ? '' : 'disabled'; ?>
                 >
-                    Continue to Business Verification
+                    <?php echo $setup_access_granted ? 'Continue to Business Verification' : 'Awaiting Super Admin Approval'; ?>
                     <span class="material-symbols-outlined ml-2" style="vertical-align: middle;">arrow_forward</span>
                 </button>
 

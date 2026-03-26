@@ -663,5 +663,49 @@ CREATE TABLE IF NOT EXISTS tbl_tenant_business_verifications (
     KEY idx_tenant_status (tenant_id, verification_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ============================================
+-- TENANT VERIFICATION REQUESTS (structured onboarding approvals)
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_tenant_verification_requests (
+    request_id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(20) NOT NULL,
+    owner_user_id VARCHAR(20) NOT NULL,
+    clinic_name VARCHAR(255) NOT NULL,
+    owner_name VARCHAR(255) DEFAULT NULL,
+    owner_email VARCHAR(255) DEFAULT NULL,
+    status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+    submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at DATETIME DEFAULT NULL,
+    reviewed_by VARCHAR(20) DEFAULT NULL,
+    reviewer_notes TEXT,
+    setup_token_hash VARCHAR(255) DEFAULT NULL,
+    setup_token_expires_at DATETIME DEFAULT NULL,
+    setup_token_used_at DATETIME DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_tenant_verification_request_tenant (tenant_id),
+    KEY idx_verification_requests_status (status, submitted_at),
+    KEY idx_verification_requests_owner_user (owner_user_id),
+    KEY idx_verification_requests_reviewed_by (reviewed_by),
+    KEY idx_verification_requests_setup_token_expires (setup_token_expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
+-- TENANT VERIFICATION FILES (multi-file uploads per request)
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_tenant_verification_files (
+    file_id INT AUTO_INCREMENT PRIMARY KEY,
+    request_id INT NOT NULL,
+    tenant_id VARCHAR(20) NOT NULL,
+    document_type VARCHAR(50) DEFAULT 'supporting_document',
+    original_file_name VARCHAR(255) NOT NULL,
+    stored_file_path VARCHAR(500) NOT NULL,
+    mime_type VARCHAR(120) DEFAULT NULL,
+    file_size_bytes BIGINT DEFAULT NULL,
+    uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_verification_files_request (request_id),
+    KEY idx_verification_files_tenant (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
