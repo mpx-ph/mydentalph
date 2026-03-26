@@ -13,11 +13,15 @@ $requested_plan_slug = isset($_GET['plan']) ? strtolower(trim((string) $_GET['pl
 if (!in_array($requested_plan_slug, $allowed, true)) {
     $requested_plan_slug = 'professional';
 }
+$force_from_clinic_setup_once = !empty($_SESSION['force_purchase_from_clinic_setup_once']);
 
 if (!empty($_SESSION['onboarding_user_id']) && !empty($_SESSION['onboarding_tenant_id'])) {
     $tenant_id = $_SESSION['onboarding_tenant_id'];
     $user_id = $_SESSION['onboarding_user_id'];
     $plan_slug = $_SESSION['onboarding_plan'] ?? 'professional';
+    if ($force_from_clinic_setup_once) {
+        unset($_SESSION['force_purchase_from_clinic_setup_once']);
+    }
 } elseif (provider_has_authenticated_provider_session()) {
     [$tid, $uid] = provider_get_authenticated_provider_identity_from_session();
     try {
@@ -28,12 +32,15 @@ if (!empty($_SESSION['onboarding_user_id']) && !empty($_SESSION['onboarding_tena
     $has_active = !empty($subscriptionState['has_active_subscription']);
     // Allow exactly one revisit to this page right after a successful purchase.
     $allow_revisit_once = !empty($_SESSION['allow_purchase_page_once_after_payment']);
-    if ($has_active && !$allow_revisit_once) {
+    if ($has_active && !$allow_revisit_once && !$force_from_clinic_setup_once) {
         header('Location: ProviderTenantDashboard.php');
         exit;
     }
     if ($allow_revisit_once) {
         unset($_SESSION['allow_purchase_page_once_after_payment']);
+    }
+    if ($force_from_clinic_setup_once) {
+        unset($_SESSION['force_purchase_from_clinic_setup_once']);
     }
     $tenant_id = $tid;
     $user_id = $uid;

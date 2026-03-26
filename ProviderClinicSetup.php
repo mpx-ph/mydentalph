@@ -255,6 +255,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $setup_access_granted) {
                 $_SESSION['onboarding_setup_completed_at'] = time();
                 $_SESSION['onboarding_clinic_name'] = $clinic_name;
                 $_SESSION['onboarding_clinic_slug'] = $clinic_slug;
+                $_SESSION['force_purchase_from_clinic_setup_once'] = 1;
 
                 $next_plan = strtolower(trim((string) ($_SESSION['onboarding_plan'] ?? '')));
                 $redirect = 'ProviderPurchase.php';
@@ -478,7 +479,7 @@ if ($current_slug === '' && $current_clinic_name !== '') {
                     type="submit"
                     <?php echo $setup_access_granted ? '' : 'disabled'; ?>
                 >
-                    <?php echo $setup_access_granted ? 'Continue to Business Verification' : 'Awaiting Super Admin Approval'; ?>
+                    <?php echo $setup_access_granted ? 'Continue to Purchase' : 'Awaiting Super Admin Approval'; ?>
                     <span class="material-symbols-outlined ml-2" style="vertical-align: middle;">arrow_forward</span>
                 </button>
 
