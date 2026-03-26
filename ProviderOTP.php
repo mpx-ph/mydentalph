@@ -76,147 +76,275 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 ?>
 <!DOCTYPE html>
 
-<html lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Verify Code - MyDental.com</title>
-<!-- BEGIN: Scripts and Configuration -->
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script>
+<html class="light" lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title><?php echo htmlspecialchars($title_text); ?> - MyDental.com</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Playfair+Display:ital,wght@1,400;1,700&amp;display=swap" rel="stylesheet"/>
+  <!-- Material Symbols -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
     tailwind.config = {
+      darkMode: "class",
       theme: {
         extend: {
           colors: {
+            primary: "#2b8beb",
+            "on-surface": "#131c25",
+            surface: "#ffffff",
+            "surface-variant": "#f7f9ff",
+            "on-surface-variant": "#404752",
+            "outline-variant": "#c0c7d4",
+            "surface-container-low": "#edf4ff",
+
             mydental: {
-              dark: '#101922',
-              blue: '#2b8beb',
-              light: '#f8fafc'
+              dark: "#101922",
+              blue: "#2b8beb",
+              light: "#f8fafc"
             }
-          }
-        }
-      }
+          },
+          fontFamily: {
+            headline: ["Manrope", "sans-serif"],
+            body: ["Manrope", "sans-serif"],
+            editorial: ["Playfair Display", "serif"]
+          },
+          borderRadius: {
+            DEFAULT: "0.25rem",
+            lg: "0.5rem",
+            xl: "0.75rem",
+            "2xl": "1.5rem",
+            "3xl": "2.5rem",
+            full: "9999px"
+          },
+        },
+      },
     }
   </script>
-<!-- END: Scripts and Configuration -->
-<!-- BEGIN: Custom Styles -->
-<style data-purpose="layout-refinements">
-    /* Remove arrows/spinners from number inputs */
-    input::-webkit-outer-spin-button,
-    input::-webkit-inner-spin-button {
-      -webkit-appearance: none;
-      margin: 0;
+
+  <style data-purpose="layout-refinements">
+    .material-symbols-outlined {
+      font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
     }
-    input[type=number] {
-      -moz-appearance: textfield;
+    .editorial-word {
+      text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
+      letter-spacing: -0.02em;
     }
-    
-    .otp-input:focus {
-      border-color: #2b8beb;
-      box-shadow: 0 0 0 2px rgba(43, 139, 235, 0.2);
+    .mesh-gradient {
+      background-color: #ffffff;
+      background-image:
+        radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.05) 0px, transparent 50%),
+        radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.03) 0px, transparent 50%);
+    }
+    .premium-card {
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(43, 139, 235, 0.05);
+      box-shadow: 0 40px 80px -20px rgba(43, 139, 235, 0.08);
     }
   </style>
-<!-- END: Custom Styles -->
 </head>
-<body class="bg-mydental-light min-h-screen flex items-center justify-center p-4">
-<!-- BEGIN: Verification Card -->
-<main class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 md:p-12" data-purpose="otp-verification-container">
-<!-- BEGIN: Header Section -->
-<header class="text-center mb-10">
-<div class="mb-6 inline-flex items-center justify-center w-16 h-16 bg-blue-50 rounded-full">
-<!-- Brand Icon Representation -->
-<svg class="h-8 w-8 text-mydental-blue" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-<path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-</div>
-<h1 class="text-3xl font-bold text-mydental-dark mb-3"><?php echo htmlspecialchars($title_text); ?></h1>
-<p class="text-gray-500 text-sm leading-relaxed">
-        <?php echo htmlspecialchars(str_replace('your email', (string) $email_for_display, $subtitle_text)); ?>
-      </p>
-</header>
-<!-- END: Header Section -->
-<?php if ($error): ?>
-<div class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm text-center"><?php echo htmlspecialchars($error); ?></div>
-<?php endif; ?>
-<?php if ($resend_message): ?>
-<div class="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm text-center"><?php echo htmlspecialchars($resend_message); ?></div>
-<?php endif; ?>
-<!-- BEGIN: OTP Form -->
-<form action="" class="space-y-8" id="otp-form" method="POST">
-<input type="hidden" name="action" value="verify"/>
-<input type="hidden" name="otp_code" id="otp-code-hidden" value=""/>
-<!-- Input Group -->
-<div class="flex justify-between gap-2 md:gap-4" data-purpose="otp-inputs-group">
-<input autofocus="" class="otp-input w-12 h-14 text-center text-2xl font-bold border-2 border-gray-200 rounded-lg focus:outline-none transition-all" data-index="0" maxlength="1" required="" type="text" inputmode="numeric" pattern="[0-9]*"/>
-<input class="otp-input w-12 h-14 text-center text-2xl font-bold border-2 border-gray-200 rounded-lg focus:outline-none transition-all" data-index="1" maxlength="1" required="" type="text" inputmode="numeric" pattern="[0-9]*"/>
-<input class="otp-input w-12 h-14 text-center text-2xl font-bold border-2 border-gray-200 rounded-lg focus:outline-none transition-all" data-index="2" maxlength="1" required="" type="text" inputmode="numeric" pattern="[0-9]*"/>
-<input class="otp-input w-12 h-14 text-center text-2xl font-bold border-2 border-gray-200 rounded-lg focus:outline-none transition-all" data-index="3" maxlength="1" required="" type="text" inputmode="numeric" pattern="[0-9]*"/>
-<input class="otp-input w-12 h-14 text-center text-2xl font-bold border-2 border-gray-200 rounded-lg focus:outline-none transition-all" data-index="4" maxlength="1" required="" type="text" inputmode="numeric" pattern="[0-9]*"/>
-<input class="otp-input w-12 h-14 text-center text-2xl font-bold border-2 border-gray-200 rounded-lg focus:outline-none transition-all" data-index="5" maxlength="1" required="" type="text" inputmode="numeric" pattern="[0-9]*"/>
-</div>
-<!-- Action Button -->
-<div class="pt-2">
-<button class="w-full py-4 bg-mydental-blue hover:bg-blue-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 transition-colors focus:ring-4 focus:ring-blue-200" type="submit">
-          <?php echo htmlspecialchars($verify_button_text); ?>
-        </button>
-</div>
-</form>
-<!-- END: OTP Form -->
-<!-- BEGIN: Footer Links -->
-<footer class="mt-10 text-center">
-<p class="text-gray-600 text-sm">
-        Didn't receive the code?
-        <form method="POST" class="inline" onsubmit="this.querySelector('input[name=action]').value='resend';">
-          <input type="hidden" name="action" value="resend"/>
-          <button type="submit" class="text-mydental-blue font-semibold hover:underline decoration-2 underline-offset-4 ml-1 bg-none border-none cursor-pointer p-0">
-            Resend Code
-          </button>
+
+<body class="bg-surface text-on-surface font-body min-h-screen flex flex-col mesh-gradient">
+  <!-- Header Navigation -->
+  <nav class="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl shadow-sm">
+    <div class="flex justify-between items-center h-20 px-6 md:px-8 max-w-screen-2xl mx-auto">
+      <a class="text-2xl font-bold tracking-tighter font-headline flex items-center gap-2" href="ProviderMain.php" aria-label="MyDental Home">
+        <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+          <span class="material-symbols-outlined text-white text-lg">verified</span>
+        </div>
+        MyDental
+      </a>
+      <div class="hidden md:flex items-center space-x-10 text-sm font-semibold tracking-tight text-on-surface/60 font-headline">
+        <a class="hover:text-primary transition-colors" href="ProviderMain.php">Home</a>
+        <a class="hover:text-primary transition-colors" href="ProviderFAQs.php">FAQs</a>
+        <a class="hover:text-primary transition-colors" href="ProviderContact.php">Contact</a>
+      </div>
+      <div class="flex items-center gap-4">
+        <a class="text-on-surface font-semibold text-sm hover:text-primary transition-all" href="ProviderLogin.php">Login</a>
+        <a class="bg-primary text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95" href="ProviderCreate.php">
+          Get Started
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content Area -->
+  <main class="flex-grow flex items-center justify-center px-6 pt-32 pb-12">
+    <div class="w-full max-w-2xl">
+      <div class="premium-card rounded-3xl p-10 md:p-20" data-purpose="otp-verification-container">
+        <div class="text-center mb-12">
+          <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-primary/5 text-primary mb-10 transition-transform hover:scale-105 duration-500">
+            <span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">mark_email_read</span>
+          </div>
+
+          <h1 class="font-headline text-5xl md:text-6xl font-extrabold tracking-tighter leading-[1.1] text-on-surface mb-6">
+            <?php echo htmlspecialchars($title_text); ?><br/>
+            <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">OTP</span>
+          </h1>
+
+          <p class="font-body text-on-surface-variant text-lg font-medium leading-relaxed max-w-md mx-auto mb-8">
+            <?php echo htmlspecialchars(str_replace('your email', (string) $email_for_display, $subtitle_text)); ?>
+          </p>
+
+          <div class="inline-flex items-center gap-3 px-5 py-2 rounded-full bg-primary/5 text-primary font-bold text-xs uppercase tracking-[0.2em] border border-primary/10">
+            <span class="material-symbols-outlined text-sm">alternate_email</span>
+            <?php echo htmlspecialchars((string) $email_for_display); ?>
+          </div>
+        </div>
+
+        <?php if ($error): ?>
+          <div class="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm text-center font-semibold">
+            <?php echo htmlspecialchars($error); ?>
+          </div>
+        <?php endif; ?>
+        <?php if ($resend_message): ?>
+          <div class="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-2xl text-sm text-center font-semibold">
+            <?php echo htmlspecialchars($resend_message); ?>
+          </div>
+        <?php endif; ?>
+
+        <form action="" class="space-y-12" id="otp-form" method="POST">
+          <input type="hidden" name="action" value="verify"/>
+          <input type="hidden" name="otp_code" id="otp-code-hidden" value=""/>
+
+          <div class="flex justify-between gap-3 md:gap-5" data-purpose="otp-inputs-group">
+            <input autofocus class="otp-input w-full aspect-square text-center font-headline text-3xl font-extrabold bg-surface-container-low border-2 border-slate-200 focus:border-primary focus:bg-white focus:ring-0 rounded-2xl transition-all text-on-surface" data-index="0" maxlength="1" placeholder="•" required type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code"/>
+            <input class="otp-input w-full aspect-square text-center font-headline text-3xl font-extrabold bg-surface-container-low border-2 border-slate-200 focus:border-primary focus:bg-white focus:ring-0 rounded-2xl transition-all text-on-surface" data-index="1" maxlength="1" placeholder="•" required type="text" inputmode="numeric" pattern="[0-9]*"/>
+            <input class="otp-input w-full aspect-square text-center font-headline text-3xl font-extrabold bg-surface-container-low border-2 border-slate-200 focus:border-primary focus:bg-white focus:ring-0 rounded-2xl transition-all text-on-surface" data-index="2" maxlength="1" placeholder="•" required type="text" inputmode="numeric" pattern="[0-9]*"/>
+            <input class="otp-input w-full aspect-square text-center font-headline text-3xl font-extrabold bg-surface-container-low border-2 border-slate-200 focus:border-primary focus:bg-white focus:ring-0 rounded-2xl transition-all text-on-surface" data-index="3" maxlength="1" placeholder="•" required type="text" inputmode="numeric" pattern="[0-9]*"/>
+            <input class="otp-input w-full aspect-square text-center font-headline text-3xl font-extrabold bg-surface-container-low border-2 border-slate-200 focus:border-primary focus:bg-white focus:ring-0 rounded-2xl transition-all text-on-surface" data-index="4" maxlength="1" placeholder="•" required type="text" inputmode="numeric" pattern="[0-9]*"/>
+            <input class="otp-input w-full aspect-square text-center font-headline text-3xl font-extrabold bg-surface-container-low border-2 border-slate-200 focus:border-primary focus:bg-white focus:ring-0 rounded-2xl transition-all text-on-surface" data-index="5" maxlength="1" placeholder="•" required type="text" inputmode="numeric" pattern="[0-9]*"/>
+          </div>
+
+          <div class="space-y-10">
+            <button class="w-full py-6 rounded-2xl bg-primary text-white font-headline font-black text-sm uppercase tracking-[0.2em] shadow-[0_20px_40px_-10px_rgba(43,139,235,0.4)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3" type="submit">
+              <?php echo htmlspecialchars($verify_button_text); ?>
+              <span class="material-symbols-outlined">arrow_right_alt</span>
+            </button>
+
+            <div class="flex flex-col items-center gap-8">
+              <div class="flex items-center gap-3 text-on-surface-variant font-bold text-xs uppercase tracking-widest">
+                <span class="material-symbols-outlined text-primary text-lg">timer</span>
+                <span>OTP expires in <span class="text-primary tabular-nums" id="otp-timer">15:00</span></span>
+              </div>
+              <div class="h-px w-16 bg-outline-variant/30"></div>
+              <div class="flex flex-wrap justify-center items-center gap-10">
+                <button class="text-primary font-black text-xs uppercase tracking-[0.2em] hover:opacity-70 transition-opacity" type="button" id="resend-otp-btn">
+                  Resend Code
+                </button>
+                <a class="flex items-center gap-2 text-on-surface/40 font-black text-xs uppercase tracking-[0.2em] hover:text-on-surface transition-colors" href="ProviderLogin.php">
+                  <span class="material-symbols-outlined text-sm">logout</span>
+                  Back to Login
+                </a>
+              </div>
+            </div>
+          </div>
         </form>
-</p>
-<div class="mt-8 border-t border-gray-100 pt-6">
-<p class="text-xs text-gray-400">
-          © 2023 MyDental.com. All rights reserved.
-        </p>
-</div>
-</footer>
-<!-- END: Footer Links -->
-</main>
-<!-- END: Verification Card -->
-<!-- BEGIN: Interactive Behavior -->
-<script data-purpose="otp-input-handling">
+
+        <form method="POST" action="" class="hidden" id="resend-form">
+          <input type="hidden" name="action" value="resend"/>
+        </form>
+      </div>
+
+      <div class="mt-12 flex flex-wrap items-center justify-center gap-8 opacity-40 hover:opacity-60 transition-opacity duration-500">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-lg">shield_lock</span>
+          <span class="text-[10px] font-black tracking-[0.3em] uppercase">Secure Verification</span>
+        </div>
+        <div class="w-1 h-1 rounded-full bg-on-surface/20 hidden md:block"></div>
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-lg">verified_user</span>
+          <span class="text-[10px] font-black tracking-[0.3em] uppercase">Privacy Ready</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="w-full border-t border-slate-200 bg-slate-50">
+    <div class="flex flex-col md:flex-row justify-between items-center py-10 px-8 max-w-screen-2xl mx-auto gap-4">
+      <div class="flex flex-col items-center md:items-start">
+        <span class="text-lg font-bold text-slate-900 font-headline tracking-tighter">MyDental.com</span>
+        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">© <?php echo date('Y'); ?> Provider Portal.</p>
+      </div>
+      <div class="flex flex-wrap justify-center gap-8 text-xs font-bold uppercase tracking-widest text-slate-500">
+        <a class="hover:text-primary transition-colors" href="ProviderFAQs.php">FAQs</a>
+        <a class="hover:text-primary transition-colors" href="ProviderContact.php">Support</a>
+      </div>
+    </div>
+  </footer>
+
+  <div class="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
+    <div class="absolute -top-[5%] -left-[5%] w-[30%] h-[30%] bg-primary/3 rounded-full blur-[120px]"></div>
+    <div class="absolute top-[60%] -right-[10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[150px]"></div>
+  </div>
+
+  <script data-purpose="otp-input-handling">
     const inputs = document.querySelectorAll('.otp-input');
-    
+
+    function clampToDigit(el) {
+      const v = (el.value || "").replace(/\D/g, "");
+      el.value = v.slice(0, 1);
+    }
+
     inputs.forEach((input, index) => {
-      // Auto-focus next input on keyup
-      input.addEventListener('keyup', (e) => {
-        if (e.key >= 0 && e.key <= 9) {
-          if (index < inputs.length - 1) {
-            inputs[index + 1].focus();
-          }
-        } else if (e.key === 'Backspace') {
-          if (index > 0) {
-            inputs[index - 1].focus();
-          }
+      input.addEventListener('input', () => {
+        clampToDigit(input);
+        if (input.value && index < inputs.length - 1) {
+          inputs[index + 1].focus();
         }
       });
 
-      // Handle pasting
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !input.value && index > 0) {
+          inputs[index - 1].focus();
+        }
+      });
+
       input.addEventListener('paste', (e) => {
-        const data = e.clipboardData.getData('text');
-        if (data.length === 6 && /^\d+$/.test(data)) {
-          inputs.forEach((input, i) => {
-            input.value = data[i];
+        const data = (e.clipboardData || window.clipboardData).getData('text');
+        const cleaned = (data || "").replace(/\D/g, "");
+        if (cleaned.length === 6) {
+          inputs.forEach((inp, i) => {
+            inp.value = cleaned[i] || "";
           });
           inputs[5].focus();
+          e.preventDefault();
         }
       });
     });
 
-    // Handle Form Submit: collect digits into hidden input so PHP receives otp_code
-    document.getElementById('otp-form').addEventListener('submit', (e) => {
+    document.getElementById('otp-form').addEventListener('submit', () => {
       let code = "";
-      inputs.forEach(input => code += input.value);
+      inputs.forEach(input => code += (input.value || ""));
       document.getElementById('otp-code-hidden').value = code;
     });
+
+    const resendBtn = document.getElementById('resend-otp-btn');
+    const resendForm = document.getElementById('resend-form');
+    if (resendBtn && resendForm) {
+      resendBtn.addEventListener('click', () => resendForm.submit());
+    }
+
+    // Lightweight client-side timer (UI only). Server-side expiry is enforced in PHP.
+    (function startOtpCountdown() {
+      const el = document.getElementById('otp-timer');
+      if (!el) return;
+      let remaining = 15 * 60;
+      const tick = () => {
+        const mm = String(Math.floor(remaining / 60)).padStart(2, '0');
+        const ss = String(remaining % 60).padStart(2, '0');
+        el.textContent = `${mm}:${ss}`;
+        if (remaining > 0) remaining -= 1;
+      };
+      tick();
+      setInterval(tick, 1000);
+    })();
   </script>
-<!-- END: Interactive Behavior -->
-</body></html>
+</body>
+</html>
