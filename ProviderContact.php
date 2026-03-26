@@ -130,11 +130,11 @@ Elevating dental practice management through clinical precision and digital cura
 </section>
 
 <!-- Form & Info Section -->
-<section class="max-w-[1800px] mx-auto px-10 mb-16 reveal is-visible" data-reveal="section">
+<section class="max-w-[1800px] mx-auto px-10 mb-16 reveal" data-reveal="section">
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
 <!-- Left Column: Contact Information -->
 <div class="space-y-6">
-<div class="bg-white dark:bg-slate-900/70 p-8 rounded-[2rem] border border-on-surface/5 shadow-[0_20px_50px_-15px_rgba(43,139,235,0.05)] space-y-7 pop-up">
+<div data-reveal="section" class="bg-white dark:bg-slate-900/70 p-8 rounded-[2rem] border border-on-surface/5 shadow-[0_20px_50px_-15px_rgba(43,139,235,0.05)] space-y-7 reveal">
 <div>
 <div class="text-primary font-bold text-xs uppercase mb-7 flex items-center gap-4 tracking-[0.3em]">
   <span class="w-12 h-[1.5px] bg-primary"></span> Contact Information
@@ -193,7 +193,7 @@ Elevating dental practice management through clinical precision and digital cura
 </div>
 
 <!-- Right Column: Contact Form -->
-<div class="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-8 rounded-[2rem] shadow-[0_40px_100px_-30px_rgba(43,139,235,0.15)] border border-primary/10 border-t-4 border-t-primary relative overflow-hidden pop-up">
+<div data-reveal="section" class="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-8 rounded-[2rem] shadow-[0_40px_100px_-30px_rgba(43,139,235,0.15)] border border-primary/10 border-t-4 border-t-primary relative reveal">
 <form class="space-y-8">
 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
 <div class="space-y-3">
