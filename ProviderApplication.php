@@ -119,10 +119,25 @@ if (!$has_submitted_clinic_docs) {
         }
     </style>
 </head>
-<body class="bg-surface text-on-surface font-body min-h-screen flex flex-col mesh-gradient">
+<body class="bg-surface text-on-surface font-body h-screen overflow-hidden flex flex-col mesh-gradient">
 <!-- Navigation (shared Provider navbar) -->
+<?php
+// Prevent this "application received" page from showing the onboarding session
+// as an already-authenticated user in the navbar.
+$nav_onboarding_user_id = $_SESSION['onboarding_user_id'] ?? null;
+$nav_onboarding_tenant_id = $_SESSION['onboarding_tenant_id'] ?? null;
+unset($_SESSION['onboarding_user_id'], $_SESSION['onboarding_tenant_id']);
+?>
 <?php include 'ProviderNavbar.php'; ?>
-<main class="flex-grow flex items-center justify-center px-6 py-16">
+<?php
+if ($nav_onboarding_user_id !== null) {
+    $_SESSION['onboarding_user_id'] = $nav_onboarding_user_id;
+}
+if ($nav_onboarding_tenant_id !== null) {
+    $_SESSION['onboarding_tenant_id'] = $nav_onboarding_tenant_id;
+}
+?>
+<main class="flex-grow flex items-center justify-center px-6 py-16 overflow-hidden">
 <!-- Main Application Card -->
 <div class="max-w-3xl w-full">
 <div class="bg-surface-container-lowest rounded-[3rem] p-10 md:p-20 shadow-[0_40px_80px_-20px_rgba(43,139,235,0.08)] text-center relative overflow-hidden border border-on-surface/5">
@@ -149,7 +164,7 @@ if (!$has_submitted_clinic_docs) {
 <!-- Action Section -->
 <div class="flex flex-col items-center gap-8">
 <button class="group relative px-12 py-5 bg-primary text-white font-bold rounded-full overflow-hidden transition-all hover:pr-16 active:scale-95 shadow-xl shadow-primary/20">
-<span class="relative z-10 font-headline text-base uppercase tracking-widest">Go to Dashboard</span>
+<span class="relative z-10 font-headline text-base uppercase tracking-widest">Go to Home</span>
 <span class="material-symbols-outlined absolute right-6 opacity-0 group-hover:opacity-100 transition-all">arrow_right_alt</span>
 </button>
 <!-- Status Note -->
@@ -159,20 +174,6 @@ if (!$has_submitted_clinic_docs) {
                             Review may take 24–48 hours. Please check your inbox regularly.
                         </p>
 </div>
-</div>
-<!-- Decorative Detail -->
-<div class="mt-20 pt-10 border-t border-on-surface/5">
-<p class="text-[10px] uppercase tracking-[0.4em] font-black text-primary/60 font-headline">
-                        Aetheris Systems • Precision Dental Framework
-                    </p>
-</div>
-</div>
-<!-- Contextual Help Link -->
-<div class="mt-10 text-center">
-<a class="text-sm font-bold text-primary hover:underline transition-all flex items-center justify-center gap-2 font-headline uppercase tracking-widest" href="#">
-                    Need urgent assistance? Contact Support
-                    <span class="material-symbols-outlined text-lg">open_in_new</span>
-</a>
 </div>
 </div>
 </main>
