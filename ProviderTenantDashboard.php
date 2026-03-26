@@ -15,15 +15,20 @@ $user_id = $_SESSION['user_id'];
 $is_owner = !empty($_SESSION['is_owner']);
 
 // Tenant (clinic) and owner user for display
-$stmt = $pdo->prepare("
-    SELECT t.clinic_name, t.clinic_slug, t.contact_email, t.contact_phone, t.clinic_address,
-           u.full_name AS owner_name, u.email AS owner_email, u.phone AS owner_phone
-    FROM tbl_tenants t
-    LEFT JOIN tbl_users u ON t.owner_user_id = u.user_id
-    WHERE t.tenant_id = ?
-");
-$stmt->execute([$tenant_id]);
-$tenant = $stmt->fetch(PDO::FETCH_ASSOC);
+$tenant = [];
+try {
+    $stmt = $pdo->prepare("
+        SELECT t.clinic_name, t.clinic_slug, t.contact_email, t.contact_phone, t.clinic_address,
+               u.full_name AS owner_name, u.email AS owner_email, u.phone AS owner_phone
+        FROM tbl_tenants t
+        LEFT JOIN tbl_users u ON t.owner_user_id = u.user_id
+        WHERE t.tenant_id = ?
+    ");
+    $stmt->execute([$tenant_id]);
+    $tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+} catch (PDOException $e) {
+    $tenant = [];
+}
 $clinic_name = $tenant['clinic_name'] ?? 'My Clinic';
 $clinic_slug = $tenant['clinic_slug'] ?? '';
 $domain_display = $clinic_slug ? 'mydental.ct.ws/' . $clinic_slug : '—';
@@ -35,15 +40,25 @@ $tenant_base_url = $clinic_slug ? ($scheme . '://' . $host . '/' . rawurlencode(
 $admin_dashboard_url = $tenant_base_url ? ($tenant_base_url . '/AdminDashboard.php') : '';
 
 // Current user account (for profile form)
-$stmt = $pdo->prepare("SELECT full_name, email, phone FROM tbl_users WHERE user_id = ? LIMIT 1");
-$stmt->execute([$user_id]);
-$current_user = $stmt->fetch(PDO::FETCH_ASSOC);
+$current_user = [];
+try {
+    $stmt = $pdo->prepare("SELECT full_name, email, phone FROM tbl_users WHERE user_id = ? LIMIT 1");
+    $stmt->execute([$user_id]);
+    $current_user = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+} catch (PDOException $e) {
+    $current_user = [];
+}
 
-$stmt = $pdo->prepare("SELECT plan_name, subscription_end FROM tbl_tenant_subscriptions t JOIN tbl_subscription_plans p ON t.plan_id = p.plan_id WHERE t.tenant_id = ? AND t.payment_status = 'paid' ORDER BY t.id DESC LIMIT 1");
-$stmt->execute([$tenant_id]);
-$sub = $stmt->fetch(PDO::FETCH_ASSOC);
+$sub = [];
+try {
+    $stmt = $pdo->prepare("SELECT plan_name, subscription_end FROM tbl_tenant_subscriptions t JOIN tbl_subscription_plans p ON t.plan_id = p.plan_id WHERE t.tenant_id = ? AND t.payment_status = 'paid' ORDER BY t.id DESC LIMIT 1");
+    $stmt->execute([$tenant_id]);
+    $sub = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+} catch (PDOException $e) {
+    $sub = [];
+}
 $plan_name = $sub['plan_name'] ?? 'Professional';
-$renewal_date = $sub['subscription_end'] ? date('M j, Y', strtotime($sub['subscription_end'])) : '—';
+$renewal_date = !empty($sub['subscription_end']) ? date('M j, Y', strtotime($sub['subscription_end'])) : '—';
 
 $settings_saved = false;
 $settings_error = '';
