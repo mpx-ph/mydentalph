@@ -184,6 +184,30 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
             border: 1px solid rgba(0, 0, 0, 0.05);
             box-shadow: 0 40px 80px -20px rgba(43, 139, 235, 0.08);
         }
+        /* Scroll-reveal "pop up" animation (matches ProviderMain.php) */
+        .reveal {
+            opacity: 0;
+            transform: translateY(34px) scale(0.985);
+            filter: blur(12px);
+            transition:
+                opacity 900ms cubic-bezier(0.22, 1, 0.36, 1),
+                transform 900ms cubic-bezier(0.22, 1, 0.36, 1),
+                filter 900ms cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: opacity, transform, filter;
+        }
+        .reveal.is-visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            filter: blur(0);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .reveal {
+                opacity: 1;
+                transform: none;
+                filter: none;
+                transition: none;
+            }
+        }
     </style>
     <title>Provider Portal Login - MyDental</title>
 </head>
@@ -191,7 +215,7 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
 <body class="mesh-gradient h-screen overflow-hidden flex flex-col items-center selection:bg-primary/20 bg-background-light dark:bg-background-dark text-on-surface dark:text-slate-100 antialiased">
 <?php include 'ProviderNavbar.php'; ?>
 
-<main class="flex-1 w-full grid place-items-center px-4 sm:px-6 lg:px-8 relative py-10">
+<main class="flex-1 w-full grid place-items-center px-4 sm:px-6 lg:px-8 relative py-10 reveal" data-reveal="section">
     <div class="w-full max-w-lg">
         <!-- Login Card -->
         <div class="login-card rounded-[2.5rem] overflow-hidden p-12 space-y-10">
@@ -280,7 +304,7 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
         </div>
 
         <!-- Trust Badges / Security -->
-        <div class="mt-8 flex justify-center items-center space-x-10 opacity-30 hover:opacity-60 transition-all duration-500">
+        <div class="mt-8 flex justify-center items-center space-x-10 opacity-30 hover:opacity-60 transition-all duration-500 reveal" data-reveal="section">
             <div class="flex items-center space-x-2">
                 <span class="material-symbols-outlined text-lg">verified_user</span>
                 <span class="text-[10px] uppercase font-black tracking-[0.2em]">HIPAA Compliant</span>
@@ -302,6 +326,31 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
 <!-- Decorative Background Accents -->
 <div class="fixed top-[-10%] right-[-5%] w-[40rem] h-[40rem] bg-primary/5 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
 <div class="fixed bottom-[-10%] left-[-5%] w-[30rem] h-[30rem] bg-primary/5 rounded-full blur-[100px] -z-10 pointer-events-none"></div>
+
+<script>
+    (function () {
+        var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var elements = document.querySelectorAll('[data-reveal="section"]');
+
+        if (!elements || !elements.length) return;
+        if (prefersReduced || !('IntersectionObserver' in window)) {
+            elements.forEach(function (el) { el.classList.add('is-visible'); });
+            return;
+        }
+
+        var observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                } else {
+                    entry.target.classList.remove('is-visible');
+                }
+            });
+        }, { threshold: 0.18, rootMargin: '0px 0px -10% 0px' });
+
+        elements.forEach(function (el) { observer.observe(el); });
+    })();
+</script>
 
 </body>
 </html>

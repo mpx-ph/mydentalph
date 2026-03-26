@@ -154,12 +154,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
             letter-spacing: -0.02em;
         }
+        /* Scroll-reveal "pop up" animation (matches ProviderMain.php) */
+        .reveal {
+            opacity: 0;
+            transform: translateY(34px) scale(0.985);
+            filter: blur(12px);
+            transition:
+                opacity 900ms cubic-bezier(0.22, 1, 0.36, 1),
+                transform 900ms cubic-bezier(0.22, 1, 0.36, 1),
+                filter 900ms cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: opacity, transform, filter;
+        }
+        .reveal.is-visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            filter: blur(0);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .reveal {
+                opacity: 1;
+                transform: none;
+                filter: none;
+                transition: none;
+            }
+        }
     </style>
 </head>
 <body class="bg-surface font-body text-on-surface mesh-gradient min-h-screen flex flex-col selection:bg-primary/20 antialiased">
 <?php include 'ProviderNavbar.php'; ?>
 
-<main class="flex-grow flex items-center justify-center pt-16 pb-24 px-6">
+<main class="flex-grow flex items-center justify-center pt-16 pb-24 px-6 reveal" data-reveal="section">
     <div class="w-full max-w-2xl">
         <!-- Header -->
         <div class="text-center mb-12">
@@ -329,7 +353,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
         <!-- Trust Badges -->
-        <div class="mt-16 flex flex-wrap justify-center items-center gap-10 opacity-30 grayscale hover:opacity-100 hover:grayscale-0 transition-all duration-500">
+        <div class="mt-16 flex flex-wrap justify-center items-center gap-10 opacity-30 grayscale hover:opacity-100 hover:grayscale-0 transition-all duration-500 reveal" data-reveal="section">
             <div class="flex items-center gap-2 text-primary">
                 <span class="material-symbols-outlined text-xl">verified_user</span>
                 <span class="text-[10px] font-black uppercase tracking-[0.2em] font-headline">HIPAA COMPLIANT</span>
@@ -347,7 +371,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </main>
 
 <!-- Footer -->
-<footer class="w-full border-t border-slate-200 bg-slate-50 mt-auto">
+<footer class="w-full border-t border-slate-200 bg-slate-50 mt-auto reveal" data-reveal="section">
     <div class="flex flex-col md:flex-row justify-between items-center py-12 px-8 max-w-screen-2xl mx-auto gap-4">
         <div class="text-lg font-bold text-slate-900 font-headline">MyDental</div>
         <div class="flex flex-wrap justify-center gap-8 text-xs font-headline font-semibold text-slate-500">
@@ -369,6 +393,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         var icon = btn && btn.querySelector ? btn.querySelector('.material-symbols-outlined') : null;
         if (icon) icon.textContent = (input.type === 'password') ? 'visibility' : 'visibility_off';
     }
+</script>
+<script>
+    (function () {
+        var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var elements = document.querySelectorAll('[data-reveal="section"]');
+
+        if (!elements || !elements.length) return;
+        if (prefersReduced || !('IntersectionObserver' in window)) {
+            elements.forEach(function (el) { el.classList.add('is-visible'); });
+            return;
+        }
+
+        var observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                } else {
+                    entry.target.classList.remove('is-visible');
+                }
+            });
+        }, { threshold: 0.18, rootMargin: '0px 0px -10% 0px' });
+
+        elements.forEach(function (el) { observer.observe(el); });
+    })();
 </script>
 </body>
 </html>
