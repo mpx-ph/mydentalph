@@ -106,31 +106,31 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <?php include 'ProviderNavbar.php'; ?>
 <main class="mesh-gradient">
 <!-- Hero Section -->
-<section class="py-16 md:py-24 text-center px-4 overflow-hidden reveal" data-reveal="section">
+<section class="py-12 md:py-18 text-center px-4 overflow-hidden reveal" data-reveal="section">
 <div class="max-w-[1800px] mx-auto">
-<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.4em] mb-10">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.4em] mb-7">
 Reach Out to Excellence
 </div>
-<h1 class="font-headline text-[clamp(2.8rem,5.6vw,5.2rem)] font-extrabold tracking-[-0.05em] text-on-surface mb-8 leading-[0.95]">
+<h1 class="font-headline text-[clamp(2.6rem,5.2vw,4.6rem)] font-extrabold tracking-[-0.05em] text-on-surface mb-6 leading-[0.95]">
 Get in <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Touch.</span>
 </h1>
-<p class="font-body text-xl max-w-2xl mx-auto leading-relaxed text-on-surface-variant font-medium">
+<p class="font-body text-lg md:text-xl max-w-2xl mx-auto leading-relaxed text-on-surface-variant font-medium">
 Elevating dental practice management through clinical precision and digital curation. Our team is ready to assist your clinic's transformation.
 </p>
 </div>
 </section>
 
 <!-- Form & Info Section -->
-<section class="max-w-[1800px] mx-auto px-10 mb-24 reveal" data-reveal="section">
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-14 items-start">
+<section class="max-w-[1800px] mx-auto px-10 mb-16 reveal is-visible" data-reveal="section">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
 <!-- Left Column: Contact Information -->
 <div class="space-y-6">
-<div class="bg-white dark:bg-slate-900/70 p-10 rounded-[2.25rem] border border-on-surface/5 shadow-[0_20px_50px_-15px_rgba(43,139,235,0.05)] space-y-10">
+<div class="bg-white dark:bg-slate-900/70 p-9 rounded-[2.1rem] border border-on-surface/5 shadow-[0_20px_50px_-15px_rgba(43,139,235,0.05)] space-y-8">
 <div>
-<div class="text-primary font-bold text-xs uppercase mb-10 flex items-center gap-4 tracking-[0.3em]">
+<div class="text-primary font-bold text-xs uppercase mb-8 flex items-center gap-4 tracking-[0.3em]">
 <span class="w-12 h-[1.5px] bg-primary"></span> Contact Information
 </div>
-<div class="space-y-10">
+<div class="space-y-8">
 <div class="flex items-start gap-6 group">
 <div class="w-14 h-14 rounded-2xl bg-surface-container-low flex items-center justify-center text-primary transition-all duration-500 group-hover:scale-110">
 <span class="material-symbols-outlined text-3xl font-light" data-icon="location_on">location_on</span>
@@ -184,7 +184,7 @@ Elevating dental practice management through clinical precision and digital cura
 </div>
 
 <!-- Right Column: Contact Form -->
-<div class="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-10 rounded-[2.25rem] shadow-[0_40px_100px_-30px_rgba(43,139,235,0.15)] border border-primary/10 border-t-4 border-t-primary relative overflow-hidden">
+<div class="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-9 rounded-[2.1rem] shadow-[0_40px_100px_-30px_rgba(43,139,235,0.15)] border border-primary/10 border-t-4 border-t-primary relative overflow-hidden">
 <form class="space-y-8">
 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
 <div class="space-y-3">
@@ -215,7 +215,7 @@ Send Inquiry
 
 <!-- Map Section -->
 <section class="max-w-[1800px] mx-auto px-10 mb-24 reveal" data-reveal="section">
-<div class="relative w-full h-[520px] rounded-[3.25rem] overflow-hidden bg-slate-100 dark:bg-slate-900/50 group shadow-2xl">
+<div class="relative w-full h-[480px] rounded-[3rem] overflow-hidden bg-slate-100 dark:bg-slate-900/50 group shadow-2xl">
 <img alt="Global Clinic Presence Map" class="w-full h-full object-cover grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-1000" data-alt="A stylized abstract blue world map highlighting clinic locations" data-location="Global" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCHAWeMpCjaIVp3N6Be0htDT88O3XrZBxPznvmZth44vuQLZN8LC6jlsnkUoDQhUa5AWw3Ov1NNNaC9zoOcDxcHBTpBSrRGQEDOLd4ZpT88umkHbgljP0sWEJVMGg81YXNAZM9k3giFqqpQ_vR35kbVNB9KYlS5X41ocxvocCGrMj6AEc9TmktqfMOasA7LbrKwiyvrD687kYiXMJdjb7I_HJ2HiBJPMo76iNdD0Z2DNLMUM8QgyYlhBYtRJaOMm7gnwQQVlZ91xqA"/>
 <div class="absolute inset-0 bg-primary/5 mix-blend-multiply"></div>
 <div class="absolute inset-0 bg-gradient-to-t from-on-surface/60 via-transparent to-transparent flex flex-col justify-end p-14">
