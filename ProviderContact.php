@@ -104,14 +104,14 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <div class="layout-container flex h-full grow flex-col">
 <!-- Navigation Bar -->
 <?php include 'ProviderNavbar.php'; ?>
-<main class="mesh-gradient pt-24">
+<main class="mesh-gradient">
 <!-- Hero Section -->
-<section class="py-20 md:py-32 text-center px-4 overflow-hidden reveal" data-reveal="section">
+<section class="py-16 md:py-24 text-center px-4 overflow-hidden reveal" data-reveal="section">
 <div class="max-w-[1800px] mx-auto">
 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.4em] mb-10">
 Reach Out to Excellence
 </div>
-<h1 class="font-headline text-[clamp(3.5rem,7vw,6.5rem)] font-extrabold tracking-[-0.05em] text-on-surface mb-8 leading-[0.9]">
+<h1 class="font-headline text-[clamp(2.8rem,5.6vw,5.2rem)] font-extrabold tracking-[-0.05em] text-on-surface mb-8 leading-[0.95]">
 Get in <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Touch.</span>
 </h1>
 <p class="font-body text-xl max-w-2xl mx-auto leading-relaxed text-on-surface-variant font-medium">
@@ -122,10 +122,10 @@ Elevating dental practice management through clinical precision and digital cura
 
 <!-- Form & Info Section -->
 <section class="max-w-[1800px] mx-auto px-10 mb-24 reveal" data-reveal="section">
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-14 items-start">
 <!-- Left Column: Contact Information -->
 <div class="space-y-6">
-<div class="bg-white dark:bg-slate-900/70 p-12 rounded-[2.5rem] border border-on-surface/5 shadow-[0_20px_50px_-15px_rgba(43,139,235,0.05)] space-y-12">
+<div class="bg-white dark:bg-slate-900/70 p-10 rounded-[2.25rem] border border-on-surface/5 shadow-[0_20px_50px_-15px_rgba(43,139,235,0.05)] space-y-10">
 <div>
 <div class="text-primary font-bold text-xs uppercase mb-10 flex items-center gap-4 tracking-[0.3em]">
 <span class="w-12 h-[1.5px] bg-primary"></span> Contact Information
@@ -184,27 +184,27 @@ Elevating dental practice management through clinical precision and digital cura
 </div>
 
 <!-- Right Column: Contact Form -->
-<div class="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-12 rounded-[2.5rem] shadow-[0_40px_100px_-30px_rgba(43,139,235,0.15)] border border-primary/10 border-t-4 border-t-primary relative overflow-hidden">
+<div class="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-10 rounded-[2.25rem] shadow-[0_40px_100px_-30px_rgba(43,139,235,0.15)] border border-primary/10 border-t-4 border-t-primary relative overflow-hidden">
 <form class="space-y-8">
 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
 <div class="space-y-3">
 <label class="text-xs font-black uppercase tracking-[0.2em] text-on-surface-variant/60 ml-1 font-headline text-primary/70">Name</label>
-<input class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-6 py-5 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="Dr. Julian Pierce" type="text"/>
+<input class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-5 py-4 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="Dr. Julian Pierce" type="text"/>
 </div>
 <div class="space-y-3">
 <label class="text-xs font-black uppercase tracking-[0.2em] text-on-surface-variant/60 ml-1 font-headline text-primary/70">Clinic Name</label>
-<input class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-6 py-5 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="Apex Dental Group" type="text"/>
+<input class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-5 py-4 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="Apex Dental Group" type="text"/>
 </div>
 </div>
 <div class="space-y-3">
 <label class="text-xs font-black uppercase tracking-[0.2em] text-on-surface-variant/60 ml-1 font-headline text-primary/70">Email</label>
-<input class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-6 py-5 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="julian@apexdental.com" type="email"/>
+<input class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-5 py-4 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="julian@apexdental.com" type="email"/>
 </div>
 <div class="space-y-3">
 <label class="text-xs font-black uppercase tracking-[0.2em] text-on-surface-variant/60 ml-1 font-headline text-primary/70">Message</label>
-<textarea class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-6 py-5 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="Describe your clinic's needs..." rows="5"></textarea>
+<textarea class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-5 py-4 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="Describe your clinic's needs..." rows="5"></textarea>
 </div>
-<button class="w-full bg-primary text-white font-headline font-black text-sm uppercase tracking-[0.2em] py-6 rounded-2xl shadow-[0_20px_40px_-10px_rgba(43,139,235,0.4)] hover:shadow-[0_25px_50px_-12px_rgba(43,139,235,0.6)] hover:-translate-y-0.5 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group" type="button">
+<button class="w-full bg-primary text-white font-headline font-black text-sm uppercase tracking-[0.2em] py-5 rounded-2xl shadow-[0_20px_40px_-10px_rgba(43,139,235,0.4)] hover:shadow-[0_25px_50px_-12px_rgba(43,139,235,0.6)] hover:-translate-y-0.5 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group" type="button">
 Send Inquiry
 <span class="material-symbols-outlined transition-transform group-hover:translate-x-1" data-icon="arrow_forward">arrow_right_alt</span>
 </button>
@@ -215,15 +215,15 @@ Send Inquiry
 
 <!-- Map Section -->
 <section class="max-w-[1800px] mx-auto px-10 mb-24 reveal" data-reveal="section">
-<div class="relative w-full h-[600px] rounded-[4rem] overflow-hidden bg-slate-100 dark:bg-slate-900/50 group shadow-2xl">
+<div class="relative w-full h-[520px] rounded-[3.25rem] overflow-hidden bg-slate-100 dark:bg-slate-900/50 group shadow-2xl">
 <img alt="Global Clinic Presence Map" class="w-full h-full object-cover grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-1000" data-alt="A stylized abstract blue world map highlighting clinic locations" data-location="Global" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCHAWeMpCjaIVp3N6Be0htDT88O3XrZBxPznvmZth44vuQLZN8LC6jlsnkUoDQhUa5AWw3Ov1NNNaC9zoOcDxcHBTpBSrRGQEDOLd4ZpT88umkHbgljP0sWEJVMGg81YXNAZM9k3giFqqpQ_vR35kbVNB9KYlS5X41ocxvocCGrMj6AEc9TmktqfMOasA7LbrKwiyvrD687kYiXMJdjb7I_HJ2HiBJPMo76iNdD0Z2DNLMUM8QgyYlhBYtRJaOMm7gnwQQVlZ91xqA"/>
 <div class="absolute inset-0 bg-primary/5 mix-blend-multiply"></div>
-<div class="absolute inset-0 bg-gradient-to-t from-on-surface/60 via-transparent to-transparent flex flex-col justify-end p-16">
-<div class="glass-card p-10 rounded-[2rem] max-w-lg border border-white/40 shadow-2xl">
+<div class="absolute inset-0 bg-gradient-to-t from-on-surface/60 via-transparent to-transparent flex flex-col justify-end p-14">
+<div class="glass-card p-8 rounded-[1.75rem] max-w-lg border border-white/40 shadow-2xl">
 <div class="inline-flex items-center gap-4 px-4 py-2 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.4em] mb-6">
 Global Clinic Presence
 </div>
-<h4 class="text-3xl font-headline font-extrabold text-on-surface mb-4 tracking-tight">Worldwide Network</h4>
+<h4 class="text-2xl font-headline font-extrabold text-on-surface mb-4 tracking-tight">Worldwide Network</h4>
 <p class="text-on-surface-variant font-medium leading-relaxed">Join 2,400+ premium dental clinics worldwide leveraging MyDental OS for seamless operations.</p>
 <div class="mt-8 flex items-center gap-6">
 <div class="flex -space-x-3">
