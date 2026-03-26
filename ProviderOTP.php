@@ -102,6 +102,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             "on-surface-variant": "#404752",
             "outline-variant": "#c0c7d4",
             "surface-container-low": "#edf4ff",
+            "background-light": "#f6f7f8",
+            "background-dark": "#101922",
 
             mydental: {
               dark: "#101922",
@@ -147,48 +149,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       border: 1px solid rgba(43, 139, 235, 0.05);
       box-shadow: 0 40px 80px -20px rgba(43, 139, 235, 0.08);
     }
+
+    /* Popup/reveal animation (same mechanism used on ProviderMain.php) */
+    .reveal {
+      opacity: 0;
+      transform: translateY(34px) scale(0.985);
+      filter: blur(12px);
+      transition:
+        opacity 900ms cubic-bezier(0.22, 1, 0.36, 1),
+        transform 900ms cubic-bezier(0.22, 1, 0.36, 1),
+        filter 900ms cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: opacity, transform, filter;
+    }
+    .reveal.is-visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      filter: blur(0);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .reveal {
+        opacity: 1;
+        transform: none;
+        filter: none;
+        transition: none;
+      }
+    }
   </style>
 </head>
 
-<body class="bg-surface text-on-surface font-body min-h-screen flex flex-col mesh-gradient">
-  <!-- Header Navigation -->
-  <nav class="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl shadow-sm">
-    <div class="flex justify-between items-center h-20 px-6 md:px-8 max-w-screen-2xl mx-auto">
-      <a class="text-2xl font-bold tracking-tighter font-headline flex items-center gap-2" href="ProviderMain.php" aria-label="MyDental Home">
-        <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-          <span class="material-symbols-outlined text-white text-lg">verified</span>
-        </div>
-        MyDental
-      </a>
-      <div class="hidden md:flex items-center space-x-10 text-sm font-semibold tracking-tight text-on-surface/60 font-headline">
-        <a class="hover:text-primary transition-colors" href="ProviderMain.php">Home</a>
-        <a class="hover:text-primary transition-colors" href="ProviderFAQs.php">FAQs</a>
-        <a class="hover:text-primary transition-colors" href="ProviderContact.php">Contact</a>
-      </div>
-      <div class="flex items-center gap-4">
-        <a class="text-on-surface font-semibold text-sm hover:text-primary transition-all" href="ProviderLogin.php">Login</a>
-        <a class="bg-primary text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95" href="ProviderCreate.php">
-          Get Started
-        </a>
-      </div>
-    </div>
-  </nav>
+<body class="bg-background-light text-on-surface font-body dark:bg-background-dark dark:text-surface antialiased overflow-hidden flex flex-col h-screen mesh-gradient">
+  <!-- Navbar (consistent with ProviderMain.php via shared component) -->
+  <?php include 'ProviderNavbar.php'; ?>
 
   <!-- Main Content Area -->
-  <main class="flex-grow flex items-center justify-center px-6 pt-32 pb-12">
-    <div class="w-full max-w-2xl">
-      <div class="premium-card rounded-3xl p-10 md:p-20" data-purpose="otp-verification-container">
-        <div class="text-center mb-12">
-          <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-primary/5 text-primary mb-10 transition-transform hover:scale-105 duration-500">
-            <span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">mark_email_read</span>
+  <main class="h-[calc(100vh-64px)] flex-grow flex items-center justify-center px-4 py-6">
+    <div class="w-full max-w-md">
+      <div class="premium-card rounded-3xl p-6 md:p-8 reveal" data-purpose="otp-verification-container" data-reveal="section">
+        <div class="text-center mb-8">
+          <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/5 text-primary mb-6 transition-transform hover:scale-105 duration-500">
+            <span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">mark_email_read</span>
           </div>
 
-          <h1 class="font-headline text-5xl md:text-6xl font-extrabold tracking-tighter leading-[1.1] text-on-surface mb-6">
+          <h1 class="font-headline text-3xl md:text-4xl font-extrabold tracking-tighter leading-[1.1] text-on-surface mb-4">
             <?php echo htmlspecialchars($title_text); ?><br/>
             <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">OTP</span>
           </h1>
 
-          <p class="font-body text-on-surface-variant text-lg font-medium leading-relaxed max-w-md mx-auto mb-8">
+          <p class="font-body text-on-surface-variant text-base font-medium leading-relaxed max-w-md mx-auto mb-6">
             <?php echo htmlspecialchars(str_replace('your email', (string) $email_for_display, $subtitle_text)); ?>
           </p>
 
@@ -209,27 +216,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           </div>
         <?php endif; ?>
 
-        <form action="" class="space-y-12" id="otp-form" method="POST">
+        <form action="" class="space-y-8" id="otp-form" method="POST" autocomplete="off">
           <input type="hidden" name="action" value="verify"/>
           <input type="hidden" name="otp_code" id="otp-code-hidden" value=""/>
 
-          <div class="flex justify-between gap-3 md:gap-5" data-purpose="otp-inputs-group">
-            <input autofocus class="otp-input w-full aspect-square text-center font-headline text-3xl font-extrabold bg-surface-container-low border-2 border-slate-200 focus:border-primary focus:bg-white focus:ring-0 rounded-2xl transition-all text-on-surface" data-index="0" maxlength="1" placeholder="•" required type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code"/>
-            <input class="otp-input w-full aspect-square text-center font-headline text-3xl font-extrabold bg-surface-container-low border-2 border-slate-200 focus:border-primary focus:bg-white focus:ring-0 rounded-2xl transition-all text-on-surface" data-index="1" maxlength="1" placeholder="•" required type="text" inputmode="numeric" pattern="[0-9]*"/>
-            <input class="otp-input w-full aspect-square text-center font-headline text-3xl font-extrabold bg-surface-container-low border-2 border-slate-200 focus:border-primary focus:bg-white focus:ring-0 rounded-2xl transition-all text-on-surface" data-index="2" maxlength="1" placeholder="•" required type="text" inputmode="numeric" pattern="[0-9]*"/>
-            <input class="otp-input w-full aspect-square text-center font-headline text-3xl font-extrabold bg-surface-container-low border-2 border-slate-200 focus:border-primary focus:bg-white focus:ring-0 rounded-2xl transition-all text-on-surface" data-index="3" maxlength="1" placeholder="•" required type="text" inputmode="numeric" pattern="[0-9]*"/>
-            <input class="otp-input w-full aspect-square text-center font-headline text-3xl font-extrabold bg-surface-container-low border-2 border-slate-200 focus:border-primary focus:bg-white focus:ring-0 rounded-2xl transition-all text-on-surface" data-index="4" maxlength="1" placeholder="•" required type="text" inputmode="numeric" pattern="[0-9]*"/>
-            <input class="otp-input w-full aspect-square text-center font-headline text-3xl font-extrabold bg-surface-container-low border-2 border-slate-200 focus:border-primary focus:bg-white focus:ring-0 rounded-2xl transition-all text-on-surface" data-index="5" maxlength="1" placeholder="•" required type="text" inputmode="numeric" pattern="[0-9]*"/>
+          <div class="flex justify-between gap-2 md:gap-3" data-purpose="otp-inputs-group">
+            <input autofocus class="otp-input w-10 h-12 md:w-11 md:h-14 text-center font-headline text-2xl md:text-3xl font-extrabold bg-surface-container-low border-2 border-slate-200 focus:border-primary focus:bg-white focus:ring-0 rounded-2xl transition-all text-on-surface" data-index="0" maxlength="1" placeholder="•" required type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code"/>
+            <input class="otp-input w-10 h-12 md:w-11 md:h-14 text-center font-headline text-2xl md:text-3xl font-extrabold bg-surface-container-low border-2 border-slate-200 focus:border-primary focus:bg-white focus:ring-0 rounded-2xl transition-all text-on-surface" data-index="1" maxlength="1" placeholder="•" required type="text" inputmode="numeric" pattern="[0-9]*"/>
+            <input class="otp-input w-10 h-12 md:w-11 md:h-14 text-center font-headline text-2xl md:text-3xl font-extrabold bg-surface-container-low border-2 border-slate-200 focus:border-primary focus:bg-white focus:ring-0 rounded-2xl transition-all text-on-surface" data-index="2" maxlength="1" placeholder="•" required type="text" inputmode="numeric" pattern="[0-9]*"/>
+            <input class="otp-input w-10 h-12 md:w-11 md:h-14 text-center font-headline text-2xl md:text-3xl font-extrabold bg-surface-container-low border-2 border-slate-200 focus:border-primary focus:bg-white focus:ring-0 rounded-2xl transition-all text-on-surface" data-index="3" maxlength="1" placeholder="•" required type="text" inputmode="numeric" pattern="[0-9]*"/>
+            <input class="otp-input w-10 h-12 md:w-11 md:h-14 text-center font-headline text-2xl md:text-3xl font-extrabold bg-surface-container-low border-2 border-slate-200 focus:border-primary focus:bg-white focus:ring-0 rounded-2xl transition-all text-on-surface" data-index="4" maxlength="1" placeholder="•" required type="text" inputmode="numeric" pattern="[0-9]*"/>
+            <input class="otp-input w-10 h-12 md:w-11 md:h-14 text-center font-headline text-2xl md:text-3xl font-extrabold bg-surface-container-low border-2 border-slate-200 focus:border-primary focus:bg-white focus:ring-0 rounded-2xl transition-all text-on-surface" data-index="5" maxlength="1" placeholder="•" required type="text" inputmode="numeric" pattern="[0-9]*"/>
           </div>
 
-          <div class="space-y-10">
-            <button class="w-full py-6 rounded-2xl bg-primary text-white font-headline font-black text-sm uppercase tracking-[0.2em] shadow-[0_20px_40px_-10px_rgba(43,139,235,0.4)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3" type="submit">
+          <div class="space-y-8">
+            <button class="w-full py-4 rounded-2xl bg-primary text-white font-headline font-black text-sm uppercase tracking-[0.2em] shadow-[0_20px_40px_-10px_rgba(43,139,235,0.4)] hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-3" type="submit">
               <?php echo htmlspecialchars($verify_button_text); ?>
               <span class="material-symbols-outlined">arrow_right_alt</span>
             </button>
 
-            <div class="flex flex-col items-center gap-8">
-              <div class="flex items-center gap-3 text-on-surface-variant font-bold text-xs uppercase tracking-widest">
+            <div class="flex flex-col items-center gap-6">
+              <div class="flex items-center gap-3 text-on-surface-variant font-bold text-[11px] uppercase tracking-widest">
                 <span class="material-symbols-outlined text-primary text-lg">timer</span>
                 <span>OTP expires in <span class="text-primary tabular-nums" id="otp-timer">15:00</span></span>
               </div>
@@ -238,10 +245,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <button class="text-primary font-black text-xs uppercase tracking-[0.2em] hover:opacity-70 transition-opacity" type="button" id="resend-otp-btn">
                   Resend Code
                 </button>
-                <a class="flex items-center gap-2 text-on-surface/40 font-black text-xs uppercase tracking-[0.2em] hover:text-on-surface transition-colors" href="ProviderLogin.php">
-                  <span class="material-symbols-outlined text-sm">logout</span>
-                  Back to Login
-                </a>
               </div>
             </div>
           </div>
@@ -252,7 +255,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </form>
       </div>
 
-      <div class="mt-12 flex flex-wrap items-center justify-center gap-8 opacity-40 hover:opacity-60 transition-opacity duration-500">
+      <div class="mt-6 flex flex-wrap items-center justify-center gap-6 opacity-40 hover:opacity-60 transition-opacity duration-500">
         <div class="flex items-center gap-2">
           <span class="material-symbols-outlined text-lg">shield_lock</span>
           <span class="text-[10px] font-black tracking-[0.3em] uppercase">Secure Verification</span>
@@ -265,19 +268,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </div>
     </div>
   </main>
-
-  <footer class="w-full border-t border-slate-200 bg-slate-50">
-    <div class="flex flex-col md:flex-row justify-between items-center py-10 px-8 max-w-screen-2xl mx-auto gap-4">
-      <div class="flex flex-col items-center md:items-start">
-        <span class="text-lg font-bold text-slate-900 font-headline tracking-tighter">MyDental.com</span>
-        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">© <?php echo date('Y'); ?> Provider Portal.</p>
-      </div>
-      <div class="flex flex-wrap justify-center gap-8 text-xs font-bold uppercase tracking-widest text-slate-500">
-        <a class="hover:text-primary transition-colors" href="ProviderFAQs.php">FAQs</a>
-        <a class="hover:text-primary transition-colors" href="ProviderContact.php">Support</a>
-      </div>
-    </div>
-  </footer>
 
   <div class="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
     <div class="absolute -top-[5%] -left-[5%] w-[30%] h-[30%] bg-primary/3 rounded-full blur-[120px]"></div>
@@ -344,6 +334,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       };
       tick();
       setInterval(tick, 1000);
+    })();
+  </script>
+
+  <!-- Popup/reveal animation wiring (copied from ProviderMain.php) -->
+  <script>
+    (function () {
+      var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var elements = document.querySelectorAll('[data-reveal="section"]');
+
+      if (!elements || !elements.length) return;
+      if (prefersReduced || !('IntersectionObserver' in window)) {
+        elements.forEach(function (el) { el.classList.add('is-visible'); });
+        return;
+      }
+
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+          } else {
+            entry.target.classList.remove('is-visible');
+          }
+        });
+      }, { threshold: 0.18, rootMargin: '0px 0px -10% 0px' });
+
+      elements.forEach(function (el) { observer.observe(el); });
     })();
   </script>
 </body>
