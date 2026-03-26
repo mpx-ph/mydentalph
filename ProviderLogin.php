@@ -189,31 +189,9 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
 </head>
 
 <body class="mesh-gradient h-screen overflow-hidden flex flex-col items-center selection:bg-primary/20 bg-background-light dark:bg-background-dark text-on-surface dark:text-slate-100 antialiased">
-<nav class="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl shadow-sm">
-    <div class="flex justify-between items-center h-20 px-8 max-w-screen-2xl mx-auto">
-        <div class="text-2xl font-bold tracking-tighter font-headline flex items-center gap-2">
-            <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                <span class="material-symbols-outlined text-white text-lg">select_check_box</span>
-            </div>
-            MyDental
-        </div>
-        <div class="hidden md:flex items-center space-x-12 text-sm font-semibold tracking-tight text-on-surface/60 font-headline">
-            <a class="text-primary border-b-2 border-primary pb-1" href="#">Home</a>
-            <a class="hover:text-primary transition-colors" href="#features">Features</a>
-            <a class="hover:text-primary transition-colors" href="#boarding">Pricing</a>
-            <a class="hover:text-primary transition-colors" href="#">Contact Us</a>
-            <a class="hover:text-primary transition-colors" href="#">FAQs</a>
-        </div>
-        <div class="flex items-center gap-4">
-            <a class="text-on-surface font-semibold text-sm hover:text-primary transition-all" href="ProviderLogin.php">Login</a>
-            <a class="bg-primary text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95" href="ProviderCreate.php">
-                Get Started
-            </a>
-        </div>
-    </div>
-</nav>
+<?php include 'ProviderNavbar.php'; ?>
 
-<main class="flex-1 w-full grid place-items-center px-4 sm:px-6 lg:px-8 relative pt-20">
+<main class="flex-1 w-full grid place-items-center px-4 sm:px-6 lg:px-8 relative py-10">
     <div class="w-full max-w-lg">
         <!-- Login Card -->
         <div class="login-card rounded-[2.5rem] overflow-hidden p-12 space-y-10">

@@ -157,31 +157,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </style>
 </head>
 <body class="bg-surface font-body text-on-surface mesh-gradient min-h-screen flex flex-col selection:bg-primary/20 antialiased">
-<!-- Navigation -->
-<nav class="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl shadow-sm">
-    <div class="flex justify-between items-center h-20 px-8 max-w-screen-2xl mx-auto">
-        <div class="text-2xl font-bold tracking-tighter font-headline flex items-center gap-2">
-            <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                <span class="material-symbols-outlined text-white text-lg">select_check_box</span>
-            </div>
-            MyDental
-        </div>
-        <div class="hidden md:flex items-center space-x-12 text-sm font-semibold tracking-tight text-on-surface/60 font-headline">
-            <a class="hover:text-primary transition-colors" href="ProviderMain.php">Home</a>
-            <a class="hover:text-primary transition-colors" href="Provider-Plans.php">Pricing</a>
-            <a class="hover:text-primary transition-colors" href="ProviderContact.php">Contact Us</a>
-            <a class="hover:text-primary transition-colors" href="ProviderFAQs.php">FAQs</a>
-        </div>
-        <div class="flex items-center gap-4">
-            <a class="text-on-surface font-semibold text-sm hover:text-primary transition-all" href="ProviderLogin.php">Login</a>
-            <a class="bg-primary text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95" href="ProviderCreate.php<?php echo $chosen_plan ? ('?plan=' . urlencode($chosen_plan)) : ''; ?>">
-                Get Started
-            </a>
-        </div>
-    </div>
-</nav>
+<?php include 'ProviderNavbar.php'; ?>
 
-<main class="flex-grow flex items-center justify-center pt-32 pb-24 px-6">
+<main class="flex-grow flex items-center justify-center pt-16 pb-24 px-6">
     <div class="w-full max-w-2xl">
         <!-- Header -->
         <div class="text-center mb-12">
