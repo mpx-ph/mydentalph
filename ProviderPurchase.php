@@ -1,5 +1,51 @@
 <?php
 session_start();
+$debug_mode = isset($_GET['debug']) && $_GET['debug'] === '1';
+if ($debug_mode) {
+    ini_set('display_errors', '1');
+    ini_set('display_startup_errors', '1');
+    error_reporting(E_ALL);
+}
+
+set_exception_handler(function (Throwable $e) use ($debug_mode): void {
+    error_log('[ProviderPurchase][UnhandledException] ' . $e->getMessage());
+    if ($debug_mode) {
+        http_response_code(500);
+        echo '<pre style="white-space:pre-wrap;font-family:monospace;padding:12px;background:#fff3f3;border:1px solid #f5c2c7;">';
+        echo htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8');
+        echo "\n\n" . htmlspecialchars($e->getTraceAsString(), ENT_QUOTES, 'UTF-8');
+        echo '</pre>';
+    } elseif (!headers_sent()) {
+        $_SESSION['provider_setup_link_error'] = 'Could not open the purchase page right now. Please try again.';
+        header('Location: ProviderApprovalStatus.php');
+    }
+    exit;
+});
+
+register_shutdown_function(function () use ($debug_mode): void {
+    $fatal = error_get_last();
+    if (!is_array($fatal)) {
+        return;
+    }
+    $fatal_types = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
+    if (!in_array((int) ($fatal['type'] ?? 0), $fatal_types, true)) {
+        return;
+    }
+    $message = (string) ($fatal['message'] ?? 'Unknown fatal error');
+    error_log('[ProviderPurchase][FatalShutdown] ' . $message);
+    if ($debug_mode) {
+        if (!headers_sent()) {
+            http_response_code(500);
+        }
+        echo '<pre style="white-space:pre-wrap;font-family:monospace;padding:12px;background:#fff3f3;border:1px solid #f5c2c7;">';
+        echo 'Fatal error: ' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
+        echo '</pre>';
+    } elseif (!headers_sent()) {
+        $_SESSION['provider_setup_link_error'] = 'Purchase page encountered a server error. Please try again.';
+        header('Location: ProviderApprovalStatus.php');
+    }
+});
+
 require_once __DIR__ . '/provider_redirect_superadmin.php';
 require_once __DIR__ . '/provider_auth.php';
 provider_require_approved_for_provider_portal();
