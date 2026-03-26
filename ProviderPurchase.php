@@ -24,19 +24,9 @@ if (!empty($_SESSION['onboarding_user_id']) && !empty($_SESSION['onboarding_tena
     }
 } elseif (provider_has_authenticated_provider_session()) {
     [$tid, $uid] = provider_get_authenticated_provider_identity_from_session();
-    try {
-        $subscriptionState = provider_get_tenant_subscription_state($pdo, (string) $tid);
-    } catch (Throwable $e) {
-        $subscriptionState = ['has_active_subscription' => false];
-    }
-    $has_active = !empty($subscriptionState['has_active_subscription']);
-    // Allow exactly one revisit to this page right after a successful purchase.
-    $allow_revisit_once = !empty($_SESSION['allow_purchase_page_once_after_payment']);
-    if ($has_active && !$allow_revisit_once && !$force_from_clinic_setup_once) {
-        header('Location: ProviderTenantDashboard.php');
-        exit;
-    }
-    if ($allow_revisit_once) {
+    // Keep users on purchase page when they explicitly navigate here.
+    // (Do not auto-forward to dashboard from this entry point.)
+    if (!empty($_SESSION['allow_purchase_page_once_after_payment'])) {
         unset($_SESSION['allow_purchase_page_once_after_payment']);
     }
     if ($force_from_clinic_setup_once) {
