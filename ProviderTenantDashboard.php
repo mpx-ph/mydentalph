@@ -31,7 +31,7 @@ try {
 }
 $clinic_name = $tenant['clinic_name'] ?? 'My Clinic';
 $clinic_slug = $tenant['clinic_slug'] ?? '';
-$domain_display = $clinic_slug ? 'mydental.ct.ws/' . $clinic_slug : '—';
+$domain_display = $clinic_slug ? 'mydental.ct.ws/' . $clinic_slug : 'No Active Website';
 
 // Build tenant-specific URLs (based on Domain & Hosting / clinic_slug)
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
@@ -72,6 +72,7 @@ $plan_name = is_string($plan_name_raw) && trim($plan_name_raw) !== ''
 $renewal_end = isset($sub['subscription_end']) ? trim((string) $sub['subscription_end']) : '';
 $renewal_ts = $renewal_end !== '' ? strtotime($renewal_end) : false;
 $renewal_date = ($renewal_ts !== false) ? date('M j, Y', $renewal_ts) : '—';
+$has_active_website = $is_subscription_active && trim((string) $clinic_slug) !== '';
 
 $settings_saved = false;
 $settings_error = '';
@@ -259,8 +260,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 <h3 class="text-lg font-bold text-dental-dark truncate"><?php echo htmlspecialchars($domain_display); ?></h3>
 <div class="flex items-center gap-2 mt-2">
-<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-<span class="text-slate-500 text-sm">Website Published</span>
+<span class="w-2 h-2 rounded-full <?php echo $has_active_website ? 'bg-emerald-500' : 'bg-amber-500'; ?>"></span>
+<span class="text-slate-500 text-sm"><?php echo $has_active_website ? 'Website Published' : 'No Active Website'; ?></span>
 </div>
 </div>
 <!-- Quick Actions Card -->
@@ -276,7 +277,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   href="<?php echo $tenant_base_url ? htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8') : '#'; ?>"
   <?php if ($tenant_base_url): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>
 >
-                View Live Website
+                <?php echo $has_active_website ? 'View Live Website' : 'Website Not Ready'; ?>
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
 </a>
 </div>
