@@ -65,7 +65,10 @@ $plan_price_fallback_map = [
     'professional' => 2499,
     'enterprise' => 4999,
 ];
-$requested_plan_slug = isset($_GET['plan']) ? strtolower(trim((string) $_GET['plan'])) : 'professional';
+$requested_plan_source = $_SERVER['REQUEST_METHOD'] === 'POST'
+    ? ($_POST['selected_plan_slug'] ?? ($_GET['plan'] ?? 'professional'))
+    : ($_GET['plan'] ?? 'professional');
+$requested_plan_slug = strtolower(trim((string) $requested_plan_source));
 if (!in_array($requested_plan_slug, $allowed, true)) {
     $requested_plan_slug = 'professional';
 }
@@ -156,45 +159,54 @@ if ($prefill_clinic_name === '') {
     $prefill_clinic_name = (string) ($_SESSION['onboarding_clinic_name'] ?? '');
 }
 
-$plan = null;
-try {
-    $stmt = $pdo->prepare("
-        SELECT plan_id, plan_name, price, plan_slug
-        FROM tbl_subscription_plans
-        WHERE LOWER(plan_slug) = ? OR LOWER(plan_name) = ?
-        ORDER BY CASE WHEN LOWER(plan_slug) = ? THEN 0 ELSE 1 END, plan_id ASC
-        LIMIT 1
-    ");
-    $stmt->execute([$plan_slug, $plan_slug, $plan_slug]);
-    $plan = $stmt->fetch(PDO::FETCH_ASSOC);
-} catch (Throwable $e) {
-    $plan = null;
-}
-if (!$plan) {
-    try {
-        $stmt = $pdo->query("SELECT plan_id, plan_name, price FROM tbl_subscription_plans ORDER BY plan_id ASC LIMIT 1");
-        $plan = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
-    } catch (Throwable $e) {
-        $plan = null;
-    }
-}
-if (!$plan) {
-    $plan = [
-        'plan_id' => 1,
-        'plan_name' => $plan_label_map[$plan_slug] ?? 'Professional',
-        'price' => $plan_price_fallback_map[$plan_slug] ?? 2499,
-        'plan_slug' => $plan_slug,
+$available_plans = [];
+foreach ($allowed as $allowed_slug) {
+    $available_plans[$allowed_slug] = [
+        'plan_id' => null,
+        'plan_name' => $plan_label_map[$allowed_slug] ?? ucfirst($allowed_slug),
+        'plan_price' => (float) ($plan_price_fallback_map[$allowed_slug] ?? 0),
+        'plan_slug' => $allowed_slug,
     ];
 }
-$resolved_plan_slug = strtolower(trim((string) ($plan['plan_slug'] ?? '')));
-if (!in_array($resolved_plan_slug, $allowed, true)) {
-    $resolved_plan_slug = $plan_slug;
+try {
+    $stmt = $pdo->query("SELECT plan_id, plan_name, price, plan_slug FROM tbl_subscription_plans ORDER BY plan_id ASC");
+    $rows = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+    foreach ($rows as $row) {
+        $row_slug = strtolower(trim((string) ($row['plan_slug'] ?? '')));
+        if ($row_slug === '') {
+            $row_slug = strtolower(trim((string) ($row['plan_name'] ?? '')));
+        }
+        if (!in_array($row_slug, $allowed, true)) {
+            continue;
+        }
+        $available_plans[$row_slug] = [
+            'plan_id' => isset($row['plan_id']) ? (int) $row['plan_id'] : null,
+            'plan_name' => (string) ($row['plan_name'] ?? ($plan_label_map[$row_slug] ?? ucfirst($row_slug))),
+            'plan_price' => (float) ($row['price'] ?? ($plan_price_fallback_map[$row_slug] ?? 0)),
+            'plan_slug' => $row_slug,
+        ];
+    }
+} catch (Throwable $e) {
+    // Keep fallback plan defaults when plans table cannot be read.
 }
-$plan_name = $plan['plan_name'] ?? ($plan_label_map[$resolved_plan_slug] ?? 'Professional');
-$plan_price = (float) ($plan['price'] ?? ($plan_price_fallback_map[$resolved_plan_slug] ?? 2499));
-$plan_id = $plan['plan_id'] ?? 1;
-$plan_slug = $resolved_plan_slug;
+$selected_plan_data = $available_plans[$plan_slug] ?? null;
+if (!$selected_plan_data) {
+    $plan_slug = 'professional';
+    $selected_plan_data = $available_plans[$plan_slug] ?? [
+        'plan_id' => 1,
+        'plan_name' => 'Professional',
+        'plan_price' => 2499.0,
+        'plan_slug' => 'professional',
+    ];
+}
+$plan_name = (string) ($selected_plan_data['plan_name'] ?? ($plan_label_map[$plan_slug] ?? 'Professional'));
+$plan_price = (float) ($selected_plan_data['plan_price'] ?? ($plan_price_fallback_map[$plan_slug] ?? 2499));
+$plan_id = (int) ($selected_plan_data['plan_id'] ?? 1);
 $_SESSION['onboarding_plan'] = $plan_slug;
+$available_plans_json = json_encode($available_plans, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+if (!is_string($available_plans_json) || $available_plans_json === '') {
+    $available_plans_json = '{}';
+}
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -406,6 +418,24 @@ $back_href = 'ProviderClinicSetup.php';
       .pm-fill-icon {
         font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
       }
+      .plan-modal-backdrop {
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 220ms ease;
+      }
+      .plan-modal-backdrop.is-open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .plan-modal-panel {
+        opacity: 0;
+        transform: translateY(14px) scale(0.98);
+        transition: opacity 240ms ease, transform 240ms ease;
+      }
+      .plan-modal-backdrop.is-open .plan-modal-panel {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
     </style>
 </head>
 <body class="bg-surface font-body text-on-surface text-[15px] leading-normal min-h-screen antialiased">
@@ -425,28 +455,8 @@ $back_href = 'ProviderClinicSetup.php';
 <?php if ($error): ?>
 <div class="mb-6 p-3.5 rounded-xl border border-error/20 bg-red-50 text-error text-sm font-medium"><?php echo $error; ?></div>
 <?php endif; ?>
-<section class="mb-6 rounded-2xl border border-on-surface/10 bg-surface-container-low p-4 sm:p-5">
-<div class="mb-3 flex items-center justify-between gap-2">
-<h2 class="font-headline text-base sm:text-lg font-extrabold tracking-tight">Selected Plan</h2>
-<span class="text-xs font-semibold text-on-surface-variant">You can still change this here</span>
-</div>
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-<?php foreach ($allowed as $plan_option_slug): ?>
-<?php
-$plan_qs = ['plan' => $plan_option_slug];
-if ($debug_mode) {
-    $plan_qs['debug'] = '1';
-}
-$plan_option_href = 'ProviderPurchase.php?' . http_build_query($plan_qs);
-$is_selected_plan = ($plan_option_slug === $plan_slug);
-?>
-<a href="<?php echo htmlspecialchars($plan_option_href, ENT_QUOTES, 'UTF-8'); ?>" class="rounded-xl border px-4 py-3 text-center text-sm font-bold transition-all <?php echo $is_selected_plan ? 'border-primary bg-primary text-white shadow-md shadow-primary/20' : 'border-on-surface/10 bg-white text-on-surface hover:border-primary/30'; ?>">
-<?php echo htmlspecialchars($plan_label_map[$plan_option_slug] ?? ucfirst($plan_option_slug), ENT_QUOTES, 'UTF-8'); ?>
-</a>
-<?php endforeach; ?>
-</div>
-</section>
 <form method="post" action="<?php echo htmlspecialchars($form_action_href, ENT_QUOTES, 'UTF-8'); ?>" class="space-y-0">
+<input id="selected_plan_slug" name="selected_plan_slug" type="hidden" value="<?php echo htmlspecialchars($plan_slug, ENT_QUOTES, 'UTF-8'); ?>"/>
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
 <!-- Left Column: Clinic & payment -->
 <div class="lg:col-span-7 space-y-6">
@@ -535,18 +545,23 @@ $is_selected_plan = ($plan_option_slug === $plan_slug);
 <div class="flex justify-between items-start gap-3 border-b border-white/20 pb-5">
 <div class="min-w-0">
 <p class="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/70">Selected Plan</p>
-<h4 class="font-headline text-base sm:text-lg font-extrabold break-words font-editorial italic text-white editorial-word"><?php echo htmlspecialchars($plan_name); ?></h4>
+<div class="flex items-center gap-2">
+<h4 id="summary-plan-name" class="font-headline text-base sm:text-lg font-extrabold break-words font-editorial italic text-white editorial-word"><?php echo htmlspecialchars($plan_name); ?></h4>
+<button id="open-plan-modal" type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white transition-all hover:bg-white/20 hover:border-white/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60" aria-label="Change subscription plan">
+<span class="material-symbols-outlined text-lg leading-none">sync_alt</span>
+</button>
+</div>
 <p class="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-white/80">
 <span class="material-symbols-outlined shrink-0 text-base text-white/90">event_repeat</span>
                                     Billing monthly
                                 </p>
 </div>
-<p class="font-headline shrink-0 text-base sm:text-lg font-extrabold text-white">₱<?php echo number_format($plan_price, 2); ?></p>
+<p id="summary-plan-price-head" class="font-headline shrink-0 text-base sm:text-lg font-extrabold text-white">₱<?php echo number_format($plan_price, 2); ?></p>
 </div>
 <div class="space-y-2.5 pt-1">
 <div class="flex justify-between text-xs font-medium text-white sm:text-sm">
 <span class="text-white/75">Plan Subtotal</span>
-<span>₱<?php echo number_format($plan_price, 2); ?>/mo</span>
+<span id="summary-plan-subtotal">₱<?php echo number_format($plan_price, 2); ?>/mo</span>
 </div>
 <div class="flex justify-between text-xs font-medium text-white sm:text-sm">
 <span class="text-white/75">Setup Fee</span>
@@ -558,7 +573,7 @@ $is_selected_plan = ($plan_option_slug === $plan_slug);
 <p class="mb-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/70">Total Amount Due</p>
 <p class="text-[11px] font-bold text-white/80">PHP</p>
 </div>
-<p class="font-headline text-2xl font-extrabold tracking-tight text-white sm:text-3xl">₱<?php echo number_format($plan_price, 2); ?></p>
+<p id="summary-plan-total" class="font-headline text-2xl font-extrabold tracking-tight text-white sm:text-3xl">₱<?php echo number_format($plan_price, 2); ?></p>
 </div>
 <button type="submit" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3.5 text-xs font-bold uppercase tracking-wider text-primary shadow-xl transition-all hover:scale-[1.02] hover:bg-white/90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
                             Confirm Purchase
@@ -607,6 +622,47 @@ $simulate_fail_href = 'ProviderPurchase.php?' . http_build_query($simulate_fail_
 </div>
 </aside>
 </div>
+
+<div id="plan-selection-modal" class="plan-modal-backdrop fixed inset-0 z-[70] flex items-center justify-center bg-[#131c25]/45 p-4 sm:p-6" aria-hidden="true">
+<div class="plan-modal-panel w-full max-w-2xl rounded-2xl border border-on-surface/10 bg-white p-5 shadow-2xl sm:p-6">
+<div class="mb-4 flex items-start justify-between gap-4 border-b border-on-surface/10 pb-4">
+<div>
+<h3 class="font-headline text-xl font-extrabold tracking-tight text-on-surface">Switch Subscription Plan</h3>
+<p class="mt-1 text-sm font-medium text-on-surface-variant">Choose a plan and apply it to your order summary instantly.</p>
+</div>
+<button id="close-plan-modal" type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-on-surface/10 text-on-surface-variant transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" aria-label="Close plan selector">
+<span class="material-symbols-outlined text-lg leading-none">close</span>
+</button>
+</div>
+<div id="plan-modal-options" class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+<?php foreach ($allowed as $plan_option_slug): ?>
+<?php
+$plan_option = $available_plans[$plan_option_slug] ?? [
+    'plan_name' => ($plan_label_map[$plan_option_slug] ?? ucfirst($plan_option_slug)),
+    'plan_price' => (float) ($plan_price_fallback_map[$plan_option_slug] ?? 0),
+];
+$is_modal_selected = ($plan_option_slug === $plan_slug);
+?>
+<button
+    type="button"
+    data-plan-slug="<?php echo htmlspecialchars($plan_option_slug, ENT_QUOTES, 'UTF-8'); ?>"
+    class="plan-option group rounded-xl border bg-surface-container-low p-4 text-left transition-all duration-200 hover:border-primary/40 hover:shadow-md <?php echo $is_modal_selected ? 'is-selected border-primary ring-2 ring-primary/20' : 'border-on-surface/10'; ?>"
+>
+<p class="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant">Monthly Plan</p>
+<div class="mt-2 flex items-center justify-between gap-2">
+<h4 class="font-headline text-base font-extrabold text-on-surface"><?php echo htmlspecialchars((string) ($plan_option['plan_name'] ?? ucfirst($plan_option_slug)), ENT_QUOTES, 'UTF-8'); ?></h4>
+<span class="material-symbols-outlined text-base text-primary opacity-0 transition-opacity group-[.is-selected]:opacity-100">check_circle</span>
+</div>
+<p class="mt-1.5 text-sm font-semibold text-primary">₱<?php echo number_format((float) ($plan_option['plan_price'] ?? 0), 2); ?>/mo</p>
+</button>
+<?php endforeach; ?>
+</div>
+<div class="mt-5 flex items-center justify-end gap-2">
+<button id="cancel-plan-change" type="button" class="rounded-xl border border-on-surface/10 px-4 py-2.5 text-sm font-semibold text-on-surface-variant transition-colors hover:border-on-surface/20 hover:text-on-surface">Cancel</button>
+<button id="confirm-plan-change" type="button" class="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-primary/20 transition-transform hover:scale-[1.01] active:scale-[0.99]">Apply Plan</button>
+</div>
+</div>
+</div>
 </form>
 </main>
 </div>
@@ -654,6 +710,115 @@ $simulate_fail_href = 'ProviderPurchase.php?' . http_build_query($simulate_fail_
   });
 
   applySelection();
+})();
+
+(function () {
+  var plans = <?php echo $available_plans_json; ?>;
+  var selectedPlanInput = document.getElementById('selected_plan_slug');
+  var summaryPlanName = document.getElementById('summary-plan-name');
+  var summaryPriceHead = document.getElementById('summary-plan-price-head');
+  var summarySubtotal = document.getElementById('summary-plan-subtotal');
+  var summaryTotal = document.getElementById('summary-plan-total');
+  var modal = document.getElementById('plan-selection-modal');
+  var openBtn = document.getElementById('open-plan-modal');
+  var closeBtn = document.getElementById('close-plan-modal');
+  var cancelBtn = document.getElementById('cancel-plan-change');
+  var confirmBtn = document.getElementById('confirm-plan-change');
+  var optionButtons = Array.prototype.slice.call(document.querySelectorAll('.plan-option'));
+  var storageKey = 'providerPurchaseSelectedPlan';
+  var stagedPlanSlug = selectedPlanInput ? selectedPlanInput.value : '';
+  var currentPlanSlug = stagedPlanSlug;
+
+  if (!selectedPlanInput || !summaryPlanName || !summaryPriceHead || !summarySubtotal || !summaryTotal || !modal || !openBtn || optionButtons.length === 0) {
+    return;
+  }
+
+  function formatMoney(amount) {
+    var numeric = Number(amount) || 0;
+    return '\u20b1' + numeric.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function getPlan(planSlug) {
+    return plans && Object.prototype.hasOwnProperty.call(plans, planSlug) ? plans[planSlug] : null;
+  }
+
+  function applyPlanToSummary(planSlug) {
+    var plan = getPlan(planSlug);
+    if (!plan) return;
+    var name = plan.plan_name || 'Professional';
+    var price = Number(plan.plan_price || 0);
+    summaryPlanName.textContent = name;
+    summaryPriceHead.textContent = formatMoney(price);
+    summarySubtotal.textContent = formatMoney(price) + '/mo';
+    summaryTotal.textContent = formatMoney(price);
+    selectedPlanInput.value = planSlug;
+    currentPlanSlug = planSlug;
+    try {
+      window.localStorage.setItem(storageKey, planSlug);
+    } catch (e) {}
+  }
+
+  function syncOptionSelection(targetSlug) {
+    optionButtons.forEach(function (btn) {
+      var isSelected = btn.getAttribute('data-plan-slug') === targetSlug;
+      btn.classList.toggle('is-selected', isSelected);
+      btn.classList.toggle('border-primary', isSelected);
+      btn.classList.toggle('ring-2', isSelected);
+      btn.classList.toggle('ring-primary/20', isSelected);
+      btn.classList.toggle('border-on-surface/10', !isSelected);
+      btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+    });
+  }
+
+  function openModal() {
+    stagedPlanSlug = currentPlanSlug;
+    syncOptionSelection(stagedPlanSlug);
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('overflow-hidden');
+  }
+
+  function closeModal() {
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('overflow-hidden');
+  }
+
+  optionButtons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var planSlug = btn.getAttribute('data-plan-slug') || '';
+      if (!getPlan(planSlug) || planSlug === stagedPlanSlug) return;
+      stagedPlanSlug = planSlug;
+      syncOptionSelection(stagedPlanSlug);
+    });
+  });
+
+  openBtn.addEventListener('click', openModal);
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', function () {
+      applyPlanToSummary(stagedPlanSlug);
+      closeModal();
+    });
+  }
+  modal.addEventListener('click', function (e) {
+    if (e.target === modal) closeModal();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+  });
+
+  try {
+    var savedPlanSlug = window.localStorage.getItem(storageKey);
+    if (savedPlanSlug && getPlan(savedPlanSlug) && savedPlanSlug !== currentPlanSlug) {
+      applyPlanToSummary(savedPlanSlug);
+    } else {
+      applyPlanToSummary(currentPlanSlug);
+    }
+  } catch (e) {
+    applyPlanToSummary(currentPlanSlug);
+  }
 })();
 </script>
 </body></html>
