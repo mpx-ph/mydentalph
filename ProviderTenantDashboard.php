@@ -146,17 +146,18 @@ try {
                u.full_name AS owner_name, u.email AS owner_email, u.phone AS owner_phone
         FROM tbl_tenants t
         LEFT JOIN tbl_users u ON t.owner_user_id = u.user_id
-        INNER JOIN tbl_users su ON su.user_id = ? AND su.tenant_id = t.tenant_id
         WHERE t.tenant_id = ?
         LIMIT 1
     ");
-    $stmt->execute([(string) $user_id, (string) $tenant_id]);
+    $stmt->execute([(string) $tenant_id]);
     $tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 } catch (Throwable $e) {
     $tenant = [];
 }
 
 if (empty($tenant)) {
+    $_SESSION['provider_purchase_error'] = 'Tenant account data could not be loaded. Please sign in again.';
+    unset($_SESSION['user_id'], $_SESSION['tenant_id'], $_SESSION['is_owner']);
     header('Location: ProviderLogin.php');
     exit;
 }
