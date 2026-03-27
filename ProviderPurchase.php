@@ -264,7 +264,7 @@ if (!is_string($available_plans_json) || $available_plans_json === '') {
 }
 
 $error = '';
-$selected_payment_method = '';
+$selected_payment_method = 'card';
 $valid_methods = ['card', 'gcash', 'paymaya'];
 $form_token = $_SESSION['provider_purchase_form_token'] ?? '';
 if (!is_string($form_token) || $form_token === '') {
@@ -289,6 +289,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $payment_method = 'paymaya';
     }
     $selected_payment_method = $payment_method;
+    if ($selected_payment_method === 'maya') {
+        $selected_payment_method = 'paymaya';
+    }
     if ($error === '' && !in_array($payment_method, $valid_methods, true)) {
         $error = 'Please select a valid payment method before confirming your purchase.';
     }
@@ -821,8 +824,19 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
     form.addEventListener('submit', function (e) {
       var selected = root.querySelector('input[name="payment_method"]:checked');
       if (!selected) {
+        var fallbackCard = document.getElementById('pm_card');
+        if (fallbackCard) {
+          fallbackCard.checked = true;
+          selected = fallbackCard;
+          applySelection();
+        }
+      }
+      if (!selected) {
         e.preventDefault();
-        if (paymentError) paymentError.classList.remove('hidden');
+        if (paymentError) {
+          paymentError.textContent = 'Please choose a payment method before confirming your purchase.';
+          paymentError.classList.remove('hidden');
+        }
         submitBtn.disabled = false;
         return;
       }
