@@ -252,6 +252,19 @@ if (!$is_subscription_active) {
     }
 }
 
+if (!empty($sub['plan_id']) && (!isset($sub['plan_name']) || trim((string) ($sub['plan_name'] ?? '')) === '')) {
+    try {
+        $pnStmt = $pdo->prepare('SELECT plan_name FROM tbl_subscription_plans WHERE plan_id = ? LIMIT 1');
+        $pnStmt->execute([(int) $sub['plan_id']]);
+        $pnName = $pnStmt->fetchColumn();
+        if ($pnName !== false && $pnName !== null && trim((string) $pnName) !== '') {
+            $sub['plan_name'] = trim((string) $pnName);
+        }
+    } catch (Throwable $e) {
+        // Leave plan label to defaults below.
+    }
+}
+
 $clinic_name = trim((string) ($tenant['clinic_name'] ?? ''));
 $raw_website_value = trim((string) ($tenant['clinic_slug'] ?? ''));
 $clinic_slug = provider_dashboard_normalize_slug((string) ($tenant['clinic_slug'] ?? ''));
@@ -286,15 +299,30 @@ $plan_name = is_string($plan_name_raw) && trim($plan_name_raw) !== ''
     : ($is_subscription_active ? 'Active Plan' : 'No Active Subscription');
 $renewal_end = trim((string) ($sub['subscription_end'] ?? ''));
 $renewal_ts = $renewal_end !== '' ? strtotime($renewal_end) : false;
-$renewal_date = ($renewal_ts !== false) ? date('M j, Y', $renewal_ts) : '—';
+if ($is_subscription_active && $renewal_end === '') {
+    $renewal_date = 'Ongoing';
+} elseif ($renewal_ts !== false) {
+    $renewal_date = date('M j, Y', $renewal_ts);
+} else {
+    $renewal_date = '—';
+}
 
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host = trim((string) ($_SERVER['HTTP_HOST'] ?? 'mydental.ct.ws'));
 if ($host === '') {
     $host = 'mydental.ct.ws';
 }
-$raw_website_value = $raw_website_value !== '' ? $raw_website_value : $clinic_slug;
-[$tenant_base_url, $admin_dashboard_url, $domain_display, $has_visible_website] = provider_dashboard_resolve_website_urls($raw_website_value, $scheme, $host);
+$looks_full_url = preg_match('#^https?://#i', $raw_website_value) === 1;
+$looks_domain_only = $raw_website_value !== ''
+    && strpos($raw_website_value, '.') !== false
+    && strpos($raw_website_value, '/') === false
+    && strpos($raw_website_value, ' ') === false;
+$website_url_input = ($looks_full_url || $looks_domain_only)
+    ? $raw_website_value
+    : ($clinic_slug !== '' ? $clinic_slug : $raw_website_value);
+[$tenant_base_url, $admin_dashboard_url, $domain_display, $has_visible_website] = provider_dashboard_resolve_website_urls($website_url_input, $scheme, $host);
+$public_site_href = $tenant_base_url !== '' ? rtrim($tenant_base_url, '/') . '/' : '';
+$plan_card_primary_label = $is_subscription_active ? 'Renew or change plan' : 'Choose a plan';
 if (!$has_visible_website) {
     $domain_display = 'No Active Website';
 }
@@ -438,6 +466,10 @@ if (!$has_visible_website) {
 <?php endif; ?>
 </div>
 <p class="text-slate-400 text-sm mt-2">Renewal: <?php echo htmlspecialchars($renewal_date); ?></p>
+<div class="mt-4 pt-4 border-t border-slate-100 flex flex-wrap gap-2">
+<a class="inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-semibold bg-dental-blue text-white hover:bg-blue-600 transition-colors" href="ProviderPurchase.php"><?php echo htmlspecialchars($plan_card_primary_label); ?></a>
+<a class="inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-semibold border border-slate-200 text-slate-700 hover:border-dental-blue hover:text-dental-blue transition-colors" href="Provider-Plans.php">Compare plans</a>
+</div>
 </div>
 <!-- Domain Card -->
 <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
@@ -447,12 +479,20 @@ if (!$has_visible_website) {
 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
 </div>
 </div>
-<?php if ($has_visible_website): ?>
-<a class="text-lg font-bold text-dental-dark truncate hover:underline inline-block" href="<?php echo htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer">
+<?php if ($has_visible_website && $public_site_href !== ''): ?>
+<a class="text-lg font-bold text-dental-dark truncate hover:underline inline-block max-w-full" href="<?php echo htmlspecialchars($public_site_href, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer">
     <?php echo htmlspecialchars($domain_display); ?>
 </a>
+<p class="text-xs text-slate-400 mt-1 break-all"><?php echo htmlspecialchars($public_site_href); ?></p>
+<div class="flex flex-wrap items-center gap-2 mt-3">
+<button type="button" class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 text-slate-700 hover:border-dental-blue hover:text-dental-blue transition-colors" data-copy-url="<?php echo htmlspecialchars($public_site_href, ENT_QUOTES, 'UTF-8'); ?>">Copy link</button>
+<?php if ($admin_dashboard_url !== ''): ?>
+<a class="text-xs font-semibold text-dental-blue hover:underline" href="<?php echo htmlspecialchars($admin_dashboard_url, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer">Clinic admin</a>
+<?php endif; ?>
+</div>
 <?php else: ?>
 <h3 class="text-lg font-bold text-dental-dark truncate"><?php echo htmlspecialchars($domain_display); ?></h3>
+<p class="text-sm text-slate-500 mt-2">Your public site URL appears here after your clinic slug is set and subscription is active.</p>
 <?php endif; ?>
 <div class="flex items-center gap-2 mt-2">
 <span class="w-2 h-2 rounded-full <?php echo $has_visible_website ? 'bg-emerald-500' : 'bg-amber-500'; ?>"></span>
@@ -469,8 +509,8 @@ if (!$has_visible_website) {
 <button class="bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">Unpublish</button>
 <a
   class="w-full text-center mt-2 text-dental-blue text-sm font-medium hover:underline flex items-center justify-center gap-1"
-  href="<?php echo $has_visible_website && $tenant_base_url ? htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8') : '#'; ?>"
-  <?php if ($has_visible_website && $tenant_base_url): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>
+  href="<?php echo $has_visible_website && $public_site_href !== '' ? htmlspecialchars($public_site_href, ENT_QUOTES, 'UTF-8') : '#'; ?>"
+  <?php if ($has_visible_website && $public_site_href !== ''): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>
 >
                 <?php echo $has_visible_website ? 'View Live Website' : 'Website Link Unavailable'; ?>
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
@@ -577,6 +617,27 @@ if (!$has_visible_website) {
 </div>
 <!-- END: LayoutWrapper -->
 <script data-purpose="event-handlers">
-    // Keep JS block for future UI interactions (no forced redirects here).
+    document.querySelectorAll('[data-copy-url]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var url = btn.getAttribute('data-copy-url') || '';
+        if (!url) return;
+        function ok() {
+          var prev = btn.textContent;
+          btn.textContent = 'Copied!';
+          btn.disabled = true;
+          setTimeout(function () {
+            btn.textContent = prev;
+            btn.disabled = false;
+          }, 2000);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(url).then(ok).catch(function () {
+            window.prompt('Copy this URL:', url);
+          });
+        } else {
+          window.prompt('Copy this URL:', url);
+        }
+      });
+    });
   </script>
 </body></html>
