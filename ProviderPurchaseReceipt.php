@@ -37,15 +37,30 @@ $status = null;
 $status_detail = null;
 if (defined('PAYMONGO_SECRET_KEY')) {
     $secret = PAYMONGO_SECRET_KEY;
-    if ($secret && strpos($secret, 'YOUR_') === false && function_exists('curl_init')) {
-        $ch = curl_init('https://api.paymongo.com/v1/payment_intents/' . $payment_intent_id . '?client_key=' . urlencode($client_key));
-        curl_setopt_array($ch, [
-            CURLOPT_HTTPHEADER => ['Authorization: Basic ' . base64_encode($secret . ':')],
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 10,
-        ]);
-        $res = curl_exec($ch);
-        curl_close($ch);
+    if ($secret && strpos($secret, 'YOUR_') === false) {
+        $endpoint = 'https://api.paymongo.com/v1/payment_intents/' . $payment_intent_id . '?client_key=' . urlencode($client_key);
+        $headers = ['Authorization: Basic ' . base64_encode($secret . ':')];
+        $res = false;
+        if (function_exists('curl_init')) {
+            $ch = curl_init($endpoint);
+            curl_setopt_array($ch, [
+                CURLOPT_HTTPHEADER => $headers,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 10,
+            ]);
+            $res = curl_exec($ch);
+            curl_close($ch);
+        } else {
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'GET',
+                    'header' => implode("\r\n", $headers),
+                    'timeout' => 10,
+                    'ignore_errors' => true,
+                ],
+            ]);
+            $res = @file_get_contents($endpoint, false, $context);
+        }
         $data = $res ? json_decode($res, true) : null;
         $status = $data['data']['attributes']['status'] ?? null;
         $status_detail = $data['data']['attributes']['last_payment_error']['message'] ?? null;
