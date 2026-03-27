@@ -53,7 +53,7 @@ require_once __DIR__ . '/db.php';
 
 $tenant_id = null;
 $user_id = null;
-$plan_slug = '';
+$plan_slug = null;
 $allowed = ['starter', 'professional', 'enterprise'];
 $requested_plan_slug = isset($_GET['plan']) ? strtolower(trim((string) $_GET['plan'])) : 'professional';
 if (!in_array($requested_plan_slug, $allowed, true)) {
@@ -63,38 +63,37 @@ $force_from_clinic_setup_once = !empty($_SESSION['force_purchase_from_clinic_set
 // Consumed after we decide identity; used to skip VerifyBusiness on first load after clinic setup / approval redirect.
 $skip_business_verification_gate = $force_from_clinic_setup_once;
 
-if (!empty($_SESSION['onboarding_user_id']) && !empty($_SESSION['onboarding_tenant_id'])) {
-    $tenant_id = $_SESSION['onboarding_tenant_id'];
-    $user_id = $_SESSION['onboarding_user_id'];
-    $plan_slug = (string) ($_SESSION['onboarding_plan'] ?? $requested_plan_slug);
-    if ($force_from_clinic_setup_once) {
-        unset($_SESSION['force_purchase_from_clinic_setup_once']);
-    }
-} elseif (provider_has_authenticated_provider_session()) {
-    [$tid, $uid] = provider_get_authenticated_provider_identity_from_session();
-    // Keep users on purchase page when they explicitly navigate here.
-    // (Do not auto-forward to dashboard from this entry point.)
-    if (!empty($_SESSION['allow_purchase_page_once_after_payment'])) {
-        unset($_SESSION['allow_purchase_page_once_after_payment']);
-    }
-    if ($force_from_clinic_setup_once) {
-        unset($_SESSION['force_purchase_from_clinic_setup_once']);
-    }
-    $tenant_id = $tid;
-    $user_id = $uid;
-    $plan_slug = $requested_plan_slug;
-    $_SESSION['onboarding_plan'] = $plan_slug;
-}
-
-if (!in_array($plan_slug, $allowed, true)) {
-    $plan_slug = $requested_plan_slug;
-}
-
-if ($tenant_id === null || $user_id === null) {
+if (!provider_has_authenticated_provider_session()) {
     $redirect = 'ProviderPurchase.php?plan=' . urlencode($requested_plan_slug);
     header('Location: ProviderLogin.php?redirect=' . urlencode($redirect));
     exit;
 }
+
+[$tenant_id, $user_id] = provider_get_authenticated_provider_identity_from_session();
+
+if (!empty($_SESSION['onboarding_user_id']) && !empty($_SESSION['onboarding_tenant_id'])) {
+    $onboarding_tenant_id = (string) $_SESSION['onboarding_tenant_id'];
+    $onboarding_user_id = (string) $_SESSION['onboarding_user_id'];
+    if ($onboarding_tenant_id !== (string) $tenant_id || $onboarding_user_id !== (string) $user_id) {
+        unset(
+            $_SESSION['onboarding_tenant_id'],
+            $_SESSION['onboarding_user_id'],
+            $_SESSION['onboarding_plan'],
+            $_SESSION['onboarding_email']
+        );
+    }
+}
+
+// Keep users on purchase page when they explicitly navigate here.
+// (Do not auto-forward to dashboard from this entry point.)
+if (!empty($_SESSION['allow_purchase_page_once_after_payment'])) {
+    unset($_SESSION['allow_purchase_page_once_after_payment']);
+}
+if ($force_from_clinic_setup_once) {
+    unset($_SESSION['force_purchase_from_clinic_setup_once']);
+}
+$plan_slug = $requested_plan_slug;
+$_SESSION['onboarding_plan'] = $plan_slug;
 
 // Require business permit verification before purchase step.
 $business_verification = null;
@@ -128,9 +127,11 @@ $tenant = [];
 try {
     $stmt = $pdo->prepare("
         SELECT t.clinic_name, t.contact_email, t.contact_phone, t.clinic_address,
-               u.full_name AS owner_name, u.email AS owner_email, u.phone AS owner_phone
+               u.full_name AS owner_name, u.email AS owner_email, u.phone AS owner_phone,
+               au.email AS account_email
         FROM tbl_tenants t
-        LEFT JOIN tbl_users u ON u.user_id = ? AND u.tenant_id = t.tenant_id
+        LEFT JOIN tbl_users u ON t.owner_user_id = u.user_id
+        LEFT JOIN tbl_users au ON au.user_id = ? AND au.tenant_id = t.tenant_id AND au.status = 'active'
         WHERE t.tenant_id = ?
     ");
     $stmt->execute([$user_id, $tenant_id]);
@@ -138,14 +139,9 @@ try {
 } catch (Throwable $e) {
     $tenant = [];
 }
-$tenant_clinic_name = trim((string) ($tenant['clinic_name'] ?? ''));
-$tenant_contact_email = trim((string) ($tenant['contact_email'] ?? ''));
-$tenant_contact_phone = trim((string) ($tenant['contact_phone'] ?? ''));
-$tenant_clinic_address = trim((string) ($tenant['clinic_address'] ?? ''));
-$tenant_owner_email = trim((string) ($tenant['owner_email'] ?? ($_SESSION['email'] ?? '')));
-if ($tenant_contact_email === '' && $tenant_owner_email !== '') {
-    $tenant_contact_email = $tenant_owner_email;
-}
+
+$prefill_clinic_name = (string) ($tenant['clinic_name'] ?? '');
+$prefill_email = (string) ($tenant['account_email'] ?? $tenant['owner_email'] ?? $tenant['contact_email'] ?? $_SESSION['email'] ?? '');
 
 $plan = null;
 try {
@@ -181,40 +177,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!in_array($payment_method, $valid_methods, true)) {
         $payment_method = 'card';
     }
-    $clinic_name = trim($_POST['clinic_name'] ?? '');
-    $contact_email = trim($_POST['clinic_email'] ?? '');
+    $clinic_name_post = trim($_POST['clinic_name'] ?? '');
+    $contact_email_post = trim($_POST['clinic_email'] ?? '');
+    $clinic_name = $clinic_name_post !== '' ? $clinic_name_post : $prefill_clinic_name;
+    $contact_email = $contact_email_post !== '' ? $contact_email_post : $prefill_email;
     $contact_phone = trim($_POST['clinic_phone'] ?? '');
     $clinic_address = trim($_POST['clinic_address'] ?? '');
-    if ($contact_email !== '' && !filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
-        $error = 'Please enter a valid clinic email address.';
-    }
-    if ($clinic_name === '') {
-        $clinic_name = $tenant_clinic_name;
-    }
-    if ($contact_email === '') {
-        $contact_email = $tenant_contact_email;
-    }
-    if ($contact_phone === '') {
-        $contact_phone = $tenant_contact_phone;
-    }
-    if ($clinic_address === '') {
-        $clinic_address = $tenant_clinic_address;
-    }
-    if ($error === '') {
-        try {
-            $stmt = $pdo->prepare("UPDATE tbl_tenants SET clinic_name = COALESCE(NULLIF(?, ''), clinic_name), contact_email = COALESCE(NULLIF(?, ''), contact_email), contact_phone = ?, clinic_address = ? WHERE tenant_id = ?");
-            $stmt->execute([$clinic_name, $contact_email, $contact_phone, $clinic_address, $tenant_id]);
-            $tenant_clinic_name = $clinic_name !== '' ? $clinic_name : $tenant_clinic_name;
-            $tenant_contact_email = $contact_email !== '' ? $contact_email : $tenant_contact_email;
-            $tenant_contact_phone = $contact_phone;
-            $tenant_clinic_address = $clinic_address;
-            $tenant['clinic_name'] = $tenant_clinic_name;
-            $tenant['contact_email'] = $tenant_contact_email;
-            $tenant['contact_phone'] = $tenant_contact_phone;
-            $tenant['clinic_address'] = $tenant_clinic_address;
-        } catch (PDOException $e) {
-            $error = "Could not save clinic details. Please try again.";
-        }
+    try {
+        $stmt = $pdo->prepare("UPDATE tbl_tenants SET clinic_name = COALESCE(NULLIF(?, ''), clinic_name), contact_email = COALESCE(NULLIF(?, ''), contact_email), contact_phone = ?, clinic_address = ? WHERE tenant_id = ?");
+        $stmt->execute([$clinic_name, $contact_email, $contact_phone, $clinic_address, $tenant_id]);
+    } catch (PDOException $e) {
+        $error = "Could not save clinic details. Please try again.";
     }
 
     if ($error === '' && in_array($payment_method, ['card', 'gcash', 'paymaya'], true)) {
@@ -260,7 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_SESSION['paymongo_client_key'] = $client_key;
                         $_SESSION['paymongo_payment_intent_id'] = $payment_intent_id;
                         $_SESSION['paymongo_payment_method'] = $payment_method; // card | gcash | paymaya
-                        $_SESSION['paymongo_billing_email'] = $tenant_contact_email !== '' ? $tenant_contact_email : ($tenant_owner_email !== '' ? $tenant_owner_email : '');
+                        $_SESSION['paymongo_billing_email'] = $contact_email !== '' ? $contact_email : $prefill_email;
                         $_SESSION['paymongo_tenant_id'] = $tenant_id;
                         $_SESSION['paymongo_user_id'] = $user_id;
                         $_SESSION['paymongo_plan_id'] = $plan_id;
@@ -439,19 +412,19 @@ $back_href = 'ProviderClinicSetup.php';
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
 <div class="space-y-1.5 md:col-span-2">
 <label class="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant px-0.5">Clinic Name</label>
-<input name="clinic_name" autocomplete="organization" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10" placeholder="e.g. Precision Dental" type="text" value="<?php echo htmlspecialchars($tenant_clinic_name); ?>"/>
+<input name="clinic_name" autocomplete="organization" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10" placeholder="e.g. Precision Dental" type="text" value="<?php echo htmlspecialchars($prefill_clinic_name); ?>"/>
 </div>
 <div class="space-y-1.5">
 <label class="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant px-0.5">Work Email</label>
-<input name="clinic_email" autocomplete="email" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10" placeholder="admin@clinic.com" type="email" value="<?php echo htmlspecialchars($tenant_contact_email); ?>"/>
+<input name="clinic_email" autocomplete="email" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10" placeholder="admin@clinic.com" type="email" value="<?php echo htmlspecialchars($prefill_email); ?>"/>
 </div>
 <div class="space-y-1.5">
 <label class="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant px-0.5">Contact Number</label>
-<input name="clinic_phone" autocomplete="tel" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10" placeholder="+63 912 345 6789" type="tel" value="<?php echo htmlspecialchars($tenant_contact_phone); ?>"/>
+<input name="clinic_phone" autocomplete="tel" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10" placeholder="+63 912 345 6789" type="tel" value="<?php echo htmlspecialchars($tenant['contact_phone'] ?? ''); ?>"/>
 </div>
 <div class="space-y-1.5 md:col-span-2">
 <label class="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant px-0.5">Business Address</label>
-<textarea name="clinic_address" autocomplete="street-address" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10 min-h-[88px] resize-y" placeholder="Street, City, ZIP" rows="3"><?php echo htmlspecialchars($tenant_clinic_address); ?></textarea>
+<textarea name="clinic_address" autocomplete="street-address" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10 min-h-[88px] resize-y" placeholder="Street, City, ZIP" rows="3"><?php echo htmlspecialchars($tenant['clinic_address'] ?? ''); ?></textarea>
 </div>
 </div>
 </section>

@@ -156,8 +156,8 @@ if ($setup_token !== '' && $setup_request_id > 0) {
 }
 
 if (!$setup_access_granted && !$token_attempted) {
-    $session_user_id = (string) ($_SESSION['onboarding_user_id'] ?? $_SESSION['user_id'] ?? '');
-    $session_tenant_id = (string) ($_SESSION['onboarding_tenant_id'] ?? $_SESSION['tenant_id'] ?? '');
+    $session_user_id = (string) ($_SESSION['user_id'] ?? '');
+    $session_tenant_id = (string) ($_SESSION['tenant_id'] ?? '');
     if ($session_user_id !== '' && $session_tenant_id !== '') {
         $tenant_id = $session_tenant_id;
         $user_id = $session_user_id;
@@ -207,26 +207,10 @@ if ((string) $session_tenant_id !== (string) $tenant_id || (string) $session_use
 }
 
 $tenant = [];
-$current_contact_email = '';
-$current_contact_phone = '';
-$current_clinic_address = '';
-$current_owner_email = '';
 if ($tenant_id !== '') {
     try {
-        $stmt = $pdo->prepare("
-            SELECT
-                t.clinic_name,
-                t.clinic_slug,
-                t.contact_email,
-                t.contact_phone,
-                t.clinic_address,
-                u.email AS owner_email
-            FROM tbl_tenants t
-            LEFT JOIN tbl_users u ON u.user_id = ? AND u.tenant_id = t.tenant_id
-            WHERE t.tenant_id = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$user_id, $tenant_id]);
+        $stmt = $pdo->prepare("SELECT clinic_name, clinic_slug FROM tbl_tenants WHERE tenant_id = ?");
+        $stmt->execute([$tenant_id]);
         $tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
     } catch (Throwable $e) {
         setup_log_error('Tenant prefill failed.', $e);
@@ -235,21 +219,11 @@ if ($tenant_id !== '') {
 }
 $current_clinic_name = (string) ($tenant['clinic_name'] ?? '');
 $current_slug = (string) ($tenant['clinic_slug'] ?? '');
-$current_contact_email = trim((string) ($tenant['contact_email'] ?? ''));
-$current_contact_phone = trim((string) ($tenant['contact_phone'] ?? ''));
-$current_clinic_address = trim((string) ($tenant['clinic_address'] ?? ''));
-$current_owner_email = trim((string) ($tenant['owner_email'] ?? ($_SESSION['email'] ?? '')));
-if ($current_contact_email === '' && $current_owner_email !== '') {
-    $current_contact_email = $current_owner_email;
-}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $setup_access_granted) {
     $clinic_name = trim((string) ($_POST['clinic_name'] ?? ''));
     $clinic_slug_raw = trim((string) ($_POST['clinic_slug'] ?? ''));
     $clinic_slug = preg_replace('/[^a-z0-9\-]/', '', strtolower($clinic_slug_raw));
-    $contact_email = trim((string) ($_POST['clinic_email'] ?? ''));
-    $contact_phone = trim((string) ($_POST['clinic_phone'] ?? ''));
-    $clinic_address = trim((string) ($_POST['clinic_address'] ?? ''));
     $owner_user_id = (string) ($approved_request['owner_user_id'] ?? $user_id);
 
     if ($tenant_id === '' || $owner_user_id === '') {
@@ -266,8 +240,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $setup_access_granted) {
         $error = 'Clinic URL can only contain lowercase letters, numbers, and hyphens.';
     } elseif (strlen($clinic_slug) < 3 || strlen($clinic_slug) > 100) {
         $error = 'Clinic URL must be between 3 and 100 characters.';
-    } elseif ($contact_email !== '' && !filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
-        $error = 'Please enter a valid clinic email address.';
     } else {
         try {
             $stmt = $pdo->prepare("SELECT COUNT(*) FROM tbl_tenants WHERE clinic_slug = ? AND tenant_id != ?");
@@ -275,19 +247,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $setup_access_granted) {
             if ((int) $stmt->fetchColumn() > 0) {
                 $error = 'This clinic URL is already taken. Please choose another.';
             } else {
-                $stmt = $pdo->prepare("
-                    UPDATE tbl_tenants
-                    SET clinic_name = ?, clinic_slug = ?, contact_email = ?, contact_phone = ?, clinic_address = ?
-                    WHERE tenant_id = ?
-                ");
-                $stmt->execute([$clinic_name, $clinic_slug, $contact_email, $contact_phone, $clinic_address, $tenant_id]);
+                $stmt = $pdo->prepare("UPDATE tbl_tenants SET clinic_name = ?, clinic_slug = ? WHERE tenant_id = ?");
+                $stmt->execute([$clinic_name, $clinic_slug, $tenant_id]);
 
                 $_SESSION['onboarding_tenant_id'] = $tenant_id;
                 $_SESSION['onboarding_user_id'] = $owner_user_id;
                 $_SESSION['onboarding_setup_completed_at'] = time();
                 $_SESSION['onboarding_clinic_name'] = $clinic_name;
                 $_SESSION['onboarding_clinic_slug'] = $clinic_slug;
-                $_SESSION['onboarding_contact_email'] = $contact_email;
                 $_SESSION['force_purchase_from_clinic_setup_once'] = 1;
 
                 $next_plan = strtolower(trim((string) ($_SESSION['onboarding_plan'] ?? '')));
@@ -310,14 +277,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $setup_access_granted) {
 
 if ($current_slug === '' && $current_clinic_name !== '') {
     $current_slug = preg_replace('/[^a-z0-9\-]/', '', strtolower(str_replace(' ', '', $current_clinic_name)));
-}
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $error !== '') {
-    $current_clinic_name = trim((string) ($_POST['clinic_name'] ?? $current_clinic_name));
-    $current_slug = preg_replace('/[^a-z0-9\-]/', '', strtolower(trim((string) ($_POST['clinic_slug'] ?? $current_slug))));
-    $current_contact_email = trim((string) ($_POST['clinic_email'] ?? $current_contact_email));
-    $current_contact_phone = trim((string) ($_POST['clinic_phone'] ?? $current_contact_phone));
-    $current_clinic_address = trim((string) ($_POST['clinic_address'] ?? $current_clinic_address));
 }
 ?>
 <!DOCTYPE html>
@@ -463,53 +422,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $error !== '') {
                             required
                             <?php echo $setup_access_granted ? '' : 'disabled'; ?>
                         />
-                    </div>
-                </div>
-
-                <!-- Clinic Contact Email -->
-                <div class="group">
-                    <label class="block font-headline text-xs font-bold uppercase tracking-[0.2em] text-on-surface/60 mb-3 px-1" for="clinic-email">Clinic Email</label>
-                    <div class="relative">
-                        <input
-                            class="w-full bg-surface-container-low border border-on-surface/5 focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-2xl py-4.5 px-6 text-on-surface placeholder:text-on-surface-variant/40 transition-all font-body font-medium outline-none"
-                            id="clinic-email"
-                            name="clinic_email"
-                            placeholder="e.g. admin@northstardental.com"
-                            type="email"
-                            value="<?php echo htmlspecialchars($current_contact_email); ?>"
-                            <?php echo $setup_access_granted ? '' : 'disabled'; ?>
-                        />
-                    </div>
-                </div>
-
-                <!-- Clinic Contact Phone -->
-                <div class="group">
-                    <label class="block font-headline text-xs font-bold uppercase tracking-[0.2em] text-on-surface/60 mb-3 px-1" for="clinic-phone">Contact Number</label>
-                    <div class="relative">
-                        <input
-                            class="w-full bg-surface-container-low border border-on-surface/5 focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-2xl py-4.5 px-6 text-on-surface placeholder:text-on-surface-variant/40 transition-all font-body font-medium outline-none"
-                            id="clinic-phone"
-                            name="clinic_phone"
-                            placeholder="+63 912 345 6789"
-                            type="tel"
-                            value="<?php echo htmlspecialchars($current_contact_phone); ?>"
-                            <?php echo $setup_access_granted ? '' : 'disabled'; ?>
-                        />
-                    </div>
-                </div>
-
-                <!-- Clinic Address -->
-                <div class="group">
-                    <label class="block font-headline text-xs font-bold uppercase tracking-[0.2em] text-on-surface/60 mb-3 px-1" for="clinic-address">Clinic Address</label>
-                    <div class="relative">
-                        <textarea
-                            class="w-full bg-surface-container-low border border-on-surface/5 focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-2xl py-4.5 px-6 text-on-surface placeholder:text-on-surface-variant/40 transition-all font-body font-medium outline-none min-h-[100px] resize-y"
-                            id="clinic-address"
-                            name="clinic_address"
-                            placeholder="Street, City, ZIP"
-                            rows="3"
-                            <?php echo $setup_access_granted ? '' : 'disabled'; ?>
-                        ><?php echo htmlspecialchars($current_clinic_address); ?></textarea>
                     </div>
                 </div>
 
