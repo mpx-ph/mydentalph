@@ -148,7 +148,7 @@ provider_require_approved_for_provider_portal();
                     </div>
                     <h1
                         class="font-headline text-[clamp(2.6rem,5.5vw,4.6rem)] font-extrabold tracking-[-0.05em] text-on-surface mb-6 leading-[0.88]">
-                        <span class="block">Piere Your</span>
+                        <span class="block">Modern Your</span>
                         <span class="relative block">
                             <span
                                 class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Practice.</span>
@@ -454,24 +454,25 @@ provider_require_approved_for_provider_portal();
         </div>
     </footer>
     <script>
-                    (functi                                var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: red                atches;
+            (functi                                var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: red                atches;
                 var elements = document.querySelectorAll('[dat                ="section"]');
 
-                if (!elemen                lements.length) return;
-                if (prefersReduced ||                    tionObserver' in window)) {
-                    elements.forEach(func                    el.class                ('i                e'); });
-                    return;
+        if (!elemen                lements.length) return;
+        if (prefersReduced || tionObserver' in window)) {
+        elements.forEach(func                    el.class('i                e'); });
+        return;
                 }
 
                          ar observer = new IntersectionObser                        tries) {
-                                               ction (entry) {
-                        if                        ecting) {                                     entry.target.classList.add('is-visib                                              } el                                         entry.target.classList.remove('is                ');
+            ction(entry) {
+                if                        ecting) {
+                    entry.target.classList.add('is-visib                                              } el                                         entry.target.classList.remove('is                ');
                         }
-                    });
-                        },shold: 0.18, rootMargin: '0px 0px -10% 0px' });
+            });
+        }, shold: 0.18, rootMargin: '0px 0px -10% 0px' });
 
-                elements.forEach(function (el) { observer.observe(el); });
-            })();
+        elements.forEach(function (el) { observer.observe(el); });
+            }) ();
     </script>
 </body>
 
