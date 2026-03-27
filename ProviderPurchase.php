@@ -296,10 +296,7 @@ if ($debug_mode) {
 }
 $form_action_href = 'ProviderPurchase.php' . ($form_action_qs !== [] ? '?' . http_build_query($form_action_qs) : '');
 
-$back_href = 'Provider-Plans.php';
-if (!empty($plan_slug)) {
-    $back_href .= '?plan=' . urlencode((string) $plan_slug);
-}
+$back_href = 'ProviderClinicSetup.php';
 ?>
 <!DOCTYPE html>
 
@@ -377,20 +374,20 @@ if (!empty($plan_slug)) {
 <main class="pt-4 pb-10 px-4 sm:px-6 max-w-5xl mx-auto w-full flex-1">
 <a href="<?php echo htmlspecialchars($back_href, ENT_QUOTES, 'UTF-8'); ?>" class="inline-flex items-center gap-1.5 text-sm font-semibold text-on-surface-variant hover:text-primary transition-colors mb-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded-lg -ml-1 px-1 py-1">
 <span class="material-symbols-outlined text-xl leading-none" aria-hidden="true">arrow_back</span>
-        Back to plans
+        Back to Clinic Setup
     </a>
 <div class="mb-8">
-<h1 class="font-headline text-2xl sm:text-3xl font-extrabold tracking-tight text-on-surface mb-3 leading-tight">
-        Purchase Your <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block text-[1.15em]">Plan</span>
+<h1 class="font-headline text-3xl sm:text-4xl font-extrabold tracking-tight text-on-surface mb-3 leading-tight">
+        Purchase Your <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block text-[1.12em]">Plan</span>
 </h1>
-<p class="font-body text-on-surface-variant text-sm sm:text-[15px] max-w-xl font-medium">Complete your subscription setup to activate your professional dental clinic tools and provider portal access.</p>
+<p class="font-body text-on-surface-variant text-[15px] sm:text-base max-w-xl font-medium">Complete your subscription setup to activate your professional dental clinic tools and provider portal access.</p>
 </div>
 <?php if ($error): ?>
 <div class="mb-6 p-3.5 rounded-xl border border-error/20 bg-red-50 text-error text-sm font-medium"><?php echo $error; ?></div>
 <?php endif; ?>
 <form method="post" action="<?php echo htmlspecialchars($form_action_href, ENT_QUOTES, 'UTF-8'); ?>" class="space-y-0">
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
-<!-- Left Column: Clinic, account, payment -->
+<!-- Left Column: Clinic & payment -->
 <div class="lg:col-span-7 space-y-6">
 <section class="bg-surface-container-low rounded-2xl p-5 sm:p-6 border border-on-surface/5">
 <div class="flex items-center gap-3 mb-5">
@@ -418,26 +415,6 @@ if (!empty($plan_slug)) {
 <div class="space-y-1.5 md:col-span-2">
 <label class="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant px-0.5">Business Address</label>
 <textarea name="clinic_address" autocomplete="street-address" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10 min-h-[88px] resize-y" placeholder="Street, City, ZIP" rows="3"><?php echo htmlspecialchars($tenant['clinic_address'] ?? ''); ?></textarea>
-</div>
-</div>
-</section>
-
-<section class="bg-surface-container-low rounded-2xl p-5 sm:p-6 border border-on-surface/5">
-<div class="flex items-center gap-3 mb-5">
-<div class="bg-primary text-white p-2 rounded-xl shadow-md shadow-primary/20">
-<span class="material-symbols-outlined text-[22px]">person</span>
-</div>
-<div>
-<h2 class="font-headline text-lg sm:text-xl font-extrabold tracking-tight">Account Authority</h2>
-<p class="text-xs font-medium text-on-surface-variant">Clinic owner from registration — update in Profile after login</p>
-</div>
-</div>
-<div class="rounded-xl bg-white/80 border border-on-surface/10 p-4 space-y-2.5 shadow-sm">
-<p class="text-sm text-on-surface-variant">To change name, email, or phone for the owner account, use <strong class="text-on-surface">Profile / Settings</strong> after logging in.</p>
-<div class="pt-2 space-y-2 border-t border-on-surface/10">
-<div class="text-sm"><span class="font-semibold text-on-surface-variant">Name:</span> <?php echo htmlspecialchars($tenant['owner_name'] ?? $_SESSION['onboarding_full_name'] ?? '—'); ?></div>
-<div class="text-sm"><span class="font-semibold text-on-surface-variant">Email:</span> <?php echo htmlspecialchars($tenant['owner_email'] ?? $_SESSION['onboarding_email'] ?? '—'); ?></div>
-<div class="text-sm"><span class="font-semibold text-on-surface-variant">Phone:</span> <?php echo htmlspecialchars($tenant['owner_phone'] ?? '—'); ?></div>
 </div>
 </div>
 </section>
@@ -482,39 +459,40 @@ if (!empty($plan_slug)) {
 
 <!-- Right Column: Order summary -->
 <aside class="lg:col-span-5 lg:sticky lg:top-24 self-start w-full">
-<div class="bg-white rounded-2xl p-5 sm:p-6 shadow-lg shadow-primary/5 relative overflow-hidden border border-on-surface/5">
-<div class="absolute top-0 right-0 w-28 h-28 bg-primary/5 rounded-bl-full pointer-events-none" aria-hidden="true"></div>
-<h3 class="font-headline text-lg sm:text-xl font-extrabold mb-5 tracking-tight relative">Order Summary</h3>
+<div class="rounded-2xl p-5 sm:p-6 shadow-lg shadow-primary/20 relative overflow-hidden border border-primary/25 bg-gradient-to-br from-primary/25 via-primary-fixed/90 to-primary/15">
+<div class="absolute top-0 right-0 w-32 h-32 bg-white/25 rounded-bl-full pointer-events-none" aria-hidden="true"></div>
+<div class="absolute -bottom-8 -left-8 w-24 h-24 rounded-full bg-primary/10 pointer-events-none" aria-hidden="true"></div>
+<h3 class="font-headline text-lg sm:text-xl font-extrabold mb-5 tracking-tight relative text-on-surface">Order Summary</h3>
 <div class="space-y-5 relative">
-<div class="flex justify-between items-start gap-3 pb-5 border-b border-on-surface/5">
+<div class="flex justify-between items-start gap-3 pb-5 border-b border-primary/20">
 <div class="min-w-0">
-<p class="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant mb-1">Selected Plan</p>
+<p class="text-[10px] font-black uppercase tracking-[0.18em] text-on-primary-fixed-variant/80 mb-1">Selected Plan</p>
 <h4 class="font-headline text-base sm:text-lg font-extrabold text-primary break-words"><?php echo htmlspecialchars($plan_name); ?></h4>
 <p class="text-xs font-medium text-on-surface-variant flex items-center gap-1.5 mt-1.5">
-<span class="material-symbols-outlined text-base shrink-0">event_repeat</span>
+<span class="material-symbols-outlined text-base shrink-0 text-primary/80">event_repeat</span>
                                     Billing monthly
                                 </p>
 </div>
-<p class="font-headline text-base sm:text-lg font-extrabold shrink-0">₱<?php echo number_format($plan_price, 2); ?></p>
+<p class="font-headline text-base sm:text-lg font-extrabold shrink-0 text-on-surface">₱<?php echo number_format($plan_price, 2); ?></p>
 </div>
 <div class="space-y-2.5 pt-1">
-<div class="flex justify-between text-on-surface-variant font-medium text-xs sm:text-sm">
-<span>Plan Subtotal</span>
+<div class="flex justify-between text-on-surface font-medium text-xs sm:text-sm">
+<span class="text-on-surface-variant">Plan Subtotal</span>
 <span>₱<?php echo number_format($plan_price, 2); ?>/mo</span>
 </div>
-<div class="flex justify-between text-on-surface-variant font-medium text-xs sm:text-sm">
-<span>Setup Fee</span>
+<div class="flex justify-between text-on-surface font-medium text-xs sm:text-sm">
+<span class="text-on-surface-variant">Setup Fee</span>
 <span>₱0.00</span>
 </div>
 </div>
-<div class="pt-5 mt-4 border-t border-primary/10 flex flex-col sm:flex-row sm:justify-between sm:items-end gap-2">
+<div class="pt-5 mt-4 border-t border-primary/25 flex flex-col sm:flex-row sm:justify-between sm:items-end gap-2">
 <div>
-<p class="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant mb-0.5">Total Amount Due</p>
+<p class="text-[10px] font-black uppercase tracking-[0.18em] text-on-primary-fixed-variant/80 mb-0.5">Total Amount Due</p>
 <p class="text-[11px] font-bold text-on-surface-variant">PHP</p>
 </div>
 <p class="font-headline text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight">₱<?php echo number_format($plan_price, 2); ?></p>
 </div>
-<button type="submit" class="w-full bg-primary py-3.5 rounded-xl text-white font-bold text-xs uppercase tracking-wider shadow-md shadow-primary/25 hover:bg-primary/95 active:scale-[0.99] transition-all flex items-center justify-center gap-2 mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+<button type="submit" class="w-full bg-primary py-3.5 rounded-xl text-white font-bold text-xs uppercase tracking-wider shadow-md shadow-primary/35 hover:bg-[#1a73e8] active:scale-[0.99] transition-all flex items-center justify-center gap-2 mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
                             Confirm Purchase
                             <span class="material-symbols-outlined text-lg" aria-hidden="true">arrow_right_alt</span>
 </button>
@@ -528,16 +506,16 @@ if ($debug_mode) {
 }
 $simulate_fail_href = 'ProviderPurchase.php?' . http_build_query($simulate_fail_qs);
 ?>
-<a href="<?php echo htmlspecialchars($simulate_fail_href, ENT_QUOTES, 'UTF-8'); ?>" class="block text-center text-[11px] text-on-surface-variant/70 hover:text-error transition-colors mt-3">Simulate payment failure</a>
-<p class="text-[10px] text-center text-on-surface-variant/80 mt-3 leading-relaxed">
+<a href="<?php echo htmlspecialchars($simulate_fail_href, ENT_QUOTES, 'UTF-8'); ?>" class="block text-center text-[11px] text-on-primary-fixed-variant/80 hover:text-error transition-colors mt-3">Simulate payment failure</a>
+<p class="text-[10px] text-center text-on-surface-variant/90 mt-3 leading-relaxed">
                                     By confirming, you agree to our Terms of Service and Privacy Policy. Your subscription will renew automatically.
                                 </p>
 <div class="flex flex-col items-center gap-3 pt-5">
-<div class="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-on-surface-variant/40">
+<div class="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-on-primary-fixed-variant/70">
 <span class="material-symbols-outlined text-sm">lock</span>
                                 Secure Payment Gateway
                             </div>
-<p class="text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant/35">Visa · Mastercard · American Express</p>
+<p class="text-[10px] font-semibold uppercase tracking-wider text-on-primary-fixed-variant/60">Visa · Mastercard · American Express</p>
 </div>
 </div>
 </div>
