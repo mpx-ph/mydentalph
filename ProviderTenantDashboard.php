@@ -67,6 +67,85 @@ if (!function_exists('provider_dashboard_normalize_slug')) {
         return (string) $slug;
     }
 }
+if (!function_exists('provider_dashboard_get_tenant_website_fields')) {
+    function provider_dashboard_get_tenant_website_fields(PDO $pdo): array
+    {
+        static $resolved = null;
+        if (is_array($resolved)) {
+            return $resolved;
+        }
+        $candidates = ['clinic_slug', 'custom_domain', 'clinic_domain', 'domain', 'domain_link', 'website_url', 'website_link'];
+        $resolved = [];
+        try {
+            $stmt = $pdo->query("
+                SELECT COLUMN_NAME
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'tbl_tenants'
+            ");
+            $existing = $stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : [];
+            $existing = array_map('strtolower', is_array($existing) ? $existing : []);
+            foreach ($candidates as $field) {
+                if (in_array(strtolower($field), $existing, true)) {
+                    $resolved[] = $field;
+                }
+            }
+        } catch (Throwable $e) {
+            $resolved = ['clinic_slug'];
+        }
+        if (empty($resolved)) {
+            $resolved = ['clinic_slug'];
+        }
+        return $resolved;
+    }
+}
+if (!function_exists('provider_dashboard_pick_website_value')) {
+    function provider_dashboard_pick_website_value(array $row): string
+    {
+        $priority = ['custom_domain', 'clinic_domain', 'domain', 'domain_link', 'website_url', 'website_link', 'clinic_slug'];
+        foreach ($priority as $key) {
+            if (!array_key_exists($key, $row)) {
+                continue;
+            }
+            $value = trim((string) $row[$key]);
+            if ($value !== '') {
+                return $value;
+            }
+        }
+        return '';
+    }
+}
+if (!function_exists('provider_dashboard_resolve_website_urls')) {
+    function provider_dashboard_resolve_website_urls(string $rawValue, string $scheme, string $host): array
+    {
+        $raw = trim($rawValue);
+        if ($raw === '') {
+            return ['', '', '', false];
+        }
+
+        $raw = str_replace('\\', '/', $raw);
+        $raw = trim($raw);
+        $looks_full_url = preg_match('#^https?://#i', $raw) === 1;
+        $looks_domain = (strpos($raw, '.') !== false && strpos($raw, ' ') === false && strpos($raw, '/') === false);
+
+        if ($looks_full_url) {
+            $parsedHost = (string) (parse_url($raw, PHP_URL_HOST) ?? '');
+            $display = $parsedHost !== '' ? $parsedHost : preg_replace('#^https?://#i', '', $raw);
+            return [$raw, $raw, $display, true];
+        }
+        if ($looks_domain) {
+            $url = $scheme . '://' . $raw;
+            return [$url, $url . '/AdminDashboard.php', $raw, true];
+        }
+
+        $slug = provider_dashboard_normalize_slug($raw);
+        if ($slug === '') {
+            return ['', '', '', false];
+        }
+        $base = $scheme . '://' . $host . '/' . rawurlencode($slug);
+        return [$base, $base . '/AdminDashboard.php', $host . '/' . $slug, true];
+    }
+}
 
 // Unified dashboard flow for new payment pipeline:
 // 1) Save settings (optional POST)
@@ -197,55 +276,82 @@ if (!$is_subscription_active) {
 }
 
 $clinic_name = trim((string) ($tenant['clinic_name'] ?? ''));
+$website_fields = provider_dashboard_get_tenant_website_fields($pdo);
+$tenant_website_values = [];
+if (!empty($tenant)) {
+    foreach ($website_fields as $field) {
+        $tenant_website_values[$field] = (string) ($tenant[$field] ?? '');
+    }
+}
+$raw_website_value = provider_dashboard_pick_website_value($tenant_website_values);
 $clinic_slug = provider_dashboard_normalize_slug((string) ($tenant['clinic_slug'] ?? ''));
 if ($clinic_name === '') {
     $clinic_name = 'My Clinic';
 }
 
 // Resolve slug robustly using tenant_id + user_id based lookups and session fallback.
-if ($clinic_slug === '') {
+if ($raw_website_value === '' && $clinic_slug === '') {
     $session_slug = provider_dashboard_normalize_slug((string) ($_SESSION['tenant_clinic_slug'] ?? ''));
     if ($session_slug !== '') {
         $clinic_slug = $session_slug;
+        $raw_website_value = $session_slug;
     }
 }
-if ($clinic_slug === '') {
+if ($raw_website_value === '' && $clinic_slug === '') {
     try {
-        $slugStmt = $pdo->prepare("SELECT clinic_slug FROM tbl_tenants WHERE tenant_id = ? LIMIT 1");
+        $dynamicFields = provider_dashboard_get_tenant_website_fields($pdo);
+        $selectCols = implode(', ', array_map(static function ($f) {
+            return '`' . str_replace('`', '', $f) . '`';
+        }, $dynamicFields));
+        $slugStmt = $pdo->prepare("SELECT {$selectCols} FROM tbl_tenants WHERE tenant_id = ? LIMIT 1");
         $slugStmt->execute([(string) $tenant_id]);
-        $slugFromTenant = provider_dashboard_normalize_slug((string) $slugStmt->fetchColumn());
-        if ($slugFromTenant !== '') {
-            $clinic_slug = $slugFromTenant;
+        $row = $slugStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $picked = provider_dashboard_pick_website_value(is_array($row) ? $row : []);
+        if ($picked !== '') {
+            $raw_website_value = $picked;
+            $clinic_slug = provider_dashboard_normalize_slug($picked);
         }
     } catch (Throwable $e) {
         // Continue to next fallback.
     }
 }
-if ($clinic_slug === '') {
+if ($raw_website_value === '' && $clinic_slug === '') {
     try {
+        $dynamicFields = provider_dashboard_get_tenant_website_fields($pdo);
+        $selectCols = implode(', ', array_map(static function ($f) {
+            return 't.`' . str_replace('`', '', $f) . '`';
+        }, $dynamicFields));
         $slugStmt = $pdo->prepare("
-            SELECT t.clinic_slug
+            SELECT {$selectCols}
             FROM tbl_users u
             INNER JOIN tbl_tenants t ON t.tenant_id = u.tenant_id
             WHERE u.user_id = ?
             LIMIT 1
         ");
         $slugStmt->execute([(string) $user_id]);
-        $slugFromUserTenant = provider_dashboard_normalize_slug((string) $slugStmt->fetchColumn());
-        if ($slugFromUserTenant !== '') {
-            $clinic_slug = $slugFromUserTenant;
+        $row = $slugStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $picked = provider_dashboard_pick_website_value(is_array($row) ? $row : []);
+        if ($picked !== '') {
+            $raw_website_value = $picked;
+            $clinic_slug = provider_dashboard_normalize_slug($picked);
         }
     } catch (Throwable $e) {
         // Continue to next fallback.
     }
 }
-if ($clinic_slug === '') {
+if ($raw_website_value === '' && $clinic_slug === '') {
     try {
-        $slugStmt = $pdo->prepare("SELECT clinic_slug FROM tbl_tenants WHERE owner_user_id = ? LIMIT 1");
+        $dynamicFields = provider_dashboard_get_tenant_website_fields($pdo);
+        $selectCols = implode(', ', array_map(static function ($f) {
+            return '`' . str_replace('`', '', $f) . '`';
+        }, $dynamicFields));
+        $slugStmt = $pdo->prepare("SELECT {$selectCols} FROM tbl_tenants WHERE owner_user_id = ? LIMIT 1");
         $slugStmt->execute([(string) $user_id]);
-        $slugFromOwner = provider_dashboard_normalize_slug((string) $slugStmt->fetchColumn());
-        if ($slugFromOwner !== '') {
-            $clinic_slug = $slugFromOwner;
+        $row = $slugStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $picked = provider_dashboard_pick_website_value(is_array($row) ? $row : []);
+        if ($picked !== '') {
+            $raw_website_value = $picked;
+            $clinic_slug = provider_dashboard_normalize_slug($picked);
         }
     } catch (Throwable $e) {
         // Keep empty slug.
@@ -286,13 +392,24 @@ $host = trim((string) ($_SERVER['HTTP_HOST'] ?? 'mydental.ct.ws'));
 if ($host === '') {
     $host = 'mydental.ct.ws';
 }
-$tenant_base_url = $clinic_slug !== '' ? ($scheme . '://' . $host . '/' . rawurlencode($clinic_slug)) : '';
-$admin_dashboard_url = $tenant_base_url !== '' ? ($tenant_base_url . '/AdminDashboard.php') : '';
+$raw_website_value = $raw_website_value !== '' ? $raw_website_value : $clinic_slug;
+[$tenant_base_url, $admin_dashboard_url, $domain_display, $has_visible_website] = provider_dashboard_resolve_website_urls($raw_website_value, $scheme, $host);
 $has_clinic_slug = $clinic_slug !== '';
-$has_visible_website = $has_clinic_slug;
-$domain_display = $has_visible_website ? ($host . '/' . $clinic_slug) : 'No Active Website';
+if (!$has_visible_website && !empty($_SESSION['tenant_clinic_link'])) {
+    $sessionLink = trim((string) $_SESSION['tenant_clinic_link']);
+    if ($sessionLink !== '') {
+        $sessionDisplay = preg_replace('#^https?://#i', '', $sessionLink);
+        $tenant_base_url = preg_match('#^https?://#i', $sessionLink) ? $sessionLink : ($scheme . '://' . $sessionLink);
+        $admin_dashboard_url = rtrim($tenant_base_url, '/') . '/AdminDashboard.php';
+        $domain_display = $sessionDisplay;
+        $has_visible_website = true;
+    }
+}
+if (!$has_visible_website) {
+    $domain_display = 'No Active Website';
+}
 if ($has_visible_website) {
-    $_SESSION['tenant_clinic_link'] = $host . '/' . $clinic_slug;
+    $_SESSION['tenant_clinic_link'] = preg_replace('#^https?://#i', '', (string) $tenant_base_url);
     if (!$is_subscription_active && !is_string($plan_name_raw)) {
         $plan_name = 'Website Available';
     }
