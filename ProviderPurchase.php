@@ -385,6 +385,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'Authorization: Basic ' . base64_encode($secret . ':'),
                 ];
                 $res = false;
+                $transport_error = '';
                 if (function_exists('curl_init')) {
                     $ch = curl_init($endpoint);
                     curl_setopt_array($ch, [
@@ -395,6 +396,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         CURLOPT_TIMEOUT => 20,
                     ]);
                     $res = curl_exec($ch);
+                    if ($res === false) {
+                        $transport_error = (string) curl_error($ch);
+                    }
                     curl_close($ch);
                 } else {
                     $context = stream_context_create([
@@ -407,6 +411,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ],
                     ]);
                     $res = @file_get_contents($endpoint, false, $context);
+                    if ($res === false) {
+                        $transport_error = 'Unable to contact PayMongo endpoint.';
+                    }
                 }
 
                 $data = is_string($res) && $res !== '' ? json_decode($res, true) : null;
@@ -429,9 +436,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $api_error = $data['errors'][0]['detail'] ?? ($data['errors'][0]['title'] ?? '');
-                $error = $api_error !== ''
-                    ? ('Could not create payment session: ' . $api_error)
-                    : 'Could not create checkout session. Please try again.';
+                if ($api_error !== '') {
+                    $error = 'Could not create payment session: ' . $api_error;
+                } elseif ($transport_error !== '') {
+                    $error = 'Could not reach PayMongo: ' . $transport_error;
+                } else {
+                    $response_excerpt = is_string($res) ? substr(trim($res), 0, 280) : '';
+                    $error = $response_excerpt !== ''
+                        ? ('Checkout session was not returned by PayMongo. Response: ' . $response_excerpt)
+                        : 'Could not create checkout session. Please try again.';
+                }
             } catch (Throwable $e) {
                 $error = 'Payment provider is currently unavailable. Please try again shortly.';
             }
@@ -821,6 +835,10 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
   });
 
   if (form && submitBtn) {
+    submitBtn.addEventListener('click', function () {
+      if (paymentError) paymentError.classList.add('hidden');
+    });
+
     form.addEventListener('submit', function (e) {
       var selected = root.querySelector('input[name="payment_method"]:checked');
       if (!selected) {
@@ -832,22 +850,13 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
         }
       }
       if (!selected) {
-        e.preventDefault();
-        if (paymentError) {
-          paymentError.textContent = 'Please choose a payment method before confirming your purchase.';
-          paymentError.classList.remove('hidden');
-        }
-        submitBtn.disabled = false;
-        return;
+        // Do not block submission; backend will still validate and return clear errors.
       }
       if (!selectedPlanInput || !selectedPlanInput.value) {
-        e.preventDefault();
-        if (paymentError) {
-          paymentError.textContent = 'Please select a subscription plan before confirming your purchase.';
-          paymentError.classList.remove('hidden');
+        // Fail-safe default plan if hidden field was unexpectedly cleared client-side.
+        if (selectedPlanInput) {
+          selectedPlanInput.value = 'professional';
         }
-        submitBtn.disabled = false;
-        return;
       }
 
       // Prevent duplicate clicks while backend creates checkout session.
