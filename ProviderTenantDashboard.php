@@ -31,7 +31,6 @@ try {
 }
 $clinic_name = $tenant['clinic_name'] ?? 'My Clinic';
 $clinic_slug = $tenant['clinic_slug'] ?? '';
-$domain_display = $clinic_slug ? 'mydental.ct.ws/' . $clinic_slug : 'No Active Website';
 
 // Build tenant-specific URLs (based on Domain & Hosting / clinic_slug)
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
@@ -72,7 +71,9 @@ $plan_name = is_string($plan_name_raw) && trim($plan_name_raw) !== ''
 $renewal_end = isset($sub['subscription_end']) ? trim((string) $sub['subscription_end']) : '';
 $renewal_ts = $renewal_end !== '' ? strtotime($renewal_end) : false;
 $renewal_date = ($renewal_ts !== false) ? date('M j, Y', $renewal_ts) : '—';
-$has_active_website = $is_subscription_active && trim((string) $clinic_slug) !== '';
+$has_clinic_slug = trim((string) $clinic_slug) !== '';
+$has_active_website = $is_subscription_active && $has_clinic_slug;
+$domain_display = $has_active_website ? ($host . '/' . $clinic_slug) : 'No Active Website';
 
 $settings_saved = false;
 $settings_error = '';
@@ -220,9 +221,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   class="bg-white text-dental-blue px-8 py-4 rounded-2xl font-bold text-lg hover:bg-slate-50 transition-all transform hover:scale-105 active:scale-95 shadow-xl inline-flex items-center justify-center"
   id="open-dashboard-btn"
   href="<?php echo $admin_dashboard_url ? htmlspecialchars($admin_dashboard_url, ENT_QUOTES, 'UTF-8') : '#'; ?>"
-  <?php if ($admin_dashboard_url): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>
+  <?php if ($has_active_website && $admin_dashboard_url): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>
 >
-  Open Clinic Management Dashboard
+  <?php echo $has_active_website ? 'Open Clinic Management Dashboard' : 'No Active Website'; ?>
 </a>
 </section>
 <!-- END: ActionBanner -->
@@ -261,7 +262,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <h3 class="text-lg font-bold text-dental-dark truncate"><?php echo htmlspecialchars($domain_display); ?></h3>
 <div class="flex items-center gap-2 mt-2">
 <span class="w-2 h-2 rounded-full <?php echo $has_active_website ? 'bg-emerald-500' : 'bg-amber-500'; ?>"></span>
-<span class="text-slate-500 text-sm"><?php echo $has_active_website ? 'Website Published' : 'No Active Website'; ?></span>
+<span class="text-slate-500 text-sm"><?php echo $has_active_website ? 'Website Published' : 'Website Not Yet Published'; ?></span>
 </div>
 </div>
 <!-- Quick Actions Card -->
@@ -274,10 +275,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <button class="bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">Unpublish</button>
 <a
   class="w-full text-center mt-2 text-dental-blue text-sm font-medium hover:underline flex items-center justify-center gap-1"
-  href="<?php echo $tenant_base_url ? htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8') : '#'; ?>"
-  <?php if ($tenant_base_url): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>
+  href="<?php echo $has_active_website && $tenant_base_url ? htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8') : '#'; ?>"
+  <?php if ($has_active_website && $tenant_base_url): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>
 >
-                <?php echo $has_active_website ? 'View Live Website' : 'Website Not Ready'; ?>
+                <?php echo $has_active_website ? 'View Live Website' : 'Website Link Unavailable'; ?>
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
 </a>
 </div>

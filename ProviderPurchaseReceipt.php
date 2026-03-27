@@ -123,6 +123,67 @@ if (!function_exists('provider_array_get')) {
         return $cursor;
     }
 }
+if (!function_exists('provider_slugify')) {
+    function provider_slugify(string $value): string
+    {
+        $value = strtolower(trim($value));
+        if ($value === '') {
+            return '';
+        }
+        $value = preg_replace('/[^a-z0-9]+/', '-', $value);
+        $value = trim((string) $value, '-');
+        $value = preg_replace('/-+/', '-', (string) $value);
+        return (string) $value;
+    }
+}
+if (!function_exists('provider_normalize_slug_candidate')) {
+    function provider_normalize_slug_candidate(string $value): string
+    {
+        $slug = strtolower(trim($value));
+        $slug = preg_replace('/[^a-z0-9\-]/', '-', $slug);
+        $slug = preg_replace('/-+/', '-', (string) $slug);
+        $slug = trim((string) $slug, '-');
+        return (string) $slug;
+    }
+}
+if (!function_exists('provider_resolve_unique_clinic_slug')) {
+    function provider_resolve_unique_clinic_slug(PDO $pdo, string $tenant_id, string $baseSlug): string
+    {
+        $candidate = provider_normalize_slug_candidate($baseSlug);
+        if ($candidate === '' || strlen($candidate) < 3) {
+            $candidate = 'clinic';
+        }
+        if (strlen($candidate) > 100) {
+            $candidate = substr($candidate, 0, 100);
+            $candidate = rtrim($candidate, '-');
+            if (strlen($candidate) < 3) {
+                $candidate = 'clinic';
+            }
+        }
+
+        $checkStmt = $pdo->prepare("SELECT tenant_id FROM tbl_tenants WHERE clinic_slug = ? LIMIT 1");
+        for ($attempt = 0; $attempt < 100; $attempt++) {
+            $slug = $candidate;
+            if ($attempt > 0) {
+                $suffix = '-' . ($attempt + 1);
+                $trimmedBase = $candidate;
+                $maxBaseLen = 100 - strlen($suffix);
+                if (strlen($trimmedBase) > $maxBaseLen) {
+                    $trimmedBase = rtrim(substr($trimmedBase, 0, $maxBaseLen), '-');
+                }
+                $slug = ($trimmedBase !== '' ? $trimmedBase : 'clinic') . $suffix;
+            }
+
+            $checkStmt->execute([$slug]);
+            $slugOwner = $checkStmt->fetchColumn();
+            if ($slugOwner === false || (string) $slugOwner === (string) $tenant_id) {
+                return $slug;
+            }
+        }
+
+        throw new RuntimeException('Unable to allocate a unique clinic URL.');
+    }
+}
 
 if (defined('PAYMONGO_SECRET_KEY')) {
     $secret = PAYMONGO_SECRET_KEY;
@@ -192,59 +253,22 @@ if (in_array((string) $status_from_query, ['failed', 'cancelled', 'canceled'], t
     exit;
 }
 
-if (!function_exists('provider_slugify_for_tenant')) {
-    function provider_slugify_for_tenant(string $raw, string $tenantId): string
-    {
-        $slug = strtolower(trim($raw));
-        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
-        $slug = trim((string) $slug, '-');
-        $slug = preg_replace('/-+/', '-', (string) $slug);
-        if (!is_string($slug) || $slug === '') {
-            $fallback = strtolower(preg_replace('/[^a-z0-9]/', '', $tenantId));
-            if ($fallback === '') {
-                $fallback = substr(bin2hex(random_bytes(4)), 0, 8);
-            }
-            $slug = 'clinic-' . $fallback;
-        }
-        if (strlen($slug) < 3) {
-            $slug .= '-site';
-        }
-        return substr($slug, 0, 100);
-    }
-}
-
-if (!function_exists('provider_reserve_unique_tenant_slug')) {
-    function provider_reserve_unique_tenant_slug(PDO $pdo, string $tenantId, string $baseSlug): string
-    {
-        $baseSlug = provider_slugify_for_tenant($baseSlug, $tenantId);
-        $maxAttempts = 200;
-        for ($i = 0; $i <= $maxAttempts; $i++) {
-            $suffix = $i === 0 ? '' : ('-' . $i);
-            $allowedBaseLength = 100 - strlen($suffix);
-            if ($allowedBaseLength < 1) {
-                $allowedBaseLength = 1;
-            }
-            $candidateBase = substr($baseSlug, 0, $allowedBaseLength);
-            $candidate = $candidateBase . $suffix;
-            $stmt = $pdo->prepare("
-                SELECT tenant_id
-                FROM tbl_tenants
-                WHERE clinic_slug = ?
-                LIMIT 1
-            ");
-            $stmt->execute([$candidate]);
-            $existingTenant = (string) ($stmt->fetchColumn() ?: '');
-            if ($existingTenant === '' || $existingTenant === $tenantId) {
-                return $candidate;
-            }
-        }
-        throw new RuntimeException('Unable to reserve unique clinic slug.');
-    }
-}
-
 // Idempotent finalization: do not insert duplicate successful subscriptions.
 try {
     $pdo->beginTransaction();
+    $tenantSelectStmt = $pdo->prepare("
+        SELECT clinic_name, clinic_slug
+        FROM tbl_tenants
+        WHERE tenant_id = ?
+        LIMIT 1
+        FOR UPDATE
+    ");
+    $tenantSelectStmt->execute([(string) $tenant_id]);
+    $tenantRow = $tenantSelectStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    if (!$tenantRow) {
+        throw new RuntimeException('Tenant record not found.');
+    }
+
     $checkStmt = $pdo->prepare("
         SELECT id
         FROM tbl_tenant_subscriptions
@@ -273,54 +297,44 @@ try {
         ]);
     }
 
-    $tenantLockStmt = $pdo->prepare("
-        SELECT clinic_name, clinic_slug
-        FROM tbl_tenants
-        WHERE tenant_id = ?
-        LIMIT 1
-        FOR UPDATE
-    ");
-    $tenantLockStmt->execute([(string) $tenant_id]);
-    $tenantRow = $tenantLockStmt->fetch(PDO::FETCH_ASSOC) ?: null;
-    if (!$tenantRow) {
-        throw new RuntimeException('Tenant not found during payment finalization.');
-    }
-
     $existingClinicName = trim((string) ($tenantRow['clinic_name'] ?? ''));
     $existingClinicSlug = trim((string) ($tenantRow['clinic_slug'] ?? ''));
-    $finalClinicName = $existingClinicName !== '' ? $existingClinicName : ('Clinic ' . (string) $tenant_id);
-    $finalClinicSlug = $existingClinicSlug;
+    $sessionClinicName = trim((string) ($_SESSION['onboarding_clinic_name'] ?? ''));
+    $sessionClinicSlug = trim((string) ($_SESSION['onboarding_clinic_slug'] ?? ''));
 
-    // Provision website/domain once after successful payment, but keep it idempotent.
-    if ($finalClinicSlug === '') {
-        $requestedClinicName = trim((string) ($_SESSION['onboarding_clinic_name'] ?? ''));
-        $requestedClinicSlug = trim((string) ($_SESSION['onboarding_clinic_slug'] ?? ''));
-        if ($requestedClinicName !== '') {
-            $finalClinicName = $requestedClinicName;
-        }
+    $resolvedClinicName = $existingClinicName !== '' ? $existingClinicName : $sessionClinicName;
+    if ($resolvedClinicName === '') {
+        $resolvedClinicName = 'MyDental Clinic';
+    }
 
-        if ($requestedClinicSlug !== '') {
-            $finalClinicSlug = provider_reserve_unique_tenant_slug($pdo, (string) $tenant_id, $requestedClinicSlug);
-        } else {
-            $slugSeed = $finalClinicName !== '' ? $finalClinicName : ((string) $plan_name . '-' . (string) $tenant_id);
-            $finalClinicSlug = provider_reserve_unique_tenant_slug($pdo, (string) $tenant_id, $slugSeed);
+    $resolvedClinicSlug = provider_normalize_slug_candidate($existingClinicSlug);
+    if ($resolvedClinicSlug === '') {
+        $slugSeed = $sessionClinicSlug !== '' ? $sessionClinicSlug : provider_slugify($resolvedClinicName);
+        if ($slugSeed === '') {
+            $slugSeed = 'clinic-' . strtolower(preg_replace('/[^a-z0-9]/i', '', (string) $tenant_id));
         }
+        $resolvedClinicSlug = provider_resolve_unique_clinic_slug($pdo, (string) $tenant_id, $slugSeed);
+    }
+    if ($resolvedClinicSlug === '') {
+        throw new RuntimeException('Unable to finalize clinic website URL.');
     }
 
     $tenantStmt = $pdo->prepare("
         UPDATE tbl_tenants
-        SET subscription_status = 'active',
-            clinic_name = ?,
-            clinic_slug = ?
+        SET clinic_name = ?,
+            clinic_slug = ?,
+            subscription_status = 'active'
         WHERE tenant_id = ?
     ");
-    $tenantStmt->execute([$finalClinicName, $finalClinicSlug, (string) $tenant_id]);
-
-    $_SESSION['onboarding_setup_completed_at'] = $_SESSION['onboarding_setup_completed_at'] ?? time();
-    $_SESSION['onboarding_clinic_name'] = $finalClinicName;
-    $_SESSION['onboarding_clinic_slug'] = $finalClinicSlug;
-
+    $tenantStmt->execute([$resolvedClinicName, $resolvedClinicSlug, (string) $tenant_id]);
     $pdo->commit();
+
+    $public_host = trim((string) ($_SERVER['HTTP_HOST'] ?? 'mydental.ct.ws'));
+    if ($public_host === '') {
+        $public_host = 'mydental.ct.ws';
+    }
+    $_SESSION['tenant_clinic_slug'] = $resolvedClinicSlug;
+    $_SESSION['tenant_clinic_link'] = $public_host . '/' . $resolvedClinicSlug;
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
