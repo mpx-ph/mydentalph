@@ -207,14 +207,29 @@ foreach ($allowed as $allowed_slug) {
         'plan_slug' => $allowed_slug,
     ];
 }
+$resolve_allowed_slug = static function (array $row): string {
+    $raw_slug = strtolower(trim((string) ($row['plan_slug'] ?? '')));
+    $raw_name = strtolower(trim((string) ($row['plan_name'] ?? '')));
+    $combined = trim($raw_slug . ' ' . $raw_name);
+    if ($combined === '') {
+        return '';
+    }
+    if (strpos($combined, 'starter') !== false) {
+        return 'starter';
+    }
+    if (strpos($combined, 'professional') !== false || strpos($combined, 'pro') !== false) {
+        return 'professional';
+    }
+    if (strpos($combined, 'enterprise') !== false || strpos($combined, 'premium') !== false) {
+        return 'enterprise';
+    }
+    return '';
+};
 try {
     $stmt = $pdo->query("SELECT plan_id, plan_name, price, plan_slug FROM tbl_subscription_plans ORDER BY plan_id ASC");
     $rows = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
     foreach ($rows as $row) {
-        $row_slug = strtolower(trim((string) ($row['plan_slug'] ?? '')));
-        if ($row_slug === '') {
-            $row_slug = strtolower(trim((string) ($row['plan_name'] ?? '')));
-        }
+        $row_slug = $resolve_allowed_slug($row);
         if (!in_array($row_slug, $allowed, true)) {
             continue;
         }
