@@ -1,5 +1,10 @@
 <?php
 session_start();
+if (isset($_GET['debug']) && $_GET['debug'] === '1') {
+    @ini_set('display_errors', '1');
+    @ini_set('display_startup_errors', '1');
+    error_reporting(E_ALL);
+}
 require_once __DIR__ . '/provider_redirect_superadmin.php';
 require_once __DIR__ . '/provider_auth.php';
 provider_require_approved_for_provider_portal();
@@ -65,54 +70,6 @@ if (!function_exists('provider_dashboard_normalize_slug')) {
         $slug = preg_replace('/-+/', '-', (string) $slug);
         $slug = trim((string) $slug, '-');
         return (string) $slug;
-    }
-}
-if (!function_exists('provider_dashboard_get_tenant_website_fields')) {
-    function provider_dashboard_get_tenant_website_fields(PDO $pdo): array
-    {
-        static $resolved = null;
-        if (is_array($resolved)) {
-            return $resolved;
-        }
-        $candidates = ['clinic_slug', 'custom_domain', 'clinic_domain', 'domain', 'domain_link', 'website_url', 'website_link'];
-        $resolved = [];
-        try {
-            $stmt = $pdo->query("
-                SELECT COLUMN_NAME
-                FROM information_schema.COLUMNS
-                WHERE TABLE_SCHEMA = DATABASE()
-                  AND TABLE_NAME = 'tbl_tenants'
-            ");
-            $existing = $stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : [];
-            $existing = array_map('strtolower', is_array($existing) ? $existing : []);
-            foreach ($candidates as $field) {
-                if (in_array(strtolower($field), $existing, true)) {
-                    $resolved[] = $field;
-                }
-            }
-        } catch (Throwable $e) {
-            $resolved = ['clinic_slug'];
-        }
-        if (empty($resolved)) {
-            $resolved = ['clinic_slug'];
-        }
-        return $resolved;
-    }
-}
-if (!function_exists('provider_dashboard_pick_website_value')) {
-    function provider_dashboard_pick_website_value(array $row): string
-    {
-        $priority = ['custom_domain', 'clinic_domain', 'domain', 'domain_link', 'website_url', 'website_link', 'clinic_slug'];
-        foreach ($priority as $key) {
-            if (!array_key_exists($key, $row)) {
-                continue;
-            }
-            $value = trim((string) $row[$key]);
-            if ($value !== '') {
-                return $value;
-            }
-        }
-        return '';
     }
 }
 if (!function_exists('provider_dashboard_resolve_website_urls')) {
@@ -276,14 +233,7 @@ if (!$is_subscription_active) {
 }
 
 $clinic_name = trim((string) ($tenant['clinic_name'] ?? ''));
-$website_fields = provider_dashboard_get_tenant_website_fields($pdo);
-$tenant_website_values = [];
-if (!empty($tenant)) {
-    foreach ($website_fields as $field) {
-        $tenant_website_values[$field] = (string) ($tenant[$field] ?? '');
-    }
-}
-$raw_website_value = provider_dashboard_pick_website_value($tenant_website_values);
+$raw_website_value = trim((string) ($tenant['clinic_slug'] ?? ''));
 $clinic_slug = provider_dashboard_normalize_slug((string) ($tenant['clinic_slug'] ?? ''));
 if ($clinic_name === '') {
     $clinic_name = 'My Clinic';
@@ -299,17 +249,12 @@ if ($raw_website_value === '' && $clinic_slug === '') {
 }
 if ($raw_website_value === '' && $clinic_slug === '') {
     try {
-        $dynamicFields = provider_dashboard_get_tenant_website_fields($pdo);
-        $selectCols = implode(', ', array_map(static function ($f) {
-            return '`' . str_replace('`', '', $f) . '`';
-        }, $dynamicFields));
-        $slugStmt = $pdo->prepare("SELECT {$selectCols} FROM tbl_tenants WHERE tenant_id = ? LIMIT 1");
+        $slugStmt = $pdo->prepare("SELECT clinic_slug FROM tbl_tenants WHERE tenant_id = ? LIMIT 1");
         $slugStmt->execute([(string) $tenant_id]);
-        $row = $slugStmt->fetch(PDO::FETCH_ASSOC) ?: [];
-        $picked = provider_dashboard_pick_website_value(is_array($row) ? $row : []);
-        if ($picked !== '') {
-            $raw_website_value = $picked;
-            $clinic_slug = provider_dashboard_normalize_slug($picked);
+        $slugFromTenant = trim((string) $slugStmt->fetchColumn());
+        if ($slugFromTenant !== '') {
+            $raw_website_value = $slugFromTenant;
+            $clinic_slug = provider_dashboard_normalize_slug($slugFromTenant);
         }
     } catch (Throwable $e) {
         // Continue to next fallback.
@@ -317,23 +262,18 @@ if ($raw_website_value === '' && $clinic_slug === '') {
 }
 if ($raw_website_value === '' && $clinic_slug === '') {
     try {
-        $dynamicFields = provider_dashboard_get_tenant_website_fields($pdo);
-        $selectCols = implode(', ', array_map(static function ($f) {
-            return 't.`' . str_replace('`', '', $f) . '`';
-        }, $dynamicFields));
         $slugStmt = $pdo->prepare("
-            SELECT {$selectCols}
+            SELECT t.clinic_slug
             FROM tbl_users u
             INNER JOIN tbl_tenants t ON t.tenant_id = u.tenant_id
             WHERE u.user_id = ?
             LIMIT 1
         ");
         $slugStmt->execute([(string) $user_id]);
-        $row = $slugStmt->fetch(PDO::FETCH_ASSOC) ?: [];
-        $picked = provider_dashboard_pick_website_value(is_array($row) ? $row : []);
-        if ($picked !== '') {
-            $raw_website_value = $picked;
-            $clinic_slug = provider_dashboard_normalize_slug($picked);
+        $slugFromUserTenant = trim((string) $slugStmt->fetchColumn());
+        if ($slugFromUserTenant !== '') {
+            $raw_website_value = $slugFromUserTenant;
+            $clinic_slug = provider_dashboard_normalize_slug($slugFromUserTenant);
         }
     } catch (Throwable $e) {
         // Continue to next fallback.
@@ -341,17 +281,12 @@ if ($raw_website_value === '' && $clinic_slug === '') {
 }
 if ($raw_website_value === '' && $clinic_slug === '') {
     try {
-        $dynamicFields = provider_dashboard_get_tenant_website_fields($pdo);
-        $selectCols = implode(', ', array_map(static function ($f) {
-            return '`' . str_replace('`', '', $f) . '`';
-        }, $dynamicFields));
-        $slugStmt = $pdo->prepare("SELECT {$selectCols} FROM tbl_tenants WHERE owner_user_id = ? LIMIT 1");
+        $slugStmt = $pdo->prepare("SELECT clinic_slug FROM tbl_tenants WHERE owner_user_id = ? LIMIT 1");
         $slugStmt->execute([(string) $user_id]);
-        $row = $slugStmt->fetch(PDO::FETCH_ASSOC) ?: [];
-        $picked = provider_dashboard_pick_website_value(is_array($row) ? $row : []);
-        if ($picked !== '') {
-            $raw_website_value = $picked;
-            $clinic_slug = provider_dashboard_normalize_slug($picked);
+        $slugFromOwner = trim((string) $slugStmt->fetchColumn());
+        if ($slugFromOwner !== '') {
+            $raw_website_value = $slugFromOwner;
+            $clinic_slug = provider_dashboard_normalize_slug($slugFromOwner);
         }
     } catch (Throwable $e) {
         // Keep empty slug.
