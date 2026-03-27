@@ -289,208 +289,281 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 ?>
 <!DOCTYPE html>
 
-<html lang="en"><head>
+<html class="light scroll-smooth" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Purchase Your Plan - MyDental.com</title>
+<title>Purchase Your Plan | MyDental.com</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Playfair+Display:ital,wght@1,400;1,700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#2b8cee",
-                        "background-light": "#f6f7f8",
-                        "background-dark": "#101922",
-                    },
-                    fontFamily: {
-                        "display": ["Manrope"]
-                    },
-                    borderRadius: {
-                        "DEFAULT": "0.25rem",
-                        "lg": "0.5rem",
-                        "xl": "0.75rem",
-                        "full": "9999px"
-                    },
-                },
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#2b8beb",
+              "on-surface": "#131c25",
+              "surface": "#ffffff",
+              "surface-variant": "#f7f9ff",
+              "on-surface-variant": "#404752",
+              "outline-variant": "#c0c7d4",
+              "primary-fixed": "#d4e3ff",
+              "on-primary-fixed-variant": "#004883",
+              "surface-container-low": "#edf4ff",
+              "inverse-surface": "#131c25",
+              "error": "#ba1a1a",
+              "surface-container-lowest": "#ffffff",
+              "surface-container": "#e6effc",
+              "surface-bright": "#ffffff",
+              "background-light": "#f6f7f8",
+              "background-dark": "#101922",
             },
-        }
+            fontFamily: {
+              "headline": ["Manrope", "sans-serif"],
+              "body": ["Inter", "sans-serif"],
+              "editorial": ["Playfair Display", "serif"],
+              "label": ["Inter", "sans-serif"],
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1.5rem", "3xl": "2.5rem", "full": "9999px"},
+          },
+        },
+      }
     </script>
 <style>
-        body {
-            font-family: 'Manrope', sans-serif;
-        }
-        .form-input:focus {
-            border-color: #2b8cee !important;
-            ring-color: #2b8cee !important;
-        }
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .glass-card {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+      .primary-gradient {
+        background: linear-gradient(135deg, #2b8beb 0%, #1a73e8 100%);
+      }
+      .editorial-word {
+        text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
+        letter-spacing: -0.02em;
+      }
+      .purchase-input:focus {
+        border-color: rgba(43, 139, 235, 0.45);
+        box-shadow: 0 0 0 3px rgba(43, 139, 235, 0.15);
+        outline: none;
+      }
+      .pm-fill-icon {
+        font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
     </style>
 </head>
-<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen font-display">
-<div class="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
-<div class="layout-container flex h-full grow flex-col">
+<body class="bg-surface font-body text-on-surface min-h-screen">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
 <?php include 'ProviderNavbar.php'; ?>
-<main class="flex flex-1 justify-center py-10 px-4 md:px-0">
-<div class="layout-content-container flex flex-col max-w-[800px] flex-1">
-<!-- Page Header -->
-<div class="flex flex-col gap-2 mb-8">
-<h1 class="text-slate-900 dark:text-white text-4xl font-black leading-tight tracking-tight">Purchase Your Plan</h1>
-<p class="text-slate-500 dark:text-slate-400 text-lg">Complete the details below to activate your professional dental clinic subscription.</p>
+<main class="pt-8 md:pt-16 pb-16 md:pb-20 px-4 sm:px-8 max-w-screen-2xl mx-auto w-full flex-1">
+<div class="mb-12 md:mb-16">
+<h1 class="font-headline text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tighter text-on-surface mb-4 md:mb-6 leading-[1.1]">
+        Purchase Your <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Plan</span>
+</h1>
+<p class="font-body text-on-surface-variant text-lg md:text-xl max-w-2xl font-medium">Complete your subscription setup to activate your professional dental clinic tools and provider portal access.</p>
 </div>
 <?php if ($error): ?>
-<div class="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-xl text-sm"><?php echo $error; ?></div>
+<div class="mb-8 p-4 md:p-5 rounded-2xl border border-error/20 bg-red-50 text-error text-sm font-medium"><?php echo $error; ?></div>
 <?php endif; ?>
 <form method="POST" action="">
-<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-<!-- Main Form Section -->
-<div class="md:col-span-2 space-y-8">
-<!-- Clinic Information -->
-<section class="bg-white dark:bg-slate-900/50 p-6 rounded-xl border border-primary/5 shadow-sm">
-<div class="flex items-center gap-2 mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
-<span class="material-symbols-outlined text-primary">domain</span>
-<h2 class="text-slate-900 dark:text-white text-xl font-bold">Clinic Details</h2>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
+<!-- Left Column: Clinic, account, payment -->
+<div class="lg:col-span-7 space-y-10 md:space-y-12">
+<section class="bg-surface-container-low rounded-3xl p-6 sm:p-10 border border-on-surface/5">
+<div class="flex items-center gap-4 mb-8">
+<div class="bg-primary text-white p-3 rounded-2xl shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined">account_balance</span>
 </div>
-<div class="space-y-5">
-<div class="flex flex-col gap-2">
-<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Clinic Name</label>
-<input name="clinic_name" class="form-input w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-primary focus:border-primary px-4 py-3" placeholder="Enter full clinic name" type="text" value="<?php echo htmlspecialchars($tenant['clinic_name'] ?? ''); ?>"/>
-</div>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-<div class="flex flex-col gap-2">
-<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Clinic Email</label>
-<input name="clinic_email" class="form-input w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-primary focus:border-primary px-4 py-3" placeholder="email@clinic.com" type="email" value="<?php echo htmlspecialchars($tenant['contact_email'] ?? $_SESSION['onboarding_email'] ?? ''); ?>"/>
-</div>
-<div class="flex flex-col gap-2">
-<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Contact Number</label>
-<input name="clinic_phone" class="form-input w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-primary focus:border-primary px-4 py-3" placeholder="+63 912 345 6789" type="tel" value="<?php echo htmlspecialchars($tenant['contact_phone'] ?? ''); ?>"/>
+<div>
+<h2 class="font-headline text-2xl sm:text-3xl font-extrabold tracking-tight">Clinic Details</h2>
+<p class="text-sm font-medium text-on-surface-variant">Identification for billing and licensing</p>
 </div>
 </div>
-<div class="flex flex-col gap-2">
-<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Clinic Address</label>
-<textarea name="clinic_address" class="form-input w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-primary focus:border-primary px-4 py-3" placeholder="Street address, City, State, Zip Code" rows="2"><?php echo htmlspecialchars($tenant['clinic_address'] ?? ''); ?></textarea>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+<div class="space-y-2 md:col-span-2">
+<label class="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant px-1">Clinic Name</label>
+<input name="clinic_name" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-2xl px-6 py-4 shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10" placeholder="e.g. Precision Dental" type="text" value="<?php echo htmlspecialchars($tenant['clinic_name'] ?? ''); ?>"/>
 </div>
+<div class="space-y-2">
+<label class="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant px-1">Work Email</label>
+<input name="clinic_email" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-2xl px-6 py-4 shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10" placeholder="admin@clinic.com" type="email" value="<?php echo htmlspecialchars($tenant['contact_email'] ?? $_SESSION['onboarding_email'] ?? ''); ?>"/>
 </div>
-</section>
-<!-- Owner account (read-only; update in Profile/Settings) -->
-<section class="bg-white dark:bg-slate-900/50 p-6 rounded-xl border border-primary/5 shadow-sm">
-<div class="flex items-center gap-2 mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
-<span class="material-symbols-outlined text-primary">person</span>
-<h2 class="text-slate-900 dark:text-white text-xl font-bold">Account Authority</h2>
+<div class="space-y-2">
+<label class="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant px-1">Contact Number</label>
+<input name="clinic_phone" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-2xl px-6 py-4 shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10" placeholder="+63 912 345 6789" type="tel" value="<?php echo htmlspecialchars($tenant['contact_phone'] ?? ''); ?>"/>
 </div>
-<div class="space-y-3">
-<p class="text-sm text-slate-500 dark:text-slate-400">Clinic owner account (from your registration). To change name, email, or phone, use <strong>Profile / Settings</strong> after logging in.</p>
-<div class="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-4 space-y-2">
-<div class="text-sm"><span class="font-semibold text-slate-600 dark:text-slate-400">Name:</span> <?php echo htmlspecialchars($tenant['owner_name'] ?? $_SESSION['onboarding_full_name'] ?? '—'); ?></div>
-<div class="text-sm"><span class="font-semibold text-slate-600 dark:text-slate-400">Email:</span> <?php echo htmlspecialchars($tenant['owner_email'] ?? $_SESSION['onboarding_email'] ?? '—'); ?></div>
-<div class="text-sm"><span class="font-semibold text-slate-600 dark:text-slate-400">Phone:</span> <?php echo htmlspecialchars($tenant['owner_phone'] ?? '—'); ?></div>
+<div class="space-y-2 md:col-span-2">
+<label class="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant px-1">Business Address</label>
+<textarea name="clinic_address" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-2xl px-6 py-4 shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10 min-h-[100px] resize-y" placeholder="Street, City, ZIP" rows="3"><?php echo htmlspecialchars($tenant['clinic_address'] ?? ''); ?></textarea>
 </div>
 </div>
 </section>
-<!-- Payment Method Selection -->
-<section class="bg-white dark:bg-slate-900/50 p-6 rounded-xl border border-primary/5 shadow-sm">
-<div class="flex items-center gap-2 mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
-<span class="material-symbols-outlined text-primary">payments</span>
-<h2 class="text-slate-900 dark:text-white text-xl font-bold">Payment Method</h2>
-</div>
-<div id="payment-methods" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-<label for="pm_card" data-method="card" class="pm-option relative flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer border-primary bg-primary/5">
-<input id="pm_card" checked class="sr-only" name="payment_method" value="card" type="radio"/>
-<span class="material-symbols-outlined pm-icon text-primary mb-2">credit_card</span>
-<span class="pm-text text-sm font-bold text-slate-900 dark:text-white">Credit Card</span>
-<div class="pm-check absolute top-2 right-2 size-4 rounded-full bg-primary flex items-center justify-center">
-<span class="material-symbols-outlined text-[10px] text-white font-bold">check</span>
-</div>
-</label>
 
-<label for="pm_gcash" data-method="gcash" class="pm-option relative flex flex-col items-center justify-center p-4 border-2 rounded-xl hover:border-primary/50 transition-all cursor-pointer border-slate-100 dark:border-slate-800">
+<section class="bg-surface-container-low rounded-3xl p-6 sm:p-10 border border-on-surface/5">
+<div class="flex items-center gap-4 mb-8">
+<div class="bg-primary text-white p-3 rounded-2xl shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined">person</span>
+</div>
+<div>
+<h2 class="font-headline text-2xl sm:text-3xl font-extrabold tracking-tight">Account Authority</h2>
+<p class="text-sm font-medium text-on-surface-variant">Clinic owner from registration — update in Profile after login</p>
+</div>
+</div>
+<div class="rounded-2xl bg-white/80 border border-on-surface/10 p-5 sm:p-6 space-y-3 shadow-sm">
+<p class="text-sm text-on-surface-variant">To change name, email, or phone for the owner account, use <strong class="text-on-surface">Profile / Settings</strong> after logging in.</p>
+<div class="pt-2 space-y-2 border-t border-on-surface/10">
+<div class="text-sm"><span class="font-semibold text-on-surface-variant">Name:</span> <?php echo htmlspecialchars($tenant['owner_name'] ?? $_SESSION['onboarding_full_name'] ?? '—'); ?></div>
+<div class="text-sm"><span class="font-semibold text-on-surface-variant">Email:</span> <?php echo htmlspecialchars($tenant['owner_email'] ?? $_SESSION['onboarding_email'] ?? '—'); ?></div>
+<div class="text-sm"><span class="font-semibold text-on-surface-variant">Phone:</span> <?php echo htmlspecialchars($tenant['owner_phone'] ?? '—'); ?></div>
+</div>
+</div>
+</section>
+
+<section class="bg-surface-container-low rounded-3xl p-6 sm:p-10 border border-on-surface/5">
+<div class="flex items-center gap-4 mb-8">
+<div class="bg-primary text-white p-3 rounded-2xl shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined">payments</span>
+</div>
+<div>
+<h2 class="font-headline text-2xl sm:text-3xl font-extrabold tracking-tight">Payment Method</h2>
+<p class="text-sm font-medium text-on-surface-variant">Choose your preferred gateway</p>
+</div>
+</div>
+<div id="payment-methods" class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+<label for="pm_gcash" data-method="gcash" class="pm-option group flex flex-col items-center justify-center p-4 sm:p-6 bg-white border rounded-2xl transition-all duration-300 cursor-pointer border-on-surface/5 hover:border-primary/30">
 <input id="pm_gcash" class="sr-only" name="payment_method" value="gcash" type="radio"/>
-<span class="material-symbols-outlined pm-icon text-slate-400 mb-2">account_balance_wallet</span>
-<span class="pm-text text-sm font-bold text-slate-600 dark:text-slate-300">GCash</span>
-<div class="pm-check hidden absolute top-2 right-2 size-4 rounded-full bg-primary items-center justify-center">
-<span class="material-symbols-outlined text-[10px] text-white font-bold">check</span>
-</div>
+<span class="material-symbols-outlined pm-icon text-primary text-2xl sm:text-3xl mb-2 sm:mb-3">account_balance_wallet</span>
+<span class="pm-text font-bold text-[10px] sm:text-xs uppercase tracking-widest text-on-surface-variant group-hover:text-primary transition-colors">GCash</span>
 </label>
 
-<label for="pm_maya" data-method="maya" class="pm-option relative flex flex-col items-center justify-center p-4 border-2 rounded-xl hover:border-primary/50 transition-all cursor-pointer border-slate-100 dark:border-slate-800">
-<input id="pm_maya" class="sr-only" name="payment_method" value="maya" type="radio"/>
-<span class="material-symbols-outlined pm-icon text-slate-400 mb-2">smartphone</span>
-<span class="pm-text text-sm font-bold text-slate-600 dark:text-slate-300">Maya</span>
-<div class="pm-check hidden absolute top-2 right-2 size-4 rounded-full bg-primary items-center justify-center">
-<span class="material-symbols-outlined text-[10px] text-white font-bold">check</span>
-</div>
-</label>
-
-<label for="pm_bank" data-method="bank_transfer" class="pm-option relative flex flex-col items-center justify-center p-4 border-2 rounded-xl hover:border-primary/50 transition-all cursor-pointer border-slate-100 dark:border-slate-800">
+<label for="pm_bank" data-method="bank_transfer" class="pm-option group flex flex-col items-center justify-center p-4 sm:p-6 bg-white border rounded-2xl transition-all duration-300 cursor-pointer border-on-surface/5 hover:border-primary/30">
 <input id="pm_bank" class="sr-only" name="payment_method" value="bank_transfer" type="radio"/>
-<span class="material-symbols-outlined pm-icon text-slate-400 mb-2">account_balance</span>
-<span class="pm-text text-sm font-bold text-slate-600 dark:text-slate-300">Bank Transfer</span>
-<div class="pm-check hidden absolute top-2 right-2 size-4 rounded-full bg-primary items-center justify-center">
-<span class="material-symbols-outlined text-[10px] text-white font-bold">check</span>
-</div>
+<span class="material-symbols-outlined pm-icon text-primary text-2xl sm:text-3xl mb-2 sm:mb-3">account_balance</span>
+<span class="pm-text font-bold text-[10px] sm:text-xs uppercase tracking-widest text-on-surface-variant group-hover:text-primary transition-colors">Bank</span>
+</label>
+
+<label for="pm_card" data-method="card" class="pm-option group flex flex-col items-center justify-center p-4 sm:p-6 bg-white border-2 rounded-2xl transition-all duration-300 cursor-pointer border-primary shadow-xl shadow-primary/5">
+<input id="pm_card" checked class="sr-only" name="payment_method" value="card" type="radio"/>
+<span class="material-symbols-outlined pm-icon pm-icon-card text-primary text-2xl sm:text-3xl mb-2 sm:mb-3">credit_card</span>
+<span class="pm-text font-bold text-[10px] sm:text-xs uppercase tracking-widest text-primary">Credit Card</span>
+</label>
+
+<label for="pm_maya" data-method="maya" class="pm-option group flex flex-col items-center justify-center p-4 sm:p-6 bg-white border rounded-2xl transition-all duration-300 cursor-pointer border-on-surface/5 hover:border-primary/30">
+<input id="pm_maya" class="sr-only" name="payment_method" value="maya" type="radio"/>
+<span class="material-symbols-outlined pm-icon text-primary text-2xl sm:text-3xl mb-2 sm:mb-3">phone_iphone</span>
+<span class="pm-text font-bold text-[10px] sm:text-xs uppercase tracking-widest text-on-surface-variant group-hover:text-primary transition-colors">Maya</span>
 </label>
 </div>
 </section>
 </div>
-<!-- Side Summary Section -->
-<div class="space-y-6">
-<div class="bg-white dark:bg-slate-900/50 p-6 rounded-xl border border-primary/10 shadow-lg sticky top-24">
-<h3 class="text-slate-900 dark:text-white text-lg font-bold mb-4">Order Summary</h3>
-<div class="flex flex-col gap-4 mb-6">
-<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Chosen Plan</label>
-<div class="relative">
-<input type="text" class="form-select w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-medium py-3 px-4" value="<?php echo htmlspecialchars($plan_name); ?>" readonly/>
-</div>
-</div>
-<div class="space-y-3 py-4 border-t border-slate-100 dark:border-slate-800">
-<div class="flex justify-between text-sm">
-<span class="text-slate-500">Plan Subtotal</span>
-<span class="font-medium">₱<?php echo number_format($plan_price, 2); ?>/mo</span>
-</div>
-<div class="flex justify-between text-sm">
-<span class="text-slate-500">Setup Fee</span>
-<span class="font-medium">₱0.00</span>
-</div>
-<div class="flex justify-between text-xl font-bold pt-4 border-t border-slate-100 dark:border-slate-800">
-<span class="text-slate-900 dark:text-white">Total</span>
-<span class="text-primary">₱<?php echo number_format($plan_price, 2); ?></span>
-</div>
-</div>
-<button type="submit" class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl transition-all shadow-md shadow-primary/20 flex items-center justify-center gap-2 mt-6">
-<span>Proceed to Payment</span>
-<span class="material-symbols-outlined text-lg">arrow_forward</span>
-</button>
-<a href="ProviderPurchase.php?simulate=fail" class="block text-center text-xs text-slate-400 hover:text-red-500 mt-3">Simulate payment failure</a>
-<p class="text-[10px] text-center text-slate-400 mt-4 leading-relaxed">
-                                    By clicking 'Proceed to Payment', you agree to our Terms of Service and Privacy Policy. Your subscription will renew automatically.
+
+<!-- Right Column: Order summary -->
+<aside class="lg:col-span-5 lg:sticky lg:top-28 self-start w-full">
+<div class="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-8 sm:p-12 shadow-[0_40px_100px_-20px_rgba(43,139,235,0.08)] relative overflow-hidden border border-on-surface/5">
+<div class="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-bl-full pointer-events-none" aria-hidden="true"></div>
+<h3 class="font-headline text-2xl sm:text-3xl font-extrabold mb-8 sm:mb-10 tracking-tight relative">Order Summary</h3>
+<div class="space-y-8 relative">
+<div class="flex justify-between items-start gap-4 pb-8 border-b border-on-surface/5">
+<div class="min-w-0">
+<p class="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant mb-2">Selected Plan</p>
+<h4 class="font-headline text-xl sm:text-2xl font-extrabold text-primary break-words"><?php echo htmlspecialchars($plan_name); ?></h4>
+<p class="text-sm font-medium text-on-surface-variant flex items-center gap-2 mt-2">
+<span class="material-symbols-outlined text-[18px] shrink-0">event_repeat</span>
+                                    Billing monthly
                                 </p>
 </div>
-<div class="bg-primary/5 p-4 rounded-xl border border-primary/20 flex gap-3">
-<span class="material-symbols-outlined text-primary">verified_user</span>
-<div class="flex flex-col gap-1">
-<p class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Secure Transaction</p>
-<p class="text-[11px] text-slate-500 dark:text-slate-400">256-bit SSL encrypted connection ensuring your data is safe and private.</p>
+<p class="font-headline text-xl sm:text-2xl font-extrabold shrink-0">₱<?php echo number_format($plan_price, 2); ?></p>
+</div>
+<div class="space-y-4 pt-2">
+<div class="flex justify-between text-on-surface-variant font-medium text-sm">
+<span>Plan Subtotal</span>
+<span>₱<?php echo number_format($plan_price, 2); ?>/mo</span>
+</div>
+<div class="flex justify-between text-on-surface-variant font-medium text-sm">
+<span>Setup Fee</span>
+<span>₱0.00</span>
 </div>
 </div>
+<div class="pt-8 mt-6 border-t-2 border-primary/5 flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
+<div>
+<p class="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant mb-1">Total Amount Due</p>
+<p class="text-xs font-bold text-on-surface-variant">PHP</p>
+</div>
+<p class="font-headline text-4xl sm:text-5xl font-extrabold text-on-surface tracking-tighter">₱<?php echo number_format($plan_price, 2); ?></p>
+</div>
+<button type="submit" class="w-full bg-primary py-5 sm:py-6 rounded-2xl text-white font-black text-xs sm:text-sm uppercase tracking-[0.15em] sm:tracking-[0.2em] shadow-xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 mt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                            Confirm Purchase
+                            <span class="material-symbols-outlined" aria-hidden="true">arrow_right_alt</span>
+</button>
+<a href="ProviderPurchase.php?simulate=fail" class="block text-center text-xs text-on-surface-variant/70 hover:text-error transition-colors mt-4">Simulate payment failure</a>
+<p class="text-[10px] text-center text-on-surface-variant/80 mt-4 leading-relaxed">
+                                    By confirming, you agree to our Terms of Service and Privacy Policy. Your subscription will renew automatically.
+                                </p>
+<div class="flex flex-col items-center gap-4 pt-8">
+<div class="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/40">
+<span class="material-symbols-outlined text-base">lock</span>
+                                Secure Payment Gateway
+                            </div>
+<div class="flex flex-wrap justify-center gap-6 sm:gap-8 opacity-30 grayscale hover:grayscale-0 transition-all">
+<img alt="Visa" class="h-6" width="48" height="20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAkec4WzW0InMbUUUzJz178nkUflSZ8w8sUzCwVAjPYZTWor18lJR2nHj2TNNVYcbYv0gDcpp9PmJMQp6Opixca2Jr4ec6KF3uwutpi_4jDPfYUhJOrCk72h7GJVHfqOQUiXx5Ziu64rrhAS3Knpn4kodfHpxvT5PAVvEwwuMerz82w_qSylaBTo-Cv2sO7sGj9-milkAxEQ_csHCj9d3sxtAYzjFT2j2pU0gX2r1LdGR5NU6ibgb7F0HA5PUL6qxocZWkn0T9JLrc"/>
+<img alt="Mastercard" class="h-6" width="48" height="20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuArA5CUnyFGFtbA6iRnMWTXz0kXKTuh0IGkQppzrprvI4vW9bMPi61RVqsHFK0v-W_xdqFCOjO-h3UgdnR9-I3BBirXZZtJKJ7_xWTmsxdrTpAy_RZyZAFDpj5YsrRG0yLBfZPhJW_D9GlCaA90oQ-oIWbZIh-lYYsHwIpftRBpeGuEZVbrnV17deXiAOXh_cuzRgvd8lhjUCVCNNsOtg6zDgC2W9xCAB6VOKTEesAcNcIpBLcuYyMXkzSc1IHiwNwDtZKaiqdfNQg"/>
+<img alt="American Express" class="h-6" width="48" height="20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAUv5Z5m29X0ZyZAg547MLJLpV0FXMrrDaTOReu6II7YQ60FJQxkTKthL5QqB4-gpKRJ8SDvGeY7mwHyuZ4qIaOfCWEK7gSc8vdX4tq73vetlNdDPpQko1TFkQ3OqCZthNs68etwbqWerrZe1AJBl4LRWeXrJjx80IL2mxQC4FDDH_cX97tJ4uzN2N71R_8CuqeVYz6n2UtzjbayRvktDN-icL-Gx9-LrslTyMJj1XDZvswQs9NxxKptxj66eZ97OnoeUJVIhyQtW8"/>
+</div>
+</div>
+</div>
+</div>
+
+<div class="mt-10 sm:mt-12 grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 px-0 sm:px-2">
+<div class="flex items-start gap-4">
+<span class="material-symbols-outlined text-primary text-2xl shrink-0 pm-fill-icon">verified_user</span>
+<div>
+<p class="text-xs font-black uppercase tracking-[0.1em] text-on-surface">Secure &amp; compliant</p>
+<p class="text-[11px] font-medium text-on-surface-variant">Encrypted checkout and clinic data handling</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<span class="material-symbols-outlined text-primary text-2xl shrink-0 pm-fill-icon">support_agent</span>
+<div>
+<p class="text-xs font-black uppercase tracking-[0.1em] text-on-surface">Provider support</p>
+<p class="text-[11px] font-medium text-on-surface-variant">Help with onboarding and billing questions</p>
+</div>
+</div>
+</div>
+</aside>
 </div>
 </form>
-</div>
-</div>
 </main>
-<footer class="mt-auto py-10 border-t border-primary/5 bg-slate-50 dark:bg-slate-900/80">
-<div class="max-w-[800px] mx-auto px-4 text-center">
-<p class="text-slate-400 text-sm">© 2024 MyDental.com. All rights reserved. Trusted by 5,000+ dental clinics worldwide.</p>
+<footer class="w-full border-t border-slate-200 bg-slate-50 mt-auto">
+<div class="flex flex-col md:flex-row justify-between items-center py-10 sm:py-12 px-4 sm:px-8 max-w-screen-2xl mx-auto gap-4">
+<div class="text-lg font-bold text-slate-900 font-headline">MyDental.com</div>
+<div class="flex flex-wrap justify-center gap-6 sm:gap-8 text-xs font-body text-slate-500">
+<a class="hover:text-primary transition-all" href="#">Privacy Policy</a>
+<a class="hover:text-primary transition-all" href="#">Terms of Service</a>
+<a class="hover:text-primary transition-all" href="ProviderContact.php">Contact</a>
+</div>
+<div class="text-xs text-slate-500 font-body opacity-80 text-center md:text-right">
+            © <?php echo date('Y'); ?> MyDental.com. All rights reserved.
+        </div>
 </div>
 </footer>
-</div>
 </div>
 <script>
 (function () {
   var root = document.getElementById('payment-methods');
   if (!root) return;
+
+  var activeBorder = ['border-2', 'border-primary', 'shadow-xl', 'shadow-primary/5'];
+  var inactiveBorder = ['border', 'border-on-surface/5', 'hover:border-primary/30'];
+
+  function setPmIconFill(icon, filled) {
+    if (!icon || !icon.classList.contains('pm-icon-card')) return;
+    icon.style.fontVariationSettings = filled ? "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24" : "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24";
+  }
 
   function applySelection() {
     var selected = root.querySelector('input[name="payment_method"]:checked');
@@ -500,30 +573,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       var method = label.getAttribute('data-method');
       var isActive = method === selectedVal;
 
-      label.classList.toggle('border-primary', isActive);
-      label.classList.toggle('bg-primary/5', isActive);
-      label.classList.toggle('border-slate-100', !isActive);
-      label.classList.toggle('dark:border-slate-800', !isActive);
+      activeBorder.forEach(function (c) { label.classList.toggle(c, isActive); });
+      inactiveBorder.forEach(function (c) { label.classList.toggle(c, !isActive); });
 
       var icon = label.querySelector('.pm-icon');
       if (icon) {
-        icon.classList.toggle('text-primary', isActive);
-        icon.classList.toggle('text-slate-400', !isActive);
+        icon.classList.toggle('text-primary', true);
       }
 
       var text = label.querySelector('.pm-text');
       if (text) {
-        text.classList.toggle('text-slate-900', isActive);
-        text.classList.toggle('dark:text-white', isActive);
-        text.classList.toggle('text-slate-600', !isActive);
-        text.classList.toggle('dark:text-slate-300', !isActive);
+        text.classList.toggle('text-primary', isActive);
+        text.classList.toggle('text-on-surface-variant', !isActive);
       }
 
-      var check = label.querySelector('.pm-check');
-      if (check) {
-        check.classList.toggle('hidden', !isActive);
-        check.classList.toggle('flex', isActive);
-      }
+      setPmIconFill(label.querySelector('.pm-icon-card'), isActive && method === 'card');
     });
   }
 
