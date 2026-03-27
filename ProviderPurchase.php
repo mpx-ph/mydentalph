@@ -603,7 +603,7 @@ $back_href = 'ProviderClinicSetup.php';
 </div>
 <div id="payment-methods" class="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
 <label for="pm_gcash" data-method="gcash" class="pm-option group flex flex-col items-center justify-center p-3 sm:p-4 bg-white border rounded-xl transition-all duration-300 cursor-pointer border-on-surface/5 hover:border-primary/30">
-<input id="pm_gcash" class="sr-only" name="payment_method" value="gcash" type="radio" <?php echo $selected_payment_method === 'gcash' ? 'checked' : ''; ?>/>
+<input id="pm_gcash" class="sr-only" name="payment_method" value="gcash" type="radio" required <?php echo $selected_payment_method === 'gcash' ? 'checked' : ''; ?>/>
 <span class="material-symbols-outlined pm-icon text-primary text-2xl mb-1.5">account_balance_wallet</span>
 <span class="pm-text font-bold text-[10px] uppercase tracking-wider text-on-surface-variant group-hover:text-primary transition-colors">GCash</span>
 </label>
@@ -822,8 +822,25 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
         alert('Please choose a payment method before confirming your purchase.');
         return;
       }
+      if (submitBtn.dataset.submitting === '1') {
+        e.preventDefault();
+        return;
+      }
+      submitBtn.dataset.submitting = '1';
       submitBtn.disabled = true;
       submitBtn.classList.add('opacity-70', 'cursor-not-allowed');
+      // If navigation does not happen (validation/server error), restore interactivity.
+      window.setTimeout(function () {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+        submitBtn.dataset.submitting = '0';
+      }, 6000);
+    });
+
+    window.addEventListener('pageshow', function () {
+      submitBtn.disabled = false;
+      submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+      submitBtn.dataset.submitting = '0';
     });
   }
 })();
