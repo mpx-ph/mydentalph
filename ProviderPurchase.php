@@ -218,10 +218,11 @@ try {
         if (!in_array($row_slug, $allowed, true)) {
             continue;
         }
+        $row_price = $normalize_plan_price($row['price'] ?? null);
         $available_plans[$row_slug] = [
             'plan_id' => isset($row['plan_id']) ? (int) $row['plan_id'] : null,
             'plan_name' => (string) ($plan_label_map[$row_slug] ?? ($row['plan_name'] ?? ucfirst($row_slug))),
-            'plan_price' => (float) ($plan_price_fallback_map[$row_slug] ?? ($row['price'] ?? 0)),
+            'plan_price' => (float) ($row_price ?? ($plan_price_fallback_map[$row_slug] ?? 0)),
             'plan_slug' => $row_slug,
         ];
     }
