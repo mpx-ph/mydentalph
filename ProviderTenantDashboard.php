@@ -96,17 +96,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $tenant = [];
 try {
     $stmt = $pdo->prepare("
-        SELECT t.clinic_name, t.clinic_slug, t.contact_email, t.contact_phone, t.clinic_address, t.subscription_status,
+        SELECT t.tenant_id, t.clinic_name, t.clinic_slug, t.contact_email, t.contact_phone, t.clinic_address, t.subscription_status,
                u.full_name AS owner_name, u.email AS owner_email, u.phone AS owner_phone
         FROM tbl_tenants t
         LEFT JOIN tbl_users u ON t.owner_user_id = u.user_id
         WHERE t.tenant_id = ?
+          AND EXISTS (
+              SELECT 1
+              FROM tbl_users su
+              WHERE su.user_id = ?
+                AND su.tenant_id = t.tenant_id
+          )
         LIMIT 1
     ");
-    $stmt->execute([(string) $tenant_id]);
+    $stmt->execute([(string) $tenant_id, (string) $user_id]);
     $tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 } catch (Throwable $e) {
     $tenant = [];
+}
+
+// Fallback: if strict user/tenant mapping check fails, still try direct tenant lookup.
+if (empty($tenant)) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT tenant_id, clinic_name, clinic_slug, contact_email, contact_phone, clinic_address, subscription_status
+            FROM tbl_tenants
+            WHERE tenant_id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([(string) $tenant_id]);
+        $tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        $tenant = [];
+    }
 }
 
 $current_user = [];
@@ -203,9 +225,9 @@ if ($host === '') {
 $tenant_base_url = $clinic_slug !== '' ? ($scheme . '://' . $host . '/' . rawurlencode($clinic_slug)) : '';
 $admin_dashboard_url = $tenant_base_url !== '' ? ($tenant_base_url . '/AdminDashboard.php') : '';
 $has_clinic_slug = $clinic_slug !== '';
-$has_active_website = $is_subscription_active && $has_clinic_slug;
-$domain_display = $has_active_website ? ($host . '/' . $clinic_slug) : 'No Active Website';
-if ($has_active_website) {
+$has_visible_website = $has_clinic_slug && $tenant_base_url !== '';
+$domain_display = $has_visible_website ? ($host . '/' . $clinic_slug) : 'No Active Website';
+if ($has_visible_website) {
     $_SESSION['tenant_clinic_link'] = $host . '/' . $clinic_slug;
 }
 ?>
@@ -319,9 +341,9 @@ if ($has_active_website) {
   class="bg-white text-dental-blue px-8 py-4 rounded-2xl font-bold text-lg hover:bg-slate-50 transition-all transform hover:scale-105 active:scale-95 shadow-xl inline-flex items-center justify-center"
   id="open-dashboard-btn"
   href="<?php echo $admin_dashboard_url ? htmlspecialchars($admin_dashboard_url, ENT_QUOTES, 'UTF-8') : '#'; ?>"
-  <?php if ($has_active_website && $admin_dashboard_url): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>
+  <?php if ($has_visible_website && $admin_dashboard_url): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>
 >
-  <?php echo $has_active_website ? 'Open Clinic Management Dashboard' : 'No Active Website'; ?>
+  <?php echo $has_visible_website ? 'Open Clinic Management Dashboard' : 'No Active Website'; ?>
 </a>
 </section>
 <!-- END: ActionBanner -->
@@ -357,10 +379,16 @@ if ($has_active_website) {
 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
 </div>
 </div>
+<?php if ($has_visible_website): ?>
+<a class="text-lg font-bold text-dental-dark truncate hover:underline inline-block" href="<?php echo htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer">
+    <?php echo htmlspecialchars($domain_display); ?>
+</a>
+<?php else: ?>
 <h3 class="text-lg font-bold text-dental-dark truncate"><?php echo htmlspecialchars($domain_display); ?></h3>
+<?php endif; ?>
 <div class="flex items-center gap-2 mt-2">
-<span class="w-2 h-2 rounded-full <?php echo $has_active_website ? 'bg-emerald-500' : 'bg-amber-500'; ?>"></span>
-<span class="text-slate-500 text-sm"><?php echo $has_active_website ? 'Website Published' : 'Website Not Yet Published'; ?></span>
+<span class="w-2 h-2 rounded-full <?php echo $has_visible_website ? 'bg-emerald-500' : 'bg-amber-500'; ?>"></span>
+<span class="text-slate-500 text-sm"><?php echo $has_visible_website ? 'Website Published' : 'Website Not Yet Published'; ?></span>
 </div>
 </div>
 <!-- Quick Actions Card -->
@@ -373,10 +401,10 @@ if ($has_active_website) {
 <button class="bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">Unpublish</button>
 <a
   class="w-full text-center mt-2 text-dental-blue text-sm font-medium hover:underline flex items-center justify-center gap-1"
-  href="<?php echo $has_active_website && $tenant_base_url ? htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8') : '#'; ?>"
-  <?php if ($has_active_website && $tenant_base_url): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>
+  href="<?php echo $has_visible_website && $tenant_base_url ? htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8') : '#'; ?>"
+  <?php if ($has_visible_website && $tenant_base_url): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>
 >
-                <?php echo $has_active_website ? 'View Live Website' : 'Website Link Unavailable'; ?>
+                <?php echo $has_visible_website ? 'View Live Website' : 'Website Link Unavailable'; ?>
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
 </a>
 </div>
