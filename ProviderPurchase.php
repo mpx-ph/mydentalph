@@ -265,7 +265,7 @@ if (!is_string($available_plans_json) || $available_plans_json === '') {
 
 $error = '';
 $selected_payment_method = '';
-$valid_methods = ['card', 'gcash', 'paymaya', 'bank_transfer'];
+$valid_methods = ['card', 'gcash', 'paymaya'];
 $form_token = $_SESSION['provider_purchase_form_token'] ?? '';
 if (!is_string($form_token) || $form_token === '') {
     $form_token = bin2hex(random_bytes(16));
@@ -278,7 +278,9 @@ if (isset($_GET['payment']) && $_GET['payment'] === 'failed' && $error === '') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $posted_token = (string) ($_POST['purchase_form_token'] ?? '');
     $session_token = (string) ($_SESSION['provider_purchase_form_token'] ?? '');
-    if ($posted_token !== '' && $session_token !== '' && hash_equals($session_token, $posted_token)) {
+    if ($posted_token === '' || $session_token === '' || !hash_equals($session_token, $posted_token)) {
+        $error = 'Your purchase session expired. Please refresh the page and try again.';
+    } else {
         unset($_SESSION['provider_purchase_form_token']);
     }
     $payment_method = strtolower(trim((string) ($_POST['payment_method'] ?? '')));
@@ -324,7 +326,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($error === '' && in_array($payment_method, ['card', 'gcash', 'paymaya'], true)) {
-        // PayMongo flow (card / gcash / maya): create Payment Intent and redirect to checkout
+        // PayMongo flow (card / gcash / maya): create Checkout Session and redirect directly to PayMongo.
         require_once __DIR__ . '/paymongo_config.php';
         $secret = defined('PAYMONGO_SECRET_KEY') ? PAYMONGO_SECRET_KEY : '';
         if ($secret !== '' && strpos($secret, 'YOUR_') === false) {
@@ -334,23 +336,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $amount_centavos = 10000;
                 }
                 $allowed_methods = [$payment_method];
+                $request_scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+                $request_host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
+                $callback_base = rtrim($request_scheme . '://' . $request_host . dirname((string) ($_SERVER['PHP_SELF'] ?? '/')), '/\\');
+                $success_url = $callback_base . '/ProviderPurchaseReceipt.php?source=checkout';
+                $cancel_url = $callback_base . '/ProviderPurchase.php?payment=failed&reason=' . urlencode('Payment was cancelled. Please try again.');
+                $checkout_reference = 'CHK-' . strtoupper(bin2hex(random_bytes(5)));
                 $payload = json_encode([
                     'data' => [
                         'attributes' => [
-                            'amount' => $amount_centavos,
-                            'currency' => 'PHP',
-                            'payment_method_allowed' => $allowed_methods,
-                            'description' => 'MyDental - ' . ($plan_name ?? 'Professional') . ' plan',
+                            'billing' => [
+                                'name' => $clinic_name !== '' ? $clinic_name : ('Tenant ' . (string) $tenant_id),
+                                'email' => $contact_email,
+                            ],
+                            'send_email_receipt' => false,
+                            'show_description' => true,
+                            'show_line_items' => true,
+                            'description' => 'MyDental subscription checkout',
+                            'line_items' => [[
+                                'currency' => 'PHP',
+                                'amount' => $amount_centavos,
+                                'name' => 'MyDental - ' . ($plan_name ?? 'Professional') . ' plan',
+                                'quantity' => 1,
+                            ]],
+                            'payment_method_types' => $allowed_methods,
+                            'success_url' => $success_url,
+                            'cancel_url' => $cancel_url,
+                            'reference_number' => $checkout_reference,
                             'metadata' => [
                                 'tenant_id' => (string) $tenant_id,
                                 'user_id' => (string) $user_id,
+                                'plan_id' => (string) $plan_id,
+                                'plan_name' => (string) $plan_name,
+                                'plan_price' => (string) $plan_price,
                                 'plan_slug' => (string) $plan_slug,
+                                'payment_method' => (string) $payment_method,
                             ],
                         ]
                     ]
                 ]);
 
-                $endpoint = 'https://api.paymongo.com/v1/payment_intents';
+                $endpoint = 'https://api.paymongo.com/v1/checkout_sessions';
                 $headers = [
                     'Content-Type: application/json',
                     'Authorization: Basic ' . base64_encode($secret . ':'),
@@ -381,11 +407,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $data = is_string($res) && $res !== '' ? json_decode($res, true) : null;
-                $client_key = $data['data']['attributes']['client_key'] ?? null;
-                $payment_intent_id = $data['data']['id'] ?? null;
-                if ($client_key && $payment_intent_id) {
-                    $_SESSION['paymongo_client_key'] = $client_key;
-                    $_SESSION['paymongo_payment_intent_id'] = $payment_intent_id;
+                $checkout_url = $data['data']['attributes']['checkout_url'] ?? null;
+                $checkout_session_id = $data['data']['id'] ?? null;
+                if ($checkout_url && $checkout_session_id) {
+                    unset($_SESSION['paymongo_client_key'], $_SESSION['paymongo_payment_intent_id']);
+                    $_SESSION['paymongo_checkout_session_id'] = $checkout_session_id;
                     $_SESSION['paymongo_payment_method'] = $payment_method; // card | gcash | paymaya
                     $_SESSION['paymongo_billing_email'] = $contact_email !== '' ? $contact_email : $prefill_email;
                     $_SESSION['paymongo_tenant_id'] = $tenant_id;
@@ -394,64 +420,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['paymongo_plan_name'] = $plan_name;
                     $_SESSION['paymongo_plan_price'] = $plan_price;
                     $_SESSION['paymongo_plan_slug'] = $plan_slug;
-                    $_SESSION['paymongo_reference_number'] = 'PM-' . $payment_intent_id;
-                    header('Location: ProviderPayMongoCheckout.php');
+                    $_SESSION['paymongo_reference_number'] = $checkout_reference;
+                    header('Location: ' . $checkout_url);
                     exit;
                 }
 
                 $api_error = $data['errors'][0]['detail'] ?? ($data['errors'][0]['title'] ?? '');
                 $error = $api_error !== ''
                     ? ('Could not create payment session: ' . $api_error)
-                    : 'Could not create payment session. Please try again or choose another payment method.';
+                    : 'Could not create checkout session. Please try again.';
             } catch (Throwable $e) {
-                $error = 'Payment provider is currently unavailable. Please choose Bank Transfer or try again later.';
+                $error = 'Payment provider is currently unavailable. Please try again shortly.';
             }
         } else {
-            $error = 'PayMongo payments require API keys. Set PAYMONGO_SECRET_KEY and PAYMONGO_PUBLIC_KEY in paymongo_config.php or environment, or choose Bank Transfer for demo.';
-        }
-    }
-
-    if ($error === '' && $payment_method === 'bank_transfer') {
-        // Bank transfer/manual: mark as paid directly
-        try {
-            $start = date('Y-m-d');
-            $end = date('Y-m-d', strtotime('+1 month'));
-            $stmt = $pdo->prepare("INSERT INTO tbl_tenant_subscriptions (tenant_id, plan_id, subscription_start, subscription_end, payment_status, payment_method, amount_paid, reference_number) VALUES (?, ?, ?, ?, 'paid', ?, ?, ?)");
-            // Placeholders: tenant_id, plan_id, subscription_start, subscription_end, payment_method, amount_paid, reference_number
-            $stmt->execute([
-                $tenant_id,
-                $plan_id,
-                $start,
-                $end,
-                $payment_method,
-                $plan_price,
-                'TXN-' . strtoupper(bin2hex(random_bytes(4)))
-            ]);
-            $stmt = $pdo->prepare("UPDATE tbl_tenants SET subscription_status = 'active' WHERE tenant_id = ?");
-            $stmt->execute([$tenant_id]);
-            $stmt = $pdo->prepare("SELECT user_id, tenant_id, username, email, full_name, role, status FROM tbl_users WHERE user_id = ?");
-            $stmt->execute([$user_id]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($user) {
-                $_SESSION['user_id'] = $user['user_id'];
-                $_SESSION['tenant_id'] = $user['tenant_id'];
-                $_SESSION['name'] = $user['full_name'] ?: $user['username'];
-                $_SESSION['username'] = $user['username'];
-                $_SESSION['email'] = $user['email'];
-                $_SESSION['full_name'] = $user['full_name'];
-                $_SESSION['role'] = $user['role'];
-                $_SESSION['status'] = $user['status'];
-                $stmt2 = $pdo->prepare("SELECT owner_user_id FROM tbl_tenants WHERE tenant_id = ? LIMIT 1");
-                $stmt2->execute([$user['tenant_id']]);
-                $t = $stmt2->fetch(PDO::FETCH_ASSOC);
-                $_SESSION['is_owner'] = ($t && isset($t['owner_user_id']) && $t['owner_user_id'] === $user['user_id']);
-            }
-            $_SESSION['allow_purchase_page_once_after_payment'] = true;
-            unset($_SESSION['onboarding_user_id'], $_SESSION['onboarding_tenant_id'], $_SESSION['onboarding_pending_id'], $_SESSION['onboarding_email'], $_SESSION['onboarding_plan'], $_SESSION['onboarding_full_name'], $_SESSION['onboarding_username']);
-            header('Location: ProviderTenantDashboard.php');
-            exit;
-        } catch (PDOException $e) {
-            $error = "Payment could not be processed. Please try again or <a href=\"ProviderPurchase.php?simulate=fail\">return to home</a>.";
+            $error = 'PayMongo payments require API keys. Set PAYMONGO_SECRET_KEY and PAYMONGO_PUBLIC_KEY in paymongo_config.php or environment.';
         }
     }
 }
@@ -575,7 +557,7 @@ $back_href = 'ProviderClinicSetup.php';
 <p class="font-body text-on-surface-variant text-[15px] sm:text-base max-w-xl font-medium">Complete your subscription setup to activate your selected clinic plan and provider portal access.</p>
 </div>
 <?php if ($error): ?>
-<div class="mb-6 p-3.5 rounded-xl border border-error/20 bg-red-50 text-error text-sm font-medium"><?php echo $error; ?></div>
+<div class="mb-6 p-3.5 rounded-xl border border-error/20 bg-red-50 text-error text-sm font-medium"><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></div>
 <?php endif; ?>
 <form id="provider-purchase-form" method="post" action="<?php echo htmlspecialchars($form_action_href, ENT_QUOTES, 'UTF-8'); ?>" class="space-y-0">
 <input id="selected_plan_slug" name="selected_plan_slug" type="hidden" value="<?php echo htmlspecialchars($plan_slug, ENT_QUOTES, 'UTF-8'); ?>"/>
@@ -623,23 +605,17 @@ $back_href = 'ProviderClinicSetup.php';
 <p class="text-xs font-medium text-on-surface-variant">Choose your preferred gateway</p>
 </div>
 </div>
-<div id="payment-methods" class="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
+<div id="payment-methods" class="grid grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-3">
 <label for="pm_gcash" data-method="gcash" class="pm-option group flex flex-col items-center justify-center p-3 sm:p-4 bg-white border rounded-xl transition-all duration-300 cursor-pointer border-on-surface/5 hover:border-primary/30">
 <input id="pm_gcash" class="sr-only" name="payment_method" value="gcash" type="radio" <?php echo $selected_payment_method === 'gcash' ? 'checked' : ''; ?>/>
 <span class="material-symbols-outlined pm-icon text-primary text-2xl mb-1.5">account_balance_wallet</span>
 <span class="pm-text font-bold text-[10px] uppercase tracking-wider text-on-surface-variant group-hover:text-primary transition-colors">GCash</span>
 </label>
 
-<label for="pm_bank" data-method="bank_transfer" class="pm-option group flex flex-col items-center justify-center p-3 sm:p-4 bg-white border rounded-xl transition-all duration-300 cursor-pointer border-on-surface/5 hover:border-primary/30">
-<input id="pm_bank" class="sr-only" name="payment_method" value="bank_transfer" type="radio" <?php echo $selected_payment_method === 'bank_transfer' ? 'checked' : ''; ?>/>
-<span class="material-symbols-outlined pm-icon text-primary text-2xl mb-1.5">account_balance</span>
-<span class="pm-text font-bold text-[10px] uppercase tracking-wider text-on-surface-variant group-hover:text-primary transition-colors">Bank</span>
-</label>
-
-<label for="pm_card" data-method="card" class="pm-option group flex flex-col items-center justify-center p-3 sm:p-4 bg-white border-2 rounded-xl transition-all duration-300 cursor-pointer border-primary shadow-lg shadow-primary/10">
+<label for="pm_card" data-method="card" class="pm-option group flex flex-col items-center justify-center p-3 sm:p-4 bg-white border rounded-xl transition-all duration-300 cursor-pointer border-on-surface/5 hover:border-primary/30">
 <input id="pm_card" class="sr-only" name="payment_method" value="card" type="radio" <?php echo $selected_payment_method === 'card' ? 'checked' : ''; ?>/>
 <span class="material-symbols-outlined pm-icon pm-icon-card text-primary text-2xl mb-1.5">credit_card</span>
-<span class="pm-text font-bold text-[10px] uppercase tracking-wider text-primary">Credit Card</span>
+<span class="pm-text font-bold text-[10px] uppercase tracking-wider text-on-surface-variant group-hover:text-primary transition-colors">Credit Card</span>
 </label>
 
 <label for="pm_maya" data-method="maya" class="pm-option group flex flex-col items-center justify-center p-3 sm:p-4 bg-white border rounded-xl transition-all duration-300 cursor-pointer border-on-surface/5 hover:border-primary/30">
@@ -796,6 +772,7 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
   var form = document.getElementById('provider-purchase-form');
   var submitBtn = document.getElementById('confirm-purchase-btn');
   var paymentError = document.getElementById('payment-method-error');
+  var selectedPlanInput = document.getElementById('selected_plan_slug');
   if (!root) return;
 
   var activeBorder = ['border-2', 'border-primary', 'shadow-lg', 'shadow-primary/10'];
@@ -835,9 +812,38 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
   root.addEventListener('change', function (e) {
     if (e.target && e.target.name === 'payment_method') {
       if (paymentError) paymentError.classList.add('hidden');
+      if (submitBtn) submitBtn.disabled = false;
       applySelection();
     }
   });
+
+  if (form && submitBtn) {
+    form.addEventListener('submit', function (e) {
+      var selected = root.querySelector('input[name="payment_method"]:checked');
+      if (!selected) {
+        e.preventDefault();
+        if (paymentError) paymentError.classList.remove('hidden');
+        submitBtn.disabled = false;
+        return;
+      }
+      if (!selectedPlanInput || !selectedPlanInput.value) {
+        e.preventDefault();
+        if (paymentError) {
+          paymentError.textContent = 'Please select a subscription plan before confirming your purchase.';
+          paymentError.classList.remove('hidden');
+        }
+        submitBtn.disabled = false;
+        return;
+      }
+
+      // Prevent duplicate clicks while backend creates checkout session.
+      submitBtn.disabled = true;
+      submitBtn.setAttribute('aria-disabled', 'true');
+      submitBtn.classList.add('opacity-70', 'cursor-not-allowed');
+      submitBtn.dataset.originalHtml = submitBtn.dataset.originalHtml || submitBtn.innerHTML;
+      submitBtn.innerHTML = 'Redirecting to PayMongo...';
+    });
+  }
 
   applySelection();
 })();

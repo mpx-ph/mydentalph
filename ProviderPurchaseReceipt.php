@@ -6,6 +6,7 @@ require_once __DIR__ . '/db.php';
 require_once 'paymongo_config.php';
 
 $payment_intent_id = $_SESSION['paymongo_payment_intent_id'] ?? null;
+$checkout_session_id = $_SESSION['paymongo_checkout_session_id'] ?? null;
 $client_key = $_SESSION['paymongo_client_key'] ?? null;
 $plan_name = $_SESSION['paymongo_plan_name'] ?? 'Professional';
 $plan_price = $_SESSION['paymongo_plan_price'] ?? 0;
@@ -14,31 +15,24 @@ $billing_email = $_SESSION['paymongo_billing_email'] ?? '';
 $tenant_id = $_SESSION['paymongo_tenant_id'] ?? null;
 $user_id = $_SESSION['paymongo_user_id'] ?? null;
 $plan_id = $_SESSION['paymongo_plan_id'] ?? null;
-$reference_number = $_SESSION['paymongo_reference_number'] ?? ($payment_intent_id ? ('PM-' . $payment_intent_id) : '');
+$reference_number = $_SESSION['paymongo_reference_number'] ?? ($checkout_session_id ? ('PM-' . $checkout_session_id) : ($payment_intent_id ? ('PM-' . $payment_intent_id) : ''));
 
-if (
-    !$payment_intent_id
-    || !$client_key
-    || !$tenant_id
-    || !$user_id
-    || !$plan_id
-    || (float) $plan_price <= 0
-) {
+if (!$tenant_id || !$user_id || !$plan_id || (float) $plan_price <= 0) {
     header('Location: ProviderPurchase.php');
     exit;
 }
 
 $method_label = $payment_method === 'gcash' ? 'GCash' : ($payment_method === 'paymaya' ? 'Maya' : 'Card');
 $now = new DateTime('now');
-$invoice_no = 'PM-' . preg_replace('/[^A-Za-z0-9]/', '', (string)$payment_intent_id);
+$invoice_seed = $checkout_session_id ?: $payment_intent_id;
+$invoice_no = 'PM-' . preg_replace('/[^A-Za-z0-9]/', '', (string) $invoice_seed);
 $invoice_no = substr($invoice_no, 0, 22);
 
 $status = null;
 $status_detail = null;
-if (defined('PAYMONGO_SECRET_KEY')) {
-    $secret = PAYMONGO_SECRET_KEY;
-    if ($secret && strpos($secret, 'YOUR_') === false) {
-        $endpoint = 'https://api.paymongo.com/v1/payment_intents/' . $payment_intent_id . '?client_key=' . urlencode($client_key);
+if (!function_exists('provider_paymongo_get_json')) {
+    function provider_paymongo_get_json(string $endpoint, string $secret): ?array
+    {
         $headers = ['Authorization: Basic ' . base64_encode($secret . ':')];
         $res = false;
         if (function_exists('curl_init')) {
@@ -46,7 +40,7 @@ if (defined('PAYMONGO_SECRET_KEY')) {
             curl_setopt_array($ch, [
                 CURLOPT_HTTPHEADER => $headers,
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => 10,
+                CURLOPT_TIMEOUT => 15,
             ]);
             $res = curl_exec($ch);
             curl_close($ch);
@@ -55,15 +49,49 @@ if (defined('PAYMONGO_SECRET_KEY')) {
                 'http' => [
                     'method' => 'GET',
                     'header' => implode("\r\n", $headers),
-                    'timeout' => 10,
+                    'timeout' => 15,
                     'ignore_errors' => true,
                 ],
             ]);
             $res = @file_get_contents($endpoint, false, $context);
         }
-        $data = $res ? json_decode($res, true) : null;
-        $status = $data['data']['attributes']['status'] ?? null;
-        $status_detail = $data['data']['attributes']['last_payment_error']['message'] ?? null;
+        if (!is_string($res) || trim($res) === '') {
+            return null;
+        }
+        $decoded = json_decode($res, true);
+        return is_array($decoded) ? $decoded : null;
+    }
+}
+
+if (defined('PAYMONGO_SECRET_KEY')) {
+    $secret = PAYMONGO_SECRET_KEY;
+    if ($secret && strpos($secret, 'YOUR_') === false) {
+        if ($checkout_session_id) {
+            $checkout_endpoint = 'https://api.paymongo.com/v1/checkout_sessions/' . rawurlencode((string) $checkout_session_id);
+            $checkout_data = provider_paymongo_get_json($checkout_endpoint, $secret);
+            $checkout_status = strtolower((string) ($checkout_data['data']['attributes']['payment_intent']['attributes']['status'] ?? ''));
+            $checkout_payment_intent = (string) ($checkout_data['data']['attributes']['payment_intent']['id'] ?? '');
+            $checkout_payment_id = (string) ($checkout_data['data']['attributes']['payments'][0]['id'] ?? '');
+
+            if ($checkout_payment_intent !== '') {
+                $payment_intent_id = $checkout_payment_intent;
+            }
+            if ($checkout_payment_id !== '') {
+                $reference_number = 'PM-' . $checkout_payment_id;
+            } elseif ($reference_number === '') {
+                $reference_number = 'PM-' . (string) $checkout_session_id;
+            }
+            if ($checkout_status !== '') {
+                $status = $checkout_status;
+            } else {
+                $status = strtolower((string) ($checkout_data['data']['attributes']['payments'][0]['attributes']['status'] ?? ''));
+            }
+        } elseif ($payment_intent_id && $client_key) {
+            $intent_endpoint = 'https://api.paymongo.com/v1/payment_intents/' . rawurlencode((string) $payment_intent_id) . '?client_key=' . urlencode((string) $client_key);
+            $intent_data = provider_paymongo_get_json($intent_endpoint, $secret);
+            $status = $intent_data['data']['attributes']['status'] ?? null;
+            $status_detail = $intent_data['data']['attributes']['last_payment_error']['message'] ?? null;
+        }
     }
 }
 
@@ -72,7 +100,7 @@ if ($status === null) {
     exit;
 }
 // If PayMongo says it failed, do not continue.
-if ($status !== 'succeeded' && $status !== 'processing') {
+if (!in_array((string) $status, ['succeeded', 'processing', 'paid'], true)) {
     $msg = $status_detail ?: 'Payment did not complete. Please try again.';
     header('Location: ProviderPurchase.php?payment=failed&reason=' . urlencode($msg));
     exit;
