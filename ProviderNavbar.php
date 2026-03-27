@@ -9,6 +9,9 @@ require_once __DIR__ . '/provider_auth.php';
 $is_superadmin = (isset($_SESSION['user_id']) && ($_SESSION['role'] ?? '') === 'superadmin');
 $has_provider_session = provider_has_authenticated_provider_session();
 $logged_in = $is_superadmin || $has_provider_session;
+$manage_href = 'ProviderTenantDashboard.php';
+// Keep profile navigation valid even when legacy ProviderProfile.php does not exist.
+$profile_href = 'ProviderTenantDashboard.php';
 
 $user_display_name = $_SESSION['name'] ?? $_SESSION['full_name'] ?? $_SESSION['username'] ?? $_SESSION['email']
     ?? $_SESSION['onboarding_full_name'] ?? $_SESSION['onboarding_email'] ?? 'Account';
@@ -90,10 +93,10 @@ if ($user_initial === '') {
 <span class="material-symbols-outlined text-lg text-primary/70">admin_panel_settings</span> <span class="font-semibold">Super Admin</span>
 </a>
 <?php else: ?>
-<a href="ProviderTenantDashboard.php" class="flex items-center gap-3 px-4 py-2.5 text-sm text-on-surface dark:text-surface hover:bg-primary/5 transition-colors rounded-xl mx-2">
+<a href="<?php echo htmlspecialchars($manage_href, ENT_QUOTES, 'UTF-8'); ?>" target="_top" class="flex items-center gap-3 px-4 py-2.5 text-sm text-on-surface dark:text-surface hover:bg-primary/5 transition-colors rounded-xl mx-2">
 <span class="material-symbols-outlined text-lg text-primary/70">dashboard</span> <span class="font-semibold">Manage</span>
 </a>
-<a href="ProviderProfile.php" class="flex items-center gap-3 px-4 py-2.5 text-sm text-on-surface dark:text-surface hover:bg-primary/5 transition-colors rounded-xl mx-2">
+<a href="<?php echo htmlspecialchars($profile_href, ENT_QUOTES, 'UTF-8'); ?>" target="_top" class="flex items-center gap-3 px-4 py-2.5 text-sm text-on-surface dark:text-surface hover:bg-primary/5 transition-colors rounded-xl mx-2">
 <span class="material-symbols-outlined text-lg text-primary/70">person</span> <span class="font-semibold">My Profile</span>
 </a>
 <?php endif; ?>
