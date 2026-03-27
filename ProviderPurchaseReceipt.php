@@ -1,5 +1,29 @@
 <?php
 session_start();
+set_exception_handler(function (Throwable $e): void {
+    error_log('[ProviderPurchaseReceipt][UnhandledException] ' . $e->getMessage());
+    if (!headers_sent()) {
+        $_SESSION['provider_purchase_error'] = 'Unable to finalize payment right now. Please try again.';
+        header('Location: ProviderPurchase.php?payment=failed&reason=' . urlencode('Unable to finalize payment. Please try again.'));
+    }
+    exit;
+});
+register_shutdown_function(function (): void {
+    $fatal = error_get_last();
+    if (!is_array($fatal)) {
+        return;
+    }
+    $fatal_types = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
+    if (!in_array((int) ($fatal['type'] ?? 0), $fatal_types, true)) {
+        return;
+    }
+    error_log('[ProviderPurchaseReceipt][FatalShutdown] ' . (string) ($fatal['message'] ?? 'Unknown fatal error'));
+    if (!headers_sent()) {
+        $_SESSION['provider_purchase_error'] = 'Payment page encountered a server error. Please try again.';
+        header('Location: ProviderPurchase.php?payment=failed&reason=' . urlencode('Payment page server error. Please try again.'));
+    }
+    exit;
+});
 require_once __DIR__ . '/provider_auth.php';
 provider_require_approved_for_provider_portal();
 require_once __DIR__ . '/db.php';
@@ -82,6 +106,20 @@ if (!function_exists('provider_paymongo_get_json')) {
         return is_array($decoded) ? $decoded : null;
     }
 }
+if (!function_exists('provider_array_get')) {
+    function provider_array_get(array $source, array $path, $default = '')
+    {
+        $cursor = $source;
+        foreach ($path as $segment) {
+            if (is_array($cursor) && array_key_exists($segment, $cursor)) {
+                $cursor = $cursor[$segment];
+                continue;
+            }
+            return $default;
+        }
+        return $cursor;
+    }
+}
 
 if (defined('PAYMONGO_SECRET_KEY')) {
     $secret = PAYMONGO_SECRET_KEY;
@@ -89,13 +127,14 @@ if (defined('PAYMONGO_SECRET_KEY')) {
         if ($checkout_session_id) {
             $checkout_endpoint = 'https://api.paymongo.com/v1/checkout_sessions/' . rawurlencode((string) $checkout_session_id);
             $checkout_data = provider_paymongo_get_json($checkout_endpoint, $secret);
-            $checkout_payment_intent_attr_status = strtolower((string) ($checkout_data['data']['attributes']['payment_intent']['attributes']['status'] ?? ''));
-            $checkout_attr_status = strtolower((string) ($checkout_data['data']['attributes']['status'] ?? ''));
-            $checkout_payment_status = strtolower((string) ($checkout_data['data']['attributes']['payments'][0]['attributes']['status'] ?? ''));
-            $checkout_payment_intent = (string) ($checkout_data['data']['attributes']['payment_intent']['id'] ?? '');
-            $checkout_payment_id = (string) ($checkout_data['data']['attributes']['payments'][0]['id'] ?? '');
-            $checkout_method = strtolower((string) ($checkout_data['data']['attributes']['payments'][0]['attributes']['source']['type'] ?? ''));
-            $status_detail = (string) ($checkout_data['data']['attributes']['payments'][0]['attributes']['failed_message'] ?? '');
+            $checkout_data = is_array($checkout_data) ? $checkout_data : [];
+            $checkout_payment_intent_attr_status = strtolower((string) provider_array_get($checkout_data, ['data', 'attributes', 'payment_intent', 'attributes', 'status'], ''));
+            $checkout_attr_status = strtolower((string) provider_array_get($checkout_data, ['data', 'attributes', 'status'], ''));
+            $checkout_payment_status = strtolower((string) provider_array_get($checkout_data, ['data', 'attributes', 'payments', 0, 'attributes', 'status'], ''));
+            $checkout_payment_intent = (string) provider_array_get($checkout_data, ['data', 'attributes', 'payment_intent', 'id'], '');
+            $checkout_payment_id = (string) provider_array_get($checkout_data, ['data', 'attributes', 'payments', 0, 'id'], '');
+            $checkout_method = strtolower((string) provider_array_get($checkout_data, ['data', 'attributes', 'payments', 0, 'attributes', 'source', 'type'], ''));
+            $status_detail = (string) provider_array_get($checkout_data, ['data', 'attributes', 'payments', 0, 'attributes', 'failed_message'], '');
 
             if ($checkout_payment_intent !== '') {
                 $payment_intent_id = $checkout_payment_intent;
@@ -118,8 +157,9 @@ if (defined('PAYMONGO_SECRET_KEY')) {
         } elseif ($payment_intent_id && $client_key) {
             $intent_endpoint = 'https://api.paymongo.com/v1/payment_intents/' . rawurlencode((string) $payment_intent_id) . '?client_key=' . urlencode((string) $client_key);
             $intent_data = provider_paymongo_get_json($intent_endpoint, $secret);
-            $status = strtolower((string) ($intent_data['data']['attributes']['status'] ?? ''));
-            $status_detail = $intent_data['data']['attributes']['last_payment_error']['message'] ?? null;
+            $intent_data = is_array($intent_data) ? $intent_data : [];
+            $status = strtolower((string) provider_array_get($intent_data, ['data', 'attributes', 'status'], ''));
+            $status_detail = provider_array_get($intent_data, ['data', 'attributes', 'last_payment_error', 'message'], null);
         }
     }
 }
