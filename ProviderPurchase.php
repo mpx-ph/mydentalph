@@ -102,6 +102,8 @@ foreach ($allowed as $allowed_slug) {
         $plan_price_fallback_map[$allowed_slug] = $settings_price;
     }
 }
+$has_explicit_plan_request = ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['selected_plan_slug']))
+    || isset($_GET['plan']);
 $requested_plan_source = $_SERVER['REQUEST_METHOD'] === 'POST'
     ? ($_POST['selected_plan_slug'] ?? ($_GET['plan'] ?? 'professional'))
     : ($_GET['plan'] ?? 'professional');
@@ -751,6 +753,7 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
 
 (function () {
   var plans = <?php echo $available_plans_json; ?>;
+  var hasExplicitPlanRequest = <?php echo $has_explicit_plan_request ? 'true' : 'false'; ?>;
   var selectedPlanInput = document.getElementById('selected_plan_slug');
   var summaryPlanName = document.getElementById('summary-plan-name');
   var summaryPriceHead = document.getElementById('summary-plan-price-head');
@@ -790,6 +793,7 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
     summaryTotal.textContent = formatMoney(price);
     selectedPlanInput.value = planSlug;
     currentPlanSlug = planSlug;
+    syncOptionSelection(planSlug);
     try {
       window.localStorage.setItem(storageKey, planSlug);
     } catch (e) {}
@@ -848,7 +852,7 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
 
   try {
     var savedPlanSlug = window.localStorage.getItem(storageKey);
-    if (savedPlanSlug && getPlan(savedPlanSlug) && savedPlanSlug !== currentPlanSlug) {
+    if (!hasExplicitPlanRequest && savedPlanSlug && getPlan(savedPlanSlug) && savedPlanSlug !== currentPlanSlug) {
       applyPlanToSummary(savedPlanSlug);
     } else {
       applyPlanToSummary(currentPlanSlug);
