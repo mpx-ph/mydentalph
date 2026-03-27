@@ -13,6 +13,7 @@ if (empty($_SESSION['user_id']) || empty($_SESSION['tenant_id'])) {
 $tenant_id = $_SESSION['tenant_id'];
 $user_id = $_SESSION['user_id'];
 $is_owner = !empty($_SESSION['is_owner']);
+$show_activated_banner = isset($_GET['activated']) && $_GET['activated'] === '1';
 
 if (!function_exists('provider_dashboard_slugify')) {
     function provider_dashboard_slugify(string $value): string
@@ -57,35 +58,61 @@ if (!function_exists('provider_dashboard_unique_slug')) {
     }
 }
 
-// Tenant (clinic) and owner user for display
+// Unified dashboard flow for new payment pipeline:
+// 1) Save settings (optional POST)
+// 2) Load tenant + user records
+// 3) Resolve subscription state with fallback for paid/succeeded
+// 4) Ensure clinic slug exists for active paid owner accounts
+// 5) Build final website links from fresh state
+$settings_saved = false;
+$settings_error = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    try {
+        if ($is_owner) {
+            $cn = trim((string) ($_POST['clinic_name'] ?? ''));
+            $ce = trim((string) ($_POST['clinic_email'] ?? ''));
+            $cp = trim((string) ($_POST['clinic_phone'] ?? ''));
+            $ca = trim((string) ($_POST['clinic_address'] ?? ''));
+            if ($cn !== '') {
+                $stmt = $pdo->prepare("UPDATE tbl_tenants SET clinic_name = ?, contact_email = ?, contact_phone = ?, clinic_address = ? WHERE tenant_id = ?");
+                $stmt->execute([$cn, $ce, $cp, $ca, (string) $tenant_id]);
+            }
+        }
+        $full_name = trim((string) ($_POST['full_name'] ?? ''));
+        $email = trim((string) ($_POST['email'] ?? ''));
+        $phone = trim((string) ($_POST['phone'] ?? ''));
+        if ($full_name !== '' && $email !== '') {
+            $stmt = $pdo->prepare("UPDATE tbl_users SET full_name = ?, email = ?, phone = ? WHERE user_id = ?");
+            $stmt->execute([$full_name, $email, $phone, (string) $user_id]);
+            $_SESSION['email'] = $email;
+            $_SESSION['full_name'] = $full_name;
+        }
+        $settings_saved = true;
+    } catch (Throwable $e) {
+        $settings_error = 'Could not save settings. Please try again.';
+    }
+}
+
 $tenant = [];
 try {
     $stmt = $pdo->prepare("
-        SELECT t.clinic_name, t.clinic_slug, t.contact_email, t.contact_phone, t.clinic_address,
+        SELECT t.clinic_name, t.clinic_slug, t.contact_email, t.contact_phone, t.clinic_address, t.subscription_status,
                u.full_name AS owner_name, u.email AS owner_email, u.phone AS owner_phone
         FROM tbl_tenants t
         LEFT JOIN tbl_users u ON t.owner_user_id = u.user_id
         WHERE t.tenant_id = ?
+        LIMIT 1
     ");
-    $stmt->execute([$tenant_id]);
+    $stmt->execute([(string) $tenant_id]);
     $tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 } catch (Throwable $e) {
     $tenant = [];
 }
-$clinic_name = $tenant['clinic_name'] ?? 'My Clinic';
-$clinic_slug = $tenant['clinic_slug'] ?? '';
 
-// Build tenant-specific URLs (based on Domain & Hosting / clinic_slug)
-$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$host = $_SERVER['HTTP_HOST'] ?? 'mydental.ct.ws';
-$tenant_base_url = $clinic_slug ? ($scheme . '://' . $host . '/' . rawurlencode($clinic_slug)) : '';
-$admin_dashboard_url = $tenant_base_url ? ($tenant_base_url . '/AdminDashboard.php') : '';
-
-// Current user account (for profile form)
 $current_user = [];
 try {
     $stmt = $pdo->prepare("SELECT full_name, email, phone FROM tbl_users WHERE user_id = ? LIMIT 1");
-    $stmt->execute([$user_id]);
+    $stmt->execute([(string) $user_id]);
     $current_user = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 } catch (Throwable $e) {
     $current_user = [];
@@ -98,7 +125,6 @@ try {
     $subscription_meta = provider_get_tenant_subscription_state($pdo, (string) $tenant_id);
     $subscription_state = (string) ($subscription_meta['state'] ?? 'none');
     $is_subscription_active = !empty($subscription_meta['has_active_subscription']);
-
     if ($is_subscription_active && !empty($subscription_meta['active_subscription'])) {
         $sub = (array) $subscription_meta['active_subscription'];
     } elseif (!empty($subscription_meta['latest_subscription'])) {
@@ -107,16 +133,7 @@ try {
 } catch (Throwable $e) {
     $sub = [];
 }
-$plan_name_raw = $sub['plan_name'] ?? null;
-$plan_name = is_string($plan_name_raw) && trim($plan_name_raw) !== ''
-    ? $plan_name_raw
-    : ($is_subscription_active ? 'Active Plan' : 'No Active Subscription');
-$renewal_end = isset($sub['subscription_end']) ? trim((string) $sub['subscription_end']) : '';
-$renewal_ts = $renewal_end !== '' ? strtotime($renewal_end) : false;
-$renewal_date = ($renewal_ts !== false) ? date('M j, Y', $renewal_ts) : '—';
 
-// Dashboard fallback: recover active state even when helper state is inconsistent across deployments.
-$fallback_paid_subscription = null;
 if (!$is_subscription_active) {
     try {
         $paidStmt = $pdo->prepare("
@@ -129,84 +146,67 @@ if (!$is_subscription_active) {
             LIMIT 1
         ");
         $paidStmt->execute([(string) $tenant_id]);
-        $fallback_paid_subscription = $paidStmt->fetch(PDO::FETCH_ASSOC) ?: null;
-        if ($fallback_paid_subscription) {
-            $fallback_end = trim((string) ($fallback_paid_subscription['subscription_end'] ?? ''));
+        $fallback = $paidStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        if ($fallback) {
+            $fallback_end = trim((string) ($fallback['subscription_end'] ?? ''));
             $fallback_end_ts = $fallback_end !== '' ? strtotime($fallback_end . ' 23:59:59') : false;
             $not_expired = ($fallback_end_ts === false) || ($fallback_end_ts >= time());
             if ($not_expired) {
                 $is_subscription_active = true;
                 $subscription_state = 'active';
                 if (empty($sub)) {
-                    $sub = $fallback_paid_subscription;
-                    $plan_name = trim((string) ($fallback_paid_subscription['plan_name'] ?? $plan_name));
-                    $renewal_date = $fallback_end_ts !== false ? date('M j, Y', $fallback_end_ts) : $renewal_date;
+                    $sub = $fallback;
                 }
             }
         }
     } catch (Throwable $e) {
-        $fallback_paid_subscription = null;
+        // Keep helper result if fallback fails.
     }
 }
 
-// Auto-heal missing clinic slug for paid tenants so website link is always generated for owner.
-if ($is_owner && trim((string) $clinic_slug) === '' && $is_subscription_active) {
+$clinic_name = trim((string) ($tenant['clinic_name'] ?? ''));
+$clinic_slug = trim((string) ($tenant['clinic_slug'] ?? ''));
+if ($clinic_name === '') {
+    $clinic_name = 'My Clinic';
+}
+
+if ($is_owner && $is_subscription_active && $clinic_slug === '') {
     try {
-        $slug_seed = trim((string) $clinic_name);
-        if ($slug_seed === '') {
-            $slug_seed = 'clinic-' . preg_replace('/[^a-z0-9]/i', '', (string) $tenant_id);
-        }
+        $slug_seed = $clinic_name !== '' ? $clinic_name : ('clinic-' . preg_replace('/[^a-z0-9]/i', '', (string) $tenant_id));
         $new_slug = provider_dashboard_unique_slug($pdo, (string) $tenant_id, $slug_seed);
         if ($new_slug !== '') {
-            $slugUpdate = $pdo->prepare("UPDATE tbl_tenants SET clinic_slug = ? WHERE tenant_id = ?");
+            $slugUpdate = $pdo->prepare("UPDATE tbl_tenants SET clinic_slug = ?, subscription_status = 'active' WHERE tenant_id = ?");
             $slugUpdate->execute([$new_slug, (string) $tenant_id]);
             $clinic_slug = $new_slug;
             $tenant['clinic_slug'] = $new_slug;
+            $tenant['subscription_status'] = 'active';
             $_SESSION['tenant_clinic_slug'] = $new_slug;
         }
     } catch (Throwable $e) {
-        // Keep page usable without hard failure.
+        // Do not block dashboard rendering.
     }
 }
 
-$has_clinic_slug = trim((string) $clinic_slug) !== '';
+$plan_name_raw = $sub['plan_name'] ?? null;
+$plan_name = is_string($plan_name_raw) && trim($plan_name_raw) !== ''
+    ? trim($plan_name_raw)
+    : ($is_subscription_active ? 'Active Plan' : 'No Active Subscription');
+$renewal_end = trim((string) ($sub['subscription_end'] ?? ''));
+$renewal_ts = $renewal_end !== '' ? strtotime($renewal_end) : false;
+$renewal_date = ($renewal_ts !== false) ? date('M j, Y', $renewal_ts) : '—';
+
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$host = trim((string) ($_SERVER['HTTP_HOST'] ?? 'mydental.ct.ws'));
+if ($host === '') {
+    $host = 'mydental.ct.ws';
+}
+$tenant_base_url = $clinic_slug !== '' ? ($scheme . '://' . $host . '/' . rawurlencode($clinic_slug)) : '';
+$admin_dashboard_url = $tenant_base_url !== '' ? ($tenant_base_url . '/AdminDashboard.php') : '';
+$has_clinic_slug = $clinic_slug !== '';
 $has_active_website = $is_subscription_active && $has_clinic_slug;
 $domain_display = $has_active_website ? ($host . '/' . $clinic_slug) : 'No Active Website';
-
-$settings_saved = false;
-$settings_error = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    try {
-        // Clinic data → tbl_tenants (only owner can update clinic details, or allow any for simplicity; requirement: clinic updates go to tbl_tenants)
-        if ($is_owner) {
-            $cn = trim($_POST['clinic_name'] ?? '');
-            $ce = trim($_POST['clinic_email'] ?? '');
-            $cp = trim($_POST['clinic_phone'] ?? '');
-            $ca = trim($_POST['clinic_address'] ?? '');
-            if ($cn !== '') {
-                $stmt = $pdo->prepare("UPDATE tbl_tenants SET clinic_name = ?, contact_email = ?, contact_phone = ?, clinic_address = ? WHERE tenant_id = ?");
-                $stmt->execute([$cn, $ce, $cp, $ca, $tenant_id]);
-            }
-        }
-        // Owner/current user account → tbl_users
-        $full_name = trim($_POST['full_name'] ?? '');
-        $email = trim($_POST['email'] ?? '');
-        $phone = trim($_POST['phone'] ?? '');
-        if ($full_name !== '' && $email !== '') {
-            $stmt = $pdo->prepare("UPDATE tbl_users SET full_name = ?, email = ?, phone = ? WHERE user_id = ?");
-            $stmt->execute([$full_name, $email, $phone, $user_id]);
-        }
-        $settings_saved = true;
-        $current_user = ['full_name' => $full_name ?: ($current_user['full_name'] ?? ''), 'email' => $email ?: ($current_user['email'] ?? ''), 'phone' => $phone];
-        if ($is_owner && isset($cn)) {
-            $tenant['clinic_name'] = $cn;
-            $tenant['contact_email'] = $ce;
-            $tenant['contact_phone'] = $cp;
-            $tenant['clinic_address'] = $ca;
-        }
-    } catch (Throwable $e) {
-        $settings_error = 'Could not save settings. Please try again.';
-    }
+if ($has_active_website) {
+    $_SESSION['tenant_clinic_link'] = $host . '/' . $clinic_slug;
 }
 ?>
 <!DOCTYPE html>
@@ -414,6 +414,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
 <?php if ($settings_saved): ?>
 <div class="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm">Settings saved successfully.</div>
+<?php endif; ?>
+<?php if ($show_activated_banner): ?>
+<div class="mb-6 p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl text-sm font-semibold">Subscription activated. Your clinic website is now live and ready to manage.</div>
 <?php endif; ?>
 <?php if ($settings_error): ?>
 <div class="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm"><?php echo htmlspecialchars($settings_error); ?></div>

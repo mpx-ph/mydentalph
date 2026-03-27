@@ -380,7 +380,8 @@ unset(
 unset($_SESSION['provider_purchase_clinic_name']);
 unset($_SESSION['paymongo_checkout_return_token']);
 
-$success_finalizer = 'ProviderTenantDashboard.php';
+$success_finalizer = 'ProviderTenantDashboard.php?activated=1';
+$auto_redirect_seconds = 4;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -452,6 +453,14 @@ $success_finalizer = 'ProviderTenantDashboard.php';
                     <?php endif; ?>
                 </div>
 
+                <div class="mt-6 rounded-xl bg-blue-50 border border-blue-200 p-4">
+                    <p class="text-sm text-blue-800">
+                        Redirecting you to your tenant dashboard in
+                        <span id="auto-redirect-seconds" class="font-bold"><?php echo (int) $auto_redirect_seconds; ?></span>
+                        seconds...
+                    </p>
+                </div>
+
                 <div class="mt-6 flex flex-col sm:flex-row gap-3">
                     <a href="<?php echo htmlspecialchars($success_finalizer); ?>" class="inline-flex justify-center items-center rounded-xl bg-primary hover:bg-primary/90 text-white font-bold px-5 py-3 transition-colors">
                         Go to dashboard
@@ -463,6 +472,23 @@ $success_finalizer = 'ProviderTenantDashboard.php';
             </div>
         </div>
     </div>
+<script>
+(function () {
+    var secondsLeft = <?php echo (int) $auto_redirect_seconds; ?>;
+    var countdownEl = document.getElementById('auto-redirect-seconds');
+    var target = <?php echo json_encode($success_finalizer); ?>;
+    var timer = setInterval(function () {
+        secondsLeft -= 1;
+        if (countdownEl && secondsLeft >= 0) {
+            countdownEl.textContent = String(secondsLeft);
+        }
+        if (secondsLeft <= 0) {
+            clearInterval(timer);
+            window.location.href = target;
+        }
+    }, 1000);
+})();
+</script>
 </body>
 </html>
 
