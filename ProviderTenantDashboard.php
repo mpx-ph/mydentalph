@@ -155,11 +155,46 @@ try {
     $tenant = [];
 }
 
+// Recovery path for legacy/misaligned records:
+// if session tenant_id does not resolve, recover tenant by logged-in owner user_id.
 if (empty($tenant)) {
-    $_SESSION['provider_purchase_error'] = 'Tenant account data could not be loaded. Please sign in again.';
-    unset($_SESSION['user_id'], $_SESSION['tenant_id'], $_SESSION['is_owner']);
-    header('Location: ProviderLogin.php');
-    exit;
+    try {
+        $stmt = $pdo->prepare("
+            SELECT t.tenant_id, t.clinic_name, t.clinic_slug, t.contact_email, t.contact_phone, t.clinic_address, t.subscription_status,
+                   u.full_name AS owner_name, u.email AS owner_email, u.phone AS owner_phone
+            FROM tbl_tenants t
+            LEFT JOIN tbl_users u ON t.owner_user_id = u.user_id
+            WHERE t.owner_user_id = ?
+            ORDER BY t.tenant_id DESC
+            LIMIT 1
+        ");
+        $stmt->execute([(string) $user_id]);
+        $tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        if (!empty($tenant['tenant_id'])) {
+            $tenant_id = (string) $tenant['tenant_id'];
+            $_SESSION['tenant_id'] = $tenant_id;
+            try {
+                $repairStmt = $pdo->prepare("UPDATE tbl_users SET tenant_id = ? WHERE user_id = ?");
+                $repairStmt->execute([$tenant_id, (string) $user_id]);
+            } catch (Throwable $e) {
+                // Do not block dashboard on tenant_id repair failure.
+            }
+        }
+    } catch (Throwable $e) {
+        $tenant = [];
+    }
+}
+
+if (empty($tenant)) {
+    $tenant = [
+        'tenant_id' => (string) $tenant_id,
+        'clinic_name' => '',
+        'clinic_slug' => '',
+        'contact_email' => '',
+        'contact_phone' => '',
+        'clinic_address' => '',
+        'subscription_status' => '',
+    ];
 }
 
 $current_user = [];
