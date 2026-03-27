@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/provider_auth.php';
 provider_require_approved_for_provider_portal();
+require_once __DIR__ . '/db.php';
 require_once 'paymongo_config.php';
 
 $payment_intent_id = $_SESSION['paymongo_payment_intent_id'] ?? null;
@@ -10,8 +11,19 @@ $plan_name = $_SESSION['paymongo_plan_name'] ?? 'Professional';
 $plan_price = $_SESSION['paymongo_plan_price'] ?? 0;
 $payment_method = $_SESSION['paymongo_payment_method'] ?? 'card'; // card|gcash|paymaya
 $billing_email = $_SESSION['paymongo_billing_email'] ?? '';
+$tenant_id = $_SESSION['paymongo_tenant_id'] ?? null;
+$user_id = $_SESSION['paymongo_user_id'] ?? null;
+$plan_id = $_SESSION['paymongo_plan_id'] ?? null;
+$reference_number = $_SESSION['paymongo_reference_number'] ?? ($payment_intent_id ? ('PM-' . $payment_intent_id) : '');
 
-if (!$payment_intent_id || !$client_key) {
+if (
+    !$payment_intent_id
+    || !$client_key
+    || !$tenant_id
+    || !$user_id
+    || !$plan_id
+    || (float) $plan_price <= 0
+) {
     header('Location: ProviderPurchase.php');
     exit;
 }
@@ -23,12 +35,12 @@ $invoice_no = substr($invoice_no, 0, 22);
 
 $status = null;
 $status_detail = null;
-if (defined('PAYMONGO_PUBLIC_KEY')) {
-    $pk = PAYMONGO_PUBLIC_KEY;
-    if ($pk && strpos($pk, 'YOUR_') === false) {
+if (defined('PAYMONGO_SECRET_KEY')) {
+    $secret = PAYMONGO_SECRET_KEY;
+    if ($secret && strpos($secret, 'YOUR_') === false && function_exists('curl_init')) {
         $ch = curl_init('https://api.paymongo.com/v1/payment_intents/' . $payment_intent_id . '?client_key=' . urlencode($client_key));
         curl_setopt_array($ch, [
-            CURLOPT_HTTPHEADER => ['Authorization: Basic ' . base64_encode($pk . ':')],
+            CURLOPT_HTTPHEADER => ['Authorization: Basic ' . base64_encode($secret . ':')],
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 10,
         ]);
@@ -40,14 +52,92 @@ if (defined('PAYMONGO_PUBLIC_KEY')) {
     }
 }
 
-// If PayMongo says it failed, don't continue to success finalizer.
-if ($status && $status !== 'succeeded' && $status !== 'processing') {
+if ($status === null) {
+    header('Location: ProviderPurchase.php?payment=failed&reason=' . urlencode('Unable to verify payment status. Please contact support if charged.'));
+    exit;
+}
+// If PayMongo says it failed, do not continue.
+if ($status !== 'succeeded' && $status !== 'processing') {
     $msg = $status_detail ?: 'Payment did not complete. Please try again.';
     header('Location: ProviderPurchase.php?payment=failed&reason=' . urlencode($msg));
     exit;
 }
 
-$success_finalizer = 'ProviderPurchaseSuccess.php';
+// Idempotent finalization: do not insert duplicate successful subscriptions.
+try {
+    $pdo->beginTransaction();
+    $checkStmt = $pdo->prepare("
+        SELECT id
+        FROM tbl_tenant_subscriptions
+        WHERE tenant_id = ? AND reference_number = ?
+        LIMIT 1
+    ");
+    $checkStmt->execute([(string) $tenant_id, (string) $reference_number]);
+    $existingId = $checkStmt->fetchColumn();
+
+    if (!$existingId) {
+        $start = date('Y-m-d');
+        $end = date('Y-m-d', strtotime('+1 month'));
+        $insertStmt = $pdo->prepare("
+            INSERT INTO tbl_tenant_subscriptions
+            (tenant_id, plan_id, subscription_start, subscription_end, payment_status, payment_method, amount_paid, reference_number)
+            VALUES (?, ?, ?, ?, 'paid', ?, ?, ?)
+        ");
+        $insertStmt->execute([
+            (string) $tenant_id,
+            (int) $plan_id,
+            $start,
+            $end,
+            (string) $payment_method,
+            (float) $plan_price,
+            (string) $reference_number,
+        ]);
+    }
+
+    $tenantStmt = $pdo->prepare("UPDATE tbl_tenants SET subscription_status = 'active' WHERE tenant_id = ?");
+    $tenantStmt->execute([(string) $tenant_id]);
+    $pdo->commit();
+} catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    header('Location: ProviderPurchase.php?payment=failed&reason=' . urlencode('Could not finalize subscription. Please contact support.'));
+    exit;
+}
+
+try {
+    $stmt = $pdo->prepare("SELECT user_id, tenant_id, username, email, full_name, role, status FROM tbl_users WHERE user_id = ?");
+    $stmt->execute([(string) $user_id]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($user) {
+        $_SESSION['user_id'] = $user['user_id'];
+        $_SESSION['tenant_id'] = $user['tenant_id'];
+        $_SESSION['name'] = $user['full_name'] ?: $user['username'];
+        $_SESSION['username'] = $user['username'];
+        $_SESSION['email'] = $user['email'];
+        $_SESSION['full_name'] = $user['full_name'];
+        $_SESSION['role'] = $user['role'];
+        $_SESSION['status'] = $user['status'];
+        $stmt2 = $pdo->prepare("SELECT owner_user_id FROM tbl_tenants WHERE tenant_id = ? LIMIT 1");
+        $stmt2->execute([$user['tenant_id']]);
+        $t = $stmt2->fetch(PDO::FETCH_ASSOC);
+        $_SESSION['is_owner'] = ($t && isset($t['owner_user_id']) && $t['owner_user_id'] === $user['user_id']);
+    }
+} catch (Throwable $e) {
+    // Keep existing session values if refresh cannot complete.
+}
+
+unset(
+    $_SESSION['onboarding_user_id'],
+    $_SESSION['onboarding_tenant_id'],
+    $_SESSION['onboarding_pending_id'],
+    $_SESSION['onboarding_email'],
+    $_SESSION['onboarding_plan'],
+    $_SESSION['onboarding_full_name'],
+    $_SESSION['onboarding_username']
+);
+
+$success_finalizer = 'ProviderTenantDashboard.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">

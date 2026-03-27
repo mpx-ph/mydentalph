@@ -11,10 +11,20 @@ $paymongo_method = $_SESSION['paymongo_payment_method'] ?? 'card'; // card | gca
 $plan_name = $_SESSION['paymongo_plan_name'] ?? 'Professional';
 $plan_price = $_SESSION['paymongo_plan_price'] ?? 0;
 $billing_email = $_SESSION['paymongo_billing_email'] ?? '';
+$tenant_id = $_SESSION['paymongo_tenant_id'] ?? null;
+$user_id = $_SESSION['paymongo_user_id'] ?? null;
+$plan_id = $_SESSION['paymongo_plan_id'] ?? null;
 $public_key = defined('PAYMONGO_PUBLIC_KEY') ? PAYMONGO_PUBLIC_KEY : '';
 
-if (!$client_key || !$payment_intent_id) {
-    header('Location: ProviderPurchase.php');
+if (
+    !$client_key
+    || !$payment_intent_id
+    || !$tenant_id
+    || !$user_id
+    || !$plan_id
+    || (float) $plan_price <= 0
+) {
+    header('Location: ProviderPurchase.php?payment=failed&reason=' . urlencode('Purchase session is incomplete. Please try again.'));
     exit;
 }
 
@@ -23,9 +33,8 @@ if (!in_array($paymongo_method, $allowed_methods, true)) {
     $paymongo_method = 'card';
 }
 
-// Build return URL for 3DS / post-payment success finalizer.
-// This will complete provisioning, then redirect to ProviderTenantDashboard.php.
-$return_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . dirname($_SERVER['REQUEST_URI'] ?? '') . '/ProviderPurchaseSuccess.php';
+// Build return URL for 3DS / post-payment callback.
+$return_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . dirname($_SERVER['REQUEST_URI'] ?? '') . '/ProviderPurchaseReceipt.php';
 $return_url = str_replace('\\', '/', $return_url);
 ?>
 <!DOCTYPE html>

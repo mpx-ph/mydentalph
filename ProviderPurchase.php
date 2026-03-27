@@ -264,15 +264,33 @@ if (!is_string($available_plans_json) || $available_plans_json === '') {
 }
 
 $error = '';
+$selected_payment_method = '';
+$valid_methods = ['card', 'gcash', 'paymaya', 'bank_transfer'];
+$form_token = $_SESSION['provider_purchase_form_token'] ?? '';
+if (!is_string($form_token) || $form_token === '') {
+    $form_token = bin2hex(random_bytes(16));
+    $_SESSION['provider_purchase_form_token'] = $form_token;
+}
+if (isset($_GET['payment']) && $_GET['payment'] === 'failed' && $error === '') {
+    $error_reason = trim((string) ($_GET['reason'] ?? ''));
+    $error = $error_reason !== '' ? $error_reason : 'Payment did not complete. Please try again.';
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $payment_method = strtolower(trim($_POST['payment_method'] ?? 'card'));
+    $posted_token = (string) ($_POST['purchase_form_token'] ?? '');
+    $session_token = (string) ($_SESSION['provider_purchase_form_token'] ?? '');
+    if ($posted_token === '' || $session_token === '' || !hash_equals($session_token, $posted_token)) {
+        $error = 'Your purchase session has expired. Please review your details and try again.';
+    } else {
+        unset($_SESSION['provider_purchase_form_token']);
+    }
+    $payment_method = strtolower(trim((string) ($_POST['payment_method'] ?? '')));
     // Accept "maya" from UI but normalize to PayMongo's "paymaya"
     if ($payment_method === 'maya') {
         $payment_method = 'paymaya';
     }
-    $valid_methods = ['card', 'gcash', 'paymaya', 'bank_transfer'];
-    if (!in_array($payment_method, $valid_methods, true)) {
-        $payment_method = 'card';
+    $selected_payment_method = $payment_method;
+    if ($error === '' && !in_array($payment_method, $valid_methods, true)) {
+        $error = 'Please select a valid payment method before confirming your purchase.';
     }
     $clinic_name_post = trim($_POST['clinic_name'] ?? '');
     $contact_email_post = trim($_POST['clinic_email'] ?? '');
@@ -280,11 +298,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $contact_email = $contact_email_post !== '' ? $contact_email_post : $prefill_email;
     $contact_phone = trim($_POST['clinic_phone'] ?? '');
     $clinic_address = trim($_POST['clinic_address'] ?? '');
-    try {
-        $stmt = $pdo->prepare("UPDATE tbl_tenants SET clinic_name = COALESCE(NULLIF(?, ''), clinic_name), contact_email = COALESCE(NULLIF(?, ''), contact_email), contact_phone = ?, clinic_address = ? WHERE tenant_id = ?");
-        $stmt->execute([$clinic_name, $contact_email, $contact_phone, $clinic_address, $tenant_id]);
-    } catch (PDOException $e) {
-        $error = "Could not save clinic details. Please try again.";
+    if ($error === '') {
+        try {
+            $stmt = $pdo->prepare("UPDATE tbl_tenants SET clinic_name = COALESCE(NULLIF(?, ''), clinic_name), contact_email = COALESCE(NULLIF(?, ''), contact_email), contact_phone = ?, clinic_address = ? WHERE tenant_id = ?");
+            $stmt->execute([$clinic_name, $contact_email, $contact_phone, $clinic_address, $tenant_id]);
+        } catch (PDOException $e) {
+            $error = "Could not save clinic details. Please try again.";
+        }
+    }
+
+    if ($error === '' && $plan_id <= 0) {
+        $error = 'Selected subscription plan is invalid. Please choose a plan and try again.';
+    }
+    if ($error === '' && $plan_price <= 0) {
+        $error = 'Selected plan price is invalid. Please refresh and try again.';
+    }
+    if ($error === '' && $clinic_name === '') {
+        $error = 'Clinic name is required.';
+    }
+    if ($error === '' && ($contact_email === '' || !filter_var($contact_email, FILTER_VALIDATE_EMAIL))) {
+        $error = 'A valid work email is required.';
     }
 
     if ($error === '' && in_array($payment_method, ['card', 'gcash', 'paymaya'], true)) {
@@ -308,6 +341,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 'currency' => 'PHP',
                                 'payment_method_allowed' => $allowed_methods,
                                 'description' => 'MyDental - ' . ($plan_name ?? 'Professional') . ' plan',
+                                'metadata' => [
+                                    'tenant_id' => (string) $tenant_id,
+                                    'user_id' => (string) $user_id,
+                                    'plan_slug' => (string) $plan_slug,
+                                ],
                             ]
                         ]
                     ]);
@@ -336,6 +374,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_SESSION['paymongo_plan_id'] = $plan_id;
                         $_SESSION['paymongo_plan_name'] = $plan_name;
                         $_SESSION['paymongo_plan_price'] = $plan_price;
+                        $_SESSION['paymongo_plan_slug'] = $plan_slug;
+                        $_SESSION['paymongo_reference_number'] = 'PM-' . $payment_intent_id;
                         header('Location: ProviderPayMongoCheckout.php');
                         exit;
                     }
@@ -400,6 +440,11 @@ if (!empty($plan_slug)) {
 }
 if ($debug_mode) {
     $form_action_qs['debug'] = '1';
+}
+$form_token = $_SESSION['provider_purchase_form_token'] ?? '';
+if (!is_string($form_token) || $form_token === '') {
+    $form_token = bin2hex(random_bytes(16));
+    $_SESSION['provider_purchase_form_token'] = $form_token;
 }
 $form_action_href = 'ProviderPurchase.php' . ($form_action_qs !== [] ? '?' . http_build_query($form_action_qs) : '');
 
@@ -512,6 +557,7 @@ $back_href = 'ProviderClinicSetup.php';
 <?php endif; ?>
 <form method="post" action="<?php echo htmlspecialchars($form_action_href, ENT_QUOTES, 'UTF-8'); ?>" class="space-y-0">
 <input id="selected_plan_slug" name="selected_plan_slug" type="hidden" value="<?php echo htmlspecialchars($plan_slug, ENT_QUOTES, 'UTF-8'); ?>"/>
+<input name="purchase_form_token" type="hidden" value="<?php echo htmlspecialchars($form_token, ENT_QUOTES, 'UTF-8'); ?>"/>
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
 <!-- Left Column: Clinic & payment -->
 <div class="lg:col-span-7 space-y-6">
@@ -557,25 +603,25 @@ $back_href = 'ProviderClinicSetup.php';
 </div>
 <div id="payment-methods" class="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
 <label for="pm_gcash" data-method="gcash" class="pm-option group flex flex-col items-center justify-center p-3 sm:p-4 bg-white border rounded-xl transition-all duration-300 cursor-pointer border-on-surface/5 hover:border-primary/30">
-<input id="pm_gcash" class="sr-only" name="payment_method" value="gcash" type="radio"/>
+<input id="pm_gcash" class="sr-only" name="payment_method" value="gcash" type="radio" <?php echo $selected_payment_method === 'gcash' ? 'checked' : ''; ?>/>
 <span class="material-symbols-outlined pm-icon text-primary text-2xl mb-1.5">account_balance_wallet</span>
 <span class="pm-text font-bold text-[10px] uppercase tracking-wider text-on-surface-variant group-hover:text-primary transition-colors">GCash</span>
 </label>
 
 <label for="pm_bank" data-method="bank_transfer" class="pm-option group flex flex-col items-center justify-center p-3 sm:p-4 bg-white border rounded-xl transition-all duration-300 cursor-pointer border-on-surface/5 hover:border-primary/30">
-<input id="pm_bank" class="sr-only" name="payment_method" value="bank_transfer" type="radio"/>
+<input id="pm_bank" class="sr-only" name="payment_method" value="bank_transfer" type="radio" <?php echo $selected_payment_method === 'bank_transfer' ? 'checked' : ''; ?>/>
 <span class="material-symbols-outlined pm-icon text-primary text-2xl mb-1.5">account_balance</span>
 <span class="pm-text font-bold text-[10px] uppercase tracking-wider text-on-surface-variant group-hover:text-primary transition-colors">Bank</span>
 </label>
 
 <label for="pm_card" data-method="card" class="pm-option group flex flex-col items-center justify-center p-3 sm:p-4 bg-white border-2 rounded-xl transition-all duration-300 cursor-pointer border-primary shadow-lg shadow-primary/10">
-<input id="pm_card" checked class="sr-only" name="payment_method" value="card" type="radio"/>
+<input id="pm_card" class="sr-only" name="payment_method" value="card" type="radio" <?php echo $selected_payment_method === 'card' ? 'checked' : ''; ?>/>
 <span class="material-symbols-outlined pm-icon pm-icon-card text-primary text-2xl mb-1.5">credit_card</span>
 <span class="pm-text font-bold text-[10px] uppercase tracking-wider text-primary">Credit Card</span>
 </label>
 
 <label for="pm_maya" data-method="maya" class="pm-option group flex flex-col items-center justify-center p-3 sm:p-4 bg-white border rounded-xl transition-all duration-300 cursor-pointer border-on-surface/5 hover:border-primary/30">
-<input id="pm_maya" class="sr-only" name="payment_method" value="maya" type="radio"/>
+<input id="pm_maya" class="sr-only" name="payment_method" value="maya" type="radio" <?php echo $selected_payment_method === 'paymaya' ? 'checked' : ''; ?>/>
 <span class="material-symbols-outlined pm-icon text-primary text-2xl mb-1.5">phone_iphone</span>
 <span class="pm-text font-bold text-[10px] uppercase tracking-wider text-on-surface-variant group-hover:text-primary transition-colors">Maya</span>
 </label>
@@ -630,7 +676,7 @@ $back_href = 'ProviderClinicSetup.php';
 </div>
 <p id="summary-plan-total" class="font-headline text-2xl font-extrabold tracking-tight text-white sm:text-3xl">₱<?php echo number_format($plan_price, 2); ?></p>
 </div>
-<button type="submit" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3.5 text-xs font-bold uppercase tracking-wider text-primary shadow-xl transition-all hover:scale-[1.02] hover:bg-white/90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
+<button id="confirm-purchase-btn" type="submit" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3.5 text-xs font-bold uppercase tracking-wider text-primary shadow-xl transition-all hover:scale-[1.02] hover:bg-white/90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
                             Confirm Purchase
                             <span class="material-symbols-outlined text-lg" aria-hidden="true">arrow_right_alt</span>
 </button>
@@ -724,6 +770,8 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
 <script>
 (function () {
   var root = document.getElementById('payment-methods');
+  var form = document.querySelector('form[action*="ProviderPurchase.php"]');
+  var submitBtn = document.getElementById('confirm-purchase-btn');
   if (!root) return;
 
   var activeBorder = ['border-2', 'border-primary', 'shadow-lg', 'shadow-primary/10'];
@@ -736,7 +784,7 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
 
   function applySelection() {
     var selected = root.querySelector('input[name="payment_method"]:checked');
-    var selectedVal = selected ? selected.value : 'card';
+    var selectedVal = selected ? selected.value : '';
 
     root.querySelectorAll('.pm-option').forEach(function (label) {
       var method = label.getAttribute('data-method');
@@ -765,6 +813,19 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
   });
 
   applySelection();
+
+  if (form && submitBtn) {
+    form.addEventListener('submit', function (e) {
+      var selected = root.querySelector('input[name="payment_method"]:checked');
+      if (!selected) {
+        e.preventDefault();
+        alert('Please choose a payment method before confirming your purchase.');
+        return;
+      }
+      submitBtn.disabled = true;
+      submitBtn.classList.add('opacity-70', 'cursor-not-allowed');
+    });
+  }
 })();
 
 (function () {
