@@ -579,7 +579,7 @@ $back_href = 'ProviderClinicSetup.php';
 <?php if ($error): ?>
 <div class="mb-6 p-3.5 rounded-xl border border-error/20 bg-red-50 text-error text-sm font-medium"><?php echo $error; ?></div>
 <?php endif; ?>
-<form method="post" action="<?php echo htmlspecialchars($form_action_href, ENT_QUOTES, 'UTF-8'); ?>" class="space-y-0">
+<form id="provider-purchase-form" method="post" action="<?php echo htmlspecialchars($form_action_href, ENT_QUOTES, 'UTF-8'); ?>" class="space-y-0">
 <input id="selected_plan_slug" name="selected_plan_slug" type="hidden" value="<?php echo htmlspecialchars($plan_slug, ENT_QUOTES, 'UTF-8'); ?>"/>
 <input name="purchase_form_token" type="hidden" value="<?php echo htmlspecialchars($form_token, ENT_QUOTES, 'UTF-8'); ?>"/>
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
@@ -627,7 +627,7 @@ $back_href = 'ProviderClinicSetup.php';
 </div>
 <div id="payment-methods" class="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
 <label for="pm_gcash" data-method="gcash" class="pm-option group flex flex-col items-center justify-center p-3 sm:p-4 bg-white border rounded-xl transition-all duration-300 cursor-pointer border-on-surface/5 hover:border-primary/30">
-<input id="pm_gcash" class="sr-only" name="payment_method" value="gcash" type="radio" required <?php echo $selected_payment_method === 'gcash' ? 'checked' : ''; ?>/>
+<input id="pm_gcash" class="sr-only" name="payment_method" value="gcash" type="radio" <?php echo $selected_payment_method === 'gcash' ? 'checked' : ''; ?>/>
 <span class="material-symbols-outlined pm-icon text-primary text-2xl mb-1.5">account_balance_wallet</span>
 <span class="pm-text font-bold text-[10px] uppercase tracking-wider text-on-surface-variant group-hover:text-primary transition-colors">GCash</span>
 </label>
@@ -650,6 +650,7 @@ $back_href = 'ProviderClinicSetup.php';
 <span class="pm-text font-bold text-[10px] uppercase tracking-wider text-on-surface-variant group-hover:text-primary transition-colors">Maya</span>
 </label>
 </div>
+<p id="payment-method-error" class="mt-2 hidden text-xs font-semibold text-error">Please choose a payment method before confirming your purchase.</p>
 </section>
 </div>
 
@@ -700,7 +701,7 @@ $back_href = 'ProviderClinicSetup.php';
 </div>
 <p id="summary-plan-total" class="font-headline text-2xl font-extrabold tracking-tight text-white sm:text-3xl">₱<?php echo number_format($plan_price, 2); ?></p>
 </div>
-<button id="confirm-purchase-btn" type="submit" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3.5 text-xs font-bold uppercase tracking-wider text-primary shadow-xl transition-all hover:scale-[1.02] hover:bg-white/90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
+<button id="confirm-purchase-btn" form="provider-purchase-form" type="submit" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3.5 text-xs font-bold uppercase tracking-wider text-primary shadow-xl transition-all hover:scale-[1.02] hover:bg-white/90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
                             Confirm Purchase
                             <span class="material-symbols-outlined text-lg" aria-hidden="true">arrow_right_alt</span>
 </button>
@@ -794,8 +795,9 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
 <script>
 (function () {
   var root = document.getElementById('payment-methods');
-  var form = document.querySelector('form[action*="ProviderPurchase.php"]');
+  var form = document.getElementById('provider-purchase-form');
   var submitBtn = document.getElementById('confirm-purchase-btn');
+  var paymentError = document.getElementById('payment-method-error');
   if (!root) return;
 
   var activeBorder = ['border-2', 'border-primary', 'shadow-lg', 'shadow-primary/10'];
@@ -833,7 +835,10 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
   }
 
   root.addEventListener('change', function (e) {
-    if (e.target && e.target.name === 'payment_method') applySelection();
+    if (e.target && e.target.name === 'payment_method') {
+      if (paymentError) paymentError.classList.add('hidden');
+      applySelection();
+    }
   });
 
   applySelection();
@@ -843,7 +848,11 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
       var selected = root.querySelector('input[name="payment_method"]:checked');
       if (!selected) {
         e.preventDefault();
-        alert('Please choose a payment method before confirming your purchase.');
+        if (paymentError) {
+          paymentError.classList.remove('hidden');
+        } else {
+          alert('Please choose a payment method before confirming your purchase.');
+        }
         return;
       }
       if (submitBtn.dataset.submitting === '1') {
