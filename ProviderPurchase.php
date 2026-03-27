@@ -459,40 +459,47 @@ $back_href = 'ProviderClinicSetup.php';
 
 <!-- Right Column: Order summary -->
 <aside class="lg:col-span-5 lg:sticky lg:top-24 self-start w-full">
-<div class="rounded-2xl p-5 sm:p-6 shadow-lg shadow-primary/20 relative overflow-hidden border border-primary/25 bg-gradient-to-br from-primary/25 via-primary-fixed/90 to-primary/15">
-<div class="absolute top-0 right-0 w-32 h-32 bg-white/25 rounded-bl-full pointer-events-none" aria-hidden="true"></div>
-<div class="absolute -bottom-8 -left-8 w-24 h-24 rounded-full bg-primary/10 pointer-events-none" aria-hidden="true"></div>
-<h3 class="font-headline text-lg sm:text-xl font-extrabold mb-5 tracking-tight relative text-on-surface">Order Summary</h3>
-<div class="space-y-5 relative">
-<div class="flex justify-between items-start gap-3 pb-5 border-b border-primary/20">
+<!-- Match Provider-Plans.php plan cards: bg-primary + white text + SVG arc overlay (same as Professional card hover) -->
+<div class="relative overflow-hidden rounded-3xl border border-slate-200/70 bg-primary p-5 sm:p-6 text-white shadow-sm shadow-primary/25">
+<div class="absolute top-0 right-0 h-full w-full opacity-10 pointer-events-none" aria-hidden="true">
+<svg class="h-full w-full fill-none stroke-white/45" viewBox="0 0 100 100" preserveAspectRatio="none">
+<circle cx="100" cy="0" r="90" stroke-width="0.3"></circle>
+<circle cx="100" cy="0" r="70" stroke-width="0.3"></circle>
+<circle cx="100" cy="0" r="50" stroke-width="0.3"></circle>
+</svg>
+</div>
+<div class="relative z-10">
+<h3 class="font-headline text-lg sm:text-xl font-extrabold mb-5 tracking-tight text-white">Order Summary</h3>
+<div class="space-y-5">
+<div class="flex justify-between items-start gap-3 border-b border-white/20 pb-5">
 <div class="min-w-0">
-<p class="text-[10px] font-black uppercase tracking-[0.18em] text-on-primary-fixed-variant/80 mb-1">Selected Plan</p>
-<h4 class="font-headline text-base sm:text-lg font-extrabold text-primary break-words"><?php echo htmlspecialchars($plan_name); ?></h4>
-<p class="text-xs font-medium text-on-surface-variant flex items-center gap-1.5 mt-1.5">
-<span class="material-symbols-outlined text-base shrink-0 text-primary/80">event_repeat</span>
+<p class="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/70">Selected Plan</p>
+<h4 class="font-headline text-base sm:text-lg font-extrabold break-words font-editorial italic text-white editorial-word"><?php echo htmlspecialchars($plan_name); ?></h4>
+<p class="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-white/80">
+<span class="material-symbols-outlined shrink-0 text-base text-white/90">event_repeat</span>
                                     Billing monthly
                                 </p>
 </div>
-<p class="font-headline text-base sm:text-lg font-extrabold shrink-0 text-on-surface">₱<?php echo number_format($plan_price, 2); ?></p>
+<p class="font-headline shrink-0 text-base sm:text-lg font-extrabold text-white">₱<?php echo number_format($plan_price, 2); ?></p>
 </div>
 <div class="space-y-2.5 pt-1">
-<div class="flex justify-between text-on-surface font-medium text-xs sm:text-sm">
-<span class="text-on-surface-variant">Plan Subtotal</span>
+<div class="flex justify-between text-xs font-medium text-white sm:text-sm">
+<span class="text-white/75">Plan Subtotal</span>
 <span>₱<?php echo number_format($plan_price, 2); ?>/mo</span>
 </div>
-<div class="flex justify-between text-on-surface font-medium text-xs sm:text-sm">
-<span class="text-on-surface-variant">Setup Fee</span>
+<div class="flex justify-between text-xs font-medium text-white sm:text-sm">
+<span class="text-white/75">Setup Fee</span>
 <span>₱0.00</span>
 </div>
 </div>
-<div class="pt-5 mt-4 border-t border-primary/25 flex flex-col sm:flex-row sm:justify-between sm:items-end gap-2">
+<div class="mt-4 flex flex-col gap-2 border-t border-white/20 pt-5 sm:flex-row sm:items-end sm:justify-between">
 <div>
-<p class="text-[10px] font-black uppercase tracking-[0.18em] text-on-primary-fixed-variant/80 mb-0.5">Total Amount Due</p>
-<p class="text-[11px] font-bold text-on-surface-variant">PHP</p>
+<p class="mb-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/70">Total Amount Due</p>
+<p class="text-[11px] font-bold text-white/80">PHP</p>
 </div>
-<p class="font-headline text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight">₱<?php echo number_format($plan_price, 2); ?></p>
+<p class="font-headline text-2xl font-extrabold tracking-tight text-white sm:text-3xl">₱<?php echo number_format($plan_price, 2); ?></p>
 </div>
-<button type="submit" class="w-full bg-primary py-3.5 rounded-xl text-white font-bold text-xs uppercase tracking-wider shadow-md shadow-primary/35 hover:bg-[#1a73e8] active:scale-[0.99] transition-all flex items-center justify-center gap-2 mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
+<button type="submit" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3.5 text-xs font-bold uppercase tracking-wider text-primary shadow-xl transition-all hover:scale-[1.02] hover:bg-white/90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
                             Confirm Purchase
                             <span class="material-symbols-outlined text-lg" aria-hidden="true">arrow_right_alt</span>
 </button>
@@ -506,16 +513,17 @@ if ($debug_mode) {
 }
 $simulate_fail_href = 'ProviderPurchase.php?' . http_build_query($simulate_fail_qs);
 ?>
-<a href="<?php echo htmlspecialchars($simulate_fail_href, ENT_QUOTES, 'UTF-8'); ?>" class="block text-center text-[11px] text-on-primary-fixed-variant/80 hover:text-error transition-colors mt-3">Simulate payment failure</a>
-<p class="text-[10px] text-center text-on-surface-variant/90 mt-3 leading-relaxed">
+<a href="<?php echo htmlspecialchars($simulate_fail_href, ENT_QUOTES, 'UTF-8'); ?>" class="mt-3 block text-center text-[11px] text-white/70 transition-colors hover:text-white">Simulate payment failure</a>
+<p class="mt-3 text-center text-[10px] leading-relaxed text-white/75">
                                     By confirming, you agree to our Terms of Service and Privacy Policy. Your subscription will renew automatically.
                                 </p>
 <div class="flex flex-col items-center gap-3 pt-5">
-<div class="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-on-primary-fixed-variant/70">
+<div class="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-white/55">
 <span class="material-symbols-outlined text-sm">lock</span>
                                 Secure Payment Gateway
                             </div>
-<p class="text-[10px] font-semibold uppercase tracking-wider text-on-primary-fixed-variant/60">Visa · Mastercard · American Express</p>
+<p class="text-[10px] font-semibold uppercase tracking-wider text-white/50">Visa · Mastercard · American Express</p>
+</div>
 </div>
 </div>
 </div>
