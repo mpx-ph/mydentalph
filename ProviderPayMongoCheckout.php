@@ -23,8 +23,9 @@ if (!in_array($paymongo_method, $allowed_methods, true)) {
     $paymongo_method = 'card';
 }
 
-// Build return URL for 3DS / post-payment receipt page
-$return_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . dirname($_SERVER['REQUEST_URI'] ?? '') . '/ProviderPurchaseReceipt.php';
+// Build return URL for 3DS / post-payment success finalizer.
+// This will complete provisioning, then redirect to ProviderTenantDashboard.php.
+$return_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . dirname($_SERVER['REQUEST_URI'] ?? '') . '/ProviderPurchaseSuccess.php';
 $return_url = str_replace('\\', '/', $return_url);
 ?>
 <!DOCTYPE html>
@@ -92,7 +93,7 @@ $return_url = str_replace('\\', '/', $return_url);
                         Continue to <?php echo $paymongo_method === 'gcash' ? 'GCash' : 'Maya'; ?>
                     </button>
                     <p class="text-xs text-slate-400 leading-relaxed">
-                        You’ll be redirected to complete the payment and then returned here automatically.
+                        You’ll be redirected to complete payment, then sent to your dashboard automatically.
                     </p>
                 </div>
             </div>
