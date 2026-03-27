@@ -148,7 +148,7 @@ provider_require_approved_for_provider_portal();
                     </div>
                     <h1
                         class="font-headline text-[clamp(2.6rem,5.5vw,4.6rem)] font-extrabold tracking-[-0.05em] text-on-surface mb-6 leading-[0.88]">
-                        <span class="block">Modern Your</span>
+                        <span class="block">Piere Your</span>
                         <span class="relative block">
                             <span
                                 class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Practice.</span>
