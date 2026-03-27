@@ -14,6 +14,49 @@ $tenant_id = $_SESSION['tenant_id'];
 $user_id = $_SESSION['user_id'];
 $is_owner = !empty($_SESSION['is_owner']);
 
+if (!function_exists('provider_dashboard_slugify')) {
+    function provider_dashboard_slugify(string $value): string
+    {
+        $value = strtolower(trim($value));
+        $value = preg_replace('/[^a-z0-9]+/', '-', $value);
+        $value = trim((string) $value, '-');
+        $value = preg_replace('/-+/', '-', (string) $value);
+        return (string) $value;
+    }
+}
+if (!function_exists('provider_dashboard_unique_slug')) {
+    function provider_dashboard_unique_slug(PDO $pdo, string $tenantId, string $base): string
+    {
+        $candidate = provider_dashboard_slugify($base);
+        if ($candidate === '' || strlen($candidate) < 3) {
+            $candidate = 'clinic';
+        }
+        if (strlen($candidate) > 100) {
+            $candidate = rtrim(substr($candidate, 0, 100), '-');
+            if ($candidate === '') {
+                $candidate = 'clinic';
+            }
+        }
+
+        $check = $pdo->prepare("SELECT tenant_id FROM tbl_tenants WHERE clinic_slug = ? LIMIT 1");
+        for ($i = 0; $i < 100; $i++) {
+            $slug = $candidate;
+            if ($i > 0) {
+                $suffix = '-' . ($i + 1);
+                $maxBase = 100 - strlen($suffix);
+                $baseTrimmed = rtrim(substr($candidate, 0, max(1, $maxBase)), '-');
+                $slug = ($baseTrimmed !== '' ? $baseTrimmed : 'clinic') . $suffix;
+            }
+            $check->execute([$slug]);
+            $owner = $check->fetchColumn();
+            if ($owner === false || (string) $owner === $tenantId) {
+                return $slug;
+            }
+        }
+        return $candidate . '-' . substr((string) $tenantId, 0, 6);
+    }
+}
+
 // Tenant (clinic) and owner user for display
 $tenant = [];
 try {
@@ -71,6 +114,61 @@ $plan_name = is_string($plan_name_raw) && trim($plan_name_raw) !== ''
 $renewal_end = isset($sub['subscription_end']) ? trim((string) $sub['subscription_end']) : '';
 $renewal_ts = $renewal_end !== '' ? strtotime($renewal_end) : false;
 $renewal_date = ($renewal_ts !== false) ? date('M j, Y', $renewal_ts) : '—';
+
+// Dashboard fallback: recover active state even when helper state is inconsistent across deployments.
+$fallback_paid_subscription = null;
+if (!$is_subscription_active) {
+    try {
+        $paidStmt = $pdo->prepare("
+            SELECT ts.id, ts.subscription_end, ts.payment_status, p.plan_name
+            FROM tbl_tenant_subscriptions ts
+            LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
+            WHERE ts.tenant_id = ?
+              AND LOWER(ts.payment_status) IN ('paid', 'succeeded')
+            ORDER BY ts.id DESC
+            LIMIT 1
+        ");
+        $paidStmt->execute([(string) $tenant_id]);
+        $fallback_paid_subscription = $paidStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        if ($fallback_paid_subscription) {
+            $fallback_end = trim((string) ($fallback_paid_subscription['subscription_end'] ?? ''));
+            $fallback_end_ts = $fallback_end !== '' ? strtotime($fallback_end . ' 23:59:59') : false;
+            $not_expired = ($fallback_end_ts === false) || ($fallback_end_ts >= time());
+            if ($not_expired) {
+                $is_subscription_active = true;
+                $subscription_state = 'active';
+                if (empty($sub)) {
+                    $sub = $fallback_paid_subscription;
+                    $plan_name = trim((string) ($fallback_paid_subscription['plan_name'] ?? $plan_name));
+                    $renewal_date = $fallback_end_ts !== false ? date('M j, Y', $fallback_end_ts) : $renewal_date;
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        $fallback_paid_subscription = null;
+    }
+}
+
+// Auto-heal missing clinic slug for paid tenants so website link is always generated for owner.
+if ($is_owner && trim((string) $clinic_slug) === '' && $is_subscription_active) {
+    try {
+        $slug_seed = trim((string) $clinic_name);
+        if ($slug_seed === '') {
+            $slug_seed = 'clinic-' . preg_replace('/[^a-z0-9]/i', '', (string) $tenant_id);
+        }
+        $new_slug = provider_dashboard_unique_slug($pdo, (string) $tenant_id, $slug_seed);
+        if ($new_slug !== '') {
+            $slugUpdate = $pdo->prepare("UPDATE tbl_tenants SET clinic_slug = ? WHERE tenant_id = ?");
+            $slugUpdate->execute([$new_slug, (string) $tenant_id]);
+            $clinic_slug = $new_slug;
+            $tenant['clinic_slug'] = $new_slug;
+            $_SESSION['tenant_clinic_slug'] = $new_slug;
+        }
+    } catch (Throwable $e) {
+        // Keep page usable without hard failure.
+    }
+}
+
 $has_clinic_slug = trim((string) $clinic_slug) !== '';
 $has_active_website = $is_subscription_active && $has_clinic_slug;
 $domain_display = $has_active_website ? ($host . '/' . $clinic_slug) : 'No Active Website';
