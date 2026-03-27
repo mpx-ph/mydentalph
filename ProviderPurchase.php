@@ -264,195 +264,19 @@ if (!is_string($available_plans_json) || $available_plans_json === '') {
 }
 
 $error = '';
-$selected_payment_method = 'card';
-$valid_methods = ['card', 'gcash', 'paymaya'];
-$form_token = $_SESSION['provider_purchase_form_token'] ?? '';
-if (!is_string($form_token) || $form_token === '') {
-    $form_token = bin2hex(random_bytes(16));
-    $_SESSION['provider_purchase_form_token'] = $form_token;
+$selected_payment_method = (string) ($_SESSION['provider_purchase_last_method'] ?? 'card');
+unset($_SESSION['provider_purchase_last_method']);
+if (!in_array($selected_payment_method, ['card', 'gcash', 'paymaya'], true)) {
+    $selected_payment_method = 'card';
+}
+$flash_error = trim((string) ($_SESSION['provider_purchase_error'] ?? ''));
+unset($_SESSION['provider_purchase_error']);
+if ($flash_error !== '') {
+    $error = $flash_error;
 }
 if (isset($_GET['payment']) && $_GET['payment'] === 'failed' && $error === '') {
     $error_reason = trim((string) ($_GET['reason'] ?? ''));
     $error = $error_reason !== '' ? $error_reason : 'Payment did not complete. Please try again.';
-}
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $posted_token = (string) ($_POST['purchase_form_token'] ?? '');
-    $session_token = (string) ($_SESSION['provider_purchase_form_token'] ?? '');
-    if ($posted_token === '' || $session_token === '' || !hash_equals($session_token, $posted_token)) {
-        $error = 'Your purchase session expired. Please refresh the page and try again.';
-    } else {
-        unset($_SESSION['provider_purchase_form_token']);
-    }
-    $payment_method = strtolower(trim((string) ($_POST['payment_method'] ?? '')));
-    // Accept "maya" from UI but normalize to PayMongo's "paymaya"
-    if ($payment_method === 'maya') {
-        $payment_method = 'paymaya';
-    }
-    $selected_payment_method = $payment_method;
-    if ($selected_payment_method === 'maya') {
-        $selected_payment_method = 'paymaya';
-    }
-    if ($error === '' && !in_array($payment_method, $valid_methods, true)) {
-        $error = 'Please select a valid payment method before confirming your purchase.';
-    }
-    $clinic_name_post = trim($_POST['clinic_name'] ?? '');
-    $contact_email_post = trim($_POST['clinic_email'] ?? '');
-    $clinic_name = $clinic_name_post !== '' ? $clinic_name_post : $prefill_clinic_name;
-    $contact_email = $contact_email_post !== '' ? $contact_email_post : $prefill_email;
-    $contact_phone = trim($_POST['clinic_phone'] ?? '');
-    $clinic_address = trim($_POST['clinic_address'] ?? '');
-    if ($error === '') {
-        try {
-            $stmt = $pdo->prepare("UPDATE tbl_tenants SET clinic_name = COALESCE(NULLIF(?, ''), clinic_name), contact_email = COALESCE(NULLIF(?, ''), contact_email), contact_phone = ?, clinic_address = ? WHERE tenant_id = ?");
-            $stmt->execute([$clinic_name, $contact_email, $contact_phone, $clinic_address, $tenant_id]);
-        } catch (PDOException $e) {
-            $error = "Could not save clinic details. Please try again.";
-        }
-    }
-
-    if ($error === '' && $plan_id <= 0) {
-        $error = 'Selected subscription plan is invalid. Please choose a plan and try again.';
-    }
-    if ($error === '' && $plan_price <= 0) {
-        $error = 'Selected plan price is invalid. Please refresh and try again.';
-    }
-    if ($clinic_name === '') {
-        $clinic_name = (string) ($tenant['clinic_name'] ?? 'MyDental Clinic');
-    }
-    if (!filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
-        $fallback_email = is_string($prefill_email) ? trim($prefill_email) : '';
-        if (filter_var($fallback_email, FILTER_VALIDATE_EMAIL)) {
-            $contact_email = $fallback_email;
-        } else {
-            $contact_email = 'billing+' . preg_replace('/[^a-z0-9]/i', '', (string) $tenant_id) . '@mydental.local';
-        }
-    }
-
-    if ($error === '' && in_array($payment_method, ['card', 'gcash', 'paymaya'], true)) {
-        // PayMongo flow (card / gcash / maya): create Checkout Session and redirect directly to PayMongo.
-        require_once __DIR__ . '/paymongo_config.php';
-        $secret = defined('PAYMONGO_SECRET_KEY') ? PAYMONGO_SECRET_KEY : '';
-        if ($secret !== '' && strpos($secret, 'YOUR_') === false) {
-            try {
-                $amount_centavos = (int) round($plan_price * 100);
-                if ($amount_centavos < 10000) {
-                    $amount_centavos = 10000;
-                }
-                $allowed_methods = [$payment_method];
-                $request_scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-                $request_host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
-                $callback_base = rtrim($request_scheme . '://' . $request_host . dirname((string) ($_SERVER['PHP_SELF'] ?? '/')), '/\\');
-                $success_url = $callback_base . '/ProviderPurchaseReceipt.php?source=checkout';
-                $cancel_url = $callback_base . '/ProviderPurchase.php?payment=failed&reason=' . urlencode('Payment was cancelled. Please try again.');
-                $checkout_reference = 'CHK-' . strtoupper(bin2hex(random_bytes(5)));
-                $payload = json_encode([
-                    'data' => [
-                        'attributes' => [
-                            'billing' => [
-                                'name' => $clinic_name !== '' ? $clinic_name : ('Tenant ' . (string) $tenant_id),
-                                'email' => $contact_email,
-                            ],
-                            'send_email_receipt' => false,
-                            'show_description' => true,
-                            'show_line_items' => true,
-                            'description' => 'MyDental subscription checkout',
-                            'line_items' => [[
-                                'currency' => 'PHP',
-                                'amount' => $amount_centavos,
-                                'name' => 'MyDental - ' . ($plan_name ?? 'Professional') . ' plan',
-                                'quantity' => 1,
-                            ]],
-                            'payment_method_types' => $allowed_methods,
-                            'success_url' => $success_url,
-                            'cancel_url' => $cancel_url,
-                            'reference_number' => $checkout_reference,
-                            'metadata' => [
-                                'tenant_id' => (string) $tenant_id,
-                                'user_id' => (string) $user_id,
-                                'plan_id' => (string) $plan_id,
-                                'plan_name' => (string) $plan_name,
-                                'plan_price' => (string) $plan_price,
-                                'plan_slug' => (string) $plan_slug,
-                                'payment_method' => (string) $payment_method,
-                            ],
-                        ]
-                    ]
-                ]);
-
-                $endpoint = 'https://api.paymongo.com/v1/checkout_sessions';
-                $headers = [
-                    'Content-Type: application/json',
-                    'Authorization: Basic ' . base64_encode($secret . ':'),
-                ];
-                $res = false;
-                $transport_error = '';
-                if (function_exists('curl_init')) {
-                    $ch = curl_init($endpoint);
-                    curl_setopt_array($ch, [
-                        CURLOPT_POST => true,
-                        CURLOPT_POSTFIELDS => $payload,
-                        CURLOPT_HTTPHEADER => $headers,
-                        CURLOPT_RETURNTRANSFER => true,
-                        CURLOPT_TIMEOUT => 20,
-                    ]);
-                    $res = curl_exec($ch);
-                    if ($res === false) {
-                        $transport_error = (string) curl_error($ch);
-                    }
-                    curl_close($ch);
-                } else {
-                    $context = stream_context_create([
-                        'http' => [
-                            'method' => 'POST',
-                            'header' => implode("\r\n", $headers),
-                            'content' => $payload,
-                            'timeout' => 20,
-                            'ignore_errors' => true,
-                        ],
-                    ]);
-                    $res = @file_get_contents($endpoint, false, $context);
-                    if ($res === false) {
-                        $transport_error = 'Unable to contact PayMongo endpoint.';
-                    }
-                }
-
-                $data = is_string($res) && $res !== '' ? json_decode($res, true) : null;
-                $checkout_url = $data['data']['attributes']['checkout_url'] ?? null;
-                $checkout_session_id = $data['data']['id'] ?? null;
-                if ($checkout_url && $checkout_session_id) {
-                    unset($_SESSION['paymongo_client_key'], $_SESSION['paymongo_payment_intent_id']);
-                    $_SESSION['paymongo_checkout_session_id'] = $checkout_session_id;
-                    $_SESSION['paymongo_payment_method'] = $payment_method; // card | gcash | paymaya
-                    $_SESSION['paymongo_billing_email'] = $contact_email !== '' ? $contact_email : $prefill_email;
-                    $_SESSION['paymongo_tenant_id'] = $tenant_id;
-                    $_SESSION['paymongo_user_id'] = $user_id;
-                    $_SESSION['paymongo_plan_id'] = $plan_id;
-                    $_SESSION['paymongo_plan_name'] = $plan_name;
-                    $_SESSION['paymongo_plan_price'] = $plan_price;
-                    $_SESSION['paymongo_plan_slug'] = $plan_slug;
-                    $_SESSION['paymongo_reference_number'] = $checkout_reference;
-                    header('Location: ' . $checkout_url);
-                    exit;
-                }
-
-                $api_error = $data['errors'][0]['detail'] ?? ($data['errors'][0]['title'] ?? '');
-                if ($api_error !== '') {
-                    $error = 'Could not create payment session: ' . $api_error;
-                } elseif ($transport_error !== '') {
-                    $error = 'Could not reach PayMongo: ' . $transport_error;
-                } else {
-                    $response_excerpt = is_string($res) ? substr(trim($res), 0, 280) : '';
-                    $error = $response_excerpt !== ''
-                        ? ('Checkout session was not returned by PayMongo. Response: ' . $response_excerpt)
-                        : 'Could not create checkout session. Please try again.';
-                }
-            } catch (Throwable $e) {
-                $error = 'Payment provider is currently unavailable. Please try again shortly.';
-            }
-        } else {
-            $error = 'PayMongo payments require API keys. Set PAYMONGO_SECRET_KEY and PAYMONGO_PUBLIC_KEY in paymongo_config.php or environment.';
-        }
-    }
 }
 
 $form_action_qs = [];
@@ -467,7 +291,7 @@ if (!is_string($form_token) || $form_token === '') {
     $form_token = bin2hex(random_bytes(16));
     $_SESSION['provider_purchase_form_token'] = $form_token;
 }
-$form_action_href = 'ProviderPurchase.php' . ($form_action_qs !== [] ? '?' . http_build_query($form_action_qs) : '');
+$form_action_href = 'ProviderPurchaseCheckout.php' . ($form_action_qs !== [] ? '?' . http_build_query($form_action_qs) : '');
 
 $back_href = 'ProviderClinicSetup.php';
 ?>
