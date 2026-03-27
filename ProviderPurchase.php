@@ -50,6 +50,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 require_once __DIR__ . '/provider_auth.php';
 provider_require_approved_for_provider_portal();
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/superadmin/superadmin_settings_lib.php';
 
 $tenant_id = null;
 $user_id = null;
@@ -65,6 +66,42 @@ $plan_price_fallback_map = [
     'professional' => 2499,
     'enterprise' => 4999,
 ];
+try {
+    $settings = superadmin_get_settings($pdo);
+    $provider_plans_settings = isset($settings['provider_plans']) && is_array($settings['provider_plans'])
+        ? $settings['provider_plans']
+        : [];
+} catch (Throwable $e) {
+    $provider_plans_settings = [];
+}
+$normalize_plan_price = static function ($raw_value): ?float {
+    if (is_numeric($raw_value)) {
+        $numeric = (float) $raw_value;
+        return $numeric > 0 ? $numeric : null;
+    }
+    if (!is_string($raw_value) || trim($raw_value) === '') {
+        return null;
+    }
+    $cleaned = preg_replace('/[^0-9.\-]/', '', $raw_value);
+    if (!is_string($cleaned) || $cleaned === '' || !is_numeric($cleaned)) {
+        return null;
+    }
+    $numeric = (float) $cleaned;
+    return $numeric > 0 ? $numeric : null;
+};
+foreach ($allowed as $allowed_slug) {
+    $setting_plan = isset($provider_plans_settings[$allowed_slug]) && is_array($provider_plans_settings[$allowed_slug])
+        ? $provider_plans_settings[$allowed_slug]
+        : [];
+    $settings_label = trim((string) ($setting_plan['name'] ?? ''));
+    if ($settings_label !== '') {
+        $plan_label_map[$allowed_slug] = $settings_label;
+    }
+    $settings_price = $normalize_plan_price($setting_plan['price'] ?? null);
+    if ($settings_price !== null) {
+        $plan_price_fallback_map[$allowed_slug] = $settings_price;
+    }
+}
 $requested_plan_source = $_SERVER['REQUEST_METHOD'] === 'POST'
     ? ($_POST['selected_plan_slug'] ?? ($_GET['plan'] ?? 'professional'))
     : ($_GET['plan'] ?? 'professional');
@@ -181,8 +218,8 @@ try {
         }
         $available_plans[$row_slug] = [
             'plan_id' => isset($row['plan_id']) ? (int) $row['plan_id'] : null,
-            'plan_name' => (string) ($row['plan_name'] ?? ($plan_label_map[$row_slug] ?? ucfirst($row_slug))),
-            'plan_price' => (float) ($row['price'] ?? ($plan_price_fallback_map[$row_slug] ?? 0)),
+            'plan_name' => (string) ($plan_label_map[$row_slug] ?? ($row['plan_name'] ?? ucfirst($row_slug))),
+            'plan_price' => (float) ($plan_price_fallback_map[$row_slug] ?? ($row['price'] ?? 0)),
             'plan_slug' => $row_slug,
         ];
     }
