@@ -33,7 +33,45 @@ if ($docsSubmitted && empty($_SESSION['onboarding_clinic_docs_submitted_at'])) {
 }
 
 if ($verificationStatus === 'approved') {
-    header('Location: ProviderTenantDashboard.php');
+    // Do not send unpaid / still-onboarding tenants to the tenant dashboard.
+    // (Previously this always redirected here, which skipped ProviderClinicSetup / ProviderPurchase.)
+    $hasActiveSubscription = false;
+    try {
+        $subscriptionState = provider_get_tenant_subscription_state($pdo, (string) $tenantId);
+        $hasActiveSubscription = !empty($subscriptionState['has_active_subscription']);
+    } catch (Throwable $e) {
+        $hasActiveSubscription = false;
+    }
+
+    if ($hasActiveSubscription) {
+        header('Location: ProviderTenantDashboard.php');
+        exit;
+    }
+
+    $setupDoneInSession = !empty($_SESSION['onboarding_setup_completed_at']);
+    $clinicSlugSet = false;
+    try {
+        $st = $pdo->prepare('SELECT clinic_slug FROM tbl_tenants WHERE tenant_id = ? LIMIT 1');
+        $st->execute([$tenantId]);
+        $slug = trim((string) ($st->fetchColumn() ?: ''));
+        $clinicSlugSet = $slug !== '';
+    } catch (Throwable $e) {
+        $clinicSlugSet = false;
+    }
+
+    if ($setupDoneInSession || $clinicSlugSet) {
+        $plan = isset($_SESSION['onboarding_plan']) ? strtolower(trim((string) $_SESSION['onboarding_plan'])) : '';
+        $qs = in_array($plan, ['starter', 'professional', 'enterprise'], true)
+            ? ('?plan=' . urlencode($plan))
+            : '';
+        // Same flag as ProviderClinicSetup: allow ProviderPurchase to run (skip VerifyBusiness gate once).
+        $_SESSION['force_purchase_from_clinic_setup_once'] = 1;
+        header('Location: ProviderPurchase.php' . $qs);
+        exit;
+    }
+
+    $next = provider_resolve_plan_selection_redirect($pdo);
+    header('Location: ' . $next);
     exit;
 }
 ?>

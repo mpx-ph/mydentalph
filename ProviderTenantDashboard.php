@@ -26,7 +26,7 @@ try {
     ");
     $stmt->execute([$tenant_id]);
     $tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-} catch (PDOException $e) {
+} catch (Throwable $e) {
     $tenant = [];
 }
 $clinic_name = $tenant['clinic_name'] ?? 'My Clinic';
@@ -45,7 +45,7 @@ try {
     $stmt = $pdo->prepare("SELECT full_name, email, phone FROM tbl_users WHERE user_id = ? LIMIT 1");
     $stmt->execute([$user_id]);
     $current_user = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-} catch (PDOException $e) {
+} catch (Throwable $e) {
     $current_user = [];
 }
 
@@ -62,11 +62,16 @@ try {
     } elseif (!empty($subscription_meta['latest_subscription'])) {
         $sub = (array) $subscription_meta['latest_subscription'];
     }
-} catch (PDOException $e) {
+} catch (Throwable $e) {
     $sub = [];
 }
-$plan_name = $sub['plan_name'] ?? ($is_subscription_active ? 'Active Plan' : 'No Active Subscription');
-$renewal_date = !empty($sub['subscription_end']) ? date('M j, Y', strtotime($sub['subscription_end'])) : '—';
+$plan_name_raw = $sub['plan_name'] ?? null;
+$plan_name = is_string($plan_name_raw) && trim($plan_name_raw) !== ''
+    ? $plan_name_raw
+    : ($is_subscription_active ? 'Active Plan' : 'No Active Subscription');
+$renewal_end = isset($sub['subscription_end']) ? trim((string) $sub['subscription_end']) : '';
+$renewal_ts = $renewal_end !== '' ? strtotime($renewal_end) : false;
+$renewal_date = ($renewal_ts !== false) ? date('M j, Y', $renewal_ts) : '—';
 
 $settings_saved = false;
 $settings_error = '';
@@ -99,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tenant['contact_phone'] = $cp;
             $tenant['clinic_address'] = $ca;
         }
-    } catch (PDOException $e) {
+    } catch (Throwable $e) {
         $settings_error = 'Could not save settings. Please try again.';
     }
 }

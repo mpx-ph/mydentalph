@@ -60,6 +60,8 @@ if (!in_array($requested_plan_slug, $allowed, true)) {
     $requested_plan_slug = 'professional';
 }
 $force_from_clinic_setup_once = !empty($_SESSION['force_purchase_from_clinic_setup_once']);
+// Consumed after we decide identity; used to skip VerifyBusiness on first load after clinic setup / approval redirect.
+$skip_business_verification_gate = $force_from_clinic_setup_once;
 
 if (!empty($_SESSION['onboarding_user_id']) && !empty($_SESSION['onboarding_tenant_id'])) {
     $tenant_id = $_SESSION['onboarding_tenant_id'];
@@ -105,7 +107,7 @@ try {
 } catch (Throwable $e) {
     $business_verification = null;
 }
-if (!$business_verification) {
+if (!$business_verification && !$skip_business_verification_gate) {
     header('Location: VerifyBusiness.php');
     exit;
 }
