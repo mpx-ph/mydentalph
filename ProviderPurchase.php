@@ -55,6 +55,16 @@ $tenant_id = null;
 $user_id = null;
 $plan_slug = null;
 $allowed = ['starter', 'professional', 'enterprise'];
+$plan_label_map = [
+    'starter' => 'Starter',
+    'professional' => 'Professional',
+    'enterprise' => 'Enterprise',
+];
+$plan_price_fallback_map = [
+    'starter' => 999,
+    'professional' => 2499,
+    'enterprise' => 4999,
+];
 $requested_plan_slug = isset($_GET['plan']) ? strtolower(trim((string) $_GET['plan'])) : 'professional';
 if (!in_array($requested_plan_slug, $allowed, true)) {
     $requested_plan_slug = 'professional';
@@ -142,11 +152,20 @@ try {
 
 $prefill_clinic_name = (string) ($tenant['clinic_name'] ?? '');
 $prefill_email = (string) ($tenant['account_email'] ?? $tenant['owner_email'] ?? $tenant['contact_email'] ?? $_SESSION['email'] ?? '');
+if ($prefill_clinic_name === '') {
+    $prefill_clinic_name = (string) ($_SESSION['onboarding_clinic_name'] ?? '');
+}
 
 $plan = null;
 try {
-    $stmt = $pdo->prepare("SELECT plan_id, plan_name, price FROM tbl_subscription_plans WHERE plan_slug = ? LIMIT 1");
-    $stmt->execute([$plan_slug]);
+    $stmt = $pdo->prepare("
+        SELECT plan_id, plan_name, price, plan_slug
+        FROM tbl_subscription_plans
+        WHERE LOWER(plan_slug) = ? OR LOWER(plan_name) = ?
+        ORDER BY CASE WHEN LOWER(plan_slug) = ? THEN 0 ELSE 1 END, plan_id ASC
+        LIMIT 1
+    ");
+    $stmt->execute([$plan_slug, $plan_slug, $plan_slug]);
     $plan = $stmt->fetch(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
     $plan = null;
@@ -160,11 +179,22 @@ if (!$plan) {
     }
 }
 if (!$plan) {
-    $plan = ['plan_id' => 1, 'plan_name' => 'Professional', 'price' => 2499];
+    $plan = [
+        'plan_id' => 1,
+        'plan_name' => $plan_label_map[$plan_slug] ?? 'Professional',
+        'price' => $plan_price_fallback_map[$plan_slug] ?? 2499,
+        'plan_slug' => $plan_slug,
+    ];
 }
-$plan_name = $plan['plan_name'] ?? 'Professional';
-$plan_price = $plan['price'] ?? 2499;
+$resolved_plan_slug = strtolower(trim((string) ($plan['plan_slug'] ?? '')));
+if (!in_array($resolved_plan_slug, $allowed, true)) {
+    $resolved_plan_slug = $plan_slug;
+}
+$plan_name = $plan['plan_name'] ?? ($plan_label_map[$resolved_plan_slug] ?? 'Professional');
+$plan_price = (float) ($plan['price'] ?? ($plan_price_fallback_map[$resolved_plan_slug] ?? 2499));
 $plan_id = $plan['plan_id'] ?? 1;
+$plan_slug = $resolved_plan_slug;
+$_SESSION['onboarding_plan'] = $plan_slug;
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -390,11 +420,32 @@ $back_href = 'ProviderClinicSetup.php';
 <h1 class="font-headline text-3xl sm:text-4xl font-extrabold tracking-tight text-on-surface mb-3 leading-tight">
         Purchase Your <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block text-[1.12em]">Plan</span>
 </h1>
-<p class="font-body text-on-surface-variant text-[15px] sm:text-base max-w-xl font-medium">Complete your subscription setup to activate your professional dental clinic tools and provider portal access.</p>
+<p class="font-body text-on-surface-variant text-[15px] sm:text-base max-w-xl font-medium">Complete your subscription setup to activate your selected clinic plan and provider portal access.</p>
 </div>
 <?php if ($error): ?>
 <div class="mb-6 p-3.5 rounded-xl border border-error/20 bg-red-50 text-error text-sm font-medium"><?php echo $error; ?></div>
 <?php endif; ?>
+<section class="mb-6 rounded-2xl border border-on-surface/10 bg-surface-container-low p-4 sm:p-5">
+<div class="mb-3 flex items-center justify-between gap-2">
+<h2 class="font-headline text-base sm:text-lg font-extrabold tracking-tight">Selected Plan</h2>
+<span class="text-xs font-semibold text-on-surface-variant">You can still change this here</span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+<?php foreach ($allowed as $plan_option_slug): ?>
+<?php
+$plan_qs = ['plan' => $plan_option_slug];
+if ($debug_mode) {
+    $plan_qs['debug'] = '1';
+}
+$plan_option_href = 'ProviderPurchase.php?' . http_build_query($plan_qs);
+$is_selected_plan = ($plan_option_slug === $plan_slug);
+?>
+<a href="<?php echo htmlspecialchars($plan_option_href, ENT_QUOTES, 'UTF-8'); ?>" class="rounded-xl border px-4 py-3 text-center text-sm font-bold transition-all <?php echo $is_selected_plan ? 'border-primary bg-primary text-white shadow-md shadow-primary/20' : 'border-on-surface/10 bg-white text-on-surface hover:border-primary/30'; ?>">
+<?php echo htmlspecialchars($plan_label_map[$plan_option_slug] ?? ucfirst($plan_option_slug), ENT_QUOTES, 'UTF-8'); ?>
+</a>
+<?php endforeach; ?>
+</div>
+</section>
 <form method="post" action="<?php echo htmlspecialchars($form_action_href, ENT_QUOTES, 'UTF-8'); ?>" class="space-y-0">
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
 <!-- Left Column: Clinic & payment -->
