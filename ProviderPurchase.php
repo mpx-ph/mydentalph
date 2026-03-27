@@ -278,9 +278,7 @@ if (isset($_GET['payment']) && $_GET['payment'] === 'failed' && $error === '') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $posted_token = (string) ($_POST['purchase_form_token'] ?? '');
     $session_token = (string) ($_SESSION['provider_purchase_form_token'] ?? '');
-    if ($posted_token === '' || $session_token === '' || !hash_equals($session_token, $posted_token)) {
-        $error = 'Your purchase session has expired. Please review your details and try again.';
-    } else {
+    if ($posted_token !== '' && $session_token !== '' && hash_equals($session_token, $posted_token)) {
         unset($_SESSION['provider_purchase_form_token']);
     }
     $payment_method = strtolower(trim((string) ($_POST['payment_method'] ?? '')));
@@ -701,7 +699,7 @@ $back_href = 'ProviderClinicSetup.php';
 </div>
 <p id="summary-plan-total" class="font-headline text-2xl font-extrabold tracking-tight text-white sm:text-3xl">₱<?php echo number_format($plan_price, 2); ?></p>
 </div>
-<button id="confirm-purchase-btn" form="provider-purchase-form" type="submit" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3.5 text-xs font-bold uppercase tracking-wider text-primary shadow-xl transition-all hover:scale-[1.02] hover:bg-white/90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
+<button id="confirm-purchase-btn" form="provider-purchase-form" type="button" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3.5 text-xs font-bold uppercase tracking-wider text-primary shadow-xl transition-all hover:scale-[1.02] hover:bg-white/90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
                             Confirm Purchase
                             <span class="material-symbols-outlined text-lg" aria-hidden="true">arrow_right_alt</span>
 </button>
@@ -844,10 +842,9 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
   applySelection();
 
   if (form && submitBtn) {
-    form.addEventListener('submit', function (e) {
+    submitBtn.addEventListener('click', function () {
       var selected = root.querySelector('input[name="payment_method"]:checked');
       if (!selected) {
-        e.preventDefault();
         if (paymentError) {
           paymentError.classList.remove('hidden');
         } else {
@@ -856,18 +853,12 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
         return;
       }
       if (submitBtn.dataset.submitting === '1') {
-        e.preventDefault();
         return;
       }
       submitBtn.dataset.submitting = '1';
       submitBtn.disabled = true;
       submitBtn.classList.add('opacity-70', 'cursor-not-allowed');
-      // If navigation does not happen (validation/server error), restore interactivity.
-      window.setTimeout(function () {
-        submitBtn.disabled = false;
-        submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
-        submitBtn.dataset.submitting = '0';
-      }, 6000);
+      form.submit();
     });
 
     window.addEventListener('pageshow', function () {
