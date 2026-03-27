@@ -25,7 +25,10 @@ register_shutdown_function(function (): void {
     exit;
 });
 require_once __DIR__ . '/provider_auth.php';
-provider_require_approved_for_provider_portal();
+if (!provider_has_authenticated_provider_session()) {
+    header('Location: ProviderLogin.php?redirect=' . urlencode('ProviderPurchase.php'));
+    exit;
+}
 require_once __DIR__ . '/db.php';
 require_once 'paymongo_config.php';
 
