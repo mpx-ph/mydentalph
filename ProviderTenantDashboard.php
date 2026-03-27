@@ -146,35 +146,19 @@ try {
                u.full_name AS owner_name, u.email AS owner_email, u.phone AS owner_phone
         FROM tbl_tenants t
         LEFT JOIN tbl_users u ON t.owner_user_id = u.user_id
+        INNER JOIN tbl_users su ON su.user_id = ? AND su.tenant_id = t.tenant_id
         WHERE t.tenant_id = ?
-          AND EXISTS (
-              SELECT 1
-              FROM tbl_users su
-              WHERE su.user_id = ?
-                AND su.tenant_id = t.tenant_id
-          )
         LIMIT 1
     ");
-    $stmt->execute([(string) $tenant_id, (string) $user_id]);
+    $stmt->execute([(string) $user_id, (string) $tenant_id]);
     $tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 } catch (Throwable $e) {
     $tenant = [];
 }
 
-// Fallback: if strict user/tenant mapping check fails, still try direct tenant lookup.
 if (empty($tenant)) {
-    try {
-        $stmt = $pdo->prepare("
-            SELECT tenant_id, clinic_name, clinic_slug, contact_email, contact_phone, clinic_address, subscription_status
-            FROM tbl_tenants
-            WHERE tenant_id = ?
-            LIMIT 1
-        ");
-        $stmt->execute([(string) $tenant_id]);
-        $tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-    } catch (Throwable $e) {
-        $tenant = [];
-    }
+    header('Location: ProviderLogin.php');
+    exit;
 }
 
 $current_user = [];
@@ -239,62 +223,9 @@ if ($clinic_name === '') {
     $clinic_name = 'My Clinic';
 }
 
-// Resolve slug robustly using tenant_id + user_id based lookups and session fallback.
-if ($raw_website_value === '' && $clinic_slug === '') {
-    $session_slug = provider_dashboard_normalize_slug((string) ($_SESSION['tenant_clinic_slug'] ?? ''));
-    if ($session_slug !== '') {
-        $clinic_slug = $session_slug;
-        $raw_website_value = $session_slug;
-    }
-}
-if ($raw_website_value === '' && $clinic_slug === '') {
-    try {
-        $slugStmt = $pdo->prepare("SELECT clinic_slug FROM tbl_tenants WHERE tenant_id = ? LIMIT 1");
-        $slugStmt->execute([(string) $tenant_id]);
-        $slugFromTenant = trim((string) $slugStmt->fetchColumn());
-        if ($slugFromTenant !== '') {
-            $raw_website_value = $slugFromTenant;
-            $clinic_slug = provider_dashboard_normalize_slug($slugFromTenant);
-        }
-    } catch (Throwable $e) {
-        // Continue to next fallback.
-    }
-}
-if ($raw_website_value === '' && $clinic_slug === '') {
-    try {
-        $slugStmt = $pdo->prepare("
-            SELECT t.clinic_slug
-            FROM tbl_users u
-            INNER JOIN tbl_tenants t ON t.tenant_id = u.tenant_id
-            WHERE u.user_id = ?
-            LIMIT 1
-        ");
-        $slugStmt->execute([(string) $user_id]);
-        $slugFromUserTenant = trim((string) $slugStmt->fetchColumn());
-        if ($slugFromUserTenant !== '') {
-            $raw_website_value = $slugFromUserTenant;
-            $clinic_slug = provider_dashboard_normalize_slug($slugFromUserTenant);
-        }
-    } catch (Throwable $e) {
-        // Continue to next fallback.
-    }
-}
-if ($raw_website_value === '' && $clinic_slug === '') {
-    try {
-        $slugStmt = $pdo->prepare("SELECT clinic_slug FROM tbl_tenants WHERE owner_user_id = ? LIMIT 1");
-        $slugStmt->execute([(string) $user_id]);
-        $slugFromOwner = trim((string) $slugStmt->fetchColumn());
-        if ($slugFromOwner !== '') {
-            $raw_website_value = $slugFromOwner;
-            $clinic_slug = provider_dashboard_normalize_slug($slugFromOwner);
-        }
-    } catch (Throwable $e) {
-        // Keep empty slug.
-    }
-}
+// Canonical source of website link is tbl_tenants.clinic_slug for the logged-in tenant.
 if ($clinic_slug !== '') {
     $tenant['clinic_slug'] = $clinic_slug;
-    $_SESSION['tenant_clinic_slug'] = $clinic_slug;
 }
 
 if ($is_owner && $is_subscription_active && $clinic_slug === '') {
@@ -307,7 +238,6 @@ if ($is_owner && $is_subscription_active && $clinic_slug === '') {
             $clinic_slug = $new_slug;
             $tenant['clinic_slug'] = $new_slug;
             $tenant['subscription_status'] = 'active';
-            $_SESSION['tenant_clinic_slug'] = $new_slug;
         }
     } catch (Throwable $e) {
         // Do not block dashboard rendering.
@@ -329,25 +259,8 @@ if ($host === '') {
 }
 $raw_website_value = $raw_website_value !== '' ? $raw_website_value : $clinic_slug;
 [$tenant_base_url, $admin_dashboard_url, $domain_display, $has_visible_website] = provider_dashboard_resolve_website_urls($raw_website_value, $scheme, $host);
-$has_clinic_slug = $clinic_slug !== '';
-if (!$has_visible_website && !empty($_SESSION['tenant_clinic_link'])) {
-    $sessionLink = trim((string) $_SESSION['tenant_clinic_link']);
-    if ($sessionLink !== '') {
-        $sessionDisplay = preg_replace('#^https?://#i', '', $sessionLink);
-        $tenant_base_url = preg_match('#^https?://#i', $sessionLink) ? $sessionLink : ($scheme . '://' . $sessionLink);
-        $admin_dashboard_url = rtrim($tenant_base_url, '/') . '/AdminDashboard.php';
-        $domain_display = $sessionDisplay;
-        $has_visible_website = true;
-    }
-}
 if (!$has_visible_website) {
     $domain_display = 'No Active Website';
-}
-if ($has_visible_website) {
-    $_SESSION['tenant_clinic_link'] = preg_replace('#^https?://#i', '', (string) $tenant_base_url);
-    if (!$is_subscription_active && !is_string($plan_name_raw)) {
-        $plan_name = 'Website Available';
-    }
 }
 ?>
 <!DOCTYPE html>

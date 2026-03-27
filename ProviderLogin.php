@@ -171,6 +171,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $is_owner = ($tenant && isset($tenant['owner_user_id']) && $tenant['owner_user_id'] === $user['user_id']);
                     }
                     $_SESSION['is_owner'] = $is_owner;
+                    unset(
+                        $_SESSION['tenant_clinic_slug'],
+                        $_SESSION['tenant_clinic_link'],
+                        $_SESSION['paymongo_checkout_return_token'],
+                        $_SESSION['paymongo_checkout_session_id'],
+                        $_SESSION['paymongo_payment_intent_id'],
+                        $_SESSION['paymongo_client_key'],
+                        $_SESSION['paymongo_payment_method'],
+                        $_SESSION['paymongo_billing_email'],
+                        $_SESSION['paymongo_tenant_id'],
+                        $_SESSION['paymongo_user_id'],
+                        $_SESSION['paymongo_plan_id'],
+                        $_SESSION['paymongo_plan_name'],
+                        $_SESSION['paymongo_plan_price'],
+                        $_SESSION['paymongo_plan_slug'],
+                        $_SESSION['paymongo_reference_number']
+                    );
                     providerWriteAuditLog(
                         $pdo,
                         (string) $user['tenant_id'],

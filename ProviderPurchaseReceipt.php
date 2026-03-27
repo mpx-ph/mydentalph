@@ -49,16 +49,20 @@ $plan_name = $_SESSION['paymongo_plan_name'] ?? 'Professional';
 $plan_price = $_SESSION['paymongo_plan_price'] ?? 0;
 $payment_method = $_SESSION['paymongo_payment_method'] ?? 'card'; // card|gcash|paymaya
 $billing_email = $_SESSION['paymongo_billing_email'] ?? '';
-$tenant_id = $_SESSION['paymongo_tenant_id'] ?? null;
-$user_id = $_SESSION['paymongo_user_id'] ?? null;
+$tenant_id = (string) $auth_tenant_id;
+$user_id = (string) $auth_user_id;
 $plan_id = $_SESSION['paymongo_plan_id'] ?? null;
+$paymongo_tenant_id = trim((string) ($_SESSION['paymongo_tenant_id'] ?? ''));
+$paymongo_user_id = trim((string) ($_SESSION['paymongo_user_id'] ?? ''));
 $reference_number = $_SESSION['paymongo_reference_number'] ?? ($checkout_session_id ? ('PM-' . $checkout_session_id) : ($payment_intent_id ? ('PM-' . $payment_intent_id) : ''));
 
 if (!$tenant_id || !$user_id || !$plan_id || (float) $plan_price <= 0) {
     header('Location: ProviderPurchase.php');
     exit;
 }
-if ((string) $tenant_id !== (string) $auth_tenant_id || (string) $user_id !== (string) $auth_user_id) {
+if (($paymongo_tenant_id !== '' && $paymongo_tenant_id !== (string) $auth_tenant_id)
+    || ($paymongo_user_id !== '' && $paymongo_user_id !== (string) $auth_user_id)
+) {
     $_SESSION['provider_purchase_error'] = 'Invalid payment session. Please try again.';
     header('Location: ProviderPurchase.php');
     exit;
@@ -199,6 +203,16 @@ if (defined('PAYMONGO_SECRET_KEY')) {
             $checkout_payment_id = (string) provider_array_get($checkout_data, ['data', 'attributes', 'payments', 0, 'id'], '');
             $checkout_method = strtolower((string) provider_array_get($checkout_data, ['data', 'attributes', 'payments', 0, 'attributes', 'source', 'type'], ''));
             $status_detail = (string) provider_array_get($checkout_data, ['data', 'attributes', 'payments', 0, 'attributes', 'failed_message'], '');
+            $checkout_meta_tenant = trim((string) provider_array_get($checkout_data, ['data', 'attributes', 'metadata', 'tenant_id'], ''));
+            $checkout_meta_user = trim((string) provider_array_get($checkout_data, ['data', 'attributes', 'metadata', 'user_id'], ''));
+
+            if (($checkout_meta_tenant !== '' && $checkout_meta_tenant !== (string) $auth_tenant_id)
+                || ($checkout_meta_user !== '' && $checkout_meta_user !== (string) $auth_user_id)
+            ) {
+                $_SESSION['provider_purchase_error'] = 'Payment account mismatch. Please retry checkout.';
+                header('Location: ProviderPurchase.php');
+                exit;
+            }
 
             if ($checkout_payment_intent !== '') {
                 $payment_intent_id = $checkout_payment_intent;

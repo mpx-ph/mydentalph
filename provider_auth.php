@@ -329,10 +329,18 @@ function provider_get_tenant_subscription_state(PDO $pdo, string $tenantId): arr
     }
     $result['active_subscription'] = $active;
 
-    $tenantAllowsActive = ($result['tenant_subscription_status'] === '' || $result['tenant_subscription_status'] === 'active');
-    $result['has_active_subscription'] = $active !== null && $tenantAllowsActive;
+    $result['has_active_subscription'] = $active !== null;
 
     if ($result['has_active_subscription']) {
+        if ($result['tenant_subscription_status'] !== 'active') {
+            try {
+                $syncStmt = $pdo->prepare("UPDATE tbl_tenants SET subscription_status = 'active' WHERE tenant_id = ?");
+                $syncStmt->execute([$tenantId]);
+                $result['tenant_subscription_status'] = 'active';
+            } catch (Throwable $e) {
+                // Do not block state resolution if status sync fails.
+            }
+        }
         $result['state'] = 'active';
         return $result;
     }
