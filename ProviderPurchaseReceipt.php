@@ -5,6 +5,16 @@ provider_require_approved_for_provider_portal();
 require_once __DIR__ . '/db.php';
 require_once 'paymongo_config.php';
 
+$source = trim((string) ($_GET['source'] ?? ''));
+$return_token = trim((string) ($_GET['token'] ?? ''));
+$checkout_return_token = trim((string) ($_SESSION['paymongo_checkout_return_token'] ?? ''));
+$status_from_query = strtolower(trim((string) ($_GET['status'] ?? '')));
+$allowed_query_statuses = ['success', 'paid', 'failed', 'cancelled', 'canceled', 'processing'];
+if ($status_from_query !== '' && !in_array($status_from_query, $allowed_query_statuses, true)) {
+    $status_from_query = '';
+}
+
+[$auth_tenant_id, $auth_user_id] = provider_get_authenticated_provider_identity_from_session();
 $payment_intent_id = $_SESSION['paymongo_payment_intent_id'] ?? null;
 $checkout_session_id = $_SESSION['paymongo_checkout_session_id'] ?? null;
 $client_key = $_SESSION['paymongo_client_key'] ?? null;
@@ -18,6 +28,16 @@ $plan_id = $_SESSION['paymongo_plan_id'] ?? null;
 $reference_number = $_SESSION['paymongo_reference_number'] ?? ($checkout_session_id ? ('PM-' . $checkout_session_id) : ($payment_intent_id ? ('PM-' . $payment_intent_id) : ''));
 
 if (!$tenant_id || !$user_id || !$plan_id || (float) $plan_price <= 0) {
+    header('Location: ProviderPurchase.php');
+    exit;
+}
+if ((string) $tenant_id !== (string) $auth_tenant_id || (string) $user_id !== (string) $auth_user_id) {
+    $_SESSION['provider_purchase_error'] = 'Invalid payment session. Please try again.';
+    header('Location: ProviderPurchase.php');
+    exit;
+}
+if ($source === 'checkout' && ($return_token === '' || $checkout_return_token === '' || !hash_equals($checkout_return_token, $return_token))) {
+    $_SESSION['provider_purchase_error'] = 'Invalid payment return token. Please retry checkout.';
     header('Location: ProviderPurchase.php');
     exit;
 }
@@ -69,9 +89,13 @@ if (defined('PAYMONGO_SECRET_KEY')) {
         if ($checkout_session_id) {
             $checkout_endpoint = 'https://api.paymongo.com/v1/checkout_sessions/' . rawurlencode((string) $checkout_session_id);
             $checkout_data = provider_paymongo_get_json($checkout_endpoint, $secret);
-            $checkout_status = strtolower((string) ($checkout_data['data']['attributes']['payment_intent']['attributes']['status'] ?? ''));
+            $checkout_payment_intent_attr_status = strtolower((string) ($checkout_data['data']['attributes']['payment_intent']['attributes']['status'] ?? ''));
+            $checkout_attr_status = strtolower((string) ($checkout_data['data']['attributes']['status'] ?? ''));
+            $checkout_payment_status = strtolower((string) ($checkout_data['data']['attributes']['payments'][0]['attributes']['status'] ?? ''));
             $checkout_payment_intent = (string) ($checkout_data['data']['attributes']['payment_intent']['id'] ?? '');
             $checkout_payment_id = (string) ($checkout_data['data']['attributes']['payments'][0]['id'] ?? '');
+            $checkout_method = strtolower((string) ($checkout_data['data']['attributes']['payments'][0]['attributes']['source']['type'] ?? ''));
+            $status_detail = (string) ($checkout_data['data']['attributes']['payments'][0]['attributes']['failed_message'] ?? '');
 
             if ($checkout_payment_intent !== '') {
                 $payment_intent_id = $checkout_payment_intent;
@@ -81,26 +105,45 @@ if (defined('PAYMONGO_SECRET_KEY')) {
             } elseif ($reference_number === '') {
                 $reference_number = 'PM-' . (string) $checkout_session_id;
             }
-            if ($checkout_status !== '') {
-                $status = $checkout_status;
-            } else {
-                $status = strtolower((string) ($checkout_data['data']['attributes']['payments'][0]['attributes']['status'] ?? ''));
+            if (in_array($checkout_payment_status, ['paid', 'succeeded', 'failed', 'cancelled'], true)) {
+                $status = $checkout_payment_status;
+            } elseif (in_array($checkout_payment_intent_attr_status, ['succeeded', 'processing', 'awaiting_payment_method', 'awaiting_next_action'], true)) {
+                $status = $checkout_payment_intent_attr_status;
+            } elseif ($checkout_attr_status !== '') {
+                $status = $checkout_attr_status;
+            }
+            if (in_array($checkout_method, ['gcash', 'paymaya', 'card'], true)) {
+                $payment_method = $checkout_method;
             }
         } elseif ($payment_intent_id && $client_key) {
             $intent_endpoint = 'https://api.paymongo.com/v1/payment_intents/' . rawurlencode((string) $payment_intent_id) . '?client_key=' . urlencode((string) $client_key);
             $intent_data = provider_paymongo_get_json($intent_endpoint, $secret);
-            $status = $intent_data['data']['attributes']['status'] ?? null;
+            $status = strtolower((string) ($intent_data['data']['attributes']['status'] ?? ''));
             $status_detail = $intent_data['data']['attributes']['last_payment_error']['message'] ?? null;
         }
     }
 }
 
-if ($status === null) {
+if ($status === null || $status === '') {
+    $_SESSION['provider_purchase_last_method'] = (string) $payment_method;
     header('Location: ProviderPurchase.php?payment=failed&reason=' . urlencode('Unable to verify payment status. Please contact support if charged.'));
     exit;
 }
 // If PayMongo says it failed, do not continue.
-if (!in_array((string) $status, ['succeeded', 'processing', 'paid'], true)) {
+if (in_array((string) $status, ['cancelled', 'canceled', 'failed', 'awaiting_payment_method'], true)) {
+    $_SESSION['provider_purchase_last_method'] = (string) $payment_method;
+    $msg = $status_detail ?: 'Payment did not complete. Please try again.';
+    header('Location: ProviderPurchase.php?payment=failed&reason=' . urlencode($msg));
+    exit;
+}
+if (!in_array((string) $status, ['succeeded', 'paid'], true)) {
+    $_SESSION['provider_purchase_last_method'] = (string) $payment_method;
+    $msg = 'Payment is still being processed. Please wait a moment and refresh this page.';
+    header('Location: ProviderPurchase.php?payment=failed&reason=' . urlencode($msg));
+    exit;
+}
+if (in_array((string) $status_from_query, ['failed', 'cancelled', 'canceled'], true)) {
+    $_SESSION['provider_purchase_last_method'] = (string) $payment_method;
     $msg = $status_detail ?: 'Payment did not complete. Please try again.';
     header('Location: ProviderPurchase.php?payment=failed&reason=' . urlencode($msg));
     exit;
@@ -179,6 +222,7 @@ unset(
     $_SESSION['onboarding_full_name'],
     $_SESSION['onboarding_username']
 );
+unset($_SESSION['paymongo_checkout_return_token']);
 
 $success_finalizer = 'ProviderTenantDashboard.php';
 ?>
@@ -203,9 +247,7 @@ $success_finalizer = 'ProviderTenantDashboard.php';
                     <div>
                         <p class="text-sm font-semibold text-emerald-700">Payment successful</p>
                         <h1 class="text-2xl font-extrabold text-slate-900 mt-1">Receipt</h1>
-                        <p class="text-sm text-slate-500 mt-2">
-                            We’re finishing setup. You’ll be redirected to your dashboard shortly.
-                        </p>
+                        <p class="text-sm text-slate-500 mt-2">Your subscription is now active and payment has been confirmed.</p>
                     </div>
                     <div class="rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2 text-emerald-700 text-sm font-bold">
                         ₱<?php echo number_format((float)$plan_price, 2); ?>
@@ -256,26 +298,15 @@ $success_finalizer = 'ProviderTenantDashboard.php';
 
                 <div class="mt-6 flex flex-col sm:flex-row gap-3">
                     <a href="<?php echo htmlspecialchars($success_finalizer); ?>" class="inline-flex justify-center items-center rounded-xl bg-primary hover:bg-primary/90 text-white font-bold px-5 py-3 transition-colors">
-                        Continue
+                        Go to dashboard
                     </a>
                     <a href="ProviderPurchase.php" class="inline-flex justify-center items-center rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold px-5 py-3 transition-colors">
                         Back to plans
                     </a>
                 </div>
-
-                <p class="text-xs text-slate-400 mt-5">
-                    If you’re not redirected automatically, click Continue.
-                </p>
             </div>
         </div>
     </div>
-
-    <script>
-        (function () {
-            var nextUrl = <?php echo json_encode($success_finalizer); ?>;
-            setTimeout(function () { window.location.href = nextUrl; }, 2500);
-        })();
-    </script>
 </body>
 </html>
 

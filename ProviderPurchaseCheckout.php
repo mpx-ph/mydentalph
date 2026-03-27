@@ -213,8 +213,10 @@ if ($amount_centavos < 10000) {
 $request_scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $request_host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
 $callback_base = rtrim($request_scheme . '://' . $request_host . dirname((string) ($_SERVER['PHP_SELF'] ?? '/')), '/\\');
-$success_url = $callback_base . '/ProviderPurchaseReceipt.php?source=checkout';
-$cancel_url = $callback_base . '/ProviderPurchase.php?payment=failed&reason=' . urlencode('Payment was cancelled. Please try again.');
+$checkout_return_token = bin2hex(random_bytes(20));
+$_SESSION['paymongo_checkout_return_token'] = $checkout_return_token;
+$success_url = $callback_base . '/ProviderPurchaseReceipt.php?source=checkout&token=' . rawurlencode($checkout_return_token);
+$cancel_url = $callback_base . '/ProviderPurchase.php?payment=failed&reason=' . urlencode('Payment was cancelled. Please try again.') . '&source=checkout';
 $checkout_reference = 'CHK-' . strtoupper(bin2hex(random_bytes(5)));
 
 $payload = json_encode([
