@@ -191,6 +191,82 @@ function superadmin_sanitize_logo_relative_path(string $path): string
     return $path;
 }
 
+function superadmin_extract_numeric_plan_price(string $priceLabel): ?float
+{
+    if (trim($priceLabel) === '') {
+        return null;
+    }
+    $cleaned = preg_replace('/[^0-9.\-]/', '', $priceLabel);
+    if (!is_string($cleaned) || $cleaned === '' || !is_numeric($cleaned)) {
+        return null;
+    }
+    $value = (float) $cleaned;
+    return $value > 0 ? $value : null;
+}
+
+/**
+ * @param array<string, array{name: string, price: string, description: string, cta: string, features: array<int, string>}> $plans
+ */
+function superadmin_sync_subscription_plan_prices(PDO $pdo, array $plans): void
+{
+    $tableExists = (bool) $pdo->query("SHOW TABLES LIKE 'tbl_subscription_plans'")->fetchColumn();
+    if (!$tableExists) {
+        return;
+    }
+
+    $columnsStmt = $pdo->query("SHOW COLUMNS FROM tbl_subscription_plans");
+    $columns = $columnsStmt ? $columnsStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+    $columnNames = [];
+    foreach ($columns as $col) {
+        if (isset($col['Field'])) {
+            $columnNames[] = (string) $col['Field'];
+        }
+    }
+    if (!in_array('plan_name', $columnNames, true) || !in_array('price', $columnNames, true)) {
+        return;
+    }
+    $hasSlug = in_array('plan_slug', $columnNames, true);
+
+    $updateBySlug = null;
+    $updateByName = $pdo->prepare('UPDATE tbl_subscription_plans SET plan_name = ?, price = ? WHERE LOWER(plan_name) = ?');
+    $insertWithSlug = null;
+    $insertWithoutSlug = $pdo->prepare('INSERT INTO tbl_subscription_plans (plan_name, price) VALUES (?, ?)');
+
+    if ($hasSlug) {
+        $updateBySlug = $pdo->prepare('UPDATE tbl_subscription_plans SET plan_name = ?, price = ? WHERE plan_slug = ?');
+        $insertWithSlug = $pdo->prepare('INSERT INTO tbl_subscription_plans (plan_name, price, plan_slug) VALUES (?, ?, ?)');
+    }
+
+    foreach ($plans as $slug => $plan) {
+        if (!is_array($plan)) {
+            continue;
+        }
+        $name = isset($plan['name']) ? trim((string) $plan['name']) : '';
+        $priceLabel = isset($plan['price']) ? (string) $plan['price'] : '';
+        $numericPrice = superadmin_extract_numeric_plan_price($priceLabel);
+        if ($name === '' || $numericPrice === null) {
+            continue;
+        }
+
+        $updatedRows = 0;
+        if ($hasSlug && $updateBySlug) {
+            $updateBySlug->execute([$name, $numericPrice, $slug]);
+            $updatedRows = (int) $updateBySlug->rowCount();
+        } else {
+            $updateByName->execute([$name, $numericPrice, strtolower($name)]);
+            $updatedRows = (int) $updateByName->rowCount();
+        }
+
+        if ($updatedRows === 0) {
+            if ($hasSlug && $insertWithSlug) {
+                $insertWithSlug->execute([$name, $numericPrice, $slug]);
+            } else {
+                $insertWithoutSlug->execute([$name, $numericPrice]);
+            }
+        }
+    }
+}
+
 /**
  * @param array{system_name?: string, brand_logo_path?: string, brand_tagline?: string, provider_plans?: array<string, array{name?: string, price?: string, description?: string, cta?: string, features?: array<int, string>}|mixed>} $data
  */
@@ -240,4 +316,5 @@ function superadmin_save_settings(PDO $pdo, array $data): void
 
     $stmt = $pdo->prepare('UPDATE tbl_superadmin_settings SET system_name = ?, brand_logo_path = ?, brand_tagline = ?, provider_plans_json = ? WHERE id = 1');
     $stmt->execute([$name, $logo, $tag, (string) $plansJson]);
+    superadmin_sync_subscription_plan_prices($pdo, $plans);
 }

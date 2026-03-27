@@ -7,27 +7,38 @@ $saveMessage = '';
 $saveError = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_superadmin_settings'])) {
-    $providerPlans = [];
-    $planKeys = ['starter', 'professional', 'enterprise'];
-    foreach ($planKeys as $planKey) {
-        $featuresText = isset($_POST['provider_plan_' . $planKey . '_features'])
-            ? (string) $_POST['provider_plan_' . $planKey . '_features']
-            : '';
-        $providerPlans[$planKey] = [
-            'name' => isset($_POST['provider_plan_' . $planKey . '_name']) ? (string) $_POST['provider_plan_' . $planKey . '_name'] : '',
-            'price' => isset($_POST['provider_plan_' . $planKey . '_price']) ? (string) $_POST['provider_plan_' . $planKey . '_price'] : '',
-            'description' => isset($_POST['provider_plan_' . $planKey . '_description']) ? (string) $_POST['provider_plan_' . $planKey . '_description'] : '',
-            'cta' => isset($_POST['provider_plan_' . $planKey . '_cta']) ? (string) $_POST['provider_plan_' . $planKey . '_cta'] : '',
-            'features' => preg_split('/\r\n|\r|\n/', $featuresText) ?: [],
-        ];
-    }
-
+    $settingsSection = isset($_POST['settings_section']) ? (string) $_POST['settings_section'] : '';
+    $currentSettings = superadmin_get_settings($pdo);
     $data = [
-        'system_name' => isset($_POST['system_name']) ? (string) $_POST['system_name'] : '',
-        'brand_tagline' => isset($_POST['brand_tagline']) ? (string) $_POST['brand_tagline'] : '',
-        'brand_logo_path' => isset($_POST['brand_logo_path']) ? (string) $_POST['brand_logo_path'] : '',
-        'provider_plans' => $providerPlans,
+        'system_name' => (string) ($currentSettings['system_name'] ?? 'MyDental'),
+        'brand_tagline' => (string) ($currentSettings['brand_tagline'] ?? 'MANAGEMENT CONSOLE'),
+        'brand_logo_path' => (string) ($currentSettings['brand_logo_path'] ?? 'MyDental Logo.svg'),
+        'provider_plans' => isset($currentSettings['provider_plans']) && is_array($currentSettings['provider_plans'])
+            ? $currentSettings['provider_plans']
+            : superadmin_default_provider_plans(),
     ];
+
+    if ($settingsSection === 'plans') {
+        $providerPlans = [];
+        $planKeys = ['starter', 'professional', 'enterprise'];
+        foreach ($planKeys as $planKey) {
+            $featuresText = isset($_POST['provider_plan_' . $planKey . '_features'])
+                ? (string) $_POST['provider_plan_' . $planKey . '_features']
+                : '';
+            $providerPlans[$planKey] = [
+                'name' => isset($_POST['provider_plan_' . $planKey . '_name']) ? (string) $_POST['provider_plan_' . $planKey . '_name'] : '',
+                'price' => isset($_POST['provider_plan_' . $planKey . '_price']) ? (string) $_POST['provider_plan_' . $planKey . '_price'] : '',
+                'description' => isset($_POST['provider_plan_' . $planKey . '_description']) ? (string) $_POST['provider_plan_' . $planKey . '_description'] : '',
+                'cta' => isset($_POST['provider_plan_' . $planKey . '_cta']) ? (string) $_POST['provider_plan_' . $planKey . '_cta'] : '',
+                'features' => preg_split('/\r\n|\r|\n/', $featuresText) ?: [],
+            ];
+        }
+        $data['provider_plans'] = $providerPlans;
+    } else {
+        $data['system_name'] = isset($_POST['system_name']) ? (string) $_POST['system_name'] : $data['system_name'];
+        $data['brand_tagline'] = isset($_POST['brand_tagline']) ? (string) $_POST['brand_tagline'] : $data['brand_tagline'];
+        $data['brand_logo_path'] = isset($_POST['brand_logo_path']) ? (string) $_POST['brand_logo_path'] : $data['brand_logo_path'];
+    }
 
     if (!empty($_FILES['brand_logo_file']['name']) && isset($_FILES['brand_logo_file']['tmp_name'])
         && is_uploaded_file($_FILES['brand_logo_file']['tmp_name'])) {
@@ -208,6 +219,7 @@ require __DIR__ . '/superadmin_header.php';
 
 <form method="post" action="" enctype="multipart/form-data" class="space-y-6 max-w-2xl">
 <input type="hidden" name="save_superadmin_settings" value="1"/>
+<input type="hidden" name="settings_section" value="general"/>
 
 <div>
 <label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2" for="system_name">System name</label>
@@ -262,6 +274,7 @@ Save general settings
 
 <form method="post" action="" class="space-y-6">
 <input type="hidden" name="save_superadmin_settings" value="1"/>
+<input type="hidden" name="settings_section" value="plans"/>
 <?php
 $planLabels = ['starter' => 'Starter', 'professional' => 'Professional', 'enterprise' => 'Enterprise'];
 foreach ($planLabels as $planKey => $planLabel):
