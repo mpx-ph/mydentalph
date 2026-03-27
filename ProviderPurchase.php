@@ -853,6 +853,11 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
         }
         return;
       }
+      if (submitBtn.dataset.submitting === '1') {
+        e.preventDefault();
+        return;
+      }
+      submitBtn.dataset.submitting = '1';
       submitBtn.disabled = true;
       submitBtn.classList.add('opacity-70', 'cursor-not-allowed');
     });
@@ -860,6 +865,7 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
     window.addEventListener('pageshow', function () {
       submitBtn.disabled = false;
       submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+      submitBtn.dataset.submitting = '0';
     });
   }
 })();
