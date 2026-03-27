@@ -163,6 +163,8 @@ if (!filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
     $contact_email = 'billing+' . preg_replace('/[^a-z0-9]/i', '', (string) $tenant_id) . '@mydental.local';
 }
 
+// Save clinic details best-effort; do not block checkout if optional columns differ by deployment.
+$clinic_saved = false;
 try {
     $stmt = $pdo->prepare("
         UPDATE tbl_tenants
@@ -173,10 +175,19 @@ try {
         WHERE tenant_id = ?
     ");
     $stmt->execute([$clinic_name, $contact_email, $contact_phone, $clinic_address, $tenant_id]);
+    $clinic_saved = true;
 } catch (Throwable $e) {
-    $_SESSION['provider_purchase_error'] = 'Could not save clinic details. Please try again.';
-    header('Location: ProviderPurchase.php?plan=' . urlencode($plan_slug));
-    exit;
+    try {
+        $fallback_stmt = $pdo->prepare("
+            UPDATE tbl_tenants
+            SET clinic_name = COALESCE(NULLIF(?, ''), clinic_name)
+            WHERE tenant_id = ?
+        ");
+        $fallback_stmt->execute([$clinic_name, $tenant_id]);
+        $clinic_saved = true;
+    } catch (Throwable $ignored) {
+        $clinic_saved = false;
+    }
 }
 
 $secret = defined('PAYMONGO_SECRET_KEY') ? (string) PAYMONGO_SECRET_KEY : '';
