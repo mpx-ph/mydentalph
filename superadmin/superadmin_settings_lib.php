@@ -227,14 +227,16 @@ function superadmin_sync_subscription_plan_prices(PDO $pdo, array $plans): void
     }
     $hasSlug = in_array('plan_slug', $columnNames, true);
 
-    $updateBySlug = null;
-    $updateByName = $pdo->prepare('UPDATE tbl_subscription_plans SET plan_name = ?, price = ? WHERE LOWER(plan_name) = ?');
-    $insertWithSlug = null;
+    $upsertWithSlug = null;
+    $findByName = $pdo->prepare('SELECT plan_id FROM tbl_subscription_plans WHERE LOWER(plan_name) = ? LIMIT 1');
+    $updateById = $pdo->prepare('UPDATE tbl_subscription_plans SET plan_name = ?, price = ? WHERE plan_id = ?');
     $insertWithoutSlug = $pdo->prepare('INSERT INTO tbl_subscription_plans (plan_name, price) VALUES (?, ?)');
 
     if ($hasSlug) {
-        $updateBySlug = $pdo->prepare('UPDATE tbl_subscription_plans SET plan_name = ?, price = ? WHERE plan_slug = ?');
-        $insertWithSlug = $pdo->prepare('INSERT INTO tbl_subscription_plans (plan_name, price, plan_slug) VALUES (?, ?, ?)');
+        $upsertWithSlug = $pdo->prepare(
+            'INSERT INTO tbl_subscription_plans (plan_name, price, plan_slug) VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE plan_name = VALUES(plan_name), price = VALUES(price)'
+        );
     }
 
     foreach ($plans as $slug => $plan) {
@@ -248,21 +250,17 @@ function superadmin_sync_subscription_plan_prices(PDO $pdo, array $plans): void
             continue;
         }
 
-        $updatedRows = 0;
-        if ($hasSlug && $updateBySlug) {
-            $updateBySlug->execute([$name, $numericPrice, $slug]);
-            $updatedRows = (int) $updateBySlug->rowCount();
-        } else {
-            $updateByName->execute([$name, $numericPrice, strtolower($name)]);
-            $updatedRows = (int) $updateByName->rowCount();
+        if ($hasSlug && $upsertWithSlug) {
+            $upsertWithSlug->execute([$name, $numericPrice, $slug]);
+            continue;
         }
 
-        if ($updatedRows === 0) {
-            if ($hasSlug && $insertWithSlug) {
-                $insertWithSlug->execute([$name, $numericPrice, $slug]);
-            } else {
-                $insertWithoutSlug->execute([$name, $numericPrice]);
-            }
+        $findByName->execute([strtolower($name)]);
+        $existingPlanId = $findByName->fetchColumn();
+        if ($existingPlanId !== false) {
+            $updateById->execute([$name, $numericPrice, (int) $existingPlanId]);
+        } else {
+            $insertWithoutSlug->execute([$name, $numericPrice]);
         }
     }
 }
@@ -316,5 +314,10 @@ function superadmin_save_settings(PDO $pdo, array $data): void
 
     $stmt = $pdo->prepare('UPDATE tbl_superadmin_settings SET system_name = ?, brand_logo_path = ?, brand_tagline = ?, provider_plans_json = ? WHERE id = 1');
     $stmt->execute([$name, $logo, $tag, (string) $plansJson]);
-    superadmin_sync_subscription_plan_prices($pdo, $plans);
+    try {
+        superadmin_sync_subscription_plan_prices($pdo, $plans);
+    } catch (Throwable $e) {
+        // Do not block settings save if plan table sync fails in legacy schemas.
+        error_log('superadmin plan sync save warning: ' . $e->getMessage());
+    }
 }
