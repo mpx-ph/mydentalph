@@ -300,6 +300,9 @@ try {
     $existingClinicName = trim((string) ($tenantRow['clinic_name'] ?? ''));
     $existingClinicSlug = trim((string) ($tenantRow['clinic_slug'] ?? ''));
     $sessionClinicName = trim((string) ($_SESSION['onboarding_clinic_name'] ?? ''));
+    if ($sessionClinicName === '') {
+        $sessionClinicName = trim((string) ($_SESSION['provider_purchase_clinic_name'] ?? ''));
+    }
     $sessionClinicSlug = trim((string) ($_SESSION['onboarding_clinic_slug'] ?? ''));
 
     $resolvedClinicName = $existingClinicName !== '' ? $existingClinicName : $sessionClinicName;
@@ -374,6 +377,7 @@ unset(
     $_SESSION['onboarding_full_name'],
     $_SESSION['onboarding_username']
 );
+unset($_SESSION['provider_purchase_clinic_name']);
 unset($_SESSION['paymongo_checkout_return_token']);
 
 $success_finalizer = 'ProviderTenantDashboard.php';

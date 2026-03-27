@@ -159,6 +159,7 @@ $clinic_address = trim((string) ($_POST['clinic_address'] ?? ''));
 if ($clinic_name === '') {
     $clinic_name = 'MyDental Clinic';
 }
+$_SESSION['provider_purchase_clinic_name'] = $clinic_name;
 if (!filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
     $contact_email = 'billing+' . preg_replace('/[^a-z0-9]/i', '', (string) $tenant_id) . '@mydental.local';
 }

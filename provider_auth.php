@@ -264,34 +264,69 @@ function provider_get_tenant_subscription_state(PDO $pdo, string $tenantId): arr
     $tenantSubscriptionStatus = (string) ($tenantStatusStmt->fetchColumn() ?: '');
     $result['tenant_subscription_status'] = strtolower(trim($tenantSubscriptionStatus));
 
-    $latestStmt = $pdo->prepare("
-        SELECT ts.id, ts.plan_id, ts.subscription_start, ts.subscription_end, ts.payment_status, ts.created_at,
-               p.plan_slug, p.plan_name
-        FROM tbl_tenant_subscriptions ts
-        LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
-        WHERE ts.tenant_id = ?
-        ORDER BY ts.id DESC
-        LIMIT 1
-    ");
-    $latestStmt->execute([$tenantId]);
-    $latest = $latestStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    $latest = null;
+    try {
+        $latestStmt = $pdo->prepare("
+            SELECT ts.id, ts.plan_id, ts.subscription_start, ts.subscription_end, ts.payment_status, ts.created_at,
+                   p.plan_slug, p.plan_name
+            FROM tbl_tenant_subscriptions ts
+            LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
+            WHERE ts.tenant_id = ?
+            ORDER BY ts.id DESC
+            LIMIT 1
+        ");
+        $latestStmt->execute([$tenantId]);
+        $latest = $latestStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    } catch (Throwable $e) {
+        // Backward-compatible fallback for deployments missing ts.created_at.
+        $latestStmt = $pdo->prepare("
+            SELECT ts.id, ts.plan_id, ts.subscription_start, ts.subscription_end, ts.payment_status,
+                   p.plan_slug, p.plan_name
+            FROM tbl_tenant_subscriptions ts
+            LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
+            WHERE ts.tenant_id = ?
+            ORDER BY ts.id DESC
+            LIMIT 1
+        ");
+        $latestStmt->execute([$tenantId]);
+        $latest = $latestStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
     $result['latest_subscription'] = $latest;
     $result['has_subscription'] = $latest !== null;
 
-    $activeStmt = $pdo->prepare("
-        SELECT ts.id, ts.plan_id, ts.subscription_start, ts.subscription_end, ts.payment_status, ts.created_at,
-               p.plan_slug, p.plan_name
-        FROM tbl_tenant_subscriptions ts
-        LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
-        WHERE ts.tenant_id = ?
-          AND ts.payment_status = 'paid'
-          AND (ts.subscription_start IS NULL OR ts.subscription_start <= CURDATE())
-          AND (ts.subscription_end IS NULL OR ts.subscription_end >= CURDATE())
-        ORDER BY ts.id DESC
-        LIMIT 1
-    ");
-    $activeStmt->execute([$tenantId]);
-    $active = $activeStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    $active = null;
+    try {
+        $activeStmt = $pdo->prepare("
+            SELECT ts.id, ts.plan_id, ts.subscription_start, ts.subscription_end, ts.payment_status, ts.created_at,
+                   p.plan_slug, p.plan_name
+            FROM tbl_tenant_subscriptions ts
+            LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
+            WHERE ts.tenant_id = ?
+              AND LOWER(ts.payment_status) IN ('paid', 'succeeded')
+              AND (ts.subscription_start IS NULL OR ts.subscription_start <= CURDATE())
+              AND (ts.subscription_end IS NULL OR ts.subscription_end >= CURDATE())
+            ORDER BY ts.id DESC
+            LIMIT 1
+        ");
+        $activeStmt->execute([$tenantId]);
+        $active = $activeStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    } catch (Throwable $e) {
+        // Backward-compatible fallback for deployments missing ts.created_at.
+        $activeStmt = $pdo->prepare("
+            SELECT ts.id, ts.plan_id, ts.subscription_start, ts.subscription_end, ts.payment_status,
+                   p.plan_slug, p.plan_name
+            FROM tbl_tenant_subscriptions ts
+            LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
+            WHERE ts.tenant_id = ?
+              AND LOWER(ts.payment_status) IN ('paid', 'succeeded')
+              AND (ts.subscription_start IS NULL OR ts.subscription_start <= CURDATE())
+              AND (ts.subscription_end IS NULL OR ts.subscription_end >= CURDATE())
+            ORDER BY ts.id DESC
+            LIMIT 1
+        ");
+        $activeStmt->execute([$tenantId]);
+        $active = $activeStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
     $result['active_subscription'] = $active;
 
     $tenantAllowsActive = ($result['tenant_subscription_status'] === '' || $result['tenant_subscription_status'] === 'active');
@@ -310,7 +345,7 @@ function provider_get_tenant_subscription_state(PDO $pdo, string $tenantId): arr
     $latestPaymentStatus = strtolower(trim((string) ($latest['payment_status'] ?? '')));
     $latestEnd = (string) ($latest['subscription_end'] ?? '');
     $latestEndTs = $latestEnd !== '' ? strtotime($latestEnd . ' 23:59:59') : false;
-    if ($latestPaymentStatus === 'paid' && $latestEndTs !== false && $latestEndTs < time()) {
+    if (in_array($latestPaymentStatus, ['paid', 'succeeded'], true) && $latestEndTs !== false && $latestEndTs < time()) {
         $result['state'] = 'expired';
         return $result;
     }
