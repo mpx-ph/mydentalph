@@ -699,7 +699,7 @@ $back_href = 'ProviderClinicSetup.php';
 </div>
 <p id="summary-plan-total" class="font-headline text-2xl font-extrabold tracking-tight text-white sm:text-3xl">₱<?php echo number_format($plan_price, 2); ?></p>
 </div>
-<button id="confirm-purchase-btn" form="provider-purchase-form" type="button" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3.5 text-xs font-bold uppercase tracking-wider text-primary shadow-xl transition-all hover:scale-[1.02] hover:bg-white/90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
+<button id="confirm-purchase-btn" form="provider-purchase-form" type="submit" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3.5 text-xs font-bold uppercase tracking-wider text-primary shadow-xl transition-all hover:scale-[1.02] hover:bg-white/90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
                             Confirm Purchase
                             <span class="material-symbols-outlined text-lg" aria-hidden="true">arrow_right_alt</span>
 </button>
@@ -842,9 +842,10 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
   applySelection();
 
   if (form && submitBtn) {
-    submitBtn.addEventListener('click', function () {
+    form.addEventListener('submit', function (e) {
       var selected = root.querySelector('input[name="payment_method"]:checked');
       if (!selected) {
+        e.preventDefault();
         if (paymentError) {
           paymentError.classList.remove('hidden');
         } else {
@@ -852,19 +853,13 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
         }
         return;
       }
-      if (submitBtn.dataset.submitting === '1') {
-        return;
-      }
-      submitBtn.dataset.submitting = '1';
       submitBtn.disabled = true;
       submitBtn.classList.add('opacity-70', 'cursor-not-allowed');
-      form.submit();
     });
 
     window.addEventListener('pageshow', function () {
       submitBtn.disabled = false;
       submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
-      submitBtn.dataset.submitting = '0';
     });
   }
 })();
