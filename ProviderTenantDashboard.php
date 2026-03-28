@@ -135,35 +135,6 @@ if (!function_exists('provider_dashboard_resolve_website_urls')) {
 require_once __DIR__ . '/provider_tenant_canonical_context.inc.php';
 
 // Dashboard: session → canonical tenant_id → DB only (tbl_tenants + tbl_tenant_subscriptions + tbl_subscription_plans).
-// No reliance on payment/receipt session keys. Optional POST, then fresh tenant row when settings save.
-$settings_saved = false;
-$settings_error = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    try {
-        if ($is_owner) {
-            $cn = trim((string) ($_POST['clinic_name'] ?? ''));
-            $ce = trim((string) ($_POST['clinic_email'] ?? ''));
-            $cp = trim((string) ($_POST['clinic_phone'] ?? ''));
-            $ca = trim((string) ($_POST['clinic_address'] ?? ''));
-            if ($cn !== '') {
-                $stmt = $pdo->prepare("UPDATE tbl_tenants SET clinic_name = ?, contact_email = ?, contact_phone = ?, clinic_address = ? WHERE tenant_id = ?");
-                $stmt->execute([$cn, $ce, $cp, $ca, (string) $tenant_id]);
-            }
-        }
-        $full_name = trim((string) ($_POST['full_name'] ?? ''));
-        $email = trim((string) ($_POST['email'] ?? ''));
-        $phone = trim((string) ($_POST['phone'] ?? ''));
-        if ($full_name !== '' && $email !== '') {
-            $stmt = $pdo->prepare("UPDATE tbl_users SET full_name = ?, email = ?, phone = ? WHERE user_id = ?");
-            $stmt->execute([$full_name, $email, $phone, (string) $user_id]);
-            $_SESSION['email'] = $email;
-            $_SESSION['full_name'] = $full_name;
-        }
-        $settings_saved = true;
-    } catch (Throwable $e) {
-        $settings_error = 'Could not save settings. Please try again.';
-    }
-}
 
 $tenant = [];
 try {
@@ -179,27 +150,6 @@ try {
     $tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 } catch (Throwable $e) {
     $tenant = [];
-}
-
-// Fresh tenant row after save (clinic_slug / subscription_status may have changed elsewhere).
-if ($settings_saved) {
-    try {
-        $stmt = $pdo->prepare("
-            SELECT t.tenant_id, t.clinic_name, t.clinic_slug, t.contact_email, t.contact_phone, t.clinic_address, t.subscription_status,
-                   u.full_name AS owner_name, u.email AS owner_email, u.phone AS owner_phone
-            FROM tbl_tenants t
-            LEFT JOIN tbl_users u ON t.owner_user_id = u.user_id
-            WHERE t.tenant_id = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$tenant_id]);
-        $refetched = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (is_array($refetched) && $refetched !== []) {
-            $tenant = $refetched;
-        }
-    } catch (Throwable $e) {
-        // Keep prior $tenant.
-    }
 }
 
 if (empty($tenant)) {
@@ -684,10 +634,13 @@ include __DIR__ . '/provider_tenant_sidebar.inc.php';
 </div>
 </section>
 <section class="grid grid-cols-12 gap-8">
-<div class="col-span-12 lg:col-span-5">
-<div class="bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow h-full">
+<div class="col-span-12">
+<div class="bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow">
+<?php if ($show_activated_banner): ?>
+<div class="mb-6 p-4 bg-surface-container-low border border-primary/20 text-primary rounded-2xl text-sm font-headline font-bold">Subscription activated. Your clinic website is now live and ready to manage.</div>
+<?php endif; ?>
 <h4 class="text-xl font-extrabold font-headline text-on-background mb-6">Infrastructure <span class="text-primary italic font-editorial">Status</span></h4>
-<div class="space-y-5">
+<div class="space-y-5 max-w-xl">
 <div class="flex items-center justify-between gap-3">
 <span class="text-sm font-bold text-on-surface-variant uppercase tracking-wide">Database</span>
 <span class="text-xs font-black text-green-600 flex items-center gap-2 uppercase tracking-wider shrink-0">
@@ -704,68 +657,6 @@ include __DIR__ . '/provider_tenant_sidebar.inc.php';
 <span class="w-2 h-2 rounded-full <?php echo $is_subscription_active ? 'bg-green-500' : 'bg-slate-400'; ?>"></span><?php echo $is_subscription_active ? 'Active' : ucfirst($subscription_state); ?></span>
 </div>
 </div>
-</div>
-</div>
-<div class="col-span-12 lg:col-span-7">
-<div class="bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow">
-<?php if ($settings_saved): ?>
-<div class="mb-5 p-4 bg-emerald-50 border border-emerald-200/80 text-emerald-800 rounded-2xl text-sm font-medium">Settings saved successfully.</div>
-<?php endif; ?>
-<?php if ($show_activated_banner): ?>
-<div class="mb-5 p-4 bg-surface-container-low border border-primary/20 text-primary rounded-2xl text-sm font-headline font-bold">Subscription activated. Your clinic website is now live and ready to manage.</div>
-<?php endif; ?>
-<?php if ($settings_error): ?>
-<div class="mb-5 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm"><?php echo htmlspecialchars($settings_error); ?></div>
-<?php endif; ?>
-<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
-<div>
-<h3 class="text-xl font-extrabold font-headline text-on-background">Account Settings</h3>
-<p class="text-sm text-on-surface-variant font-medium mt-1">Clinic details (tbl_tenants) and your account (tbl_users).</p>
-</div>
-<button class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all shrink-0" form="settings-form" type="submit">Save Changes</button>
-</div>
-<form class="space-y-8" method="post" action="" data-purpose="account-form" id="settings-form">
-<?php if ($is_owner): ?>
-<div class="border-b border-outline-variant/30 pb-8">
-<h4 class="text-xs font-bold text-on-surface-variant uppercase tracking-[0.2em] mb-4">Clinic details</h4>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-<div class="md:col-span-2">
-<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider" for="clinic_name">Clinic Name</label>
-<input class="mt-1.5 w-full bg-surface-container-low/50 border border-outline-variant/40 focus:ring-2 focus:ring-primary/20 rounded-2xl px-4 py-2.5 text-sm text-on-background placeholder:text-on-surface-variant/50 transition-all" id="clinic_name" name="clinic_name" placeholder="Clinic name" type="text" value="<?php echo htmlspecialchars($tenant['clinic_name'] ?? ''); ?>"/>
-</div>
-<div>
-<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider" for="clinic_email">Clinic Email</label>
-<input class="mt-1.5 w-full bg-surface-container-low/50 border border-outline-variant/40 focus:ring-2 focus:ring-primary/20 rounded-2xl px-4 py-2.5 text-sm text-on-background placeholder:text-on-surface-variant/50 transition-all" id="clinic_email" name="clinic_email" placeholder="Clinic email" type="email" value="<?php echo htmlspecialchars($tenant['contact_email'] ?? ''); ?>"/>
-</div>
-<div>
-<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider" for="clinic_phone">Clinic Phone</label>
-<input class="mt-1.5 w-full bg-surface-container-low/50 border border-outline-variant/40 focus:ring-2 focus:ring-primary/20 rounded-2xl px-4 py-2.5 text-sm text-on-background placeholder:text-on-surface-variant/50 transition-all" id="clinic_phone" name="clinic_phone" placeholder="Clinic phone" type="tel" value="<?php echo htmlspecialchars($tenant['contact_phone'] ?? ''); ?>"/>
-</div>
-<div class="md:col-span-2">
-<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider" for="clinic_address">Clinic Address</label>
-<textarea class="mt-1.5 w-full bg-surface-container-low/50 border border-outline-variant/40 focus:ring-2 focus:ring-primary/20 rounded-2xl px-4 py-2.5 text-sm text-on-background placeholder:text-on-surface-variant/50 transition-all" id="clinic_address" name="clinic_address" placeholder="Address" rows="2"><?php echo htmlspecialchars($tenant['clinic_address'] ?? ''); ?></textarea>
-</div>
-</div>
-</div>
-<?php endif; ?>
-<div>
-<h4 class="text-xs font-bold text-on-surface-variant uppercase tracking-[0.2em] mb-4">Your account</h4>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-<div>
-<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider" for="full-name">Full Name</label>
-<input class="mt-1.5 w-full bg-surface-container-low/50 border border-outline-variant/40 focus:ring-2 focus:ring-primary/20 rounded-2xl px-4 py-2.5 text-sm text-on-background placeholder:text-on-surface-variant/50 transition-all" id="full-name" name="full_name" placeholder="Full name" type="text" value="<?php echo htmlspecialchars($current_user['full_name'] ?? ''); ?>"/>
-</div>
-<div>
-<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider" for="email">Email Address</label>
-<input class="mt-1.5 w-full bg-surface-container-low/50 border border-outline-variant/40 focus:ring-2 focus:ring-primary/20 rounded-2xl px-4 py-2.5 text-sm text-on-background placeholder:text-on-surface-variant/50 transition-all" id="email" name="email" placeholder="Email" type="email" value="<?php echo htmlspecialchars($current_user['email'] ?? ''); ?>"/>
-</div>
-<div>
-<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider" for="contact">Contact Number</label>
-<input class="mt-1.5 w-full bg-surface-container-low/50 border border-outline-variant/40 focus:ring-2 focus:ring-primary/20 rounded-2xl px-4 py-2.5 text-sm text-on-background placeholder:text-on-surface-variant/50 transition-all" id="contact" name="phone" placeholder="Phone" type="tel" value="<?php echo htmlspecialchars($current_user['phone'] ?? ''); ?>"/>
-</div>
-</div>
-</div>
-</form>
 </div>
 </div>
 </section>
