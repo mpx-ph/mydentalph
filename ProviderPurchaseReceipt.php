@@ -271,7 +271,7 @@ if (in_array((string) $status_from_query, ['failed', 'cancelled', 'canceled'], t
 try {
     $pdo->beginTransaction();
     $tenantSelectStmt = $pdo->prepare("
-        SELECT clinic_name, clinic_slug
+        SELECT clinic_name, clinic_slug, owner_user_id
         FROM tbl_tenants
         WHERE tenant_id = ?
         LIMIT 1
@@ -336,14 +336,32 @@ try {
         throw new RuntimeException('Unable to finalize clinic website URL.');
     }
 
-    $tenantStmt = $pdo->prepare("
-        UPDATE tbl_tenants
-        SET clinic_name = ?,
-            clinic_slug = ?,
-            subscription_status = 'active'
-        WHERE tenant_id = ?
-    ");
-    $tenantStmt->execute([$resolvedClinicName, $resolvedClinicSlug, (string) $tenant_id]);
+    $currentOwner = trim((string) ($tenantRow['owner_user_id'] ?? ''));
+    if ($currentOwner === '' || $currentOwner === (string) $user_id) {
+        $tenantStmt = $pdo->prepare("
+            UPDATE tbl_tenants
+            SET clinic_name = ?,
+                clinic_slug = ?,
+                subscription_status = 'active',
+                owner_user_id = ?
+            WHERE tenant_id = ?
+        ");
+        $tenantStmt->execute([$resolvedClinicName, $resolvedClinicSlug, (string) $user_id, (string) $tenant_id]);
+    } else {
+        $tenantStmt = $pdo->prepare("
+            UPDATE tbl_tenants
+            SET clinic_name = ?,
+                clinic_slug = ?,
+                subscription_status = 'active'
+            WHERE tenant_id = ?
+        ");
+        $tenantStmt->execute([$resolvedClinicName, $resolvedClinicSlug, (string) $tenant_id]);
+    }
+
+    // Keep tbl_users.tenant_id identical to the tenant that was billed (avoids dashboard querying wrong tenant).
+    $syncUserTenant = $pdo->prepare('UPDATE tbl_users SET tenant_id = ? WHERE user_id = ?');
+    $syncUserTenant->execute([(string) $tenant_id, (string) $user_id]);
+
     $pdo->commit();
 
     $public_host = trim((string) ($_SERVER['HTTP_HOST'] ?? 'mydental.ct.ws'));
@@ -366,7 +384,8 @@ try {
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($user) {
         $_SESSION['user_id'] = $user['user_id'];
-        $_SESSION['tenant_id'] = $user['tenant_id'];
+        // Must match the tenant row that received subscription + slug (not a stale tbl_users.tenant_id).
+        $_SESSION['tenant_id'] = (string) $tenant_id;
         $_SESSION['name'] = $user['full_name'] ?: $user['username'];
         $_SESSION['username'] = $user['username'];
         $_SESSION['email'] = $user['email'];
@@ -374,9 +393,9 @@ try {
         $_SESSION['role'] = $user['role'];
         $_SESSION['status'] = $user['status'];
         $stmt2 = $pdo->prepare("SELECT owner_user_id FROM tbl_tenants WHERE tenant_id = ? LIMIT 1");
-        $stmt2->execute([$user['tenant_id']]);
+        $stmt2->execute([(string) $tenant_id]);
         $t = $stmt2->fetch(PDO::FETCH_ASSOC);
-        $_SESSION['is_owner'] = ($t && isset($t['owner_user_id']) && $t['owner_user_id'] === $user['user_id']);
+        $_SESSION['is_owner'] = ($t && isset($t['owner_user_id']) && (string) $t['owner_user_id'] === (string) $user['user_id']);
     }
 } catch (Throwable $e) {
     // Keep existing session values if refresh cannot complete.

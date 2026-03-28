@@ -21,30 +21,6 @@ $is_owner = !empty($_SESSION['is_owner']);
 $show_activated_banner = isset($_GET['activated']) && $_GET['activated'] === '1';
 $user_role = (string) ($_SESSION['role'] ?? '');
 
-// Align session tenant_id with the tenant row owned by this user (fixes wrong tbl_users.tenant_id vs subscriptions/slug).
-if ($user_role === 'tenant_owner') {
-    try {
-        $stmt = $pdo->prepare('SELECT tenant_id FROM tbl_tenants WHERE owner_user_id = ? ORDER BY tenant_id DESC LIMIT 1');
-        $stmt->execute([$user_id]);
-        $ownerTenantId = $stmt->fetchColumn();
-        if ($ownerTenantId !== false && trim((string) $ownerTenantId) !== '') {
-            $ownerTenantId = trim((string) $ownerTenantId);
-            if ($ownerTenantId !== $tenant_id) {
-                $tenant_id = $ownerTenantId;
-                $_SESSION['tenant_id'] = $tenant_id;
-                try {
-                    $repairStmt = $pdo->prepare('UPDATE tbl_users SET tenant_id = ? WHERE user_id = ?');
-                    $repairStmt->execute([$tenant_id, $user_id]);
-                } catch (Throwable $e) {
-                    // Do not block dashboard on tenant_id repair failure.
-                }
-            }
-        }
-    } catch (Throwable $e) {
-        // Keep session tenant_id.
-    }
-}
-
 if (!function_exists('provider_dashboard_slugify')) {
     function provider_dashboard_slugify(string $value): string
     {
@@ -150,6 +126,78 @@ if (!function_exists('provider_dashboard_resolve_website_urls')) {
         }
         $base = $scheme . '://' . $host . '/' . rawurlencode($slug);
         return [$base, $base . '/AdminDashboard.php', $host . '/' . $slug, true];
+    }
+}
+
+if (!function_exists('provider_dashboard_tenant_has_billing_assets')) {
+    function provider_dashboard_tenant_has_billing_assets(PDO $pdo, string $tid): bool
+    {
+        $tid = trim($tid);
+        if ($tid === '') {
+            return false;
+        }
+        try {
+            $s = $pdo->prepare('SELECT 1 FROM tbl_tenant_subscriptions WHERE tenant_id = ? LIMIT 1');
+            $s->execute([$tid]);
+            if ($s->fetchColumn()) {
+                return true;
+            }
+        } catch (Throwable $e) {
+        }
+        try {
+            $s = $pdo->prepare('SELECT TRIM(COALESCE(clinic_slug, "")) AS s FROM tbl_tenants WHERE tenant_id = ? LIMIT 1');
+            $s->execute([$tid]);
+            $slug = $s->fetchColumn();
+            return $slug !== false && trim((string) $slug) !== '';
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+
+// Resolve canonical tenant_id: never switch away from session tenant that already has subscription/slug (purchase row).
+$session_tid = trim((string) $_SESSION['tenant_id']);
+$tenant_id = $session_tid;
+if ($user_role === 'tenant_owner') {
+    try {
+        $stmt = $pdo->prepare('SELECT tenant_id FROM tbl_tenants WHERE owner_user_id = ? ORDER BY tenant_id DESC LIMIT 1');
+        $stmt->execute([$user_id]);
+        $ownerTenantId = $stmt->fetchColumn();
+        $ownerTenantId = ($ownerTenantId !== false) ? trim((string) $ownerTenantId) : '';
+
+        if ($ownerTenantId !== '' && $ownerTenantId !== $session_tid) {
+            $session_assets = provider_dashboard_tenant_has_billing_assets($pdo, $session_tid);
+            $owner_assets = provider_dashboard_tenant_has_billing_assets($pdo, $ownerTenantId);
+
+            if ($session_assets && !$owner_assets) {
+                $tenant_id = $session_tid;
+            } elseif (!$session_assets && $owner_assets) {
+                $tenant_id = $ownerTenantId;
+            } elseif ($session_assets && $owner_assets) {
+                $pickStmt = $pdo->prepare('
+                    SELECT tenant_id FROM tbl_tenant_subscriptions
+                    WHERE tenant_id IN (?, ?)
+                    ORDER BY id DESC
+                    LIMIT 1
+                ');
+                $pickStmt->execute([$session_tid, $ownerTenantId]);
+                $picked = $pickStmt->fetchColumn();
+                $picked = ($picked !== false) ? trim((string) $picked) : '';
+                $tenant_id = $picked !== '' ? $picked : $session_tid;
+            } else {
+                $tenant_id = $ownerTenantId;
+            }
+
+            $_SESSION['tenant_id'] = $tenant_id;
+            try {
+                $repairStmt = $pdo->prepare('UPDATE tbl_users SET tenant_id = ? WHERE user_id = ?');
+                $repairStmt->execute([$tenant_id, $user_id]);
+            } catch (Throwable $e) {
+                // Do not block dashboard on tenant_id repair failure.
+            }
+        }
+    } catch (Throwable $e) {
+        // Keep session tenant_id.
     }
 }
 
