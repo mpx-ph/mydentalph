@@ -622,115 +622,218 @@ if (!$has_visible_website && $clinic_slug !== '') {
 if (!$has_visible_website) {
     $domain_display = 'No Active Website';
 }
+
+$plan_period_util_pct = 0;
+if ($period_start_ts !== false && $renewal_ts !== false && $renewal_ts > $period_start_ts) {
+    $now = time();
+    $span = $renewal_ts - $period_start_ts;
+    if ($span > 0) {
+        if ($now >= $renewal_ts) {
+            $plan_period_util_pct = 100;
+        } elseif ($now <= $period_start_ts) {
+            $plan_period_util_pct = 0;
+        } else {
+            $plan_period_util_pct = (int) round((($now - $period_start_ts) / $span) * 100);
+        }
+    }
+}
+$plan_period_util_pct = max(0, min(100, $plan_period_util_pct));
+
+$display_name = trim((string) ($current_user['full_name'] ?? ''));
+if ($display_name === '') {
+    $display_name = trim((string) ($_SESSION['full_name'] ?? ''));
+}
+$welcome_name = $display_name !== '' ? $display_name : 'there';
+$avatar_initials = 'MD';
+if ($display_name !== '') {
+    $parts = preg_split('/\s+/', $display_name, -1, PREG_SPLIT_NO_EMPTY);
+    if (is_array($parts) && $parts !== []) {
+        $a = strtoupper(substr($parts[0], 0, 1));
+        $b = isset($parts[1]) ? strtoupper(substr($parts[1], 0, 1)) : strtoupper(substr($parts[0], 1, 1));
+        $avatar_initials = $a . ($b !== '' ? $b : '');
+        if (strlen($avatar_initials) > 2) {
+            $avatar_initials = substr($avatar_initials, 0, 2);
+        }
+    }
+}
+$renewal_sidebar = $renewal_date !== '—' ? ('Renews ' . $renewal_date) : ($has_subscription_row ? 'See billing for dates' : 'No active renewal');
+$client_ip = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
 ?>
 <!DOCTYPE html>
 
-<html lang="en"><head>
+<html class="light" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>MyDental | Tenant Dashboard</title>
-<!-- Tailwind CSS v3 with Plugins -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Playfair+Display:ital,wght@1,400;1,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<!-- Google Fonts: Inter -->
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
-<script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            'dental-dark': '#101922',
-            'dental-blue': '#2b8beb',
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              'surface-variant': '#f1f5f9',
+              'on-background': '#101922',
+              'surface': '#ffffff',
+              'outline-variant': '#cbd5e1',
+              'primary': '#2b8beb',
+              'on-surface-variant': '#404752',
+              'background': '#f8fafc',
+              'surface-container-low': '#edf4ff',
+              'surface-container-lowest': '#ffffff',
+              'tertiary': '#8e4a00',
+              'tertiary-container': '#ffdcc3',
+              'dental-dark': '#101922',
+              'dental-blue': '#2b8beb',
+            },
+            fontFamily: {
+              headline: ['Manrope', 'sans-serif'],
+              body: ['Manrope', 'sans-serif'],
+              editorial: ['Playfair Display', 'serif'],
+            },
+            borderRadius: {
+              DEFAULT: '0.25rem',
+              lg: '0.5rem',
+              xl: '1rem',
+              '2xl': '1.5rem',
+              '3xl': '2.5rem',
+              full: '9999px',
+            },
           },
-          fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-          },
-        }
+        },
       }
-    }
-  </script>
-<style data-purpose="custom-scrollbar">
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #f1f1f1;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 10px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #94a3b8;
-    }
-  </style>
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .glass-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+      }
+      .editorial-word {
+        text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
+        letter-spacing: -0.02em;
+      }
+      .mesh-bg {
+        background-color: #f8fafc;
+        background-image:
+          radial-gradient(at 0% 0%, rgba(43, 139, 235, 0.05) 0px, transparent 50%),
+          radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.02) 0px, transparent 50%);
+      }
+      .sidebar-bg {
+        background-color: #ffffff;
+      }
+      .no-scrollbar::-webkit-scrollbar {
+          display: none;
+      }
+      .active-glow {
+          box-shadow: 0 0 20px -5px rgba(43, 139, 235, 0.4);
+      }
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: #f1f1f1; }
+      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans antialiased">
-<!-- BEGIN: LayoutWrapper -->
-<div class="flex min-h-screen">
-<!-- BEGIN: LeftSidebar -->
-<aside class="w-64 bg-dental-dark text-white flex-shrink-0 flex flex-col fixed inset-y-0 lg:static z-50" data-purpose="navigation-sidebar">
-<div class="p-6 flex items-center gap-3">
-<div class="w-8 h-8 bg-dental-blue rounded-lg flex items-center justify-center">
-<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-<path d="M12 4c-4.418 0-8 1.791-8 4s3.582 4 8 4 8-1.791 8-4-3.582-4-8-4zM4 8v4c0 2.209 3.582 4 8 4s8-1.791 8-4V8M4 12v4c0 2.209 3.582 4 8 4s8-1.791 8-4v-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
+<body class="bg-background font-body text-on-background mesh-bg min-h-screen flex">
+<aside class="fixed left-0 top-0 h-full w-64 z-40 sidebar-bg flex flex-col py-8 border-r border-slate-200/60" data-purpose="navigation-sidebar">
+<div class="px-7 mb-10">
+<h1 class="text-xl font-extrabold text-slate-900 tracking-tight font-headline flex items-center gap-2">
+<span class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/30">
+<span class="material-symbols-outlined text-white text-lg">medical_services</span>
+</span>
+            MyDental
+        </h1>
+<p class="text-primary font-bold text-[10px] tracking-[0.2em] uppercase mt-2 opacity-80">Provider Console</p>
 </div>
-<span class="text-xl font-bold tracking-tight">MyDental</span>
+<nav class="flex-1 space-y-1 overflow-y-auto no-scrollbar px-0">
+<div class="relative px-3">
+<a class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl transition-all duration-200 active-glow" data-purpose="nav-item" href="#">
+<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-headline text-sm font-bold tracking-tight">Dashboard</span>
+</a>
+<div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full"></div>
 </div>
-<nav class="flex-1 px-4 space-y-2 mt-4">
-<a class="flex items-center gap-3 px-4 py-3 bg-dental-blue rounded-xl transition-all duration-200" data-purpose="nav-item" href="#">
-<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
-<span class="font-medium">Dashboard</span>
+<div class="px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" data-purpose="nav-item" href="#">
+<span class="material-symbols-outlined text-[22px]">payments</span>
+<span class="font-headline text-sm font-medium tracking-tight">Billing</span>
 </a>
-<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200" data-purpose="nav-item" href="#">
-<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
-<span class="font-medium">Billing</span>
+</div>
+<div class="px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" data-purpose="nav-item" href="#">
+<span class="material-symbols-outlined text-[22px]">language</span>
+<span class="font-headline text-sm font-medium tracking-tight">Website</span>
 </a>
-<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200" data-purpose="nav-item" href="#">
-<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
-<span class="font-medium">Website</span>
+</div>
+<div class="px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" data-purpose="nav-item" href="#">
+<span class="material-symbols-outlined text-[22px]">settings</span>
+<span class="font-headline text-sm font-medium tracking-tight">Settings</span>
 </a>
-<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200" data-purpose="nav-item" href="#">
-<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
-<span class="font-medium">Settings</span>
-</a>
+</div>
 </nav>
-<div class="p-4 mt-auto border-t border-white/10">
-<div class="flex items-center gap-3 px-2">
-<div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-sm font-bold">JD</div>
-<div class="flex-1 overflow-hidden">
-<p class="text-sm font-semibold truncate"><?php echo htmlspecialchars($clinic_name); ?></p>
-<p class="text-xs text-slate-400 truncate"><?php echo htmlspecialchars($_SESSION['email'] ?? ''); ?></p>
-</div>
-</div>
-<a href="ProviderLogout.php" class="flex items-center gap-3 px-4 py-3 mt-2 text-slate-400 hover:text-red-400 hover:bg-white/5 rounded-xl transition-all duration-200">
-<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
-<span class="font-medium">Log out</span>
+<div class="px-3 pb-2">
+<a class="flex items-center gap-3 px-4 py-3 text-rose-600 hover:text-rose-700 transition-colors duration-200 hover:bg-rose-50 rounded-xl" href="ProviderLogout.php">
+<span class="material-symbols-outlined text-[22px]">logout</span>
+<span class="font-headline text-sm font-bold tracking-tight">Logout</span>
 </a>
+</div>
+<div class="px-4 mt-2">
+<div class="bg-slate-50 rounded-2xl p-5 border border-slate-100 shadow-sm">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold"><?php echo htmlspecialchars($avatar_initials); ?></div>
+<div class="min-w-0 flex-1">
+<p class="text-slate-900 text-xs font-bold truncate"><?php echo htmlspecialchars($plan_name); ?></p>
+<p class="text-slate-500 text-[10px] truncate"><?php echo htmlspecialchars($renewal_sidebar); ?></p>
+</div>
+</div>
+<p class="text-[10px] text-slate-500 truncate mb-3"><?php echo htmlspecialchars($clinic_name); ?></p>
+<a class="block w-full text-center py-2.5 bg-white border border-slate-200 hover:border-primary/30 text-slate-700 text-xs font-bold rounded-xl transition-all shadow-sm" href="<?php echo $has_visible_website && $tenant_base_url ? htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8') : '#'; ?>" <?php if ($has_visible_website && $tenant_base_url): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>>Visit website</a>
+</div>
 </div>
 </aside>
-<!-- END: LeftSidebar -->
-<!-- BEGIN: MainContent -->
-<main class="flex-1 lg:ml-0 overflow-y-auto min-h-screen transition-all duration-300">
-<!-- BEGIN: Header -->
-<header class="bg-white border-b border-slate-200 sticky top-0 z-40 px-8 py-4 flex items-center justify-between" data-purpose="top-header">
-<h1 class="text-2xl font-bold text-dental-dark">Tenant Dashboard</h1>
-<div class="flex items-center gap-4">
-<button class="p-2 text-slate-400 hover:text-dental-blue transition-colors">
-<svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
-</button>
+<main class="flex-1 flex flex-col min-w-0 ml-64">
+<header class="flex justify-between items-center w-full px-6 lg:px-10 sticky top-0 z-40 bg-white/80 backdrop-blur-xl h-20 border-b border-slate-200/50" data-purpose="top-header">
+<div class="flex flex-wrap items-center gap-4 lg:gap-8">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full <?php echo $has_visible_website ? 'bg-green-500 animate-pulse' : 'bg-amber-500'; ?>"></span>
+<span class="font-headline text-[10px] font-black uppercase tracking-[0.2em] text-primary">Website: <?php echo $has_visible_website ? 'Online' : 'Not published'; ?></span>
+</div>
+<div class="hidden sm:block h-4 w-px bg-slate-200"></div>
+<span class="font-headline text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 truncate max-w-[200px] lg:max-w-none">Plan: <?php echo htmlspecialchars($plan_name); ?></span>
+</div>
+<div class="flex items-center gap-4 lg:gap-6">
+<div class="hidden sm:flex items-center gap-6 text-on-surface-variant/60">
+<button type="button" class="material-symbols-outlined hover:text-primary transition-colors bg-transparent border-0 cursor-pointer p-0" aria-label="Notifications">notifications</button>
+<button type="button" class="material-symbols-outlined hover:text-primary transition-colors bg-transparent border-0 cursor-pointer p-0" aria-label="Help">help_outline</button>
+</div>
+<div class="h-10 w-10 rounded-full overflow-hidden border-2 border-primary/20 bg-primary/10 flex items-center justify-center text-primary text-xs font-black shrink-0" aria-hidden="true"><?php echo htmlspecialchars($avatar_initials); ?></div>
 </div>
 </header>
-<!-- END: Header -->
-<div class="p-8 max-w-7xl mx-auto space-y-8">
-<!-- BEGIN: ActionBanner -->
-<section class="bg-gradient-to-r from-dental-blue to-blue-600 rounded-3xl p-8 shadow-lg shadow-blue-200 text-white flex flex-col md:flex-row items-center justify-between gap-6" data-purpose="primary-action-card">
+<div class="p-6 lg:p-10 space-y-10 lg:space-y-12 flex-1">
+<section class="flex flex-col gap-4">
+<div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
+<span class="w-12 h-[1.5px] bg-primary"></span> Tenant dashboard
+            </div>
+<h2 class="font-headline text-4xl sm:text-5xl lg:text-7xl font-extrabold tracking-tighter leading-tight text-on-background">
+                <?php echo htmlspecialchars($clinic_name); ?> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Overview</span>
+</h2>
+<p class="font-body text-lg lg:text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed">Welcome back, <?php echo htmlspecialchars($welcome_name); ?>. Open clinic management, review your plan and website, and keep account details up to date.</p>
+</section>
+<section class="glass-card rounded-[2rem] lg:rounded-[2.5rem] p-8 lg:p-10 shadow-lg shadow-primary/5 border border-slate-200/80 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6" data-purpose="primary-action-card">
 <div class="space-y-2">
-<h2 class="text-3xl font-bold tracking-tight">Access Clinic Management</h2>
-<p class="text-blue-50 opacity-90">Manage patients, appointments, and medical records from one place.</p>
+<h2 class="font-headline text-2xl lg:text-3xl font-extrabold tracking-tight text-on-background">Access clinic management</h2>
+<p class="text-on-surface-variant text-sm lg:text-base max-w-xl">Manage patients, appointments, and records from your clinic admin dashboard.</p>
 </div>
 <a
-  class="bg-white text-dental-blue px-8 py-4 rounded-2xl font-bold text-lg hover:bg-slate-50 transition-all transform hover:scale-105 active:scale-95 shadow-xl inline-flex items-center justify-center"
+  class="inline-flex items-center justify-center shrink-0 bg-primary text-white px-8 py-4 rounded-2xl font-headline font-bold text-base hover:bg-blue-600 transition-all shadow-lg shadow-primary/25 text-center"
   id="open-dashboard-btn"
   href="<?php echo $admin_dashboard_url ? htmlspecialchars($admin_dashboard_url, ENT_QUOTES, 'UTF-8') : '#'; ?>"
   <?php if ($has_visible_website && $admin_dashboard_url): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>
@@ -738,163 +841,217 @@ if (!$has_visible_website) {
   <?php echo $has_visible_website ? 'Open Clinic Management Dashboard' : 'No Active Website'; ?>
 </a>
 </section>
-<!-- END: ActionBanner -->
-<!-- BEGIN: OverviewGrid -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-purpose="overview-stats">
-<!-- Plan Card -->
-<div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-<div class="flex items-center justify-between mb-4">
-<span class="text-slate-500 text-sm font-medium uppercase tracking-wider">Current Plan</span>
-<div class="p-2 bg-blue-50 rounded-lg text-dental-blue">
-<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.040L3 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622l-.382-3.016z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<div class="grid grid-cols-12 gap-8 lg:gap-10">
+<div class="col-span-12 space-y-8 lg:space-y-10">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-10" data-purpose="overview-stats">
+<div class="glass-card p-8 lg:p-10 rounded-[2rem] lg:rounded-[2.5rem] flex flex-col justify-between min-h-[240px] lg:min-h-[260px] hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500">
+<div class="flex justify-between items-start gap-3">
+<div class="min-w-0">
+<p class="text-on-surface-variant font-bold text-[10px] uppercase tracking-widest mb-3">Current Plan</p>
+<h3 class="font-headline text-2xl lg:text-3xl font-extrabold text-primary leading-tight break-words"><?php echo htmlspecialchars($plan_name); ?></h3>
 </div>
-</div>
-<div class="flex items-center gap-3">
-<h3 class="text-2xl font-bold text-dental-dark"><?php echo htmlspecialchars($plan_name); ?></h3>
 <?php if ($is_subscription_active): ?>
-<span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">Active</span>
+<span class="shrink-0 bg-primary/10 text-primary px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">Active</span>
 <?php elseif ($subscription_state === 'expired'): ?>
-<span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Expired</span>
+<span class="shrink-0 bg-amber-100 text-amber-800 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">Expired</span>
 <?php elseif ($subscription_state === 'inactive'): ?>
-<span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-200 text-slate-700">Inactive</span>
+<span class="shrink-0 bg-slate-200 text-slate-800 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">Inactive</span>
 <?php else: ?>
-<span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">None</span>
+<span class="shrink-0 bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">None</span>
 <?php endif; ?>
 </div>
+<div class="space-y-4 lg:space-y-6 mt-6">
 <?php if ($plan_billing_cycle_label !== ''): ?>
-<p class="text-slate-500 text-sm mt-1"><?php echo htmlspecialchars($plan_billing_cycle_label); ?></p>
+<p class="text-on-surface-variant/80 text-xs font-semibold"><?php echo htmlspecialchars($plan_billing_cycle_label); ?></p>
 <?php endif; ?>
-<?php if ($has_subscription_row): ?>
-<p class="text-slate-500 text-sm mt-2">Current period: <?php echo htmlspecialchars($period_start_display); ?> — <?php echo htmlspecialchars($renewal_date); ?></p>
+<?php if ($has_subscription_row && $period_start_ts !== false && $renewal_ts !== false): ?>
+<div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full shadow-[0_0_12px_rgba(43,139,235,0.4)] transition-all" style="width: <?php echo (int) $plan_period_util_pct; ?>%;"></div>
+</div>
+<div class="flex flex-col sm:flex-row sm:justify-between gap-1 text-[11px] font-black uppercase tracking-widest text-on-surface-variant/70">
+<span>Renewal: <?php echo htmlspecialchars($renewal_date); ?></span>
+<span>Period progress: <?php echo (int) $plan_period_util_pct; ?>%</span>
+</div>
+<?php elseif ($has_subscription_row): ?>
+<p class="text-on-surface-variant text-sm">Current period: <?php echo htmlspecialchars($period_start_display); ?> — <?php echo htmlspecialchars($renewal_date); ?></p>
 <?php else: ?>
-<p class="text-slate-400 text-sm mt-2">No subscription record in the database yet.</p>
+<p class="text-on-surface-variant/80 text-sm">No subscription record in the database yet.</p>
 <?php endif; ?>
 </div>
-<!-- Domain Card -->
-<div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-<div class="flex items-center justify-between mb-4">
-<span class="text-slate-500 text-sm font-medium uppercase tracking-wider">Domain &amp; Hosting</span>
-<div class="p-2 bg-slate-50 rounded-lg text-slate-600">
-<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
 </div>
-</div>
+<div class="glass-card p-8 lg:p-10 rounded-[2rem] lg:rounded-[2.5rem] flex flex-col justify-between hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500">
+<div>
+<p class="text-on-surface-variant font-bold text-[10px] uppercase tracking-widest mb-3">Domain &amp; Hosting</p>
 <?php if ($has_visible_website): ?>
-<a class="text-lg font-bold text-dental-blue hover:text-blue-700 truncate hover:underline inline-block max-w-full break-all" href="<?php echo htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer">
-    <?php echo htmlspecialchars($domain_display); ?>
+<h3 class="font-headline text-xl lg:text-2xl font-extrabold tracking-tight break-all"><?php echo htmlspecialchars($domain_display); ?></h3>
+<a class="inline-flex items-center gap-2 text-primary text-xs font-black uppercase tracking-widest mt-6 hover:gap-3 transition-all" href="<?php echo htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer">
+                                Visit Website
+                                <span class="material-symbols-outlined text-base">arrow_forward</span>
 </a>
 <?php else: ?>
-<h3 class="text-lg font-bold text-dental-dark truncate"><?php echo htmlspecialchars($domain_display); ?></h3>
+<h3 class="font-headline text-xl lg:text-2xl font-extrabold tracking-tight text-on-background"><?php echo htmlspecialchars($domain_display); ?></h3>
 <?php endif; ?>
-<p class="text-slate-500 text-sm mt-2"><?php echo htmlspecialchars($hosting_status_label); ?></p>
-<div class="flex items-center gap-2 mt-2">
-<span class="w-2 h-2 rounded-full <?php echo $has_visible_website ? 'bg-emerald-500' : 'bg-amber-500'; ?>"></span>
-<span class="text-slate-500 text-sm"><?php echo $has_visible_website ? 'Website published' : 'Website not yet published'; ?></span>
+<p class="text-xs font-bold text-on-surface-variant/80 mt-4"><?php echo htmlspecialchars($hosting_status_label); ?></p>
+</div>
+<div class="flex items-center gap-3 mt-6 pt-6 border-t border-slate-100">
+<span class="material-symbols-outlined <?php echo $has_visible_website ? 'text-green-500' : 'text-amber-500'; ?> text-lg">verified_user</span>
+<span class="text-xs font-bold text-on-surface-variant/70 uppercase tracking-widest"><?php echo $has_visible_website ? 'Website published' : 'Website not yet published'; ?></span>
 </div>
 </div>
-<!-- Quick Actions Card -->
-<div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-<div class="flex items-center justify-between mb-4">
-<span class="text-slate-500 text-sm font-medium uppercase tracking-wider">Website Control</span>
+<div class="glass-card p-8 lg:p-10 rounded-[2rem] lg:rounded-[2.5rem] hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 flex flex-col">
+<h4 class="font-headline font-extrabold text-lg lg:text-xl mb-6">Website <span class="text-primary italic font-editorial">Control</span></h4>
+<div class="flex flex-wrap gap-2 mb-4">
+<button type="button" class="bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-colors">Publish</button>
+<button type="button" class="bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-colors">Unpublish</button>
 </div>
-<div class="flex flex-wrap gap-2">
-<button class="bg-dental-blue/10 text-dental-blue hover:bg-dental-blue hover:text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">Publish</button>
-<button class="bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">Unpublish</button>
 <a
-  class="w-full text-center mt-2 text-dental-blue text-sm font-medium hover:underline flex items-center justify-center gap-1"
+  class="inline-flex items-center gap-2 text-primary text-xs font-black uppercase tracking-widest mt-auto hover:gap-3 transition-all"
   href="<?php echo $has_visible_website && $tenant_base_url ? htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8') : '#'; ?>"
   <?php if ($has_visible_website && $tenant_base_url): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>
 >
                 <?php echo $has_visible_website ? 'View Live Website' : 'Website Link Unavailable'; ?>
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+                <span class="material-symbols-outlined text-base">open_in_new</span>
 </a>
 </div>
 </div>
+<div class="space-y-6 lg:space-y-8">
+<div class="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
+<div>
+<div class="text-primary font-bold text-[10px] uppercase mb-2 tracking-[0.3em]">At a glance</div>
+<h3 class="font-headline text-3xl lg:text-4xl font-extrabold tracking-tight">Usage <span class="font-editorial italic font-normal text-primary editorial-word">Overview</span></h3>
 </div>
-<!-- END: OverviewGrid -->
-<!-- BEGIN: SplitView -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-<!-- Subscription Management -->
+<button type="button" class="self-start sm:self-auto bg-primary/5 text-primary px-6 py-2 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-primary/10 transition-colors border border-transparent">Billing actions below</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="glass-card p-8 rounded-3xl group hover:border-primary/30 transition-all duration-500 border border-transparent">
+<div class="w-12 h-12 bg-primary/5 rounded-2xl flex items-center justify-center mb-6 text-primary group-hover:scale-110 transition-all">
+<span class="material-symbols-outlined text-2xl">subscriptions</span>
+</div>
+<p class="text-on-surface-variant text-[10px] font-black uppercase tracking-widest mb-2">Subscription</p>
+<p class="text-2xl lg:text-3xl font-headline font-extrabold break-words"><?php echo htmlspecialchars($plan_name); ?></p>
+</div>
+<div class="glass-card p-8 rounded-3xl group hover:border-primary/30 transition-all duration-500 border border-transparent">
+<div class="w-12 h-12 bg-primary/5 rounded-2xl flex items-center justify-center mb-6 text-primary group-hover:scale-110 transition-all">
+<span class="material-symbols-outlined text-2xl">cloud_done</span>
+</div>
+<p class="text-on-surface-variant text-[10px] font-black uppercase tracking-widest mb-2">Website status</p>
+<p class="text-2xl lg:text-3xl font-headline font-extrabold"><?php echo $has_visible_website ? 'Live' : 'Pending'; ?></p>
+</div>
+<div class="glass-card p-8 rounded-3xl group hover:border-primary/30 transition-all duration-500 border border-transparent">
+<div class="w-12 h-12 bg-primary/5 rounded-2xl flex items-center justify-center mb-6 text-primary group-hover:scale-110 transition-all">
+<span class="material-symbols-outlined text-2xl">bolt</span>
+</div>
+<p class="text-on-surface-variant text-[10px] font-black uppercase tracking-widest mb-2">Account</p>
+<p class="text-2xl lg:text-3xl font-headline font-extrabold truncate" title="<?php echo htmlspecialchars($hosting_status_label); ?>"><?php echo htmlspecialchars(preg_replace('/^Account:\s*/i', '', $hosting_status_label)); ?></p>
+</div>
+</div>
+</div>
+<div class="glass-card rounded-[2rem] lg:rounded-[2.5rem] p-8 lg:p-10 border border-slate-200/80">
+<h4 class="font-headline font-extrabold text-lg lg:text-xl mb-6">Infrastructure <span class="text-primary italic font-editorial">Status</span></h4>
+<div class="space-y-5">
+<div class="flex items-center justify-between gap-3">
+<span class="text-xs font-black uppercase tracking-widest text-on-surface-variant/70">Database</span>
+<span class="text-[10px] font-black text-green-500 flex items-center gap-2 uppercase tracking-[0.2em] shrink-0">
+<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                                    Connected
+                                </span>
+</div>
+<div class="flex items-center justify-between gap-3">
+<span class="text-xs font-black uppercase tracking-widest text-on-surface-variant/70">Clinic portal</span>
+<span class="text-[10px] font-black <?php echo $has_visible_website ? 'text-green-500' : 'text-amber-600'; ?> flex items-center gap-2 uppercase tracking-[0.2em] shrink-0">
+<span class="w-2 h-2 rounded-full <?php echo $has_visible_website ? 'bg-green-500 animate-pulse' : 'bg-amber-500'; ?>"></span>
+                                    <?php echo $has_visible_website ? 'Ready' : 'Unavailable'; ?>
+                                </span>
+</div>
+<div class="flex items-center justify-between gap-3">
+<span class="text-xs font-black uppercase tracking-widest text-on-surface-variant/70">Subscription</span>
+<span class="text-[10px] font-black <?php echo $is_subscription_active ? 'text-green-500' : 'text-slate-500'; ?> flex items-center gap-2 uppercase tracking-[0.2em] shrink-0">
+<span class="w-2 h-2 rounded-full <?php echo $is_subscription_active ? 'bg-green-500' : 'bg-slate-400'; ?>"></span>
+                                    <?php echo $is_subscription_active ? 'Active' : ucfirst($subscription_state); ?>
+                                </span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-10">
 <div class="lg:col-span-1 space-y-6">
-<div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-<h3 class="text-lg font-bold text-dental-dark mb-6">Subscription &amp; Billing</h3>
-<div class="space-y-3">
-<button class="w-full text-left px-4 py-3 rounded-xl border border-slate-100 hover:border-dental-blue hover:bg-blue-50/30 transition-all flex items-center justify-between group">
-<span class="text-slate-700 font-medium">Upgrade Plan</span>
-<svg class="w-4 h-4 text-slate-400 group-hover:text-dental-blue" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<div class="glass-card p-6 lg:p-8 rounded-[2rem] border border-slate-200/80">
+<h3 class="font-headline text-lg font-extrabold text-on-background mb-6">Subscription &amp; Billing</h3>
+<div class="space-y-2">
+<button type="button" class="w-full text-left px-4 py-3 rounded-xl border border-slate-100 hover:border-primary hover:bg-primary/5 transition-all flex items-center justify-between group">
+<span class="text-slate-700 font-headline text-sm font-semibold">Upgrade Plan</span>
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary text-lg">chevron_right</span>
 </button>
-<button class="w-full text-left px-4 py-3 rounded-xl border border-slate-100 hover:border-dental-blue hover:bg-blue-50/30 transition-all flex items-center justify-between group">
-<span class="text-slate-700 font-medium">View Billing History</span>
-<svg class="w-4 h-4 text-slate-400 group-hover:text-dental-blue" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<button type="button" class="w-full text-left px-4 py-3 rounded-xl border border-slate-100 hover:border-primary hover:bg-primary/5 transition-all flex items-center justify-between group">
+<span class="text-slate-700 font-headline text-sm font-semibold">View Billing History</span>
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary text-lg">chevron_right</span>
 </button>
-<button class="w-full text-left px-4 py-3 rounded-xl border border-slate-100 hover:border-dental-blue hover:bg-blue-50/30 transition-all flex items-center justify-between group">
-<span class="text-slate-700 font-medium">Payment Methods</span>
-<svg class="w-4 h-4 text-slate-400 group-hover:text-dental-blue" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<button type="button" class="w-full text-left px-4 py-3 rounded-xl border border-slate-100 hover:border-primary hover:bg-primary/5 transition-all flex items-center justify-between group">
+<span class="text-slate-700 font-headline text-sm font-semibold">Payment Methods</span>
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary text-lg">chevron_right</span>
 </button>
-<div class="pt-4 mt-4 border-t border-slate-100 flex flex-col gap-3">
-<button class="text-sm font-medium text-slate-400 hover:text-slate-600 transition-colors">Downgrade Plan</button>
-<button class="text-sm font-medium text-red-400 hover:text-red-600 transition-colors">Cancel Subscription</button>
+<div class="pt-4 mt-4 border-t border-slate-100 flex flex-col gap-2">
+<button type="button" class="text-sm font-medium text-slate-400 hover:text-slate-600 transition-colors text-left">Downgrade Plan</button>
+<button type="button" class="text-sm font-medium text-red-500 hover:text-red-600 transition-colors text-left">Cancel Subscription</button>
 </div>
 </div>
 </div>
 </div>
-<!-- Account Settings Form -->
 <div class="lg:col-span-2">
-<div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+<div class="glass-card p-6 sm:p-8 lg:p-10 rounded-[2rem] lg:rounded-[2.5rem] border border-slate-200/80">
 <?php if ($settings_saved): ?>
-<div class="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm">Settings saved successfully.</div>
+<div class="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-sm font-medium">Settings saved successfully.</div>
 <?php endif; ?>
 <?php if ($show_activated_banner): ?>
-<div class="mb-6 p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl text-sm font-semibold">Subscription activated. Your clinic website is now live and ready to manage.</div>
+<div class="mb-6 p-4 bg-surface-container-low border border-primary/20 text-primary rounded-xl text-sm font-headline font-bold">Subscription activated. Your clinic website is now live and ready to manage.</div>
 <?php endif; ?>
 <?php if ($settings_error): ?>
 <div class="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm"><?php echo htmlspecialchars($settings_error); ?></div>
 <?php endif; ?>
-<div class="flex items-center justify-between mb-8">
+<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
 <div>
-<h3 class="text-xl font-bold text-dental-dark">Account Settings</h3>
-<p class="text-slate-500 text-sm">Clinic details (tbl_tenants) and your account (tbl_users).</p>
+<h3 class="text-xl font-headline font-extrabold text-on-background">Account Settings</h3>
+<p class="text-on-surface-variant text-sm mt-1">Clinic details (tbl_tenants) and your account (tbl_users).</p>
 </div>
-<button class="px-6 py-2.5 bg-dental-blue text-white rounded-xl font-semibold hover:bg-blue-600 transition-shadow shadow-md shadow-blue-100" form="settings-form" type="submit">Save Changes</button>
+<button class="px-6 py-2.5 bg-primary text-white rounded-xl font-headline font-bold hover:bg-blue-600 transition-all shadow-md shadow-primary/20 shrink-0" form="settings-form" type="submit">Save Changes</button>
 </div>
-<!-- Form: clinic data → tbl_tenants, owner/account → tbl_users -->
 <form class="space-y-6" method="post" action="" data-purpose="account-form" id="settings-form">
 <?php if ($is_owner): ?>
 <div class="border-b border-slate-200 pb-6">
-<h4 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Clinic details</h4>
+<h4 class="text-xs font-black text-on-surface-variant uppercase tracking-[0.2em] mb-4">Clinic details</h4>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 <div class="md:col-span-2">
-<label class="text-sm font-semibold text-slate-700" for="clinic_name">Clinic Name</label>
-<input class="w-full px-4 py-3 rounded-xl border-slate-200 focus:border-dental-blue focus:ring-dental-blue transition-all" id="clinic_name" name="clinic_name" placeholder="Clinic name" type="text" value="<?php echo htmlspecialchars($tenant['clinic_name'] ?? ''); ?>"/>
+<label class="text-sm font-semibold text-slate-700 font-headline" for="clinic_name">Clinic Name</label>
+<input class="mt-1.5 w-full px-4 py-3 rounded-xl border-slate-200 focus:border-primary focus:ring-primary transition-all" id="clinic_name" name="clinic_name" placeholder="Clinic name" type="text" value="<?php echo htmlspecialchars($tenant['clinic_name'] ?? ''); ?>"/>
 </div>
 <div>
-<label class="text-sm font-semibold text-slate-700" for="clinic_email">Clinic Email</label>
-<input class="w-full px-4 py-3 rounded-xl border-slate-200 focus:border-dental-blue focus:ring-dental-blue transition-all" id="clinic_email" name="clinic_email" placeholder="Clinic email" type="email" value="<?php echo htmlspecialchars($tenant['contact_email'] ?? ''); ?>"/>
+<label class="text-sm font-semibold text-slate-700 font-headline" for="clinic_email">Clinic Email</label>
+<input class="mt-1.5 w-full px-4 py-3 rounded-xl border-slate-200 focus:border-primary focus:ring-primary transition-all" id="clinic_email" name="clinic_email" placeholder="Clinic email" type="email" value="<?php echo htmlspecialchars($tenant['contact_email'] ?? ''); ?>"/>
 </div>
 <div>
-<label class="text-sm font-semibold text-slate-700" for="clinic_phone">Clinic Phone</label>
-<input class="w-full px-4 py-3 rounded-xl border-slate-200 focus:border-dental-blue focus:ring-dental-blue transition-all" id="clinic_phone" name="clinic_phone" placeholder="Clinic phone" type="tel" value="<?php echo htmlspecialchars($tenant['contact_phone'] ?? ''); ?>"/>
+<label class="text-sm font-semibold text-slate-700 font-headline" for="clinic_phone">Clinic Phone</label>
+<input class="mt-1.5 w-full px-4 py-3 rounded-xl border-slate-200 focus:border-primary focus:ring-primary transition-all" id="clinic_phone" name="clinic_phone" placeholder="Clinic phone" type="tel" value="<?php echo htmlspecialchars($tenant['contact_phone'] ?? ''); ?>"/>
 </div>
 <div class="md:col-span-2">
-<label class="text-sm font-semibold text-slate-700" for="clinic_address">Clinic Address</label>
-<textarea class="w-full px-4 py-3 rounded-xl border-slate-200 focus:border-dental-blue focus:ring-dental-blue transition-all" id="clinic_address" name="clinic_address" placeholder="Address" rows="2"><?php echo htmlspecialchars($tenant['clinic_address'] ?? ''); ?></textarea>
+<label class="text-sm font-semibold text-slate-700 font-headline" for="clinic_address">Clinic Address</label>
+<textarea class="mt-1.5 w-full px-4 py-3 rounded-xl border-slate-200 focus:border-primary focus:ring-primary transition-all" id="clinic_address" name="clinic_address" placeholder="Address" rows="2"><?php echo htmlspecialchars($tenant['clinic_address'] ?? ''); ?></textarea>
 </div>
 </div>
 </div>
 <?php endif; ?>
 <div>
-<h4 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Your account</h4>
+<h4 class="text-xs font-black text-on-surface-variant uppercase tracking-[0.2em] mb-4">Your account</h4>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 <div>
-<label class="text-sm font-semibold text-slate-700" for="full-name">Full Name</label>
-<input class="w-full px-4 py-3 rounded-xl border-slate-200 focus:border-dental-blue focus:ring-dental-blue transition-all" id="full-name" name="full_name" placeholder="Full name" type="text" value="<?php echo htmlspecialchars($current_user['full_name'] ?? ''); ?>"/>
+<label class="text-sm font-semibold text-slate-700 font-headline" for="full-name">Full Name</label>
+<input class="mt-1.5 w-full px-4 py-3 rounded-xl border-slate-200 focus:border-primary focus:ring-primary transition-all" id="full-name" name="full_name" placeholder="Full name" type="text" value="<?php echo htmlspecialchars($current_user['full_name'] ?? ''); ?>"/>
 </div>
 <div>
-<label class="text-sm font-semibold text-slate-700" for="email">Email Address</label>
-<input class="w-full px-4 py-3 rounded-xl border-slate-200 focus:border-dental-blue focus:ring-dental-blue transition-all" id="email" name="email" placeholder="Email" type="email" value="<?php echo htmlspecialchars($current_user['email'] ?? ''); ?>"/>
+<label class="text-sm font-semibold text-slate-700 font-headline" for="email">Email Address</label>
+<input class="mt-1.5 w-full px-4 py-3 rounded-xl border-slate-200 focus:border-primary focus:ring-primary transition-all" id="email" name="email" placeholder="Email" type="email" value="<?php echo htmlspecialchars($current_user['email'] ?? ''); ?>"/>
 </div>
 <div>
-<label class="text-sm font-semibold text-slate-700" for="contact">Contact Number</label>
-<input class="w-full px-4 py-3 rounded-xl border-slate-200 focus:border-dental-blue focus:ring-dental-blue transition-all" id="contact" name="phone" placeholder="Phone" type="tel" value="<?php echo htmlspecialchars($current_user['phone'] ?? ''); ?>"/>
+<label class="text-sm font-semibold text-slate-700 font-headline" for="contact">Contact Number</label>
+<input class="mt-1.5 w-full px-4 py-3 rounded-xl border-slate-200 focus:border-primary focus:ring-primary transition-all" id="contact" name="phone" placeholder="Phone" type="tel" value="<?php echo htmlspecialchars($current_user['phone'] ?? ''); ?>"/>
 </div>
 </div>
 </div>
@@ -902,12 +1059,30 @@ if (!$has_visible_website) {
 </div>
 </div>
 </div>
-<!-- END: SplitView -->
 </div>
+</div>
+</div>
+<footer class="mt-auto p-6 lg:p-8 flex justify-center sticky bottom-0 z-10 pointer-events-none">
+<div class="glass-card pointer-events-auto px-6 lg:px-10 py-4 rounded-full border border-slate-200 shadow-2xl flex flex-wrap items-center justify-center gap-4 lg:gap-10 text-[10px] font-black text-on-surface-variant/70 uppercase tracking-[0.2em]">
+<div class="flex items-center gap-3 text-primary">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                Session active
+            </div>
+<div class="hidden sm:block h-4 w-px bg-slate-200"></div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">schedule</span>
+                <?php echo htmlspecialchars(date('g:i A')); ?>
+            </div>
+<?php if ($client_ip !== ''): ?>
+<div class="hidden sm:block h-4 w-px bg-slate-200"></div>
+<div class="flex items-center gap-2 max-w-full">
+<span class="material-symbols-outlined text-sm shrink-0">location_on</span>
+<span class="truncate">IP: <?php echo htmlspecialchars($client_ip); ?></span>
+</div>
+<?php endif; ?>
+</div>
+</footer>
 </main>
-<!-- END: MainContent -->
-</div>
-<!-- END: LayoutWrapper -->
 <script data-purpose="event-handlers">
     // Keep JS block for future UI interactions (no forced redirects here).
   </script>
