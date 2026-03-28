@@ -155,9 +155,95 @@ if (!function_exists('provider_dashboard_tenant_has_billing_assets')) {
     }
 }
 
-// Resolve canonical tenant_id: never switch away from session tenant that already has subscription/slug (purchase row).
+/**
+ * Tenant that actually has billing/website data for this login — does not depend on session tenant_id alone.
+ * Matches subscription rows linked via tbl_tenants.owner_user_id OR tbl_users.tenant_id.
+ */
+if (!function_exists('provider_dashboard_resolve_tenant_id_for_user')) {
+    function provider_dashboard_resolve_tenant_id_for_user(PDO $pdo, string $user_id, string $session_tid): string
+    {
+        $session_tid = trim($session_tid);
+        $user_id = trim($user_id);
+        if ($user_id === '') {
+            return $session_tid;
+        }
+        try {
+            $st = $pdo->prepare("
+                SELECT ts.tenant_id
+                FROM tbl_tenant_subscriptions ts
+                WHERE EXISTS (
+                    SELECT 1 FROM tbl_tenants t
+                    WHERE t.tenant_id = ts.tenant_id AND t.owner_user_id = ?
+                )
+                   OR EXISTS (
+                    SELECT 1 FROM tbl_users u
+                    WHERE u.user_id = ? AND u.tenant_id = ts.tenant_id
+                )
+                ORDER BY ts.id DESC
+                LIMIT 1
+            ");
+            $st->execute([$user_id, $user_id]);
+            $fromSub = $st->fetchColumn();
+            if ($fromSub !== false && trim((string) $fromSub) !== '') {
+                return trim((string) $fromSub);
+            }
+        } catch (Throwable $e) {
+        }
+
+        try {
+            $st = $pdo->prepare('
+                SELECT t.tenant_id
+                FROM tbl_tenants t
+                WHERE t.owner_user_id = ?
+                  AND TRIM(COALESCE(t.clinic_slug, "")) <> ""
+                ORDER BY t.tenant_id DESC
+                LIMIT 1
+            ');
+            $st->execute([$user_id]);
+            $slugTenant = $st->fetchColumn();
+            if ($slugTenant !== false && trim((string) $slugTenant) !== '') {
+                return trim((string) $slugTenant);
+            }
+        } catch (Throwable $e) {
+        }
+
+        try {
+            $st = $pdo->prepare('SELECT tenant_id FROM tbl_tenants WHERE owner_user_id = ? ORDER BY tenant_id DESC LIMIT 1');
+            $st->execute([$user_id]);
+            $ownerRow = $st->fetchColumn();
+            if ($ownerRow !== false && trim((string) $ownerRow) !== '') {
+                return trim((string) $ownerRow);
+            }
+        } catch (Throwable $e) {
+        }
+
+        try {
+            $st = $pdo->prepare('SELECT tenant_id FROM tbl_users WHERE user_id = ? LIMIT 1');
+            $st->execute([$user_id]);
+            $ut = $st->fetchColumn();
+            if ($ut !== false && trim((string) $ut) !== '') {
+                return trim((string) $ut);
+            }
+        } catch (Throwable $e) {
+        }
+
+        return $session_tid;
+    }
+}
+
+// Canonical tenant_id: DB truth from subscriptions / ownership, then align session + tbl_users.
 $session_tid = trim((string) $_SESSION['tenant_id']);
-$tenant_id = $session_tid;
+$tenant_id = provider_dashboard_resolve_tenant_id_for_user($pdo, $user_id, $session_tid);
+
+if ($tenant_id !== $session_tid) {
+    $_SESSION['tenant_id'] = $tenant_id;
+    try {
+        $repairStmt = $pdo->prepare('UPDATE tbl_users SET tenant_id = ? WHERE user_id = ?');
+        $repairStmt->execute([$tenant_id, $user_id]);
+    } catch (Throwable $e) {
+    }
+}
+
 if ($user_role === 'tenant_owner') {
     try {
         $stmt = $pdo->prepare('SELECT tenant_id FROM tbl_tenants WHERE owner_user_id = ? ORDER BY tenant_id DESC LIMIT 1');
@@ -165,40 +251,55 @@ if ($user_role === 'tenant_owner') {
         $ownerTenantId = $stmt->fetchColumn();
         $ownerTenantId = ($ownerTenantId !== false) ? trim((string) $ownerTenantId) : '';
 
-        if ($ownerTenantId !== '' && $ownerTenantId !== $session_tid) {
-            $session_assets = provider_dashboard_tenant_has_billing_assets($pdo, $session_tid);
+        if ($ownerTenantId !== '' && $ownerTenantId !== $tenant_id) {
+            $current_assets = provider_dashboard_tenant_has_billing_assets($pdo, $tenant_id);
             $owner_assets = provider_dashboard_tenant_has_billing_assets($pdo, $ownerTenantId);
-
-            if ($session_assets && !$owner_assets) {
-                $tenant_id = $session_tid;
-            } elseif (!$session_assets && $owner_assets) {
+            if (!$current_assets && $owner_assets) {
                 $tenant_id = $ownerTenantId;
-            } elseif ($session_assets && $owner_assets) {
-                $pickStmt = $pdo->prepare('
-                    SELECT tenant_id FROM tbl_tenant_subscriptions
-                    WHERE tenant_id IN (?, ?)
-                    ORDER BY id DESC
-                    LIMIT 1
-                ');
-                $pickStmt->execute([$session_tid, $ownerTenantId]);
-                $picked = $pickStmt->fetchColumn();
-                $picked = ($picked !== false) ? trim((string) $picked) : '';
-                $tenant_id = $picked !== '' ? $picked : $session_tid;
-            } else {
-                $tenant_id = $ownerTenantId;
+                $_SESSION['tenant_id'] = $tenant_id;
+                try {
+                    $repairStmt = $pdo->prepare('UPDATE tbl_users SET tenant_id = ? WHERE user_id = ?');
+                    $repairStmt->execute([$tenant_id, $user_id]);
+                } catch (Throwable $e) {
+                }
             }
+        }
+    } catch (Throwable $e) {
+    }
+}
 
+if (!provider_dashboard_tenant_has_billing_assets($pdo, $tenant_id)) {
+    $user_row_tid = '';
+    try {
+        $uStmt = $pdo->prepare('SELECT tenant_id FROM tbl_users WHERE user_id = ? LIMIT 1');
+        $uStmt->execute([$user_id]);
+        $c = $uStmt->fetchColumn();
+        $user_row_tid = ($c !== false) ? trim((string) $c) : '';
+    } catch (Throwable $e) {
+    }
+    foreach (array_unique(array_filter([$session_tid, $user_row_tid])) as $alt_tid) {
+        if ($alt_tid === '' || $alt_tid === $tenant_id) {
+            continue;
+        }
+        if (provider_dashboard_tenant_has_billing_assets($pdo, $alt_tid)) {
+            $tenant_id = $alt_tid;
             $_SESSION['tenant_id'] = $tenant_id;
             try {
                 $repairStmt = $pdo->prepare('UPDATE tbl_users SET tenant_id = ? WHERE user_id = ?');
                 $repairStmt->execute([$tenant_id, $user_id]);
             } catch (Throwable $e) {
-                // Do not block dashboard on tenant_id repair failure.
             }
+            break;
         }
-    } catch (Throwable $e) {
-        // Keep session tenant_id.
     }
+}
+
+try {
+    $ownChk = $pdo->prepare('SELECT owner_user_id FROM tbl_tenants WHERE tenant_id = ? LIMIT 1');
+    $ownChk->execute([(string) $tenant_id]);
+    $resolvedOwner = $ownChk->fetchColumn();
+    $_SESSION['is_owner'] = ($resolvedOwner !== false && (string) $resolvedOwner === (string) $user_id);
+} catch (Throwable $e) {
 }
 
 // Dashboard: session → canonical tenant_id → DB only (tbl_tenants + tbl_tenant_subscriptions + tbl_subscription_plans).
@@ -311,8 +412,31 @@ try {
 } catch (Throwable $e) {
     $latest_subscription_row = null;
 }
+if ($latest_subscription_row === null) {
+    try {
+        $bare = $pdo->prepare('
+            SELECT id, plan_id, subscription_start, subscription_end, payment_status, amount_paid
+            FROM tbl_tenant_subscriptions
+            WHERE tenant_id = ?
+            ORDER BY id DESC
+            LIMIT 1
+        ');
+        $bare->execute([(string) $tenant_id]);
+        $latest_subscription_row = $bare->fetch(PDO::FETCH_ASSOC) ?: null;
+        if (is_array($latest_subscription_row) && !empty($latest_subscription_row['plan_id'])) {
+            $pStmt = $pdo->prepare('SELECT plan_name, plan_slug, billing_cycle, price FROM tbl_subscription_plans WHERE plan_id = ? LIMIT 1');
+            $pStmt->execute([(int) $latest_subscription_row['plan_id']]);
+            $prow = $pStmt->fetch(PDO::FETCH_ASSOC);
+            if (is_array($prow)) {
+                $latest_subscription_row = array_merge($latest_subscription_row, $prow);
+            }
+        }
+    } catch (Throwable $e) {
+        $latest_subscription_row = null;
+    }
+}
 
-// Current period: paid (or gateway success) and not past subscription_end. Schema uses payment_status, not a literal "Active".
+// Current period: paid (or gateway success) and not past subscription_end (PHP end-date check avoids DB/session timezone drift).
 $active_subscription_row = null;
 try {
     $activeStmt = $pdo->prepare("
@@ -322,12 +446,14 @@ try {
         LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
         WHERE ts.tenant_id = ?
           AND LOWER(TRIM(ts.payment_status)) IN ('paid', 'succeeded', 'complete', 'completed', 'success')
-          AND (ts.subscription_end IS NULL OR ts.subscription_end >= CURDATE())
         ORDER BY ts.id DESC
         LIMIT 1
     ");
     $activeStmt->execute([(string) $tenant_id]);
-    $active_subscription_row = $activeStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    $candidate = $activeStmt->fetch(PDO::FETCH_ASSOC);
+    if (is_array($candidate) && provider_dashboard_subscription_row_active($candidate)) {
+        $active_subscription_row = $candidate;
+    }
 } catch (Throwable $e) {
     $active_subscription_row = null;
 }
