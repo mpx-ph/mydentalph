@@ -7,8 +7,13 @@ if (isset($_GET['debug']) && $_GET['debug'] === '1') {
 }
 require_once __DIR__ . '/provider_redirect_superadmin.php';
 require_once __DIR__ . '/provider_auth.php';
-provider_require_approved_for_provider_portal();
 require_once __DIR__ . '/db.php';
+$pdo = $GLOBALS['pdo'] ?? null;
+if (!($pdo instanceof PDO)) {
+    http_response_code(503);
+    exit('Database is not available.');
+}
+provider_require_approved_for_provider_portal();
 
 if (empty($_SESSION['user_id']) || empty($_SESSION['tenant_id'])) {
     header('Location: ProviderLogin.php');

@@ -147,6 +147,11 @@ function provider_has_submitted_clinic_docs(PDO $pdo, string $tenantId, string $
 function provider_require_approved_for_provider_portal(): void
 {
     require_once __DIR__ . '/db.php';
+    $pdo = $GLOBALS['pdo'] ?? null;
+    if (!($pdo instanceof PDO)) {
+        header('Location: ProviderApprovalStatus.php');
+        exit;
+    }
 
     $role = $_SESSION['role'] ?? '';
     if (!empty($_SESSION['user_id']) && $role === 'superadmin') {
