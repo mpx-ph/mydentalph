@@ -5,6 +5,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 require_once __DIR__ . '/provider_auth.php';
 provider_require_approved_for_provider_portal();
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/provider_signup_lib.php';
 require_once __DIR__ . '/superadmin/superadmin_settings_lib.php';
 require_once __DIR__ . '/paymongo_config.php';
 
@@ -159,32 +160,56 @@ $clinic_address = trim((string) ($_POST['clinic_address'] ?? ''));
 if ($clinic_name === '') {
     $clinic_name = 'MyDental Clinic';
 }
-$_SESSION['provider_purchase_clinic_name'] = $clinic_name;
 if (!filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
     $contact_email = 'billing+' . preg_replace('/[^a-z0-9]/i', '', (string) $tenant_id) . '@mydental.local';
 }
 
+// Stash for ProviderPurchaseReceipt: PayMongo redirect can happen before DB write succeeds or
+// older DBs may omit some columns (previously the catch path only updated clinic_name).
+$_SESSION['provider_purchase_clinic_name'] = $clinic_name;
+$_SESSION['provider_purchase_contact_email'] = $contact_email;
+$_SESSION['provider_purchase_contact_phone'] = $contact_phone;
+$_SESSION['provider_purchase_clinic_address'] = $clinic_address;
+
 // Save clinic details best-effort; do not block checkout if optional columns differ by deployment.
 $clinic_saved = false;
 try {
-    $stmt = $pdo->prepare("
-        UPDATE tbl_tenants
-        SET clinic_name = COALESCE(NULLIF(?, ''), clinic_name),
-            contact_email = COALESCE(NULLIF(?, ''), contact_email),
-            contact_phone = ?,
-            clinic_address = ?
-        WHERE tenant_id = ?
-    ");
-    $stmt->execute([$clinic_name, $contact_email, $contact_phone, $clinic_address, $tenant_id]);
+    $parts = [];
+    $params = [];
+    if (provider_table_has_column($pdo, 'tbl_tenants', 'clinic_name')) {
+        $parts[] = 'clinic_name = COALESCE(NULLIF(?, \'\'), clinic_name)';
+        $params[] = $clinic_name;
+    }
+    if (provider_table_has_column($pdo, 'tbl_tenants', 'contact_email')) {
+        $parts[] = 'contact_email = COALESCE(NULLIF(?, \'\'), contact_email)';
+        $params[] = $contact_email;
+    }
+    if (provider_table_has_column($pdo, 'tbl_tenants', 'contact_phone')) {
+        $parts[] = 'contact_phone = ?';
+        $params[] = $contact_phone;
+    }
+    if (provider_table_has_column($pdo, 'tbl_tenants', 'clinic_address')) {
+        $parts[] = 'clinic_address = ?';
+        $params[] = $clinic_address;
+    }
+    if ($parts !== []) {
+        $params[] = $tenant_id;
+        $sql = 'UPDATE tbl_tenants SET ' . implode(', ', $parts) . ' WHERE tenant_id = ?';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+    }
     $clinic_saved = true;
 } catch (Throwable $e) {
+    error_log('[ProviderPurchaseCheckout] tenant clinic update failed: ' . $e->getMessage());
     try {
-        $fallback_stmt = $pdo->prepare("
-            UPDATE tbl_tenants
-            SET clinic_name = COALESCE(NULLIF(?, ''), clinic_name)
-            WHERE tenant_id = ?
-        ");
-        $fallback_stmt->execute([$clinic_name, $tenant_id]);
+        if (provider_table_has_column($pdo, 'tbl_tenants', 'clinic_name')) {
+            $fallback_stmt = $pdo->prepare('
+                UPDATE tbl_tenants
+                SET clinic_name = COALESCE(NULLIF(?, \'\'), clinic_name)
+                WHERE tenant_id = ?
+            ');
+            $fallback_stmt->execute([$clinic_name, $tenant_id]);
+        }
         $clinic_saved = true;
     } catch (Throwable $ignored) {
         $clinic_saved = false;

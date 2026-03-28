@@ -30,6 +30,7 @@ if (!provider_has_authenticated_provider_session()) {
     exit;
 }
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/provider_signup_lib.php';
 require_once 'paymongo_config.php';
 
 $source = trim((string) ($_GET['source'] ?? ''));
@@ -358,6 +359,26 @@ try {
         $tenantStmt->execute([$resolvedClinicName, $resolvedClinicSlug, (string) $tenant_id]);
     }
 
+    // Apply clinic contact fields from purchase form (checkout may have skipped them if the first UPDATE failed).
+    if (array_key_exists('provider_purchase_contact_email', $_SESSION) && provider_table_has_column($pdo, 'tbl_tenants', 'contact_email')) {
+        $patchEmail = trim((string) $_SESSION['provider_purchase_contact_email']);
+        if ($patchEmail !== '') {
+            $pdo->prepare('UPDATE tbl_tenants SET contact_email = ? WHERE tenant_id = ?')->execute([$patchEmail, (string) $tenant_id]);
+        }
+    }
+    if (array_key_exists('provider_purchase_contact_phone', $_SESSION) && provider_table_has_column($pdo, 'tbl_tenants', 'contact_phone')) {
+        $pdo->prepare('UPDATE tbl_tenants SET contact_phone = ? WHERE tenant_id = ?')->execute([
+            (string) $_SESSION['provider_purchase_contact_phone'],
+            (string) $tenant_id,
+        ]);
+    }
+    if (array_key_exists('provider_purchase_clinic_address', $_SESSION) && provider_table_has_column($pdo, 'tbl_tenants', 'clinic_address')) {
+        $pdo->prepare('UPDATE tbl_tenants SET clinic_address = ? WHERE tenant_id = ?')->execute([
+            (string) $_SESSION['provider_purchase_clinic_address'],
+            (string) $tenant_id,
+        ]);
+    }
+
     // Keep tbl_users.tenant_id identical to the tenant that was billed (avoids dashboard querying wrong tenant).
     $syncUserTenant = $pdo->prepare('UPDATE tbl_users SET tenant_id = ? WHERE user_id = ?');
     $syncUserTenant->execute([(string) $tenant_id, (string) $user_id]);
@@ -410,7 +431,12 @@ unset(
     $_SESSION['onboarding_full_name'],
     $_SESSION['onboarding_username']
 );
-unset($_SESSION['provider_purchase_clinic_name']);
+unset(
+    $_SESSION['provider_purchase_clinic_name'],
+    $_SESSION['provider_purchase_contact_email'],
+    $_SESSION['provider_purchase_contact_phone'],
+    $_SESSION['provider_purchase_clinic_address']
+);
 unset($_SESSION['paymongo_checkout_return_token']);
 
 $success_finalizer = 'ProviderTenantDashboard.php?activated=1';
