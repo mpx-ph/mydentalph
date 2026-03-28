@@ -746,6 +746,23 @@ $renewal_sidebar = $renewal_date !== '—' ? ('Renews ' . $renewal_date) : ($has
       .active-glow {
           box-shadow: 0 0 20px -5px rgba(43, 139, 235, 0.4);
       }
+      .provider-nav-link:not(.provider-nav-link--active):hover {
+        transform: translateX(4px);
+      }
+      @keyframes provider-page-in {
+        from { opacity: 0; transform: translateY(14px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .provider-page-enter {
+        animation: provider-page-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      }
+      .provider-card-lift {
+        transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+      }
+      .provider-card-lift:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.12);
+      }
       ::-webkit-scrollbar { width: 6px; }
       ::-webkit-scrollbar-track { background: #f1f1f1; }
       ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -753,59 +770,10 @@ $renewal_sidebar = $renewal_date !== '—' ? ('Renews ' . $renewal_date) : ($has
     </style>
 </head>
 <body class="mesh-bg font-body text-sm text-on-background selection:bg-primary/10 min-h-screen">
-<aside class="fixed left-0 top-0 h-full w-64 z-40 sidebar-glass flex flex-col py-8 min-h-screen" data-purpose="navigation-sidebar">
-<div class="px-7 mb-10 shrink-0">
-<a href="ProviderMain.php" class="block" aria-label="MyDental">
-<img src="MyDental%20Logo.svg" alt="MyDental" width="144" height="36" loading="eager" decoding="async" class="h-11 w-auto max-w-full object-contain object-left"/>
-</a>
-<p class="text-on-surface-variant text-[10px] font-bold tracking-[0.2em] mt-2 opacity-60 uppercase">Provider Console</p>
-</div>
-<nav class="flex-1 min-h-0 space-y-1 overflow-y-auto no-scrollbar">
-<div class="relative px-3">
-<a class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl transition-all duration-200 active-glow" data-purpose="nav-item" href="#">
-<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">dashboard</span>
-<span class="font-headline text-sm font-bold tracking-tight">Dashboard</span>
-</a>
-<div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full"></div>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-background transition-colors duration-200 hover:bg-white/50 rounded-xl" data-purpose="nav-item" href="#">
-<span class="material-symbols-outlined text-[22px]">group</span>
-<span class="font-headline text-sm font-medium tracking-tight">Users</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-background transition-colors duration-200 hover:bg-white/50 rounded-xl" data-purpose="nav-item" href="#">
-<span class="material-symbols-outlined text-[22px]">payments</span>
-<span class="font-headline text-sm font-medium tracking-tight">Subscription &amp; Billing</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-background transition-colors duration-200 hover:bg-white/50 rounded-xl" data-purpose="nav-item" href="#">
-<span class="material-symbols-outlined text-[22px]">settings</span>
-<span class="font-headline text-sm font-medium tracking-tight">Settings</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-error hover:text-error transition-colors duration-200 hover:bg-error/10 rounded-xl" href="ProviderLogout.php">
-<span class="material-symbols-outlined text-[22px]">logout</span>
-<span class="font-headline text-sm font-medium tracking-tight">Logout</span>
-</a>
-</div>
-</nav>
-<div class="px-4 mt-auto pt-4 shrink-0 border-t border-white/40">
-<div class="bg-white/40 backdrop-blur-md rounded-2xl p-4 border border-white/60 shadow-sm">
-<div class="flex items-center gap-3 min-w-0 mb-3">
-<div class="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary text-xs font-bold border-2 border-white shadow-sm shrink-0"><?php echo htmlspecialchars($avatar_initials); ?></div>
-<div class="min-w-0 flex-1">
-<p class="text-on-background text-sm font-bold truncate"><?php echo htmlspecialchars($plan_name); ?></p>
-<p class="text-on-surface-variant text-[11px] truncate"><?php echo htmlspecialchars($renewal_sidebar); ?></p>
-</div>
-</div>
-<a class="block w-full text-center py-2.5 bg-white/80 border border-white hover:border-primary/30 text-on-background text-xs font-bold rounded-xl transition-all shadow-sm" href="ProviderContact.php">Support Portal</a>
-</div>
-</div>
-</aside>
+<?php
+$provider_nav_active = 'dashboard';
+include __DIR__ . '/provider_tenant_sidebar.inc.php';
+?>
 <header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-20 z-30 bg-white/70 backdrop-blur-xl border-b border-white/50 flex items-center justify-between px-8" data-purpose="top-header">
 <div class="flex items-center gap-6 flex-wrap flex-1 min-w-0">
 <div class="flex items-center gap-2">
@@ -825,7 +793,7 @@ $renewal_sidebar = $renewal_date !== '—' ? ('Renews ' . $renewal_date) : ($has
 <div class="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary text-xs font-bold border-2 border-white shadow-sm shrink-0" aria-hidden="true"><?php echo htmlspecialchars($avatar_initials); ?></div>
 </div>
 </header>
-<main class="ml-64 pt-20 min-h-screen">
+<main class="ml-64 pt-20 min-h-screen provider-page-enter">
 <div class="pt-8 px-10 pb-16 space-y-10 relative">
 <div class="absolute top-40 right-10 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10 pointer-events-none" aria-hidden="true"></div>
 <section class="flex flex-col md:flex-row md:items-end justify-between gap-4">
