@@ -21,7 +21,6 @@ $is_owner = !empty($_SESSION['is_owner']);
 $show_activated_banner = isset($_GET['activated']) && $_GET['activated'] === '1';
 $user_role = strtolower(trim((string) ($_SESSION['role'] ?? '')));
 $dashboard_debug = (isset($_GET['debug']) && $_GET['debug'] === '1');
-$dashboard_debug_log = [];
 
 if (!function_exists('provider_dashboard_today_ymd')) {
     function provider_dashboard_today_ymd(): string
@@ -54,13 +53,13 @@ if (!function_exists('provider_dashboard_resolve_tenant_id_for_dashboard')) {
     /**
      * Prefer DB truth over session: owner row → latest subscription for that owner → approved verification → users.tenant_id → session.
      */
-    function provider_dashboard_resolve_tenant_id_for_dashboard(PDO $pdo, string $userId, string $sessionTenantId, bool $collectDebug, ?array &$debugOut): string
+    function provider_dashboard_resolve_tenant_id_for_dashboard(PDO $pdo, string $userId, string $sessionTenantId, bool $collectDebug, array &$debugOut): string
     {
         $userId = trim($userId);
         $sessionTenantId = trim($sessionTenantId);
 
-        $note = static function (string $step, $tid, ?array &$debugOut, bool $collectDebug): void {
-            if (!$collectDebug || !is_array($debugOut)) {
+        $note = static function (string $step, $tid, array &$debugOut, bool $collectDebug): void {
+            if (!$collectDebug) {
                 return;
             }
             $debugOut['resolution_steps'][] = [
@@ -221,7 +220,7 @@ if (!function_exists('provider_dashboard_normalize_slug')) {
 if (!function_exists('provider_dashboard_payment_means_paid')) {
     function provider_dashboard_payment_means_paid(string $status): bool
     {
-        $s = strtolower(preg_replace('/\s+/u', '', trim($status)));
+        $s = strtolower(preg_replace('/\s+/', '', trim($status)));
         if ($s === '') {
             return false;
         }
