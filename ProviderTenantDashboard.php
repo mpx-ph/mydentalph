@@ -19,31 +19,152 @@ $tenant_id = (string) $_SESSION['tenant_id'];
 $user_id = (string) $_SESSION['user_id'];
 $is_owner = !empty($_SESSION['is_owner']);
 $show_activated_banner = isset($_GET['activated']) && $_GET['activated'] === '1';
-$user_role = (string) ($_SESSION['role'] ?? '');
+$user_role = strtolower(trim((string) ($_SESSION['role'] ?? '')));
+$dashboard_debug = (isset($_GET['debug']) && $_GET['debug'] === '1');
+$dashboard_debug_log = [];
 
-// Align session tenant_id with the tenant row owned by this user (fixes wrong tbl_users.tenant_id vs subscriptions/slug).
-if ($user_role === 'tenant_owner') {
-    try {
-        $stmt = $pdo->prepare('SELECT tenant_id FROM tbl_tenants WHERE owner_user_id = ? ORDER BY tenant_id DESC LIMIT 1');
-        $stmt->execute([$user_id]);
-        $ownerTenantId = $stmt->fetchColumn();
-        if ($ownerTenantId !== false && trim((string) $ownerTenantId) !== '') {
-            $ownerTenantId = trim((string) $ownerTenantId);
-            if ($ownerTenantId !== $tenant_id) {
-                $tenant_id = $ownerTenantId;
-                $_SESSION['tenant_id'] = $tenant_id;
-                try {
-                    $repairStmt = $pdo->prepare('UPDATE tbl_users SET tenant_id = ? WHERE user_id = ?');
-                    $repairStmt->execute([$tenant_id, $user_id]);
-                } catch (Throwable $e) {
-                    // Do not block dashboard on tenant_id repair failure.
-                }
-            }
+if (!function_exists('provider_dashboard_today_ymd')) {
+    function provider_dashboard_today_ymd(): string
+    {
+        try {
+            $tz = new DateTimeZone('Asia/Manila');
+            return (new DateTimeImmutable('now', $tz))->format('Y-m-d');
+        } catch (Throwable $e) {
+            return date('Y-m-d');
         }
-    } catch (Throwable $e) {
-        // Keep session tenant_id.
     }
 }
+
+if (!function_exists('provider_dashboard_subscription_end_ymd')) {
+    function provider_dashboard_subscription_end_ymd(string $end): string
+    {
+        $end = trim($end);
+        if ($end === '') {
+            return '';
+        }
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $end, $m)) {
+            return $m[1];
+        }
+
+        return '';
+    }
+}
+
+if (!function_exists('provider_dashboard_resolve_tenant_id_for_dashboard')) {
+    /**
+     * Prefer DB truth over session: owner row → latest subscription for that owner → approved verification → users.tenant_id → session.
+     */
+    function provider_dashboard_resolve_tenant_id_for_dashboard(PDO $pdo, string $userId, string $sessionTenantId, bool $collectDebug, ?array &$debugOut): string
+    {
+        $userId = trim($userId);
+        $sessionTenantId = trim($sessionTenantId);
+
+        $note = static function (string $step, $tid, ?array &$debugOut, bool $collectDebug): void {
+            if (!$collectDebug || !is_array($debugOut)) {
+                return;
+            }
+            $debugOut['resolution_steps'][] = [
+                'step' => $step,
+                'tenant_id' => ($tid === false || $tid === null) ? null : trim((string) $tid),
+            ];
+        };
+
+        $try = static function (string $step, $col) use (&$debugOut, $collectDebug, $note): string {
+            $note($step, $col, $debugOut, $collectDebug);
+            if ($col === false || $col === null) {
+                return '';
+            }
+            $t = trim((string) $col);
+
+            return $t;
+        };
+
+        try {
+            $stmt = $pdo->prepare('SELECT tenant_id FROM tbl_tenants WHERE owner_user_id = ? ORDER BY tenant_id DESC LIMIT 1');
+            $stmt->execute([$userId]);
+            $tid = $try('tbl_tenants.owner_user_id', $stmt->fetchColumn());
+            if ($tid !== '') {
+                return $tid;
+            }
+        } catch (Throwable $e) {
+            if ($collectDebug && is_array($debugOut)) {
+                $debugOut['errors'][] = 'owner_tenant_lookup: ' . $e->getMessage();
+            }
+        }
+
+        try {
+            $stmt = $pdo->prepare("
+                SELECT ts.tenant_id
+                FROM tbl_tenant_subscriptions ts
+                INNER JOIN tbl_tenants t ON t.tenant_id = ts.tenant_id
+                WHERE t.owner_user_id = ?
+                ORDER BY ts.id DESC
+                LIMIT 1
+            ");
+            $stmt->execute([$userId]);
+            $tid = $try('latest_subscription_for_owner', $stmt->fetchColumn());
+            if ($tid !== '') {
+                return $tid;
+            }
+        } catch (Throwable $e) {
+            if ($collectDebug && is_array($debugOut)) {
+                $debugOut['errors'][] = 'subscription_owner_lookup: ' . $e->getMessage();
+            }
+        }
+
+        try {
+            $stmt = $pdo->prepare("
+                SELECT tenant_id FROM tbl_tenant_verification_requests
+                WHERE owner_user_id = ? AND LOWER(TRIM(status)) = 'approved'
+                ORDER BY request_id DESC
+                LIMIT 1
+            ");
+            $stmt->execute([$userId]);
+            $tid = $try('tbl_tenant_verification_requests', $stmt->fetchColumn());
+            if ($tid !== '') {
+                return $tid;
+            }
+        } catch (Throwable $e) {
+            if ($collectDebug && is_array($debugOut)) {
+                $debugOut['errors'][] = 'verification_tenant_lookup: ' . $e->getMessage();
+            }
+        }
+
+        try {
+            $stmt = $pdo->prepare('SELECT tenant_id FROM tbl_users WHERE user_id = ? LIMIT 1');
+            $stmt->execute([$userId]);
+            $tid = $try('tbl_users.tenant_id', $stmt->fetchColumn());
+            if ($tid !== '') {
+                return $tid;
+            }
+        } catch (Throwable $e) {
+            if ($collectDebug && is_array($debugOut)) {
+                $debugOut['errors'][] = 'users_tenant_lookup: ' . $e->getMessage();
+            }
+        }
+
+        $note('php_session_fallback', $sessionTenantId !== '' ? $sessionTenantId : null, $debugOut, $collectDebug);
+
+        return $sessionTenantId;
+    }
+}
+
+$dashboard_debug_log = ['errors' => [], 'resolution_steps' => []];
+$dashboard_debug_log['session_tenant_before'] = $tenant_id;
+$resolved_tenant_id = provider_dashboard_resolve_tenant_id_for_dashboard($pdo, $user_id, $tenant_id, $dashboard_debug, $dashboard_debug_log);
+if ($resolved_tenant_id !== '' && $resolved_tenant_id !== $tenant_id) {
+    $tenant_id = $resolved_tenant_id;
+    $_SESSION['tenant_id'] = $tenant_id;
+    try {
+        $repairStmt = $pdo->prepare('UPDATE tbl_users SET tenant_id = ? WHERE user_id = ?');
+        $repairStmt->execute([$tenant_id, $user_id]);
+    } catch (Throwable $e) {
+        if ($dashboard_debug) {
+            $dashboard_debug_log['errors'][] = 'repair_users.tenant_id: ' . $e->getMessage();
+        }
+    }
+}
+$dashboard_debug_log['tenant_id_resolved'] = $tenant_id;
 
 if (!function_exists('provider_dashboard_slugify')) {
     function provider_dashboard_slugify(string $value): string
@@ -100,13 +221,24 @@ if (!function_exists('provider_dashboard_normalize_slug')) {
 if (!function_exists('provider_dashboard_payment_means_paid')) {
     function provider_dashboard_payment_means_paid(string $status): bool
     {
-        $s = strtolower(trim($status));
-        return in_array($s, ['paid', 'succeeded', 'complete', 'completed', 'success'], true);
+        $s = strtolower(preg_replace('/\s+/u', '', trim($status)));
+        if ($s === '') {
+            return false;
+        }
+        if (in_array($s, ['paid', 'succeeded', 'complete', 'completed', 'success', 'successful'], true)) {
+            return true;
+        }
+        if (strpos($s, 'paid') !== false || strpos($s, 'success') !== false) {
+            return strpos($s, 'fail') === false && strpos($s, 'cancel') === false;
+        }
+
+        return false;
     }
 }
 if (!function_exists('provider_dashboard_subscription_row_active')) {
     /**
      * Paid (or equivalent) and not past subscription_end (empty end = treated as active).
+     * Compare Y-m-d in Asia/Manila to avoid PHP default timezone skew vs MySQL CURDATE().
      */
     function provider_dashboard_subscription_row_active(array $row): bool
     {
@@ -117,8 +249,71 @@ if (!function_exists('provider_dashboard_subscription_row_active')) {
         if ($end === '') {
             return true;
         }
-        $endTs = strtotime($end . ' 23:59:59');
-        return $endTs === false || $endTs >= time();
+        $endDay = provider_dashboard_subscription_end_ymd($end);
+        if ($endDay === '') {
+            return true;
+        }
+        $today = provider_dashboard_today_ymd();
+
+        return $endDay >= $today;
+    }
+}
+if (!function_exists('provider_dashboard_load_subscriptions_with_plans')) {
+    function provider_dashboard_load_subscriptions_with_plans(PDO $pdo, string $tenantId): array
+    {
+        $tenantId = trim($tenantId);
+        if ($tenantId === '') {
+            return [];
+        }
+        $rows = [];
+        try {
+            $dashStmt = $pdo->prepare("
+                SELECT ts.id, ts.plan_id, ts.subscription_start, ts.subscription_end, ts.payment_status, ts.amount_paid,
+                       p.plan_name, p.plan_slug, p.billing_cycle, p.price
+                FROM tbl_tenant_subscriptions ts
+                LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
+                WHERE ts.tenant_id = ?
+                ORDER BY ts.id DESC
+            ");
+            $dashStmt->execute([$tenantId]);
+            $rows = $dashStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            $rows = [];
+        }
+        if ($rows === []) {
+            try {
+                $dashStmt = $pdo->prepare("
+                    SELECT ts.id, ts.plan_id, ts.subscription_start, ts.subscription_end, ts.payment_status, ts.amount_paid
+                    FROM tbl_tenant_subscriptions ts
+                    WHERE ts.tenant_id = ?
+                    ORDER BY ts.id DESC
+                ");
+                $dashStmt->execute([$tenantId]);
+                $rows = $dashStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            } catch (Throwable $e) {
+                return [];
+            }
+        }
+        foreach ($rows as &$r) {
+            if (trim((string) ($r['plan_name'] ?? '')) === '' && !empty($r['plan_id'])) {
+                try {
+                    $ps = $pdo->prepare('SELECT plan_name, plan_slug, billing_cycle, price FROM tbl_subscription_plans WHERE plan_id = ? LIMIT 1');
+                    $ps->execute([(int) $r['plan_id']]);
+                    $p = $ps->fetch(PDO::FETCH_ASSOC);
+                    if (is_array($p)) {
+                        foreach (['plan_name', 'plan_slug', 'billing_cycle', 'price'] as $k) {
+                            if (!isset($r[$k]) || trim((string) $r[$k]) === '') {
+                                $r[$k] = $p[$k] ?? $r[$k] ?? null;
+                            }
+                        }
+                    }
+                } catch (Throwable $e) {
+                }
+            }
+        }
+        unset($r);
+
+        return $rows;
     }
 }
 if (!function_exists('provider_dashboard_resolve_website_urls')) {
@@ -228,20 +423,9 @@ try {
 $sub = [];
 $subscription_state = 'none';
 $is_subscription_active = false;
-$subscription_rows = [];
-try {
-    $dashStmt = $pdo->prepare("
-        SELECT ts.id, ts.plan_id, ts.subscription_start, ts.subscription_end, ts.payment_status, ts.amount_paid,
-               p.plan_name, p.plan_slug, p.billing_cycle, p.price
-        FROM tbl_tenant_subscriptions ts
-        LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
-        WHERE ts.tenant_id = ?
-        ORDER BY ts.id DESC
-    ");
-    $dashStmt->execute([(string) $tenant_id]);
-    $subscription_rows = $dashStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-} catch (Throwable $e) {
-    $subscription_rows = [];
+$subscription_rows = provider_dashboard_load_subscriptions_with_plans($pdo, (string) $tenant_id);
+if ($dashboard_debug) {
+    $dashboard_debug_log['subscription_rows'] = count($subscription_rows);
 }
 
 $latest_subscription_row = $subscription_rows[0] ?? null;
@@ -261,9 +445,9 @@ if ($is_subscription_active) {
     $subscription_state = 'active';
 } elseif ($latest_subscription_row !== null) {
     $ps = strtolower(trim((string) ($latest_subscription_row['payment_status'] ?? '')));
-    $end = trim((string) ($latest_subscription_row['subscription_end'] ?? ''));
-    $endTs = $end !== '' ? strtotime($end . ' 23:59:59') : false;
-    if (provider_dashboard_payment_means_paid((string) ($latest_subscription_row['payment_status'] ?? '')) && $endTs !== false && $endTs < time()) {
+    $endDay = provider_dashboard_subscription_end_ymd((string) ($latest_subscription_row['subscription_end'] ?? ''));
+    $today = provider_dashboard_today_ymd();
+    if (provider_dashboard_payment_means_paid((string) ($latest_subscription_row['payment_status'] ?? '')) && $endDay !== '' && $endDay < $today) {
         $subscription_state = 'expired';
     } elseif (in_array($ps, ['pending'], true)) {
         $subscription_state = 'inactive';
@@ -316,6 +500,13 @@ if ($is_owner && $is_subscription_active && $clinic_slug === '') {
 
 $dash_sub = is_array($dashboard_subscription) ? $dashboard_subscription : [];
 $db_plan_name = trim((string) ($dash_sub['plan_name'] ?? ''));
+if ($db_plan_name === '') {
+    $slugRow = $latest_subscription_row !== null ? $latest_subscription_row : [];
+    $slugHint = trim((string) ($dash_sub['plan_slug'] ?? ($slugRow['plan_slug'] ?? '')));
+    if ($slugHint !== '') {
+        $db_plan_name = ucwords(str_replace(['-', '_'], ' ', $slugHint));
+    }
+}
 $plan_name_raw = $db_plan_name !== '' ? $db_plan_name : ($sub['plan_name'] ?? null);
 $plan_name = is_string($plan_name_raw) && trim($plan_name_raw) !== ''
     ? trim($plan_name_raw)
@@ -370,6 +561,21 @@ if (!$has_visible_website && $clinic_slug !== '') {
 }
 if (!$has_visible_website) {
     $domain_display = 'No Active Website';
+}
+if ($dashboard_debug) {
+    $dashboard_debug_log['user_id'] = $user_id;
+    $dashboard_debug_log['user_role'] = $user_role;
+    $dashboard_debug_log['tenant_row_found'] = !empty($tenant['tenant_id']);
+    $dashboard_debug_log['clinic_slug_normalized'] = $clinic_slug;
+    $dashboard_debug_log['has_visible_website'] = $has_visible_website;
+    $dashboard_debug_log['is_subscription_active'] = $is_subscription_active;
+    if ($latest_subscription_row !== null) {
+        $dashboard_debug_log['latest_subscription'] = [
+            'payment_status' => (string) ($latest_subscription_row['payment_status'] ?? ''),
+            'subscription_end' => (string) ($latest_subscription_row['subscription_end'] ?? ''),
+            'plan_id' => $latest_subscription_row['plan_id'] ?? null,
+        ];
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -472,6 +678,12 @@ if (!$has_visible_website) {
 </header>
 <!-- END: Header -->
 <div class="p-8 max-w-7xl mx-auto space-y-8">
+<?php if ($dashboard_debug): ?>
+<div class="mb-6 p-4 bg-amber-50 border border-amber-200 text-amber-950 rounded-xl text-xs font-mono overflow-x-auto max-h-96 overflow-y-auto">
+<strong class="block mb-2 text-sm">Dashboard debug (remove ?debug=1 in production)</strong>
+<pre class="whitespace-pre-wrap break-all"><?php echo htmlspecialchars(print_r($dashboard_debug_log, true), ENT_QUOTES, 'UTF-8'); ?></pre>
+</div>
+<?php endif; ?>
 <!-- BEGIN: ActionBanner -->
 <section class="bg-gradient-to-r from-dental-blue to-blue-600 rounded-3xl p-8 shadow-lg shadow-blue-200 text-white flex flex-col md:flex-row items-center justify-between gap-6" data-purpose="primary-action-card">
 <div class="space-y-2">
