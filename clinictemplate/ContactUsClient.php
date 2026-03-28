@@ -29,7 +29,7 @@ require_once __DIR__ . '/includes/header.php';
                     Contact Support
                 </span>
 <h1 class="text-slate-900 dark:text-white text-4xl lg:text-6xl font-black leading-[1.1] tracking-tight">
-                    hotdoggg test
+                    BAKET NGAYON KA LANGGG
                 </h1>
 <p class="text-slate-600 dark:text-slate-300 text-lg lg:text-xl font-medium leading-relaxed max-w-2xl">
                     Whether you have a question about our services, pricing, or need to book an emergency appointment, our team is ready to answer all your questions.
