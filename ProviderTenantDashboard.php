@@ -774,15 +774,7 @@ $renewal_sidebar = $renewal_date !== '—' ? ('Renews ' . $renewal_date) : ($has
 $provider_nav_active = 'dashboard';
 include __DIR__ . '/provider_tenant_sidebar.inc.php';
 ?>
-<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-20 z-30 bg-white/70 backdrop-blur-xl border-b border-white/50 flex items-center justify-between px-8" data-purpose="top-header">
-<div class="flex items-center gap-6 flex-wrap flex-1 min-w-0">
-<div class="flex items-center gap-2">
-<span class="w-2 h-2 rounded-full <?php echo $has_visible_website ? 'bg-green-500 animate-pulse' : 'bg-amber-500'; ?>"></span>
-<span class="text-on-surface-variant text-xs sm:text-sm font-bold uppercase tracking-widest">Website: <?php echo $has_visible_website ? 'Online' : 'Not published'; ?></span>
-</div>
-<div class="hidden sm:block h-4 w-px bg-outline-variant/40"></div>
-<span class="text-on-surface-variant text-xs sm:text-sm font-bold uppercase tracking-widest truncate max-w-[180px] lg:max-w-xl">Plan: <?php echo htmlspecialchars($plan_name); ?></span>
-</div>
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-20 z-30 bg-white/70 backdrop-blur-xl border-b border-white/50 flex items-center justify-end px-8" data-purpose="top-header">
 <div class="flex items-center gap-2 sm:gap-4 shrink-0">
 <button type="button" class="hover:bg-surface-container-low rounded-full p-2.5 transition-all relative border-0 bg-transparent cursor-pointer" aria-label="Notifications">
 <span class="material-symbols-outlined text-on-surface-variant">notifications</span>
@@ -798,8 +790,8 @@ include __DIR__ . '/provider_tenant_sidebar.inc.php';
 <div class="absolute top-40 right-10 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10 pointer-events-none" aria-hidden="true"></div>
 <section class="flex flex-col md:flex-row md:items-end justify-between gap-4">
 <div>
-<h2 class="text-4xl font-extrabold font-headline tracking-tight text-on-background">Clinic <span class="font-editorial italic font-normal text-primary editorial-word">Overview</span></h2>
-<p class="text-on-surface-variant mt-2 font-medium max-w-2xl">Welcome back, <?php echo htmlspecialchars($welcome_name); ?>. Open clinic management, review your plan and website, and keep account details up to date.</p>
+<h2 class="text-5xl sm:text-6xl font-extrabold font-headline tracking-tight text-on-background">Clinic <span class="font-editorial italic font-normal text-primary editorial-word">Overview</span></h2>
+<p class="text-on-surface-variant mt-3 sm:mt-4 text-lg sm:text-xl font-medium max-w-2xl leading-relaxed">Welcome back, <?php echo htmlspecialchars($welcome_name); ?>. Open clinic management, review your plan and website, and keep account details up to date.</p>
 </div>
 <div class="flex items-center gap-3 shrink-0">
 <a
