@@ -145,7 +145,7 @@ if (!function_exists('provider_dashboard_tenant_has_billing_assets')) {
         } catch (Throwable $e) {
         }
         try {
-            $s = $pdo->prepare('SELECT TRIM(COALESCE(clinic_slug, "")) AS s FROM tbl_tenants WHERE tenant_id = ? LIMIT 1');
+            $s = $pdo->prepare("SELECT TRIM(COALESCE(clinic_slug, '')) AS s FROM tbl_tenants WHERE tenant_id = ? LIMIT 1");
             $s->execute([$tid]);
             $slug = $s->fetchColumn();
             return $slug !== false && trim((string) $slug) !== '';
@@ -167,38 +167,59 @@ if (!function_exists('provider_dashboard_resolve_tenant_id_for_user')) {
         if ($user_id === '') {
             return $session_tid;
         }
+        $best_tid = '';
+        $best_sub_id = -1;
         try {
-            $st = $pdo->prepare("
-                SELECT ts.tenant_id
+            $st = $pdo->prepare('
+                SELECT ts.tenant_id, ts.id AS sid
                 FROM tbl_tenant_subscriptions ts
-                WHERE EXISTS (
-                    SELECT 1 FROM tbl_tenants t
-                    WHERE t.tenant_id = ts.tenant_id AND t.owner_user_id = ?
-                )
-                   OR EXISTS (
-                    SELECT 1 FROM tbl_users u
-                    WHERE u.user_id = ? AND u.tenant_id = ts.tenant_id
-                )
+                INNER JOIN tbl_tenants t ON t.tenant_id = ts.tenant_id AND t.owner_user_id = ?
                 ORDER BY ts.id DESC
                 LIMIT 1
-            ");
-            $st->execute([$user_id, $user_id]);
-            $fromSub = $st->fetchColumn();
-            if ($fromSub !== false && trim((string) $fromSub) !== '') {
-                return trim((string) $fromSub);
+            ');
+            $st->execute([$user_id]);
+            $r = $st->fetch(PDO::FETCH_ASSOC);
+            if (is_array($r) && isset($r['sid'], $r['tenant_id'])) {
+                $sid = (int) $r['sid'];
+                if ($sid > $best_sub_id) {
+                    $best_sub_id = $sid;
+                    $best_tid = trim((string) $r['tenant_id']);
+                }
             }
         } catch (Throwable $e) {
         }
-
         try {
             $st = $pdo->prepare('
+                SELECT ts.tenant_id, ts.id AS sid
+                FROM tbl_tenant_subscriptions ts
+                INNER JOIN tbl_users u ON u.user_id = ? AND u.tenant_id = ts.tenant_id
+                ORDER BY ts.id DESC
+                LIMIT 1
+            ');
+            $st->execute([$user_id]);
+            $r = $st->fetch(PDO::FETCH_ASSOC);
+            if (is_array($r) && isset($r['sid'], $r['tenant_id'])) {
+                $sid = (int) $r['sid'];
+                if ($sid > $best_sub_id) {
+                    $best_sub_id = $sid;
+                    $best_tid = trim((string) $r['tenant_id']);
+                }
+            }
+        } catch (Throwable $e) {
+        }
+        if ($best_tid !== '') {
+            return $best_tid;
+        }
+
+        try {
+            $st = $pdo->prepare("
                 SELECT t.tenant_id
                 FROM tbl_tenants t
                 WHERE t.owner_user_id = ?
-                  AND TRIM(COALESCE(t.clinic_slug, "")) <> ""
+                  AND TRIM(COALESCE(t.clinic_slug, '')) <> ''
                 ORDER BY t.tenant_id DESC
                 LIMIT 1
-            ');
+            ");
             $st->execute([$user_id]);
             $slugTenant = $st->fetchColumn();
             if ($slugTenant !== false && trim((string) $slugTenant) !== '') {
@@ -301,6 +322,7 @@ try {
     $_SESSION['is_owner'] = ($resolvedOwner !== false && (string) $resolvedOwner === (string) $user_id);
 } catch (Throwable $e) {
 }
+$is_owner = !empty($_SESSION['is_owner']);
 
 // Dashboard: session → canonical tenant_id → DB only (tbl_tenants + tbl_tenant_subscriptions + tbl_subscription_plans).
 // No reliance on payment/receipt session keys. Optional POST, then fresh tenant row when settings save.
