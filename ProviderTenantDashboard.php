@@ -778,10 +778,10 @@ include __DIR__ . '/provider_tenant_sidebar.inc.php';
 <div class="flex items-center gap-6 flex-wrap flex-1 min-w-0">
 <div class="flex items-center gap-2">
 <span class="w-2 h-2 rounded-full <?php echo $has_visible_website ? 'bg-green-500 animate-pulse' : 'bg-amber-500'; ?>"></span>
-<span class="text-on-surface-variant text-[10px] sm:text-xs font-bold uppercase tracking-widest">Website: <?php echo $has_visible_website ? 'Online' : 'Not published'; ?></span>
+<span class="text-on-surface-variant text-xs sm:text-sm font-bold uppercase tracking-widest">Website: <?php echo $has_visible_website ? 'Online' : 'Not published'; ?></span>
 </div>
 <div class="hidden sm:block h-4 w-px bg-outline-variant/40"></div>
-<span class="text-on-surface-variant text-[10px] sm:text-xs font-bold uppercase tracking-widest truncate max-w-[180px] lg:max-w-xl">Plan: <?php echo htmlspecialchars($plan_name); ?></span>
+<span class="text-on-surface-variant text-xs sm:text-sm font-bold uppercase tracking-widest truncate max-w-[180px] lg:max-w-xl">Plan: <?php echo htmlspecialchars($plan_name); ?></span>
 </div>
 <div class="flex items-center gap-2 sm:gap-4 shrink-0">
 <button type="button" class="hover:bg-surface-container-low rounded-full p-2.5 transition-all relative border-0 bg-transparent cursor-pointer" aria-label="Notifications">
