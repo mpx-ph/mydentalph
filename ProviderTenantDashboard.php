@@ -521,13 +521,6 @@ $renewal_sidebar = $renewal_date !== '—' ? ('Renews ' . $renewal_date) : ($has
         transform: translateY(-4px);
         box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.12);
       }
-      .dash-hero-panel {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.75) 45%, rgba(237, 244, 255, 0.85) 100%);
-        box-shadow:
-          0 0 0 1px rgba(255, 255, 255, 0.9),
-          0 4px 6px -1px rgba(15, 23, 42, 0.04),
-          0 25px 50px -12px rgba(43, 139, 235, 0.12);
-      }
       .dash-stat-card {
         background: linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.92) 100%);
         box-shadow:
@@ -603,20 +596,18 @@ include __DIR__ . '/provider_tenant_sidebar.inc.php';
 </div>
 </header>
 <main class="ml-64 pt-20 min-h-screen provider-page-enter">
-<div class="pt-8 px-10 pb-20 space-y-12 relative">
-<div class="absolute top-32 right-8 w-[28rem] h-[28rem] bg-primary/10 rounded-full blur-[120px] -z-10 pointer-events-none" aria-hidden="true"></div>
+<div class="pt-3 sm:pt-4 px-10 pb-20 space-y-10 relative">
+<div class="absolute top-24 right-8 w-[28rem] h-[28rem] bg-primary/10 rounded-full blur-[120px] -z-10 pointer-events-none" aria-hidden="true"></div>
 <div class="absolute bottom-40 left-10 w-72 h-72 bg-teal-400/10 rounded-full blur-[100px] -z-10 pointer-events-none" aria-hidden="true"></div>
-<section class="dash-hero-panel rounded-[2rem] border border-white/80 backdrop-blur-md p-8 sm:p-10 lg:p-12 relative overflow-hidden">
-<div class="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" aria-hidden="true"></div>
-<div class="relative flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+<section class="flex flex-col lg:flex-row lg:items-end justify-between gap-6 lg:gap-8">
 <div class="max-w-3xl">
-<p class="text-primary font-bold text-[10px] sm:text-xs uppercase tracking-[0.35em] flex items-center gap-3 mb-4"><span class="w-8 sm:w-10 h-px bg-primary/40"></span> Provider dashboard</p>
+<p class="text-primary font-bold text-[10px] sm:text-xs uppercase tracking-[0.35em] flex items-center gap-3 mb-3"><span class="w-8 sm:w-10 h-px bg-primary/40"></span> Provider dashboard</p>
 <h2 class="text-5xl sm:text-6xl font-extrabold font-headline tracking-tight text-on-background">Clinic <span class="font-editorial italic font-normal text-primary editorial-word">Overview</span></h2>
-<p class="text-on-surface-variant mt-4 sm:mt-5 text-lg sm:text-xl font-medium max-w-2xl leading-relaxed">Welcome back, <span class="text-on-background font-semibold"><?php echo htmlspecialchars($welcome_name); ?></span>. Open clinic management, review your plan and website, and keep account details up to date in Settings.</p>
+<p class="text-on-surface-variant mt-3 sm:mt-4 text-lg sm:text-xl font-medium max-w-2xl leading-relaxed">Welcome back, <span class="text-on-background font-semibold"><?php echo htmlspecialchars($welcome_name); ?></span>. Open clinic management, review your plan and website, and keep account details up to date in Settings.</p>
 </div>
 <div class="flex items-center gap-3 shrink-0">
 <a
-  class="bg-primary text-white px-8 py-3.5 rounded-2xl text-sm font-bold primary-glow inline-flex items-center gap-2.5 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all text-center ring-2 ring-primary/20 ring-offset-2 ring-offset-white/80 shadow-lg shadow-primary/20"
+  class="bg-primary text-white px-8 py-3.5 rounded-2xl text-sm font-bold primary-glow inline-flex items-center gap-2.5 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all text-center ring-2 ring-primary/20 ring-offset-2 ring-offset-background shadow-lg shadow-primary/20"
   id="open-dashboard-btn"
   data-purpose="primary-action-card"
   href="<?php echo $admin_dashboard_url ? htmlspecialchars($admin_dashboard_url, ENT_QUOTES, 'UTF-8') : '#'; ?>"
@@ -625,7 +616,6 @@ include __DIR__ . '/provider_tenant_sidebar.inc.php';
 <span class="material-symbols-outlined text-xl">dashboard</span>
   <?php echo $has_visible_website ? 'Open Clinic Management' : 'No Active Website'; ?>
 </a>
-</div>
 </div>
 </section>
 <section class="grid grid-cols-1 md:grid-cols-3 gap-7 lg:gap-8" data-purpose="overview-stats">
