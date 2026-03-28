@@ -741,55 +741,59 @@ $renewal_sidebar = $renewal_date !== '—' ? ('Renews ' . $renewal_date) : ($has
     </style>
 </head>
 <body class="bg-background font-body text-base text-on-background mesh-bg min-h-screen flex leading-normal">
-<aside class="fixed left-0 top-0 h-full w-64 z-40 sidebar-bg flex flex-col py-6 border-r border-slate-200/60" data-purpose="navigation-sidebar">
-<div class="px-5 mb-6">
-<img src="MyDental%20Logo.svg" alt="MyDental" width="144" height="36" loading="eager" decoding="async" class="h-9 w-auto max-w-[148px] object-contain object-left"/>
-<p class="text-primary font-bold text-[10px] tracking-[0.2em] uppercase mt-2.5 opacity-80">Provider Console</p>
+<aside class="fixed left-0 top-0 h-full w-64 z-40 sidebar-bg flex flex-col py-8 border-r border-slate-200/60" data-purpose="navigation-sidebar">
+<div class="px-7 mb-10">
+<h1 class="text-xl font-extrabold text-slate-900 tracking-tight font-headline flex items-center gap-2">
+<span class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/30 shrink-0">
+<span class="material-symbols-outlined text-white text-lg">select_check_box</span>
+</span>
+<span class="leading-tight">MyDental</span>
+</h1>
+<p class="text-primary font-bold text-[10px] tracking-[0.2em] uppercase mt-2 opacity-80">Provider Console</p>
 </div>
-<nav class="flex-1 space-y-1 overflow-y-auto no-scrollbar px-0">
+<nav class="flex-1 space-y-1 overflow-y-auto no-scrollbar">
 <div class="relative px-3">
-<a class="flex items-center gap-3 px-3 py-3 bg-primary/10 text-primary rounded-xl transition-all duration-200 active-glow" data-purpose="nav-item" href="#">
+<a class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl transition-all duration-200 active-glow" data-purpose="nav-item" href="#">
 <span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">dashboard</span>
 <span class="font-headline text-sm font-bold tracking-tight">Dashboard</span>
 </a>
 <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full"></div>
 </div>
 <div class="px-3">
-<a class="flex items-center gap-3 px-3 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl text-sm font-headline font-medium" data-purpose="nav-item" href="#">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" data-purpose="nav-item" href="#">
+<span class="material-symbols-outlined text-[22px]">group</span>
+<span class="font-headline text-sm font-medium tracking-tight">Users</span>
+</a>
+</div>
+<div class="px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" data-purpose="nav-item" href="#">
 <span class="material-symbols-outlined text-[22px]">payments</span>
-<span>Billing</span>
+<span class="font-headline text-sm font-medium tracking-tight">Subscription &amp; Billing</span>
 </a>
 </div>
 <div class="px-3">
-<a class="flex items-center gap-3 px-3 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl text-sm font-headline font-medium" data-purpose="nav-item" href="#">
-<span class="material-symbols-outlined text-[22px]">language</span>
-<span>Website</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-3 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl text-sm font-headline font-medium" data-purpose="nav-item" href="#">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" data-purpose="nav-item" href="#">
 <span class="material-symbols-outlined text-[22px]">settings</span>
-<span>Settings</span>
+<span class="font-headline text-sm font-medium tracking-tight">Settings</span>
 </a>
 </div>
 </nav>
-<div class="px-3 pb-2">
-<a class="flex items-center gap-3 px-3 py-3 text-rose-600 hover:text-rose-700 transition-colors duration-200 hover:bg-rose-50 rounded-xl text-sm font-headline font-bold" href="ProviderLogout.php">
+<div class="px-3 pb-4">
+<a class="flex items-center gap-3 px-4 py-3 text-rose-600 hover:text-rose-700 transition-colors duration-200 hover:bg-rose-50 rounded-xl" href="ProviderLogout.php">
 <span class="material-symbols-outlined text-[22px]">logout</span>
-<span>Logout</span>
+<span class="font-headline text-sm font-bold tracking-tight">Logout</span>
 </a>
 </div>
-<div class="px-4 mt-2">
-<div class="bg-slate-50 rounded-2xl p-4 border border-slate-100 shadow-sm">
-<div class="flex items-center gap-3 mb-3">
+<div class="px-4 mt-4">
+<div class="bg-slate-50 rounded-2xl p-5 border border-slate-100 shadow-sm">
+<div class="flex items-center gap-3 mb-4">
 <div class="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold shrink-0"><?php echo htmlspecialchars($avatar_initials); ?></div>
 <div class="min-w-0 flex-1">
-<p class="text-slate-900 text-sm font-bold truncate"><?php echo htmlspecialchars($plan_name); ?></p>
-<p class="text-slate-500 text-xs truncate"><?php echo htmlspecialchars($renewal_sidebar); ?></p>
+<p class="text-slate-900 text-xs font-bold truncate"><?php echo htmlspecialchars($plan_name); ?></p>
+<p class="text-slate-500 text-[10px] truncate"><?php echo htmlspecialchars($renewal_sidebar); ?></p>
 </div>
 </div>
-<p class="text-xs text-slate-500 truncate mb-3"><?php echo htmlspecialchars($clinic_name); ?></p>
-<a class="block w-full text-center py-2.5 bg-white border border-slate-200 hover:border-primary/30 text-slate-700 text-xs font-bold rounded-xl transition-all shadow-sm" href="<?php echo $has_visible_website && $tenant_base_url ? htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8') : '#'; ?>" <?php if ($has_visible_website && $tenant_base_url): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>>Visit website</a>
+<a class="block w-full text-center py-2.5 bg-white border border-slate-200 hover:border-primary/30 text-slate-700 text-xs font-bold rounded-xl transition-all shadow-sm" href="ProviderContact.php">Support Portal</a>
 </div>
 </div>
 </aside>
