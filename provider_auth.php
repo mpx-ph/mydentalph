@@ -296,14 +296,15 @@ function provider_get_tenant_subscription_state(PDO $pdo, string $tenantId): arr
 
     $active = null;
     try {
+        // Active = successful payment and not past subscription_end. Do not require subscription_start <= today
+        // (future-dated starts or clock skew should not hide a valid paid row).
         $activeStmt = $pdo->prepare("
             SELECT ts.id, ts.plan_id, ts.subscription_start, ts.subscription_end, ts.payment_status, ts.created_at,
                    p.plan_slug, p.plan_name
             FROM tbl_tenant_subscriptions ts
             LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
             WHERE ts.tenant_id = ?
-              AND LOWER(ts.payment_status) IN ('paid', 'succeeded')
-              AND (ts.subscription_start IS NULL OR ts.subscription_start <= CURDATE())
+              AND LOWER(TRIM(ts.payment_status)) IN ('paid', 'succeeded', 'complete', 'completed', 'success')
               AND (ts.subscription_end IS NULL OR ts.subscription_end >= CURDATE())
             ORDER BY ts.id DESC
             LIMIT 1
@@ -318,8 +319,7 @@ function provider_get_tenant_subscription_state(PDO $pdo, string $tenantId): arr
             FROM tbl_tenant_subscriptions ts
             LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
             WHERE ts.tenant_id = ?
-              AND LOWER(ts.payment_status) IN ('paid', 'succeeded')
-              AND (ts.subscription_start IS NULL OR ts.subscription_start <= CURDATE())
+              AND LOWER(TRIM(ts.payment_status)) IN ('paid', 'succeeded', 'complete', 'completed', 'success')
               AND (ts.subscription_end IS NULL OR ts.subscription_end >= CURDATE())
             ORDER BY ts.id DESC
             LIMIT 1
@@ -353,7 +353,8 @@ function provider_get_tenant_subscription_state(PDO $pdo, string $tenantId): arr
     $latestPaymentStatus = strtolower(trim((string) ($latest['payment_status'] ?? '')));
     $latestEnd = (string) ($latest['subscription_end'] ?? '');
     $latestEndTs = $latestEnd !== '' ? strtotime($latestEnd . ' 23:59:59') : false;
-    if (in_array($latestPaymentStatus, ['paid', 'succeeded'], true) && $latestEndTs !== false && $latestEndTs < time()) {
+    $paidLike = in_array($latestPaymentStatus, ['paid', 'succeeded', 'complete', 'completed', 'success'], true);
+    if ($paidLike && $latestEndTs !== false && $latestEndTs < time()) {
         $result['state'] = 'expired';
         return $result;
     }

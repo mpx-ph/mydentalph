@@ -15,10 +15,35 @@ if (empty($_SESSION['user_id']) || empty($_SESSION['tenant_id'])) {
     exit;
 }
 
-$tenant_id = $_SESSION['tenant_id'];
-$user_id = $_SESSION['user_id'];
+$tenant_id = (string) $_SESSION['tenant_id'];
+$user_id = (string) $_SESSION['user_id'];
 $is_owner = !empty($_SESSION['is_owner']);
 $show_activated_banner = isset($_GET['activated']) && $_GET['activated'] === '1';
+$user_role = (string) ($_SESSION['role'] ?? '');
+
+// Align session tenant_id with the tenant row owned by this user (fixes wrong tbl_users.tenant_id vs subscriptions/slug).
+if ($user_role === 'tenant_owner') {
+    try {
+        $stmt = $pdo->prepare('SELECT tenant_id FROM tbl_tenants WHERE owner_user_id = ? ORDER BY tenant_id DESC LIMIT 1');
+        $stmt->execute([$user_id]);
+        $ownerTenantId = $stmt->fetchColumn();
+        if ($ownerTenantId !== false && trim((string) $ownerTenantId) !== '') {
+            $ownerTenantId = trim((string) $ownerTenantId);
+            if ($ownerTenantId !== $tenant_id) {
+                $tenant_id = $ownerTenantId;
+                $_SESSION['tenant_id'] = $tenant_id;
+                try {
+                    $repairStmt = $pdo->prepare('UPDATE tbl_users SET tenant_id = ? WHERE user_id = ?');
+                    $repairStmt->execute([$tenant_id, $user_id]);
+                } catch (Throwable $e) {
+                    // Do not block dashboard on tenant_id repair failure.
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        // Keep session tenant_id.
+    }
+}
 
 if (!function_exists('provider_dashboard_slugify')) {
     function provider_dashboard_slugify(string $value): string
@@ -70,6 +95,30 @@ if (!function_exists('provider_dashboard_normalize_slug')) {
         $slug = preg_replace('/-+/', '-', (string) $slug);
         $slug = trim((string) $slug, '-');
         return (string) $slug;
+    }
+}
+if (!function_exists('provider_dashboard_payment_means_paid')) {
+    function provider_dashboard_payment_means_paid(string $status): bool
+    {
+        $s = strtolower(trim($status));
+        return in_array($s, ['paid', 'succeeded', 'complete', 'completed', 'success'], true);
+    }
+}
+if (!function_exists('provider_dashboard_subscription_row_active')) {
+    /**
+     * Paid (or equivalent) and not past subscription_end (empty end = treated as active).
+     */
+    function provider_dashboard_subscription_row_active(array $row): bool
+    {
+        if (!provider_dashboard_payment_means_paid((string) ($row['payment_status'] ?? ''))) {
+            return false;
+        }
+        $end = trim((string) ($row['subscription_end'] ?? ''));
+        if ($end === '') {
+            return true;
+        }
+        $endTs = strtotime($end . ' 23:59:59');
+        return $endTs === false || $endTs >= time();
     }
 }
 if (!function_exists('provider_dashboard_resolve_website_urls')) {
@@ -149,40 +198,10 @@ try {
         WHERE t.tenant_id = ?
         LIMIT 1
     ");
-    $stmt->execute([(string) $tenant_id]);
+    $stmt->execute([$tenant_id]);
     $tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 } catch (Throwable $e) {
     $tenant = [];
-}
-
-// Recovery path for legacy/misaligned records:
-// if session tenant_id does not resolve, recover tenant by logged-in owner user_id.
-if (empty($tenant)) {
-    try {
-        $stmt = $pdo->prepare("
-            SELECT t.tenant_id, t.clinic_name, t.clinic_slug, t.contact_email, t.contact_phone, t.clinic_address, t.subscription_status,
-                   u.full_name AS owner_name, u.email AS owner_email, u.phone AS owner_phone
-            FROM tbl_tenants t
-            LEFT JOIN tbl_users u ON t.owner_user_id = u.user_id
-            WHERE t.owner_user_id = ?
-            ORDER BY t.tenant_id DESC
-            LIMIT 1
-        ");
-        $stmt->execute([(string) $user_id]);
-        $tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-        if (!empty($tenant['tenant_id'])) {
-            $tenant_id = (string) $tenant['tenant_id'];
-            $_SESSION['tenant_id'] = $tenant_id;
-            try {
-                $repairStmt = $pdo->prepare("UPDATE tbl_users SET tenant_id = ? WHERE user_id = ?");
-                $repairStmt->execute([$tenant_id, (string) $user_id]);
-            } catch (Throwable $e) {
-                // Do not block dashboard on tenant_id repair failure.
-            }
-        }
-    } catch (Throwable $e) {
-        $tenant = [];
-    }
 }
 
 if (empty($tenant)) {
@@ -209,75 +228,72 @@ try {
 $sub = [];
 $subscription_state = 'none';
 $is_subscription_active = false;
-try {
-    $subscription_meta = provider_get_tenant_subscription_state($pdo, (string) $tenant_id);
-    $subscription_state = (string) ($subscription_meta['state'] ?? 'none');
-    $is_subscription_active = !empty($subscription_meta['has_active_subscription']);
-    if ($is_subscription_active && !empty($subscription_meta['active_subscription'])) {
-        $sub = (array) $subscription_meta['active_subscription'];
-    } elseif (!empty($subscription_meta['latest_subscription'])) {
-        $sub = (array) $subscription_meta['latest_subscription'];
-    }
-} catch (Throwable $e) {
-    $sub = [];
-}
-
-if (!$is_subscription_active) {
-    try {
-        $paidStmt = $pdo->prepare("
-            SELECT ts.id, ts.subscription_end, ts.payment_status, p.plan_name
-            FROM tbl_tenant_subscriptions ts
-            LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
-            WHERE ts.tenant_id = ?
-              AND LOWER(ts.payment_status) IN ('paid', 'succeeded')
-            ORDER BY ts.id DESC
-            LIMIT 1
-        ");
-        $paidStmt->execute([(string) $tenant_id]);
-        $fallback = $paidStmt->fetch(PDO::FETCH_ASSOC) ?: null;
-        if ($fallback) {
-            $fallback_end = trim((string) ($fallback['subscription_end'] ?? ''));
-            $fallback_end_ts = $fallback_end !== '' ? strtotime($fallback_end . ' 23:59:59') : false;
-            $not_expired = ($fallback_end_ts === false) || ($fallback_end_ts >= time());
-            if ($not_expired) {
-                $is_subscription_active = true;
-                $subscription_state = 'active';
-                if (empty($sub)) {
-                    $sub = $fallback;
-                }
-            }
-        }
-    } catch (Throwable $e) {
-        // Keep helper result if fallback fails.
-    }
-}
-
-/** Latest subscription row + plan columns for dashboard cards (tbl_tenant_subscriptions + tbl_subscription_plans). */
-$dashboard_subscription = null;
+$subscription_rows = [];
 try {
     $dashStmt = $pdo->prepare("
-        SELECT ts.subscription_start, ts.subscription_end, ts.payment_status, ts.amount_paid,
+        SELECT ts.id, ts.plan_id, ts.subscription_start, ts.subscription_end, ts.payment_status, ts.amount_paid,
                p.plan_name, p.plan_slug, p.billing_cycle, p.price
         FROM tbl_tenant_subscriptions ts
         LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
         WHERE ts.tenant_id = ?
         ORDER BY ts.id DESC
-        LIMIT 1
     ");
     $dashStmt->execute([(string) $tenant_id]);
-    $dashboard_subscription = $dashStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    $subscription_rows = $dashStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 } catch (Throwable $e) {
-    $dashboard_subscription = null;
+    $subscription_rows = [];
+}
+
+$latest_subscription_row = $subscription_rows[0] ?? null;
+$active_subscription_row = null;
+foreach ($subscription_rows as $row) {
+    if (provider_dashboard_subscription_row_active($row)) {
+        $active_subscription_row = $row;
+        break;
+    }
+}
+
+$dashboard_subscription = $active_subscription_row ?? $latest_subscription_row;
+$is_subscription_active = $active_subscription_row !== null;
+$sub = $active_subscription_row ?? ($latest_subscription_row ?: []);
+
+if ($is_subscription_active) {
+    $subscription_state = 'active';
+} elseif ($latest_subscription_row !== null) {
+    $ps = strtolower(trim((string) ($latest_subscription_row['payment_status'] ?? '')));
+    $end = trim((string) ($latest_subscription_row['subscription_end'] ?? ''));
+    $endTs = $end !== '' ? strtotime($end . ' 23:59:59') : false;
+    if (provider_dashboard_payment_means_paid((string) ($latest_subscription_row['payment_status'] ?? '')) && $endTs !== false && $endTs < time()) {
+        $subscription_state = 'expired';
+    } elseif (in_array($ps, ['pending'], true)) {
+        $subscription_state = 'inactive';
+    } else {
+        $subscription_state = 'inactive';
+    }
+} else {
+    try {
+        $subscription_meta = provider_get_tenant_subscription_state($pdo, (string) $tenant_id);
+        $subscription_state = (string) ($subscription_meta['state'] ?? 'none');
+        if (!$is_subscription_active && !empty($subscription_meta['has_active_subscription'])) {
+            $is_subscription_active = true;
+            $subscription_state = 'active';
+            if (!empty($subscription_meta['active_subscription'])) {
+                $sub = (array) $subscription_meta['active_subscription'];
+            }
+        }
+    } catch (Throwable $e) {
+        $subscription_state = 'none';
+    }
 }
 
 $clinic_name = trim((string) ($tenant['clinic_name'] ?? ''));
 $raw_website_value = trim((string) ($tenant['clinic_slug'] ?? ''));
-$clinic_slug = provider_dashboard_normalize_slug((string) ($tenant['clinic_slug'] ?? ''));
+$clinic_slug = provider_dashboard_normalize_slug($raw_website_value);
 if ($clinic_name === '') {
     $clinic_name = 'My Clinic';
 }
 
-// Canonical source of website link is tbl_tenants.clinic_slug for the logged-in tenant.
+// Canonical path segment for this tenant (tbl_tenants.clinic_slug).
 if ($clinic_slug !== '') {
     $tenant['clinic_slug'] = $clinic_slug;
 }
@@ -298,16 +314,17 @@ if ($is_owner && $is_subscription_active && $clinic_slug === '') {
     }
 }
 
-$db_plan_name = trim((string) ($dashboard_subscription['plan_name'] ?? ''));
+$dash_sub = is_array($dashboard_subscription) ? $dashboard_subscription : [];
+$db_plan_name = trim((string) ($dash_sub['plan_name'] ?? ''));
 $plan_name_raw = $db_plan_name !== '' ? $db_plan_name : ($sub['plan_name'] ?? null);
 $plan_name = is_string($plan_name_raw) && trim($plan_name_raw) !== ''
     ? trim($plan_name_raw)
     : ($is_subscription_active ? 'Active Plan' : 'No Active Subscription');
-$renewal_end = trim((string) ($dashboard_subscription['subscription_end'] ?? ($sub['subscription_end'] ?? '')));
+$renewal_end = trim((string) ($dash_sub['subscription_end'] ?? ($sub['subscription_end'] ?? '')));
 $renewal_ts = $renewal_end !== '' ? strtotime($renewal_end) : false;
 $renewal_date = ($renewal_ts !== false) ? date('M j, Y', $renewal_ts) : '—';
 
-$billing_cycle_raw = strtolower(trim((string) ($dashboard_subscription['billing_cycle'] ?? '')));
+$billing_cycle_raw = strtolower(trim((string) ($dash_sub['billing_cycle'] ?? '')));
 if ($billing_cycle_raw === 'monthly') {
     $plan_billing_cycle_label = 'Monthly billing';
 } elseif ($billing_cycle_raw === 'yearly') {
@@ -316,10 +333,10 @@ if ($billing_cycle_raw === 'monthly') {
     $plan_billing_cycle_label = '';
 }
 
-$period_start_raw = trim((string) ($dashboard_subscription['subscription_start'] ?? ''));
+$period_start_raw = trim((string) ($dash_sub['subscription_start'] ?? ''));
 $period_start_ts = $period_start_raw !== '' ? strtotime($period_start_raw) : false;
 $period_start_display = ($period_start_ts !== false) ? date('M j, Y', $period_start_ts) : '—';
-$has_subscription_row = $dashboard_subscription !== null;
+$has_subscription_row = $latest_subscription_row !== null;
 
 $tenant_subscription_status = strtolower(trim((string) ($tenant['subscription_status'] ?? '')));
 if ($tenant_subscription_status === 'active') {
@@ -337,8 +354,20 @@ $host = trim((string) ($_SERVER['HTTP_HOST'] ?? 'mydental.ct.ws'));
 if ($host === '') {
     $host = 'mydental.ct.ws';
 }
-$raw_website_value = $raw_website_value !== '' ? $raw_website_value : $clinic_slug;
+// Re-read slug after optional auto-create above (DB + $tenant were updated).
+$raw_website_value = trim((string) ($tenant['clinic_slug'] ?? ''));
+if ($raw_website_value === '') {
+    $raw_website_value = $clinic_slug;
+}
+$clinic_slug = provider_dashboard_normalize_slug($raw_website_value);
+if ($clinic_slug !== '') {
+    $tenant['clinic_slug'] = $clinic_slug;
+    $raw_website_value = $clinic_slug;
+}
 [$tenant_base_url, $admin_dashboard_url, $domain_display, $has_visible_website] = provider_dashboard_resolve_website_urls($raw_website_value, $scheme, $host);
+if (!$has_visible_website && $clinic_slug !== '') {
+    [$tenant_base_url, $admin_dashboard_url, $domain_display, $has_visible_website] = provider_dashboard_resolve_website_urls($clinic_slug, $scheme, $host);
+}
 if (!$has_visible_website) {
     $domain_display = 'No Active Website';
 }
@@ -499,7 +528,7 @@ if (!$has_visible_website) {
 </div>
 </div>
 <?php if ($has_visible_website): ?>
-<a class="text-lg font-bold text-dental-dark truncate hover:underline inline-block" href="<?php echo htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer">
+<a class="text-lg font-bold text-dental-blue hover:text-blue-700 truncate hover:underline inline-block max-w-full break-all" href="<?php echo htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer">
     <?php echo htmlspecialchars($domain_display); ?>
 </a>
 <?php else: ?>
