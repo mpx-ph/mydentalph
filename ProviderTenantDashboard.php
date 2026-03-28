@@ -688,6 +688,7 @@ $renewal_sidebar = $renewal_date !== '—' ? ('Renews ' . $renewal_date) : ($has
               'tertiary-container': '#ffdcc3',
               'dental-dark': '#101922',
               'dental-blue': '#2b8beb',
+              'error': '#ba1a1a',
             },
             fontFamily: {
               headline: ['Manrope', 'sans-serif'],
@@ -715,18 +716,29 @@ $renewal_sidebar = $renewal_date !== '—' ? ('Renews ' . $renewal_date) : ($has
         border: 1px solid #e2e8f0;
         box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
       }
+      .sidebar-glass {
+        background: rgba(252, 253, 255, 0.85);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-right: 1px solid rgba(224, 233, 246, 0.5);
+      }
+      .editorial-shadow {
+        box-shadow: 0 12px 40px -10px rgba(19, 28, 37, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.8);
+      }
       .editorial-word {
         text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
         letter-spacing: -0.02em;
       }
       .mesh-bg {
-        background-color: #f8fafc;
+        background-color: #f7f9ff;
         background-image:
-          radial-gradient(at 0% 0%, rgba(43, 139, 235, 0.05) 0px, transparent 50%),
-          radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.02) 0px, transparent 50%);
+          radial-gradient(at 0% 0%, hsla(210, 100%, 98%, 1) 0, transparent 50%),
+          radial-gradient(at 50% 0%, hsla(217, 100%, 94%, 1) 0, transparent 50%),
+          radial-gradient(at 100% 0%, hsla(210, 100%, 98%, 1) 0, transparent 50%);
       }
-      .sidebar-bg {
-        background-color: #ffffff;
+      .primary-glow {
+        box-shadow: 0 8px 25px -5px rgba(43, 139, 235, 0.4);
       }
       .no-scrollbar::-webkit-scrollbar {
           display: none;
@@ -740,264 +752,258 @@ $renewal_sidebar = $renewal_date !== '—' ? ('Renews ' . $renewal_date) : ($has
       ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
-<body class="bg-background font-body text-[17px] text-on-background mesh-bg min-h-screen flex leading-relaxed">
-<aside class="fixed left-0 top-0 h-full w-64 z-40 sidebar-bg flex flex-col py-9 border-r border-slate-200/60" data-purpose="navigation-sidebar">
-<div class="px-7 mb-11">
-<h1 class="text-2xl font-extrabold text-slate-900 tracking-tight font-headline flex items-center gap-2.5">
-<span class="w-9 h-9 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/30 shrink-0">
-<span class="material-symbols-outlined text-white text-xl">select_check_box</span>
-</span>
-<span class="leading-tight">MyDental</span>
-</h1>
-<p class="text-primary font-bold text-[11px] tracking-[0.2em] uppercase mt-2.5 opacity-80">Provider Console</p>
+<body class="mesh-bg font-body text-sm text-on-background selection:bg-primary/10 min-h-screen">
+<aside class="fixed left-0 top-0 h-full w-64 z-40 sidebar-glass flex flex-col py-8 min-h-screen" data-purpose="navigation-sidebar">
+<div class="px-7 mb-10 shrink-0">
+<a href="ProviderMain.php" class="block" aria-label="MyDental">
+<img src="MyDental%20Logo.svg" alt="MyDental" width="144" height="36" loading="eager" decoding="async" class="h-11 w-auto max-w-full object-contain object-left"/>
+</a>
+<p class="text-on-surface-variant text-[10px] font-bold tracking-[0.2em] mt-2 opacity-60 uppercase">Provider Console</p>
 </div>
-<nav class="flex-1 space-y-1 overflow-y-auto no-scrollbar">
+<nav class="flex-1 min-h-0 space-y-1 overflow-y-auto no-scrollbar">
 <div class="relative px-3">
-<a class="flex items-center gap-3 px-4 py-3.5 bg-primary/10 text-primary rounded-xl transition-all duration-200 active-glow" data-purpose="nav-item" href="#">
-<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">dashboard</span>
-<span class="font-headline text-[15px] font-bold tracking-tight">Dashboard</span>
+<a class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl transition-all duration-200 active-glow" data-purpose="nav-item" href="#">
+<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-headline text-sm font-bold tracking-tight">Dashboard</span>
 </a>
-<div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-7 bg-primary rounded-r-full"></div>
+<div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full"></div>
 </div>
 <div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3.5 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" data-purpose="nav-item" href="#">
-<span class="material-symbols-outlined text-2xl">group</span>
-<span class="font-headline text-[15px] font-medium tracking-tight">Users</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3.5 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" data-purpose="nav-item" href="#">
-<span class="material-symbols-outlined text-2xl">payments</span>
-<span class="font-headline text-[15px] font-medium tracking-tight">Subscription &amp; Billing</span>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-background transition-colors duration-200 hover:bg-white/50 rounded-xl" data-purpose="nav-item" href="#">
+<span class="material-symbols-outlined text-[22px]">group</span>
+<span class="font-headline text-sm font-medium tracking-tight">Users</span>
 </a>
 </div>
 <div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3.5 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" data-purpose="nav-item" href="#">
-<span class="material-symbols-outlined text-2xl">settings</span>
-<span class="font-headline text-[15px] font-medium tracking-tight">Settings</span>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-background transition-colors duration-200 hover:bg-white/50 rounded-xl" data-purpose="nav-item" href="#">
+<span class="material-symbols-outlined text-[22px]">payments</span>
+<span class="font-headline text-sm font-medium tracking-tight">Subscription &amp; Billing</span>
+</a>
+</div>
+<div class="px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-background transition-colors duration-200 hover:bg-white/50 rounded-xl" data-purpose="nav-item" href="#">
+<span class="material-symbols-outlined text-[22px]">settings</span>
+<span class="font-headline text-sm font-medium tracking-tight">Settings</span>
+</a>
+</div>
+<div class="px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-error hover:text-error transition-colors duration-200 hover:bg-error/10 rounded-xl" href="ProviderLogout.php">
+<span class="material-symbols-outlined text-[22px]">logout</span>
+<span class="font-headline text-sm font-medium tracking-tight">Logout</span>
 </a>
 </div>
 </nav>
-<div class="px-3 pb-4">
-<a class="flex items-center gap-3 px-4 py-3.5 text-rose-600 hover:text-rose-700 transition-colors duration-200 hover:bg-rose-50 rounded-xl" href="ProviderLogout.php">
-<span class="material-symbols-outlined text-2xl">logout</span>
-<span class="font-headline text-[15px] font-bold tracking-tight">Logout</span>
-</a>
-</div>
-<div class="px-4 mt-4">
-<div class="bg-slate-50 rounded-2xl p-6 border border-slate-100 shadow-sm">
-<div class="flex items-center gap-3 mb-4">
-<div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-bold shrink-0"><?php echo htmlspecialchars($avatar_initials); ?></div>
+<div class="px-4 mt-auto pt-4 shrink-0 border-t border-white/40">
+<div class="bg-white/40 backdrop-blur-md rounded-2xl p-4 border border-white/60 shadow-sm">
+<div class="flex items-center gap-3 min-w-0 mb-3">
+<div class="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary text-xs font-bold border-2 border-white shadow-sm shrink-0"><?php echo htmlspecialchars($avatar_initials); ?></div>
 <div class="min-w-0 flex-1">
-<p class="text-slate-900 text-sm font-bold truncate"><?php echo htmlspecialchars($plan_name); ?></p>
-<p class="text-slate-500 text-xs truncate"><?php echo htmlspecialchars($renewal_sidebar); ?></p>
+<p class="text-on-background text-sm font-bold truncate"><?php echo htmlspecialchars($plan_name); ?></p>
+<p class="text-on-surface-variant text-[11px] truncate"><?php echo htmlspecialchars($renewal_sidebar); ?></p>
 </div>
 </div>
-<a class="block w-full text-center py-3 bg-white border border-slate-200 hover:border-primary/30 text-slate-700 text-sm font-bold rounded-xl transition-all shadow-sm" href="ProviderContact.php">Support Portal</a>
+<a class="block w-full text-center py-2.5 bg-white/80 border border-white hover:border-primary/30 text-on-background text-xs font-bold rounded-xl transition-all shadow-sm" href="ProviderContact.php">Support Portal</a>
 </div>
 </div>
 </aside>
-<main class="flex-1 flex flex-col min-w-0 ml-64">
-<header class="flex justify-between items-center w-full px-7 lg:px-10 sticky top-0 z-40 bg-white/80 backdrop-blur-xl h-[4.25rem] border-b border-slate-200/50" data-purpose="top-header">
-<div class="flex flex-wrap items-center gap-4 lg:gap-7">
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-20 z-30 bg-white/70 backdrop-blur-xl border-b border-white/50 flex items-center justify-between px-8" data-purpose="top-header">
+<div class="flex items-center gap-6 flex-wrap flex-1 min-w-0">
 <div class="flex items-center gap-2">
 <span class="w-2 h-2 rounded-full <?php echo $has_visible_website ? 'bg-green-500 animate-pulse' : 'bg-amber-500'; ?>"></span>
-<span class="font-headline text-xs font-black uppercase tracking-[0.18em] text-primary">Website: <?php echo $has_visible_website ? 'Online' : 'Not published'; ?></span>
+<span class="text-on-surface-variant text-[10px] sm:text-xs font-bold uppercase tracking-widest">Website: <?php echo $has_visible_website ? 'Online' : 'Not published'; ?></span>
 </div>
-<div class="hidden sm:block h-4 w-px bg-slate-200"></div>
-<span class="font-headline text-xs font-black uppercase tracking-[0.18em] text-slate-400 truncate max-w-[220px] lg:max-w-none">Plan: <?php echo htmlspecialchars($plan_name); ?></span>
+<div class="hidden sm:block h-4 w-px bg-outline-variant/40"></div>
+<span class="text-on-surface-variant text-[10px] sm:text-xs font-bold uppercase tracking-widest truncate max-w-[180px] lg:max-w-xl">Plan: <?php echo htmlspecialchars($plan_name); ?></span>
 </div>
-<div class="flex items-center gap-4">
-<div class="hidden sm:flex items-center gap-5 text-on-surface-variant/60">
-<button type="button" class="material-symbols-outlined text-[1.65rem] hover:text-primary transition-colors bg-transparent border-0 cursor-pointer p-0" aria-label="Notifications">notifications</button>
-<button type="button" class="material-symbols-outlined text-[1.65rem] hover:text-primary transition-colors bg-transparent border-0 cursor-pointer p-0" aria-label="Help">help_outline</button>
-</div>
-<div class="h-10 w-10 rounded-full overflow-hidden border-2 border-primary/20 bg-primary/10 flex items-center justify-center text-primary text-sm font-black shrink-0" aria-hidden="true"><?php echo htmlspecialchars($avatar_initials); ?></div>
+<div class="flex items-center gap-2 sm:gap-4 shrink-0">
+<button type="button" class="hover:bg-surface-container-low rounded-full p-2.5 transition-all relative border-0 bg-transparent cursor-pointer" aria-label="Notifications">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+</button>
+<button type="button" class="hover:bg-surface-container-low rounded-full p-2.5 transition-all border-0 bg-transparent cursor-pointer" aria-label="Help">
+<span class="material-symbols-outlined text-on-surface-variant">help_outline</span>
+</button>
+<div class="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary text-xs font-bold border-2 border-white shadow-sm shrink-0" aria-hidden="true"><?php echo htmlspecialchars($avatar_initials); ?></div>
 </div>
 </header>
-<div class="p-7 lg:p-10 max-w-7xl mx-auto w-full space-y-9 flex-1">
-<section class="flex flex-col gap-3.5">
-<div class="text-primary font-bold text-sm uppercase flex items-center gap-3 tracking-[0.25em]">
-<span class="w-10 h-px bg-primary"></span> Tenant dashboard
-            </div>
-<h2 class="font-headline text-4xl sm:text-[2.5rem] font-extrabold tracking-tight text-on-background">
-                Clinic <span class="font-editorial italic font-normal text-primary editorial-word">Overview</span>
-</h2>
-<p class="font-body text-lg text-on-surface-variant max-w-2xl leading-relaxed">Welcome back, <?php echo htmlspecialchars($welcome_name); ?>. Open clinic management, review your plan and website, and keep account details up to date.</p>
-</section>
-<section class="glass-card rounded-2xl p-7 border border-slate-200/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-6" data-purpose="primary-action-card">
-<div class="space-y-2">
-<h2 class="font-headline text-2xl font-extrabold tracking-tight text-on-background">Access clinic management</h2>
-<p class="text-on-surface-variant text-base max-w-xl leading-relaxed">Manage patients, appointments, and records from your clinic admin dashboard.</p>
+<main class="ml-64 pt-20 min-h-screen">
+<div class="pt-8 px-10 pb-16 space-y-10 relative">
+<div class="absolute top-40 right-10 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10 pointer-events-none" aria-hidden="true"></div>
+<section class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h2 class="text-4xl font-extrabold font-headline tracking-tight text-on-background">Clinic <span class="font-editorial italic font-normal text-primary editorial-word">Overview</span></h2>
+<p class="text-on-surface-variant mt-2 font-medium max-w-2xl">Welcome back, <?php echo htmlspecialchars($welcome_name); ?>. Open clinic management, review your plan and website, and keep account details up to date.</p>
 </div>
+<div class="flex items-center gap-3 shrink-0">
 <a
-  class="inline-flex items-center justify-center shrink-0 bg-primary text-white px-7 py-3.5 rounded-xl font-headline font-bold text-base hover:bg-blue-600 transition-all shadow-md shadow-primary/25 text-center"
+  class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow inline-flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all text-center"
   id="open-dashboard-btn"
+  data-purpose="primary-action-card"
   href="<?php echo $admin_dashboard_url ? htmlspecialchars($admin_dashboard_url, ENT_QUOTES, 'UTF-8') : '#'; ?>"
   <?php if ($has_visible_website && $admin_dashboard_url): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>
 >
+<span class="material-symbols-outlined text-lg">open_in_new</span>
   <?php echo $has_visible_website ? 'Open Clinic Management Dashboard' : 'No Active Website'; ?>
 </a>
+</div>
 </section>
-<div class="space-y-7">
-<div class="grid grid-cols-1 md:grid-cols-3 gap-7" data-purpose="overview-stats">
-<div class="glass-card p-7 rounded-2xl flex flex-col justify-between hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 min-h-[220px]">
-<div class="flex justify-between items-start gap-3">
-<div class="min-w-0">
-<p class="text-on-surface-variant font-bold text-sm uppercase tracking-wider mb-2">Current Plan</p>
-<h3 class="font-headline text-2xl font-extrabold text-primary leading-snug break-words"><?php echo htmlspecialchars($plan_name); ?></h3>
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6" data-purpose="overview-stats">
+<div class="bg-white/60 backdrop-blur-md p-6 rounded-2xl editorial-shadow group hover:-translate-y-1 transition-all">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2.5 bg-blue-50 text-primary rounded-xl shadow-sm">
+<span class="material-symbols-outlined">subscriptions</span>
 </div>
 <?php if ($is_subscription_active): ?>
-<span class="shrink-0 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-black uppercase tracking-wide">Active</span>
+<span class="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg uppercase">Active</span>
 <?php elseif ($subscription_state === 'expired'): ?>
-<span class="shrink-0 bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm font-black uppercase tracking-wide">Expired</span>
+<span class="text-[10px] font-extrabold text-amber-800 bg-amber-50 px-2 py-1 rounded-lg uppercase">Expired</span>
 <?php elseif ($subscription_state === 'inactive'): ?>
-<span class="shrink-0 bg-slate-200 text-slate-800 px-3 py-1 rounded-full text-sm font-black uppercase tracking-wide">Inactive</span>
+<span class="text-[10px] font-bold text-on-surface-variant bg-surface-container-low px-2 py-1 rounded-lg uppercase">Inactive</span>
 <?php else: ?>
-<span class="shrink-0 bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-sm font-black uppercase tracking-wide">None</span>
+<span class="text-[10px] font-bold text-on-surface-variant/60 bg-slate-100 px-2 py-1 rounded-lg uppercase">None</span>
 <?php endif; ?>
 </div>
-<div class="space-y-4 mt-6">
+<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Current Plan</p>
+<h3 class="text-2xl font-extrabold text-on-background mt-1.5 font-headline break-words leading-tight"><?php echo htmlspecialchars($plan_name); ?></h3>
+<div class="mt-4 space-y-3">
 <?php if ($plan_billing_cycle_label !== ''): ?>
-<p class="text-on-surface-variant/80 text-base font-medium"><?php echo htmlspecialchars($plan_billing_cycle_label); ?></p>
+<p class="text-on-surface-variant text-sm font-medium"><?php echo htmlspecialchars($plan_billing_cycle_label); ?></p>
 <?php endif; ?>
 <?php if ($has_subscription_row && $period_start_ts !== false && $renewal_ts !== false): ?>
-<div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-<div class="bg-primary h-full rounded-full shadow-[0_0_10px_rgba(43,139,235,0.35)] transition-all" style="width: <?php echo (int) $plan_period_util_pct; ?>%;"></div>
+<div class="w-full bg-surface-container-low h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full transition-all" style="width: <?php echo (int) $plan_period_util_pct; ?>%;"></div>
 </div>
-<div class="flex flex-col sm:flex-row sm:justify-between gap-1 text-sm font-bold uppercase tracking-wide text-on-surface-variant/70">
-<span>Renewal: <?php echo htmlspecialchars($renewal_date); ?></span>
-<span>Period: <?php echo (int) $plan_period_util_pct; ?>%</span>
-</div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wide">Renewal <?php echo htmlspecialchars($renewal_date); ?> · <?php echo (int) $plan_period_util_pct; ?>% period</p>
 <?php elseif ($has_subscription_row): ?>
-<p class="text-on-surface-variant text-base">Current period: <?php echo htmlspecialchars($period_start_display); ?> — <?php echo htmlspecialchars($renewal_date); ?></p>
+<p class="text-sm text-on-surface-variant"><?php echo htmlspecialchars($period_start_display); ?> — <?php echo htmlspecialchars($renewal_date); ?></p>
 <?php else: ?>
-<p class="text-on-surface-variant/80 text-base">No subscription record in the database yet.</p>
+<p class="text-sm text-on-surface-variant/70">No subscription record yet.</p>
 <?php endif; ?>
 </div>
 </div>
-<div class="glass-card p-7 rounded-2xl flex flex-col justify-between hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 min-h-[220px]">
-<div>
-<p class="text-on-surface-variant font-bold text-sm uppercase tracking-wider mb-2">Domain &amp; Hosting</p>
+<div class="bg-white/60 backdrop-blur-md p-6 rounded-2xl editorial-shadow group hover:-translate-y-1 transition-all">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2.5 bg-blue-50 text-primary rounded-xl shadow-sm">
+<span class="material-symbols-outlined">language</span>
+</div>
+<span class="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest"><?php echo $has_visible_website ? 'Live' : 'Pending'; ?></span>
+</div>
+<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Domain &amp; Hosting</p>
 <?php if ($has_visible_website): ?>
-<h3 class="font-headline text-xl font-extrabold tracking-tight break-all"><?php echo htmlspecialchars($domain_display); ?></h3>
-<a class="inline-flex items-center gap-2 text-primary text-sm font-black uppercase tracking-wide mt-4 hover:gap-2.5 transition-all" href="<?php echo htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer">
-                                Visit Website
-                                <span class="material-symbols-outlined text-lg">arrow_forward</span>
-</a>
+<h3 class="text-xl font-extrabold text-on-background mt-1.5 font-headline break-all leading-snug"><?php echo htmlspecialchars($domain_display); ?></h3>
+<a class="inline-flex items-center gap-1.5 text-primary text-xs font-bold uppercase tracking-wide mt-3 hover:gap-2 transition-all" href="<?php echo htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer">Visit <span class="material-symbols-outlined text-sm">arrow_forward</span></a>
 <?php else: ?>
-<h3 class="font-headline text-xl font-extrabold tracking-tight text-on-background"><?php echo htmlspecialchars($domain_display); ?></h3>
+<h3 class="text-xl font-extrabold text-on-background mt-1.5 font-headline"><?php echo htmlspecialchars($domain_display); ?></h3>
 <?php endif; ?>
-<p class="text-base font-semibold text-on-surface-variant/80 mt-3"><?php echo htmlspecialchars($hosting_status_label); ?></p>
+<p class="text-sm text-on-surface-variant font-medium mt-2"><?php echo htmlspecialchars($hosting_status_label); ?></p>
+<div class="flex items-center gap-2 mt-4 pt-4 border-t border-outline-variant/30">
+<span class="material-symbols-outlined <?php echo $has_visible_website ? 'text-green-500' : 'text-amber-500'; ?> text-xl">verified_user</span>
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest"><?php echo $has_visible_website ? 'Published' : 'Not published'; ?></span>
 </div>
-<div class="flex items-center gap-2.5 mt-5 pt-5 border-t border-slate-100">
-<span class="material-symbols-outlined <?php echo $has_visible_website ? 'text-green-500' : 'text-amber-500'; ?> text-2xl">verified_user</span>
-<span class="text-sm font-bold text-on-surface-variant/70 uppercase tracking-wide"><?php echo $has_visible_website ? 'Website published' : 'Website not yet published'; ?></span>
 </div>
+<div class="bg-white/60 backdrop-blur-md p-6 rounded-2xl editorial-shadow group hover:-translate-y-1 transition-all flex flex-col">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2.5 bg-blue-50 text-primary rounded-xl shadow-sm">
+<span class="material-symbols-outlined">tune</span>
 </div>
-<div class="glass-card p-7 rounded-2xl hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 flex flex-col min-h-[220px]">
-<h4 class="font-headline font-extrabold text-lg mb-4">Website <span class="text-primary italic font-editorial">Control</span></h4>
-<div class="flex flex-wrap gap-2.5 mb-4">
-<button type="button" class="bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-3 rounded-xl text-sm font-black uppercase tracking-wide transition-colors">Publish</button>
-<button type="button" class="bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-3 rounded-xl text-sm font-black uppercase tracking-wide transition-colors">Unpublish</button>
+<span class="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest">Control</span>
 </div>
-<a
-  class="inline-flex items-center gap-2 text-primary text-sm font-black uppercase tracking-wide mt-auto hover:gap-2.5 transition-all"
-  href="<?php echo $has_visible_website && $tenant_base_url ? htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8') : '#'; ?>"
-  <?php if ($has_visible_website && $tenant_base_url): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>
->
-                <?php echo $has_visible_website ? 'View Live Website' : 'Website Link Unavailable'; ?>
-                <span class="material-symbols-outlined text-lg">open_in_new</span>
+<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60">Website</p>
+<h3 class="text-lg font-extrabold text-on-background mt-1.5 font-headline">Quick actions</h3>
+<div class="flex flex-wrap gap-2 mt-4">
+<button type="button" class="bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-colors">Publish</button>
+<button type="button" class="bg-surface-container-low text-on-surface-variant hover:bg-surface-variant px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-colors">Unpublish</button>
+</div>
+<a class="inline-flex items-center gap-1.5 text-primary text-xs font-bold uppercase tracking-wide mt-auto pt-4 hover:gap-2 transition-all" href="<?php echo $has_visible_website && $tenant_base_url ? htmlspecialchars($tenant_base_url . '/', ENT_QUOTES, 'UTF-8') : '#'; ?>" <?php if ($has_visible_website && $tenant_base_url): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>>
+<?php echo $has_visible_website ? 'View live site' : 'Link unavailable'; ?> <span class="material-symbols-outlined text-sm">open_in_new</span>
 </a>
 </div>
-</div>
-<div class="glass-card rounded-2xl p-7 border border-slate-200/80">
-<h4 class="font-headline font-extrabold text-lg mb-5">Infrastructure <span class="text-primary italic font-editorial">Status</span></h4>
+</section>
+<section class="grid grid-cols-12 gap-8">
+<div class="col-span-12 lg:col-span-5">
+<div class="bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow h-full">
+<h4 class="text-xl font-extrabold font-headline text-on-background mb-6">Infrastructure <span class="text-primary italic font-editorial">Status</span></h4>
 <div class="space-y-5">
 <div class="flex items-center justify-between gap-3">
-<span class="text-base font-bold uppercase tracking-wide text-on-surface-variant/70">Database</span>
-<span class="text-sm font-black text-green-500 flex items-center gap-2 uppercase tracking-wider shrink-0">
-<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                                    Connected
-                                </span>
+<span class="text-sm font-bold text-on-surface-variant uppercase tracking-wide">Database</span>
+<span class="text-xs font-black text-green-600 flex items-center gap-2 uppercase tracking-wider shrink-0">
+<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>Connected</span>
 </div>
 <div class="flex items-center justify-between gap-3">
-<span class="text-base font-bold uppercase tracking-wide text-on-surface-variant/70">Clinic portal</span>
-<span class="text-sm font-black <?php echo $has_visible_website ? 'text-green-500' : 'text-amber-600'; ?> flex items-center gap-2 uppercase tracking-wider shrink-0">
-<span class="w-2 h-2 rounded-full <?php echo $has_visible_website ? 'bg-green-500 animate-pulse' : 'bg-amber-500'; ?>"></span>
-                                    <?php echo $has_visible_website ? 'Ready' : 'Unavailable'; ?>
-                                </span>
+<span class="text-sm font-bold text-on-surface-variant uppercase tracking-wide">Clinic portal</span>
+<span class="text-xs font-black <?php echo $has_visible_website ? 'text-green-600' : 'text-amber-600'; ?> flex items-center gap-2 uppercase tracking-wider shrink-0">
+<span class="w-2 h-2 rounded-full <?php echo $has_visible_website ? 'bg-green-500 animate-pulse' : 'bg-amber-500'; ?>"></span><?php echo $has_visible_website ? 'Ready' : 'Unavailable'; ?></span>
 </div>
 <div class="flex items-center justify-between gap-3">
-<span class="text-base font-bold uppercase tracking-wide text-on-surface-variant/70">Subscription</span>
-<span class="text-sm font-black <?php echo $is_subscription_active ? 'text-green-500' : 'text-slate-500'; ?> flex items-center gap-2 uppercase tracking-wider shrink-0">
-<span class="w-2 h-2 rounded-full <?php echo $is_subscription_active ? 'bg-green-500' : 'bg-slate-400'; ?>"></span>
-                                    <?php echo $is_subscription_active ? 'Active' : ucfirst($subscription_state); ?>
-                                </span>
+<span class="text-sm font-bold text-on-surface-variant uppercase tracking-wide">Subscription</span>
+<span class="text-xs font-black <?php echo $is_subscription_active ? 'text-green-600' : 'text-on-surface-variant/60'; ?> flex items-center gap-2 uppercase tracking-wider shrink-0">
+<span class="w-2 h-2 rounded-full <?php echo $is_subscription_active ? 'bg-green-500' : 'bg-slate-400'; ?>"></span><?php echo $is_subscription_active ? 'Active' : ucfirst($subscription_state); ?></span>
 </div>
 </div>
 </div>
-<div class="glass-card p-7 sm:p-9 rounded-2xl border border-slate-200/80 max-w-4xl">
+</div>
+<div class="col-span-12 lg:col-span-7">
+<div class="bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow">
 <?php if ($settings_saved): ?>
-<div class="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-base font-medium">Settings saved successfully.</div>
+<div class="mb-5 p-4 bg-emerald-50 border border-emerald-200/80 text-emerald-800 rounded-2xl text-sm font-medium">Settings saved successfully.</div>
 <?php endif; ?>
 <?php if ($show_activated_banner): ?>
-<div class="mb-6 p-4 bg-surface-container-low border border-primary/20 text-primary rounded-xl text-base font-headline font-bold">Subscription activated. Your clinic website is now live and ready to manage.</div>
+<div class="mb-5 p-4 bg-surface-container-low border border-primary/20 text-primary rounded-2xl text-sm font-headline font-bold">Subscription activated. Your clinic website is now live and ready to manage.</div>
 <?php endif; ?>
 <?php if ($settings_error): ?>
-<div class="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-base"><?php echo htmlspecialchars($settings_error); ?></div>
+<div class="mb-5 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm"><?php echo htmlspecialchars($settings_error); ?></div>
 <?php endif; ?>
-<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-7">
+<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
 <div>
-<h3 class="text-2xl font-headline font-extrabold text-on-background">Account Settings</h3>
-<p class="text-on-surface-variant text-base mt-1">Clinic details (tbl_tenants) and your account (tbl_users).</p>
+<h3 class="text-xl font-extrabold font-headline text-on-background">Account Settings</h3>
+<p class="text-sm text-on-surface-variant font-medium mt-1">Clinic details (tbl_tenants) and your account (tbl_users).</p>
 </div>
-<button class="px-6 py-3 bg-primary text-white rounded-xl font-headline text-base font-bold hover:bg-blue-600 transition-all shadow-md shadow-primary/20 shrink-0" form="settings-form" type="submit">Save Changes</button>
+<button class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all shrink-0" form="settings-form" type="submit">Save Changes</button>
 </div>
-<form class="space-y-7" method="post" action="" data-purpose="account-form" id="settings-form">
+<form class="space-y-8" method="post" action="" data-purpose="account-form" id="settings-form">
 <?php if ($is_owner): ?>
-<div class="border-b border-slate-200 pb-7">
-<h4 class="text-sm font-black text-on-surface-variant uppercase tracking-[0.2em] mb-4">Clinic details</h4>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="border-b border-outline-variant/30 pb-8">
+<h4 class="text-xs font-bold text-on-surface-variant uppercase tracking-[0.2em] mb-4">Clinic details</h4>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 <div class="md:col-span-2">
-<label class="text-base font-semibold text-slate-700 font-headline" for="clinic_name">Clinic Name</label>
-<input class="mt-2 w-full px-4 py-3 text-[17px] rounded-xl border-slate-200 focus:border-primary focus:ring-primary transition-all" id="clinic_name" name="clinic_name" placeholder="Clinic name" type="text" value="<?php echo htmlspecialchars($tenant['clinic_name'] ?? ''); ?>"/>
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider" for="clinic_name">Clinic Name</label>
+<input class="mt-1.5 w-full bg-surface-container-low/50 border border-outline-variant/40 focus:ring-2 focus:ring-primary/20 rounded-2xl px-4 py-2.5 text-sm text-on-background placeholder:text-on-surface-variant/50 transition-all" id="clinic_name" name="clinic_name" placeholder="Clinic name" type="text" value="<?php echo htmlspecialchars($tenant['clinic_name'] ?? ''); ?>"/>
 </div>
 <div>
-<label class="text-base font-semibold text-slate-700 font-headline" for="clinic_email">Clinic Email</label>
-<input class="mt-2 w-full px-4 py-3 text-[17px] rounded-xl border-slate-200 focus:border-primary focus:ring-primary transition-all" id="clinic_email" name="clinic_email" placeholder="Clinic email" type="email" value="<?php echo htmlspecialchars($tenant['contact_email'] ?? ''); ?>"/>
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider" for="clinic_email">Clinic Email</label>
+<input class="mt-1.5 w-full bg-surface-container-low/50 border border-outline-variant/40 focus:ring-2 focus:ring-primary/20 rounded-2xl px-4 py-2.5 text-sm text-on-background placeholder:text-on-surface-variant/50 transition-all" id="clinic_email" name="clinic_email" placeholder="Clinic email" type="email" value="<?php echo htmlspecialchars($tenant['contact_email'] ?? ''); ?>"/>
 </div>
 <div>
-<label class="text-base font-semibold text-slate-700 font-headline" for="clinic_phone">Clinic Phone</label>
-<input class="mt-2 w-full px-4 py-3 text-[17px] rounded-xl border-slate-200 focus:border-primary focus:ring-primary transition-all" id="clinic_phone" name="clinic_phone" placeholder="Clinic phone" type="tel" value="<?php echo htmlspecialchars($tenant['contact_phone'] ?? ''); ?>"/>
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider" for="clinic_phone">Clinic Phone</label>
+<input class="mt-1.5 w-full bg-surface-container-low/50 border border-outline-variant/40 focus:ring-2 focus:ring-primary/20 rounded-2xl px-4 py-2.5 text-sm text-on-background placeholder:text-on-surface-variant/50 transition-all" id="clinic_phone" name="clinic_phone" placeholder="Clinic phone" type="tel" value="<?php echo htmlspecialchars($tenant['contact_phone'] ?? ''); ?>"/>
 </div>
 <div class="md:col-span-2">
-<label class="text-base font-semibold text-slate-700 font-headline" for="clinic_address">Clinic Address</label>
-<textarea class="mt-2 w-full px-4 py-3 text-[17px] rounded-xl border-slate-200 focus:border-primary focus:ring-primary transition-all" id="clinic_address" name="clinic_address" placeholder="Address" rows="2"><?php echo htmlspecialchars($tenant['clinic_address'] ?? ''); ?></textarea>
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider" for="clinic_address">Clinic Address</label>
+<textarea class="mt-1.5 w-full bg-surface-container-low/50 border border-outline-variant/40 focus:ring-2 focus:ring-primary/20 rounded-2xl px-4 py-2.5 text-sm text-on-background placeholder:text-on-surface-variant/50 transition-all" id="clinic_address" name="clinic_address" placeholder="Address" rows="2"><?php echo htmlspecialchars($tenant['clinic_address'] ?? ''); ?></textarea>
 </div>
 </div>
 </div>
 <?php endif; ?>
 <div>
-<h4 class="text-sm font-black text-on-surface-variant uppercase tracking-[0.2em] mb-4">Your account</h4>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<h4 class="text-xs font-bold text-on-surface-variant uppercase tracking-[0.2em] mb-4">Your account</h4>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 <div>
-<label class="text-base font-semibold text-slate-700 font-headline" for="full-name">Full Name</label>
-<input class="mt-2 w-full px-4 py-3 text-[17px] rounded-xl border-slate-200 focus:border-primary focus:ring-primary transition-all" id="full-name" name="full_name" placeholder="Full name" type="text" value="<?php echo htmlspecialchars($current_user['full_name'] ?? ''); ?>"/>
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider" for="full-name">Full Name</label>
+<input class="mt-1.5 w-full bg-surface-container-low/50 border border-outline-variant/40 focus:ring-2 focus:ring-primary/20 rounded-2xl px-4 py-2.5 text-sm text-on-background placeholder:text-on-surface-variant/50 transition-all" id="full-name" name="full_name" placeholder="Full name" type="text" value="<?php echo htmlspecialchars($current_user['full_name'] ?? ''); ?>"/>
 </div>
 <div>
-<label class="text-base font-semibold text-slate-700 font-headline" for="email">Email Address</label>
-<input class="mt-2 w-full px-4 py-3 text-[17px] rounded-xl border-slate-200 focus:border-primary focus:ring-primary transition-all" id="email" name="email" placeholder="Email" type="email" value="<?php echo htmlspecialchars($current_user['email'] ?? ''); ?>"/>
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider" for="email">Email Address</label>
+<input class="mt-1.5 w-full bg-surface-container-low/50 border border-outline-variant/40 focus:ring-2 focus:ring-primary/20 rounded-2xl px-4 py-2.5 text-sm text-on-background placeholder:text-on-surface-variant/50 transition-all" id="email" name="email" placeholder="Email" type="email" value="<?php echo htmlspecialchars($current_user['email'] ?? ''); ?>"/>
 </div>
 <div>
-<label class="text-base font-semibold text-slate-700 font-headline" for="contact">Contact Number</label>
-<input class="mt-2 w-full px-4 py-3 text-[17px] rounded-xl border-slate-200 focus:border-primary focus:ring-primary transition-all" id="contact" name="phone" placeholder="Phone" type="tel" value="<?php echo htmlspecialchars($current_user['phone'] ?? ''); ?>"/>
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider" for="contact">Contact Number</label>
+<input class="mt-1.5 w-full bg-surface-container-low/50 border border-outline-variant/40 focus:ring-2 focus:ring-primary/20 rounded-2xl px-4 py-2.5 text-sm text-on-background placeholder:text-on-surface-variant/50 transition-all" id="contact" name="phone" placeholder="Phone" type="tel" value="<?php echo htmlspecialchars($current_user['phone'] ?? ''); ?>"/>
 </div>
 </div>
 </div>
 </form>
 </div>
 </div>
+</section>
 </div>
 </main>
 <script data-purpose="event-handlers">
