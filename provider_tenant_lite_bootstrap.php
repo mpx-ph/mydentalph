@@ -25,6 +25,8 @@ if (empty($_SESSION['user_id']) || empty($_SESSION['tenant_id'])) {
 $tenant_id = (string) $_SESSION['tenant_id'];
 $user_id = (string) $_SESSION['user_id'];
 
+require_once __DIR__ . '/provider_tenant_canonical_context.inc.php';
+
 $current_user = [];
 try {
     $stmt = $pdo->prepare('SELECT full_name FROM tbl_users WHERE user_id = ? LIMIT 1');

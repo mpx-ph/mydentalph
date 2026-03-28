@@ -1,6 +1,74 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/provider_tenant_lite_bootstrap.php';
+
+$clinic_settings_saved = false;
+$clinic_settings_error = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['form'] ?? '') === 'clinic_details') {
+    try {
+        if ($is_owner) {
+            $cn = trim((string) ($_POST['clinic_name'] ?? ''));
+            $ce = trim((string) ($_POST['clinic_email'] ?? ''));
+            $cp = trim((string) ($_POST['clinic_phone'] ?? ''));
+            $ca = trim((string) ($_POST['clinic_address'] ?? ''));
+            if ($cn !== '') {
+                $stmt = $pdo->prepare('UPDATE tbl_tenants SET clinic_name = ?, contact_email = ?, contact_phone = ?, clinic_address = ? WHERE tenant_id = ?');
+                $stmt->execute([$cn, $ce, $cp, $ca, (string) $tenant_id]);
+            }
+        }
+        $clinic_settings_saved = true;
+    } catch (Throwable $e) {
+        $clinic_settings_error = 'Could not save settings. Please try again.';
+    }
+}
+
+$tenant = [];
+try {
+    $stmt = $pdo->prepare("
+        SELECT t.tenant_id, t.clinic_name, t.clinic_slug, t.contact_email, t.contact_phone, t.clinic_address, t.subscription_status,
+               u.full_name AS owner_name, u.email AS owner_email, u.phone AS owner_phone
+        FROM tbl_tenants t
+        LEFT JOIN tbl_users u ON t.owner_user_id = u.user_id
+        WHERE t.tenant_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([(string) $tenant_id]);
+    $tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+} catch (Throwable $e) {
+    $tenant = [];
+}
+
+if ($clinic_settings_saved) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT t.tenant_id, t.clinic_name, t.clinic_slug, t.contact_email, t.contact_phone, t.clinic_address, t.subscription_status,
+                   u.full_name AS owner_name, u.email AS owner_email, u.phone AS owner_phone
+            FROM tbl_tenants t
+            LEFT JOIN tbl_users u ON t.owner_user_id = u.user_id
+            WHERE t.tenant_id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([(string) $tenant_id]);
+        $refetched = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (is_array($refetched) && $refetched !== []) {
+            $tenant = $refetched;
+        }
+    } catch (Throwable $e) {
+    }
+}
+
+if ($tenant === []) {
+    $tenant = [
+        'tenant_id' => (string) $tenant_id,
+        'clinic_name' => '',
+        'clinic_slug' => '',
+        'contact_email' => '',
+        'contact_phone' => '',
+        'clinic_address' => '',
+        'subscription_status' => '',
+    ];
+}
+
 $provider_nav_active = 'settings';
 ?>
 <!DOCTYPE html>
@@ -159,27 +227,37 @@ $provider_nav_active = 'settings';
 <p class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Public information for your dental practice</p>
 </div>
 </div>
-<form class="space-y-8">
+<?php if ($clinic_settings_saved): ?>
+<div class="mb-6 p-4 bg-emerald-50 border border-emerald-200/80 text-emerald-800 rounded-2xl text-sm font-medium">Clinic details saved successfully.</div>
+<?php endif; ?>
+<?php if ($clinic_settings_error !== ''): ?>
+<div class="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm"><?php echo htmlspecialchars($clinic_settings_error); ?></div>
+<?php endif; ?>
+<?php if (!$is_owner): ?>
+<div class="mb-6 p-4 bg-slate-50 border border-slate-200 text-on-surface-variant rounded-2xl text-sm font-medium">Only the clinic owner can edit these details. Contact your owner if something needs updating.</div>
+<?php endif; ?>
+<form class="space-y-8" method="post" action="" id="clinic-details-form" data-purpose="clinic-details-form">
+<input type="hidden" name="form" value="clinic_details"/>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-<div class="space-y-2">
-<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1">Clinic Name</label>
-<input class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" type="text" value="Aetheris Dental Clinic"/>
+<div class="space-y-2 md:col-span-2">
+<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1" for="clinic_name">Clinic Name</label>
+<input class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" type="text" id="clinic_name" name="clinic_name" placeholder="Clinic name" value="<?php echo htmlspecialchars((string) ($tenant['clinic_name'] ?? '')); ?>" <?php echo $is_owner ? '' : 'readonly disabled'; ?>/>
 </div>
 <div class="space-y-2">
-<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1">Clinic Email</label>
-<input class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" type="email" value="contact@aetherisdental.com"/>
+<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1" for="clinic_email">Clinic Email</label>
+<input class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all <?php echo $is_owner ? '' : 'opacity-70 cursor-not-allowed'; ?>" type="email" id="clinic_email" name="clinic_email" placeholder="Clinic email" value="<?php echo htmlspecialchars((string) ($tenant['contact_email'] ?? '')); ?>" <?php echo $is_owner ? '' : 'readonly disabled'; ?>/>
 </div>
 <div class="space-y-2">
-<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1">Phone Number</label>
-<input class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" type="tel" value="+1 (555) 012-3456"/>
+<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1" for="clinic_phone">Phone Number</label>
+<input class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all <?php echo $is_owner ? '' : 'opacity-70 cursor-not-allowed'; ?>" type="tel" id="clinic_phone" name="clinic_phone" placeholder="Clinic phone" value="<?php echo htmlspecialchars((string) ($tenant['contact_phone'] ?? '')); ?>" <?php echo $is_owner ? '' : 'readonly disabled'; ?>/>
 </div>
-<div class="space-y-2">
-<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1">Address</label>
-<input class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" type="text" value="782 Precision Way, Suite 400"/>
+<div class="space-y-2 md:col-span-2">
+<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1" for="clinic_address">Address</label>
+<textarea class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all min-h-[5rem] <?php echo $is_owner ? '' : 'opacity-70 cursor-not-allowed'; ?>" id="clinic_address" name="clinic_address" placeholder="Address" rows="3" <?php echo $is_owner ? '' : 'readonly disabled'; ?>><?php echo htmlspecialchars((string) ($tenant['clinic_address'] ?? '')); ?></textarea>
 </div>
 </div>
 <div class="pt-4 flex justify-end">
-<button class="bg-primary text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:shadow-xl hover:shadow-primary/25 transition-all duration-300 active:scale-95 hover:scale-[1.02]" type="submit">Save Changes</button>
+<button class="bg-primary text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:shadow-xl hover:shadow-primary/25 transition-all duration-300 active:scale-95 hover:scale-[1.02] disabled:opacity-50 disabled:pointer-events-none" type="submit" <?php echo $is_owner ? '' : 'disabled'; ?>>Save Changes</button>
 </div>
 </form>
 </div>
