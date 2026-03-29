@@ -13,176 +13,167 @@ $cuImg = function($k) use ($CLINIC) {
     if ($v === '') return '';
     return (strpos($v, 'http') === 0) ? $v : (BASE_URL . ltrim($v, '/'));
 };
-$aboutHeroUrl = htmlspecialchars($cuImg('about_hero_image') ?: (BASE_URL . 'Clinic2.jpg'), ENT_QUOTES, 'UTF-8');
-$clinicNameDisplay = isset($CLINIC['clinic_name']) ? htmlspecialchars($CLINIC['clinic_name'], ENT_QUOTES, 'UTF-8') : '';
 ?>
-<style>
-.about-editorial-word {
-    text-shadow: 0 0 12px rgba(43, 140, 238, 0.12);
-    letter-spacing: -0.02em;
-}
-</style>
 <div class="relative flex min-h-screen w-full flex-col group/design-root">
 <?php include __DIR__ . '/includes/nav_client.php'; ?>
-<main class="flex-grow w-full bg-white dark:bg-background-dark text-slate-900 dark:text-slate-100">
-
-<section class="relative flex items-center justify-center pt-28 lg:pt-32 overflow-hidden bg-slate-50 dark:bg-slate-900/40 pb-12 md:pb-16 min-h-[38vh]">
-<div class="max-w-7xl mx-auto px-6 md:px-8 text-center relative z-10">
-<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8">
-<?php echo $cu('about_hero_caption_title') ?: 'Established Excellence'; ?>
+<main class="flex-grow w-full bg-surface-light dark:bg-background-dark">
+<section class="w-full relative py-20 lg:py-28 px-4 md:px-10 flex flex-col items-center text-center overflow-hidden bg-grid-slate mt-16 lg:mt-24">
+<div class="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
+<div class="absolute -top-[10%] left-1/4 w-[40%] h-[40%] bg-primary/20 dark:bg-primary/10 rounded-full blur-[100px] opacity-60"></div>
+<div class="absolute top-[40%] right-0 w-[30%] h-[40%] bg-sky-200/40 dark:bg-sky-900/10 rounded-full blur-[100px] opacity-60"></div>
 </div>
-<h1 class="font-display text-[clamp(2.25rem,5.5vw,4.5rem)] font-extrabold tracking-[-0.05em] mb-8 leading-[0.95] flex flex-col items-center justify-center">
-<span class="block text-slate-900 dark:text-white"><?php echo $cu('about_intro_heading'); ?></span>
-<?php if ($clinicNameDisplay !== ''): ?>
-<span class="relative block text-center mt-2">
-<span class="font-serif italic font-normal text-primary about-editorial-word transform -skew-x-6 inline-block"><?php echo $clinicNameDisplay; ?></span>
-</span>
-<?php endif; ?>
+<div class="max-w-[800px] flex flex-col items-center gap-6 z-10">
+<h1 class="text-slate-900 dark:text-white text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1] text-balance">
+                    <?php echo $cu('about_intro_heading'); ?>
 </h1>
-<p class="font-body text-lg md:text-xl max-w-2xl mx-auto mb-4 leading-relaxed text-slate-600 dark:text-slate-400 font-medium text-balance">
-<?php echo $cu('about_intro_text'); ?>
-</p>
+<p class="text-slate-600 dark:text-slate-400 text-lg md:text-xl leading-relaxed max-w-2xl text-balance">
+                    <?php echo $cu('about_intro_text'); ?>
+                </p>
 </div>
-<div class="absolute inset-0 z-0 opacity-25 pointer-events-none">
-<div class="absolute top-1/4 -left-20 w-96 h-96 bg-primary/20 rounded-full blur-[100px]"></div>
-<div class="absolute bottom-1/4 -right-20 w-96 h-96 bg-primary/10 rounded-full blur-[100px]"></div>
+<div class="mt-16 w-full max-w-[1100px] grid grid-cols-1 md:grid-cols-12 gap-5 h-auto md:h-[420px]">
+<div class="md:col-span-8 h-64 md:h-full rounded-3xl overflow-hidden shadow-soft relative group border border-slate-100 dark:border-slate-800">
+<div class="absolute inset-0 bg-gradient-to-t from-slate-900/70 to-transparent z-10"></div>
+<div class="absolute bottom-8 left-8 z-20 text-white text-left max-w-md">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary text-[20px]">medical_services</span>
+<p class="text-xs font-bold uppercase tracking-wider opacity-90"><?php echo $cu('about_hero_caption_title'); ?></p>
 </div>
-</section>
-
-<section class="bg-white dark:bg-slate-900 pt-12 md:pt-16 pb-20 md:pb-28" id="philosophy">
-<div class="max-w-[1800px] mx-auto px-6 md:px-10">
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-<div class="relative">
-<div class="rounded-[2.5rem] overflow-hidden aspect-[4/5] shadow-2xl relative group max-h-[560px] lg:max-h-none mx-auto lg:mx-0">
-<img alt="<?php echo $cu('about_hero_caption_title'); ?>" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" src="<?php echo $aboutHeroUrl; ?>" loading="lazy" decoding="async" width="800" height="1000">
-<div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+<p class="text-2xl font-bold leading-tight"><?php echo $cu('about_hero_caption_text'); ?></p>
 </div>
-<div class="absolute -bottom-8 md:-bottom-10 -right-2 md:-right-10 bg-white dark:bg-slate-800 p-6 md:p-10 rounded-3xl max-w-sm shadow-2xl border border-slate-100 dark:border-slate-700 hidden md:block">
-<p class="font-display font-extrabold text-primary text-xl mb-2"><?php echo $cu('about_hero_caption_title'); ?></p>
-<p class="text-slate-600 dark:text-slate-400 font-medium italic text-sm leading-relaxed"><?php echo $cu('about_hero_caption_text'); ?></p>
+<div class="w-full h-full bg-cover bg-center transition-transform duration-700 group-hover:scale-105" style='background-image: url("<?php echo $cuImg('about_hero_image') ?: (BASE_URL . 'Clinic2.jpg'); ?>");'></div>
 </div>
+<div class="md:col-span-4 flex flex-col gap-5 h-full">
+<div class="flex-1 bg-white dark:bg-slate-800 rounded-3xl p-8 shadow-card border border-slate-100 dark:border-slate-700 flex flex-col justify-center items-start group hover:shadow-card-hover transition-all duration-300">
+<div class="w-14 h-14 rounded-2xl bg-primary-light dark:bg-primary/20 text-primary flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[32px]">verified_user</span>
 </div>
-<div class="space-y-8 md:space-y-10">
-<div>
-<div class="text-primary font-bold text-xs uppercase mb-6 flex gap-4 tracking-[0.3em] items-center">
-<span class="w-12 h-[1.5px] bg-primary"></span> <?php echo $cu('about_trusted_title'); ?>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2"><?php echo $cu('about_trusted_title'); ?></h3>
+<p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed"><?php echo $cu('about_trusted_text'); ?></p>
 </div>
-<h2 class="font-display text-4xl md:text-5xl lg:text-7xl font-extrabold tracking-tighter leading-[0.95] text-slate-900 dark:text-white mb-6 md:mb-8">Our Approach &amp; <br/> <span class="font-serif italic font-normal text-primary about-editorial-word transform -skew-x-6 inline-block">Philosophy</span></h2>
-</div>
-<p class="text-slate-600 dark:text-slate-400 text-lg md:text-xl leading-relaxed font-medium">
-<?php echo $cu('about_why_subtext'); ?>
-</p>
-<p class="text-slate-600 dark:text-slate-400 text-lg md:text-xl leading-relaxed font-medium">
-<?php echo $cu('about_trusted_text'); ?>
-</p>
-<div class="flex flex-wrap gap-4 items-center pt-4">
-<div class="rounded-2xl bg-slate-900 dark:bg-slate-950 text-white px-8 py-6 shadow-lg">
-<p class="text-4xl md:text-5xl font-bold tracking-tight"><?php echo $cu('about_years_number'); ?></p>
-<p class="text-sm text-slate-300 font-medium mt-1"><?php echo nl2br($cu('about_years_text')); ?></p>
-</div>
-</div>
+<div class="flex-1 bg-slate-900 dark:bg-slate-950 text-white rounded-3xl p-8 shadow-lg flex flex-col justify-center items-start relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-40 h-40 bg-primary/20 rounded-full blur-3xl -mr-10 -mt-10 group-hover:bg-primary/30 transition-colors"></div>
+<h3 class="text-5xl font-bold mb-2 tracking-tight"><?php echo $cu('about_years_number'); ?></h3>
+<p class="text-base text-slate-300 font-medium"><?php echo nl2br($cu('about_years_text')); ?></p>
 </div>
 </div>
 </div>
 </section>
-
-<section class="py-20 md:py-28 bg-slate-50 dark:bg-slate-950/50">
-<div class="max-w-[1800px] mx-auto px-6 md:px-10">
-<div class="flex flex-col items-center text-center mb-14 md:mb-20">
-<h2 class="font-display text-4xl md:text-5xl lg:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white mb-4 md:mb-6">Why Patients <span class="font-serif italic font-normal text-primary about-editorial-word transform -skew-x-6 inline-block">Choose Us</span></h2>
-<p class="text-slate-600 dark:text-slate-400 text-lg md:text-xl font-medium max-w-2xl text-balance"><?php echo $cu('about_why_heading'); ?></p>
+<section class="w-full py-24 bg-white dark:bg-slate-900 border-y border-slate-100 dark:border-slate-800">
+<div class="max-w-[1200px] mx-auto px-4 md:px-10">
+<div class="text-center mb-16">
+<h2 class="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white tracking-tight"><?php echo $cu('about_why_heading'); ?></h2>
+<p class="mt-4 text-slate-600 dark:text-slate-400"><?php echo $cu('about_why_subtext'); ?></p>
 </div>
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-<div class="group bg-white dark:bg-slate-800 p-8 md:p-12 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 hover:border-primary/25 transition-all duration-700 hover:shadow-2xl">
-<div class="w-16 h-16 bg-primary-light dark:bg-primary/20 rounded-2xl flex items-center justify-center mb-8 md:mb-10 text-primary transition-all duration-500 group-hover:scale-110">
-<span class="material-symbols-outlined text-3xl">spa</span>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
+<div class="group flex flex-col items-center text-center p-6 rounded-3xl hover:bg-surface-light dark:hover:bg-slate-800/50 transition-colors duration-300">
+<div class="w-20 h-20 rounded-full bg-primary-light dark:bg-primary/10 text-primary flex items-center justify-center transition-transform group-hover:scale-110 duration-300 mb-6 shadow-sm">
+<span class="material-symbols-outlined text-[36px]">spa</span>
 </div>
-<h4 class="font-display text-2xl md:text-3xl font-extrabold mb-4 md:mb-6 tracking-tight text-slate-900 dark:text-white"><?php echo $cu('about_why_1_title'); ?></h4>
-<p class="text-slate-600 dark:text-slate-400 text-base md:text-lg leading-relaxed font-medium"><?php echo $cu('about_why_1_text'); ?></p>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white mb-3"><?php echo $cu('about_why_1_title'); ?></h3>
+<p class="text-slate-500 dark:text-slate-400 leading-relaxed"><?php echo $cu('about_why_1_text'); ?></p>
 </div>
-<div class="group bg-primary p-8 md:p-12 rounded-[2.5rem] shadow-[0_40px_80px_-20px_rgba(43,140,238,0.35)] transition-all duration-700 relative overflow-hidden">
-<div class="w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-8 md:mb-10 text-white border border-white/20">
-<span class="material-symbols-outlined text-3xl">biotech</span>
+<div class="group flex flex-col items-center text-center p-6 rounded-3xl hover:bg-surface-light dark:hover:bg-slate-800/50 transition-colors duration-300">
+<div class="w-20 h-20 rounded-full bg-primary-light dark:bg-primary/10 text-primary flex items-center justify-center transition-transform group-hover:scale-110 duration-300 mb-6 shadow-sm">
+<span class="material-symbols-outlined text-[36px]">biotech</span>
 </div>
-<h4 class="font-display text-2xl md:text-3xl font-extrabold mb-4 md:mb-6 tracking-tight text-white"><?php echo $cu('about_why_2_title'); ?></h4>
-<p class="text-white/85 text-base md:text-lg leading-relaxed font-medium"><?php echo $cu('about_why_2_text'); ?></p>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white mb-3"><?php echo $cu('about_why_2_title'); ?></h3>
+<p class="text-slate-500 dark:text-slate-400 leading-relaxed"><?php echo $cu('about_why_2_text'); ?></p>
 </div>
-<div class="group bg-white dark:bg-slate-800 p-8 md:p-12 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 hover:border-primary/25 transition-all duration-700 hover:shadow-2xl">
-<div class="w-16 h-16 bg-primary-light dark:bg-primary/20 rounded-2xl flex items-center justify-center mb-8 md:mb-10 text-primary transition-all duration-500 group-hover:scale-110">
-<span class="material-symbols-outlined text-3xl">verified_user</span>
+<div class="group flex flex-col items-center text-center p-6 rounded-3xl hover:bg-surface-light dark:hover:bg-slate-800/50 transition-colors duration-300">
+<div class="w-20 h-20 rounded-full bg-primary-light dark:bg-primary/10 text-primary flex items-center justify-center transition-transform group-hover:scale-110 duration-300 mb-6 shadow-sm">
+<span class="material-symbols-outlined text-[36px]">favorite</span>
 </div>
-<h4 class="font-display text-2xl md:text-3xl font-extrabold mb-4 md:mb-6 tracking-tight text-slate-900 dark:text-white"><?php echo $cu('about_why_3_title'); ?></h4>
-<p class="text-slate-600 dark:text-slate-400 text-base md:text-lg leading-relaxed font-medium"><?php echo $cu('about_why_3_text'); ?></p>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white mb-3"><?php echo $cu('about_why_3_title'); ?></h3>
+<p class="text-slate-500 dark:text-slate-400 leading-relaxed"><?php echo $cu('about_why_3_text'); ?></p>
 </div>
 </div>
 </div>
 </section>
-
-<section class="py-20 md:py-28 bg-white dark:bg-background-dark">
-<div class="max-w-[1800px] mx-auto px-6 md:px-10">
-<div class="flex flex-col items-center text-center mb-14 md:mb-20 gap-6">
-<span class="text-primary font-bold tracking-wider uppercase text-xs bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-full shadow-sm border border-slate-100 dark:border-slate-700">Our Team</span>
-<h2 class="font-display text-4xl md:text-5xl lg:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white">Meet the <span class="font-serif italic font-normal text-primary about-editorial-word transform -skew-x-6 inline-block">Experts</span></h2>
-<p class="text-slate-600 dark:text-slate-400 text-lg md:text-2xl font-medium max-w-2xl text-balance">Experienced professionals dedicated to your smile.</p>
+<section class="w-full py-24 bg-surface-light dark:bg-background-dark relative overflow-hidden">
+<div class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[120px]"></div>
 </div>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10 max-w-6xl mx-auto">
-<div class="group bg-white dark:bg-slate-800 p-5 md:p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 transition-all duration-500 hover:shadow-2xl">
-<div class="rounded-3xl overflow-hidden aspect-[4/3] md:h-[400px] mb-6 md:mb-8 bg-primary-light dark:bg-slate-700 relative">
-<?php $t1 = $cuImg('about_team_doctor1_image'); ?>
-<div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105<?php echo $t1 === '' ? ' bg-slate-200 dark:bg-slate-600' : ''; ?>"<?php echo $t1 !== '' ? ' style="background-image: url(\'' . htmlspecialchars($t1, ENT_QUOTES, 'UTF-8') . '\');"' : ''; ?>></div>
-<div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
-<div class="absolute bottom-0 left-0 w-full p-5 md:p-6 text-white">
-<p class="text-primary font-bold text-xs uppercase tracking-[0.25em] mb-2"><?php echo $cu('about_team_doctor1_title'); ?></p>
-<h4 class="font-display text-2xl md:text-3xl font-extrabold"><?php echo $cu('about_team_doctor1_name'); ?></h4>
+<div class="max-w-[1100px] mx-auto px-4 md:px-10 relative z-10">
+<div class="text-center mb-16">
+<span class="text-primary font-bold tracking-wider uppercase text-xs bg-white dark:bg-slate-800 px-3 py-1 rounded-full shadow-sm border border-slate-100 dark:border-slate-700">Our Team</span>
+<h2 class="mt-4 text-3xl md:text-5xl font-bold text-slate-900 dark:text-white tracking-tight">Meet the Experts</h2>
+<p class="mt-5 text-slate-600 dark:text-slate-400 text-lg max-w-2xl mx-auto">Get to know the experienced and compassionate professionals dedicated to your smile.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
+<div class="group relative flex flex-col bg-white dark:bg-slate-800 rounded-[2.5rem] p-4 shadow-card hover:shadow-card-hover transition-all duration-300 border border-slate-100 dark:border-slate-700">
+<div class="relative w-full aspect-[4/3] overflow-hidden rounded-[2rem] mb-6">
+<div aria-hidden="true" class="absolute inset-0 bg-slate-100 dark:bg-slate-700 animate-pulse"></div>
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105" style='background-image: url("<?php echo $cuImg('about_team_doctor1_image'); ?>");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-60"></div>
+<div class="absolute bottom-0 left-0 w-full p-6 text-white translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+<h3 class="text-2xl font-bold drop-shadow-md"><?php echo $cu('about_team_doctor1_name'); ?></h3>
+<p class="text-sm font-medium text-white/90 uppercase tracking-wide drop-shadow-md"><?php echo $cu('about_team_doctor1_title'); ?></p>
 </div>
 </div>
-<div class="px-2 md:px-4 pb-2">
-<p class="text-slate-600 dark:text-slate-400 text-base leading-relaxed mb-6"><?php echo $cu('about_team_doctor1_bio'); ?></p>
-<div class="flex flex-wrap gap-2">
+<div class="px-4 pb-4 flex flex-col gap-4">
+<p class="text-slate-600 dark:text-slate-400 text-base leading-relaxed">
+                                <?php echo $cu('about_team_doctor1_bio'); ?>
+                            </p>
+<div class="flex items-center mt-2 pt-4 border-t border-slate-100 dark:border-slate-700">
+<div class="flex gap-2">
 <?php foreach (array_filter(array_map('trim', explode(',', $CLINIC['about_team_doctor1_tags'] ?? ''))) as $tag): ?>
-<span class="bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-widest px-3 py-2 rounded-full"><?php echo htmlspecialchars($tag, ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="inline-flex items-center justify-center px-3 py-1 rounded-full bg-slate-50 dark:bg-slate-700 text-xs font-medium text-slate-600 dark:text-slate-300"><?php echo htmlspecialchars($tag, ENT_QUOTES, 'UTF-8'); ?></span>
 <?php endforeach; ?>
 </div>
 </div>
 </div>
-<div class="group bg-white dark:bg-slate-800 p-5 md:p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 transition-all duration-500 hover:shadow-2xl">
-<div class="rounded-3xl overflow-hidden aspect-[4/3] md:h-[400px] mb-6 md:mb-8 bg-primary-light dark:bg-slate-700 relative">
-<?php $t2 = $cuImg('about_team_doctor2_image'); ?>
-<div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105<?php echo $t2 === '' ? ' bg-slate-200 dark:bg-slate-600' : ''; ?>"<?php echo $t2 !== '' ? ' style="background-image: url(\'' . htmlspecialchars($t2, ENT_QUOTES, 'UTF-8') . '\');"' : ''; ?>></div>
-<div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
-<div class="absolute bottom-0 left-0 w-full p-5 md:p-6 text-white">
-<p class="text-primary font-bold text-xs uppercase tracking-[0.25em] mb-2"><?php echo $cu('about_team_doctor2_title'); ?></p>
-<h4 class="font-display text-2xl md:text-3xl font-extrabold"><?php echo $cu('about_team_doctor2_name'); ?></h4>
+</div>
+<div class="group relative flex flex-col bg-white dark:bg-slate-800 rounded-[2.5rem] p-4 shadow-card hover:shadow-card-hover transition-all duration-300 border border-slate-100 dark:border-slate-700">
+<div class="relative w-full aspect-[4/3] overflow-hidden rounded-[2rem] mb-6">
+<div aria-hidden="true" class="absolute inset-0 bg-slate-100 dark:bg-slate-700 animate-pulse"></div>
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105" style='background-image: url("<?php echo $cuImg('about_team_doctor2_image'); ?>");'></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-60"></div>
+<div class="absolute bottom-0 left-0 w-full p-6 text-white translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+<h3 class="text-2xl font-bold drop-shadow-md"><?php echo $cu('about_team_doctor2_name'); ?></h3>
+<p class="text-sm font-medium text-white/90 uppercase tracking-wide drop-shadow-md"><?php echo $cu('about_team_doctor2_title'); ?></p>
 </div>
 </div>
-<div class="px-2 md:px-4 pb-2">
-<p class="text-slate-600 dark:text-slate-400 text-base leading-relaxed mb-6"><?php echo $cu('about_team_doctor2_bio'); ?></p>
-<div class="flex flex-wrap gap-2">
+<div class="px-4 pb-4 flex flex-col gap-4">
+<p class="text-slate-600 dark:text-slate-400 text-base leading-relaxed">
+                                 <?php echo $cu('about_team_doctor2_bio'); ?>
+                            </p>
+<div class="flex items-center mt-2 pt-4 border-t border-slate-100 dark:border-slate-700">
+<div class="flex gap-2">
 <?php foreach (array_filter(array_map('trim', explode(',', $CLINIC['about_team_doctor2_tags'] ?? ''))) as $tag): ?>
-<span class="bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-widest px-3 py-2 rounded-full"><?php echo htmlspecialchars($tag, ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="inline-flex items-center justify-center px-3 py-1 rounded-full bg-slate-50 dark:bg-slate-700 text-xs font-medium text-slate-600 dark:text-slate-300"><?php echo htmlspecialchars($tag, ENT_QUOTES, 'UTF-8'); ?></span>
 <?php endforeach; ?>
 </div>
 </div>
 </div>
 </div>
 </div>
-</section>
-
-<section class="py-16 md:py-24 px-6 md:px-10">
-<div class="mx-auto rounded-[3rem] md:rounded-[4rem] bg-primary relative overflow-hidden flex flex-col items-center text-center shadow-[0_40px_100px_-20px_rgba(43,140,238,0.45)] max-w-6xl py-16 md:py-24 px-8 md:px-16">
-<div class="relative z-10 max-w-3xl">
-<div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-8 md:mb-10">Take the next step</div>
-<h2 class="font-display text-3xl md:text-5xl lg:text-6xl font-extrabold text-white tracking-tighter leading-[0.9] md:leading-[0.85] mb-6 md:mb-8"><?php echo $cu('about_cta_heading'); ?></h2>
-<p class="text-white/75 text-lg md:text-xl max-w-xl mx-auto leading-relaxed mb-8 md:mb-10"><?php echo $cu('about_cta_subtext'); ?></p>
-<div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-<a href="<?php echo BASE_URL; ?>BookAppointmentClient.php" class="inline-flex items-center justify-center bg-white text-primary px-10 md:px-14 py-5 md:py-6 rounded-full font-black text-sm uppercase tracking-[0.15em] hover:scale-[1.02] transition-transform shadow-2xl active:scale-95"><?php echo $cu('about_cta_book_text'); ?></a>
-<a href="<?php echo BASE_URL; ?>ContactUsClient.php" class="inline-flex items-center justify-center border-2 border-white/40 text-white px-10 md:px-14 py-5 md:py-6 rounded-full font-bold text-sm uppercase tracking-wide hover:bg-white/10 transition-colors"><?php echo $cu('about_cta_contact_text'); ?></a>
-</div>
-</div>
-<div class="absolute top-0 right-0 w-1/3 h-full border-l border-white/10 pointer-events-none hidden md:block"></div>
-<div class="absolute -right-20 -bottom-20 w-80 h-80 bg-white/5 rounded-full blur-3xl"></div>
 </div>
 </section>
-
+<section class="w-full px-4 md:px-10 py-24 bg-white dark:bg-background-dark">
+<div class="max-w-[1200px] mx-auto relative rounded-[2.5rem] bg-primary overflow-hidden shadow-2xl shadow-primary/25">
+<div class="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 rounded-full bg-white/10 blur-3xl"></div>
+<div class="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-white/10 blur-3xl"></div>
+<div class="relative z-10 px-8 py-16 md:p-24 text-center flex flex-col items-center gap-8">
+<div class="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-white mb-2">
+<span class="material-symbols-outlined text-[32px]">calendar_month</span>
+</div>
+<h2 class="text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight max-w-3xl">
+                        <?php echo $cu('about_cta_heading'); ?>
+                    </h2>
+<p class="text-white/90 text-lg md:text-xl max-w-2xl font-medium">
+                        <?php echo $cu('about_cta_subtext'); ?>
+                    </p>
+<div class="flex flex-col sm:flex-row gap-4 w-full justify-center mt-4">
+<a href="<?php echo BASE_URL; ?>BookAppointmentClient.php" class="flex items-center justify-center rounded-full h-14 px-10 bg-white text-primary hover:bg-slate-50 transition-all shadow-lg text-base font-bold tracking-wide transform hover:-translate-y-1">
+                            <?php echo $cu('about_cta_book_text'); ?>
+                        </a>
+<a href="<?php echo BASE_URL; ?>ContactUsClient.php" class="flex items-center justify-center rounded-full h-14 px-10 bg-transparent border-2 border-white/30 text-white hover:bg-white/10 transition-colors text-base font-bold tracking-wide">
+                            <?php echo $cu('about_cta_contact_text'); ?>
+                        </a>
+</div>
+</div>
+</div>
+</section>
 </main>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
+
