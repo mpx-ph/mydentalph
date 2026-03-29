@@ -35,6 +35,7 @@ $preview_urls = [
     'services' => $preview_base !== '' ? ($preview_base . '/services') : '',
     'about' => $preview_base !== '' ? ($preview_base . '/about') : '',
     'contact' => $preview_base !== '' ? ($preview_base . '/contact') : '',
+    'login' => $preview_base !== '' ? ($preview_base . '/login') : '',
 ];
 
 $preview_urls_json = json_encode($preview_urls, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS);
@@ -282,7 +283,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <div>
 <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]"><span class="w-12 h-[1.5px] bg-primary"></span> Patient website</div>
 <h1 class="font-headline text-3xl sm:text-4xl font-extrabold tracking-tighter text-on-background mt-3">Customize <span class="font-editorial italic font-normal text-primary">your clinic site</span></h1>
-<p class="text-on-surface-variant font-medium mt-3 max-w-xl text-sm sm:text-base">Adjust branding, colors, typography, and page copy. Changes apply to your public home, services, about, and contact pages for this clinic only.</p>
+<p class="text-on-surface-variant font-medium mt-3 max-w-xl text-sm sm:text-base">Adjust branding, colors, typography, and page copy. Changes apply to your public home, services, about, contact, and patient login pages for this clinic only.</p>
 </div>
 <div class="flex flex-wrap items-center gap-3">
 <?php if ($tenant_public_site_url !== ''): ?>
@@ -337,6 +338,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <option value="services">Services</option>
 <option value="about">About</option>
 <option value="contact">Contact</option>
+<option value="login">Login</option>
 </select>
 </div>
 
@@ -356,6 +358,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </div>
 
 <div id="panel-colors" class="builder-panel space-y-6 max-h-[52vh] overflow-y-auto pr-1">
+<p class="text-xs text-on-surface-variant leading-relaxed">These colors also apply to the patient login screen. Preview it by choosing <span class="font-bold text-on-background">Login</span> in the page picker above.</p>
 <?php sb_color('color_primary', 'Primary', $site_opts, $is_owner); ?>
 <?php sb_color('color_primary_dark', 'Primary dark', $site_opts, $is_owner); ?>
 <?php sb_color('color_primary_light', 'Primary light', $site_opts, $is_owner); ?>

@@ -15,6 +15,25 @@ if ($clinic_slug !== '' && preg_match('/^[a-z0-9\-]+$/', strtolower($clinic_slug
 // Load customization so logos/text can be tenant-aware (falls back to defaults)
 require_once __DIR__ . '/includes/clinic_customization.php';
 
+$loginHex = function (string $k) use ($CLINIC): string {
+    $v = isset($CLINIC[$k]) ? trim((string) $CLINIC[$k]) : '';
+    $v = preg_replace('/^#/', '', $v);
+    if (strlen($v) === 6 && ctype_xdigit($v)) {
+        return '#' . $v;
+    }
+    return '';
+};
+$cPrimary = $loginHex('color_primary') ?: '#2b8cee';
+$cPrimaryDark = $loginHex('color_primary_dark') ?: '#1a6cb6';
+$cPrimaryLight = $loginHex('color_primary_light') ?: '#eef7ff';
+$h = ltrim($cPrimary, '#');
+if (strlen($h) !== 6 || !ctype_xdigit($h)) {
+    $h = '2b8cee';
+}
+$loginPrimaryR = hexdec(substr($h, 0, 2));
+$loginPrimaryG = hexdec(substr($h, 2, 2));
+$loginPrimaryB = hexdec(substr($h, 4, 2));
+
 require_once __DIR__ . '/includes/auth.php';
 
 // Redirect URL after login: back to MainPageClient with same clinic (tenant) context
@@ -63,13 +82,15 @@ $downloadAppUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slu
         theme: {
           extend: {
             colors: {
-              "primary": "#2b8beb",
+              "primary": "<?php echo htmlspecialchars($cPrimary, ENT_QUOTES, 'UTF-8'); ?>",
+              "primary-dark": "<?php echo htmlspecialchars($cPrimaryDark, ENT_QUOTES, 'UTF-8'); ?>",
+              "primary-light": "<?php echo htmlspecialchars($cPrimaryLight, ENT_QUOTES, 'UTF-8'); ?>",
               "on-surface": "#131c25",
               "surface": "#ffffff",
               "surface-variant": "#f7f9ff",
               "on-surface-variant": "#404752",
               "outline-variant": "#c0c7d4",
-              "surface-container-low": "#edf4ff",
+              "surface-container-low": "<?php echo htmlspecialchars($cPrimaryLight, ENT_QUOTES, 'UTF-8'); ?>",
             },
             fontFamily: {
               "headline": ["Manrope", "sans-serif"],
@@ -86,11 +107,11 @@ $downloadAppUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slu
         .mesh-gradient {
             background-color: #ffffff;
             background-image:
-                radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.1) 0px, transparent 50%),
-                radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.05) 0px, transparent 50%);
+                radial-gradient(at 100% 0%, rgba(<?php echo (int) $loginPrimaryR; ?>, <?php echo (int) $loginPrimaryG; ?>, <?php echo (int) $loginPrimaryB; ?>, 0.1) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(<?php echo (int) $loginPrimaryR; ?>, <?php echo (int) $loginPrimaryG; ?>, <?php echo (int) $loginPrimaryB; ?>, 0.05) 0px, transparent 50%);
         }
         .editorial-word {
-            text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
+            text-shadow: 0 0 12px rgba(<?php echo (int) $loginPrimaryR; ?>, <?php echo (int) $loginPrimaryG; ?>, <?php echo (int) $loginPrimaryB; ?>, 0.1);
             letter-spacing: -0.02em;
         }
         .login-card {
@@ -98,7 +119,7 @@ $downloadAppUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slu
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(0, 0, 0, 0.05);
-            box-shadow: 0 40px 80px -20px rgba(43, 139, 235, 0.08);
+            box-shadow: 0 40px 80px -20px rgba(<?php echo (int) $loginPrimaryR; ?>, <?php echo (int) $loginPrimaryG; ?>, <?php echo (int) $loginPrimaryB; ?>, 0.08);
         }
     </style>
 </head>
@@ -214,7 +235,7 @@ $downloadAppUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slu
 <label class="text-[#0d141b] dark:text-slate-200 text-sm font-semibold">Email Address</label>
 <input id="forgotEmail" type="email" class="w-full h-11 px-4 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-[#0d141b] dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="your@email.com" required/>
 </div>
-<button id="sendOtpBtn" type="button" class="w-full rounded-lg h-11 bg-primary hover:bg-[#237cd6] text-white text-base font-bold transition-all">Send OTP</button>
+<button id="sendOtpBtn" type="button" class="w-full rounded-lg h-11 bg-primary hover:bg-primary-dark text-white text-base font-bold transition-all">Send OTP</button>
 </div>
 <div id="forgotStep2" class="hidden space-y-4">
 <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-2">
@@ -235,7 +256,7 @@ $downloadAppUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slu
 <label class="text-[#0d141b] dark:text-slate-200 text-sm font-semibold">Confirm New Password</label>
 <input id="forgotConfirmPass" type="password" class="w-full h-11 px-4 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-[#0d141b] dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="••••••••" required/>
 </div>
-<button id="submitResetBtn" type="button" class="w-full rounded-lg h-11 bg-primary hover:bg-[#237cd6] text-white text-base font-bold transition-all">Reset Password</button>
+<button id="submitResetBtn" type="button" class="w-full rounded-lg h-11 bg-primary hover:bg-primary-dark text-white text-base font-bold transition-all">Reset Password</button>
 <button id="forgotBackBtn" type="button" class="w-full rounded-lg h-11 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white text-base font-bold hover:opacity-90 transition-all">Back</button>
 </div>
 </div>
