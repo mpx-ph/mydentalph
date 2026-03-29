@@ -2,10 +2,14 @@
 /**
  * Contact Us Page
  */
-$pageTitle = 'Contact Us - Dental Care Plus';
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/tenant_bootstrap.php';
 require_once __DIR__ . '/includes/clinic_customization.php';
+
+$pageTitle = isset($CLINIC['contact_page_title']) ? trim((string) $CLINIC['contact_page_title']) : '';
+if ($pageTitle === '') {
+    $pageTitle = 'Contact Us';
+}
 require_once __DIR__ . '/includes/header.php';
 $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars($CLINIC[$k], ENT_QUOTES, 'UTF-8') : ''; };
 ?>
@@ -78,7 +82,7 @@ $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars(
 <div class="bg-white dark:bg-slate-800 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 shadow-[0_20px_50px_-15px_rgba(43,139,235,0.05)] space-y-12">
 <div>
 <div class="text-primary font-bold text-xs uppercase mb-10 flex items-center gap-4 tracking-[0.3em] font-headline">
-<span class="w-12 h-[1.5px] bg-primary"></span> Contact Information
+<span class="w-12 h-[1.5px] bg-primary"></span> <?php echo $cu('contact_info_section_label'); ?>
                             </div>
 <div class="space-y-10">
 <div class="flex items-start gap-6 group">
@@ -86,10 +90,10 @@ $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars(
 <span class="material-symbols-outlined text-3xl font-light">location_on</span>
 </div>
 <div>
-<p class="font-headline font-extrabold text-slate-900 dark:text-white text-xl mb-1 tracking-tight">Office Address</p>
+<p class="font-headline font-extrabold text-slate-900 dark:text-white text-xl mb-1 tracking-tight"><?php echo $cu('contact_address_label'); ?></p>
 <p class="text-slate-600 dark:text-slate-400 font-medium leading-relaxed font-body"><?php echo nl2br($cu('contact_address')); ?></p>
 <?php if (trim($CLINIC['contact_map_link'] ?? '')): ?>
-<a class="text-primary text-sm font-bold mt-2 inline-flex items-center gap-1 hover:underline font-headline" href="<?php echo $cu('contact_map_link'); ?>" target="_blank" rel="noopener noreferrer">Get directions <span class="material-symbols-outlined text-base">arrow_forward</span></a>
+<a class="text-primary text-sm font-bold mt-2 inline-flex items-center gap-1 hover:underline font-headline" href="<?php echo $cu('contact_map_link'); ?>" target="_blank" rel="noopener noreferrer"><?php echo $cu('contact_directions_link_text'); ?> <span class="material-symbols-outlined text-base">arrow_forward</span></a>
 <?php endif; ?>
 </div>
 </div>
@@ -98,7 +102,7 @@ $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars(
 <span class="material-symbols-outlined text-3xl font-light">call</span>
 </div>
 <div>
-<p class="font-headline font-extrabold text-slate-900 dark:text-white text-xl mb-1 tracking-tight">Phone</p>
+<p class="font-headline font-extrabold text-slate-900 dark:text-white text-xl mb-1 tracking-tight"><?php echo $cu('contact_phone_label'); ?></p>
 <a class="text-slate-600 dark:text-slate-400 font-medium leading-relaxed font-body hover:text-primary" href="tel:<?php echo preg_replace('/\s+/', '', $cu('contact_phone')); ?>"><?php echo $cu('contact_phone'); ?></a>
 </div>
 </div>
@@ -107,7 +111,7 @@ $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars(
 <span class="material-symbols-outlined text-3xl font-light">mail</span>
 </div>
 <div>
-<p class="font-headline font-extrabold text-slate-900 dark:text-white text-xl mb-1 tracking-tight">Email</p>
+<p class="font-headline font-extrabold text-slate-900 dark:text-white text-xl mb-1 tracking-tight"><?php echo $cu('contact_email_label'); ?></p>
 <a class="text-slate-600 dark:text-slate-400 font-medium leading-relaxed font-body hover:text-primary break-all" href="mailto:<?php echo $cu('contact_email'); ?>"><?php echo $cu('contact_email'); ?></a>
 </div>
 </div>
@@ -116,11 +120,11 @@ $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars(
 <span class="material-symbols-outlined text-3xl font-light">schedule</span>
 </div>
 <div>
-<p class="font-headline font-extrabold text-slate-900 dark:text-white text-xl mb-1 tracking-tight">Hours</p>
+<p class="font-headline font-extrabold text-slate-900 dark:text-white text-xl mb-1 tracking-tight"><?php echo $cu('contact_hours_heading_label'); ?></p>
 <p class="text-slate-600 dark:text-slate-400 font-medium leading-relaxed font-body">
-<span class="block">Mon - Fri: <?php echo $cu('contact_hours_mon_fri'); ?></span>
-<span class="block">Saturday: <?php echo $cu('contact_hours_sat'); ?></span>
-<span class="block">Sunday: <?php echo $cu('contact_hours_sun'); ?></span>
+<span class="block"><?php echo $cu('contact_hours_mon_fri_label'); ?> <?php echo $cu('contact_hours_mon_fri'); ?></span>
+<span class="block"><?php echo $cu('contact_hours_sat_label'); ?> <?php echo $cu('contact_hours_sat'); ?></span>
+<span class="block"><?php echo $cu('contact_hours_sun_label'); ?> <?php echo $cu('contact_hours_sun'); ?></span>
 </p>
 </div>
 </div>
@@ -139,7 +143,7 @@ $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars(
     allowfullscreen=""
     loading="lazy"
     referrerpolicy="no-referrer-when-downgrade"
-    title="Clinic Location">
+    title="<?php echo $cu('contact_map_iframe_title'); ?>">
 </iframe>
 </div>
 </section>

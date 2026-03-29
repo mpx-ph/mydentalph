@@ -530,12 +530,44 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <?php sb_text('about_cta_contact_text', 'Secondary button', $site_opts, $is_owner); ?>
 </div>
 </div>
-<div class="space-y-4 sb-preview-scope" data-sb-preview-pages="contact">
-<h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Contact</h3>
-<?php sb_text('contact_hero_badge', 'Badge', $site_opts, $is_owner); ?>
+<div class="space-y-6 sb-preview-scope" data-sb-preview-pages="contact">
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Contact — Hero</h3>
+<p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Top pill, headline, and intro. Matches the style of the home page hero.</p>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_text('contact_page_title', 'Browser tab title', $site_opts, $is_owner); ?>
+<?php sb_text('contact_hero_badge', 'Hero badge (top pill)', $site_opts, $is_owner); ?>
 <?php sb_text('contact_hero_title_before', 'Title (before accent)', $site_opts, $is_owner); ?>
 <?php sb_text('contact_hero_title_accent', 'Accent word', $site_opts, $is_owner); ?>
-<?php sb_text('contact_hero_subtext', 'Subtext', $site_opts, $is_owner, true); ?>
+<?php sb_text('contact_hero_subtext', 'Hero subtext', $site_opts, $is_owner, true); ?>
+</div>
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Contact — Information card</h3>
+<p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Address, map link, and the embedded map. Use a Google Maps share link for directions; use an embed URL (or maps link that supports embedding) for the iframe.</p>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_text('contact_info_section_label', 'Section label (eyebrow)', $site_opts, $is_owner); ?>
+<?php sb_text('contact_address_label', 'Address block title', $site_opts, $is_owner); ?>
+<?php sb_text('contact_address', 'Address', $site_opts, $is_owner, true); ?>
+<?php sb_text('contact_map_link', 'Google Maps link (directions)', $site_opts, $is_owner); ?>
+<?php sb_text('contact_directions_link_text', 'Directions link label', $site_opts, $is_owner); ?>
+<?php sb_text('contact_map_embed', 'Map embed URL (iframe src)', $site_opts, $is_owner, true); ?>
+<?php sb_text('contact_map_iframe_title', 'Map iframe title (accessibility)', $site_opts, $is_owner); ?>
+</div>
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Contact — Phone &amp; email</h3>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_text('contact_phone_label', 'Phone label', $site_opts, $is_owner); ?>
+<?php sb_text('contact_phone', 'Phone number', $site_opts, $is_owner); ?>
+<?php sb_text('contact_email_label', 'Email label', $site_opts, $is_owner); ?>
+<?php sb_text('contact_email', 'Email address', $site_opts, $is_owner); ?>
+</div>
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Contact — Hours</h3>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_text('contact_hours_heading_label', 'Hours block title', $site_opts, $is_owner); ?>
+<?php sb_text('contact_hours_mon_fri_label', 'Weekdays line label', $site_opts, $is_owner); ?>
+<?php sb_text('contact_hours_mon_fri', 'Weekdays hours', $site_opts, $is_owner); ?>
+<?php sb_text('contact_hours_sat_label', 'Saturday line label', $site_opts, $is_owner); ?>
+<?php sb_text('contact_hours_sat', 'Saturday hours', $site_opts, $is_owner); ?>
+<?php sb_text('contact_hours_sun_label', 'Sunday line label', $site_opts, $is_owner); ?>
+<?php sb_text('contact_hours_sun', 'Sunday hours', $site_opts, $is_owner); ?>
+</div>
 </div>
 </div>
 
