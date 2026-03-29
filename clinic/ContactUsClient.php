@@ -23,27 +23,25 @@ $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars(
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.3);
 }
-.mesh-gradient {
-    background-color: #ffffff;
+/* Single page background so hero + cards share one continuous surface (no seam). */
+.contact-page-shell {
+    background-color: #eef5fb;
     background-image:
-        radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.1) 0px, transparent 50%),
-        radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.05) 0px, transparent 50%);
+        radial-gradient(ellipse 140% 70% at 50% -30%, rgba(43, 139, 235, 0.11), transparent 55%),
+        radial-gradient(ellipse 90% 50% at 100% 60%, rgba(43, 139, 235, 0.06), transparent 45%),
+        radial-gradient(ellipse 80% 45% at 0% 80%, rgba(43, 139, 235, 0.05), transparent 40%),
+        linear-gradient(180deg, #ffffff 0%, #f7fafd 22%, #f1f6fc 55%, #edf3fa 100%);
 }
-.dark .mesh-gradient {
+.dark .contact-page-shell {
     background-color: rgb(15 23 42);
     background-image:
-        radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.15) 0px, transparent 50%),
-        radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.08) 0px, transparent 50%);
+        radial-gradient(ellipse 140% 70% at 50% -30%, rgba(43, 139, 235, 0.14), transparent 55%),
+        radial-gradient(ellipse 90% 50% at 100% 60%, rgba(43, 139, 235, 0.08), transparent 45%),
+        linear-gradient(180deg, rgb(15 23 42) 0%, rgb(17 24 39) 45%, rgb(15 23 42) 100%);
 }
 .editorial-word {
     text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
     letter-spacing: -0.02em;
-}
-.contact-hero {
-    background: linear-gradient(180deg, #ffffff 0%, #f3f8fd 45%, #eef5fb 100%);
-}
-.dark .contact-hero {
-    background: linear-gradient(180deg, rgb(15 23 42) 0%, rgb(17 24 39) 50%, rgb(15 23 42) 100%);
 }
 .contact-hero-badge {
     background-color: #e3f0fa;
@@ -75,9 +73,9 @@ $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars(
 </style>
 <?php include __DIR__ . '/includes/nav_client.php'; ?>
 
-<main class="mesh-gradient pt-24 flex-grow w-full min-h-screen">
+<main class="contact-page-shell pt-24 flex-grow w-full min-h-screen">
 <!-- Hero Section -->
-<section class="contact-hero py-20 md:py-28 lg:py-32 text-center px-4 sm:px-6 overflow-hidden">
+<section class="py-20 md:py-28 lg:py-32 text-center px-4 sm:px-6 overflow-hidden">
 <div class="max-w-3xl mx-auto flex flex-col items-center">
 <div class="inline-flex items-center justify-center px-4 py-2 rounded-full contact-hero-badge text-[10px] font-black uppercase mb-8 sm:mb-10 font-headline">
                     Reach out to excellence
