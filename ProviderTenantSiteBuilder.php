@@ -246,14 +246,15 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             display: flex;
             justify-content: center;
             align-items: flex-start;
+            flex: 1 1 0;
+            min-height: 0;
         }
-        .preview-canvas-shell { transition: transform 0.2s ease, aspect-ratio 0.35s ease, min-height 0.35s ease; }
+        .preview-canvas-shell { transition: transform 0.2s ease, min-height 0.35s ease, height 0.15s ease; }
         .preview-canvas-shell--desktop {
             width: 1280px;
             min-width: 1280px;
             max-width: 1280px;
             flex-shrink: 0;
-            aspect-ratio: 16 / 9;
             min-height: 400px;
             box-sizing: border-box;
         }
@@ -268,7 +269,6 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             max-height: min(75vh, 820px);
         }
         @supports not (aspect-ratio: 1) {
-            .preview-canvas-shell--desktop { min-height: clamp(400px, 56vw, 720px); }
             .preview-canvas-shell--mobile { min-height: 560px; }
         }
     </style>
@@ -296,7 +296,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </div>
 </section>
 
-<div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start xl:items-stretch">
 <div class="xl:col-span-5 space-y-4">
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
 <div class="section-card rounded-2xl bg-white/90 p-4 border border-white/80">
@@ -415,8 +415,8 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </div>
 </div>
 
-<div class="xl:col-span-7">
-<div class="preview-frame-wrap rounded-[2rem] bg-slate-900/90 p-3 sm:p-4 border border-slate-800">
+<div class="xl:col-span-7 flex flex-col min-h-0 xl:min-h-[calc(100dvh-8rem)]">
+<div class="preview-frame-wrap rounded-[2rem] bg-slate-900/90 p-3 sm:p-4 border border-slate-800 flex flex-col flex-1 min-h-0 h-full">
 <div class="flex items-center gap-2 px-3 py-2 mb-2">
 <span class="h-3 w-3 rounded-full bg-red-400/90"></span>
 <span class="h-3 w-3 rounded-full bg-amber-400/90"></span>
@@ -433,7 +433,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </button>
 </div>
 </div>
-<div class="preview-canvas-scroll rounded-xl sm:rounded-2xl" id="previewCanvasScroll">
+<div class="preview-canvas-scroll rounded-xl sm:rounded-2xl flex-1 flex flex-col min-h-0" id="previewCanvasScroll">
 <div class="preview-scale-host" id="previewScaleHost">
 <div class="overflow-hidden bg-white rounded-xl sm:rounded-2xl preview-canvas-shell preview-canvas-shell--desktop" id="previewCanvasShell">
 <?php if ($preview_urls['home'] !== ''): ?>
@@ -596,18 +596,22 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
         if (previewShell.classList.contains('preview-canvas-shell--mobile')) {
             previewShell.style.removeProperty('transform');
             previewShell.style.removeProperty('transform-origin');
+            previewShell.style.removeProperty('height');
             previewScaleHost.style.removeProperty('min-height');
             return;
         }
         var cw = previewCanvasScroll.clientWidth;
+        var ch = previewCanvasScroll.clientHeight;
         if (cw <= 0) return;
-        var h = previewShell.offsetHeight;
-        if (h <= 0) return;
-        var maxViewH = Math.max(280, window.innerHeight * 0.68);
-        var s = Math.min(1, cw / DESKTOP_LOGIC_PX, maxViewH / h);
+        if (ch < 120) {
+            ch = Math.max(320, Math.round(window.innerHeight * 0.5));
+        }
+        var s = Math.min(1, cw / DESKTOP_LOGIC_PX);
+        var hLog = Math.max(400, Math.ceil(ch / s));
+        previewShell.style.height = hLog + 'px';
         previewShell.style.transform = 'scale(' + s + ')';
         previewShell.style.transformOrigin = 'top center';
-        previewScaleHost.style.minHeight = Math.ceil(h * s) + 'px';
+        previewScaleHost.style.minHeight = ch + 'px';
     }
 
     function setPreviewDeviceMode(mode) {
