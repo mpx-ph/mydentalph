@@ -130,6 +130,104 @@ $provider_nav_active = 'subs';
 </header>
 <!-- Main Content -->
 <div class="p-10 space-y-6">
+<!-- Editorial Header Section -->
+<section class="flex flex-col gap-4 mb-4">
+<div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]"><span class="w-12 h-[1.5px] bg-primary"></span> Subscription &amp; Billing</div>
+<div>
+<h2 class="font-headline text-6xl font-extrabold tracking-tighter leading-tight text-on-background">Subscription <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Management</span></h2>
+<p class="font-body text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-4">Manage your clinic's subscription, plans, and payment methods.</p>
+</div>
+</section>
+<!-- Current Plan Section Card -->
+<section class="elevated-card provider-card-lift rounded-3xl p-6">
+<div class="relative overflow-hidden rounded-[2.5rem] primary-gradient p-12 text-white shadow-2xl flex flex-col md:flex-row justify-between items-center gap-8 transition-transform duration-500 hover:scale-[1.01]">
+<div class="relative z-10">
+<span class="px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-lg text-[10px] font-black tracking-widest uppercase mb-6 inline-block">Current Active Plan</span>
+<h3 class="text-5xl font-headline font-extrabold mb-5 tracking-tight">Pro Professional Plan</h3>
+<div class="flex items-center gap-8 text-white/90">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-[10px] font-black uppercase tracking-widest">Status: Active</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">event</span>
+<span class="text-[10px] font-black uppercase tracking-widest">Renewal: Oct 24, 2024</span>
+</div>
+</div>
+</div>
+<div class="relative z-10 flex flex-col items-end gap-4">
+<button type="button" class="bg-white text-primary px-10 py-4 rounded-full font-black text-xs uppercase tracking-widest hover:shadow-xl hover:scale-105 transition-all duration-300 active:scale-95">
+                            Upgrade Plan
+                        </button>
+<p class="text-[10px] font-bold text-white/60 tracking-wider">Billed annually. Next invoice for $1,490.</p>
+</div>
+<!-- Decorative Graphic -->
+<div class="absolute -right-20 -bottom-20 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
+</div>
+</section>
+<!-- Plan Comparison Section Card -->
+<section class="elevated-card provider-card-lift rounded-3xl p-10 mt-2">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<!-- Monthly Plan -->
+<div class="bg-slate-50/50 rounded-2xl p-10 flex flex-col border border-slate-100 hover:border-primary/30 transition-all duration-300 group hover:-translate-y-1 hover:shadow-lg">
+<div class="mb-8">
+<h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60 mb-2">Monthly Billing</h4>
+<div class="flex items-baseline gap-1">
+<span class="text-5xl font-extrabold text-on-background tracking-tighter">$149</span>
+<span class="text-on-surface-variant font-black text-xs uppercase tracking-widest">/ month</span>
+</div>
+</div>
+<ul class="space-y-5 mb-10 flex-1">
+<li class="flex items-center gap-4 text-sm font-bold text-on-surface-variant">
+<span class="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-base">check</span>
+</span>
+                                Multi-Clinic Support
+                            </li>
+<li class="flex items-center gap-4 text-sm font-bold text-on-surface-variant">
+<span class="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-base">check</span>
+</span>
+                                Advanced Analytics
+                            </li>
+</ul>
+<button class="w-full py-4 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-black text-xs uppercase tracking-widest rounded-2xl transition-all shadow-sm">
+                            Switch to Monthly
+                        </button>
+</div>
+<!-- Yearly Plan (Recommended) -->
+<div class="bg-white rounded-2xl p-10 flex flex-col relative border-2 border-primary shadow-xl shadow-primary/5 transform transition-all duration-300 hover:-translate-y-1 hover:shadow-primary/15">
+<div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-white px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/30">
+                            Recommended
+                        </div>
+<div class="mb-8">
+<h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-2">Yearly Billing</h4>
+<div class="flex items-baseline gap-1">
+<span class="text-5xl font-extrabold text-on-background tracking-tighter">$1,490</span>
+<span class="text-on-surface-variant font-black text-xs uppercase tracking-widest">/ year</span>
+</div>
+<p class="text-tertiary font-black text-[10px] uppercase tracking-widest mt-3">Save $298 (2 months free!)</p>
+</div>
+<ul class="space-y-5 mb-10 flex-1">
+<li class="flex items-center gap-4 text-sm font-extrabold text-on-background">
+<span class="w-6 h-6 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-white text-base">check</span>
+</span>
+                                Multi-Clinic Support
+                            </li>
+<li class="flex items-center gap-4 text-sm font-extrabold text-on-background">
+<span class="w-6 h-6 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-white text-base">check</span>
+</span>
+                                Advanced Analytics
+                            </li>
+</ul>
+<button class="w-full py-4 primary-gradient text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg shadow-primary/30 transition-all opacity-90 cursor-default">
+                            Already Subscribed
+                        </button>
+</div>
+</div>
+</section>
 <!-- Bottom Section: Billing History -->
 <div class="pt-4">
 <!-- Billing History Card -->
