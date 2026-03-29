@@ -8,8 +8,8 @@ $__header_email = htmlspecialchars(trim((string) ($user_email_display ?? '')), E
 $__email_hidden = ($user_email_display ?? '') === '' || trim((string) $user_email_display) === '';
 $__avatar = htmlspecialchars((string) ($avatar_initials ?? 'MD'), ENT_QUOTES, 'UTF-8');
 ?>
-<header class="fixed top-0 right-0 left-64 z-30 min-h-[4.5rem] sm:h-24 sm:min-h-0 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 shadow-sm shadow-slate-200/30 flex items-stretch" data-purpose="top-header">
-<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-6 lg:px-10 py-3 sm:py-0 sm:h-full w-full min-h-0">
+<header class="fixed top-0 right-0 left-64 z-30 min-h-[4.5rem] sm:h-20 sm:min-h-0 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 shadow-sm shadow-slate-200/30" data-purpose="top-header">
+<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-6 lg:px-10 py-3 sm:py-0 sm:h-full">
 <div class="min-w-0 flex-1">
 <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80 mb-0.5">Clinic</p>
 <h1 class="text-lg sm:text-xl font-extrabold font-headline text-on-background truncate tracking-tight"><?php echo $__clinic_title; ?></h1>
@@ -25,7 +25,7 @@ $__avatar = htmlspecialchars((string) ($avatar_initials ?? 'MD'), ENT_QUOTES, 'U
 <div id="header-account-avatar" class="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center text-primary text-xs font-bold border border-primary/10 shrink-0 group-hover:bg-primary/20 transition-colors" aria-hidden="true"><?php echo $__avatar; ?></div>
 <div class="min-w-0 text-left">
 <p id="header-account-name" class="text-xs font-bold text-on-background truncate max-w-[10rem] sm:max-w-[14rem] group-hover:text-primary transition-colors"><?php echo $__header_name; ?></p>
-<p id="header-account-email" class="text-[11px] text-on-surface-variant truncate max-w-[10rem] sm:max-w-[14rem]<?php echo $__email_hidden ? ' hidden' : ''; ?>"><?php echo $__header_email; ?></p>
+<p id="header-account-email" class="text-[11px] leading-tight text-on-surface-variant truncate max-w-[10rem] sm:max-w-[14rem]<?php echo $__email_hidden ? ' opacity-0 pointer-events-none select-none' : ''; ?>"<?php echo $__email_hidden ? ' aria-hidden="true"' : ''; ?>><?php echo $__email_hidden ? "\u{00A0}" : $__header_email; ?></p>
 </div>
 </button>
 </div>
