@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS tbl_users (
     user_id VARCHAR(20) NOT NULL,
     tenant_id VARCHAR(20) NOT NULL,
     username VARCHAR(100) NOT NULL,
+    -- Sign-in email; unique per tenant (unique_tenant_email). Provider portal profile updates may send a new OTP via tbl_email_verifications when this changes.
     email VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255),
     full_name VARCHAR(255) NOT NULL,
