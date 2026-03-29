@@ -140,10 +140,10 @@ $provider_nav_active = 'users';
 <!-- Header Card -->
 <section class="elevated-card provider-card-lift rounded-3xl p-10 flex flex-col gap-6">
 <div class="flex flex-col gap-4">
-<div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]"><span class="w-12 h-[1.5px] bg-primary"></span> User Management</div>
+<div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]"><span class="w-12 h-[1.5px] bg-primary"></span> Team Management</div>
 <div class="flex justify-between items-end">
 <div>
-<h2 class="font-headline font-extrabold tracking-tighter leading-tight text-on-background text-6xl">User <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Management</span></h2>
+<h2 class="font-headline font-extrabold tracking-tighter leading-tight text-on-background text-6xl">Team <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Management</span></h2>
 <p class="font-body text-xl font-medium text-slate-600 max-w-3xl leading-relaxed mt-6">Manage practitioner access and administrative permissions for your clinic.</p>
 </div>
 <button type="button" id="add-user-open" class="bg-primary text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:shadow-xl hover:shadow-primary/25 transition-all duration-300 active:scale-95 hover:scale-[1.02] flex items-center gap-2">

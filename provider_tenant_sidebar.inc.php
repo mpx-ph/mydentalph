@@ -7,7 +7,7 @@ declare(strict_types=1);
 $na = isset($provider_nav_active) ? (string) $provider_nav_active : 'dashboard';
 $nav = [
     'dashboard' => ['href' => 'ProviderTenantDashboard.php', 'icon' => 'dashboard', 'label' => 'Dashboard'],
-    'users' => ['href' => 'ProviderTenantUsers.php', 'icon' => 'group', 'label' => 'Users'],
+    'users' => ['href' => 'ProviderTenantUsers.php', 'icon' => 'group', 'label' => 'Staff & Doctors'],
     'subs' => ['href' => 'ProviderTenantSubs.php', 'icon' => 'payments', 'label' => 'Subscription & Billing'],
     'settings' => ['href' => 'ProviderTenantSettings.php', 'icon' => 'settings', 'label' => 'Settings'],
 ];
