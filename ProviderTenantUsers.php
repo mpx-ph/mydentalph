@@ -3,32 +3,15 @@ declare(strict_types=1);
 require_once __DIR__ . '/provider_tenant_lite_bootstrap.php';
 $provider_nav_active = 'users';
 
-$owner_prefill_first = '';
-$owner_prefill_last = '';
-$name_for_split = trim($display_name);
-if ($name_for_split !== '') {
-    $name_parts = preg_split('/\s+/u', $name_for_split, -1, PREG_SPLIT_NO_EMPTY);
-    if (is_array($name_parts) && $name_parts !== []) {
-        $owner_prefill_first = (string) array_shift($name_parts);
-        $owner_prefill_last = $name_parts !== [] ? implode(' ', $name_parts) : '';
-    }
+$session_owner_full = trim((string) ($display_name ?? ''));
+$add_user_owner_first = '';
+$add_user_owner_last = '';
+if ($session_owner_full !== '') {
+    $name_parts = preg_split('/\s+/', $session_owner_full, 2, PREG_SPLIT_NO_EMPTY);
+    $add_user_owner_first = is_array($name_parts) ? (string) ($name_parts[0] ?? '') : '';
+    $add_user_owner_last = is_array($name_parts) ? (string) ($name_parts[1] ?? '') : '';
 }
-$owner_prefill_email = trim((string) ($_SESSION['email'] ?? ''));
-$session_role = (string) ($_SESSION['role'] ?? '');
-$owner_prefill_role = 'Staff';
-if ($session_role === 'dentist') {
-    $owner_prefill_role = 'Doctor';
-} elseif ($session_role === 'staff') {
-    $owner_prefill_role = 'Staff';
-} elseif (in_array($session_role, ['tenant_owner', 'manager'], true)) {
-    $owner_prefill_role = 'Manager';
-}
-$add_user_owner_prefill_payload = [
-    'firstName' => $owner_prefill_first,
-    'lastName' => $owner_prefill_last,
-    'email' => $owner_prefill_email,
-    'role' => $owner_prefill_role,
-];
+$add_user_owner_email = trim((string) ($_SESSION['email'] ?? ''));
 ?>
 <!DOCTYPE html>
 
@@ -371,7 +354,7 @@ $add_user_owner_prefill_payload = [
 </footer>
 <div id="add-user-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 sm:p-6" aria-hidden="true">
 <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm provider-modal-backdrop" data-modal-dismiss></div>
-<div class="relative w-full max-w-xl max-h-[min(92vh,46rem)] flex flex-col rounded-3xl bg-background shadow-2xl border border-slate-200/80 overflow-hidden provider-modal-panel" role="dialog" aria-modal="true" aria-labelledby="add-user-title">
+<div class="relative w-full max-w-xl max-h-[min(92vh,46rem)] flex flex-col rounded-3xl bg-background shadow-2xl border border-slate-200/80 overflow-hidden provider-modal-panel" role="dialog" aria-modal="true" aria-labelledby="add-user-title" data-owner-first="<?php echo htmlspecialchars($add_user_owner_first, ENT_QUOTES, 'UTF-8'); ?>" data-owner-last="<?php echo htmlspecialchars($add_user_owner_last, ENT_QUOTES, 'UTF-8'); ?>" data-owner-email="<?php echo htmlspecialchars($add_user_owner_email, ENT_QUOTES, 'UTF-8'); ?>">
 <div class="shrink-0 px-8 pt-8 pb-5 bg-white border-b border-slate-100/90 relative pr-16">
 <button type="button" class="absolute top-6 right-6 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200/80 bg-white text-on-surface-variant hover:border-primary/30 hover:text-primary transition-all shadow-sm" data-modal-dismiss aria-label="Close">
 <span class="material-symbols-outlined text-xl">close</span>
@@ -581,58 +564,58 @@ Send verification code
 </div>
 </div>
 </main>
-<script type="application/json" id="add-user-owner-prefill"><?php echo htmlspecialchars(json_encode($add_user_owner_prefill_payload, JSON_UNESCAPED_UNICODE), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?></script>
 <script>
 (function () {
   var modal = document.getElementById('add-user-modal');
   var openBtn = document.getElementById('add-user-open');
   if (!modal || !openBtn) return;
 
-  var ownerPrefillEl = document.getElementById('add-user-owner-prefill');
-  var ownerPrefill = { firstName: '', lastName: '', email: '', role: 'Staff' };
-  if (ownerPrefillEl && ownerPrefillEl.textContent) {
-    try {
-      ownerPrefill = JSON.parse(ownerPrefillEl.textContent);
-    } catch (e) {}
-  }
-
+  var panel = modal.querySelector('.provider-modal-panel');
   var ownerCb = document.getElementById('add-user-owner-mode');
   var firstEl = document.getElementById('add-user-first');
   var lastEl = document.getElementById('add-user-last');
   var emailEl = document.getElementById('add-user-email');
   var roleEl = document.getElementById('add-user-role');
-  var nonOwnerDraft = { first: '', last: '', email: '', role: 'Staff' };
-
-  function readMemberFields() {
-    return {
-      first: firstEl ? firstEl.value : '',
-      last: lastEl ? lastEl.value : '',
-      email: emailEl ? emailEl.value : '',
-      role: roleEl ? roleEl.value : 'Staff'
-    };
-  }
-
-  function writeMemberFields(d) {
-    if (firstEl) firstEl.value = d.first;
-    if (lastEl) lastEl.value = d.last;
-    if (emailEl) emailEl.value = d.email;
-    if (roleEl && d.role) roleEl.value = d.role;
-  }
-
-  function applyOwnerPrefill() {
-    writeMemberFields({
-      first: ownerPrefill.firstName != null ? String(ownerPrefill.firstName) : '',
-      last: ownerPrefill.lastName != null ? String(ownerPrefill.lastName) : '',
-      email: ownerPrefill.email != null ? String(ownerPrefill.email) : '',
-      role: ['Manager', 'Staff', 'Doctor'].indexOf(ownerPrefill.role) >= 0 ? ownerPrefill.role : 'Staff'
-    });
-  }
-
   var passwordWrap = document.getElementById('add-user-password-wrap');
   var pwInput = document.getElementById('add-user-password');
   var pwConfirm = document.getElementById('add-user-password-confirm');
   var strengthLabel = document.getElementById('add-user-pw-strength-label');
   var strengthBar = document.getElementById('add-user-pw-strength-bar');
+
+  var draftFirst = '';
+  var draftLast = '';
+  var draftEmail = '';
+  var draftRole = '';
+
+  function readOwnerFromPanel() {
+    if (!panel) return { first: '', last: '', email: '' };
+    return {
+      first: panel.getAttribute('data-owner-first') || '',
+      last: panel.getAttribute('data-owner-last') || '',
+      email: panel.getAttribute('data-owner-email') || ''
+    };
+  }
+
+  function applyOwnerCredentialFields() {
+    if (!firstEl || !lastEl || !emailEl) return;
+    draftFirst = firstEl.value;
+    draftLast = lastEl.value;
+    draftEmail = emailEl.value;
+    if (roleEl) draftRole = roleEl.value;
+    var o = readOwnerFromPanel();
+    firstEl.value = o.first;
+    lastEl.value = o.last;
+    emailEl.value = o.email;
+    if (roleEl) roleEl.value = 'Manager';
+  }
+
+  function restoreCredentialFieldsDraft() {
+    if (!firstEl || !lastEl || !emailEl) return;
+    firstEl.value = draftFirst;
+    lastEl.value = draftLast;
+    emailEl.value = draftEmail;
+    if (roleEl) roleEl.value = draftRole;
+  }
 
   function openModal() {
     modal.classList.remove('hidden');
@@ -649,15 +632,22 @@ Send verification code
 
   function setOwnerMode(on) {
     if (!passwordWrap) return;
+    if (on) {
+      applyOwnerCredentialFields();
+    } else {
+      restoreCredentialFieldsDraft();
+    }
     passwordWrap.classList.toggle('hidden', on);
     passwordWrap.setAttribute('aria-hidden', on ? 'true' : 'false');
     if (pwInput) {
       pwInput.disabled = on;
       pwInput.required = !on;
+      if (on) pwInput.value = '';
     }
     if (pwConfirm) {
       pwConfirm.disabled = on;
       pwConfirm.required = !on;
+      if (on) pwConfirm.value = '';
     }
     if (on) {
       if (strengthLabel) strengthLabel.textContent = '—';
@@ -694,18 +684,9 @@ Send verification code
 
   if (ownerCb) {
     ownerCb.addEventListener('change', function () {
-      if (ownerCb.checked) {
-        nonOwnerDraft = readMemberFields();
-        applyOwnerPrefill();
-      } else {
-        writeMemberFields(nonOwnerDraft);
-      }
       setOwnerMode(ownerCb.checked);
     });
     setOwnerMode(ownerCb.checked);
-    if (ownerCb.checked) {
-      applyOwnerPrefill();
-    }
   }
 
   modal.querySelectorAll('.add-user-pw-toggle').forEach(function (btn) {
