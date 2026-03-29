@@ -49,6 +49,7 @@ $loginLogoAlt = isset($CLINIC['clinic_name']) ? htmlspecialchars($CLINIC['clinic
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title><?php echo $pageTitle; ?> - <?php echo SITE_NAME; ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,400;1,700&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script id="tailwind-config">
@@ -57,73 +58,100 @@ $loginLogoAlt = isset($CLINIC['clinic_name']) ? htmlspecialchars($CLINIC['clinic
         theme: {
           extend: {
             colors: {
-              "primary": "#2b8cee",
+              "primary": "#2b8beb",
+              "on-surface": "#131c25",
+              "surface-container-low": "#edf4ff",
               "background-light": "#f6f7f8",
               "background-dark": "#101922",
             },
             fontFamily: {
-              "display": ["Manrope", "sans-serif"]
+              "display": ["Manrope", "sans-serif"],
+              "serif": ["Playfair Display", "serif"],
             },
-            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1.5rem", "full": "9999px"},
           },
         },
       }
     </script>
+    <style>
+        .login-mesh-gradient {
+            background-color: #f8fafc;
+            background-image:
+                radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.1) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.05) 0px, transparent 50%);
+        }
+        .dark .login-mesh-gradient {
+            background-color: #0f172a;
+            background-image:
+                radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.15) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.08) 0px, transparent 50%);
+        }
+        .login-editorial-word {
+            text-shadow: 0 0 12px rgba(43, 139, 235, 0.12);
+            letter-spacing: -0.02em;
+        }
+        .login-card-shell {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 0 40px 80px -20px rgba(43, 139, 235, 0.12);
+        }
+        .dark .login-card-shell {
+            background: rgba(21, 31, 43, 0.92);
+            border-color: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.4);
+        }
+    </style>
 </head>
-<body class="font-display bg-background-light dark:bg-background-dark text-[#0d141b] dark:text-slate-50 antialiased overflow-x-hidden transition-colors duration-200">
-<div class="min-h-screen w-full flex items-center justify-center relative bg-slate-900 overflow-hidden py-12 px-4 sm:px-6 lg:px-8">
-<div class="absolute inset-0 z-0">
-<img alt="Dental Clinic Interior" class="w-full h-full object-cover opacity-40" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBt7vTBGI-aA-eh6xO_wliPbB0c5UODiW_Z9sUqKmWO1uEpn2T8TUUMqCW9Z_1sTHVsOgS8SRr9dAG_Kekhno65F7UlqbKuIn3BNXnm6iB6hJEfaD3i8DZLd_p_0Six117fQz2fwwNmeIMgs57fz1t9wnHNfiNO2bA5v9ai0MgIhi63sQp3DFEZz4glZUWMqs_2jRvOWTL8Z_NtaO7Ch16Zw4O7QwFAFySbi07H5YGM8pyyCliMj_znrPlhD-UEEpmatW2qDmTJvfM"/>
-<div class="absolute inset-0 bg-gradient-to-br from-blue-900/80 via-slate-900/80 to-slate-900/90 mix-blend-multiply"></div>
-<div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[100px]"></div>
-<div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[100px]"></div>
+<body class="login-mesh-gradient font-display text-on-surface dark:text-slate-100 antialiased overflow-x-hidden min-h-screen flex flex-col selection:bg-primary/20">
+<main class="flex-grow flex items-center justify-center w-full px-4 sm:px-6 lg:px-8 py-12 relative">
+<div class="w-full max-w-lg relative z-10">
+<div class="login-card-shell rounded-[2rem] md:rounded-[2.5rem] overflow-hidden p-8 md:p-12 space-y-8 md:space-y-10">
+<div class="flex flex-col items-center text-center space-y-3">
+<img alt="<?php echo $loginLogoAlt; ?>" class="h-11 md:h-12 w-auto object-contain" src="<?php echo htmlspecialchars($loginLogoUrl, ENT_QUOTES, 'UTF-8'); ?>"/>
+<p class="text-xs font-semibold uppercase tracking-widest text-primary/80">Patient access</p>
+<h1 class="font-display text-3xl md:text-4xl font-extrabold tracking-tight text-on-surface dark:text-white leading-tight">
+Log in to your <span class="font-serif italic font-normal text-primary login-editorial-word transform -skew-x-6 inline-block">Account</span>
+</h1>
+<p class="text-slate-600 dark:text-slate-400 text-sm md:text-base font-medium leading-relaxed max-w-sm mx-auto">Enter your credentials to manage your dental care.</p>
 </div>
-<div class="relative z-10 w-full max-w-[480px]">
-<div class="bg-white dark:bg-[#151f2b] rounded-2xl shadow-2xl shadow-slate-900/50 overflow-hidden ring-1 ring-white/10 backdrop-blur-sm">
-<div class="bg-slate-50 dark:bg-[#1a2634] px-8 py-6 border-b border-slate-100 dark:border-slate-700/50 flex flex-col items-center justify-center text-center">
-<div class="mb-3">
-<img alt="<?php echo $loginLogoAlt; ?>" class="h-12 w-auto drop-shadow-sm" src="<?php echo htmlspecialchars($loginLogoUrl, ENT_QUOTES, 'UTF-8'); ?>"/>
+<div id="errorMessage" class="hidden mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-400 text-sm"></div>
+<div id="successMessage" class="hidden mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-green-700 dark:text-green-400 text-sm"></div>
+<form id="loginForm" action="#" class="space-y-6 md:space-y-8" onsubmit="event.preventDefault()">
+<div class="space-y-2.5">
+<label class="block text-[10px] font-black text-primary uppercase tracking-[0.2em] ml-1" for="loginEmail">Email or username</label>
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-primary/50 text-xl font-light">person</span>
 </div>
-<p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Patient Access</p>
-</div>
-<div class="px-8 py-8 sm:px-10 sm:py-10">
-<div class="mb-8 text-center">
-<h1 class="text-[#0d141b] dark:text-white tracking-tight text-2xl font-bold leading-tight">Welcome Back</h1>
-<p class="text-slate-500 dark:text-slate-400 text-sm font-normal mt-2">Enter your credentials to manage your dental care.</p>
-</div>
-<div id="errorMessage" class="hidden mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
-<div id="successMessage" class="hidden mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-400 text-sm"></div>
-<form id="loginForm" action="#" class="flex flex-col gap-5" onsubmit="event.preventDefault()">
-<div class="flex flex-col gap-1.5">
-<label class="text-[#0d141b] dark:text-slate-200 text-sm font-semibold leading-normal">Email or Username</label>
-<div class="group flex w-full items-stretch rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 overflow-hidden transition-all duration-200 shadow-sm">
-<input id="loginEmail" class="flex w-full flex-1 border-none bg-transparent h-11 px-4 text-[#0d141b] dark:text-white placeholder:text-slate-400 focus:ring-0 text-base font-medium" placeholder="email@example.com or username" type="text" required/>
-<div class="flex items-center justify-center px-3 text-slate-400 dark:text-slate-500 group-focus-within:text-primary transition-colors">
-<span class="material-symbols-outlined text-[20px]">person</span>
+<input id="loginEmail" class="block w-full pl-12 pr-4 py-3.5 md:py-4 bg-surface-container-low/60 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-600 rounded-2xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none text-on-surface dark:text-white font-medium transition-all duration-200 placeholder:text-slate-400" placeholder="email@example.com or username" type="text" required/>
 </div>
 </div>
+<div class="space-y-2.5">
+<div class="flex justify-between items-center px-1 gap-2">
+<label class="block text-[10px] font-black text-primary uppercase tracking-[0.2em]" for="loginPassword">Password</label>
+<a id="forgotPasswordLink" class="text-[10px] font-black uppercase tracking-wider text-primary hover:opacity-80 transition-opacity cursor-pointer shrink-0" href="#">Forgot password?</a>
 </div>
-<div class="flex flex-col gap-1.5">
-<div class="flex justify-between items-center">
-<label class="text-[#0d141b] dark:text-slate-200 text-sm font-semibold leading-normal">Password</label>
-<a id="forgotPasswordLink" class="text-primary text-xs font-semibold hover:text-blue-600 transition-colors cursor-pointer" href="#">Forgot password?</a>
+<div class="relative group flex items-stretch">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
+<span class="material-symbols-outlined text-primary/50 text-xl font-light">lock</span>
 </div>
-<div class="group flex w-full items-stretch rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 overflow-hidden transition-all duration-200 shadow-sm">
-<input id="loginPassword" class="flex w-full flex-1 border-none bg-transparent h-11 px-4 text-[#0d141b] dark:text-white placeholder:text-slate-400 focus:ring-0 text-base font-medium" placeholder="Enter password" type="password" required/>
-<div class="flex items-center justify-center px-3 text-slate-400 dark:text-slate-500 cursor-pointer hover:text-primary transition-colors" id="passwordToggle">
-<span class="material-symbols-outlined text-[20px]">visibility</span>
+<input id="loginPassword" class="block w-full pl-12 pr-12 py-3.5 md:py-4 bg-surface-container-low/60 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-600 rounded-2xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none text-on-surface dark:text-white font-medium transition-all duration-200 placeholder:text-slate-400" placeholder="Enter password" type="password" required/>
+<div class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-primary cursor-pointer transition-colors" id="passwordToggle">
+<span class="material-symbols-outlined text-[22px]">visibility</span>
 </div>
 </div>
 </div>
-<button id="loginBtn" type="submit" class="flex w-full cursor-pointer items-center justify-center rounded-lg h-11 bg-primary hover:bg-[#237cd6] active:scale-[0.98] transition-all text-white text-base font-bold leading-normal tracking-wide shadow-md shadow-primary/30 mt-2">
-                            Sign In securely
-                        </button>
+<button id="loginBtn" type="submit" class="w-full py-4 md:py-5 px-6 bg-primary hover:bg-[#2378d6] text-white font-black text-sm uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-primary/25 hover:shadow-2xl active:scale-[0.98] transition-all duration-200">
+Sign In securely
+</button>
 </form>
-<div class="text-center pt-8">
-<p class="text-slate-600 dark:text-slate-400 text-sm font-medium leading-normal">
-                            First time visiting? <a class="text-primary font-bold hover:underline hover:text-blue-600 ml-1" href="<?php echo htmlspecialchars($registerClientUrl, ENT_QUOTES, 'UTF-8'); ?>">Create new account</a>
+<div class="text-center pt-2">
+<p class="text-sm font-semibold text-slate-600 dark:text-slate-400">
+First time visiting?
+<a class="font-black text-primary hover:underline underline-offset-4 ml-1" href="<?php echo htmlspecialchars($registerClientUrl, ENT_QUOTES, 'UTF-8'); ?>">Create new account</a>
 </p>
-</div>
 </div>
 </div>
 
@@ -171,19 +199,20 @@ $loginLogoAlt = isset($CLINIC['clinic_name']) ? htmlspecialchars($CLINIC['clinic
 </div>
 </div>
 
-<div class="mt-8 flex justify-center gap-6 text-xs text-slate-300 font-medium opacity-80">
-<a class="hover:text-white transition-colors flex items-center gap-1.5" href="#">
-<span class="material-symbols-outlined text-[14px]">shield</span>
-                    Privacy Policy
-                </a>
-<a class="hover:text-white transition-colors" href="#">Terms of Service</a>
-<a class="hover:text-white transition-colors flex items-center gap-1.5" href="#">
-<span class="material-symbols-outlined text-[14px]">help</span>
-                    Help Center
-                </a>
+<div class="mt-10 md:mt-12 flex flex-wrap justify-center items-center gap-8 md:gap-10 text-slate-400 dark:text-slate-500 opacity-80 hover:opacity-100 transition-opacity">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-lg text-primary/60">verified_user</span>
+<span class="text-[10px] uppercase font-black tracking-[0.2em]">Secure access</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-lg text-primary/60">lock_person</span>
+<span class="text-[10px] uppercase font-black tracking-[0.2em]">Encrypted</span>
 </div>
 </div>
 </div>
+<div class="fixed top-[-10%] right-[-5%] w-[28rem] md:w-[40rem] h-[28rem] md:h-[40rem] bg-primary/5 rounded-full blur-[100px] md:blur-[120px] -z-10 pointer-events-none"></div>
+<div class="fixed bottom-[-10%] left-[-5%] w-[24rem] md:w-[30rem] h-[24rem] md:h-[30rem] bg-primary/5 rounded-full blur-[80px] md:blur-[100px] -z-10 pointer-events-none"></div>
+</main>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const loginForm = document.getElementById('loginForm');

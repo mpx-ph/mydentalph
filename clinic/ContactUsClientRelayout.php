@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Contact Us | Aetheris OS</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Playfair+Display:ital,wght@1,400;1,700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#2b8beb",
+              "on-surface": "#131c25",
+              "surface": "#ffffff",
+              "surface-variant": "#f7f9ff",
+              "on-surface-variant": "#404752",
+              "outline-variant": "#c0c7d4",
+              "primary-fixed": "#d4e3ff",
+              "on-primary-fixed-variant": "#004883",
+              "surface-container-low": "#edf4ff",
+              "inverse-surface": "#131c25",
+            },
+            fontFamily: {
+              "headline": ["Manrope", "sans-serif"],
+              "body": ["Inter", "sans-serif"],
+              "editorial": ["Playfair Display", "serif"]
+            },
+            borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1.5rem", "3xl": "2.5rem", "full": "9999px" },
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .glass-card {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+      .mesh-gradient {
+        background-color: #ffffff;
+        background-image: 
+            radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.1) 0px, transparent 50%),
+            radial-gradient(at 0% 100%, rgba(43, 139, 235, 0.05) 0px, transparent 50%);
+      }
+      .editorial-word {
+        text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
+        letter-spacing: -0.02em;
+      }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface">
+<!-- TopNavBar -->
+<nav class="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl shadow-sm">
+<div class="flex justify-between items-center h-20 px-8 max-w-screen-2xl mx-auto">
+<div class="text-2xl font-bold tracking-tighter font-headline flex items-center gap-2">
+<div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-lg">select_check_box</span>
+</div> 
+                Your Logo Here
+            </div>
+<div class="hidden md:flex items-center space-x-12 text-sm font-semibold tracking-tight text-on-surface/60 font-headline">
+<a class="hover:text-primary transition-colors" href="#">Home</a>
+<a class="hover:text-primary transition-colors" href="#">Services</a>
+<a class="hover:text-primary transition-colors" href="#">About Us</a>
+<a class="text-primary border-b-2 border-primary pb-1" href="#">Contact Us</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="bg-primary text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95">
+                    Download Our App
+                </button>
+</div>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="mesh-gradient pt-24">
+<!-- Hero Section -->
+<section class="py-20 md:py-32 text-center px-4 overflow-hidden">
+<div class="max-w-[1800px] mx-auto">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.4em] mb-10">
+                    Reach Out to Excellence
+                </div>
+<h1 class="font-headline text-[clamp(3.5rem,7vw,6.5rem)] font-extrabold tracking-[-0.05em] text-on-surface mb-8 leading-[0.9]">
+                    Get in <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Touch.</span>
+</h1>
+<p class="font-body text-xl max-w-2xl mx-auto leading-relaxed text-on-surface-variant font-medium">
+                    Elevating dental practice management through clinical precision and digital curation. Our team is ready to assist your clinic's transformation.
+                </p>
+</div>
+</section>
+<!-- Form & Info Section -->
+<section class="max-w-[1800px] mx-auto px-10 mb-24">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
+<!-- Left Column: Contact Information -->
+<div class="space-y-6">
+<div class="bg-white p-12 rounded-[2.5rem] border border-on-surface/5 shadow-[0_20px_50px_-15px_rgba(43,139,235,0.05)] space-y-12">
+<div>
+<div class="text-primary font-bold text-xs uppercase mb-10 flex items-center gap-4 tracking-[0.3em]">
+<span class="w-12 h-[1.5px] bg-primary"></span> Contact Information
+                            </div>
+<div class="space-y-10">
+<div class="flex items-start gap-6 group">
+<div class="w-14 h-14 rounded-2xl bg-surface-container-low flex items-center justify-center text-primary transition-all duration-500 group-hover:scale-110">
+<span class="material-symbols-outlined text-3xl font-light" data-icon="location_on">location_on</span>
+</div>
+<div>
+<p class="font-headline font-extrabold text-on-surface text-xl mb-1 tracking-tight">Office Address</p>
+<p class="text-on-surface-variant font-medium leading-relaxed">1200 Innovation Way, Suite 400<br/>Palo Alto, CA 94304</p>
+</div>
+</div>
+<div class="flex items-start gap-6 group">
+<div class="w-14 h-14 rounded-2xl bg-surface-container-low flex items-center justify-center text-primary transition-all duration-500 group-hover:scale-110">
+<span class="material-symbols-outlined text-3xl font-light" data-icon="call">call</span>
+</div>
+<div>
+<p class="font-headline font-extrabold text-on-surface text-xl mb-1 tracking-tight">Phone</p>
+<p class="text-on-surface-variant font-medium leading-relaxed">+1 (800) 555-PRECISION</p>
+</div>
+</div>
+<div class="flex items-start gap-6 group">
+<div class="w-14 h-14 rounded-2xl bg-surface-container-low flex items-center justify-center text-primary transition-all duration-500 group-hover:scale-110">
+<span class="material-symbols-outlined text-3xl font-light" data-icon="mail">mail</span>
+</div>
+<div>
+<p class="font-headline font-extrabold text-on-surface text-xl mb-1 tracking-tight">Email</p>
+<p class="text-on-surface-variant font-medium leading-relaxed">concierge@aetheris-os.com</p>
+</div>
+</div>
+<div class="flex items-start gap-6 group">
+<div class="w-14 h-14 rounded-2xl bg-surface-container-low flex items-center justify-center text-primary transition-all duration-500 group-hover:scale-110">
+<span class="material-symbols-outlined text-3xl font-light" data-icon="schedule">schedule</span>
+</div>
+<div>
+<p class="font-headline font-extrabold text-on-surface text-xl mb-1 tracking-tight">Support Hours</p>
+<p class="text-on-surface-variant font-medium leading-relaxed">Mon - Fri: 8:00 AM - 6:00 PM EST<br/>24/7 Priority Emergency Support</p>
+</div>
+</div>
+</div>
+</div>
+<div class="pt-10 border-t border-on-surface/5">
+<p class="text-primary font-bold text-[10px] uppercase tracking-[0.4em] mb-6">Clinical Network</p>
+<div class="flex gap-4">
+<div class="h-12 w-12 rounded-full bg-surface-container-low flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all cursor-pointer">
+<span class="material-symbols-outlined text-xl" data-icon="share">share</span>
+</div>
+<div class="h-12 w-12 rounded-full bg-surface-container-low flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all cursor-pointer">
+<span class="material-symbols-outlined text-xl" data-icon="public">public</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Contact Form -->
+<div class="bg-white/80 backdrop-blur-xl p-12 rounded-[2.5rem] shadow-[0_40px_100px_-30px_rgba(43,139,235,0.15)] border border-primary/10 border-t-4 border-t-primary relative overflow-hidden">
+<form class="space-y-8">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="space-y-3">
+<label class="text-xs font-black uppercase tracking-[0.2em] text-on-surface-variant/60 ml-1 font-headline text-primary/70">Name</label>
+<input class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-6 py-5 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="Dr. Julian Pierce" type="text"/>
+</div>
+<div class="space-y-3">
+<label class="text-xs font-black uppercase tracking-[0.2em] text-on-surface-variant/60 ml-1 font-headline text-primary/70">Clinic Name</label>
+<input class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-6 py-5 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="Apex Dental Group" type="text"/>
+</div>
+</div>
+<div class="space-y-3">
+<label class="text-xs font-black uppercase tracking-[0.2em] text-on-surface-variant/60 ml-1 font-headline text-primary/70">Email</label>
+<input class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-6 py-5 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="julian@apexdental.com" type="email"/>
+</div>
+<div class="space-y-3">
+<label class="text-xs font-black uppercase tracking-[0.2em] text-on-surface-variant/60 ml-1 font-headline text-primary/70">Message</label>
+<textarea class="w-full bg-slate-50/50 border border-slate-100 focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all px-6 py-5 rounded-2xl text-on-surface font-medium placeholder:text-on-surface-variant/40 outline-none" placeholder="Describe your clinic's needs..." rows="5"></textarea>
+</div>
+<button class="w-full bg-primary text-white font-headline font-black text-sm uppercase tracking-[0.2em] py-6 rounded-2xl shadow-[0_20px_40px_-10px_rgba(43,139,235,0.4)] hover:shadow-[0_25px_50px_-12px_rgba(43,139,235,0.6)] hover:-translate-y-0.5 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group" type="submit">Send Inquiry <span class="material-symbols-outlined transition-transform group-hover:translate-x-1" data-icon="arrow_forward">arrow_right_alt</span></button>
+</form>
+</div>
+</div>
+</section>
+<!-- Map Section -->
+<section class="max-w-[1800px] mx-auto px-10 mb-24">
+<div class="relative w-full h-[600px] rounded-[4rem] overflow-hidden bg-slate-100 group shadow-2xl">
+<img alt="Global Clinic Presence Map" class="w-full h-full object-cover grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-1000" data-alt="A stylized abstract blue world map highlighting clinic locations" data-location="Global" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCHAWeMpCjaIVp3N6Be0htDT88O3XrZBxPznvmZth44vuQLZN8LC6jlsnkUoDQhUa5AWw3Ov1NNNaC9zoOcDxcHBTpBSrRGQEDOLd4ZpT88umkHbgljP0sWEJVMGg81YXNAZM9k3giFqqpQ_vR35kbVNB9KYlS5X41ocxvocCGrMj6AEc9TmktqfMOasA7LbrKwiyvrD687kYiXMJdjb7I_HJ2HiBJPMo76iNdD0Z2DNLMUM8QgyYlhBYtRJaOMm7gnwQQVlZ91xqA"/>
+<div class="absolute inset-0 bg-primary/5 mix-blend-multiply"></div>
+<!-- Map Overlay Info -->
+<div class="absolute inset-0 bg-gradient-to-t from-on-surface/60 via-transparent to-transparent flex flex-col justify-end p-16">
+<div class="glass-card p-10 rounded-[2rem] max-w-lg border border-white/40 shadow-2xl">
+<div class="inline-flex items-center gap-4 px-4 py-2 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.4em] mb-6">
+                            Global Clinic Presence
+                        </div>
+<h4 class="text-3xl font-headline font-extrabold text-on-surface mb-4 tracking-tight">Worldwide Network</h4>
+<p class="text-on-surface-variant font-medium leading-relaxed">Join 2,400+ premium dental clinics worldwide leveraging Aetheris OS for seamless operations.</p>
+<div class="mt-8 flex items-center gap-6">
+<div class="flex -space-x-3">
+<div class="w-12 h-12 rounded-full border-4 border-white bg-slate-200 overflow-hidden shadow-sm">
+<img alt="Doctor 1" data-alt="Portrait of a dental professional" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCXYFAsFvGaivjOOs_VeAzLI18O7RmUjGpdBbUR2cbWBZW_Ex-6Gc2Pulx6M-aJkUCGRM687wM4RGVo6G5ocPEwulBfDERj3s9zh5RwpNOXPACBFuyZIDQoOTlPeTSIh_FSXHIuowmrUw9w5t2B_QV4je5EtsdO11Of1_VPfg-90Gb_5EMmqfL-4uxeNzteyeNpmPqvggPvhQernaUXMFZtSmhSaCUP8QgdBiHM4x2K42H3OeVXcoM7Hn7fbeLciZT-C3QvswbBX9A"/>
+</div>
+<div class="w-12 h-12 rounded-full border-4 border-white bg-slate-200 overflow-hidden shadow-sm">
+<img alt="Doctor 2" data-alt="Portrait of a clinical technician" src="https://lh3.googleusercontent.com/aida-public/AB6AXuALQQmR7fkmfy1NFBmWIYEgtFx-4kJuAEhrEqHT_LOzONFwX49-dX3zynC6gFzAVbQz25IB116Lk9cTV0Ic3_7S-G9fxC3wfoPu0xG2Xsaqv0Jd8Vcq621yMP-FH0EJxLriy6RusZtB7DZaCRQmgL8Bvz93IyH9L13EsL33jnqvt4fr_MY1l27KsW1v8QtPIKL9uaYbi4oVN0g6lwK0SZQZqBlfBjREZupT4IqOuRbN-wpC7Ql0fC5Azj4VBLtrfTgSh7ZWUsfLC0c"/>
+</div>
+<div class="w-12 h-12 rounded-full border-4 border-white bg-primary flex items-center justify-center text-[10px] text-white font-black shadow-sm">+2k</div>
+</div>
+<span class="text-sm font-bold text-primary italic">Trusted by the industry's best</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full border-t border-slate-200 bg-slate-50">
+<div class="flex flex-col md:flex-row justify-between items-center py-16 px-10 max-w-[1800px] mx-auto gap-8">
+<div class="mb-8 md:mb-0">
+<div class="text-xl font-extrabold text-on-surface font-headline tracking-tighter mb-2 flex items-center gap-2">
+<div class="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-[10px]">select_check_box</span>
+</div>
+                    Aetheris Systems
+                </div>
+<p class="font-headline text-[10px] uppercase tracking-[0.4em] font-black text-on-surface-variant/40">© 2024 Clinical Precision Framework. All rights reserved.</p>
+</div>
+<div class="flex flex-wrap justify-center gap-12 text-[10px] font-headline font-black uppercase tracking-[0.3em] text-on-surface-variant/60">
+<a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
+<a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
+<a class="hover:text-primary transition-colors" href="#">Interoperability Standards</a>
+<a class="hover:text-primary transition-colors" href="#">Support</a>
+</div>
+</div>
+</footer>
+</body></html>
