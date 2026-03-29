@@ -2,6 +2,39 @@
 declare(strict_types=1);
 require_once __DIR__ . '/provider_tenant_lite_bootstrap.php';
 $provider_nav_active = 'users';
+
+$owner_prefill_full = trim($display_name !== '' ? $display_name : (string) ($_SESSION['full_name'] ?? $_SESSION['name'] ?? ''));
+$owner_prefill_parts = preg_split('/\s+/', $owner_prefill_full, -1, PREG_SPLIT_NO_EMPTY);
+$owner_prefill_first = '';
+$owner_prefill_last = '';
+if (is_array($owner_prefill_parts) && $owner_prefill_parts !== []) {
+    $owner_prefill_first = (string) array_shift($owner_prefill_parts);
+    $owner_prefill_last = trim(implode(' ', $owner_prefill_parts));
+}
+$owner_prefill_email = trim((string) ($_SESSION['email'] ?? ''));
+if ($owner_prefill_email === '') {
+    try {
+        $st = $pdo->prepare('SELECT email FROM tbl_users WHERE user_id = ? LIMIT 1');
+        $st->execute([$user_id]);
+        $er = $st->fetch(PDO::FETCH_ASSOC);
+        if (is_array($er)) {
+            $owner_prefill_email = trim((string) ($er['email'] ?? ''));
+        }
+    } catch (Throwable $e) {
+        // keep empty
+    }
+}
+$add_user_owner_prefill_json = json_encode(
+    [
+        'first' => $owner_prefill_first,
+        'last' => $owner_prefill_last,
+        'email' => $owner_prefill_email,
+    ],
+    JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE
+);
+if ($add_user_owner_prefill_json === false) {
+    $add_user_owner_prefill_json = '{"first":"","last":"","email":""}';
+}
 ?>
 <!DOCTYPE html>
 
@@ -373,16 +406,16 @@ $provider_nav_active = 'users';
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 <div>
 <label class="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80 mb-2">First name</label>
-<input type="text" id="add-user-first" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-medium text-on-background placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" placeholder="Given name" autocomplete="given-name"/>
+<input type="text" id="add-user-first" class="add-user-identity-field w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-medium text-on-background placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all read-only:bg-slate-50 read-only:text-on-surface-variant read-only:cursor-default" placeholder="Given name" autocomplete="given-name"/>
 </div>
 <div>
 <label class="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80 mb-2">Last name</label>
-<input type="text" id="add-user-last" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-medium text-on-background placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" placeholder="Family name" autocomplete="family-name"/>
+<input type="text" id="add-user-last" class="add-user-identity-field w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-medium text-on-background placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all read-only:bg-slate-50 read-only:text-on-surface-variant read-only:cursor-default" placeholder="Family name" autocomplete="family-name"/>
 </div>
 </div>
 <div>
 <label class="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80 mb-2">Professional email</label>
-<input type="email" id="add-user-email" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-medium text-on-background placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" placeholder="name@clinic.com" autocomplete="email"/>
+<input type="email" id="add-user-email" class="add-user-identity-field w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-medium text-on-background placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all read-only:bg-slate-50 read-only:text-on-surface-variant read-only:cursor-default" placeholder="name@clinic.com" autocomplete="email"/>
 </div>
 <div id="add-user-password-wrap" class="rounded-2xl border border-slate-200/90 bg-white elevated-card p-5 space-y-4">
 <div>
@@ -428,122 +461,11 @@ $provider_nav_active = 'users';
 <label class="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80 mb-2">Clinic role</label>
 <div class="relative">
 <select id="add-user-role" class="appearance-none w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 pr-12 text-sm font-semibold text-on-background focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer">
-<option>Administrative / support staff</option>
-<option>Clinical admin</option>
-<option>Lead dentist</option>
-<option>Dental hygienist</option>
-<option>Reception staff</option>
+<option>Manager</option>
+<option>Staff</option>
+<option>Doctor</option>
 </select>
 <span class="material-symbols-outlined pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-primary text-xl">expand_more</span>
-</div>
-</div>
-<div class="rounded-2xl border border-slate-200/90 bg-white elevated-card p-5">
-<p class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70">Permissions</p>
-<p class="font-headline text-base font-extrabold text-on-background mt-1">Visible staff modules</p>
-<p class="text-xs text-on-surface-variant mt-1 mb-4">Toggle sidebar sections for this account. Essentials stay available.</p>
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5" id="add-user-permissions-grid">
-<div class="flex items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-3 py-2.5">
-<span class="text-xs font-bold text-on-background truncate">Dashboard</span>
-<span class="shrink-0 text-[9px] font-black uppercase tracking-wider text-primary">Required</span>
-</div>
-<label class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 cursor-pointer transition-colors has-[:checked]:border-primary/25 has-[:checked]:bg-primary/5 hover:border-slate-300">
-<span class="text-xs font-bold text-on-background truncate">Patients</span>
-<span class="shrink-0 flex items-center">
-<input type="checkbox" class="add-user-switch-input sr-only" name="perm_patients" checked autocomplete="off"/>
-<span class="add-user-switch-track relative flex items-center p-0.5"><span class="add-user-switch-thumb"></span></span>
-</span>
-</label>
-<label class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 cursor-pointer transition-colors has-[:checked]:border-primary/25 has-[:checked]:bg-primary/5 hover:border-slate-300">
-<span class="text-xs font-bold text-on-background truncate">Appointments</span>
-<span class="shrink-0 flex items-center">
-<input type="checkbox" class="add-user-switch-input sr-only" name="perm_appointments" checked autocomplete="off"/>
-<span class="add-user-switch-track relative flex items-center p-0.5"><span class="add-user-switch-thumb"></span></span>
-</span>
-</label>
-<label class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 cursor-pointer transition-colors has-[:checked]:border-primary/25 has-[:checked]:bg-primary/5 hover:border-slate-300">
-<span class="text-xs font-bold text-on-background truncate">Messages</span>
-<span class="shrink-0 flex items-center">
-<input type="checkbox" class="add-user-switch-input sr-only" name="perm_messages" checked autocomplete="off"/>
-<span class="add-user-switch-track relative flex items-center p-0.5"><span class="add-user-switch-thumb"></span></span>
-</span>
-</label>
-<label class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 cursor-pointer transition-colors has-[:checked]:border-primary/25 has-[:checked]:bg-primary/5 hover:border-slate-300">
-<span class="text-xs font-bold text-on-background truncate">Settings</span>
-<span class="shrink-0 flex items-center">
-<input type="checkbox" class="add-user-switch-input sr-only" name="perm_settings" checked autocomplete="off"/>
-<span class="add-user-switch-track relative flex items-center p-0.5"><span class="add-user-switch-thumb"></span></span>
-</span>
-</label>
-<label class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 cursor-pointer transition-colors has-[:checked]:border-primary/25 has-[:checked]:bg-primary/5 hover:border-slate-300">
-<span class="text-xs font-bold text-on-background truncate">Billing</span>
-<span class="shrink-0 flex items-center">
-<input type="checkbox" class="add-user-switch-input sr-only" name="perm_billing" checked autocomplete="off"/>
-<span class="add-user-switch-track relative flex items-center p-0.5"><span class="add-user-switch-thumb"></span></span>
-</span>
-</label>
-<label class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 cursor-pointer transition-colors has-[:checked]:border-primary/25 has-[:checked]:bg-primary/5 hover:border-slate-300">
-<span class="text-xs font-bold text-on-background truncate">Patient registration</span>
-<span class="shrink-0 flex items-center">
-<input type="checkbox" class="add-user-switch-input sr-only" name="perm_registration" checked autocomplete="off"/>
-<span class="add-user-switch-track relative flex items-center p-0.5"><span class="add-user-switch-thumb"></span></span>
-</span>
-</label>
-<label class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 cursor-pointer transition-colors has-[:checked]:border-primary/25 has-[:checked]:bg-primary/5 hover:border-slate-300">
-<span class="text-xs font-bold text-on-background truncate">Queue</span>
-<span class="shrink-0 flex items-center">
-<input type="checkbox" class="add-user-switch-input sr-only" name="perm_queue" checked autocomplete="off"/>
-<span class="add-user-switch-track relative flex items-center p-0.5"><span class="add-user-switch-thumb"></span></span>
-</span>
-</label>
-<label class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 cursor-pointer transition-colors has-[:checked]:border-primary/25 has-[:checked]:bg-primary/5 hover:border-slate-300">
-<span class="text-xs font-bold text-on-background truncate">Reminders</span>
-<span class="shrink-0 flex items-center">
-<input type="checkbox" class="add-user-switch-input sr-only" name="perm_reminders" checked autocomplete="off"/>
-<span class="add-user-switch-track relative flex items-center p-0.5"><span class="add-user-switch-thumb"></span></span>
-</span>
-</label>
-<label class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 cursor-pointer transition-colors has-[:checked]:border-primary/25 has-[:checked]:bg-primary/5 hover:border-slate-300">
-<span class="text-xs font-bold text-on-background truncate">Reports</span>
-<span class="shrink-0 flex items-center">
-<input type="checkbox" class="add-user-switch-input sr-only" name="perm_reports" checked autocomplete="off"/>
-<span class="add-user-switch-track relative flex items-center p-0.5"><span class="add-user-switch-thumb"></span></span>
-</span>
-</label>
-<label class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 cursor-pointer transition-colors has-[:checked]:border-primary/25 has-[:checked]:bg-primary/5 hover:border-slate-300">
-<span class="text-xs font-bold text-on-background truncate">Invoices</span>
-<span class="shrink-0 flex items-center">
-<input type="checkbox" class="add-user-switch-input sr-only" name="perm_invoices" autocomplete="off"/>
-<span class="add-user-switch-track relative flex items-center p-0.5"><span class="add-user-switch-thumb"></span></span>
-</span>
-</label>
-<label class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 cursor-pointer transition-colors has-[:checked]:border-primary/25 has-[:checked]:bg-primary/5 hover:border-slate-300">
-<span class="text-xs font-bold text-on-background truncate">Payment history</span>
-<span class="shrink-0 flex items-center">
-<input type="checkbox" class="add-user-switch-input sr-only" name="perm_payments" autocomplete="off"/>
-<span class="add-user-switch-track relative flex items-center p-0.5"><span class="add-user-switch-thumb"></span></span>
-</span>
-</label>
-<label class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 cursor-pointer transition-colors has-[:checked]:border-primary/25 has-[:checked]:bg-primary/5 hover:border-slate-300">
-<span class="text-xs font-bold text-on-background truncate">Calendar</span>
-<span class="shrink-0 flex items-center">
-<input type="checkbox" class="add-user-switch-input sr-only" name="perm_calendar" autocomplete="off"/>
-<span class="add-user-switch-track relative flex items-center p-0.5"><span class="add-user-switch-thumb"></span></span>
-</span>
-</label>
-<label class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 cursor-pointer transition-colors has-[:checked]:border-primary/25 has-[:checked]:bg-primary/5 hover:border-slate-300">
-<span class="text-xs font-bold text-on-background truncate">Inventory</span>
-<span class="shrink-0 flex items-center">
-<input type="checkbox" class="add-user-switch-input sr-only" name="perm_inventory" autocomplete="off"/>
-<span class="add-user-switch-track relative flex items-center p-0.5"><span class="add-user-switch-thumb"></span></span>
-</span>
-</label>
-<label class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 cursor-pointer transition-colors has-[:checked]:border-primary/25 has-[:checked]:bg-primary/5 hover:border-slate-300">
-<span class="text-xs font-bold text-on-background truncate">Folders</span>
-<span class="shrink-0 flex items-center">
-<input type="checkbox" class="add-user-switch-input sr-only" name="perm_folders" autocomplete="off"/>
-<span class="add-user-switch-track relative flex items-center p-0.5"><span class="add-user-switch-thumb"></span></span>
-</span>
-</label>
 </div>
 </div>
 </div>
@@ -556,11 +478,22 @@ Send verification code
 </div>
 </div>
 </main>
+<script type="application/json" id="add-user-owner-prefill"><?php echo $add_user_owner_prefill_json; ?></script>
 <script>
 (function () {
   var modal = document.getElementById('add-user-modal');
   var openBtn = document.getElementById('add-user-open');
   if (!modal || !openBtn) return;
+
+  var ownerPrefill = { first: '', last: '', email: '' };
+  var prefillEl = document.getElementById('add-user-owner-prefill');
+  if (prefillEl) {
+    try {
+      ownerPrefill = JSON.parse(prefillEl.textContent || '{}');
+    } catch (e) {
+      ownerPrefill = { first: '', last: '', email: '' };
+    }
+  }
 
   var ownerCb = document.getElementById('add-user-owner-mode');
   var passwordWrap = document.getElementById('add-user-password-wrap');
@@ -568,31 +501,85 @@ Send verification code
   var pwConfirm = document.getElementById('add-user-password-confirm');
   var strengthLabel = document.getElementById('add-user-pw-strength-label');
   var strengthBar = document.getElementById('add-user-pw-strength-bar');
+  var firstInput = document.getElementById('add-user-first');
+  var lastInput = document.getElementById('add-user-last');
+  var emailInput = document.getElementById('add-user-email');
+
+  var draftFirst = '';
+  var draftLast = '';
+  var draftEmail = '';
 
   function openModal() {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     modal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
+    if (ownerCb && ownerCb.checked) {
+      setOwnerMode(true);
+    }
   }
   function closeModal() {
     modal.classList.add('hidden');
     modal.classList.remove('flex');
     modal.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
+    draftFirst = '';
+    draftLast = '';
+    draftEmail = '';
+    if (ownerCb) ownerCb.checked = false;
+    setOwnerMode(false);
+    if (firstInput) firstInput.value = '';
+    if (lastInput) lastInput.value = '';
+    if (emailInput) emailInput.value = '';
+    if (pwInput) pwInput.value = '';
+    if (pwConfirm) pwConfirm.value = '';
+    if (strengthLabel) strengthLabel.textContent = 'Waiting';
+    if (strengthBar) {
+      strengthBar.style.width = '0%';
+      strengthBar.className = 'h-full rounded-full bg-primary/30 w-0 transition-all duration-300 ease-out';
+    }
+  }
+
+  function applyOwnerIdentityFields() {
+    if (!firstInput || !lastInput || !emailInput) return;
+    firstInput.value = ownerPrefill.first || '';
+    lastInput.value = ownerPrefill.last || '';
+    emailInput.value = ownerPrefill.email || '';
+    firstInput.readOnly = true;
+    lastInput.readOnly = true;
+    emailInput.readOnly = true;
+  }
+
+  function clearOwnerIdentityFields() {
+    if (!firstInput || !lastInput || !emailInput) return;
+    firstInput.readOnly = false;
+    lastInput.readOnly = false;
+    emailInput.readOnly = false;
+    firstInput.value = draftFirst;
+    lastInput.value = draftLast;
+    emailInput.value = draftEmail;
   }
 
   function setOwnerMode(on) {
+    if (on) {
+      draftFirst = firstInput ? firstInput.value : '';
+      draftLast = lastInput ? lastInput.value : '';
+      draftEmail = emailInput ? emailInput.value : '';
+      applyOwnerIdentityFields();
+    } else {
+      clearOwnerIdentityFields();
+    }
+
     if (!passwordWrap) return;
     passwordWrap.classList.toggle('hidden', on);
     passwordWrap.setAttribute('aria-hidden', on ? 'true' : 'false');
     if (pwInput) {
       pwInput.disabled = on;
-      pwInput.required = !on;
+      pwInput.required = false;
     }
     if (pwConfirm) {
       pwConfirm.disabled = on;
-      pwConfirm.required = !on;
+      pwConfirm.required = false;
     }
     if (on) {
       if (strengthLabel) strengthLabel.textContent = '—';
@@ -601,6 +588,8 @@ Send verification code
         strengthBar.className = 'h-full rounded-full w-0 transition-all duration-300 ease-out bg-slate-200';
       }
     } else if (pwInput) {
+      pwInput.required = true;
+      if (pwConfirm) pwConfirm.required = true;
       updatePasswordStrength();
     }
   }
