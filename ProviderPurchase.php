@@ -170,7 +170,7 @@ if (!$business_verification && !$skip_business_verification_gate) {
 // Simulate payment failure (for testing)
 if (isset($_GET['simulate']) && $_GET['simulate'] === 'fail') {
     $_SESSION = [];
-    header('Location: ProviderMain.php');
+    header('Location: /');
     exit;
 }
 

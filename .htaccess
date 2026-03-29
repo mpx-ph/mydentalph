@@ -1,5 +1,13 @@
 RewriteEngine On
 
+# Provider landing: https://example.com/ serves ProviderMain.php (no /ProviderMain.php in the URL)
+DirectoryIndex ProviderMain.php
+
+# Canonical URL: redirect direct /ProviderMain.php requests to /
+# (THE_REQUEST avoids interfering with normal internal resolution)
+RewriteCond %{THE_REQUEST} \s/+ProviderMain\.php[\s?] [NC]
+RewriteRule ^ProviderMain\.php$ /? [R=301,L]
+
 # Allow existing files and directories to be served normally
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d

@@ -46,14 +46,14 @@ if (isset($_SESSION['user_id'])) {
     if ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)) {
         $is_superadmin_path = (strpos($redirect, 'superadmin/') === 0);
         if ($is_superadmin_path && ($_SESSION['role'] ?? '') !== 'superadmin') {
-            header('Location: ProviderMain.php');
+            header('Location: /');
         } else {
             header('Location: ' . $redirect);
         }
     } elseif (($_SESSION['role'] ?? '') === 'superadmin') {
         header('Location: superadmin/dashboard.php');
     } else {
-        header('Location: ProviderMain.php');
+        header('Location: /');
     }
     exit;
 }
@@ -219,7 +219,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     } elseif ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)) {
                         header('Location: ' . $redirect);
                     } else {
-                        header('Location: ProviderMain.php');
+                        header('Location: /');
                     }
                     exit;
                 }

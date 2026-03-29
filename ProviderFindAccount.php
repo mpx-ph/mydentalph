@@ -4,7 +4,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/mail_config.php';
 
 if (isset($_SESSION['user_id'])) {
-    header('Location: ProviderMain.php');
+    header('Location: /');
     exit;
 }
 

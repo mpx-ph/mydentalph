@@ -17,7 +17,7 @@ $rs = isset($renewal_sidebar) ? (string) $renewal_sidebar : '';
 ?>
 <aside class="fixed left-0 top-0 h-full w-64 z-40 sidebar-glass flex flex-col py-8 min-h-screen" data-purpose="navigation-sidebar">
 <div class="px-7 mb-10 shrink-0">
-<a href="ProviderMain.php" class="block transition-transform duration-200 hover:scale-[1.02]" aria-label="MyDental">
+<a href="/" class="block transition-transform duration-200 hover:scale-[1.02]" aria-label="MyDental">
 <img src="MyDental%20Logo.svg" alt="MyDental" width="144" height="36" loading="eager" decoding="async" class="h-11 w-auto max-w-full object-contain object-left"/>
 </a>
 <p class="text-on-surface-variant text-[10px] font-bold tracking-[0.2em] mt-2 opacity-60 uppercase">Provider Console</p>

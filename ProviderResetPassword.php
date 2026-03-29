@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             unset($_SESSION['provider_password_reset_otp_expires_at']);
             unset($_SESSION['provider_password_reset_verified']);
 
-            header('Location: ProviderMain.php');
+            header('Location: /');
             exit;
         } catch (Throwable $e) {
             $error = 'Could not update password right now. Please try again.';
