@@ -36,6 +36,9 @@ if ($add_user_owner_prefill_json === false) {
     $add_user_owner_prefill_json = '{"first":"","last":"","email":""}';
 }
 
+require_once __DIR__ . '/provider_tenant_plan_and_site_context.inc.php';
+require_once __DIR__ . '/provider_tenant_header_context.inc.php';
+
 /**
  * @return list<array<string, mixed>>
  */
@@ -120,7 +123,36 @@ function provider_tenant_profile_image_url(?string $path): ?string
     return '/' . ltrim($path, '/');
 }
 
-$team_members = provider_tenant_fetch_team_members($pdo, $tenant_id);
+$team_members_all = provider_tenant_fetch_team_members($pdo, $tenant_id);
+$team_total_all = count($team_members_all);
+$team_active_all = 0;
+foreach ($team_members_all as $tm) {
+    if (($tm['status'] ?? '') === 'active') {
+        $team_active_all++;
+    }
+}
+
+$filter_role = strtolower(trim((string) ($_GET['role'] ?? 'all')));
+$filter_status = strtolower(trim((string) ($_GET['status'] ?? 'all')));
+$allowed_filter_roles = ['all', 'tenant_owner', 'manager', 'staff', 'dentist'];
+if (!in_array($filter_role, $allowed_filter_roles, true)) {
+    $filter_role = 'all';
+}
+$allowed_filter_status = ['all', 'active', 'inactive', 'suspended'];
+if (!in_array($filter_status, $allowed_filter_status, true)) {
+    $filter_status = 'all';
+}
+
+$team_members = array_values(array_filter($team_members_all, static function (array $row) use ($filter_role, $filter_status): bool {
+    if ($filter_role !== 'all' && (string) ($row['role'] ?? '') !== $filter_role) {
+        return false;
+    }
+    if ($filter_status !== 'all' && strtolower((string) ($row['status'] ?? '')) !== $filter_status) {
+        return false;
+    }
+    return true;
+}));
+
 $team_active_count = 0;
 foreach ($team_members as $tm) {
     if (($tm['status'] ?? '') === 'active') {
@@ -279,30 +311,10 @@ $team_total = count($team_members);
         }
     </style>
 </head>
-<body class="mesh-bg font-body text-on-background min-h-screen flex">
+<body class="mesh-bg font-body text-on-background min-h-screen selection:bg-primary/10">
 <?php include __DIR__ . '/provider_tenant_sidebar.inc.php'; ?>
-<!-- TopNavBar Component -->
-<main class="flex-1 flex flex-col min-w-0 ml-64 provider-page-enter">
-<header class="flex justify-between items-center w-full px-10 sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 h-20 shadow-sm shadow-slate-200/40">
-<div class="flex items-center gap-8">
-<div class="flex items-center gap-2">
-<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-<span class="font-headline text-[10px] font-black uppercase tracking-[0.2em] text-primary">Clinic Status: Active</span>
-</div>
-<div class="h-4 w-px bg-slate-200"></div>
-<span class="font-headline text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Plan: Premium Pro</span>
-</div>
-<div class="flex items-center gap-6">
-<div class="flex items-center gap-6 text-on-surface-variant/60">
-<button class="material-symbols-outlined hover:text-primary transition-colors" data-icon="notifications">notifications</button>
-<button class="material-symbols-outlined hover:text-primary transition-colors" data-icon="help_outline">help_outline</button>
-</div>
-<div class="h-10 w-10 rounded-full overflow-hidden border-2 border-primary/20 p-0.5">
-<img alt="Admin Avatar" class="w-full h-full rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDtrO4z85y5D8iEXvQHkj0104-7MYy2wc5CzWIno3ZJoAATelGkmp38rAyasasOmmW4wQGq4BNoZKHdySndKoVpO0XB--E1A2_5vRl1kJ1g6AwqHiRB9aF7Yv5OPB7OqtgfW5uQki5KYLBdduA_b7JsF8T4nXHAsa8mcd_I8gYvQmeIbzL_UHdgtG6fegcuLkghbanknIbOkbHKq8KrbuR0fKD1anCt1DHD2CQeCqok7B1aLKIj7B0Yt_eChTBnS3Q8VKD6RcbiQO0"/>
-</div>
-</div>
-</header>
-<!-- Main Content -->
+<?php include __DIR__ . '/provider_tenant_top_header.inc.php'; ?>
+<main class="ml-64 pt-[4.5rem] sm:pt-24 min-h-screen provider-page-enter">
 <div class="p-8 space-y-8">
 <!-- Header Card -->
 <section class="elevated-card provider-card-lift rounded-3xl p-10 flex flex-col gap-6">
@@ -320,34 +332,36 @@ $team_total = count($team_members);
 </div>
 </div>
 <!-- Internal Control Bar (part of Header Card or separate, user asked for "each section" to sit on card) -->
-<div class="flex flex-wrap gap-4 items-center justify-between pt-8 border-t border-slate-100">
-<div class="flex gap-4">
+<form class="flex flex-wrap gap-4 items-center justify-between pt-8 border-t border-slate-100" method="get" action="">
+<div class="flex flex-wrap gap-4">
 <div class="relative">
-<select class="appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-8 py-3.5 pr-12 text-on-background text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all">
-<option>All Roles</option>
-<option>Clinical Admin</option>
-<option>Lead Dentist</option>
-<option>Dental Hygienist</option>
-<option>Reception Staff</option>
+<label class="sr-only" for="filter-role">Role</label>
+<select id="filter-role" name="role" class="appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-8 py-3.5 pr-12 text-on-background text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all" onchange="this.form.submit()">
+<option value="all"<?php echo $filter_role === 'all' ? ' selected' : ''; ?>>All roles</option>
+<option value="tenant_owner"<?php echo $filter_role === 'tenant_owner' ? ' selected' : ''; ?>>Clinic owner</option>
+<option value="manager"<?php echo $filter_role === 'manager' ? ' selected' : ''; ?>>Manager</option>
+<option value="staff"<?php echo $filter_role === 'staff' ? ' selected' : ''; ?>>Staff</option>
+<option value="dentist"<?php echo $filter_role === 'dentist' ? ' selected' : ''; ?>>Doctor</option>
 </select>
 <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-primary text-lg">expand_more</span>
 </div>
 <div class="relative">
-<select class="appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-8 py-3.5 pr-12 text-on-background text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all">
-<option>Active Status</option>
-<option>Online Now</option>
-<option>On Leave</option>
-<option>Inactive</option>
+<label class="sr-only" for="filter-status">Status</label>
+<select id="filter-status" name="status" class="appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-8 py-3.5 pr-12 text-on-background text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all" onchange="this.form.submit()">
+<option value="all"<?php echo $filter_status === 'all' ? ' selected' : ''; ?>>All statuses</option>
+<option value="active"<?php echo $filter_status === 'active' ? ' selected' : ''; ?>>Active</option>
+<option value="inactive"<?php echo $filter_status === 'inactive' ? ' selected' : ''; ?>>Inactive</option>
+<option value="suspended"<?php echo $filter_status === 'suspended' ? ' selected' : ''; ?>>Suspended</option>
 </select>
 <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-primary text-lg">filter_list</span>
 </div>
 </div>
 <div class="bg-primary/5 px-6 py-2.5 rounded-full border border-primary/10">
 <p class="text-primary text-[10px] font-black uppercase tracking-widest">
-                        Displaying <span class="text-slate-900"><?php echo (int) $team_active_count; ?></span> active staff · <span class="text-slate-900"><?php echo (int) $team_total; ?></span> total
+                        Showing <span class="text-slate-900"><?php echo (int) $team_total; ?></span> of <span class="text-slate-900"><?php echo (int) $team_total_all; ?></span> · <span class="text-slate-900"><?php echo (int) $team_active_count; ?></span> active in view · <span class="text-slate-900"><?php echo (int) $team_active_all; ?></span> active clinic-wide
                     </p>
 </div>
-</div>
+</form>
 </section>
 <!-- Table Card -->
 <div class="elevated-card provider-card-lift rounded-3xl overflow-hidden">
@@ -362,9 +376,13 @@ $team_total = count($team_members);
 </tr>
 </thead>
 <tbody class="divide-y divide-slate-100">
-<?php if ($team_total === 0) { ?>
+<?php if ($team_total_all === 0) { ?>
 <tr>
 <td colspan="5" class="px-10 py-16 text-center text-on-surface-variant font-medium">No team members yet. Use <span class="text-primary font-bold">Add New User</span> to invite staff.</td>
+</tr>
+<?php } elseif ($team_total === 0) { ?>
+<tr>
+<td colspan="5" class="px-10 py-16 text-center text-on-surface-variant font-medium">No team members match these filters. <a class="text-primary font-bold hover:underline" href="<?php echo htmlspecialchars($_SERVER['PHP_SELF'] ?? 'ProviderTenantUsers.php', ENT_QUOTES, 'UTF-8'); ?>">Clear filters</a></td>
 </tr>
 <?php } else { ?>
 <?php foreach ($team_members as $row) {
@@ -462,6 +480,8 @@ $team_total = count($team_members);
             </div>
 </div>
 </footer>
+</div>
+</main>
 <div id="add-user-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 sm:p-6" aria-hidden="true">
 <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm provider-modal-backdrop" data-modal-dismiss></div>
 <div class="relative w-full max-w-xl max-h-[min(92vh,46rem)] flex flex-col rounded-3xl bg-background shadow-2xl border border-slate-200/80 overflow-hidden provider-modal-panel" role="dialog" aria-modal="true" aria-labelledby="add-user-title">
@@ -596,7 +616,7 @@ Cancel
 </div>
 </div>
 <div id="add-user-invite-toast" class="fixed bottom-8 left-1/2 z-[120] hidden -translate-x-1/2 max-w-md rounded-2xl border border-primary/20 bg-white px-8 py-4 shadow-xl shadow-slate-900/10 text-sm font-semibold text-on-background text-center" role="status"></div>
-</main>
+<?php include __DIR__ . '/provider_tenant_profile_modal.inc.php'; ?>
 <script type="application/json" id="add-user-owner-prefill"><?php echo $add_user_owner_prefill_json; ?></script>
 <script>
 (function () {

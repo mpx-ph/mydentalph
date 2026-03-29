@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/provider_tenant_lite_bootstrap.php';
 require_once __DIR__ . '/provider_tenant_plan_and_site_context.inc.php';
+require_once __DIR__ . '/provider_tenant_header_context.inc.php';
 $provider_nav_active = 'subs';
 ?>
 <!DOCTYPE html>
@@ -145,29 +146,10 @@ $provider_nav_active = 'subs';
         body { font-family: 'Manrope', sans-serif; }
     </style>
 </head>
-<body class="font-body text-on-background mesh-bg min-h-screen flex">
+<body class="font-body text-on-background mesh-bg min-h-screen selection:bg-primary/10">
 <?php include __DIR__ . '/provider_tenant_sidebar.inc.php'; ?>
-<!-- Main Content Shell -->
-<main class="flex-1 flex flex-col min-w-0 ml-64 provider-page-enter">
-<!-- TopNavBar Component -->
-<header class="flex justify-between items-center w-full px-10 sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 h-20 shadow-sm shadow-slate-200/40">
-<div class="flex items-center gap-8">
-<div class="flex items-center gap-2">
-<span class="w-2 h-2 rounded-full <?php echo $is_subscription_active ? 'bg-green-500 animate-pulse' : 'bg-amber-500'; ?>"></span>
-<span class="font-headline text-[10px] font-black uppercase tracking-[0.2em] text-primary">Clinic Status: <?php echo $is_subscription_active ? 'Active' : htmlspecialchars(ucfirst($subscription_state), ENT_QUOTES, 'UTF-8'); ?></span>
-</div>
-<div class="h-4 w-px bg-slate-200"></div>
-<span class="font-headline text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Plan: <?php echo htmlspecialchars($plan_name, ENT_QUOTES, 'UTF-8'); ?></span>
-</div>
-<div class="flex items-center gap-6">
-<div class="flex items-center gap-6 text-on-surface-variant/60">
-<button class="material-symbols-outlined hover:text-primary transition-colors">notifications</button>
-<button class="material-symbols-outlined hover:text-primary transition-colors">help_outline</button>
-</div>
-<div class="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary text-xs font-bold border-2 border-primary/20 shrink-0" aria-hidden="true"><?php echo htmlspecialchars($avatar_initials, ENT_QUOTES, 'UTF-8'); ?></div>
-</div>
-</header>
-<!-- Main Content -->
+<?php include __DIR__ . '/provider_tenant_top_header.inc.php'; ?>
+<main class="ml-64 pt-[4.5rem] sm:pt-24 min-h-screen provider-page-enter">
 <div class="p-10 space-y-6">
 <!-- Editorial Header Section -->
 <section class="flex flex-col gap-4 mb-4">
@@ -272,4 +254,5 @@ $provider_nav_active = 'subs';
 </div>
 </footer>
 </main>
+<?php include __DIR__ . '/provider_tenant_profile_modal.inc.php'; ?>
 </body></html>

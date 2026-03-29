@@ -70,6 +70,7 @@ if ($tenant === []) {
 }
 
 require_once __DIR__ . '/provider_tenant_plan_and_site_context.inc.php';
+require_once __DIR__ . '/provider_tenant_header_context.inc.php';
 
 $provider_nav_active = 'settings';
 ?>
@@ -191,32 +192,10 @@ $provider_nav_active = 'settings';
         }
     </style>
 </head>
-<body class="font-body text-on-background mesh-bg min-h-screen flex">
+<body class="font-body text-on-background mesh-bg min-h-screen selection:bg-primary/10">
 <?php include __DIR__ . '/provider_tenant_sidebar.inc.php'; ?>
-<!-- Main Content Area -->
-<main class="flex-1 flex flex-col min-w-0 ml-64 provider-page-enter">
-<!-- TopNavBar -->
-<header class="flex justify-between items-center w-full px-10 sticky top-0 z-30 bg-white/80 backdrop-blur-xl h-20 border-b border-slate-200/80 shadow-sm shadow-slate-200/40">
-<div class="flex items-center gap-8">
-<h2 class="font-headline text-lg font-extrabold text-slate-900">MyDental Provider</h2>
-<div class="h-4 w-px bg-outline-variant/30"></div>
-<span class="font-headline text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">System Settings</span>
-</div>
-<div class="flex items-center gap-6">
-<div class="relative hidden md:block">
-<span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-400 text-lg">search</span>
-<input class="bg-primary/5 border border-slate-300 rounded-full py-2.5 pl-11 pr-4 text-xs w-64 focus:ring-2 focus:ring-primary/20 placeholder:text-slate-400" placeholder="Search settings..." type="text"/>
-</div>
-<div class="flex items-center gap-6 text-on-surface-variant/60">
-<button class="material-symbols-outlined hover:text-primary transition-colors">notifications</button>
-<button class="material-symbols-outlined hover:text-primary transition-colors">help_outline</button>
-</div>
-<div class="h-10 w-10 rounded-full overflow-hidden border-2 border-primary/20 p-0.5 shadow-sm">
-<img alt="Admin Avatar" class="w-full h-full rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1L6CErhIlC70phuJM6zTquKiKBYvLOyfRk2af42qldmhP1fqWU4Fqg0Zd_-dtByCaAGXwLrtBd0LK_lzNeaasWGDSQQYlLtIATaMVsUquiFX8mgDW72JytVn4eNqmowEP1T3tkPv52-wTkpFw5QUBo33YdTOn5dnfjnGodxPC3iOK3_a9s8ema86EKxRcm3m1Jbr-OndSxEthemuUgEhNyTV9ewF6ICnO4D9XWu3U9XotWeAK8G_LY7wbkKqZl4x5h---4iur2X8"/>
-</div>
-</div>
-</header>
-<!-- Page Content -->
+<?php include __DIR__ . '/provider_tenant_top_header.inc.php'; ?>
+<main class="ml-64 pt-[4.5rem] sm:pt-24 min-h-screen provider-page-enter">
 <div class="p-10 max-w-7xl mx-auto w-full space-y-12">
 <!-- Header -->
 <section class="flex flex-col gap-4">
@@ -461,4 +440,5 @@ $provider_nav_active = 'settings';
 </div>
 </footer>
 </main>
+<?php include __DIR__ . '/provider_tenant_profile_modal.inc.php'; ?>
 </body></html>
