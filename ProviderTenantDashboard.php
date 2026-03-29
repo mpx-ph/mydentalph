@@ -199,18 +199,6 @@ if ($display_name !== '') {
         outline: none;
         box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(43, 139, 235, 0.45);
       }
-      .dash-infra-panel {
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(241, 245, 249, 0.5) 100%);
-        box-shadow:
-          0 0 0 1px rgba(255, 255, 255, 0.9),
-          0 20px 50px -15px rgba(15, 23, 42, 0.08);
-      }
-      .dash-infra-row {
-        transition: background-color 0.2s ease;
-      }
-      .dash-infra-row:hover {
-        background: rgba(43, 139, 235, 0.04);
-      }
       ::-webkit-scrollbar { width: 6px; }
       ::-webkit-scrollbar-track { background: #f1f1f1; }
       ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -256,51 +244,9 @@ include __DIR__ . '/provider_tenant_sidebar.inc.php';
 </a>
 </div>
 </section>
-<section class="grid grid-cols-12 gap-8">
-<div class="col-span-12">
-<div class="dash-infra-panel backdrop-blur-xl p-8 sm:p-10 rounded-[2rem] border border-white/90">
 <?php if ($show_activated_banner): ?>
-<div class="mb-8 p-5 bg-gradient-to-r from-surface-container-low to-primary/5 border border-primary/25 text-primary rounded-2xl text-sm font-headline font-bold shadow-sm shadow-primary/10">Subscription activated. Your clinic website is now live and ready to manage.</div>
+<div class="max-w-4xl p-5 bg-gradient-to-r from-surface-container-low to-primary/5 border border-primary/25 text-primary rounded-2xl text-sm font-headline font-bold shadow-sm shadow-primary/10">Subscription activated. Your clinic website is now live and ready to manage.</div>
 <?php endif; ?>
-<div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
-<h4 class="text-2xl font-extrabold font-headline text-on-background">Infrastructure <span class="text-primary italic font-editorial">Status</span></h4>
-<p class="text-xs font-semibold text-on-surface-variant uppercase tracking-widest">Live system checks</p>
-</div>
-<div class="grid sm:grid-cols-3 gap-4">
-<div class="dash-infra-row flex items-center justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white/60 px-5 py-4">
-<div class="flex items-center gap-3 min-w-0">
-<span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
-<span class="material-symbols-outlined text-[22px]">database</span>
-</span>
-<span class="text-sm font-bold text-on-background truncate">Database</span>
-</div>
-<span class="text-[10px] font-black text-emerald-600 flex items-center gap-2 uppercase tracking-wider shrink-0">
-<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>OK</span>
-</div>
-<div class="dash-infra-row flex items-center justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white/60 px-5 py-4">
-<div class="flex items-center gap-3 min-w-0">
-<span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl <?php echo $has_visible_website ? 'bg-sky-50 text-sky-600 ring-sky-100' : 'bg-amber-50 text-amber-700 ring-amber-100'; ?> ring-1">
-<span class="material-symbols-outlined text-[22px]">web</span>
-</span>
-<span class="text-sm font-bold text-on-background truncate">Clinic portal</span>
-</div>
-<span class="text-[10px] font-black <?php echo $has_visible_website ? 'text-emerald-600' : 'text-amber-600'; ?> flex items-center gap-2 uppercase tracking-wider shrink-0">
-<span class="w-2 h-2 rounded-full <?php echo $has_visible_website ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'; ?>"></span><?php echo $has_visible_website ? 'Ready' : 'Off'; ?></span>
-</div>
-<div class="dash-infra-row flex items-center justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white/60 px-5 py-4">
-<div class="flex items-center gap-3 min-w-0">
-<span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl <?php echo $is_subscription_active ? 'bg-primary/10 text-primary ring-primary/15' : 'bg-slate-100 text-slate-500 ring-slate-200'; ?> ring-1">
-<span class="material-symbols-outlined text-[22px]">subscriptions</span>
-</span>
-<span class="text-sm font-bold text-on-background truncate">Subscription</span>
-</div>
-<span class="text-[10px] font-black <?php echo $is_subscription_active ? 'text-emerald-600' : 'text-on-surface-variant/70'; ?> flex items-center gap-2 uppercase tracking-wider shrink-0">
-<span class="w-2 h-2 rounded-full <?php echo $is_subscription_active ? 'bg-emerald-500' : 'bg-slate-400'; ?>"></span><?php echo $is_subscription_active ? 'Active' : ucfirst($subscription_state); ?></span>
-</div>
-</div>
-</div>
-</div>
-</section>
 </div>
 </main>
 <script data-purpose="event-handlers">

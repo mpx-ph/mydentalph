@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/provider_tenant_lite_bootstrap.php';
+require_once __DIR__ . '/provider_tenant_plan_and_site_context.inc.php';
 
 $clinic_settings_saved = false;
 $clinic_settings_error = '';
@@ -175,6 +176,18 @@ $provider_nav_active = 'settings';
         .form-input-styled:focus {
             border-color: #2b8beb !important; /* primary color on focus */
         }
+        .dash-infra-panel {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(241, 245, 249, 0.5) 100%);
+            box-shadow:
+                0 0 0 1px rgba(255, 255, 255, 0.9),
+                0 20px 50px -15px rgba(15, 23, 42, 0.08);
+        }
+        .dash-infra-row {
+            transition: background-color 0.2s ease;
+        }
+        .dash-infra-row:hover {
+            background: rgba(43, 139, 235, 0.04);
+        }
     </style>
 </head>
 <body class="font-body text-on-background mesh-bg min-h-screen flex">
@@ -295,6 +308,44 @@ $provider_nav_active = 'settings';
 </div>
 <!-- Right Column -->
 <div class="lg:col-span-5 space-y-10">
+<div class="dash-infra-panel backdrop-blur-xl p-8 sm:p-10 rounded-[2rem] border border-white/90">
+<div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
+<h4 class="text-2xl font-extrabold font-headline text-on-background">Infrastructure <span class="text-primary italic font-editorial">Status</span></h4>
+<p class="text-xs font-semibold text-on-surface-variant uppercase tracking-widest">Live system checks</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="dash-infra-row flex items-center justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white/60 px-5 py-4">
+<div class="flex items-center gap-3 min-w-0">
+<span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+<span class="material-symbols-outlined text-[22px]">database</span>
+</span>
+<span class="text-sm font-bold text-on-background truncate">Database</span>
+</div>
+<span class="text-[10px] font-black text-emerald-600 flex items-center gap-2 uppercase tracking-wider shrink-0">
+<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>OK</span>
+</div>
+<div class="dash-infra-row flex items-center justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white/60 px-5 py-4">
+<div class="flex items-center gap-3 min-w-0">
+<span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl <?php echo $has_visible_website ? 'bg-sky-50 text-sky-600 ring-sky-100' : 'bg-amber-50 text-amber-700 ring-amber-100'; ?> ring-1">
+<span class="material-symbols-outlined text-[22px]">web</span>
+</span>
+<span class="text-sm font-bold text-on-background truncate">Clinic portal</span>
+</div>
+<span class="text-[10px] font-black <?php echo $has_visible_website ? 'text-emerald-600' : 'text-amber-600'; ?> flex items-center gap-2 uppercase tracking-wider shrink-0">
+<span class="w-2 h-2 rounded-full <?php echo $has_visible_website ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'; ?>"></span><?php echo $has_visible_website ? 'Ready' : 'Off'; ?></span>
+</div>
+<div class="dash-infra-row flex items-center justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white/60 px-5 py-4">
+<div class="flex items-center gap-3 min-w-0">
+<span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl <?php echo $is_subscription_active ? 'bg-primary/10 text-primary ring-primary/15' : 'bg-slate-100 text-slate-500 ring-slate-200'; ?> ring-1">
+<span class="material-symbols-outlined text-[22px]">subscriptions</span>
+</span>
+<span class="text-sm font-bold text-on-background truncate">Subscription</span>
+</div>
+<span class="text-[10px] font-black <?php echo $is_subscription_active ? 'text-emerald-600' : 'text-on-surface-variant/70'; ?> flex items-center gap-2 uppercase tracking-wider shrink-0">
+<span class="w-2 h-2 rounded-full <?php echo $is_subscription_active ? 'bg-emerald-500' : 'bg-slate-400'; ?>"></span><?php echo $is_subscription_active ? 'Active' : ucfirst($subscription_state); ?></span>
+</div>
+</div>
+</div>
 <!-- Security -->
 <div class="section-card bg-[#fcfdff] rounded-[2.5rem] p-10 border border-primary/5">
 <div class="flex items-center gap-5 mb-10">
