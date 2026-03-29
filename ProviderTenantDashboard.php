@@ -549,14 +549,6 @@ Manage Team
 </div>
 <?php endif; ?>
 </div>
-
-<div class="glass-card rounded-3xl p-6 editorial-shadow">
-<h3 class="text-base font-extrabold font-headline text-on-background mb-1">Quick insight</h3>
-<p class="text-xs text-on-surface-variant mb-3">Subscription &amp; public site</p>
-<p class="text-sm font-bold text-on-background"><?php echo htmlspecialchars(isset($plan_name) ? (string) $plan_name : 'Plan', ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="text-xs text-on-surface-variant mt-2 break-all"><?php echo htmlspecialchars(isset($domain_display) ? (string) $domain_display : '—', ENT_QUOTES, 'UTF-8'); ?></p>
-<a class="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:underline" href="ProviderTenantSubs.php">View billing<span class="material-symbols-outlined text-base">arrow_forward</span></a>
-</div>
 </div>
 </section>
 
