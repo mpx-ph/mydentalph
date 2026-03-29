@@ -440,12 +440,27 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <?php sb_text('main_cta_button', 'Button label', $site_opts, $is_owner); ?>
 </div>
 </div>
-<div class="space-y-4 sb-preview-scope" data-sb-preview-pages="services">
-<h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Services page</h3>
-<?php sb_text('services_hero_badge', 'Badge', $site_opts, $is_owner); ?>
+<div class="space-y-6 sb-preview-scope" data-sb-preview-pages="services">
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Services — Page &amp; hero</h3>
+<p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Browser tab title plus the top section. Treatment names and descriptions on this page are managed in your services catalog, not here.</p>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_text('services_page_title', 'Browser tab title', $site_opts, $is_owner); ?>
+<?php sb_text('services_hero_badge', 'Hero badge (top pill)', $site_opts, $is_owner); ?>
 <?php sb_text('services_hero_title_before', 'Title (before accent)', $site_opts, $is_owner); ?>
 <?php sb_text('services_hero_title_accent', 'Accent word', $site_opts, $is_owner); ?>
-<?php sb_text('services_hero_subtitle', 'Subtitle', $site_opts, $is_owner, true); ?>
+<?php sb_text('services_hero_subtitle', 'Hero subtitle', $site_opts, $is_owner, true); ?>
+</div>
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Services — Card buttons</h3>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Same label on each preview card&rsquo;s book button (card copy itself is not edited here).</p>
+<?php sb_text('services_card_book_label', 'Book button label', $site_opts, $is_owner); ?>
+</div>
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Services — Bottom call to action</h3>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_text('services_cta_title', 'Title', $site_opts, $is_owner); ?>
+<?php sb_text('services_cta_subtext', 'Subtext', $site_opts, $is_owner, true); ?>
+<?php sb_text('services_cta_button', 'Button label', $site_opts, $is_owner); ?>
+</div>
 </div>
 <div class="space-y-4 sb-preview-scope" data-sb-preview-pages="about">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">About</h3>

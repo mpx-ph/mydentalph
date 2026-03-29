@@ -2,15 +2,30 @@
 /**
  * Patient-facing services page
  */
-$pageTitle = 'Our Services';
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/tenant_bootstrap.php';
 require_once __DIR__ . '/includes/clinic_customization.php';
-require_once __DIR__ . '/includes/header.php';
 
-$cu = static function (string $k) use ($CLINIC): string {
-    return isset($CLINIC[$k]) ? htmlspecialchars((string) $CLINIC[$k], ENT_QUOTES, 'UTF-8') : '';
+$cu = static function (string $k, string $default = '') use ($CLINIC): string {
+    $v = isset($CLINIC[$k]) ? trim((string) $CLINIC[$k]) : '';
+    if ($v === '' && $default !== '') {
+        $v = $default;
+    }
+    return htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
 };
+$cuMultiline = static function (string $k, string $default = '') use ($CLINIC): string {
+    $v = isset($CLINIC[$k]) ? trim((string) $CLINIC[$k]) : '';
+    if ($v === '' && $default !== '') {
+        $v = $default;
+    }
+    return nl2br(htmlspecialchars($v, ENT_QUOTES, 'UTF-8'), false);
+};
+
+$pageTitle = isset($CLINIC['services_page_title']) ? trim((string) $CLINIC['services_page_title']) : '';
+if ($pageTitle === '') {
+    $pageTitle = 'Our Services';
+}
+require_once __DIR__ . '/includes/header.php';
 
 $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 'UTF-8');
 ?>
@@ -29,13 +44,13 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
 <!-- Hero Section -->
 <section class="max-w-7xl mx-auto px-6 md:px-12 pt-28 lg:pt-32 pb-16 text-center">
 <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[11px] font-extrabold uppercase tracking-[0.2em] mb-8">
-                <?php echo $cu('services_hero_badge'); ?>
+                <?php echo $cu('services_hero_badge', 'Clinically Proven Care'); ?>
             </div>
 <h1 class="font-display text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-6">
-                <?php echo $cu('services_hero_title_before'); ?><span class="text-primary font-editorial italic font-normal"><?php echo $cu('services_hero_title_accent'); ?></span>
+                <?php echo $cu('services_hero_title_before', 'Our Specialized '); ?><span class="text-primary font-editorial italic font-normal"><?php echo $cu('services_hero_title_accent', 'Services'); ?></span>
 </h1>
 <p class="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto text-xl font-medium leading-relaxed">
-                <?php echo $cu('services_hero_subtitle'); ?>
+                <?php echo $cuMultiline('services_hero_subtitle', 'Elevating dental wellness through clinical mastery and curated patient experiences. Discover our full spectrum of elite treatments.'); ?>
             </p>
 </section>
 <!-- Vertical Services List -->
@@ -48,7 +63,7 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
 </div>
 <div class="shrink-0">
 <a href="<?php echo $bookUrl; ?>" class="inline-flex px-8 py-4 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-sm uppercase tracking-widest transition-all items-center gap-2">
-                        Book Appointment
+                        <?php echo $cu('services_card_book_label', 'Book Appointment'); ?>
                         <span class="material-symbols-outlined text-sm">calendar_today</span>
 </a>
 </div>
@@ -61,7 +76,7 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
 </div>
 <div class="shrink-0">
 <a href="<?php echo $bookUrl; ?>" class="inline-flex px-8 py-4 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-sm uppercase tracking-widest transition-all items-center gap-2">
-                        Book Appointment
+                        <?php echo $cu('services_card_book_label', 'Book Appointment'); ?>
                         <span class="material-symbols-outlined text-sm">calendar_today</span>
 </a>
 </div>
@@ -74,7 +89,7 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
 </div>
 <div class="shrink-0">
 <a href="<?php echo $bookUrl; ?>" class="inline-flex px-8 py-4 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-sm uppercase tracking-widest transition-all items-center gap-2">
-                        Book Appointment
+                        <?php echo $cu('services_card_book_label', 'Book Appointment'); ?>
                         <span class="material-symbols-outlined text-sm">calendar_today</span>
 </a>
 </div>
@@ -87,7 +102,7 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
 </div>
 <div class="shrink-0">
 <a href="<?php echo $bookUrl; ?>" class="inline-flex px-8 py-4 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-sm uppercase tracking-widest transition-all items-center gap-2">
-                        Book Appointment
+                        <?php echo $cu('services_card_book_label', 'Book Appointment'); ?>
                         <span class="material-symbols-outlined text-sm">calendar_today</span>
 </a>
 </div>
@@ -100,7 +115,7 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
 </div>
 <div class="shrink-0">
 <a href="<?php echo $bookUrl; ?>" class="inline-flex px-8 py-4 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-sm uppercase tracking-widest transition-all items-center gap-2">
-                        Book Appointment
+                        <?php echo $cu('services_card_book_label', 'Book Appointment'); ?>
                         <span class="material-symbols-outlined text-sm">calendar_today</span>
 </a>
 </div>
@@ -109,10 +124,10 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
 <!-- Final CTA Section -->
 <section class="max-w-7xl mx-auto px-6 md:px-12 pb-24">
 <div class="rounded-3xl bg-primary p-12 md:p-20 text-center text-white shadow-xl shadow-primary/20">
-<h2 class="font-display text-4xl md:text-5xl font-extrabold tracking-tight mb-6">Ready to start your journey?</h2>
-<p class="text-white/80 text-lg md:text-xl max-w-xl mx-auto mb-10 font-medium">Join thousands of happy patients who trust us with their oral health and aesthetic transformations.</p>
+<h2 class="font-display text-4xl md:text-5xl font-extrabold tracking-tight mb-6"><?php echo $cu('services_cta_title', 'Ready to start your journey?'); ?></h2>
+<p class="text-white/80 text-lg md:text-xl max-w-xl mx-auto mb-10 font-medium"><?php echo $cuMultiline('services_cta_subtext', 'Join thousands of happy patients who trust us with their oral health and aesthetic transformations.'); ?></p>
 <a href="<?php echo $bookUrl; ?>" class="inline-block bg-white text-primary px-12 py-5 rounded-full font-extrabold text-sm uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-lg active:scale-95">
-                    Book Your Consultation
+                    <?php echo $cu('services_cta_button', 'Book Your Consultation'); ?>
                 </a>
 </div>
 </section>
