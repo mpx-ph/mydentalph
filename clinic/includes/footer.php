@@ -38,6 +38,7 @@ $footerLogoAlt = isset($CLINIC['clinic_name']) ? htmlspecialchars($CLINIC['clini
         </div>
         <div class="border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
             <p class="text-xs text-slate-500">© <?php echo date('Y'); ?> Dr. Romarico C. Gonzales Dental Clinic. All rights reserved.</p>
+            <a href="https://mydentalph.ct.ws/" class="text-xs text-slate-500 hover:text-slate-300 transition-colors" target="_blank" rel="noopener noreferrer">Powered by MyDental Philippines</a>
         </div>
     </div>
 </footer>
