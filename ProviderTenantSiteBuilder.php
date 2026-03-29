@@ -209,12 +209,56 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
         .builder-panel { display: none; }
         .builder-panel--active { display: block; }
         .preview-frame-wrap { box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.12); }
-        .preview-viewport-tab { transition: color 0.2s, background 0.2s, border-color 0.2s; }
-        .preview-viewport-tab--active { background: rgba(43, 139, 235, 0.12); color: #2b8beb; border-color: rgba(43, 139, 235, 0.3); }
-        .preview-viewport-shell { transition: max-width 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
-        .preview-viewport-shell--desktop { max-width: 100%; }
-        .preview-viewport-shell--tablet { max-width: 48rem; }
-        .preview-viewport-shell--mobile { max-width: 24.375rem; }
+        .preview-device-bar {
+            display: inline-flex;
+            align-items: stretch;
+            border-radius: 9999px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(30, 41, 59, 0.55);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+        }
+        .preview-device-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.55rem 1rem;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.55);
+            transition: color 0.2s, background 0.2s, box-shadow 0.2s;
+        }
+        .preview-device-btn:hover { color: rgba(255, 255, 255, 0.9); }
+        .preview-device-btn--active {
+            color: #fff;
+            background: linear-gradient(135deg, rgba(43, 139, 235, 0.45), rgba(59, 130, 246, 0.35));
+            box-shadow: 0 0 24px -4px rgba(43, 139, 235, 0.55);
+            border-radius: 9999px;
+        }
+        .preview-device-divider { width: 1px; align-self: stretch; background: rgba(255, 255, 255, 0.12); margin: 0.35rem 0; }
+        .preview-canvas-shell { transition: max-width 0.35s ease, aspect-ratio 0.35s ease, min-height 0.35s ease; }
+        .preview-canvas-shell--desktop {
+            width: 100%;
+            max-width: none;
+            aspect-ratio: 16 / 10;
+            min-height: 380px;
+        }
+        .preview-canvas-shell--mobile {
+            width: 100%;
+            max-width: 390px;
+            margin-left: auto;
+            margin-right: auto;
+            aspect-ratio: 9 / 16;
+            min-height: 420px;
+            max-height: min(75vh, 820px);
+        }
+        @supports not (aspect-ratio: 1) {
+            .preview-canvas-shell--desktop { min-height: clamp(380px, 52vw, 560px); }
+            .preview-canvas-shell--mobile { min-height: 560px; }
+        }
     </style>
 </head>
 <body class="font-body text-on-background mesh-bg min-h-screen selection:bg-primary/10">
@@ -359,12 +403,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </div>
 </div>
 
-<div class="xl:col-span-7 space-y-3">
-<div class="flex flex-wrap items-center gap-2" role="tablist" aria-label="Preview viewport size">
-<button type="button" role="tab" aria-selected="true" class="preview-viewport-tab preview-viewport-tab--active px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent" data-preview-viewport="desktop">Desktop</button>
-<button type="button" role="tab" aria-selected="false" class="preview-viewport-tab px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent text-on-surface-variant" data-preview-viewport="tablet">Tablet</button>
-<button type="button" role="tab" aria-selected="false" class="preview-viewport-tab px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent text-on-surface-variant" data-preview-viewport="mobile">Mobile</button>
-</div>
+<div class="xl:col-span-7">
 <div class="preview-frame-wrap rounded-[2rem] bg-slate-900/90 p-3 sm:p-4 border border-slate-800">
 <div class="flex items-center gap-2 px-3 py-2 mb-2">
 <span class="h-3 w-3 rounded-full bg-red-400/90"></span>
@@ -372,14 +411,26 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <span class="h-3 w-3 rounded-full bg-emerald-400/90"></span>
 <span class="text-[10px] font-mono text-slate-400 ml-3 truncate" id="previewUrlBar">—</span>
 </div>
-<div class="flex justify-center w-full">
-<div id="previewViewportShell" class="preview-viewport-shell preview-viewport-shell--desktop w-full rounded-xl sm:rounded-2xl overflow-hidden bg-white aspect-[16/11] min-h-[380px]">
+<div class="flex justify-center pb-3" role="tablist" aria-label="Preview device size">
+<div class="preview-device-bar">
+<button type="button" class="preview-device-btn" id="previewModeMobile" data-preview-mode="mobile" role="tab" aria-selected="false" aria-controls="previewCanvasShell">
+<span class="material-symbols-outlined text-[18px]">smartphone</span> Mobile
+</button>
+<button type="button" class="preview-device-btn preview-device-btn--active" id="previewModeDesktop" data-preview-mode="desktop" role="tab" aria-selected="true" aria-controls="previewCanvasShell">
+<span class="material-symbols-outlined text-[18px]">laptop_mac</span> Desktop
+</button>
+<span class="preview-device-divider" aria-hidden="true"></span>
+<button type="button" class="preview-device-btn" id="previewToolbarRefresh">
+<span class="material-symbols-outlined text-[18px]">refresh</span> Refresh
+</button>
+</div>
+</div>
+<div class="rounded-xl sm:rounded-2xl overflow-hidden bg-white preview-canvas-shell preview-canvas-shell--desktop" id="previewCanvasShell">
 <?php if ($preview_urls['home'] !== ''): ?>
-<iframe title="Site preview" class="w-full h-full min-h-[380px] border-0" id="sitePreviewFrame" src="<?php echo htmlspecialchars($preview_urls['home'], ENT_QUOTES, 'UTF-8'); ?>"></iframe>
+<iframe title="Site preview" class="w-full h-full min-h-[320px] border-0" id="sitePreviewFrame" src="<?php echo htmlspecialchars($preview_urls['home'], ENT_QUOTES, 'UTF-8'); ?>"></iframe>
 <?php else: ?>
 <div class="w-full h-full min-h-[380px] flex items-center justify-center text-slate-500 text-sm font-medium p-8 text-center">Preview unavailable until your clinic slug is active.</div>
 <?php endif; ?>
-</div>
 </div>
 </div>
 </div>
@@ -394,7 +445,6 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 
     var frame = document.getElementById('sitePreviewFrame');
     var previewSelect = document.getElementById('previewPageSelect');
-    var viewportShell = document.getElementById('previewViewportShell');
     var urlBar = document.getElementById('previewUrlBar');
     var saveLabel = document.getElementById('saveLabel');
     var saveIconOk = document.getElementById('saveIconOk');
@@ -478,25 +528,6 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             .catch(function () { setSaveState('error'); });
     }
 
-    function setPreviewViewport(mode) {
-        if (!viewportShell) return;
-        var m = mode === 'tablet' || mode === 'mobile' ? mode : 'desktop';
-        viewportShell.classList.remove('preview-viewport-shell--desktop', 'preview-viewport-shell--tablet', 'preview-viewport-shell--mobile');
-        viewportShell.classList.add('preview-viewport-shell--' + m);
-        document.querySelectorAll('[data-preview-viewport]').forEach(function (b) {
-            var on = b.getAttribute('data-preview-viewport') === m;
-            b.classList.toggle('preview-viewport-tab--active', on);
-            b.classList.toggle('text-on-surface-variant', !on);
-            b.setAttribute('aria-selected', on ? 'true' : 'false');
-        });
-    }
-
-    document.querySelectorAll('[data-preview-viewport]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            setPreviewViewport(btn.getAttribute('data-preview-viewport') || 'desktop');
-        });
-    });
-
     document.querySelectorAll('.builder-tab').forEach(function (btn) {
         btn.addEventListener('click', function () {
             var tab = btn.getAttribute('data-tab');
@@ -534,10 +565,36 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
         setPreviewUrl(previewSelect.value);
     }
 
-    var btnRef = document.getElementById('btnRefreshPreview');
-    if (btnRef && previewSelect) {
-        btnRef.addEventListener('click', function () { setPreviewUrl(previewSelect.value); });
+    function refreshPreview() {
+        if (previewSelect) setPreviewUrl(previewSelect.value);
     }
+
+    var btnRef = document.getElementById('btnRefreshPreview');
+    if (btnRef) btnRef.addEventListener('click', refreshPreview);
+
+    var previewShell = document.getElementById('previewCanvasShell');
+    var modeMobile = document.getElementById('previewModeMobile');
+    var modeDesktop = document.getElementById('previewModeDesktop');
+    var toolbarRefresh = document.getElementById('previewToolbarRefresh');
+
+    function setPreviewDeviceMode(mode) {
+        if (!previewShell) return;
+        var isMobile = mode === 'mobile';
+        previewShell.classList.toggle('preview-canvas-shell--mobile', isMobile);
+        previewShell.classList.toggle('preview-canvas-shell--desktop', !isMobile);
+        if (modeMobile) {
+            modeMobile.classList.toggle('preview-device-btn--active', isMobile);
+            modeMobile.setAttribute('aria-selected', isMobile ? 'true' : 'false');
+        }
+        if (modeDesktop) {
+            modeDesktop.classList.toggle('preview-device-btn--active', !isMobile);
+            modeDesktop.setAttribute('aria-selected', !isMobile ? 'true' : 'false');
+        }
+    }
+
+    if (modeMobile) modeMobile.addEventListener('click', function () { setPreviewDeviceMode('mobile'); });
+    if (modeDesktop) modeDesktop.addEventListener('click', function () { setPreviewDeviceMode('desktop'); });
+    if (toolbarRefresh) toolbarRefresh.addEventListener('click', refreshPreview);
 
     document.querySelectorAll('[data-opt-hex]').forEach(function (hexInp) {
         var k = hexInp.getAttribute('data-opt-hex');
