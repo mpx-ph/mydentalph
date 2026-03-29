@@ -35,6 +35,99 @@ $add_user_owner_prefill_json = json_encode(
 if ($add_user_owner_prefill_json === false) {
     $add_user_owner_prefill_json = '{"first":"","last":"","email":""}';
 }
+
+/**
+ * @return list<array<string, mixed>>
+ */
+function provider_tenant_fetch_team_members(PDO $pdo, string $tenant_id): array
+{
+    try {
+        $st = $pdo->prepare(
+            'SELECT u.user_id, u.email, u.full_name, u.role, u.status, u.last_active, u.last_login, u.updated_at,
+                    s.profile_image, s.first_name AS staff_first, s.last_name AS staff_last
+             FROM tbl_users u
+             LEFT JOIN tbl_staffs s ON s.tenant_id = u.tenant_id AND s.user_id = u.user_id
+             WHERE u.tenant_id = ?
+               AND u.role NOT IN (\'client\', \'superadmin\')
+             ORDER BY u.full_name ASC'
+        );
+        $st->execute([$tenant_id]);
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+        return is_array($rows) ? $rows : [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function provider_tenant_user_role_label(string $role): string
+{
+    return match ($role) {
+        'tenant_owner' => 'Clinic owner',
+        'manager' => 'Manager',
+        'staff' => 'Staff',
+        'dentist' => 'Doctor',
+        default => ucwords(str_replace('_', ' ', $role)),
+    };
+}
+
+function provider_tenant_format_last_activity(?string $lastActive, ?string $lastLogin, ?string $updatedAt): string
+{
+    $raw = trim((string) ($lastActive ?? ''));
+    if ($raw === '') {
+        $raw = trim((string) ($lastLogin ?? ''));
+    }
+    if ($raw === '') {
+        $raw = trim((string) ($updatedAt ?? ''));
+    }
+    if ($raw === '') {
+        return '—';
+    }
+    $t = strtotime($raw);
+    if ($t === false) {
+        return '—';
+    }
+    return date('M j, Y g:i A', $t);
+}
+
+function provider_tenant_user_initials(string $fullName): string
+{
+    $fullName = trim($fullName);
+    if ($fullName === '') {
+        return '?';
+    }
+    $parts = preg_split('/\s+/', $fullName, -1, PREG_SPLIT_NO_EMPTY);
+    if (!is_array($parts) || $parts === []) {
+        return strtoupper(substr($fullName, 0, 2));
+    }
+    $a = strtoupper(substr($parts[0], 0, 1));
+    $b = isset($parts[1]) ? strtoupper(substr($parts[1], 0, 1)) : strtoupper(substr($parts[0], 1, 1));
+    $out = $a . ($b !== '' ? $b : '');
+    return strlen($out) > 2 ? substr($out, 0, 2) : $out;
+}
+
+function provider_tenant_profile_image_url(?string $path): ?string
+{
+    $path = trim((string) $path);
+    if ($path === '') {
+        return null;
+    }
+    if (preg_match('#^https?://#i', $path) === 1) {
+        return $path;
+    }
+    if ($path[0] === '/') {
+        return $path;
+    }
+    return '/' . ltrim($path, '/');
+}
+
+$team_members = provider_tenant_fetch_team_members($pdo, $tenant_id);
+$team_active_count = 0;
+foreach ($team_members as $tm) {
+    if (($tm['status'] ?? '') === 'active') {
+        $team_active_count++;
+    }
+}
+$team_total = count($team_members);
 ?>
 <!DOCTYPE html>
 
@@ -251,7 +344,7 @@ if ($add_user_owner_prefill_json === false) {
 </div>
 <div class="bg-primary/5 px-6 py-2.5 rounded-full border border-primary/10">
 <p class="text-primary text-[10px] font-black uppercase tracking-widest">
-                        Displaying <span class="text-slate-900">24</span> active staff members
+                        Displaying <span class="text-slate-900"><?php echo (int) $team_active_count; ?></span> active staff · <span class="text-slate-900"><?php echo (int) $team_total; ?></span> total
                     </p>
 </div>
 </div>
@@ -269,95 +362,84 @@ if ($add_user_owner_prefill_json === false) {
 </tr>
 </thead>
 <tbody class="divide-y divide-slate-100">
-<!-- User Row 1 -->
+<?php if ($team_total === 0) { ?>
+<tr>
+<td colspan="5" class="px-10 py-16 text-center text-on-surface-variant font-medium">No team members yet. Use <span class="text-primary font-bold">Add New User</span> to invite staff.</td>
+</tr>
+<?php } else { ?>
+<?php foreach ($team_members as $row) {
+    $uid = (string) ($row['user_id'] ?? '');
+    $email = (string) ($row['email'] ?? '');
+    $fullName = trim((string) ($row['full_name'] ?? ''));
+    if ($fullName === '') {
+        $sf = trim((string) ($row['staff_first'] ?? ''));
+        $sl = trim((string) ($row['staff_last'] ?? ''));
+        $fullName = trim($sf . ' ' . $sl) ?: '—';
+    }
+    $role = (string) ($row['role'] ?? '');
+    $roleLabel = provider_tenant_user_role_label($role);
+    $status = strtolower((string) ($row['status'] ?? ''));
+    $isActive = $status === 'active';
+    $lastLine = provider_tenant_format_last_activity(
+        isset($row['last_active']) ? (string) $row['last_active'] : null,
+        isset($row['last_login']) ? (string) $row['last_login'] : null,
+        isset($row['updated_at']) ? (string) $row['updated_at'] : null
+    );
+    $imgUrl = provider_tenant_profile_image_url(isset($row['profile_image']) ? (string) $row['profile_image'] : null);
+    $initials = provider_tenant_user_initials($fullName);
+    $roleBadgeClass = ($role === 'tenant_owner' || $role === 'dentist')
+        ? 'bg-primary/10 text-primary'
+        : 'bg-slate-100 text-on-surface-variant';
+    $statusDotClass = $isActive ? 'bg-green-500 animate-pulse' : ($status === 'suspended' ? 'bg-rose-500' : 'bg-amber-400');
+    $statusLabel = $isActive ? 'Active' : ucfirst($status !== '' ? $status : 'Unknown');
+    ?>
 <tr class="group hover:bg-slate-50/50 transition-colors duration-200">
 <td class="px-10 py-8">
 <div class="flex items-center gap-4">
-<div class="w-12 h-12 rounded-2xl bg-primary/10 overflow-hidden ring-2 ring-primary/5 transition-transform duration-300 group-hover:scale-105 group-hover:ring-primary/20">
-<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVSmeAg0m57MZZCu5NZxbRzj4ccYyU2NhZv7uXtD8ZZzl6VM-_t_UKKOR7SsXeJBL2zA_qgH4SEtzpjRa_slK6vufp9KZXhX_0bCnBQ1vMUy537pHtbsLsdPyfIQsndvNbJ5SiWtgN3Q0A3fB3LXwI39N5GI5Uf0BWOccgT5dXNRxRUIw2mbysB05yMb9ft8P5aYIUdy7otgpj10EqNUAPRzuoLNCpSStugPTeCYLTlWKec3ImR8S8S92BA-VbpN3fCFBaQU3e5R0"/>
+<div class="w-12 h-12 rounded-2xl bg-primary/10 overflow-hidden ring-2 ring-primary/5 transition-transform duration-300 group-hover:scale-105 group-hover:ring-primary/20 flex items-center justify-center shrink-0">
+<?php if ($imgUrl !== null) { ?>
+<img class="w-full h-full object-cover" src="<?php echo htmlspecialchars($imgUrl, ENT_QUOTES, 'UTF-8'); ?>" alt=""/>
+<?php } else { ?>
+<span class="text-sm font-black text-primary"><?php echo htmlspecialchars($initials, ENT_QUOTES, 'UTF-8'); ?></span>
+<?php } ?>
 </div>
-<div>
-<div class="font-headline font-extrabold text-slate-900">Dr. Julian Thorne</div>
-<div class="text-[11px] font-medium text-on-surface-variant/70 mt-0.5">j.thorne@aetheris-dental.com</div>
+<div class="min-w-0">
+<div class="font-headline font-extrabold text-slate-900 truncate"><?php echo htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8'); ?></div>
+<div class="text-[11px] font-medium text-on-surface-variant/70 mt-0.5 truncate"><?php echo htmlspecialchars($email, ENT_QUOTES, 'UTF-8'); ?></div>
 </div>
 </div>
 </td>
 <td class="px-10 py-8">
-<span class="bg-primary/10 text-primary text-[9px] font-black px-3 py-1.5 rounded-lg uppercase tracking-widest">Lead Dentist</span>
+<span class="<?php echo $roleBadgeClass; ?> text-[9px] font-black px-3 py-1.5 rounded-lg uppercase tracking-widest inline-block"><?php echo htmlspecialchars($roleLabel, ENT_QUOTES, 'UTF-8'); ?></span>
 </td>
 <td class="px-10 py-8">
 <div class="flex items-center gap-2">
-<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-<span class="text-[10px] font-black text-on-surface-variant/70 uppercase tracking-widest">Active</span>
+<span class="w-2 h-2 rounded-full <?php echo $statusDotClass; ?>"></span>
+<span class="text-[10px] font-black text-on-surface-variant/70 uppercase tracking-widest"><?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?></span>
 </div>
 </td>
 <td class="px-10 py-8">
-<div class="text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest">2 mins ago</div>
+<div class="text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest"><?php echo htmlspecialchars($lastLine, ENT_QUOTES, 'UTF-8'); ?></div>
 </td>
 <td class="px-10 py-8 text-right">
 <div class="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-<button type="button" class="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 hover:border-primary/30 hover:text-primary flex items-center justify-center transition-all duration-200 shadow-sm hover:scale-110 hover:shadow-md">
+<button type="button" class="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 hover:border-primary/30 hover:text-primary flex items-center justify-center transition-all duration-200 shadow-sm hover:scale-110 hover:shadow-md" title="Edit (coming soon)" aria-label="Edit">
 <span class="material-symbols-outlined text-xl">edit</span>
 </button>
-<button type="button" class="w-10 h-10 rounded-xl bg-white border border-slate-200 text-rose-500 hover:bg-rose-50 hover:border-rose-200 flex items-center justify-center transition-all duration-200 shadow-sm hover:scale-110">
+<button type="button" class="w-10 h-10 rounded-xl bg-white border border-slate-200 text-rose-500 hover:bg-rose-50 hover:border-rose-200 flex items-center justify-center transition-all duration-200 shadow-sm hover:scale-110" title="Remove (coming soon)" aria-label="Remove">
 <span class="material-symbols-outlined text-xl">delete</span>
 </button>
 </div>
 </td>
 </tr>
-<!-- Row 2 -->
-<tr class="group hover:bg-slate-50/50 transition-colors duration-200">
-<td class="px-10 py-8">
-<div class="flex items-center gap-4">
-<div class="w-12 h-12 rounded-2xl bg-primary/10 overflow-hidden ring-2 ring-primary/5 transition-transform duration-300 group-hover:scale-105 group-hover:ring-primary/20">
-<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCBUOnZJ5ntR4l1hovJzsT9mMky3meAhD9alCVEISnezadCCcbDP4ks_MAxYbTIzI1V49EeK5hgB84Gzwq2flSHvaAtXCPxNliuef7NdnDcq10VBFnPLoPoWEbtqyDeHAXk3lQc72G8WCDRHuuSjatAgJItLzkudN1qW-3uBUQKlm1lJlgiWI7wNqCLzOUQxhfH7lQkJUom-X368c-Ek9828jUWnJS5g8Qygm-EVVmwhONQZSsU9o3wNkQa-ePg38bMFEEPJKmIqQc"/>
-</div>
-<div>
-<div class="font-headline font-extrabold text-slate-900">Elena Rodriguez</div>
-<div class="text-[11px] font-medium text-on-surface-variant/70 mt-0.5">e.rodriguez@aetheris-dental.com</div>
-</div>
-</div>
-</td>
-<td class="px-10 py-8">
-<span class="bg-slate-100 text-on-surface-variant text-[9px] font-black px-3 py-1.5 rounded-lg uppercase tracking-widest">Clinical Admin</span>
-</td>
-<td class="px-10 py-8">
-<div class="flex items-center gap-2">
-<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-<span class="text-[10px] font-black text-on-surface-variant/70 uppercase tracking-widest">Active</span>
-</div>
-</td>
-<td class="px-10 py-8">
-<div class="text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest">Today, 09:15 AM</div>
-</td>
-<td class="px-10 py-8 text-right">
-<div class="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-<button type="button" class="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 hover:border-primary/30 hover:text-primary flex items-center justify-center transition-all duration-200 shadow-sm hover:scale-110 hover:shadow-md">
-<span class="material-symbols-outlined text-xl">edit</span>
-</button>
-<button type="button" class="w-10 h-10 rounded-xl bg-white border border-slate-200 text-rose-500 hover:bg-rose-50 hover:border-rose-200 flex items-center justify-center transition-all duration-200 shadow-sm hover:scale-110">
-<span class="material-symbols-outlined text-xl">delete</span>
-</button>
-</div>
-</td>
-</tr>
+<?php } ?>
+<?php } ?>
 </tbody>
 </table>
-<!-- Pagination -->
-<div class="px-10 py-8 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+<div class="px-10 py-6 bg-slate-50 border-t border-slate-100">
 <p class="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/70">
-                    Showing <span class="text-slate-900">1 - 4</span> of 24
+                    <span class="text-slate-900"><?php echo (int) $team_total; ?></span> team member<?php echo $team_total === 1 ? '' : 's'; ?> for this clinic
                 </p>
-<div class="flex gap-2">
-<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 disabled:opacity-50" disabled="">
-<span class="material-symbols-outlined">chevron_left</span>
-</button>
-<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-primary text-white font-black text-xs shadow-lg shadow-primary/20">1</button>
-<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-600 font-black text-xs hover:border-primary/30 transition-all">2</button>
-<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-600 hover:border-primary/30 transition-all">
-<span class="material-symbols-outlined">chevron_right</span>
-</button>
-</div>
 </div>
 </div>
 </div>
@@ -835,7 +917,7 @@ Cancel
           if (res.ok && res.j && res.j.ok) {
             hideVerifyModal();
             closeModal();
-            showInviteToast(res.j.message || 'Account setup complete.');
+            window.location.reload();
           } else {
             showVerifyError((res.j && res.j.error) ? res.j.error : 'Verification failed.');
           }
