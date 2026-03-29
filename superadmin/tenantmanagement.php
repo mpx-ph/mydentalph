@@ -80,6 +80,30 @@ function tenant_tm_verification_status_label(?string $status): string {
     return 'Pending';
 }
 
+function tenant_tm_document_label(string $type): string {
+    $map = [
+        'business_permit' => 'Business Permit',
+        'bir_certificate' => 'BIR Certificate',
+        'sec_dti' => 'SEC/DTI',
+        'other' => 'Other',
+    ];
+    return $map[$type] ?? ucfirst(str_replace('_', ' ', $type));
+}
+
+function tenant_tm_clinic_website_url(?string $clinic_slug): string {
+    $slug = strtolower(trim((string) $clinic_slug));
+    if ($slug === '' || !preg_match('/^[a-z0-9\-]+$/', $slug)) {
+        return '';
+    }
+    $is_https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+    $scheme = $is_https ? 'https' : 'http';
+    $host = trim((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    if ($host === '') {
+        return '';
+    }
+    return rtrim($scheme . '://' . $host, '/') . '/' . rawurlencode($slug);
+}
+
 $filterBase = [
     'status' => isset($_GET['status']) ? (string) $_GET['status'] : '',
     'plan' => isset($_GET['plan']) ? (string) $_GET['plan'] : '',
@@ -137,6 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['tenant_details'])) {
             SELECT
                 t.tenant_id,
                 t.clinic_name,
+                t.clinic_slug,
                 t.contact_email,
                 t.contact_phone,
                 t.clinic_address,
@@ -185,11 +210,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['tenant_details'])) {
         $safePath = ltrim(str_replace('\\', '/', $filePath), '/');
         $permitUrl = $safePath !== '' ? '../' . $safePath : '';
 
+        $clinicSlug = trim((string) ($tenant['clinic_slug'] ?? ''));
+        $clinicWebsiteUrl = tenant_tm_clinic_website_url($clinicSlug);
+
+        $verificationFiles = [];
+        try {
+            $filesStmt = $pdo->prepare("
+                SELECT file_id, document_type, original_file_name, stored_file_path, mime_type, file_size_bytes, uploaded_at
+                FROM tbl_tenant_verification_files
+                WHERE tenant_id = ?
+                ORDER BY file_id ASC
+            ");
+            $filesStmt->execute([$tenantId]);
+            $fileRows = $filesStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            foreach ($fileRows as $fr) {
+                $sp = ltrim(str_replace('\\', '/', (string) ($fr['stored_file_path'] ?? '')), '/');
+                if ($sp === '') {
+                    continue;
+                }
+                $docType = (string) ($fr['document_type'] ?? 'other');
+                $verificationFiles[] = [
+                    'file_id' => (string) ($fr['file_id'] ?? ''),
+                    'document_type' => $docType,
+                    'document_label' => tenant_tm_document_label($docType),
+                    'original_file_name' => (string) ($fr['original_file_name'] ?? ''),
+                    'stored_file_path' => (string) ($fr['stored_file_path'] ?? ''),
+                    'file_url' => '../' . $sp,
+                    'mime_type' => (string) ($fr['mime_type'] ?? ''),
+                    'file_size_bytes' => (string) ($fr['file_size_bytes'] ?? ''),
+                    'uploaded_at' => (string) ($fr['uploaded_at'] ?? ''),
+                ];
+            }
+        } catch (Throwable $e) {
+            $verificationFiles = [];
+        }
+
         echo json_encode([
             'ok' => true,
             'tenant' => [
                 'tenant_id' => (string) ($tenant['tenant_id'] ?? ''),
                 'clinic_name' => (string) ($tenant['clinic_name'] ?? ''),
+                'clinic_slug' => $clinicSlug,
+                'clinic_website_url' => $clinicWebsiteUrl,
                 'subscription_status' => (string) ($tenant['subscription_status'] ?? ''),
                 'created_at' => (string) ($tenant['created_at'] ?? ''),
                 'contact_email' => (string) ($tenant['contact_email'] ?? ''),
@@ -213,6 +275,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['tenant_details'])) {
                 'reviewed_at' => (string) ($verification['reviewed_at'] ?? ''),
                 'reviewer_notes' => (string) ($verification['reviewer_notes'] ?? ''),
             ],
+            'verification_files' => $verificationFiles,
         ]);
     } catch (Throwable $e) {
         http_response_code(500);
@@ -808,6 +871,14 @@ require __DIR__ . '/superadmin_header.php';
         return value && String(value).trim() !== '' ? String(value) : '—';
     }
 
+    function escapeHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
     function openModal() {
         modal.classList.remove('hidden');
         modal.classList.add('flex');
@@ -823,13 +894,53 @@ require __DIR__ . '/superadmin_header.php';
     function renderDetails(payload) {
         var tenant = payload.tenant || {};
         var verification = payload.verification || {};
+        var verificationFiles = Array.isArray(payload.verification_files) ? payload.verification_files : [];
         subtitle.textContent = (displayOrDash(tenant.clinic_name) + ' (' + displayOrDash(tenant.tenant_id) + ')').toUpperCase();
-        var permitLink = '';
+
+        var websiteBlock = '';
+        if (tenant.clinic_website_url) {
+            websiteBlock =
+                '<p class="text-sm"><span class="font-semibold">Clinic Website:</span> ' +
+                '<a href="' + escapeHtml(tenant.clinic_website_url) + '" target="_blank" rel="noopener noreferrer" class="text-primary font-bold hover:underline inline-flex items-center gap-1">' +
+                '<span class="material-symbols-outlined text-base align-middle">open_in_new</span>' +
+                escapeHtml(tenant.clinic_website_url) +
+                '</a></p>';
+        } else {
+            websiteBlock =
+                '<p class="text-sm"><span class="font-semibold">Clinic Website:</span> ' +
+                '<span class="text-on-surface-variant">No public slug yet (set during clinic setup)</span></p>';
+        }
+
+        var documentsHtml = '';
+        if (verificationFiles.length > 0) {
+            documentsHtml += '<div class="flex flex-wrap gap-2 pt-2">';
+            verificationFiles.forEach(function (f) {
+                var url = f.file_url || '';
+                var label = f.document_label || f.document_type || 'Document';
+                var name = f.original_file_name || 'file';
+                if (!url) {
+                    return;
+                }
+                documentsHtml +=
+                    '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer" ' +
+                    'class="inline-flex flex-col items-start gap-0.5 px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-bold hover:brightness-110 transition max-w-full">' +
+                    '<span class="inline-flex items-center gap-1.5"><span class="material-symbols-outlined text-base shrink-0">description</span>' +
+                    '<span>' + escapeHtml(label) + '</span></span>' +
+                    '<span class="text-[10px] font-semibold opacity-90 truncate w-full" title="' + escapeHtml(name) + '">' + escapeHtml(name) + '</span></a>';
+            });
+            documentsHtml += '</div>';
+        }
         if (verification.permit_url) {
             var fileLabel = displayOrDash(verification.uploaded_file_name || verification.uploaded_file_path);
-            permitLink = '<a href="' + verification.permit_url + '" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:brightness-110 transition"><span class="material-symbols-outlined text-base">description</span>View Business Permit (' + fileLabel + ')</a>';
-        } else {
-            permitLink = '<span class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 text-slate-500 text-xs font-bold"><span class="material-symbols-outlined text-base">description</span>No business permit uploaded</span>';
+            documentsHtml +=
+                '<div class="pt-2">' +
+                '<a href="' + escapeHtml(verification.permit_url) + '" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-700 text-white text-xs font-bold hover:brightness-110 transition">' +
+                '<span class="material-symbols-outlined text-base">folder_special</span>Legacy upload (' + escapeHtml(fileLabel) + ')</a></div>';
+        }
+        if (documentsHtml === '') {
+            documentsHtml =
+                '<span class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 text-slate-500 text-xs font-bold">' +
+                '<span class="material-symbols-outlined text-base">description</span>No verification documents on file</span>';
         }
 
         setBodyHtml(
@@ -838,6 +949,7 @@ require __DIR__ . '/superadmin_header.php';
                     '<h4 class="text-sm font-bold uppercase tracking-[0.14em] text-on-surface-variant/70">Tenant Profile</h4>' +
                     '<p class="text-sm"><span class="font-semibold">Clinic Name:</span> ' + displayOrDash(tenant.clinic_name) + '</p>' +
                     '<p class="text-sm"><span class="font-semibold">Tenant ID:</span> ' + displayOrDash(tenant.tenant_id) + '</p>' +
+                    websiteBlock +
                     '<p class="text-sm"><span class="font-semibold">Subscription Status:</span> ' + displayOrDash(tenant.subscription_status) + '</p>' +
                     '<p class="text-sm"><span class="font-semibold">Contact Email:</span> ' + displayOrDash(tenant.contact_email) + '</p>' +
                     '<p class="text-sm"><span class="font-semibold">Contact Phone:</span> ' + displayOrDash(tenant.contact_phone) + '</p>' +
@@ -859,7 +971,8 @@ require __DIR__ . '/superadmin_header.php';
                     '<p class="text-sm"><span class="font-semibold">Submitted At:</span> ' + displayOrDash(verification.submitted_at) + '</p>' +
                     '<p class="text-sm"><span class="font-semibold">Reviewed At:</span> ' + displayOrDash(verification.reviewed_at) + '</p>' +
                     '<p class="text-sm"><span class="font-semibold">Reviewer Notes:</span> ' + displayOrDash(verification.reviewer_notes) + '</p>' +
-                    '<div class="pt-2">' + permitLink + '</div>' +
+                    '<p class="text-sm font-semibold pt-2">Submitted documents</p>' +
+                    documentsHtml +
                 '</section>' +
             '</div>'
         );
