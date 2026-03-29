@@ -42,9 +42,6 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
 <section class="max-w-5xl mx-auto px-6 md:px-12 pb-20 space-y-6">
 <!-- Service Card 1 -->
 <div class="service-card flex flex-col md:flex-row items-center p-8 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-sm gap-8">
-<div class="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0">
-<span class="material-symbols-outlined text-primary text-4xl">medical_services</span>
-</div>
 <div class="flex-grow">
 <h3 class="text-2xl font-extrabold text-primary mb-2 font-display">General Dentistry</h3>
 <p class="text-slate-600 dark:text-slate-400 font-medium text-lg leading-relaxed">Preventative care, professional cleanings, and precise digital diagnostics designed to maintain your peak oral health and wellness for a lifetime.</p>
@@ -58,9 +55,6 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
 </div>
 <!-- Service Card 2 -->
 <div class="service-card flex flex-col md:flex-row items-center p-8 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-sm gap-8">
-<div class="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0">
-<span class="material-symbols-outlined text-primary text-4xl">auto_awesome</span>
-</div>
 <div class="flex-grow">
 <h3 class="text-2xl font-extrabold text-primary mb-2 font-display">Cosmetic Dentistry</h3>
 <p class="text-slate-600 dark:text-slate-400 font-medium text-lg leading-relaxed">Artistic smile transformations using premium porcelain veneers, professional whitening, and digital smile design for natural-looking perfection.</p>
@@ -74,9 +68,6 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
 </div>
 <!-- Service Card 3 -->
 <div class="service-card flex flex-col md:flex-row items-center p-8 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-sm gap-8">
-<div class="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0">
-<span class="material-symbols-outlined text-primary text-4xl">align_horizontal_center</span>
-</div>
 <div class="flex-grow">
 <h3 class="text-2xl font-extrabold text-primary mb-2 font-display">Orthodontics</h3>
 <p class="text-slate-600 dark:text-slate-400 font-medium text-lg leading-relaxed">Advanced alignment solutions including clear aligners and modern braces tailored for both adults and teenagers to achieve a confident bite.</p>
@@ -90,9 +81,6 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
 </div>
 <!-- Service Card 4 -->
 <div class="service-card flex flex-col md:flex-row items-center p-8 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-sm gap-8">
-<div class="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0">
-<span class="material-symbols-outlined text-primary text-4xl">biotech</span>
-</div>
 <div class="flex-grow">
 <h3 class="text-2xl font-extrabold text-primary mb-2 font-display">Oral Surgery</h3>
 <p class="text-slate-600 dark:text-slate-400 font-medium text-lg leading-relaxed">Specialized procedures including wisdom tooth extraction and dental implants performed with surgical precision and optimal patient comfort.</p>
@@ -106,9 +94,6 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
 </div>
 <!-- Service Card 5 -->
 <div class="service-card flex flex-col md:flex-row items-center p-8 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-sm gap-8">
-<div class="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0">
-<span class="material-symbols-outlined text-primary text-4xl">child_care</span>
-</div>
 <div class="flex-grow">
 <h3 class="text-2xl font-extrabold text-primary mb-2 font-display">Pediatric Dentistry</h3>
 <p class="text-slate-600 dark:text-slate-400 font-medium text-lg leading-relaxed">Gentle, fun-focused dental care for our youngest patients, building a foundation for healthy smiles that last a lifetime in a warm environment.</p>
