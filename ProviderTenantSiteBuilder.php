@@ -442,7 +442,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </div>
 <div class="space-y-6 sb-preview-scope" data-sb-preview-pages="services">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Services — Page &amp; hero</h3>
-<p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Browser tab title plus the top section. Treatment names and descriptions on this page are managed in your services catalog, not here.</p>
+<p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Browser tab title plus the top section. Treatment names, descriptions, and price ranges are managed under <a class="font-bold text-primary hover:underline" href="clinic/TenantListofServices.php">Clinical services</a>; hero copy is edited below.</p>
 <div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
 <?php sb_text('services_page_title', 'Browser tab title', $site_opts, $is_owner); ?>
 <?php sb_text('services_hero_badge', 'Hero badge (top pill)', $site_opts, $is_owner); ?>

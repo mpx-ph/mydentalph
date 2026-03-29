@@ -5,6 +5,9 @@
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/tenant_bootstrap.php';
 require_once __DIR__ . '/includes/clinic_customization.php';
+require_once __DIR__ . '/includes/tenant_public_services_lib.php';
+
+$publicServices = tenant_public_services_fetch_for_tenant($pdo, (string) $currentTenantId);
 
 $cu = static function (string $k, string $default = '') use ($CLINIC): string {
     $v = isset($CLINIC[$k]) ? trim((string) $CLINIC[$k]) : '';
@@ -53,13 +56,27 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
                 <?php echo $cuMultiline('services_hero_subtitle', 'Elevating dental wellness through clinical mastery and curated patient experiences. Discover our full spectrum of elite treatments.'); ?>
             </p>
 </section>
-<!-- Vertical Services List -->
+<!-- Vertical Services List (from tenant catalog) -->
 <section class="max-w-5xl mx-auto px-6 md:px-12 pb-20 space-y-6">
-<!-- Service Card 1 -->
+<?php if (count($publicServices) === 0) { ?>
+<div class="text-center py-20 px-6 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20">
+<p class="text-slate-500 dark:text-slate-400 font-medium text-lg">No services are listed yet. Please check back soon.</p>
+</div>
+<?php } else { ?>
+<?php foreach ($publicServices as $svc) {
+    $st = htmlspecialchars((string) ($svc['title'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $sd = trim((string) ($svc['description'] ?? ''));
+    $pr = trim((string) ($svc['price_range'] ?? ''));
+?>
 <div class="service-card flex flex-col md:flex-row items-center p-8 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-sm gap-8">
-<div class="flex-grow">
-<h3 class="text-2xl font-extrabold text-primary mb-2 font-display">General Dentistry</h3>
-<p class="text-slate-600 dark:text-slate-400 font-medium text-lg leading-relaxed">Preventative care, professional cleanings, and precise digital diagnostics designed to maintain your peak oral health and wellness for a lifetime.</p>
+<div class="flex-grow text-center md:text-left">
+<h3 class="text-2xl font-extrabold text-primary mb-2 font-display"><?php echo $st; ?></h3>
+<?php if ($sd !== '') { ?>
+<p class="text-slate-600 dark:text-slate-400 font-medium text-lg leading-relaxed"><?php echo nl2br(htmlspecialchars($sd, ENT_QUOTES, 'UTF-8'), false); ?></p>
+<?php } ?>
+<?php if ($pr !== '') { ?>
+<p class="text-slate-700 dark:text-slate-300 font-semibold text-base mt-3 tabular-nums"><?php echo htmlspecialchars($pr, ENT_QUOTES, 'UTF-8'); ?></p>
+<?php } ?>
 </div>
 <div class="shrink-0">
 <a href="<?php echo $bookUrl; ?>" class="inline-flex px-8 py-4 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-sm uppercase tracking-widest transition-all items-center gap-2">
@@ -68,58 +85,8 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
 </a>
 </div>
 </div>
-<!-- Service Card 2 -->
-<div class="service-card flex flex-col md:flex-row items-center p-8 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-sm gap-8">
-<div class="flex-grow">
-<h3 class="text-2xl font-extrabold text-primary mb-2 font-display">Cosmetic Dentistry</h3>
-<p class="text-slate-600 dark:text-slate-400 font-medium text-lg leading-relaxed">Artistic smile transformations using premium porcelain veneers, professional whitening, and digital smile design for natural-looking perfection.</p>
-</div>
-<div class="shrink-0">
-<a href="<?php echo $bookUrl; ?>" class="inline-flex px-8 py-4 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-sm uppercase tracking-widest transition-all items-center gap-2">
-                        <?php echo $cu('services_card_book_label', 'Book Appointment'); ?>
-                        <span class="material-symbols-outlined text-sm">calendar_today</span>
-</a>
-</div>
-</div>
-<!-- Service Card 3 -->
-<div class="service-card flex flex-col md:flex-row items-center p-8 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-sm gap-8">
-<div class="flex-grow">
-<h3 class="text-2xl font-extrabold text-primary mb-2 font-display">Orthodontics</h3>
-<p class="text-slate-600 dark:text-slate-400 font-medium text-lg leading-relaxed">Advanced alignment solutions including clear aligners and modern braces tailored for both adults and teenagers to achieve a confident bite.</p>
-</div>
-<div class="shrink-0">
-<a href="<?php echo $bookUrl; ?>" class="inline-flex px-8 py-4 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-sm uppercase tracking-widest transition-all items-center gap-2">
-                        <?php echo $cu('services_card_book_label', 'Book Appointment'); ?>
-                        <span class="material-symbols-outlined text-sm">calendar_today</span>
-</a>
-</div>
-</div>
-<!-- Service Card 4 -->
-<div class="service-card flex flex-col md:flex-row items-center p-8 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-sm gap-8">
-<div class="flex-grow">
-<h3 class="text-2xl font-extrabold text-primary mb-2 font-display">Oral Surgery</h3>
-<p class="text-slate-600 dark:text-slate-400 font-medium text-lg leading-relaxed">Specialized procedures including wisdom tooth extraction and dental implants performed with surgical precision and optimal patient comfort.</p>
-</div>
-<div class="shrink-0">
-<a href="<?php echo $bookUrl; ?>" class="inline-flex px-8 py-4 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-sm uppercase tracking-widest transition-all items-center gap-2">
-                        <?php echo $cu('services_card_book_label', 'Book Appointment'); ?>
-                        <span class="material-symbols-outlined text-sm">calendar_today</span>
-</a>
-</div>
-</div>
-<!-- Service Card 5 -->
-<div class="service-card flex flex-col md:flex-row items-center p-8 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-sm gap-8">
-<div class="flex-grow">
-<h3 class="text-2xl font-extrabold text-primary mb-2 font-display">Pediatric Dentistry</h3>
-<p class="text-slate-600 dark:text-slate-400 font-medium text-lg leading-relaxed">Gentle, fun-focused dental care for our youngest patients, building a foundation for healthy smiles that last a lifetime in a warm environment.</p>
-</div>
-<div class="shrink-0">
-<a href="<?php echo $bookUrl; ?>" class="inline-flex px-8 py-4 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-sm uppercase tracking-widest transition-all items-center gap-2">
-                        <?php echo $cu('services_card_book_label', 'Book Appointment'); ?>
-                        <span class="material-symbols-outlined text-sm">calendar_today</span>
-</a>
-</div>
-</div>
+<?php } ?>
+<?php } ?>
 </section>
 <!-- Final CTA Section -->
 <section class="max-w-7xl mx-auto px-6 md:px-12 pb-24">
