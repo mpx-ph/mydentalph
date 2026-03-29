@@ -28,7 +28,7 @@ $cuImg = function($k) use ($CLINIC) {
     if ($v === '') return '';
     return (strpos($v, 'http') === 0) ? $v : (BASE_URL . ltrim($v, '/'));
 };
-$servicesHref = htmlspecialchars(clinic_link('services', $slug, BASE_URL . 'ServicesClient.php'), ENT_QUOTES, 'UTF-8');
+$servicesHref = htmlspecialchars(clinic_link('services', $slug, BASE_URL . 'PatientServices.php'), ENT_QUOTES, 'UTF-8');
 $heroBg = $cuImg('main_hero_image');
 if ($heroBg === '') {
     $heroBg = 'https://lh3.googleusercontent.com/aida-public/AB6AXuAKSToKSubciBNDHHIIhBLQWuwv70uupwQdixl7SdJZDmgnDrO7KwPH0nU9Tuyv8aNshhWTfTeP75EKGGbML5Ge0AweBfsy2V4AmVWId5nTGtpGe6_7fZcwoTag1cM1PJdBpkLGRE47XjINHeAHov0gmJegOGXOaY4Xsbphb11ypnokm_GnMy42Lk5byi_6B13so8CQ8mAtQE0e6twPfwumg6xkxXcDNMUMRCwqnTWdqYYK6EWku_TTChy4ON47ltF4FcaFeaL3nCw';

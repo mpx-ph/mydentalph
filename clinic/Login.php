@@ -43,7 +43,7 @@ if (strpos($loginLogoUrl, '?') === false && $loginLogoLocalPath && is_file($logi
 $loginLogoAlt = isset($CLINIC['clinic_name']) ? htmlspecialchars($CLINIC['clinic_name'], ENT_QUOTES, 'UTF-8') : 'Dental Clinic';
 $slugLower = strtolower($clinic_slug);
 $publicHomeUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/') : (BASE_URL . 'MainPageClient.php');
-$publicServicesUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/services') : (BASE_URL . 'ServicesClient.php');
+$publicServicesUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/services') : (BASE_URL . 'PatientServices.php');
 $publicAboutUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/about') : (BASE_URL . 'AboutUsClient.php');
 $publicContactUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/contact') : (BASE_URL . 'ContactUsClient.php');
 $downloadAppUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/download') : (BASE_URL . 'DownloadApp.php');

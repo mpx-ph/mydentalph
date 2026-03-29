@@ -42,7 +42,7 @@ if (!function_exists('clinic_link')) {
         </div>
         <div class="hidden lg:flex items-center gap-8">
             <a class="text-sm font-medium <?php echo ($currentPage == 'MainPageClient.php') ? 'text-primary dark:text-white border-b-2 border-primary pb-0.5' : 'text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white transition-colors'; ?>" href="<?php echo clinic_link('', $currentSlug, BASE_URL . 'MainPageClient.php'); ?>">HOME</a>
-            <a class="text-sm font-medium <?php echo ($currentPage == 'ServicesClient.php') ? 'text-primary dark:text-white border-b-2 border-primary pb-0.5' : 'text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white transition-colors'; ?>" href="<?php echo clinic_link('services', $currentSlug, BASE_URL . 'ServicesClient.php'); ?>">SERVICES</a>
+            <a class="text-sm font-medium <?php echo ($currentPage == 'PatientServices.php') ? 'text-primary dark:text-white border-b-2 border-primary pb-0.5' : 'text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white transition-colors'; ?>" href="<?php echo clinic_link('services', $currentSlug, BASE_URL . 'PatientServices.php'); ?>">SERVICES</a>
             <a class="text-sm font-medium <?php echo ($currentPage == 'AboutUsClient.php') ? 'text-primary dark:text-white border-b-2 border-primary pb-0.5' : 'text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white transition-colors'; ?>" href="<?php echo clinic_link('about', $currentSlug, BASE_URL . 'AboutUsClient.php'); ?>">ABOUT US</a>
             <a class="text-sm font-medium <?php echo ($currentPage == 'ContactUsClient.php') ? 'text-primary dark:text-white border-b-2 border-primary pb-0.5' : 'text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white transition-colors'; ?>" href="<?php echo clinic_link('contact', $currentSlug, BASE_URL . 'ContactUsClient.php'); ?>">CONTACT US</a>
         </div>
@@ -97,7 +97,7 @@ if (!function_exists('clinic_link')) {
             </a>
             <?php endif; ?>
             <a class="block text-base font-medium text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white transition-colors py-2" href="<?php echo clinic_link('', $currentSlug, BASE_URL . 'MainPageClient.php'); ?>">HOME</a>
-            <a class="block text-base font-medium text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white transition-colors py-2" href="<?php echo clinic_link('services', $currentSlug, BASE_URL . 'ServicesClient.php'); ?>">SERVICES</a>
+            <a class="block text-base font-medium text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white transition-colors py-2" href="<?php echo clinic_link('services', $currentSlug, BASE_URL . 'PatientServices.php'); ?>">SERVICES</a>
             <a class="block text-base font-medium text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white transition-colors py-2" href="<?php echo clinic_link('about', $currentSlug, BASE_URL . 'AboutUsClient.php'); ?>">ABOUT US</a>
             <a class="block text-base font-medium text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white transition-colors py-2" href="<?php echo clinic_link('contact', $currentSlug, BASE_URL . 'ContactUsClient.php'); ?>">CONTACT US</a>
         </div>

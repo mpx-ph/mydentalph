@@ -8,7 +8,7 @@
  *   /{clinic_slug}/about         -> clinic/AboutUsClient.php?clinic_slug={slug}
  *   /{clinic_slug}/contact       -> clinic/ContactUsClient.php?clinic_slug={slug}
  *   /{clinic_slug}/register      -> clinic/RegisterClient.php?clinic_slug={slug}
- *   /{clinic_slug}/services      -> clinic/ServicesClient.php?clinic_slug={slug}
+ *   /{clinic_slug}/services      -> clinic/PatientServices.php?clinic_slug={slug}
  *   /{clinic_slug}/download      -> clinic/DownloadApp.php?clinic_slug={slug}
  *
  * After including this file, the following variables are available:

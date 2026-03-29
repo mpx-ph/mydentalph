@@ -11,8 +11,8 @@ RewriteRule ^([a-z0-9\-]+)/(Admin[A-Za-z0-9_\-]*\.php|Dentist_Dashboard\.php|Sta
 
 # Public clinic routes (slug-based, shared templates in /clinic)
 
-# {slug}/services -> clinic/ServicesClient.php?clinic_slug={slug}
-RewriteRule ^([a-z0-9\-]+)/services/?$ clinic/ServicesClient.php?clinic_slug=$1 [L,QSA]
+# {slug}/services -> clinic/PatientServices.php?clinic_slug={slug}
+RewriteRule ^([a-z0-9\-]+)/services/?$ clinic/PatientServices.php?clinic_slug=$1 [L,QSA]
 
 # {slug}/about -> clinic/AboutUsClient.php?clinic_slug={slug}
 RewriteRule ^([a-z0-9\-]+)/about/?$ clinic/AboutUsClient.php?clinic_slug=$1 [L,QSA]

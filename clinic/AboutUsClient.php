@@ -24,7 +24,7 @@ if (!function_exists('clinic_link')) {
         return $fallback;
     }
 }
-$servicesHref = htmlspecialchars(clinic_link('services', $slug, BASE_URL . 'ServicesClient.php'), ENT_QUOTES, 'UTF-8');
+$servicesHref = htmlspecialchars(clinic_link('services', $slug, BASE_URL . 'PatientServices.php'), ENT_QUOTES, 'UTF-8');
 $contactHref = htmlspecialchars(clinic_link('contact', $slug, BASE_URL . 'ContactUsClient.php'), ENT_QUOTES, 'UTF-8');
 $aboutHeroImg = $cuImg('about_hero_image') ?: 'https://lh3.googleusercontent.com/aida-public/AB6AXuChrPelgrWNz5y22-jPblZ3xvf8IAD-hR1qnlkZRBw16FAQOI7uFlUaoioxaqF_x2Tr_73XIDwSMCHMnnGWH4FcoyVGYkRZzDOZXa4YC8CC70iVT00Sq15rLCNydE_JeNMoklsezLzYditmIY3X4rCb0sgfJXYcFV0Iz7CG1Jfy1qaunSseGzYkrRWRBHVDFFKosGZtshcOp3idiAppl8jDam5CVK0iOyXyyYqeeUb7D4355tXxps3A8-Oic9oPkbqwFMlxa5DVUm0';
 ?>
