@@ -58,7 +58,7 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8 font-headline">
                 <?php echo $cu('main_services_heading') ?: 'Premium Patient Care'; ?>
             </div>
-<h1 class="font-headline text-[clamp(3.5rem,8vw,8rem)] font-extrabold tracking-[-0.05em] mb-10 leading-[0.85] flex flex-col items-center justify-center text-slate-900 dark:text-white"><span class="block"><?php echo $cu('main_hero_line1'); ?></span><span class="block"><?php echo $cu('main_hero_line2'); ?></span><span class="relative block text-center mt-2"><span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $cu('main_hero_line3'); ?></span></span></h1>
+<h1 class="font-headline text-[clamp(3.5rem,8vw,8rem)] font-extrabold tracking-[-0.05em] mb-10 leading-[0.85] flex flex-col items-center justify-center text-slate-900 dark:text-white"><span class="block">Welcome to</span><span class="relative block text-center mt-2"><span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $cu('clinic_name'); ?></span></span></h1>
 <p class="font-body text-xl max-w-2xl mb-12 leading-relaxed text-slate-600 dark:text-slate-400 font-medium">
                 <?php echo $cu('main_hero_subtext'); ?>
             </p>
