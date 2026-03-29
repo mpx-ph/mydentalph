@@ -35,11 +35,7 @@ if ($heroBg === '') {
 }
 $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 ?>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&amp;display=swap" rel="stylesheet"/>
 <style>
-.font-headline { font-family: Manrope, ui-sans-serif, system-ui, sans-serif; }
-.font-body { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-.font-editorial { font-family: "Playfair Display", Georgia, serif; }
 .glass-card {
     background: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(20px);

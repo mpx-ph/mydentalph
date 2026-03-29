@@ -25,18 +25,88 @@ $hex = function($k) use ($CLINIC) {
 $cPrimary = $hex('color_primary') ?: '#2b8cee';
 $cPrimaryDark = $hex('color_primary_dark') ?: '#1a6cb6';
 $cPrimaryLight = $hex('color_primary_light') ?: '#eef7ff';
+
+$tfHeadline = trim((string) ($CLINIC['theme_font_headline'] ?? '')) ?: 'Manrope';
+$tfBody = trim((string) ($CLINIC['theme_font_body'] ?? '')) ?: 'Inter';
+$tfEditorial = trim((string) ($CLINIC['theme_font_editorial'] ?? '')) ?: 'Playfair Display';
+$tfDisplay = trim((string) ($CLINIC['theme_font_display'] ?? '')) ?: 'Plus Jakarta Sans';
+
+$fontFamiliesUnique = [];
+foreach ([$tfHeadline, $tfBody, $tfEditorial, $tfDisplay] as $fn) {
+    if ($fn !== '' && !in_array($fn, $fontFamiliesUnique, true)) {
+        $fontFamiliesUnique[] = $fn;
+    }
+}
+$gfQueryParts = [];
+foreach ($fontFamiliesUnique as $name) {
+    $q = str_replace(' ', '+', $name);
+    $lower = strtolower($name);
+    if (strpos($lower, 'playfair') !== false || strpos($lower, 'lora') !== false) {
+        $gfQueryParts[] = 'family=' . $q . ':ital,wght@0,400;0,600;0,700;1,400';
+    } else {
+        $gfQueryParts[] = 'family=' . $q . ':wght@400;500;600;700;800';
+    }
+}
+$gfHref = $gfQueryParts !== [] ? ('https://fonts.googleapis.com/css2?' . implode('&', $gfQueryParts) . '&display=swap') : '';
+
+$basePx = (int) ($CLINIC['theme_base_font_px'] ?? 16);
+$basePx = max(14, min(22, $basePx));
+$lineHeight = (float) ($CLINIC['theme_line_height'] ?? 1.6);
+if ($lineHeight < 1.2 || $lineHeight > 2) {
+    $lineHeight = 1.6;
+}
+$headingWt = (int) ($CLINIC['theme_heading_weight'] ?? 800);
+$headingWt = max(500, min(900, $headingWt));
+
+$radiusPx = (int) ($CLINIC['theme_radius_lg_px'] ?? 12);
+$radiusPx = max(6, min(28, $radiusPx));
+$r = $radiusPx / 16.0;
+$brDefault = round($r * 0.45, 3) . 'rem';
+$brLg = round($r * 0.85, 3) . 'rem';
+$brXl = round($r * 1.15, 3) . 'rem';
+$br2xl = round($r * 1.65, 3) . 'rem';
+$br3xl = round($r * 2.15, 3) . 'rem';
+
+$favRaw = trim((string) ($CLINIC['site_favicon'] ?? ''));
+$favUrl = '';
+if ($favRaw !== '') {
+    $favUrl = (strpos($favRaw, 'http') === 0) ? $favRaw : (BASE_URL . ltrim($favRaw, '/'));
+}
+$favPathForMime = $favRaw !== '' ? $favRaw : 'favicon.jpg';
+$favExt = strtolower((string) pathinfo(parse_url($favPathForMime, PHP_URL_PATH) ?: $favPathForMime, PATHINFO_EXTENSION));
+$favMime = 'image/jpeg';
+if ($favExt === 'png') {
+    $favMime = 'image/png';
+} elseif ($favExt === 'svg') {
+    $favMime = 'image/svg+xml';
+} elseif ($favExt === 'ico') {
+    $favMime = 'image/x-icon';
+} elseif ($favExt === 'webp') {
+    $favMime = 'image/webp';
+}
+$favHref = $favUrl !== '' ? $favUrl : (BASE_URL . 'favicon.jpg');
+
+$ffHeadlineArr = [$tfHeadline, 'ui-sans-serif', 'system-ui', 'sans-serif'];
+$ffBodyArr = [$tfBody, 'ui-sans-serif', 'system-ui', 'sans-serif'];
+$ffDispArr = [$tfDisplay, 'ui-sans-serif', 'system-ui', 'sans-serif'];
+$ffEdArr = [$tfEditorial, 'Georgia', 'serif'];
+$jsonFfFlags = JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS;
+$ffHeadlineJs = json_encode($ffHeadlineArr, $jsonFfFlags);
+$ffBodyJs = json_encode($ffBodyArr, $jsonFfFlags);
+$ffDispJs = json_encode($ffDispArr, $jsonFfFlags);
+$ffEdJs = json_encode($ffEdArr, $jsonFfFlags);
 ?>
 <!DOCTYPE html>
-<html class="light" lang="en">
+<html class="light clinic-patient-theme" lang="en" style="font-size: <?php echo $basePx; ?>px;">
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title><?php echo htmlspecialchars($pageTitle); ?> - <?php echo SITE_NAME; ?></title>
     
     <!-- Favicon -->
-    <link rel="icon" type="image/jpeg" href="<?php echo BASE_URL; ?>favicon.jpg"/>
-    <link rel="shortcut icon" type="image/jpeg" href="<?php echo BASE_URL; ?>favicon.jpg"/>
-    <link rel="apple-touch-icon" href="<?php echo BASE_URL; ?>favicon.jpg"/>
+    <link rel="icon" type="<?php echo htmlspecialchars($favMime, ENT_QUOTES, 'UTF-8'); ?>" href="<?php echo htmlspecialchars($favHref, ENT_QUOTES, 'UTF-8'); ?>"/>
+    <link rel="shortcut icon" type="<?php echo htmlspecialchars($favMime, ENT_QUOTES, 'UTF-8'); ?>" href="<?php echo htmlspecialchars($favHref, ENT_QUOTES, 'UTF-8'); ?>"/>
+    <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($favHref, ENT_QUOTES, 'UTF-8'); ?>"/>
     
     <!-- Meta Tags for SEO and Social Sharing -->
     <meta name="description" content="Dr. Romarico C. Gonzales Dental Clinic - Advanced dental care in Baliwag. Professional dentistry services including general, cosmetic, orthodontics, and pediatric care."/>
@@ -57,8 +127,9 @@ $cPrimaryLight = $hex('color_primary_light') ?: '#eef7ff';
     <meta property="twitter:image" content="<?php echo BASE_URL; ?>favicon.jpg"/>
     <link href="https://fonts.googleapis.com" rel="preconnect"/>
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet"/>
+    <?php if ($gfHref !== ''): ?>
+    <link href="<?php echo htmlspecialchars($gfHref, ENT_QUOTES, 'UTF-8'); ?>" rel="stylesheet"/>
+    <?php endif; ?>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script id="tailwind-config">
@@ -76,16 +147,18 @@ $cPrimaryLight = $hex('color_primary_light') ?: '#eef7ff';
                         "surface-light": "#F8FAFC",
                     },
                     fontFamily: {
-                        "display": ["Plus Jakarta Sans", "sans-serif"],
-                        "body": ["Plus Jakarta Sans", "sans-serif"],
-                        "serif": ["Playfair Display", "serif"]
+                        "display": <?php echo $ffDispJs; ?>,
+                        "body": <?php echo $ffBodyJs; ?>,
+                        "headline": <?php echo $ffHeadlineJs; ?>,
+                        "editorial": <?php echo $ffEdJs; ?>,
+                        "serif": <?php echo $ffEdJs; ?>
                     },
                     borderRadius: {
-                        "DEFAULT": "0.375rem", 
-                        "lg": "0.5rem", 
-                        "xl": "1rem", 
-                        "2xl": "1.5rem", 
-                        "3xl": "2rem",
+                        "DEFAULT": "<?php echo htmlspecialchars($brDefault, ENT_QUOTES, 'UTF-8'); ?>",
+                        "lg": "<?php echo htmlspecialchars($brLg, ENT_QUOTES, 'UTF-8'); ?>",
+                        "xl": "<?php echo htmlspecialchars($brXl, ENT_QUOTES, 'UTF-8'); ?>",
+                        "2xl": "<?php echo htmlspecialchars($br2xl, ENT_QUOTES, 'UTF-8'); ?>",
+                        "3xl": "<?php echo htmlspecialchars($br3xl, ENT_QUOTES, 'UTF-8'); ?>",
                         "full": "9999px"
                     },
                     boxShadow: {
@@ -107,6 +180,24 @@ $cPrimaryLight = $hex('color_primary_light') ?: '#eef7ff';
         .bg-grid-slate {
             background-image: radial-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px);
             background-size: 40px 40px;
+        }
+        .clinic-patient-theme.font-body,
+        .clinic-patient-theme .font-body {
+            font-family: <?php echo htmlspecialchars($tfBody, ENT_QUOTES, 'UTF-8'); ?>, ui-sans-serif, system-ui, sans-serif;
+        }
+        .clinic-patient-theme .font-headline {
+            font-family: <?php echo htmlspecialchars($tfHeadline, ENT_QUOTES, 'UTF-8'); ?>, ui-sans-serif, system-ui, sans-serif;
+            font-weight: <?php echo $headingWt; ?>;
+        }
+        .clinic-patient-theme .font-display {
+            font-family: <?php echo htmlspecialchars($tfDisplay, ENT_QUOTES, 'UTF-8'); ?>, ui-sans-serif, system-ui, sans-serif;
+            font-weight: <?php echo $headingWt; ?>;
+        }
+        .clinic-patient-theme .font-editorial {
+            font-family: <?php echo htmlspecialchars($tfEditorial, ENT_QUOTES, 'UTF-8'); ?>, Georgia, serif;
+        }
+        html.clinic-patient-theme body {
+            line-height: <?php echo htmlspecialchars((string) $lineHeight, ENT_QUOTES, 'UTF-8'); ?>;
         }
     </style>
 </head>

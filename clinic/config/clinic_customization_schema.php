@@ -80,4 +80,23 @@ return [
     'contact_hours_mon_fri' => '8:00 AM - 6:00 PM',
     'contact_hours_sat' => '9:00 AM - 2:00 PM',
     'contact_hours_sun' => 'Closed',
+    // Public site theme (patient-facing pages; per-tenant via clinic_customization_tenant)
+    'site_favicon' => '',
+    'theme_font_headline' => 'Manrope',
+    'theme_font_body' => 'Inter',
+    'theme_font_editorial' => 'Playfair Display',
+    'theme_font_display' => 'Plus Jakarta Sans',
+    'theme_base_font_px' => '16',
+    'theme_line_height' => '1.6',
+    'theme_heading_weight' => '800',
+    'theme_radius_lg_px' => '12',
+    // Services page hero (PatientServices.php)
+    'services_hero_badge' => 'Clinically Proven Care',
+    'services_hero_title_before' => 'Our Specialized ',
+    'services_hero_title_accent' => 'Services',
+    'services_hero_subtitle' => 'Elevating dental wellness through clinical mastery and curated patient experiences. Discover our full spectrum of elite treatments.',
+    // Contact page hero (ContactUsClient.php)
+    'contact_hero_badge' => 'Reach out to excellence',
+    'contact_hero_title_before' => 'Get in ',
+    'contact_hero_title_accent' => 'Touch.',
 ];

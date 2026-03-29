@@ -9,11 +9,7 @@ require_once __DIR__ . '/includes/clinic_customization.php';
 require_once __DIR__ . '/includes/header.php';
 $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars($CLINIC[$k], ENT_QUOTES, 'UTF-8') : ''; };
 ?>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&amp;display=swap" rel="stylesheet"/>
 <style>
-.font-headline { font-family: Manrope, ui-sans-serif, system-ui, sans-serif; }
-.font-body { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-.font-editorial { font-family: "Playfair Display", Georgia, serif; }
 .material-symbols-outlined {
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
@@ -78,10 +74,10 @@ $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars(
 <section class="py-20 md:py-28 lg:py-32 text-center px-4 sm:px-6 overflow-hidden">
 <div class="max-w-3xl mx-auto flex flex-col items-center">
 <div class="inline-flex items-center justify-center px-4 py-2 rounded-full contact-hero-badge text-[10px] font-black uppercase mb-8 sm:mb-10 font-headline">
-                    Reach out to excellence
+                    <?php echo $cu('contact_hero_badge'); ?>
                 </div>
 <h1 class="font-headline text-[clamp(2.75rem,7vw,4.75rem)] font-extrabold tracking-[-0.04em] mb-6 sm:mb-8 leading-[1.05]">
-<span class="contact-hero-title">Get in </span><span class="font-editorial italic font-normal contact-hero-editorial editorial-word transform -skew-x-6 inline-block">Touch.</span>
+<span class="contact-hero-title"><?php echo $cu('contact_hero_title_before'); ?></span><span class="font-editorial italic font-normal contact-hero-editorial editorial-word transform -skew-x-6 inline-block"><?php echo $cu('contact_hero_title_accent'); ?></span>
 </h1>
 <p class="font-body text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed font-medium contact-hero-sub">
                     <?php echo $cu('contact_hero_subtext'); ?>

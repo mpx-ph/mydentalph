@@ -28,11 +28,7 @@ $servicesHref = htmlspecialchars(clinic_link('services', $slug, BASE_URL . 'Pati
 $contactHref = htmlspecialchars(clinic_link('contact', $slug, BASE_URL . 'ContactUsClient.php'), ENT_QUOTES, 'UTF-8');
 $aboutHeroImg = $cuImg('about_hero_image') ?: 'https://lh3.googleusercontent.com/aida-public/AB6AXuChrPelgrWNz5y22-jPblZ3xvf8IAD-hR1qnlkZRBw16FAQOI7uFlUaoioxaqF_x2Tr_73XIDwSMCHMnnGWH4FcoyVGYkRZzDOZXa4YC8CC70iVT00Sq15rLCNydE_JeNMoklsezLzYditmIY3X4rCb0sgfJXYcFV0Iz7CG1Jfy1qaunSseGzYkrRWRBHVDFFKosGZtshcOp3idiAppl8jDam5CVK0iOyXyyYqeeUb7D4355tXxps3A8-Oic9oPkbqwFMlxa5DVUm0';
 ?>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&amp;display=swap" rel="stylesheet"/>
 <style>
-.font-headline { font-family: Manrope, ui-sans-serif, system-ui, sans-serif; }
-.font-body { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-.font-editorial { font-family: "Playfair Display", Georgia, serif; }
 .editorial-word {
     text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
     letter-spacing: -0.02em;

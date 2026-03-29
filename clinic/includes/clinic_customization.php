@@ -58,8 +58,19 @@ if (!isset($CLINIC) || !is_array($CLINIC)) {
                 WHERE tenant_id = ?
             ");
             $stmtTenant->execute([$currentTenantId]);
+            $tenantKeysLoaded = [];
             while ($row = $stmtTenant->fetch(PDO::FETCH_ASSOC)) {
                 $CLINIC[$row['option_key']] = $row['option_value'];
+                $tenantKeysLoaded[$row['option_key']] = true;
+            }
+            if (
+                empty($tenantKeysLoaded['clinic_name'])
+                && isset($currentTenantData) && is_array($currentTenantData)
+            ) {
+                $tn = trim((string) ($currentTenantData['clinic_name'] ?? ''));
+                if ($tn !== '') {
+                    $CLINIC['clinic_name'] = $tn;
+                }
             }
         }
     } catch (Exception $e) {

@@ -8,6 +8,10 @@ require_once __DIR__ . '/tenant_bootstrap.php';
 require_once __DIR__ . '/includes/clinic_customization.php';
 require_once __DIR__ . '/includes/header.php';
 
+$cu = static function (string $k) use ($CLINIC): string {
+    return isset($CLINIC[$k]) ? htmlspecialchars((string) $CLINIC[$k], ENT_QUOTES, 'UTF-8') : '';
+};
+
 $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 'UTF-8');
 ?>
 <style>
@@ -25,13 +29,13 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
 <!-- Hero Section -->
 <section class="max-w-7xl mx-auto px-6 md:px-12 pt-28 lg:pt-32 pb-16 text-center">
 <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[11px] font-extrabold uppercase tracking-[0.2em] mb-8">
-                Clinically Proven Care
+                <?php echo $cu('services_hero_badge'); ?>
             </div>
 <h1 class="font-display text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-6">
-                Our Specialized <span class="text-primary">Services</span>
+                <?php echo $cu('services_hero_title_before'); ?><span class="text-primary"><?php echo $cu('services_hero_title_accent'); ?></span>
 </h1>
 <p class="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto text-xl font-medium leading-relaxed">
-                Elevating dental wellness through clinical mastery and curated patient experiences. Discover our full spectrum of elite treatments.
+                <?php echo $cu('services_hero_subtitle'); ?>
             </p>
 </section>
 <!-- Vertical Services List -->
