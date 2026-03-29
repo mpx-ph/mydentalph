@@ -2,10 +2,12 @@
 /**
  * Main Page - Homepage
  */
-$pageTitle = 'Dental Clinic - Patient Home';
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/tenant_bootstrap.php';
 require_once __DIR__ . '/includes/clinic_customization.php';
+$pageTitle = isset($CLINIC['main_page_title']) && trim((string) $CLINIC['main_page_title']) !== ''
+    ? trim((string) $CLINIC['main_page_title'])
+    : 'Dental Clinic - Patient Home';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/header.php';
 if (!function_exists('clinic_link')) {
@@ -19,6 +21,36 @@ if (!function_exists('clinic_link')) {
     }
 }
 $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars($CLINIC[$k], ENT_QUOTES, 'UTF-8') : ''; };
+$cuIcon = function (string $k, string $fallback) use ($CLINIC): string {
+    $v = isset($CLINIC[$k]) ? trim((string) $CLINIC[$k]) : '';
+    if ($v === '') {
+        $v = $fallback;
+    }
+    if (preg_match('/^[a-z0-9_]+$/', $v) !== 1) {
+        $v = $fallback;
+    }
+    return htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
+};
+$cuNl2br = function (string $k, string $default) use ($CLINIC): string {
+    $v = isset($CLINIC[$k]) ? trim((string) $CLINIC[$k]) : '';
+    if ($v === '') {
+        $v = $default;
+    }
+    $parts = preg_split('/\r\n|\r|\n/', $v);
+    $safe = [];
+    foreach ($parts as $p) {
+        $safe[] = htmlspecialchars($p, ENT_QUOTES, 'UTF-8');
+    }
+    return implode('<br/>', $safe);
+};
+$heroPill = trim((string) ($CLINIC['main_hero_badge'] ?? ''));
+if ($heroPill === '') {
+    $heroPill = trim((string) ($CLINIC['main_services_heading'] ?? ''));
+}
+if ($heroPill === '') {
+    $heroPill = 'Premium Patient Care';
+}
+$heroPillEsc = htmlspecialchars($heroPill, ENT_QUOTES, 'UTF-8');
 $slug = $currentTenantSlug ?? ($_SESSION['public_tenant_slug'] ?? null);
 $setAppointmentHref = isLoggedIn('client')
     ? clinic_link('download', $slug, BASE_URL . 'DownloadApp.php')
@@ -56,16 +88,16 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 <section class="relative min-h-[90vh] flex items-center justify-center pt-20 overflow-hidden" style="background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.8)), url('<?php echo $heroBgEsc; ?>'); background-size: cover; background-position: center;">
 <div class="max-w-7xl mx-auto w-full px-10 relative z-10 flex flex-col items-center text-center justify-center">
 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8 font-headline">
-                <?php echo $cu('main_services_heading') ?: 'Premium Patient Care'; ?>
+                <?php echo $heroPillEsc; ?>
             </div>
-<h1 class="font-headline text-[clamp(3.5rem,8vw,8rem)] font-extrabold tracking-[-0.05em] mb-10 leading-[0.85] flex flex-col items-center justify-center text-slate-900 dark:text-white"><span class="block">Welcome to</span><span class="relative block text-center mt-2"><span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $cu('clinic_name'); ?></span></span></h1>
+<h1 class="font-headline text-[clamp(3.5rem,8vw,8rem)] font-extrabold tracking-[-0.05em] mb-10 leading-[0.85] flex flex-col items-center justify-center text-slate-900 dark:text-white"><span class="block"><?php echo $cu('main_hero_line1') ?: 'Welcome to'; ?></span><span class="relative block text-center mt-2"><span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $cu('clinic_name'); ?></span></span><?php if (trim((string) ($CLINIC['main_hero_line2'] ?? '')) !== ''): ?><span class="block mt-4 text-[clamp(1.75rem,4vw,3rem)] font-bold text-slate-800 dark:text-slate-100"><?php echo $cu('main_hero_line2'); ?></span><?php endif; ?><?php if (trim((string) ($CLINIC['main_hero_line3'] ?? '')) !== ''): ?><span class="block mt-2 text-[clamp(1.5rem,3.5vw,2.5rem)] font-semibold text-slate-700 dark:text-slate-200"><?php echo $cu('main_hero_line3'); ?></span><?php endif; ?></h1>
 <p class="font-body text-xl max-w-2xl mb-12 leading-relaxed text-slate-600 dark:text-slate-400 font-medium">
                 <?php echo $cu('main_hero_subtext'); ?>
             </p>
 <div class="flex flex-col items-center justify-center">
 <a href="<?php echo htmlspecialchars($setAppointmentHref, ENT_QUOTES, 'UTF-8'); ?>" class="group relative px-12 py-5 bg-primary text-white font-bold rounded-full overflow-hidden transition-all hover:pr-16 active:scale-95 font-headline inline-flex items-center">
-<span class="relative z-10"><?php echo isLoggedIn('client') ? 'Download Our App' : 'Set Appointment'; ?></span>
-<span class="material-symbols-outlined absolute right-6 opacity-0 group-hover:opacity-100 transition-all">arrow_right_alt</span>
+<span class="relative z-10"><?php echo isLoggedIn('client') ? ($cu('main_hero_cta_app') ?: 'Download Our App') : ($cu('main_hero_cta_guest') ?: 'Set Appointment'); ?></span>
+<span class="material-symbols-outlined absolute right-6 opacity-0 group-hover:opacity-100 transition-all"><?php echo $cuIcon('main_hero_cta_icon', 'arrow_right_alt'); ?></span>
 </a>
 </div>
 </div>
@@ -88,7 +120,7 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
                     </p>
 </div>
 <div class="relative hidden lg:block">
-<span class="text-[16rem] font-headline font-black text-primary/[0.03] leading-none tracking-tighter absolute -top-24 select-none left-1/2 -translate-x-1/2">CARE</span>
+<span class="text-[16rem] font-headline font-black text-primary/[0.03] leading-none tracking-tighter absolute -top-24 select-none left-1/2 -translate-x-1/2"><?php echo $cu('main_services_watermark') ?: 'CARE'; ?></span>
 </div>
 </div>
 <div class="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10">
@@ -96,12 +128,12 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 <div class="group h-full bg-white dark:bg-slate-800 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 hover:border-primary/20 transition-all duration-700 hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.08)] relative overflow-hidden">
 <div class="absolute -right-8 -top-8 w-32 h-32 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors"></div>
 <div class="w-14 h-14 bg-primary/10 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:scale-110">
-<span class="material-symbols-outlined text-3xl font-light">align_items_stretch</span>
+<span class="material-symbols-outlined text-3xl font-light"><?php echo $cuIcon('main_home_svc1_icon', 'align_items_stretch'); ?></span>
 </div>
-<h3 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white">Orthodontics</h3>
-<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium mb-8 font-body">Achieve perfect alignment with clear aligners and modern braces. We specialize in discreet corrections for all ages.</p>
+<h3 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white"><?php echo $cu('main_home_svc1_title') ?: 'Orthodontics'; ?></h3>
+<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium mb-8 font-body"><?php echo $cu('main_home_svc1_text') ?: 'Achieve perfect alignment with clear aligners and modern braces. We specialize in discreet corrections for all ages.'; ?></p>
 <a href="<?php echo $servicesHref; ?>#orthodontics" class="inline-flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-widest tracking-[0.3em] font-headline">
-<span class="w-8 h-[1px] bg-primary/30"></span> Learn more
+<span class="w-8 h-[1px] bg-primary/30"></span> <?php echo $cu('main_home_svc1_link') ?: 'Learn more'; ?>
                         </a>
 </div>
 </div>
@@ -116,25 +148,25 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </div>
 <div>
 <div class="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-10 text-white border border-white/20">
-<span class="material-symbols-outlined text-3xl font-light">auto_awesome</span>
+<span class="material-symbols-outlined text-3xl font-light"><?php echo $cuIcon('main_home_svc2_icon', 'auto_awesome'); ?></span>
 </div>
-<h3 class="font-headline text-4xl font-extrabold mb-6 tracking-tight text-white leading-tight">Cosmetic<br/>Dentistry</h3>
-<p class="text-white/80 text-xl leading-relaxed font-medium mb-12 font-body">Transform your smile with premium porcelain veneers, professional whitening, and aesthetic restoration techniques.</p>
+<h3 class="font-headline text-4xl font-extrabold mb-6 tracking-tight text-white leading-tight"><?php echo $cuNl2br('main_home_svc2_title', "Cosmetic\nDentistry"); ?></h3>
+<p class="text-white/80 text-xl leading-relaxed font-medium mb-12 font-body"><?php echo $cu('main_home_svc2_text') ?: 'Transform your smile with premium porcelain veneers, professional whitening, and aesthetic restoration techniques.'; ?></p>
 </div>
 <a href="<?php echo $servicesHref; ?>#cosmetic" class="bg-white text-primary w-full py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-50 transition-colors text-center font-headline inline-block">
-                            View Gallery
+                            <?php echo $cu('main_home_svc2_button') ?: 'View Gallery'; ?>
                         </a>
 </div>
 </div>
 <div class="md:col-span-12 lg:col-span-4 lg:mt-36">
 <div class="group h-full glass-card dark:bg-slate-800/80 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 hover:border-primary/30 transition-all duration-700 hover:shadow-xl relative overflow-hidden">
 <div class="w-14 h-14 bg-primary/10 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:scale-110">
-<span class="material-symbols-outlined text-3xl font-light">health_and_safety</span>
+<span class="material-symbols-outlined text-3xl font-light"><?php echo $cuIcon('main_home_svc3_icon', 'health_and_safety'); ?></span>
 </div>
-<h3 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white">Preventative Care</h3>
-<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium mb-8 font-body">Maintain lifelong oral health with comprehensive wellness exams, advanced cleanings, and digital diagnostics.</p>
+<h3 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white"><?php echo $cu('main_home_svc3_title') ?: 'Preventative Care'; ?></h3>
+<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium mb-8 font-body"><?php echo $cu('main_home_svc3_text') ?: 'Maintain lifelong oral health with comprehensive wellness exams, advanced cleanings, and digital diagnostics.'; ?></p>
 <a href="<?php echo $servicesHref; ?>#general" class="inline-flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-widest tracking-[0.3em] font-headline">
-<span class="w-8 h-[1px] bg-primary/30"></span> Learn more
+<span class="w-8 h-[1px] bg-primary/30"></span> <?php echo $cu('main_home_svc3_link') ?: 'Learn more'; ?>
                         </a>
 </div>
 </div>
@@ -146,53 +178,53 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 <div class="max-w-[1800px] mx-auto px-10">
 <div class="flex flex-col items-center text-center mb-24">
 <div class="inline-flex items-center gap-4 px-4 py-2 rounded-full bg-primary/5 text-primary text-[10px] font-black uppercase tracking-[0.4em] mb-6 font-headline">
-<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span> Your Experience
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span> <?php echo $cu('main_journey_badge') ?: 'Your Experience'; ?>
                 </div>
-<h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white mb-6 leading-[1.1]">The Patient <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Journey</span></h2>
-<p class="text-slate-600 dark:text-slate-400 text-xl font-medium max-w-2xl font-body">A personalized pathway to your dream smile, from initial meeting to final reveal.</p>
+<h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white mb-6 leading-[1.1]"><?php echo $cu('main_journey_title_before') ?: 'The Patient '; ?><span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $cu('main_journey_title_accent') ?: 'Journey'; ?></span></h2>
+<p class="text-slate-600 dark:text-slate-400 text-xl font-medium max-w-2xl font-body"><?php echo $cu('main_journey_subtitle') ?: 'A personalized pathway to your dream smile, from initial meeting to final reveal.'; ?></p>
 </div>
 <div class="relative">
 <div class="hidden lg:block absolute top-1/2 left-0 w-full h-px step-connector -translate-y-1/2 z-0"></div>
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-24 relative z-10">
 <div class="relative group">
 <div class="bg-white dark:bg-slate-800 rounded-[2rem] p-12 border border-slate-200/80 dark:border-slate-700 transition-all duration-500 group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5">
-<div class="absolute -top-6 left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30">01</div>
+<div class="absolute -top-6 left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30"><?php echo $cu('main_journey_s1_num') ?: '01'; ?></div>
 <div class="mb-10 text-primary opacity-40 group-hover:opacity-100 transition-opacity">
-<span class="material-symbols-outlined text-5xl font-light">chat_bubble</span>
+<span class="material-symbols-outlined text-5xl font-light"><?php echo $cuIcon('main_journey_s1_icon', 'chat_bubble'); ?></span>
 </div>
-<h4 class="font-headline font-extrabold text-2xl mb-4 text-slate-900 dark:text-white">Consultation</h4>
-<p class="text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-8 font-body">Discuss your dental goals and concerns with our experts in a relaxed, pressure-free environment.</p>
+<h4 class="font-headline font-extrabold text-2xl mb-4 text-slate-900 dark:text-white"><?php echo $cu('main_journey_s1_title') ?: 'Consultation'; ?></h4>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-8 font-body"><?php echo $cu('main_journey_s1_text') ?: 'Discuss your dental goals and concerns with our experts in a relaxed, pressure-free environment.'; ?></p>
 <div class="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 font-headline">
-<span class="material-symbols-outlined text-lg">forum</span>
-                                Goal Alignment
+<span class="material-symbols-outlined text-lg"><?php echo $cuIcon('main_journey_s1_footer_icon', 'forum'); ?></span>
+                                <?php echo $cu('main_journey_s1_footer_text') ?: 'Goal Alignment'; ?>
                             </div>
 </div>
 </div>
 <div class="relative group">
 <div class="bg-white dark:bg-slate-800 rounded-[2rem] p-12 border border-slate-200/80 dark:border-slate-700 transition-all duration-500 group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5">
-<div class="absolute -top-6 left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30">02</div>
+<div class="absolute -top-6 left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30"><?php echo $cu('main_journey_s2_num') ?: '02'; ?></div>
 <div class="mb-10 text-primary opacity-40 group-hover:opacity-100 transition-opacity">
-<span class="material-symbols-outlined text-5xl font-light">biotech</span>
+<span class="material-symbols-outlined text-5xl font-light"><?php echo $cuIcon('main_journey_s2_icon', 'biotech'); ?></span>
 </div>
-<h4 class="font-headline font-extrabold text-2xl mb-4 text-slate-900 dark:text-white">Treatment Planning</h4>
-<p class="text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-8 font-body">Utilizing 3D imaging to create a custom roadmap and digital preview of your future results.</p>
+<h4 class="font-headline font-extrabold text-2xl mb-4 text-slate-900 dark:text-white"><?php echo $cu('main_journey_s2_title') ?: 'Treatment Planning'; ?></h4>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-8 font-body"><?php echo $cu('main_journey_s2_text') ?: 'Utilizing 3D imaging to create a custom roadmap and digital preview of your future results.'; ?></p>
 <div class="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 font-headline">
-<span class="material-symbols-outlined text-lg">map</span>
-                                Custom Roadmap
+<span class="material-symbols-outlined text-lg"><?php echo $cuIcon('main_journey_s2_footer_icon', 'map'); ?></span>
+                                <?php echo $cu('main_journey_s2_footer_text') ?: 'Custom Roadmap'; ?>
                             </div>
 </div>
 </div>
 <div class="relative group">
 <div class="bg-white dark:bg-slate-800 rounded-[2rem] p-12 border border-slate-200/80 dark:border-slate-700 transition-all duration-500 group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5">
-<div class="absolute -top-6 left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30">03</div>
+<div class="absolute -top-6 left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30"><?php echo $cu('main_journey_s3_num') ?: '03'; ?></div>
 <div class="mb-10 text-primary opacity-40 group-hover:opacity-100 transition-opacity">
-<span class="material-symbols-outlined text-5xl font-light">face_6</span>
+<span class="material-symbols-outlined text-5xl font-light"><?php echo $cuIcon('main_journey_s3_icon', 'face_6'); ?></span>
 </div>
-<h4 class="font-headline font-extrabold text-2xl mb-4 text-slate-900 dark:text-white">Transformation</h4>
-<p class="text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-8 font-body">Executing your clinical plan with precision and care, revealing your healthy, radiant new smile.</p>
+<h4 class="font-headline font-extrabold text-2xl mb-4 text-slate-900 dark:text-white"><?php echo $cu('main_journey_s3_title') ?: 'Transformation'; ?></h4>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-8 font-body"><?php echo $cu('main_journey_s3_text') ?: 'Executing your clinical plan with precision and care, revealing your healthy, radiant new smile.'; ?></p>
 <div class="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 font-headline">
-<span class="material-symbols-outlined text-lg">verified</span>
-                                Reveal Success
+<span class="material-symbols-outlined text-lg"><?php echo $cuIcon('main_journey_s3_footer_icon', 'verified'); ?></span>
+                                <?php echo $cu('main_journey_s3_footer_text') ?: 'Reveal Success'; ?>
                             </div>
 </div>
 </div>
@@ -205,12 +237,12 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 <div class="mx-auto rounded-[4rem] bg-primary relative overflow-hidden flex flex-col items-center text-center shadow-[0_40px_100px_-20px_rgba(43,139,235,0.4)] max-w-6xl py-24 px-10 md:px-20">
 <div class="relative z-10 max-w-3xl">
 <div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-10 font-headline">
-                    Your Smile Awaits
+                    <?php echo $cu('main_cta_badge') ?: 'Your Smile Awaits'; ?>
                 </div>
-<h2 class="font-headline text-5xl font-extrabold text-white tracking-tighter leading-[0.85] md:text-6xl mb-8">Ready to rediscover your smile?</h2>
-<p class="text-white/70 text-xl md:text-2xl max-w-xl mx-auto leading-relaxed mb-10 font-body">Join thousands of happy patients who trust us with their oral health and aesthetic transformations.</p>
+<h2 class="font-headline text-5xl font-extrabold text-white tracking-tighter leading-[0.85] md:text-6xl mb-8"><?php echo $cu('main_cta_title') ?: 'Ready to rediscover your smile?'; ?></h2>
+<p class="text-white/70 text-xl md:text-2xl max-w-xl mx-auto leading-relaxed mb-10 font-body"><?php echo $cu('main_cta_subtext') ?: 'Join thousands of happy patients who trust us with their oral health and aesthetic transformations.'; ?></p>
 <a href="<?php echo htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 'UTF-8'); ?>" class="inline-block bg-white text-primary px-16 py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-2xl active:scale-95 font-headline">
-                    Book a Consultation
+                    <?php echo $cu('main_cta_button') ?: 'Book a Consultation'; ?>
                 </a>
 </div>
 <div class="absolute top-0 right-0 w-1/3 h-full border-l border-white/10 pointer-events-none"></div>
