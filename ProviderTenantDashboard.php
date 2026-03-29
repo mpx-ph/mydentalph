@@ -230,6 +230,9 @@ include __DIR__ . '/provider_tenant_sidebar.inc.php';
 <p class="text-primary font-bold text-[10px] sm:text-xs uppercase tracking-[0.35em] flex items-center gap-3 mb-3"><span class="w-8 sm:w-10 h-px bg-primary/40"></span> Provider dashboard</p>
 <h2 class="text-5xl sm:text-6xl font-extrabold font-headline tracking-tight text-on-background">Clinic <span class="font-editorial italic font-normal text-primary editorial-word">Overview</span></h2>
 <p class="text-on-surface-variant mt-3 sm:mt-4 text-lg sm:text-xl font-medium max-w-2xl leading-relaxed">Welcome back, <span class="text-on-background font-semibold"><?php echo htmlspecialchars($welcome_name); ?></span>. Open clinic management, manage subscription and site details under Subscription &amp; Billing, and keep account details up to date in Settings.</p>
+<?php if ($show_activated_banner): ?>
+<div class="mt-6 p-5 bg-gradient-to-r from-surface-container-low to-primary/5 border border-primary/25 text-primary rounded-2xl text-sm font-headline font-bold shadow-sm shadow-primary/10 max-w-2xl">Subscription activated. Your clinic website is now live and ready to manage.</div>
+<?php endif; ?>
 </div>
 <div class="flex items-center gap-3 shrink-0">
 <a
@@ -244,9 +247,6 @@ include __DIR__ . '/provider_tenant_sidebar.inc.php';
 </a>
 </div>
 </section>
-<?php if ($show_activated_banner): ?>
-<div class="max-w-4xl p-5 bg-gradient-to-r from-surface-container-low to-primary/5 border border-primary/25 text-primary rounded-2xl text-sm font-headline font-bold shadow-sm shadow-primary/10">Subscription activated. Your clinic website is now live and ready to manage.</div>
-<?php endif; ?>
 </div>
 </main>
 <script data-purpose="event-handlers">
