@@ -382,69 +382,63 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </div>
 
 <div id="panel-pages" class="builder-panel space-y-8 max-h-[52vh] overflow-y-auto pr-1">
-<div class="space-y-4 sb-preview-scope" data-sb-preview-pages="home">
-<h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Home</h3>
-<?php sb_text('main_page_title', 'Browser tab title', $site_opts, $is_owner); ?>
-<p class="text-[10px] font-bold text-on-surface-variant/80 uppercase tracking-wider">Hero</p>
-<?php sb_text('main_hero_badge', 'Hero pill label', $site_opts, $is_owner); ?>
-<?php sb_text('main_hero_line1', 'Hero line above clinic name', $site_opts, $is_owner); ?>
-<?php sb_text('main_hero_line2', 'Optional line below clinic name', $site_opts, $is_owner); ?>
-<?php sb_text('main_hero_line3', 'Optional second line below clinic', $site_opts, $is_owner); ?>
+<div class="space-y-6 sb-preview-scope" data-sb-preview-pages="home">
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Home — Hero</h3>
+<p class="text-[11px] text-on-surface-variant/90 leading-relaxed">The main headline uses your clinic name (&ldquo;Welcome to&rdquo; is fixed). Subtext is editable. Leave the hero badge blank to reuse the services section label (eyebrow); otherwise set a custom pill.</p>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_text('main_hero_badge', 'Hero badge (top pill, optional)', $site_opts, $is_owner); ?>
 <?php sb_text('main_hero_subtext', 'Hero subtext', $site_opts, $is_owner, true); ?>
-<?php sb_text('main_hero_cta_guest', 'Primary button (signed out)', $site_opts, $is_owner); ?>
-<?php sb_text('main_hero_cta_app', 'Primary button (signed in)', $site_opts, $is_owner); ?>
-<?php sb_text('main_hero_cta_icon', 'Primary button hover icon (Material name)', $site_opts, $is_owner); ?>
-<p class="text-[10px] font-bold text-on-surface-variant/80 uppercase tracking-wider pt-2">Services spotlight</p>
-<?php sb_text('main_services_heading', 'Section label (under hero)', $site_opts, $is_owner); ?>
-<?php sb_text('main_services_title', 'Services title', $site_opts, $is_owner); ?>
-<?php sb_text('main_services_description', 'Services description', $site_opts, $is_owner, true); ?>
-<?php sb_text('main_services_watermark', 'Large background word', $site_opts, $is_owner); ?>
-<p class="text-[10px] font-bold text-on-surface-variant/80 uppercase tracking-wider pt-2">Service card 1</p>
-<?php sb_text('main_home_svc1_icon', 'Icon (Material name)', $site_opts, $is_owner); ?>
-<?php sb_text('main_home_svc1_title', 'Title', $site_opts, $is_owner); ?>
-<?php sb_text('main_home_svc1_text', 'Body', $site_opts, $is_owner, true); ?>
-<?php sb_text('main_home_svc1_link', 'Link label', $site_opts, $is_owner); ?>
-<p class="text-[10px] font-bold text-on-surface-variant/80 uppercase tracking-wider pt-2">Service card 2</p>
-<?php sb_text('main_home_svc2_icon', 'Icon (Material name)', $site_opts, $is_owner); ?>
-<?php sb_text('main_home_svc2_title', 'Title (use line break for two lines)', $site_opts, $is_owner, true); ?>
-<?php sb_text('main_home_svc2_text', 'Body', $site_opts, $is_owner, true); ?>
-<?php sb_text('main_home_svc2_button', 'Button label', $site_opts, $is_owner); ?>
-<p class="text-[10px] font-bold text-on-surface-variant/80 uppercase tracking-wider pt-2">Service card 3</p>
-<?php sb_text('main_home_svc3_icon', 'Icon (Material name)', $site_opts, $is_owner); ?>
-<?php sb_text('main_home_svc3_title', 'Title', $site_opts, $is_owner); ?>
-<?php sb_text('main_home_svc3_text', 'Body', $site_opts, $is_owner, true); ?>
-<?php sb_text('main_home_svc3_link', 'Link label', $site_opts, $is_owner); ?>
-<p class="text-[10px] font-bold text-on-surface-variant/80 uppercase tracking-wider pt-2">Patient journey</p>
-<?php sb_text('main_journey_badge', 'Journey pill label', $site_opts, $is_owner); ?>
-<?php sb_text('main_journey_title_before', 'Title before accent word', $site_opts, $is_owner); ?>
+<?php sb_text('main_hero_cta_guest', 'Primary button (guests)', $site_opts, $is_owner); ?>
+<?php sb_text('main_hero_cta_logged_in', 'Primary button (logged-in patients)', $site_opts, $is_owner); ?>
+</div>
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Home — Services section</h3>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_text('main_services_heading', 'Section label (eyebrow)', $site_opts, $is_owner); ?>
+<?php sb_text('main_services_title', 'Section title', $site_opts, $is_owner); ?>
+<?php sb_text('main_services_description', 'Section description', $site_opts, $is_owner, true); ?>
+<?php sb_text('main_services_watermark_word', 'Large background word (desktop)', $site_opts, $is_owner); ?>
+</div>
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Home — Service cards</h3>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80">Card 1</p>
+<?php sb_text('main_service_card1_title', 'Title', $site_opts, $is_owner); ?>
+<?php sb_text('main_service_card1_body', 'Body', $site_opts, $is_owner, true); ?>
+<?php sb_text('main_service_card1_cta', 'Link label', $site_opts, $is_owner); ?>
+<p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Card 2 (featured)</p>
+<?php sb_text('main_service_card2_title', 'Title (line break = second line)', $site_opts, $is_owner, true); ?>
+<?php sb_text('main_service_card2_body', 'Body', $site_opts, $is_owner, true); ?>
+<?php sb_text('main_service_card2_cta', 'Button label', $site_opts, $is_owner); ?>
+<p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Card 3</p>
+<?php sb_text('main_service_card3_title', 'Title', $site_opts, $is_owner); ?>
+<?php sb_text('main_service_card3_body', 'Body', $site_opts, $is_owner, true); ?>
+<?php sb_text('main_service_card3_cta', 'Link label', $site_opts, $is_owner); ?>
+</div>
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Home — Patient journey</h3>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_text('main_journey_badge', 'Badge', $site_opts, $is_owner); ?>
+<?php sb_text('main_journey_title_before', 'Title (before accent)', $site_opts, $is_owner); ?>
 <?php sb_text('main_journey_title_accent', 'Accent word', $site_opts, $is_owner); ?>
-<?php sb_text('main_journey_subtitle', 'Journey subtitle', $site_opts, $is_owner, true); ?>
-<p class="text-[10px] font-bold text-on-surface-variant/80 uppercase tracking-wider pt-2">Journey step 1</p>
-<?php sb_text('main_journey_s1_num', 'Step badge', $site_opts, $is_owner); ?>
-<?php sb_text('main_journey_s1_icon', 'Large icon (Material name)', $site_opts, $is_owner); ?>
-<?php sb_text('main_journey_s1_title', 'Title', $site_opts, $is_owner); ?>
-<?php sb_text('main_journey_s1_text', 'Body', $site_opts, $is_owner, true); ?>
-<?php sb_text('main_journey_s1_footer_icon', 'Footer icon (Material name)', $site_opts, $is_owner); ?>
-<?php sb_text('main_journey_s1_footer_text', 'Footer label', $site_opts, $is_owner); ?>
-<p class="text-[10px] font-bold text-on-surface-variant/80 uppercase tracking-wider pt-2">Journey step 2</p>
-<?php sb_text('main_journey_s2_num', 'Step badge', $site_opts, $is_owner); ?>
-<?php sb_text('main_journey_s2_icon', 'Large icon (Material name)', $site_opts, $is_owner); ?>
-<?php sb_text('main_journey_s2_title', 'Title', $site_opts, $is_owner); ?>
-<?php sb_text('main_journey_s2_text', 'Body', $site_opts, $is_owner, true); ?>
-<?php sb_text('main_journey_s2_footer_icon', 'Footer icon (Material name)', $site_opts, $is_owner); ?>
-<?php sb_text('main_journey_s2_footer_text', 'Footer label', $site_opts, $is_owner); ?>
-<p class="text-[10px] font-bold text-on-surface-variant/80 uppercase tracking-wider pt-2">Journey step 3</p>
-<?php sb_text('main_journey_s3_num', 'Step badge', $site_opts, $is_owner); ?>
-<?php sb_text('main_journey_s3_icon', 'Large icon (Material name)', $site_opts, $is_owner); ?>
-<?php sb_text('main_journey_s3_title', 'Title', $site_opts, $is_owner); ?>
-<?php sb_text('main_journey_s3_text', 'Body', $site_opts, $is_owner, true); ?>
-<?php sb_text('main_journey_s3_footer_icon', 'Footer icon (Material name)', $site_opts, $is_owner); ?>
-<?php sb_text('main_journey_s3_footer_text', 'Footer label', $site_opts, $is_owner); ?>
-<p class="text-[10px] font-bold text-on-surface-variant/80 uppercase tracking-wider pt-2">Bottom call to action</p>
-<?php sb_text('main_cta_badge', 'CTA pill label', $site_opts, $is_owner); ?>
-<?php sb_text('main_cta_title', 'CTA headline', $site_opts, $is_owner); ?>
-<?php sb_text('main_cta_subtext', 'CTA body', $site_opts, $is_owner, true); ?>
-<?php sb_text('main_cta_button', 'CTA button', $site_opts, $is_owner); ?>
+<?php sb_text('main_journey_subtitle', 'Subtitle', $site_opts, $is_owner, true); ?>
+<p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Step 1</p>
+<?php sb_text('main_journey_step1_title', 'Title', $site_opts, $is_owner); ?>
+<?php sb_text('main_journey_step1_body', 'Body', $site_opts, $is_owner, true); ?>
+<?php sb_text('main_journey_step1_tag', 'Footer tag', $site_opts, $is_owner); ?>
+<p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Step 2</p>
+<?php sb_text('main_journey_step2_title', 'Title', $site_opts, $is_owner); ?>
+<?php sb_text('main_journey_step2_body', 'Body', $site_opts, $is_owner, true); ?>
+<?php sb_text('main_journey_step2_tag', 'Footer tag', $site_opts, $is_owner); ?>
+<p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Step 3</p>
+<?php sb_text('main_journey_step3_title', 'Title', $site_opts, $is_owner); ?>
+<?php sb_text('main_journey_step3_body', 'Body', $site_opts, $is_owner, true); ?>
+<?php sb_text('main_journey_step3_tag', 'Footer tag', $site_opts, $is_owner); ?>
+</div>
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Home — Bottom call to action</h3>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_text('main_cta_badge', 'Badge', $site_opts, $is_owner); ?>
+<?php sb_text('main_cta_title', 'Title', $site_opts, $is_owner); ?>
+<?php sb_text('main_cta_subtext', 'Subtext', $site_opts, $is_owner, true); ?>
+<?php sb_text('main_cta_button', 'Button label', $site_opts, $is_owner); ?>
+</div>
 </div>
 <div class="space-y-4 sb-preview-scope" data-sb-preview-pages="services">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Services page</h3>
