@@ -341,12 +341,18 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </div>
 
 <div id="panel-branding" class="builder-panel builder-panel--active space-y-6 max-h-[52vh] overflow-y-auto pr-1">
-<p class="text-xs text-on-surface-variant leading-relaxed">Logo and images are stored under your tenant in <code class="text-[11px] bg-slate-100 px-1 rounded">clinic_customization_tenant</code>. Clinic name also updates your tenant profile.</p>
+<p class="text-xs text-on-surface-variant leading-relaxed sb-preview-scope" data-sb-preview-pages="all">Logo and images are stored under your tenant in <code class="text-[11px] bg-slate-100 px-1 rounded">clinic_customization_tenant</code>. Clinic name also updates your tenant profile.</p>
+<div class="sb-preview-scope space-y-6" data-sb-preview-pages="all">
 <?php sb_text('clinic_name', 'Clinic display name', $site_opts, $is_owner); ?>
 <?php sb_file('logo_nav', 'Navigation logo (PNG / JPG / WebP)', $site_opts, $is_owner); ?>
-<?php sb_file('main_hero_image', 'Home hero background image', $site_opts, $is_owner); ?>
-<?php sb_file('about_hero_image', 'About page hero image', $site_opts, $is_owner); ?>
 <?php sb_file('site_favicon', 'Favicon', $site_opts, $is_owner); ?>
+</div>
+<div class="sb-preview-scope space-y-2" data-sb-preview-pages="home">
+<?php sb_file('main_hero_image', 'Home hero background image', $site_opts, $is_owner); ?>
+</div>
+<div class="sb-preview-scope space-y-2" data-sb-preview-pages="about">
+<?php sb_file('about_hero_image', 'About page hero image', $site_opts, $is_owner); ?>
+</div>
 </div>
 
 <div id="panel-colors" class="builder-panel space-y-6 max-h-[52vh] overflow-y-auto pr-1">
@@ -357,7 +363,9 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 
 <div id="panel-type" class="builder-panel space-y-6 max-h-[52vh] overflow-y-auto pr-1">
 <?php sb_font_select('theme_font_headline', 'Headline font', $allowed_fonts, $site_opts, $is_owner); ?>
+<div class="sb-preview-scope space-y-2" data-sb-preview-pages="services">
 <?php sb_font_select('theme_font_display', 'Display font (services hero)', $allowed_fonts, $site_opts, $is_owner); ?>
+</div>
 <?php sb_font_select('theme_font_body', 'Body font', $allowed_fonts, $site_opts, $is_owner); ?>
 <?php sb_font_select('theme_font_editorial', 'Editorial / accent font', $allowed_fonts, $site_opts, $is_owner); ?>
 <?php sb_range('theme_base_font_px', 'Base font size (px)', $site_opts, $is_owner, 14, 22, 1); ?>
@@ -374,7 +382,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </div>
 
 <div id="panel-pages" class="builder-panel space-y-8 max-h-[52vh] overflow-y-auto pr-1">
-<div class="space-y-4">
+<div class="space-y-4 sb-preview-scope" data-sb-preview-pages="home">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Home</h3>
 <?php sb_text('main_hero_line1', 'Hero line 1', $site_opts, $is_owner); ?>
 <?php sb_text('main_hero_line2', 'Hero line 2', $site_opts, $is_owner); ?>
@@ -384,19 +392,19 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <?php sb_text('main_services_title', 'Services title', $site_opts, $is_owner); ?>
 <?php sb_text('main_services_description', 'Services description', $site_opts, $is_owner, true); ?>
 </div>
-<div class="space-y-4 pt-4 border-t border-slate-100">
+<div class="space-y-4 sb-preview-scope" data-sb-preview-pages="services">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Services page</h3>
 <?php sb_text('services_hero_badge', 'Badge', $site_opts, $is_owner); ?>
 <?php sb_text('services_hero_title_before', 'Title (before accent)', $site_opts, $is_owner); ?>
 <?php sb_text('services_hero_title_accent', 'Accent word', $site_opts, $is_owner); ?>
 <?php sb_text('services_hero_subtitle', 'Subtitle', $site_opts, $is_owner, true); ?>
 </div>
-<div class="space-y-4 pt-4 border-t border-slate-100">
+<div class="space-y-4 sb-preview-scope" data-sb-preview-pages="about">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">About</h3>
 <?php sb_text('about_intro_heading', 'Intro heading', $site_opts, $is_owner); ?>
 <?php sb_text('about_intro_text', 'Intro text', $site_opts, $is_owner, true); ?>
 </div>
-<div class="space-y-4 pt-4 border-t border-slate-100">
+<div class="space-y-4 sb-preview-scope" data-sb-preview-pages="contact">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Contact</h3>
 <?php sb_text('contact_hero_badge', 'Badge', $site_opts, $is_owner); ?>
 <?php sb_text('contact_hero_title_before', 'Title (before accent)', $site_opts, $is_owner); ?>
@@ -572,9 +580,21 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
         el.addEventListener('input', function () { if (show) show.textContent = el.value; });
     });
 
+    function applyPreviewPageFieldScope(page) {
+        document.querySelectorAll('.sb-preview-scope[data-sb-preview-pages]').forEach(function (el) {
+            var raw = el.getAttribute('data-sb-preview-pages') || '';
+            var show = raw === 'all' || raw.split(',').some(function (p) { return p.trim() === page; });
+            el.classList.toggle('hidden', !show);
+        });
+    }
+
     if (previewSelect) {
-        previewSelect.addEventListener('change', function () { setPreviewUrl(previewSelect.value); });
+        previewSelect.addEventListener('change', function () {
+            setPreviewUrl(previewSelect.value);
+            applyPreviewPageFieldScope(previewSelect.value);
+        });
         setPreviewUrl(previewSelect.value);
+        applyPreviewPageFieldScope(previewSelect.value);
     }
 
     function refreshPreview() {
