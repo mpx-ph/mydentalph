@@ -32,7 +32,7 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
                 <?php echo $cu('services_hero_badge'); ?>
             </div>
 <h1 class="font-display text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-6">
-                <?php echo $cu('services_hero_title_before'); ?><span class="text-primary"><?php echo $cu('services_hero_title_accent'); ?></span>
+                <?php echo $cu('services_hero_title_before'); ?><span class="text-primary font-editorial italic font-normal"><?php echo $cu('services_hero_title_accent'); ?></span>
 </h1>
 <p class="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto text-xl font-medium leading-relaxed">
                 <?php echo $cu('services_hero_subtitle'); ?>

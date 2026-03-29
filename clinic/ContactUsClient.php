@@ -36,7 +36,7 @@ $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars(
         linear-gradient(180deg, rgb(15 23 42) 0%, rgb(17 24 39) 45%, rgb(15 23 42) 100%);
 }
 .editorial-word {
-    text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
+    text-shadow: 0 0 12px color-mix(in srgb, currentColor 12%, transparent);
     letter-spacing: -0.02em;
 }
 .contact-hero-badge {
@@ -53,12 +53,6 @@ $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars(
 }
 .dark .contact-hero-title {
     color: #f8fafc;
-}
-.contact-hero-editorial {
-    color: #2185d5;
-}
-.dark .contact-hero-editorial {
-    color: #4da3e6;
 }
 .contact-hero-sub {
     color: #5c6670;
@@ -77,7 +71,7 @@ $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars(
                     <?php echo $cu('contact_hero_badge'); ?>
                 </div>
 <h1 class="font-headline text-[clamp(2.75rem,7vw,4.75rem)] font-extrabold tracking-[-0.04em] mb-6 sm:mb-8 leading-[1.05]">
-<span class="contact-hero-title"><?php echo $cu('contact_hero_title_before'); ?></span><span class="font-editorial italic font-normal contact-hero-editorial editorial-word transform -skew-x-6 inline-block"><?php echo $cu('contact_hero_title_accent'); ?></span>
+<span class="contact-hero-title"><?php echo $cu('contact_hero_title_before'); ?></span><span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $cu('contact_hero_title_accent'); ?></span>
 </h1>
 <p class="font-body text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed font-medium contact-hero-sub">
                     <?php echo $cu('contact_hero_subtext'); ?>
