@@ -2,16 +2,6 @@
 declare(strict_types=1);
 require_once __DIR__ . '/provider_tenant_lite_bootstrap.php';
 $provider_nav_active = 'users';
-
-$session_owner_full = trim((string) ($display_name ?? ''));
-$add_user_owner_first = '';
-$add_user_owner_last = '';
-if ($session_owner_full !== '') {
-    $name_parts = preg_split('/\s+/', $session_owner_full, 2, PREG_SPLIT_NO_EMPTY);
-    $add_user_owner_first = is_array($name_parts) ? (string) ($name_parts[0] ?? '') : '';
-    $add_user_owner_last = is_array($name_parts) ? (string) ($name_parts[1] ?? '') : '';
-}
-$add_user_owner_email = trim((string) ($_SESSION['email'] ?? ''));
 ?>
 <!DOCTYPE html>
 
@@ -354,7 +344,7 @@ $add_user_owner_email = trim((string) ($_SESSION['email'] ?? ''));
 </footer>
 <div id="add-user-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 sm:p-6" aria-hidden="true">
 <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm provider-modal-backdrop" data-modal-dismiss></div>
-<div class="relative w-full max-w-xl max-h-[min(92vh,46rem)] flex flex-col rounded-3xl bg-background shadow-2xl border border-slate-200/80 overflow-hidden provider-modal-panel" role="dialog" aria-modal="true" aria-labelledby="add-user-title" data-owner-first="<?php echo htmlspecialchars($add_user_owner_first, ENT_QUOTES, 'UTF-8'); ?>" data-owner-last="<?php echo htmlspecialchars($add_user_owner_last, ENT_QUOTES, 'UTF-8'); ?>" data-owner-email="<?php echo htmlspecialchars($add_user_owner_email, ENT_QUOTES, 'UTF-8'); ?>">
+<div class="relative w-full max-w-xl max-h-[min(92vh,46rem)] flex flex-col rounded-3xl bg-background shadow-2xl border border-slate-200/80 overflow-hidden provider-modal-panel" role="dialog" aria-modal="true" aria-labelledby="add-user-title">
 <div class="shrink-0 px-8 pt-8 pb-5 bg-white border-b border-slate-100/90 relative pr-16">
 <button type="button" class="absolute top-6 right-6 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200/80 bg-white text-on-surface-variant hover:border-primary/30 hover:text-primary transition-all shadow-sm" data-modal-dismiss aria-label="Close">
 <span class="material-symbols-outlined text-xl">close</span>
@@ -438,9 +428,11 @@ $add_user_owner_email = trim((string) ($_SESSION['email'] ?? ''));
 <label class="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80 mb-2">Clinic role</label>
 <div class="relative">
 <select id="add-user-role" class="appearance-none w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 pr-12 text-sm font-semibold text-on-background focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer">
-<option value="Manager">Manager</option>
-<option value="Staff" selected>Staff</option>
-<option value="Doctor">Doctor</option>
+<option>Administrative / support staff</option>
+<option>Clinical admin</option>
+<option>Lead dentist</option>
+<option>Dental hygienist</option>
+<option>Reception staff</option>
 </select>
 <span class="material-symbols-outlined pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-primary text-xl">expand_more</span>
 </div>
@@ -570,52 +562,12 @@ Send verification code
   var openBtn = document.getElementById('add-user-open');
   if (!modal || !openBtn) return;
 
-  var panel = modal.querySelector('.provider-modal-panel');
   var ownerCb = document.getElementById('add-user-owner-mode');
-  var firstEl = document.getElementById('add-user-first');
-  var lastEl = document.getElementById('add-user-last');
-  var emailEl = document.getElementById('add-user-email');
-  var roleEl = document.getElementById('add-user-role');
   var passwordWrap = document.getElementById('add-user-password-wrap');
   var pwInput = document.getElementById('add-user-password');
   var pwConfirm = document.getElementById('add-user-password-confirm');
   var strengthLabel = document.getElementById('add-user-pw-strength-label');
   var strengthBar = document.getElementById('add-user-pw-strength-bar');
-
-  var draftFirst = '';
-  var draftLast = '';
-  var draftEmail = '';
-  var draftRole = '';
-
-  function readOwnerFromPanel() {
-    if (!panel) return { first: '', last: '', email: '' };
-    return {
-      first: panel.getAttribute('data-owner-first') || '',
-      last: panel.getAttribute('data-owner-last') || '',
-      email: panel.getAttribute('data-owner-email') || ''
-    };
-  }
-
-  function applyOwnerCredentialFields() {
-    if (!firstEl || !lastEl || !emailEl) return;
-    draftFirst = firstEl.value;
-    draftLast = lastEl.value;
-    draftEmail = emailEl.value;
-    if (roleEl) draftRole = roleEl.value;
-    var o = readOwnerFromPanel();
-    firstEl.value = o.first;
-    lastEl.value = o.last;
-    emailEl.value = o.email;
-    if (roleEl) roleEl.value = 'Manager';
-  }
-
-  function restoreCredentialFieldsDraft() {
-    if (!firstEl || !lastEl || !emailEl) return;
-    firstEl.value = draftFirst;
-    lastEl.value = draftLast;
-    emailEl.value = draftEmail;
-    if (roleEl) roleEl.value = draftRole;
-  }
 
   function openModal() {
     modal.classList.remove('hidden');
@@ -632,22 +584,15 @@ Send verification code
 
   function setOwnerMode(on) {
     if (!passwordWrap) return;
-    if (on) {
-      applyOwnerCredentialFields();
-    } else {
-      restoreCredentialFieldsDraft();
-    }
     passwordWrap.classList.toggle('hidden', on);
     passwordWrap.setAttribute('aria-hidden', on ? 'true' : 'false');
     if (pwInput) {
       pwInput.disabled = on;
       pwInput.required = !on;
-      if (on) pwInput.value = '';
     }
     if (pwConfirm) {
       pwConfirm.disabled = on;
       pwConfirm.required = !on;
-      if (on) pwConfirm.value = '';
     }
     if (on) {
       if (strengthLabel) strengthLabel.textContent = '—';
