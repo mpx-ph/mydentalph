@@ -150,6 +150,7 @@ $latest_subscription_row = null;
 try {
     $latestStmt = $pdo->prepare("
         SELECT ts.id, ts.plan_id, ts.subscription_start, ts.subscription_end, ts.payment_status, ts.amount_paid,
+               ts.payment_method, ts.reference_number, ts.created_at,
                p.plan_name, p.plan_slug, p.billing_cycle, p.price
         FROM tbl_tenant_subscriptions ts
         LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
@@ -165,7 +166,8 @@ try {
 if ($latest_subscription_row === null) {
     try {
         $bare = $pdo->prepare('
-            SELECT id, plan_id, subscription_start, subscription_end, payment_status, amount_paid
+            SELECT id, plan_id, subscription_start, subscription_end, payment_status, amount_paid,
+                   payment_method, reference_number, created_at
             FROM tbl_tenant_subscriptions
             WHERE tenant_id = ?
             ORDER BY id DESC
@@ -190,6 +192,7 @@ $active_subscription_row = null;
 try {
     $activeStmt = $pdo->prepare("
         SELECT ts.id, ts.plan_id, ts.subscription_start, ts.subscription_end, ts.payment_status, ts.amount_paid,
+               ts.payment_method, ts.reference_number, ts.created_at,
                p.plan_name, p.plan_slug, p.billing_cycle, p.price
         FROM tbl_tenant_subscriptions ts
         LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
@@ -362,3 +365,40 @@ if ($period_start_ts !== false && $renewal_ts !== false && $renewal_ts > $period
 $plan_period_util_pct = max(0, min(100, $plan_period_util_pct));
 
 $renewal_sidebar = $renewal_date !== '—' ? ('Renews ' . $renewal_date) : ($has_subscription_row ? 'See billing for dates' : 'No active renewal');
+
+/** Payment snapshot for current dashboard subscription row (amount + paid-at from DB). */
+$sub_payment_amount_display = '';
+$sub_payment_date_display = '';
+$sub_payment_time_display = '';
+if ($has_subscription_row && is_array($dashboard_subscription)) {
+    $ds = $dashboard_subscription;
+    $amtRaw = $ds['amount_paid'] ?? null;
+    $amt = is_numeric($amtRaw) ? (float) $amtRaw : null;
+    if ($amt === null || $amt <= 0) {
+        $priceFallback = $ds['price'] ?? null;
+        if (is_numeric($priceFallback)) {
+            $amt = (float) $priceFallback;
+        }
+    }
+    $sub_payment_amount_display = ($amt !== null && $amt > 0)
+        ? ('₱' . number_format($amt, 2, '.', ','))
+        : '—';
+    $createdRaw = trim((string) ($ds['created_at'] ?? ''));
+    $paidTs = false;
+    if ($createdRaw !== '') {
+        $paidTs = strtotime($createdRaw);
+    }
+    if ($paidTs === false) {
+        $startOnly = trim((string) ($ds['subscription_start'] ?? ''));
+        if ($startOnly !== '') {
+            $paidTs = strtotime($startOnly . ' 12:00:00');
+        }
+    }
+    if ($paidTs !== false) {
+        $sub_payment_date_display = date('M j, Y', $paidTs);
+        $sub_payment_time_display = date('g:i A', $paidTs);
+    } else {
+        $sub_payment_date_display = '—';
+        $sub_payment_time_display = '—';
+    }
+}
