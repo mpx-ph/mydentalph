@@ -71,7 +71,7 @@ return [
     'register_footer_text' => '© 2026 Dr. Romarico C. Gonzales Dental Clinic Management System. All rights reserved. Internal Use Only.',
     // Contact
     'contact_hero_heading' => "We'd love to hear from you",
-    'contact_hero_subtext' => 'Whether you have a question about our services, pricing, or need to book an emergency appointment, our team is ready to answer all your questions.',
+    'contact_hero_subtext' => "Elevating dental practice management through clinical precision and digital curation. Our team is ready to assist your clinic's transformation.",
     'contact_address' => "Dr. Gonzales St., Tibag, Baliwag City, Bulacan",
     'contact_map_link' => 'https://maps.app.goo.gl/6hEegE4yZtBpxeWC6',
     'contact_map_embed' => 'https://www.google.com/maps?q=Dr.+Gonzales+St.,+Tibag,+Baliwag+City,+Bulacan&output=embed',

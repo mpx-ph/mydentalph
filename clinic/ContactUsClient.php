@@ -39,20 +39,53 @@ $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars(
     text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
     letter-spacing: -0.02em;
 }
+.contact-hero {
+    background: linear-gradient(180deg, #ffffff 0%, #f3f8fd 45%, #eef5fb 100%);
+}
+.dark .contact-hero {
+    background: linear-gradient(180deg, rgb(15 23 42) 0%, rgb(17 24 39) 50%, rgb(15 23 42) 100%);
+}
+.contact-hero-badge {
+    background-color: #e3f0fa;
+    color: #5c9bd1;
+    letter-spacing: 0.35em;
+}
+.dark .contact-hero-badge {
+    background-color: rgba(92, 155, 209, 0.15);
+    color: #7eb8e0;
+}
+.contact-hero-title {
+    color: #1a1a1b;
+}
+.dark .contact-hero-title {
+    color: #f8fafc;
+}
+.contact-hero-editorial {
+    color: #2185d5;
+}
+.dark .contact-hero-editorial {
+    color: #4da3e6;
+}
+.contact-hero-sub {
+    color: #5c6670;
+}
+.dark .contact-hero-sub {
+    color: #94a3b8;
+}
 </style>
 <?php include __DIR__ . '/includes/nav_client.php'; ?>
 
 <main class="mesh-gradient pt-24 flex-grow w-full min-h-screen">
 <!-- Hero Section -->
-<section class="py-20 md:py-32 text-center px-4 overflow-hidden">
-<div class="max-w-[1800px] mx-auto">
-<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.4em] mb-10 font-headline">
-                    Contact us
+<section class="contact-hero py-20 md:py-28 lg:py-32 text-center px-4 sm:px-6 overflow-hidden">
+<div class="max-w-3xl mx-auto flex flex-col items-center">
+<div class="inline-flex items-center justify-center px-4 py-2 rounded-full contact-hero-badge text-[10px] font-black uppercase mb-8 sm:mb-10 font-headline">
+                    Reach out to excellence
                 </div>
-<h1 class="font-headline text-[clamp(2.5rem,6vw,5rem)] font-extrabold tracking-[-0.05em] text-slate-900 dark:text-white mb-8 leading-[0.95]">
-                    <?php echo $cu('contact_hero_heading'); ?>
+<h1 class="font-headline text-[clamp(2.75rem,7vw,4.75rem)] font-extrabold tracking-[-0.04em] mb-6 sm:mb-8 leading-[1.05]">
+<span class="contact-hero-title">Get in </span><span class="font-editorial italic font-normal contact-hero-editorial editorial-word transform -skew-x-6 inline-block">Touch.</span>
 </h1>
-<p class="font-body text-xl max-w-2xl mx-auto leading-relaxed text-slate-600 dark:text-slate-400 font-medium">
+<p class="font-body text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed font-medium contact-hero-sub">
                     <?php echo $cu('contact_hero_subtext'); ?>
                 </p>
 </div>
