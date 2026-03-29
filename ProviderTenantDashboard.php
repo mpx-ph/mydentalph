@@ -337,6 +337,18 @@ $manage_team_href = 'ProviderTenantUsers.php';
         background: linear-gradient(120deg, #1e3a5f 0%, #2b8beb 42%, #5ab0ff 100%);
         box-shadow: 0 20px 50px -20px rgba(43, 139, 235, 0.45);
       }
+      .provider-account-modal-overlay {
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+      }
+      .provider-account-modal-panel {
+        animation: provider-account-modal-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      }
+      @keyframes provider-account-modal-in {
+        from { opacity: 0; transform: translateY(12px) scale(0.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
     </style>
 </head>
 <body class="mesh-bg font-body text-sm text-on-background selection:bg-primary/10 min-h-screen">
@@ -357,15 +369,17 @@ include __DIR__ . '/provider_tenant_sidebar.inc.php';
 <button type="button" class="hover:bg-surface-container-low rounded-full p-2.5 transition-all border-0 bg-transparent cursor-pointer hidden sm:inline-flex" aria-label="Help">
 <span class="material-symbols-outlined text-on-surface-variant">help_outline</span>
 </button>
-<div class="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/80 pl-1 pr-3 py-1 shadow-sm">
-<div class="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center text-primary text-xs font-bold border border-primary/10 shrink-0" aria-hidden="true"><?php echo htmlspecialchars($avatar_initials, ENT_QUOTES, 'UTF-8'); ?></div>
-<div class="min-w-0 text-left">
+<button type="button" id="provider-account-card" class="group flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/80 pl-1 pr-3 py-1 shadow-sm text-left cursor-pointer transition-all hover:border-primary/35 hover:bg-white hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2" aria-haspopup="dialog" aria-expanded="false" aria-controls="provider-account-dialog" title="Edit your account">
+<div class="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center text-primary text-xs font-bold border border-primary/10 shrink-0 transition-colors group-hover:bg-primary/20" aria-hidden="true"><?php echo htmlspecialchars($avatar_initials, ENT_QUOTES, 'UTF-8'); ?></div>
+<div class="min-w-0 text-left pr-1">
 <p class="text-xs font-bold text-on-background truncate max-w-[10rem] sm:max-w-[14rem]"><?php echo htmlspecialchars($display_name !== '' ? $display_name : 'Signed in', ENT_QUOTES, 'UTF-8'); ?></p>
 <?php if ($user_email_display !== ''): ?>
 <p class="text-[11px] text-on-surface-variant truncate max-w-[10rem] sm:max-w-[14rem]"><?php echo htmlspecialchars($user_email_display, ENT_QUOTES, 'UTF-8'); ?></p>
 <?php endif; ?>
+<p class="text-[10px] font-semibold text-primary/90 mt-0.5 opacity-0 group-hover:opacity-100 sm:opacity-100 transition-opacity">Edit profile</p>
 </div>
-</div>
+<span class="material-symbols-outlined text-on-surface-variant text-lg shrink-0 opacity-60 group-hover:opacity-100 group-hover:text-primary transition-all" aria-hidden="true">expand_more</span>
+</button>
 </div>
 </div>
 </header>
@@ -554,7 +568,138 @@ Manage Team
 
 </div>
 </main>
+
+<div id="provider-account-dialog" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 provider-account-modal-overlay" role="presentation" aria-hidden="true">
+<div class="absolute inset-0" id="provider-account-dialog-backdrop" tabindex="-1" aria-hidden="true"></div>
+<div class="relative w-full max-w-md rounded-3xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-900/15 provider-account-modal-panel" role="dialog" aria-modal="true" aria-labelledby="provider-account-dialog-title" tabindex="-1">
+<div class="flex items-start justify-between gap-3 px-6 pt-6 pb-2 border-b border-slate-100">
+<h2 id="provider-account-dialog-title" class="text-lg font-extrabold font-headline text-on-background">Your account</h2>
+<button type="button" id="provider-account-dialog-close" class="rounded-xl p-2 text-on-surface-variant hover:bg-slate-100 hover:text-on-background transition-colors border-0 bg-transparent cursor-pointer" aria-label="Close">
+<span class="material-symbols-outlined text-xl" aria-hidden="true">close</span>
+</button>
+</div>
+<form id="provider-account-form" class="px-6 py-5 space-y-4">
+<p class="text-sm text-on-surface-variant -mt-1">Update your name, email, or password. Leave password fields blank to keep your current password.</p>
+<div id="provider-account-form-error" class="hidden rounded-2xl bg-red-50 border border-red-100 px-4 py-3 text-sm font-semibold text-red-900" role="alert"></div>
+<div>
+<label for="provider-account-full-name" class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">Full name</label>
+<input type="text" id="provider-account-full-name" name="full_name" required autocomplete="name" value="<?php echo htmlspecialchars($display_name !== '' ? $display_name : '', ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-xl border-slate-200 text-on-background shadow-sm focus:border-primary focus:ring-primary/20"/>
+</div>
+<div>
+<label for="provider-account-email" class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">Email</label>
+<input type="email" id="provider-account-email" name="email" required autocomplete="email" value="<?php echo htmlspecialchars($user_email_display, ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-xl border-slate-200 text-on-background shadow-sm focus:border-primary focus:ring-primary/20"/>
+</div>
+<div class="pt-2 border-t border-slate-100">
+<p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Change password <span class="font-normal normal-case text-on-surface-variant/80">(optional)</span></p>
+<div class="space-y-3">
+<div>
+<label for="provider-account-current-password" class="block text-[11px] font-semibold text-on-surface-variant mb-1">Current password</label>
+<input type="password" id="provider-account-current-password" name="current_password" autocomplete="current-password" class="w-full rounded-xl border-slate-200 text-on-background shadow-sm focus:border-primary focus:ring-primary/20"/>
+</div>
+<div>
+<label for="provider-account-new-password" class="block text-[11px] font-semibold text-on-surface-variant mb-1">New password</label>
+<input type="password" id="provider-account-new-password" name="new_password" autocomplete="new-password" class="w-full rounded-xl border-slate-200 text-on-background shadow-sm focus:border-primary focus:ring-primary/20"/>
+</div>
+<div>
+<label for="provider-account-confirm-password" class="block text-[11px] font-semibold text-on-surface-variant mb-1">Confirm new password</label>
+<input type="password" id="provider-account-confirm-password" name="new_password_confirm" autocomplete="new-password" class="w-full rounded-xl border-slate-200 text-on-background shadow-sm focus:border-primary focus:ring-primary/20"/>
+</div>
+</div>
+</div>
+<div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
+<button type="button" id="provider-account-cancel" class="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-on-background hover:bg-slate-50 transition-colors cursor-pointer">Cancel</button>
+<button type="submit" id="provider-account-submit" class="rounded-2xl bg-primary text-white px-5 py-2.5 text-sm font-bold shadow-md shadow-primary/25 hover:brightness-[1.05] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Save changes</button>
+</div>
+</form>
+</div>
+</div>
+
 <script data-purpose="event-handlers">
-    // Keep JS block for future UI interactions (no forced redirects here).
+(function () {
+  var card = document.getElementById('provider-account-card');
+  var dialog = document.getElementById('provider-account-dialog');
+  var backdrop = document.getElementById('provider-account-dialog-backdrop');
+  var closeBtn = document.getElementById('provider-account-dialog-close');
+  var cancelBtn = document.getElementById('provider-account-cancel');
+  var form = document.getElementById('provider-account-form');
+  var errEl = document.getElementById('provider-account-form-error');
+  var submitBtn = document.getElementById('provider-account-submit');
+  if (!card || !dialog || !form) return;
+
+  function showError(msg) {
+    if (!errEl) return;
+    errEl.textContent = msg || '';
+    errEl.classList.toggle('hidden', !msg);
+  }
+
+  function openModal() {
+    dialog.classList.remove('hidden');
+    dialog.setAttribute('aria-hidden', 'false');
+    card.setAttribute('aria-expanded', 'true');
+    showError('');
+    var first = document.getElementById('provider-account-full-name');
+    if (first) setTimeout(function () { first.focus(); }, 50);
+    document.addEventListener('keydown', onKey);
+  }
+
+  function closeModal() {
+    dialog.classList.add('hidden');
+    dialog.setAttribute('aria-hidden', 'true');
+    card.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('keydown', onKey);
+    card.focus();
+  }
+
+  function onKey(e) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeModal();
+    }
+  }
+
+  card.addEventListener('click', openModal);
+  if (backdrop) backdrop.addEventListener('click', closeModal);
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    showError('');
+    var fullName = (document.getElementById('provider-account-full-name') || {}).value || '';
+    var email = (document.getElementById('provider-account-email') || {}).value || '';
+    var currentPassword = (document.getElementById('provider-account-current-password') || {}).value || '';
+    var newPassword = (document.getElementById('provider-account-new-password') || {}).value || '';
+    var newPasswordConfirm = (document.getElementById('provider-account-confirm-password') || {}).value || '';
+
+    submitBtn.disabled = true;
+    fetch('ProviderTenantAccountUpdate.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        full_name: fullName.trim(),
+        email: email.trim(),
+        current_password: currentPassword,
+        new_password: newPassword,
+        new_password_confirm: newPasswordConfirm
+      }),
+      credentials: 'same-origin'
+    })
+      .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+      .then(function (result) {
+        if (result.data && result.data.ok) {
+          window.location.reload();
+          return;
+        }
+        var msg = (result.data && result.data.error) ? result.data.error : 'Could not save changes.';
+        showError(msg);
+      })
+      .catch(function () {
+        showError('Network error. Please try again.');
+      })
+      .finally(function () {
+        submitBtn.disabled = false;
+      });
+  });
+})();
   </script>
 </body></html>
