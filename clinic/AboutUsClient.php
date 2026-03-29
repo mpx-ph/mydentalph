@@ -106,26 +106,26 @@ $aboutHeroImg = $cuImg('about_hero_image') ?: 'https://lh3.googleusercontent.com
 <p class="text-slate-600 dark:text-slate-400 text-xl font-medium max-w-2xl font-body"><?php echo $cu('about_intro_text'); ?></p>
 </div>
 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-<div class="group bg-white dark:bg-slate-800 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 hover:border-primary/20 transition-all duration-700 hover:shadow-2xl">
-<div class="w-16 h-16 bg-primary/10 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:scale-110">
+<div class="group relative overflow-hidden bg-white dark:bg-slate-800 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 transition-all duration-700 hover:bg-primary hover:border-primary/20 hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.3)]">
+<div class="w-16 h-16 bg-primary/10 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-10 text-primary border border-transparent transition-all duration-500 group-hover:scale-110 group-hover:bg-white/10 group-hover:backdrop-blur-md group-hover:text-white group-hover:border-white/20">
 <span class="material-symbols-outlined text-3xl">biotech</span>
 </div>
-<h4 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white"><?php echo $cu('about_why_1_title'); ?></h4>
-<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium font-body"><?php echo $cu('about_why_1_text'); ?></p>
+<h4 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white transition-colors duration-500 group-hover:text-white"><?php echo $cu('about_why_1_title'); ?></h4>
+<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium font-body transition-colors duration-500 group-hover:text-white/80"><?php echo $cu('about_why_1_text'); ?></p>
 </div>
-<div class="group bg-primary p-12 rounded-[2.5rem] shadow-[0_40px_80px_-20px_rgba(43,139,235,0.3)] transition-all duration-700 relative overflow-hidden">
-<div class="w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-10 text-white border border-white/20">
+<div class="group relative overflow-hidden bg-white dark:bg-slate-800 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 transition-all duration-700 hover:bg-primary hover:border-primary/20 hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.3)]">
+<div class="w-16 h-16 bg-primary/10 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-10 text-primary border border-transparent transition-all duration-500 group-hover:scale-110 group-hover:bg-white/10 group-hover:backdrop-blur-md group-hover:text-white group-hover:border-white/20">
 <span class="material-symbols-outlined text-3xl">precision_manufacturing</span>
 </div>
-<h4 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-white"><?php echo $cu('about_why_2_title'); ?></h4>
-<p class="text-white/80 text-lg leading-relaxed font-medium font-body"><?php echo $cu('about_why_2_text'); ?></p>
+<h4 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white transition-colors duration-500 group-hover:text-white"><?php echo $cu('about_why_2_title'); ?></h4>
+<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium font-body transition-colors duration-500 group-hover:text-white/80"><?php echo $cu('about_why_2_text'); ?></p>
 </div>
-<div class="group bg-white dark:bg-slate-800 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 hover:border-primary/20 transition-all duration-700 hover:shadow-2xl">
-<div class="w-16 h-16 bg-primary/10 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:scale-110">
+<div class="group relative overflow-hidden bg-white dark:bg-slate-800 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 transition-all duration-700 hover:bg-primary hover:border-primary/20 hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.3)]">
+<div class="w-16 h-16 bg-primary/10 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-10 text-primary border border-transparent transition-all duration-500 group-hover:scale-110 group-hover:bg-white/10 group-hover:backdrop-blur-md group-hover:text-white group-hover:border-white/20">
 <span class="material-symbols-outlined text-3xl">verified_user</span>
 </div>
-<h4 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white"><?php echo $cu('about_why_3_title'); ?></h4>
-<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium font-body"><?php echo $cu('about_why_3_text'); ?></p>
+<h4 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white transition-colors duration-500 group-hover:text-white"><?php echo $cu('about_why_3_title'); ?></h4>
+<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium font-body transition-colors duration-500 group-hover:text-white/80"><?php echo $cu('about_why_3_text'); ?></p>
 </div>
 </div>
 </div>
