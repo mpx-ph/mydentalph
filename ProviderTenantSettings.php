@@ -205,13 +205,11 @@ $provider_nav_active = 'settings';
 <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]"><span class="w-12 h-[1.5px] bg-primary"></span> Configuration</div>
 <div>
 <h2 class="font-headline text-5xl font-extrabold tracking-tighter leading-tight text-on-background">System <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Configuration</span></h2>
-<p class="font-body text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-4">Manage your clinic's identity, security protocols, and personal account preferences from this centralized dashboard.</p>
+<p class="font-body text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-4">Manage your clinic's public identity and monitor infrastructure status from this centralized dashboard.</p>
 </div>
 </section>
 <!-- Grid Layout -->
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-<!-- Left Column -->
-<div class="lg:col-span-7 space-y-10">
+<div class="max-w-4xl">
 <!-- Clinic Details -->
 <div class="section-card bg-white rounded-[2.5rem] p-10 border-l-4 border-l-primary">
 <div class="flex items-center gap-5 mb-10">
@@ -256,129 +254,6 @@ $provider_nav_active = 'settings';
 <button class="bg-primary text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:shadow-xl hover:shadow-primary/25 transition-all duration-300 active:scale-95 hover:scale-[1.02] disabled:opacity-50 disabled:pointer-events-none" type="submit" <?php echo $is_owner ? '' : 'disabled'; ?>>Save Changes</button>
 </div>
 </form>
-</div>
-<!-- Your Account -->
-<div class="section-card bg-slate-50/80 rounded-[2.5rem] p-10 border border-slate-200/60">
-<div class="flex items-center gap-5 mb-10">
-<div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
-<span class="material-symbols-outlined text-2xl">person</span>
-</div>
-<div>
-<h4 class="font-headline text-xl font-extrabold text-slate-900">Your Account</h4>
-<p class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Manage your administrator credentials</p>
-</div>
-</div>
-<form class="space-y-8">
-<div class="space-y-2">
-<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1">Full Name</label>
-<input class="w-full bg-white border border-slate-300 rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" type="text" value="Alexander Sterling"/>
-</div>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-<div class="space-y-2">
-<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1">Email</label>
-<input class="w-full bg-white border border-slate-300 rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" type="email" value="alex.sterling@aetheris.com"/>
-</div>
-<div class="space-y-2">
-<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1">Contact Number</label>
-<input class="w-full bg-white border border-slate-300 rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" type="tel" value="+1 (555) 987-6543"/>
-</div>
-</div>
-<div class="pt-4 flex justify-end">
-<button class="bg-white border-2 border-primary/20 text-primary px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primary/5 hover:border-primary/30 transition-all duration-300 active:scale-95 hover:scale-[1.02] shadow-sm" type="submit">Save Changes</button>
-</div>
-</form>
-</div>
-</div>
-<!-- Right Column -->
-<div class="lg:col-span-5 space-y-10">
-<!-- Security -->
-<div class="section-card bg-[#fcfdff] rounded-[2.5rem] p-10 border border-primary/5">
-<div class="flex items-center gap-5 mb-10">
-<div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
-<span class="material-symbols-outlined text-2xl">lock_reset</span>
-</div>
-<div>
-<h4 class="font-headline text-xl font-extrabold text-slate-900">Security</h4>
-<p class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Keep your account protected</p>
-</div>
-</div>
-<form class="space-y-8">
-<div class="space-y-6">
-<div class="space-y-2">
-<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1">Current Password</label>
-<input class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" placeholder="••••••••" type="password"/>
-</div>
-<div class="space-y-2">
-<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1">New Password</label>
-<input class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" placeholder="Min. 12 characters" type="password"/>
-</div>
-</div>
-<button class="w-full bg-white border-2 border-primary/20 text-primary py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primary/5 transition-all shadow-sm" type="submit">Update Password</button>
-</form>
-</div>
-<!-- Preferences -->
-<div class="section-card bg-indigo-50/20 rounded-[2.5rem] p-10 border border-indigo-100/50">
-<div class="flex items-center gap-5 mb-10">
-<div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
-<span class="material-symbols-outlined text-2xl">tune</span>
-</div>
-<div>
-<h4 class="font-headline text-xl font-extrabold text-slate-900">Preferences</h4>
-<p class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">System localization and alerts</p>
-</div>
-</div>
-<div class="space-y-10">
-<!-- Toggles -->
-<div class="space-y-6">
-<div class="flex items-center justify-between">
-<div>
-<p class="font-headline font-extrabold text-slate-900 text-sm">Email Notifications</p>
-<p class="text-[10px] font-bold text-on-surface-variant/70 uppercase tracking-widest mt-1">Daily summary and alerts</p>
-</div>
-<label class="relative inline-flex items-center cursor-pointer">
-<input checked="" class="sr-only peer" type="checkbox"/>
-<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-</label>
-</div>
-<div class="flex items-center justify-between">
-<div>
-<p class="font-headline font-extrabold text-slate-900 text-sm">SMS Alerts</p>
-<p class="text-[10px] font-bold text-on-surface-variant/70 uppercase tracking-widest mt-1">Critical system alerts</p>
-</div>
-<label class="relative inline-flex items-center cursor-pointer">
-<input class="sr-only peer" type="checkbox"/>
-<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-</label>
-</div>
-</div>
-<!-- Selectors -->
-<div class="space-y-6 pt-10 border-t border-slate-200">
-<div class="space-y-2">
-<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1">Timezone</label>
-<div class="relative">
-<select class="appearance-none w-full bg-white border border-slate-300 rounded-2xl px-6 py-4 text-xs font-black uppercase tracking-widest focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer transition-all">
-<option>GMT -5:00 Eastern Time (US &amp; Canada)</option>
-<option>GMT -8:00 Pacific Time (US &amp; Canada)</option>
-<option>GMT +0:00 London (UTC)</option>
-</select>
-<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-primary text-lg">expand_more</span>
-</div>
-</div>
-<div class="space-y-2">
-<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1">Language</label>
-<div class="relative">
-<select class="appearance-none w-full bg-white border border-slate-300 rounded-2xl px-6 py-4 text-xs font-black uppercase tracking-widest focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer transition-all">
-<option>English (United States)</option>
-<option>Spanish (ES)</option>
-<option>French (FR)</option>
-</select>
-<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-primary text-lg">language</span>
-</div>
-</div>
-</div>
-</div>
-</div>
-<!-- Danger Zone -->
 </div>
 </div>
 <section class="w-full" aria-labelledby="infra-status-heading">
