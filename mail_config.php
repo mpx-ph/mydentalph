@@ -36,6 +36,32 @@ function send_otp_email($to_email, $otp_code) {
 }
 
 /**
+ * Team invite: welcome + 6-digit verification code (provider portal).
+ *
+ * @param string $to_email Recipient
+ * @param string $recipient_name Greeting name (first name or full name)
+ * @param string $otp_code Six-digit code (digits only)
+ */
+function send_staff_invite_verification_email(string $to_email, string $recipient_name, string $otp_code): bool
+{
+    $name = trim($recipient_name) !== '' ? trim($recipient_name) : 'there';
+    $subject = 'Welcome to MyDental — verify your team account';
+    $safeName = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+    $safeCode = htmlspecialchars($otp_code, ENT_QUOTES, 'UTF-8');
+    $body_text = "Hi {$name},\r\n\r\n"
+        . "Welcome to MyDental! Your account has been initialized.\r\n"
+        . "To finalize your setup, please log in to the portal and enter the verification code below when prompted:\r\n\r\n"
+        . "{$otp_code}\r\n\r\n"
+        . "This code expires in 15 minutes. If you did not expect this email, you can ignore it.\r\n";
+    $body_html = '<p>Hi ' . $safeName . ',</p>'
+        . '<p>Welcome to MyDental! Your account has been initialized.</p>'
+        . '<p>To finalize your setup, please log in to the portal and enter the verification code below when prompted:</p>'
+        . '<p style="font-size:1.25rem;font-weight:700;letter-spacing:0.2em;">' . $safeCode . '</p>'
+        . '<p>This code expires in 15 minutes. If you did not expect this email, you can ignore it.</p>';
+    return send_smtp_gmail($to_email, $subject, $body_text, $body_html);
+}
+
+/**
  * Send email via Gmail SMTP (smtp.gmail.com:587, STARTTLS).
  */
 function send_smtp_gmail($to_email, $subject, $body_text, $body_html = null) {

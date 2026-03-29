@@ -179,6 +179,11 @@ if ($add_user_owner_prefill_json === false) {
             outline: 2px solid rgba(43, 139, 235, 0.45);
             outline-offset: 2px;
         }
+        .add-user-otp-input {
+            letter-spacing: 0.4em;
+            font-variant-numeric: tabular-nums;
+            text-indent: 0.15em;
+        }
     </style>
 </head>
 <body class="mesh-bg font-body text-on-background min-h-screen flex">
@@ -477,6 +482,38 @@ Send verification code
 </div>
 </div>
 </div>
+<div id="add-user-verify-modal" class="fixed inset-0 z-[110] hidden items-center justify-center p-4 sm:p-6" aria-hidden="true">
+<div class="absolute inset-0 bg-slate-900/55 backdrop-blur-sm provider-modal-backdrop" data-verify-dismiss="1"></div>
+<div class="relative w-full max-w-md flex flex-col rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden provider-modal-panel" role="dialog" aria-modal="true" aria-labelledby="add-user-verify-title">
+<div class="bg-white px-8 pt-10 pb-8 text-center relative">
+<button type="button" class="absolute top-5 right-5 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200/80 bg-white text-on-surface-variant hover:border-primary/30 hover:text-primary transition-all shadow-sm" data-verify-dismiss="1" aria-label="Close">
+<span class="material-symbols-outlined text-xl">close</span>
+</button>
+<div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/15 text-primary mb-5">
+<span class="material-symbols-outlined text-3xl">mark_email_read</span>
+</div>
+<h3 id="add-user-verify-title" class="font-headline text-2xl sm:text-[1.65rem] font-extrabold tracking-tight text-on-background uppercase">
+Verify <span class="font-editorial italic font-normal normal-case text-primary">email</span>
+</h3>
+<p class="mt-3 text-sm text-on-surface-variant leading-relaxed px-1">An authorization code was sent to <strong class="text-on-background" id="add-user-verify-email-display">—</strong></p>
+</div>
+<div class="bg-slate-100/90 px-8 py-8 space-y-5">
+<p class="text-center text-[10px] font-black uppercase tracking-[0.25em] text-on-surface-variant/70">Enter 6-digit code</p>
+<div id="add-user-verify-error" class="hidden rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 text-center" role="alert"></div>
+<input type="text" id="add-user-otp" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" class="add-user-otp-input w-full rounded-full border-2 border-primary bg-white px-6 py-4 text-center text-xl font-extrabold tracking-widest text-on-background placeholder:text-slate-300 focus:ring-4 focus:ring-primary/15 focus:outline-none transition-all" placeholder="• • • • • •"/>
+<button type="button" id="add-user-verify-submit" class="w-full rounded-full bg-primary text-on-background py-4 text-[11px] font-black uppercase tracking-[0.12em] shadow-lg shadow-primary/30 hover:brightness-110 transition-all active:scale-[0.99]">
+Verify &amp; create account
+</button>
+<button type="button" id="add-user-verify-resend" class="w-full text-center text-[11px] font-black uppercase tracking-[0.2em] text-on-surface-variant hover:text-primary transition-colors py-2">
+Resend code
+</button>
+<button type="button" id="add-user-verify-cancel" class="w-full text-center text-[11px] font-black uppercase tracking-[0.2em] text-rose-600 hover:text-rose-700 transition-colors pt-1">
+Cancel
+</button>
+</div>
+</div>
+</div>
+<div id="add-user-invite-toast" class="fixed bottom-8 left-1/2 z-[120] hidden -translate-x-1/2 max-w-md rounded-2xl border border-primary/20 bg-white px-8 py-4 shadow-xl shadow-slate-900/10 text-sm font-semibold text-on-background text-center" role="status"></div>
 </main>
 <script type="application/json" id="add-user-owner-prefill"><?php echo $add_user_owner_prefill_json; ?></script>
 <script>
@@ -504,12 +541,104 @@ Send verification code
   var firstInput = document.getElementById('add-user-first');
   var lastInput = document.getElementById('add-user-last');
   var emailInput = document.getElementById('add-user-email');
+  var roleSelect = document.getElementById('add-user-role');
+  var submitBtn = document.getElementById('add-user-submit');
+  var verifyModal = document.getElementById('add-user-verify-modal');
+  var otpInput = document.getElementById('add-user-otp');
+  var verifyEmailDisplay = document.getElementById('add-user-verify-email-display');
+  var verifyError = document.getElementById('add-user-verify-error');
+  var verifySubmitBtn = document.getElementById('add-user-verify-submit');
+  var verifyResendBtn = document.getElementById('add-user-verify-resend');
+  var verifyCancelBtn = document.getElementById('add-user-verify-cancel');
+  var inviteToast = document.getElementById('add-user-invite-toast');
 
   var draftFirst = '';
   var draftLast = '';
   var draftEmail = '';
 
+  function abandonInvite() {
+    fetch('ProviderTenantStaffInviteApi.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'abandon' }),
+      credentials: 'same-origin'
+    }).catch(function () {});
+  }
+
+  function postInvite(body) {
+    return fetch('ProviderTenantStaffInviteApi.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'same-origin'
+    }).then(function (r) {
+      return r.json().then(function (j) {
+        return { ok: r.ok, status: r.status, j: j };
+      });
+    });
+  }
+
+  function hideVerifyError() {
+    if (!verifyError) return;
+    verifyError.classList.add('hidden');
+    verifyError.textContent = '';
+  }
+
+  function showVerifyError(msg) {
+    if (!verifyError) return;
+    verifyError.textContent = msg;
+    verifyError.classList.remove('hidden');
+  }
+
+  function hideVerifyModal() {
+    if (!verifyModal) return;
+    verifyModal.classList.add('hidden');
+    verifyModal.classList.remove('flex');
+    verifyModal.setAttribute('aria-hidden', 'true');
+    if (otpInput) otpInput.value = '';
+    hideVerifyError();
+  }
+
+  function isVerifyOpen() {
+    return verifyModal && !verifyModal.classList.contains('hidden');
+  }
+
+  function openVerifyLayer(email) {
+    if (!verifyModal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    modal.setAttribute('aria-hidden', 'true');
+    if (verifyEmailDisplay) verifyEmailDisplay.textContent = email || '—';
+    hideVerifyError();
+    if (otpInput) {
+      otpInput.value = '';
+      setTimeout(function () { otpInput.focus(); }, 100);
+    }
+    verifyModal.classList.remove('hidden');
+    verifyModal.classList.add('flex');
+    verifyModal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeVerifyGoBack() {
+    abandonInvite();
+    hideVerifyModal();
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+
+  function showInviteToast(msg) {
+    if (!inviteToast) return;
+    inviteToast.textContent = msg;
+    inviteToast.classList.remove('hidden');
+    setTimeout(function () {
+      inviteToast.classList.add('hidden');
+    }, 5000);
+  }
+
   function openModal() {
+    abandonInvite();
+    hideVerifyModal();
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     modal.setAttribute('aria-hidden', 'false');
@@ -519,6 +648,8 @@ Send verification code
     }
   }
   function closeModal() {
+    abandonInvite();
+    hideVerifyModal();
     modal.classList.add('hidden');
     modal.classList.remove('flex');
     modal.setAttribute('aria-hidden', 'true');
@@ -638,12 +769,127 @@ Send verification code
 
   if (pwInput) pwInput.addEventListener('input', updatePasswordStrength);
 
+  if (otpInput) {
+    otpInput.addEventListener('input', function () {
+      otpInput.value = otpInput.value.replace(/\D/g, '').slice(0, 6);
+      hideVerifyError();
+    });
+  }
+
+  if (submitBtn) {
+    submitBtn.addEventListener('click', function () {
+      var owner = ownerCb && ownerCb.checked;
+      var fn = firstInput ? firstInput.value.trim() : '';
+      var ln = lastInput ? lastInput.value.trim() : '';
+      var em = emailInput ? emailInput.value.trim() : '';
+      var role = roleSelect ? roleSelect.value : 'Staff';
+      if (!fn || !ln || !em) {
+        alert('Please enter first name, last name, and professional email.');
+        return;
+      }
+      var pw = pwInput ? pwInput.value : '';
+      if (!owner) {
+        if (!pwConfirm || pw !== pwConfirm.value) {
+          alert('Passwords do not match.');
+          return;
+        }
+      }
+      submitBtn.disabled = true;
+      postInvite({
+        action: 'send_code',
+        owner_mode: owner,
+        first_name: fn,
+        last_name: ln,
+        email: em,
+        role: role,
+        password: owner ? '' : pw
+      })
+        .then(function (res) {
+          if (res.ok && res.j && res.j.ok) {
+            openVerifyLayer(res.j.email || em);
+          } else {
+            var err = (res.j && res.j.error) ? res.j.error : 'Could not send code.';
+            alert(err);
+          }
+        })
+        .catch(function () {
+          alert('Network error. Please try again.');
+        })
+        .then(function () {
+          submitBtn.disabled = false;
+        });
+    });
+  }
+
+  if (verifySubmitBtn) {
+    verifySubmitBtn.addEventListener('click', function () {
+      var code = otpInput ? otpInput.value.replace(/\D/g, '') : '';
+      if (code.length !== 6) {
+        showVerifyError('Enter the 6-digit code from the email.');
+        return;
+      }
+      hideVerifyError();
+      verifySubmitBtn.disabled = true;
+      postInvite({ action: 'verify', code: code })
+        .then(function (res) {
+          if (res.ok && res.j && res.j.ok) {
+            hideVerifyModal();
+            closeModal();
+            showInviteToast(res.j.message || 'Account setup complete.');
+          } else {
+            showVerifyError((res.j && res.j.error) ? res.j.error : 'Verification failed.');
+          }
+        })
+        .catch(function () {
+          showVerifyError('Network error. Please try again.');
+        })
+        .then(function () {
+          verifySubmitBtn.disabled = false;
+        });
+    });
+  }
+
+  if (verifyResendBtn) {
+    verifyResendBtn.addEventListener('click', function () {
+      verifyResendBtn.disabled = true;
+      hideVerifyError();
+      postInvite({ action: 'resend' })
+        .then(function (res) {
+          if (res.ok && res.j && res.j.ok) {
+            if (verifyEmailDisplay && res.j.email) verifyEmailDisplay.textContent = res.j.email;
+          } else {
+            showVerifyError((res.j && res.j.error) ? res.j.error : 'Could not resend.');
+          }
+        })
+        .catch(function () {
+          showVerifyError('Network error.');
+        })
+        .then(function () {
+          verifyResendBtn.disabled = false;
+        });
+    });
+  }
+
+  if (verifyCancelBtn) {
+    verifyCancelBtn.addEventListener('click', closeVerifyGoBack);
+  }
+  if (verifyModal) {
+    verifyModal.querySelectorAll('[data-verify-dismiss]').forEach(function (el) {
+      el.addEventListener('click', closeVerifyGoBack);
+    });
+  }
+
   openBtn.addEventListener('click', openModal);
   modal.querySelectorAll('[data-modal-dismiss]').forEach(function (el) {
     el.addEventListener('click', closeModal);
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+    if (e.key !== 'Escape') return;
+    if (isVerifyOpen()) {
+      closeVerifyGoBack();
+      return;
+    }
+    if (!modal.classList.contains('hidden')) closeModal();
   });
 })();
 </script>
