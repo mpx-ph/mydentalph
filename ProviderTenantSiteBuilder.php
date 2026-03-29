@@ -238,19 +238,29 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             box-shadow: 0 0 24px -4px rgba(43, 139, 235, 0.55);
             border-radius: 9999px;
         }
-        /* Patient nav (nav_client.php) uses Tailwind lg: (1024px) for horizontal links vs hamburger. */
-        .preview-canvas-scroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        .preview-canvas-shell { transition: max-width 0.35s ease, aspect-ratio 0.35s ease, min-height 0.35s ease, min-width 0.35s ease; }
-        .preview-canvas-shell--desktop {
+        /* Patient nav (nav_client.php) uses Tailwind lg: (1024px). Desktop canvas is 1280px wide logically, then scaled down to fit (JS). */
+        .preview-canvas-scroll { max-width: 100%; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+        .preview-scale-host {
             width: 100%;
-            min-width: 1024px;
-            max-width: none;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+        .preview-canvas-shell { transition: transform 0.2s ease, aspect-ratio 0.35s ease, min-height 0.35s ease; }
+        .preview-canvas-shell--desktop {
+            width: 1280px;
+            min-width: 1280px;
+            max-width: 1280px;
+            flex-shrink: 0;
             aspect-ratio: 16 / 9;
             min-height: 400px;
+            box-sizing: border-box;
         }
         .preview-canvas-shell--mobile {
             width: 100%;
             max-width: 390px;
+            min-width: 0;
             margin-left: auto;
             margin-right: auto;
             aspect-ratio: 9 / 16;
@@ -258,7 +268,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             max-height: min(75vh, 820px);
         }
         @supports not (aspect-ratio: 1) {
-            .preview-canvas-shell--desktop { min-height: clamp(380px, 52vw, 560px); }
+            .preview-canvas-shell--desktop { min-height: clamp(400px, 56vw, 720px); }
             .preview-canvas-shell--mobile { min-height: 560px; }
         }
     </style>
@@ -423,13 +433,15 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </button>
 </div>
 </div>
-<div class="preview-canvas-scroll rounded-xl sm:rounded-2xl">
+<div class="preview-canvas-scroll rounded-xl sm:rounded-2xl" id="previewCanvasScroll">
+<div class="preview-scale-host" id="previewScaleHost">
 <div class="overflow-hidden bg-white rounded-xl sm:rounded-2xl preview-canvas-shell preview-canvas-shell--desktop" id="previewCanvasShell">
 <?php if ($preview_urls['home'] !== ''): ?>
 <iframe title="Site preview" class="w-full h-full min-h-[320px] border-0" id="sitePreviewFrame" src="<?php echo htmlspecialchars($preview_urls['home'], ENT_QUOTES, 'UTF-8'); ?>"></iframe>
 <?php else: ?>
 <div class="w-full h-full min-h-[380px] flex items-center justify-center text-slate-500 text-sm font-medium p-8 text-center">Preview unavailable until your clinic slug is active.</div>
 <?php endif; ?>
+</div>
 </div>
 </div>
 </div>
@@ -573,8 +585,30 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
     if (btnRef) btnRef.addEventListener('click', refreshPreview);
 
     var previewShell = document.getElementById('previewCanvasShell');
+    var previewCanvasScroll = document.getElementById('previewCanvasScroll');
+    var previewScaleHost = document.getElementById('previewScaleHost');
     var modeMobile = document.getElementById('previewModeMobile');
     var modeDesktop = document.getElementById('previewModeDesktop');
+    var DESKTOP_LOGIC_PX = 1280;
+
+    function syncDesktopPreviewFit() {
+        if (!previewShell || !previewScaleHost || !previewCanvasScroll) return;
+        if (previewShell.classList.contains('preview-canvas-shell--mobile')) {
+            previewShell.style.removeProperty('transform');
+            previewShell.style.removeProperty('transform-origin');
+            previewScaleHost.style.removeProperty('min-height');
+            return;
+        }
+        var cw = previewCanvasScroll.clientWidth;
+        if (cw <= 0) return;
+        var h = previewShell.offsetHeight;
+        if (h <= 0) return;
+        var maxViewH = Math.max(280, window.innerHeight * 0.68);
+        var s = Math.min(1, cw / DESKTOP_LOGIC_PX, maxViewH / h);
+        previewShell.style.transform = 'scale(' + s + ')';
+        previewShell.style.transformOrigin = 'top center';
+        previewScaleHost.style.minHeight = Math.ceil(h * s) + 'px';
+    }
 
     function setPreviewDeviceMode(mode) {
         if (!previewShell) return;
@@ -589,10 +623,26 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             modeDesktop.classList.toggle('preview-device-btn--active', !isMobile);
             modeDesktop.setAttribute('aria-selected', !isMobile ? 'true' : 'false');
         }
+        syncDesktopPreviewFit();
     }
 
     if (modeMobile) modeMobile.addEventListener('click', function () { setPreviewDeviceMode('mobile'); });
     if (modeDesktop) modeDesktop.addEventListener('click', function () { setPreviewDeviceMode('desktop'); });
+
+    var previewFitResizeTimer = null;
+    function schedulePreviewFit() {
+        clearTimeout(previewFitResizeTimer);
+        previewFitResizeTimer = setTimeout(syncDesktopPreviewFit, 80);
+    }
+    if (previewCanvasScroll && typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(schedulePreviewFit).observe(previewCanvasScroll);
+    }
+    window.addEventListener('resize', schedulePreviewFit);
+    if (frame) frame.addEventListener('load', function () { syncDesktopPreviewFit(); });
+    requestAnimationFrame(function () {
+        syncDesktopPreviewFit();
+        requestAnimationFrame(syncDesktopPreviewFit);
+    });
 
     document.querySelectorAll('[data-opt-hex]').forEach(function (hexInp) {
         var k = hexInp.getAttribute('data-opt-hex');
