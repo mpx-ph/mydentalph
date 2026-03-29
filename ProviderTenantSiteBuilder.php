@@ -238,13 +238,15 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             box-shadow: 0 0 24px -4px rgba(43, 139, 235, 0.55);
             border-radius: 9999px;
         }
-        .preview-device-divider { width: 1px; align-self: stretch; background: rgba(255, 255, 255, 0.12); margin: 0.35rem 0; }
-        .preview-canvas-shell { transition: max-width 0.35s ease, aspect-ratio 0.35s ease, min-height 0.35s ease; }
+        /* Patient nav (nav_client.php) uses Tailwind lg: (1024px) for horizontal links vs hamburger. */
+        .preview-canvas-scroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .preview-canvas-shell { transition: max-width 0.35s ease, aspect-ratio 0.35s ease, min-height 0.35s ease, min-width 0.35s ease; }
         .preview-canvas-shell--desktop {
             width: 100%;
+            min-width: 1024px;
             max-width: none;
-            aspect-ratio: 16 / 10;
-            min-height: 380px;
+            aspect-ratio: 16 / 9;
+            min-height: 400px;
         }
         .preview-canvas-shell--mobile {
             width: 100%;
@@ -419,18 +421,16 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <button type="button" class="preview-device-btn preview-device-btn--active" id="previewModeDesktop" data-preview-mode="desktop" role="tab" aria-selected="true" aria-controls="previewCanvasShell">
 <span class="material-symbols-outlined text-[18px]">laptop_mac</span> Desktop
 </button>
-<span class="preview-device-divider" aria-hidden="true"></span>
-<button type="button" class="preview-device-btn" id="previewToolbarRefresh">
-<span class="material-symbols-outlined text-[18px]">refresh</span> Refresh
-</button>
 </div>
 </div>
-<div class="rounded-xl sm:rounded-2xl overflow-hidden bg-white preview-canvas-shell preview-canvas-shell--desktop" id="previewCanvasShell">
+<div class="preview-canvas-scroll rounded-xl sm:rounded-2xl">
+<div class="overflow-hidden bg-white rounded-xl sm:rounded-2xl preview-canvas-shell preview-canvas-shell--desktop" id="previewCanvasShell">
 <?php if ($preview_urls['home'] !== ''): ?>
 <iframe title="Site preview" class="w-full h-full min-h-[320px] border-0" id="sitePreviewFrame" src="<?php echo htmlspecialchars($preview_urls['home'], ENT_QUOTES, 'UTF-8'); ?>"></iframe>
 <?php else: ?>
 <div class="w-full h-full min-h-[380px] flex items-center justify-center text-slate-500 text-sm font-medium p-8 text-center">Preview unavailable until your clinic slug is active.</div>
 <?php endif; ?>
+</div>
 </div>
 </div>
 </div>
@@ -575,7 +575,6 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
     var previewShell = document.getElementById('previewCanvasShell');
     var modeMobile = document.getElementById('previewModeMobile');
     var modeDesktop = document.getElementById('previewModeDesktop');
-    var toolbarRefresh = document.getElementById('previewToolbarRefresh');
 
     function setPreviewDeviceMode(mode) {
         if (!previewShell) return;
@@ -594,7 +593,6 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 
     if (modeMobile) modeMobile.addEventListener('click', function () { setPreviewDeviceMode('mobile'); });
     if (modeDesktop) modeDesktop.addEventListener('click', function () { setPreviewDeviceMode('desktop'); });
-    if (toolbarRefresh) toolbarRefresh.addEventListener('click', refreshPreview);
 
     document.querySelectorAll('[data-opt-hex]').forEach(function (hexInp) {
         var k = hexInp.getAttribute('data-opt-hex');
