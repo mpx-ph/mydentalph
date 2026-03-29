@@ -54,7 +54,10 @@ $provider_nav_active = 'subs';
             },
         }
     </script>
-<style>
+    <style>
+        html {
+            scrollbar-gutter: stable;
+        }
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
             vertical-align: middle;

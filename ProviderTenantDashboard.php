@@ -245,6 +245,10 @@ require_once __DIR__ . '/provider_tenant_header_context.inc.php';
       }
     </script>
 <style>
+      /* Reserve space for the vertical scrollbar so fixed chrome does not shift between pages. */
+      html {
+        scrollbar-gutter: stable;
+      }
       .material-symbols-outlined {
         font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
       }
@@ -337,17 +341,13 @@ require_once __DIR__ . '/provider_tenant_header_context.inc.php';
         outline: none;
         box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(43, 139, 235, 0.45);
       }
-      ::-webkit-scrollbar { width: 6px; }
-      ::-webkit-scrollbar-track { background: #f1f1f1; }
-      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
       .provider-welcome-banner {
         background: linear-gradient(120deg, #1e3a5f 0%, #2b8beb 42%, #5ab0ff 100%);
         box-shadow: 0 20px 50px -20px rgba(43, 139, 235, 0.45);
       }
     </style>
 </head>
-<body class="mesh-bg font-body text-sm text-on-background selection:bg-primary/10 min-h-screen">
+<body class="mesh-bg font-body text-on-background selection:bg-primary/10 min-h-screen">
 <?php
 $provider_nav_active = 'dashboard';
 include __DIR__ . '/provider_tenant_sidebar.inc.php';
