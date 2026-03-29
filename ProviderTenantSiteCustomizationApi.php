@@ -95,7 +95,7 @@ foreach ($_POST as $k => $v) {
 
 $imageKeys = [
     'main_hero_image', 'main_doctor_image', 'about_hero_image',
-    'about_team_doctor1_image', 'about_team_doctor2_image',
+    'about_team_doctor1_image', 'about_team_doctor2_image', 'about_team_doctor3_image',
     'logo', 'logo_nav', 'logo_register', 'site_favicon',
 ];
 $uploadDir = 'uploads/clinic/';

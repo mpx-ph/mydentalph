@@ -462,10 +462,73 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <?php sb_text('services_cta_button', 'Button label', $site_opts, $is_owner); ?>
 </div>
 </div>
-<div class="space-y-4 sb-preview-scope" data-sb-preview-pages="about">
-<h3 class="text-[10px] font-black uppercase tracking-widest text-primary">About</h3>
+<div class="space-y-6 sb-preview-scope" data-sb-preview-pages="about">
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary">About — Hero</h3>
+<p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Top pill, headline, and intro. Upload the large side image under <span class="font-bold">Branding</span> (visible when preview is About).</p>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_text('about_hero_caption_title', 'Hero badge (top pill, optional)', $site_opts, $is_owner); ?>
 <?php sb_text('about_intro_heading', 'Intro heading', $site_opts, $is_owner); ?>
 <?php sb_text('about_intro_text', 'Intro text', $site_opts, $is_owner, true); ?>
+</div>
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">About — Philosophy</h3>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_text('about_trusted_title', 'Trusted card title', $site_opts, $is_owner); ?>
+<?php sb_text('about_trusted_text', 'Trusted card text', $site_opts, $is_owner, true); ?>
+<?php sb_text('about_why_heading', 'Section label (eyebrow)', $site_opts, $is_owner); ?>
+<?php sb_text('about_philosophy_title_before', 'Title (before accent)', $site_opts, $is_owner); ?>
+<?php sb_text('about_philosophy_title_accent', 'Accent word', $site_opts, $is_owner); ?>
+<?php sb_text('about_philosophy_para1', 'Paragraph 1', $site_opts, $is_owner, true); ?>
+<?php sb_text('about_philosophy_para2', 'Paragraph 2', $site_opts, $is_owner, true); ?>
+<?php sb_text('about_philosophy_services_cta', 'Services link label', $site_opts, $is_owner); ?>
+</div>
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">About — Clinical standards</h3>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_text('about_clinical_title_before', 'Title (before accent)', $site_opts, $is_owner); ?>
+<?php sb_text('about_clinical_title_accent', 'Accent word', $site_opts, $is_owner); ?>
+<?php sb_text('about_clinical_standards_subtext', 'Section subtext', $site_opts, $is_owner, true); ?>
+<p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Card 1</p>
+<?php sb_text('about_why_1_title', 'Title', $site_opts, $is_owner); ?>
+<?php sb_text('about_why_1_text', 'Body', $site_opts, $is_owner, true); ?>
+<p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Card 2</p>
+<?php sb_text('about_why_2_title', 'Title', $site_opts, $is_owner); ?>
+<?php sb_text('about_why_2_text', 'Body', $site_opts, $is_owner, true); ?>
+<p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Card 3</p>
+<?php sb_text('about_why_3_title', 'Title', $site_opts, $is_owner); ?>
+<?php sb_text('about_why_3_text', 'Body', $site_opts, $is_owner, true); ?>
+</div>
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">About — Team</h3>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_text('about_team_title_before', 'Section title (before accent)', $site_opts, $is_owner); ?>
+<?php sb_text('about_team_title_accent', 'Accent word', $site_opts, $is_owner); ?>
+<?php sb_text('about_team_subtitle', 'Section subtitle', $site_opts, $is_owner, true); ?>
+<p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Team member 1</p>
+<?php sb_text('about_team_doctor1_title', 'Role / title', $site_opts, $is_owner); ?>
+<?php sb_text('about_team_doctor1_name', 'Name', $site_opts, $is_owner); ?>
+<?php sb_text('about_team_doctor1_bio', 'Bio (card)', $site_opts, $is_owner, true); ?>
+<?php sb_text('about_team_doctor1_tags', 'Tags (comma-separated)', $site_opts, $is_owner); ?>
+<?php sb_file('about_team_doctor1_image', 'Photo', $site_opts, $is_owner); ?>
+<p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Team member 2</p>
+<?php sb_text('about_team_doctor2_title', 'Role / title', $site_opts, $is_owner); ?>
+<?php sb_text('about_team_doctor2_name', 'Name', $site_opts, $is_owner); ?>
+<?php sb_text('about_team_doctor2_bio', 'Bio (card)', $site_opts, $is_owner, true); ?>
+<?php sb_text('about_team_doctor2_tags', 'Tags (comma-separated)', $site_opts, $is_owner); ?>
+<?php sb_file('about_team_doctor2_image', 'Photo', $site_opts, $is_owner); ?>
+<p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Team member 3 (optional)</p>
+<p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Leave <span class="font-bold">Name</span> empty to hide the third card.</p>
+<?php sb_text('about_team_doctor3_title', 'Role / title', $site_opts, $is_owner); ?>
+<?php sb_text('about_team_doctor3_name', 'Name', $site_opts, $is_owner); ?>
+<?php sb_text('about_team_doctor3_bio', 'Bio (card)', $site_opts, $is_owner, true); ?>
+<?php sb_text('about_team_doctor3_tags', 'Tags (comma-separated)', $site_opts, $is_owner); ?>
+<?php sb_file('about_team_doctor3_image', 'Photo', $site_opts, $is_owner); ?>
+</div>
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">About — Bottom call to action</h3>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_text('about_cta_badge', 'Badge', $site_opts, $is_owner); ?>
+<?php sb_text('about_cta_heading', 'Title', $site_opts, $is_owner); ?>
+<?php sb_text('about_cta_subtext', 'Subtext', $site_opts, $is_owner, true); ?>
+<?php sb_text('about_cta_book_text', 'Primary button', $site_opts, $is_owner); ?>
+<?php sb_text('about_cta_contact_text', 'Secondary button', $site_opts, $is_owner); ?>
+</div>
 </div>
 <div class="space-y-4 sb-preview-scope" data-sb-preview-pages="contact">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Contact</h3>

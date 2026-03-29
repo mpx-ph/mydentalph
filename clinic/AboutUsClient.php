@@ -26,7 +26,8 @@ if (!function_exists('clinic_link')) {
 }
 $servicesHref = htmlspecialchars(clinic_link('services', $slug, BASE_URL . 'PatientServices.php'), ENT_QUOTES, 'UTF-8');
 $contactHref = htmlspecialchars(clinic_link('contact', $slug, BASE_URL . 'ContactUsClient.php'), ENT_QUOTES, 'UTF-8');
-$aboutHeroImg = $cuImg('about_hero_image') ?: 'https://lh3.googleusercontent.com/aida-public/AB6AXuChrPelgrWNz5y22-jPblZ3xvf8IAD-hR1qnlkZRBw16FAQOI7uFlUaoioxaqF_x2Tr_73XIDwSMCHMnnGWH4FcoyVGYkRZzDOZXa4YC8CC70iVT00Sq15rLCNydE_JeNMoklsezLzYditmIY3X4rCb0sgfJXYcFV0Iz7CG1Jfy1qaunSseGzYkrRWRBHVDFFKosGZtshcOp3idiAppl8jDam5CVK0iOyXyyYqeeUb7D4355tXxps3A8-Oic9oPkbqwFMlxa5DVUm0';
+$aboutHeroImg = $cuImg('about_hero_image');
+$aboutHeroCaption = trim((string) ($CLINIC['about_hero_caption_title'] ?? ''));
 ?>
 <style>
 .editorial-word {
@@ -40,9 +41,11 @@ $aboutHeroImg = $cuImg('about_hero_image') ?: 'https://lh3.googleusercontent.com
 <!-- Hero Section -->
 <section class="relative flex items-center justify-center pt-32 overflow-hidden bg-slate-50 dark:bg-slate-900 pb-12 min-h-[40vh]">
 <div class="max-w-7xl mx-auto px-8 text-center relative z-10">
+<?php if ($aboutHeroCaption !== ''): ?>
 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8 font-headline">
-                    <?php echo $cu('about_hero_caption_title') ?: 'Established Excellence'; ?>
+                    <?php echo htmlspecialchars($aboutHeroCaption, ENT_QUOTES, 'UTF-8'); ?>
                 </div>
+<?php endif; ?>
 <h1 class="font-headline text-[clamp(2.5rem,6vw,5rem)] font-extrabold tracking-[-0.05em] mb-10 leading-[0.9] flex flex-col items-center justify-center text-slate-900 dark:text-white">
 <span class="block"><?php echo $cu('about_intro_heading'); ?></span>
 </h1>
@@ -60,9 +63,13 @@ $aboutHeroImg = $cuImg('about_hero_image') ?: 'https://lh3.googleusercontent.com
 <div class="max-w-[1800px] mx-auto px-10">
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
 <div class="relative">
-<div class="rounded-[2.5rem] overflow-hidden aspect-[4/5] shadow-2xl relative group">
+<div class="rounded-[2.5rem] overflow-hidden aspect-[4/5] shadow-2xl relative group bg-slate-200 dark:bg-slate-800">
+<?php if ($aboutHeroImg !== ''): ?>
 <img alt="" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" src="<?php echo htmlspecialchars($aboutHeroImg, ENT_QUOTES, 'UTF-8'); ?>"/>
 <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+<?php else: ?>
+<div class="w-full h-full flex items-center justify-center text-slate-400 dark:text-slate-500"><span class="material-symbols-outlined text-7xl">image</span></div>
+<?php endif; ?>
 </div>
 <div class="absolute -bottom-10 -right-10 bg-white dark:bg-slate-800 p-10 rounded-3xl max-w-sm shadow-2xl border border-slate-200/50 dark:border-slate-700 hidden md:block">
 <p class="font-headline font-extrabold text-primary text-2xl mb-3"><?php echo $cu('about_trusted_title'); ?></p>
@@ -74,18 +81,18 @@ $aboutHeroImg = $cuImg('about_hero_image') ?: 'https://lh3.googleusercontent.com
 <div class="text-primary font-bold text-xs uppercase mb-6 flex gap-4 tracking-[0.3em] items-center font-headline">
 <span class="w-12 h-[1.5px] bg-primary"></span> <?php echo $cu('about_why_heading'); ?>
                             </div>
-<h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter leading-[0.9] text-slate-900 dark:text-white mb-8">Our <br/> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Philosophy</span></h2>
+<h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter leading-[0.9] text-slate-900 dark:text-white mb-8"><?php echo $cu('about_philosophy_title_before'); ?> <br/> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $cu('about_philosophy_title_accent'); ?></span></h2>
 </div>
 <p class="text-slate-600 dark:text-slate-400 text-xl leading-relaxed font-medium font-body">
-                            <?php echo $cu('about_team_doctor1_bio'); ?>
+                            <?php echo $cu('about_philosophy_para1'); ?>
                         </p>
 <p class="text-slate-600 dark:text-slate-400 text-xl leading-relaxed font-medium font-body">
-                            <?php echo $cu('about_team_doctor2_bio'); ?>
+                            <?php echo $cu('about_philosophy_para2'); ?>
                         </p>
 <div class="pt-6">
 <a href="<?php echo $servicesHref; ?>" class="group relative px-10 py-5 bg-primary/10 dark:bg-slate-800 text-primary font-bold rounded-full overflow-hidden transition-all hover:bg-primary hover:text-white active:scale-95 inline-flex items-center font-headline">
 <span class="relative z-10 flex items-center gap-3">
-                                    Explore our services
+                                    <?php echo $cu('about_philosophy_services_cta'); ?>
                                     <span class="material-symbols-outlined text-xl">arrow_right_alt</span>
 </span>
 </a>
@@ -98,8 +105,8 @@ $aboutHeroImg = $cuImg('about_hero_image') ?: 'https://lh3.googleusercontent.com
 <section class="py-32 bg-slate-50 dark:bg-slate-900/50">
 <div class="max-w-[1800px] mx-auto px-10">
 <div class="flex flex-col items-center text-center mb-20">
-<h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white mb-6">Clinical <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Standards</span></h2>
-<p class="text-slate-600 dark:text-slate-400 text-xl font-medium max-w-2xl font-body"><?php echo $cu('about_intro_text'); ?></p>
+<h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white mb-6"><?php echo $cu('about_clinical_title_before'); ?> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $cu('about_clinical_title_accent'); ?></span></h2>
+<p class="text-slate-600 dark:text-slate-400 text-xl font-medium max-w-2xl font-body"><?php echo $cu('about_clinical_standards_subtext'); ?></p>
 </div>
 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
 <div class="group relative overflow-hidden bg-white dark:bg-slate-800 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 transition-all duration-700 hover:bg-primary hover:border-primary/20 hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.3)]">
@@ -130,8 +137,8 @@ $aboutHeroImg = $cuImg('about_hero_image') ?: 'https://lh3.googleusercontent.com
 <section class="py-32 bg-white dark:bg-slate-950">
 <div class="max-w-[1800px] mx-auto px-10">
 <div class="flex flex-col items-center text-center mb-20 gap-8">
-<h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white mb-6">Our <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Elite Team</span></h2>
-<p class="text-slate-600 dark:text-slate-400 text-2xl font-medium font-body">Meet the experienced professionals dedicated to your smile.</p>
+<h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white mb-6"><?php echo $cu('about_team_title_before'); ?> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $cu('about_team_title_accent'); ?></span></h2>
+<p class="text-slate-600 dark:text-slate-400 text-2xl font-medium font-body"><?php echo $cu('about_team_subtitle'); ?></p>
 </div>
 <div class="grid grid-cols-1 md:grid-cols-2 <?php echo trim($CLINIC['about_team_doctor3_name'] ?? '') !== '' ? 'lg:grid-cols-3' : 'lg:grid-cols-2'; ?> gap-10">
 <?php
@@ -177,7 +184,7 @@ foreach ($teamCards as $keys) {
 <div class="mx-auto rounded-[4rem] bg-primary relative overflow-hidden flex flex-col items-center text-center shadow-[0_40px_100px_-20px_rgba(43,139,235,0.4)] max-w-6xl py-24 px-10 md:px-20">
 <div class="relative z-10 max-w-3xl">
 <div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-10 font-headline">
-                        Your next step
+                        <?php echo $cu('about_cta_badge'); ?>
                     </div>
 <h2 class="font-headline text-5xl font-extrabold text-white tracking-tighter leading-[0.85] md:text-6xl mb-8"><?php echo $cu('about_cta_heading'); ?></h2>
 <p class="text-white/70 text-xl md:text-2xl max-w-xl mx-auto leading-relaxed mb-10 font-body"><?php echo $cu('about_cta_subtext'); ?></p>
