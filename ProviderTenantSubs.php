@@ -165,6 +165,27 @@ try {
             box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(43, 139, 235, 0.45);
         }
         body { font-family: 'Manrope', sans-serif; }
+        .ftl-log-shell {
+            box-shadow:
+                0 0 0 1px rgba(255, 255, 255, 0.9),
+                0 12px 40px -14px rgba(15, 23, 42, 0.14),
+                0 4px 16px -4px rgba(43, 139, 235, 0.08);
+        }
+        .ftl-log-header {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(237, 244, 255, 0.65) 45%, rgba(43, 139, 235, 0.06) 100%);
+        }
+        .ftl-log-header::before {
+            content: '';
+            position: absolute;
+            inset: 0 0 auto 0;
+            height: 3px;
+            border-radius: 1.5rem 1.5rem 0 0;
+            background: linear-gradient(90deg, #2b8beb, #60a5fa, #38bdf8);
+            opacity: 0.95;
+        }
+        .ftl-table-wrap {
+            background: linear-gradient(180deg, rgba(248, 250, 252, 0.5) 0%, rgba(255, 255, 255, 1) 24px);
+        }
     </style>
 </head>
 <body class="font-body text-on-background mesh-bg min-h-screen selection:bg-primary/10">
@@ -270,27 +291,46 @@ try {
 </a>
 </div>
 </section>
-<section class="elevated-card rounded-2xl border border-slate-200/80 overflow-hidden">
-<div class="px-6 sm:px-8 py-6 sm:py-7 border-b border-slate-100">
-<p class="text-[11px] font-extrabold text-on-surface-variant/55 uppercase tracking-[0.28em]">Financial transmission log</p>
-<p class="text-xs font-semibold text-on-surface-variant/45 uppercase tracking-widest mt-2">Audit trail of comprehensive membership payments</p>
+<section class="ftl-log-shell elevated-card rounded-3xl border border-slate-200/70 overflow-hidden provider-card-lift bg-white">
+<div class="ftl-log-header relative overflow-hidden px-6 sm:px-8 pt-9 pb-7 sm:pt-10 sm:pb-8 border-b border-slate-200/60">
+<div class="flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-6">
+<div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-sky-100/90 text-primary shadow-inner ring-1 ring-white/70">
+<span class="material-symbols-outlined text-[30px]" style="font-variation-settings: 'FILL' 0, 'wght' 500;">receipt_long</span>
 </div>
-<div class="overflow-x-auto">
+<div class="min-w-0 flex-1">
+<p class="text-primary font-bold text-[10px] uppercase tracking-[0.35em] flex items-center gap-3">
+<span class="h-px w-8 bg-primary/40 shrink-0"></span>
+                    Financial transmission log
+                </p>
+<h3 class="font-headline text-xl sm:text-2xl font-extrabold text-on-background tracking-tight mt-2">Payment audit trail</h3>
+<p class="text-on-surface-variant/75 text-sm font-medium mt-1.5 max-w-2xl leading-relaxed">Comprehensive membership payment history for your clinic subscription.</p>
+</div>
+</div>
+</div>
+<div class="ftl-table-wrap overflow-x-auto">
 <table class="w-full min-w-[720px] text-left border-collapse">
 <thead>
-<tr class="border-b border-slate-100">
-<th class="px-6 sm:px-8 py-4 text-[10px] font-bold text-on-surface-variant/50 uppercase tracking-[0.2em] whitespace-nowrap">Audit ID</th>
-<th class="px-4 py-4 text-[10px] font-bold text-on-surface-variant/50 uppercase tracking-[0.2em] whitespace-nowrap">Plan</th>
-<th class="px-4 py-4 text-[10px] font-bold text-on-surface-variant/50 uppercase tracking-[0.2em] whitespace-nowrap">Amount</th>
-<th class="px-4 py-4 text-[10px] font-bold text-on-surface-variant/50 uppercase tracking-[0.2em] whitespace-nowrap">Date paid</th>
-<th class="px-4 py-4 text-[10px] font-bold text-on-surface-variant/50 uppercase tracking-[0.2em] whitespace-nowrap">Ref ID</th>
-<th class="px-6 sm:px-8 py-4 text-[10px] font-bold text-on-surface-variant/50 uppercase tracking-[0.2em] whitespace-nowrap">Status</th>
+<tr class="border-b border-slate-200/80 bg-slate-50/90">
+<th class="px-6 sm:px-8 py-4 text-[10px] font-extrabold text-on-surface-variant/60 uppercase tracking-[0.2em] whitespace-nowrap">Audit ID</th>
+<th class="px-4 py-4 text-[10px] font-extrabold text-on-surface-variant/60 uppercase tracking-[0.2em] whitespace-nowrap">Plan</th>
+<th class="px-4 py-4 text-[10px] font-extrabold text-on-surface-variant/60 uppercase tracking-[0.2em] whitespace-nowrap">Amount</th>
+<th class="px-4 py-4 text-[10px] font-extrabold text-on-surface-variant/60 uppercase tracking-[0.2em] whitespace-nowrap">Date paid</th>
+<th class="px-4 py-4 text-[10px] font-extrabold text-on-surface-variant/60 uppercase tracking-[0.2em] whitespace-nowrap">Ref ID</th>
+<th class="px-6 sm:px-8 py-4 text-[10px] font-extrabold text-on-surface-variant/60 uppercase tracking-[0.2em] whitespace-nowrap">Status</th>
 </tr>
 </thead>
 <tbody class="text-on-background">
 <?php if ($subscription_financial_log === []): ?>
 <tr>
-<td colspan="6" class="px-6 sm:px-8 py-12 text-center text-sm text-on-surface-variant/70 font-medium">No payment records yet.</td>
+<td colspan="6" class="px-6 sm:px-8 py-16 text-center">
+<span class="inline-flex flex-col items-center gap-3 max-w-xs mx-auto">
+<span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-on-surface-variant/40 ring-1 ring-slate-200/80">
+<span class="material-symbols-outlined text-2xl">payments</span>
+</span>
+<span class="text-sm font-semibold text-on-surface-variant">No payment records yet.</span>
+<span class="text-xs text-on-surface-variant/55 leading-relaxed">Completed subscription payments will appear here.</span>
+</span>
+</td>
 </tr>
 <?php else: ?>
 <?php foreach ($subscription_financial_log as $logRow): ?>
@@ -345,7 +385,7 @@ try {
         $statusClass = 'bg-slate-100 text-on-surface-variant ring-slate-200/80';
     }
 ?>
-<tr class="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 transition-colors">
+<tr class="border-b border-slate-100/90 last:border-0 odd:bg-white even:bg-slate-50/40 hover:bg-primary/[0.04] transition-colors duration-200">
 <td class="px-6 sm:px-8 py-4 align-top whitespace-nowrap font-mono text-xs text-on-surface-variant"><?php echo htmlspecialchars($auditId, ENT_QUOTES, 'UTF-8'); ?></td>
 <td class="px-4 py-4 align-top font-extrabold text-sm uppercase tracking-tight"><?php echo htmlspecialchars($logPlanUpper, ENT_QUOTES, 'UTF-8'); ?></td>
 <td class="px-4 py-4 align-top font-bold tabular-nums text-sm"><?php echo htmlspecialchars($logAmountDisp, ENT_QUOTES, 'UTF-8'); ?></td>
