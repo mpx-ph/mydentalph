@@ -315,7 +315,7 @@ $team_total = count($team_members);
 <?php include __DIR__ . '/provider_tenant_sidebar.inc.php'; ?>
 <?php include __DIR__ . '/provider_tenant_top_header.inc.php'; ?>
 <main class="ml-64 pt-[4.5rem] sm:pt-24 min-h-screen provider-page-enter">
-<div class="p-8 space-y-8">
+<div class="pt-4 sm:pt-6 px-6 lg:px-10 pb-20 space-y-8">
 <!-- Header Card -->
 <section class="elevated-card provider-card-lift rounded-3xl p-10 flex flex-col gap-6">
 <div class="flex flex-col gap-4">
