@@ -375,14 +375,12 @@ include __DIR__ . '/provider_tenant_sidebar.inc.php';
 <button type="button" class="hover:bg-surface-container-low rounded-full p-2.5 transition-all border-0 bg-transparent cursor-pointer hidden sm:inline-flex" aria-label="Help">
 <span class="material-symbols-outlined text-on-surface-variant">help_outline</span>
 </button>
-<button type="button" id="open-profile-modal" class="group flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/80 pl-1 pr-3 py-1 shadow-sm text-left cursor-pointer hover:border-primary/35 hover:bg-white hover:shadow-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2" aria-haspopup="dialog" aria-expanded="false" aria-controls="profile-account-modal" title="Edit your account">
+<button type="button" id="open-profile-modal" class="group flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/80 pl-1 pr-2.5 py-1 shadow-sm text-left cursor-pointer hover:border-primary/35 hover:bg-white hover:shadow-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2" aria-label="Account settings" aria-haspopup="dialog" aria-expanded="false" aria-controls="profile-account-modal">
 <div id="header-account-avatar" class="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center text-primary text-xs font-bold border border-primary/10 shrink-0 group-hover:bg-primary/20 transition-colors" aria-hidden="true"><?php echo htmlspecialchars($avatar_initials, ENT_QUOTES, 'UTF-8'); ?></div>
 <div class="min-w-0 text-left">
 <p id="header-account-name" class="text-xs font-bold text-on-background truncate max-w-[10rem] sm:max-w-[14rem] group-hover:text-primary transition-colors"><?php echo htmlspecialchars($display_name !== '' ? $display_name : 'Signed in', ENT_QUOTES, 'UTF-8'); ?></p>
 <p id="header-account-email" class="text-[11px] text-on-surface-variant truncate max-w-[10rem] sm:max-w-[14rem]<?php echo $user_email_display === '' ? ' hidden' : ''; ?>"><?php echo htmlspecialchars($user_email_display, ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="text-[10px] font-bold uppercase tracking-wider text-primary/70 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">Edit profile</p>
 </div>
-<span class="material-symbols-outlined text-on-surface-variant/50 text-lg shrink-0 group-hover:text-primary transition-colors" aria-hidden="true">edit</span>
 </button>
 </div>
 </div>
