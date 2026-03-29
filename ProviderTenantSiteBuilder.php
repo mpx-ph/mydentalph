@@ -209,6 +209,20 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
         .builder-panel { display: none; }
         .builder-panel--active { display: block; }
         .preview-frame-wrap { box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.12); }
+        .preview-breakpoint-tab { transition: color 0.2s, background 0.2s, border-color 0.2s; }
+        .preview-breakpoint-tab--active { background: rgba(43, 139, 235, 0.15); color: #93c5fd; border-color: rgba(147, 197, 253, 0.35); }
+        .preview-frame-host { display: flex; align-items: stretch; justify-content: center; min-height: 420px; }
+        .preview-frame-host--desktop { padding: 0; }
+        .preview-frame-host--mobile { padding: 0.75rem 0.75rem 1rem; align-items: flex-start; }
+        .preview-frame-scale { transition: width 0.25s ease, max-width 0.25s ease, border-radius 0.25s ease, box-shadow 0.25s ease, border-width 0.25s ease; }
+        .preview-frame-scale--desktop { width: 100%; min-height: 420px; border-radius: 0.75rem; border: 0 solid transparent; box-shadow: none; }
+        .preview-frame-scale--mobile { width: 375px; max-width: calc(100% - 0.5rem); min-height: 640px; border-radius: 2.25rem; border: 10px solid #0f172a; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45); }
+        .preview-frame-scale iframe { display: block; width: 100%; min-height: 420px; height: 100%; }
+        .preview-frame-scale--mobile iframe { min-height: 600px; }
+        @media (max-width: 640px) {
+            .preview-frame-scale--mobile { min-height: 520px; }
+            .preview-frame-scale--mobile iframe { min-height: 480px; }
+        }
     </style>
 </head>
 <body class="font-body text-on-background mesh-bg min-h-screen selection:bg-primary/10">
@@ -355,17 +369,28 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 
 <div class="xl:col-span-7">
 <div class="preview-frame-wrap rounded-[2rem] bg-slate-900/90 p-3 sm:p-4 border border-slate-800">
-<div class="flex items-center gap-2 px-3 py-2 mb-2">
+<div class="flex flex-wrap items-center gap-2 px-3 py-2 mb-2 gap-y-2">
+<div class="flex items-center gap-2 shrink-0">
 <span class="h-3 w-3 rounded-full bg-red-400/90"></span>
 <span class="h-3 w-3 rounded-full bg-amber-400/90"></span>
 <span class="h-3 w-3 rounded-full bg-emerald-400/90"></span>
-<span class="text-[10px] font-mono text-slate-400 ml-3 truncate" id="previewUrlBar">—</span>
 </div>
-<div class="rounded-xl sm:rounded-2xl overflow-hidden bg-white aspect-[16/11] min-h-[380px]">
+<span class="text-[10px] font-mono text-slate-400 min-w-0 flex-1 truncate" id="previewUrlBar">—</span>
 <?php if ($preview_urls['home'] !== ''): ?>
-<iframe title="Site preview" class="w-full h-full min-h-[380px] border-0" id="sitePreviewFrame" src="<?php echo htmlspecialchars($preview_urls['home'], ENT_QUOTES, 'UTF-8'); ?>"></iframe>
+<div class="flex items-center gap-1 shrink-0 w-full sm:w-auto sm:ml-auto justify-end">
+<span class="text-[9px] font-black uppercase tracking-widest text-slate-500 mr-1 hidden sm:inline">View</span>
+<button type="button" class="preview-breakpoint-tab preview-breakpoint-tab--active px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-transparent text-slate-300" data-preview-view="desktop" aria-pressed="true">Desktop</button>
+<button type="button" class="preview-breakpoint-tab px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-transparent text-slate-400" data-preview-view="mobile" aria-pressed="false">Mobile</button>
+</div>
+<?php endif; ?>
+</div>
+<div id="previewFrameHost" class="preview-frame-host preview-frame-host--desktop rounded-xl sm:rounded-2xl bg-slate-950/25">
+<?php if ($preview_urls['home'] !== ''): ?>
+<div id="previewFrameScale" class="preview-frame-scale preview-frame-scale--desktop bg-white overflow-hidden">
+<iframe title="Site preview" class="border-0" id="sitePreviewFrame" src="<?php echo htmlspecialchars($preview_urls['home'], ENT_QUOTES, 'UTF-8'); ?>"></iframe>
+</div>
 <?php else: ?>
-<div class="w-full h-full min-h-[380px] flex items-center justify-center text-slate-500 text-sm font-medium p-8 text-center">Preview unavailable until your clinic slug is active.</div>
+<div class="w-full min-h-[420px] flex items-center justify-center text-slate-500 text-sm font-medium p-8 text-center rounded-xl bg-white/5">Preview unavailable until your clinic slug is active.</div>
 <?php endif; ?>
 </div>
 </div>
@@ -505,6 +530,27 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
     if (btnRef && previewSelect) {
         btnRef.addEventListener('click', function () { setPreviewUrl(previewSelect.value); });
     }
+
+    var previewHost = document.getElementById('previewFrameHost');
+    var previewScale = document.getElementById('previewFrameScale');
+    document.querySelectorAll('[data-preview-view]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var view = btn.getAttribute('data-preview-view');
+            if (!view || !previewHost || !previewScale) return;
+            document.querySelectorAll('[data-preview-view]').forEach(function (b) {
+                var on = b === btn;
+                b.classList.toggle('preview-breakpoint-tab--active', on);
+                b.classList.toggle('text-slate-300', on);
+                b.classList.toggle('text-slate-400', !on);
+                b.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+            var isDesktop = view === 'desktop';
+            previewHost.classList.toggle('preview-frame-host--desktop', isDesktop);
+            previewHost.classList.toggle('preview-frame-host--mobile', !isDesktop);
+            previewScale.classList.toggle('preview-frame-scale--desktop', isDesktop);
+            previewScale.classList.toggle('preview-frame-scale--mobile', !isDesktop);
+        });
+    });
 
     document.querySelectorAll('[data-opt-hex]').forEach(function (hexInp) {
         var k = hexInp.getAttribute('data-opt-hex');
