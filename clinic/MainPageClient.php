@@ -34,7 +34,7 @@ $cuMultiline = function (string $k, string $default = '') use ($CLINIC): string 
 };
 $slug = $currentTenantSlug ?? ($_SESSION['public_tenant_slug'] ?? null);
 $setAppointmentHref = isLoggedIn('client')
-    ? clinic_link('download', $slug, BASE_URL . 'DownloadApp.php')
+    ? 'https://drive.google.com/uc?export=download&id=1NXEb8np-haag5diZV4QYhIbpQuLOmGoz'
     : clinic_link('login', $slug, BASE_URL . 'Login.php');
 $cuImg = function($k) use ($CLINIC) {
     $v = isset($CLINIC[$k]) ? trim($CLINIC[$k]) : '';
