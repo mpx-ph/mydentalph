@@ -1,5 +1,11 @@
 <?php
 $staff_nav_active = 'payment_settings';
+require_once __DIR__ . '/config/config.php';
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 if (!isset($currentTenantSlug)) {
     $currentTenantSlug = '';
     if (isset($_GET['clinic_slug'])) {
@@ -8,6 +14,114 @@ if (!isset($currentTenantSlug)) {
             $currentTenantSlug = $staffTenantSlug;
         }
     }
+}
+
+$tenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
+$currentStaffUserId = isset($_SESSION['user_id']) ? trim((string) $_SESSION['user_id']) : '';
+$formMessage = '';
+$formMessageType = 'success';
+$paymentSettings = [
+    'regular_downpayment_percentage' => 20.00,
+    'long_term_min_downpayment' => 500.00,
+    'auto_invoice_enabled' => 1,
+];
+
+try {
+    $pdo = getDBConnection();
+
+    if ($tenantId === '' && $currentTenantSlug !== '') {
+        $tenantStmt = $pdo->prepare('SELECT tenant_id FROM tbl_tenants WHERE clinic_slug = ? LIMIT 1');
+        $tenantStmt->execute([$currentTenantSlug]);
+        $tenantRow = $tenantStmt->fetch(PDO::FETCH_ASSOC);
+        if ($tenantRow && isset($tenantRow['tenant_id'])) {
+            $tenantId = (string) $tenantRow['tenant_id'];
+        }
+    }
+
+    if ($tenantId !== '') {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $updateField = isset($_POST['update_field']) ? trim((string) $_POST['update_field']) : '';
+            $newSettings = $paymentSettings;
+
+            $existingStmt = $pdo->prepare('SELECT regular_downpayment_percentage, long_term_min_downpayment, auto_invoice_enabled FROM tbl_payment_settings WHERE tenant_id = ? LIMIT 1');
+            $existingStmt->execute([$tenantId]);
+            $existingSettings = $existingStmt->fetch(PDO::FETCH_ASSOC);
+            if ($existingSettings) {
+                $newSettings['regular_downpayment_percentage'] = (float) $existingSettings['regular_downpayment_percentage'];
+                $newSettings['long_term_min_downpayment'] = (float) $existingSettings['long_term_min_downpayment'];
+                $newSettings['auto_invoice_enabled'] = (int) $existingSettings['auto_invoice_enabled'];
+            }
+
+            if ($updateField === 'regular') {
+                $regularInput = isset($_POST['regular_downpayment_percentage']) ? (float) $_POST['regular_downpayment_percentage'] : -1;
+                if ($regularInput < 0 || $regularInput > 100) {
+                    $formMessage = 'Regular services down payment must be between 0 and 100.';
+                    $formMessageType = 'error';
+                } else {
+                    $newSettings['regular_downpayment_percentage'] = round($regularInput, 2);
+                }
+            } elseif ($updateField === 'long_term') {
+                $longTermInput = isset($_POST['long_term_min_downpayment']) ? (float) $_POST['long_term_min_downpayment'] : -1;
+                if ($longTermInput < 0) {
+                    $formMessage = 'Long-term services minimum down payment cannot be negative.';
+                    $formMessageType = 'error';
+                } else {
+                    $newSettings['long_term_min_downpayment'] = round($longTermInput, 2);
+                }
+            } elseif ($updateField === 'invoice_toggle') {
+                $newSettings['auto_invoice_enabled'] = isset($_POST['auto_invoice_enabled']) ? 1 : 0;
+            } else {
+                $formMessage = 'Unknown update action.';
+                $formMessageType = 'error';
+            }
+
+            if ($formMessageType !== 'error') {
+                $upsertSql = "
+                    INSERT INTO tbl_payment_settings (
+                        tenant_id,
+                        regular_downpayment_percentage,
+                        long_term_min_downpayment,
+                        auto_invoice_enabled,
+                        updated_by
+                    ) VALUES (?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        regular_downpayment_percentage = VALUES(regular_downpayment_percentage),
+                        long_term_min_downpayment = VALUES(long_term_min_downpayment),
+                        auto_invoice_enabled = VALUES(auto_invoice_enabled),
+                        updated_by = VALUES(updated_by),
+                        updated_at = CURRENT_TIMESTAMP
+                ";
+                $upsertStmt = $pdo->prepare($upsertSql);
+                $upsertStmt->execute([
+                    $tenantId,
+                    $newSettings['regular_downpayment_percentage'],
+                    $newSettings['long_term_min_downpayment'],
+                    $newSettings['auto_invoice_enabled'],
+                    $currentStaffUserId !== '' ? $currentStaffUserId : null,
+                ]);
+
+                $paymentSettings = $newSettings;
+                $formMessage = 'Payment settings updated successfully.';
+                $formMessageType = 'success';
+            }
+        }
+
+        $settingsStmt = $pdo->prepare('SELECT regular_downpayment_percentage, long_term_min_downpayment, auto_invoice_enabled FROM tbl_payment_settings WHERE tenant_id = ? LIMIT 1');
+        $settingsStmt->execute([$tenantId]);
+        $settingsRow = $settingsStmt->fetch(PDO::FETCH_ASSOC);
+        if ($settingsRow) {
+            $paymentSettings['regular_downpayment_percentage'] = (float) $settingsRow['regular_downpayment_percentage'];
+            $paymentSettings['long_term_min_downpayment'] = (float) $settingsRow['long_term_min_downpayment'];
+            $paymentSettings['auto_invoice_enabled'] = (int) $settingsRow['auto_invoice_enabled'];
+        }
+    } else {
+        $formMessage = 'Unable to resolve clinic tenant. Payment settings are unavailable.';
+        $formMessageType = 'error';
+    }
+} catch (Throwable $e) {
+    error_log('Staff payment settings load/save error: ' . $e->getMessage());
+    $formMessage = 'An unexpected error occurred while loading payment settings.';
+    $formMessageType = 'error';
 }
 ?>
 <!DOCTYPE html>
@@ -101,10 +215,17 @@ if (!isset($currentTenantSlug)) {
 </div>
 </div>
 </section>
+<?php if ($formMessage !== ''): ?>
+<section class="rounded-2xl border px-6 py-4 <?php echo $formMessageType === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'; ?>">
+<p class="text-sm font-semibold"><?php echo htmlspecialchars($formMessage, ENT_QUOTES, 'UTF-8'); ?></p>
+</section>
+<?php endif; ?>
 <!-- Configuration Cards Grid -->
 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
 <!-- Regular Services Down Payment -->
 <div class="elevated-card rounded-3xl p-10 flex flex-col gap-8 hover:border-primary/30 transition-all group bg-slate-50/50">
+<form method="post" class="space-y-6">
+<input type="hidden" name="update_field" value="regular"/>
 <div class="flex items-center gap-5">
 <div class="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
 <span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
@@ -118,7 +239,7 @@ if (!isset($currentTenantSlug)) {
 <div class="space-y-3">
 <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Requirement Percentage</label>
 <div class="relative">
-<input class="w-full bg-white border-none rounded-xl px-6 py-5 text-2xl font-headline font-extrabold text-on-background focus:ring-2 focus:ring-primary/20 transition-all shadow-sm" type="number" value="20"/>
+<input class="w-full bg-white border-none rounded-xl px-6 py-5 text-2xl font-headline font-extrabold text-on-background focus:ring-2 focus:ring-primary/20 transition-all shadow-sm" type="number" name="regular_downpayment_percentage" min="0" max="100" step="0.01" value="<?php echo htmlspecialchars(number_format((float) $paymentSettings['regular_downpayment_percentage'], 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?>"/>
 <div class="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none">
 <span class="text-2xl font-extrabold text-primary">%</span>
 </div>
@@ -132,9 +253,12 @@ if (!isset($currentTenantSlug)) {
                         Update Rule
                     </button>
 </div>
+</form>
 </div>
 <!-- Long-Term Services Down Payment -->
 <div class="elevated-card rounded-3xl p-10 flex flex-col gap-8 hover:border-primary/30 transition-all group bg-slate-50/50">
+<form method="post" class="space-y-6">
+<input type="hidden" name="update_field" value="long_term"/>
 <div class="flex items-center gap-5">
 <div class="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
 <span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">event_repeat</span>
@@ -148,7 +272,7 @@ if (!isset($currentTenantSlug)) {
 <div class="space-y-3">
 <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Fixed Minimum Amount</label>
 <div class="relative">
-<input class="w-full bg-white border-none rounded-xl pl-14 pr-16 py-5 text-2xl font-headline font-extrabold text-on-background focus:ring-2 focus:ring-primary/20 transition-all shadow-sm" type="number" value="500"/>
+<input class="w-full bg-white border-none rounded-xl pl-14 pr-16 py-5 text-2xl font-headline font-extrabold text-on-background focus:ring-2 focus:ring-primary/20 transition-all shadow-sm" type="number" name="long_term_min_downpayment" min="0" step="0.01" value="<?php echo htmlspecialchars(number_format((float) $paymentSettings['long_term_min_downpayment'], 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?>"/>
 <div class="absolute left-6 top-1/2 -translate-y-1/2 pointer-events-none">
 <span class="material-symbols-outlined text-primary text-2xl" style="font-variation-settings: 'FILL' 1;">payments</span>
 </div>
@@ -165,6 +289,7 @@ if (!isset($currentTenantSlug)) {
                         Update Rule
                     </button>
 </div>
+</form>
 </div>
 </div>
 <!-- Global Configuration Bento -->
@@ -174,10 +299,11 @@ if (!isset($currentTenantSlug)) {
 <h4 class="font-headline font-bold text-xl text-on-background">Automatic Invoice Generation</h4>
 <p class="text-sm text-on-surface-variant/60 font-medium font-body">Automatically send down-payment invoices upon appointment confirmation.</p>
 </div>
-<div class="relative inline-flex items-center cursor-pointer group">
-<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<form method="post" class="relative inline-flex items-center cursor-pointer group">
+<input type="hidden" name="update_field" value="invoice_toggle"/>
+<input class="sr-only peer" type="checkbox" name="auto_invoice_enabled" value="1" onchange="this.form.submit()" <?php echo ((int) $paymentSettings['auto_invoice_enabled'] === 1) ? 'checked' : ''; ?>/>
 <div class="w-16 h-9 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:start-[4px] after:bg-white after:border-slate-200 after:border after:rounded-full after:h-7 after:w-7 after:transition-all peer-checked:bg-primary shadow-sm"></div>
-</div>
+</form>
 </div>
 <div class="bg-primary rounded-3xl p-8 flex flex-col justify-center relative overflow-hidden active-glow">
 <div class="relative z-10">

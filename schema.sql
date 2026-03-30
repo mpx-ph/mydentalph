@@ -725,5 +725,25 @@ CREATE TABLE IF NOT EXISTS tbl_tenant_verification_files (
     KEY idx_verification_files_tenant (tenant_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ============================================
+-- TENANT PAYMENT SETTINGS (staff portal)
+-- ============================================
+-- No FK constraints here to avoid errno 150 on hosts where parent tables
+-- were created with different engine/charset/collation.
+CREATE TABLE IF NOT EXISTS tbl_payment_settings (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    regular_downpayment_percentage DECIMAL(5,2) NOT NULL DEFAULT 20.00,
+    long_term_min_downpayment DECIMAL(10,2) NOT NULL DEFAULT 500.00,
+    auto_invoice_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    updated_by VARCHAR(20) DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_payment_settings_tenant (tenant_id),
+    KEY idx_payment_settings_tenant (tenant_id),
+    KEY idx_payment_settings_updated_by (updated_by)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
