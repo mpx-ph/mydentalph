@@ -79,73 +79,8 @@ if (!isset($currentTenantSlug)) {
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
-<!-- SideNavBar Shell -->
-<aside class="fixed left-0 top-0 h-full w-64 z-40 bg-white flex flex-col py-8 border-r border-slate-200/60">
-<div class="px-7 mb-10">
-<h1 class="text-xl font-extrabold text-slate-900 tracking-tight font-headline flex items-center gap-2">
-<span class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/30">
-<span class="material-symbols-outlined text-white text-lg" style="font-variation-settings: 'FILL' 1;">medical_services</span>
-</span>
-            Aetheris Dental
-        </h1>
-<p class="text-primary font-bold text-[10px] tracking-[0.2em] uppercase mt-2 opacity-80">Clinical Precision</p>
-</div>
-<nav class="flex-1 space-y-1 overflow-y-auto no-scrollbar">
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">dashboard</span>
-<span class="font-headline text-sm font-medium tracking-tight">Dashboard</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">calendar_today</span>
-<span class="font-headline text-sm font-medium tracking-tight">Appointments</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">person_add</span>
-<span class="font-headline text-sm font-medium tracking-tight">Patient Registration</span>
-</a>
-</div>
-<!-- Patients (ACTIVE) -->
-<div class="relative px-3">
-<a class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl transition-all duration-200 active-glow" href="#">
-<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">group</span>
-<span class="font-headline text-sm font-bold tracking-tight">Patients</span>
-</a>
-<div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full"></div>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">payments</span>
-<span class="font-headline text-sm font-medium tracking-tight">Payments</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">chat</span>
-<span class="font-headline text-sm font-medium tracking-tight">Messages</span>
-</a>
-</div>
-<div class="px-3 mt-6">
-<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">settings</span>
-<span class="font-headline text-sm font-medium tracking-tight">Settings</span>
-</a>
-</div>
-</nav>
-<div class="p-6 border-t border-slate-100 mt-auto">
-<div class="flex items-center gap-3">
-<img alt="Clinic Admin Profile" class="w-10 h-10 rounded-full object-cover ring-2 ring-primary/20 p-0.5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCiPnjmc30vD-Jy8zoyIXNyGyzMq4CEgSn4nZxACpUBrGd5YRu7cOhDA6-M1-huZxGGAFRYvxWBeXMx-SreFpyqrz0wfyw7ih9A-mD2tHsxmTA4rHMBq9PapVM1SCE_LkiVqJSMHEFGoeZRB-0Zzywka558g8uqaSQfhNrvlGg_yIruHOPNzZdBi3W00ZyUvGH-lu-LC4ojz566hgbmNhBN3aHwI6yLv9d3armnFUU0PygvZG98UEZFkCx0kobX2jNXYyw2eyYSor8"/>
-<div class="flex flex-col">
-<span class="text-sm font-bold text-slate-900">Dr. Aris Thorne</span>
-<span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Chief Registrar</span>
-</div>
-</div>
-</div>
-</aside>
+<!-- SideNavBar Component -->
+<?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
 <!-- Main Canvas -->
 <main class="flex-1 flex flex-col min-w-0 ml-64">
 <!-- TopAppBar -->

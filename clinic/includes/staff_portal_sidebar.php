@@ -1,5 +1,8 @@
 <?php
 $staff_nav_active = isset($staff_nav_active) ? (string) $staff_nav_active : 'dashboard';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 $clinicName = 'Precision Dental';
 if (isset($currentTenantData['clinic_name']) && trim((string) $currentTenantData['clinic_name']) !== '') {
@@ -17,6 +20,8 @@ if (isset($currentTenantSlug) && trim((string) $currentTenantSlug) !== '') {
     $sidebarClinicSlug = trim((string) $currentTenantSlug);
 } elseif (isset($_GET['clinic_slug']) && trim((string) $_GET['clinic_slug']) !== '') {
     $sidebarClinicSlug = trim((string) $_GET['clinic_slug']);
+} elseif (!empty($_SESSION['public_tenant_slug'])) {
+    $sidebarClinicSlug = trim((string) $_SESSION['public_tenant_slug']);
 }
 
 $slugQuery = '';
