@@ -76,13 +76,8 @@ if (!isset($currentTenantSlug)) {
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64">
-<header class="flex items-center w-full px-10 sticky top-0 z-40 bg-white border-b border-slate-200 h-20 justify-end">
-<div class="flex items-center gap-4 text-slate-400">
-<button class="material-symbols-outlined hover:text-primary transition-colors">notifications</button>
-<button class="material-symbols-outlined hover:text-primary transition-colors">help_outline</button>
-</div>
-</header>
+<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20">
+<?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
 <div class="p-10 space-y-8">
 <section class="flex flex-col gap-4 mb-2">
 <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">

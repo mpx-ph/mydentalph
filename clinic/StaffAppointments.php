@@ -132,30 +132,8 @@ unset($__nm, $__parts, $__p);
 <!-- SideNavBar Component -->
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
 <!-- Main Content Area -->
-<main class="flex-1 flex flex-col min-w-0 ml-64">
-<!-- TopNavBar Component -->
-<header class="flex justify-between items-center w-full px-10 sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200 h-20">
-<div class="flex items-center flex-1 max-w-xl">
-<div class="relative w-full group">
-<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">search</span>
-<input class="w-full pl-12 pr-4 py-2.5 bg-slate-50 border-none rounded-full text-sm focus:ring-2 focus:ring-primary/20 transition-all outline-none" placeholder="Search appointments..." type="text"/>
-</div>
-</div>
-<div class="flex items-center gap-6 ml-8">
-<div class="flex items-center gap-6 text-slate-400">
-<button class="material-symbols-outlined hover:text-primary transition-colors relative">
-                        notifications
-                        <span class="absolute top-0 right-0 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white"></span>
-</button>
-<button class="material-symbols-outlined hover:text-primary transition-colors">help_outline</button>
-</div>
-<div class="h-8 w-px bg-slate-200 mx-2"></div>
-<button class="bg-primary text-white px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-primary/30 flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all">
-<span class="material-symbols-outlined text-sm">add</span>
-                    Add Appointment
-                </button>
-</div>
-</header>
+<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20">
+<?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
 <!-- Scrollable Content -->
 <div class="p-10 space-y-10">
 <!-- Welcome Header -->
