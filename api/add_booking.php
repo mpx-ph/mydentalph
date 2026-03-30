@@ -28,6 +28,7 @@ if (!$user_id || !$appointment_date || !$appointment_time) {
 
 // 1. Ensure Patient Record exists
 try {
+    // First, try to find by User ID
     $stmt = $pdo->prepare("SELECT patient_id FROM tbl_patients WHERE owner_user_id = ? OR linked_user_id = ? LIMIT 1");
     $stmt->execute([$user_id, $user_id]);
     $patRow = $stmt->fetch();
@@ -35,7 +36,7 @@ try {
     if ($patRow) {
         $patient_id = $patRow['patient_id'];
     } else {
-        // Create a new patient record automatically from user profile
+        // Not found by ID, let's fetch user info to check by email
         $stmt = $pdo->prepare("SELECT first_name, last_name, email, phone, gender, date_of_birth, address FROM tbl_users WHERE user_id = ?");
         $stmt->execute([$user_id]);
         $u = $stmt->fetch();
@@ -44,26 +45,33 @@ try {
             die(json_encode(["status" => "error", "message" => "User profile not found ($user_id)"]));
         }
 
-        $patient_id = 'PAT-' . strtoupper(substr(md5(time() . $user_id), 0, 8));
-        
-        $stmt = $pdo->prepare("INSERT INTO tbl_patients 
-            (tenant_id, patient_id, first_name, last_name, email, phone, gender, birthdate, address, owner_user_id, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')");
-        
-        // Map gender to valid enum
-        $gender = strtolower($u['gender'] ?? 'other');
-        if (!in_array($gender, ['male', 'female', 'other'])) $gender = 'other';
-        
-        $stmt->execute([
-            $tenant_id, $patient_id, 
-            $u['first_name'], $u['last_name'], $u['email'], $u['phone'], 
-            $gender, $u['date_of_birth'], $u['address'], 
-            $user_id
-        ]);
-        
-        // Final verification that insert worked
-        if (!$pdo->lastInsertId()) {
-             die(json_encode(["status" => "error", "message" => "Failed to create patient profile"]));
+        // Second, try to find by Email (to prevent duplicates if they registered elsewhere)
+        $stmt = $pdo->prepare("SELECT patient_id FROM tbl_patients WHERE email = ? AND tenant_id = ? LIMIT 1");
+        $stmt->execute([$u['email'], $tenant_id]);
+        $existingPat = $stmt->fetch();
+
+        if ($existingPat) {
+            // Found them! Link this existing patient to the current user_id
+            $patient_id = $existingPat['patient_id'];
+            $stmt = $pdo->prepare("UPDATE tbl_patients SET owner_user_id = ? WHERE patient_id = ?");
+            $stmt->execute([$user_id, $patient_id]);
+        } else {
+            // Create a brand new patient record
+            $patient_id = 'PAT-' . strtoupper(substr(md5(microtime() . $user_id), 0, 10));
+            
+            $stmt = $pdo->prepare("INSERT INTO tbl_patients 
+                (tenant_id, patient_id, first_name, last_name, email, phone, gender, birthdate, address, owner_user_id, status) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')");
+            
+            $gender = strtolower($u['gender'] ?? 'other');
+            if (!in_array($gender, ['male', 'female', 'other'])) $gender = 'other';
+            
+            $stmt->execute([
+                $tenant_id, $patient_id, 
+                $u['first_name'], $u['last_name'], $u['email'], $u['phone'], 
+                $gender, $u['date_of_birth'], $u['address'], 
+                $user_id
+            ]);
         }
     }
 
