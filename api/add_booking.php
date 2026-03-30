@@ -26,61 +26,25 @@ if (!$user_id || !$appointment_date || !$appointment_time) {
     die(json_encode(["status" => "error", "message" => "Missing required fields"]));
 }
 
-// Prepare service summary for Web Portal dashboard
-$services = is_array($services_json) ? $services_json : json_decode($services_json, true);
-$service_names = [];
-foreach ($services as $srv) {
-    $service_names[] = $srv['name'] ?? 'Treatment';
-}
-$aggregated_services = implode(", ", $service_names);
-$service_description = "Selected Services: " . $aggregated_services;
+// Map User ID to Patient ID (usually same or linked)
+// For this demo, we'll assume a direct match or fetch first patient_id for that user
+try {
+    $stmt = $pdo->prepare("SELECT patient_id FROM tbl_patients WHERE owner_user_id = ? OR linked_user_id = ? LIMIT 1");
+    $stmt->execute([$user_id, $user_id]);
+    $patRow = $stmt->fetch();
+    $patient_id = $patRow ? $patRow['patient_id'] : 'PAT_NEW_' . rand(1000, 9999);
 
-    // Map User ID to Patient ID (usually same or linked)
-    try {
-        $stmt = $pdo->prepare("SELECT patient_id FROM tbl_patients WHERE owner_user_id = ? OR linked_user_id = ? LIMIT 1");
-        $stmt->execute([$user_id, $user_id]);
-        $patRow = $stmt->fetch();
-        
-        if (!$patRow) {
-            // If No Patient Record exists, Auto-Create a basic one using user info
-            $stmtU = $pdo->prepare("SELECT full_name, phone FROM tbl_users WHERE user_id = ? LIMIT 1");
-            $stmtU->execute([$user_id]);
-            $uRow = $stmtU->fetch();
-            
-            $patient_id = 'PAT-MOB-' . rand(100000, 999999);
-            $fullName = $uRow['full_name'] ?? 'Mobile User';
-            
-            // Insert basic record into tbl_patients
-            $stmtP = $pdo->prepare("INSERT INTO tbl_patients (tenant_id, patient_id, owner_user_id, first_name, last_name, contact_number) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmtP->execute([$tenant_id, $patient_id, $user_id, $fullName, ' ', $uRow['phone'] ?? '09123456789']);
-        } else {
-            $patient_id = $patRow['patient_id'];
-        }
+    // Generate unique booking_id
+    $booking_id = 'BK-' . strtoupper(substr(md5(time() . $user_id), 0, 8));
 
-        // Generate unique booking_id
-        $booking_id = 'BK-' . strtoupper(substr(md5(time() . $user_id), 0, 8));
+    $pdo->beginTransaction();
 
-        $pdo->beginTransaction();
-
-        // 1. Insert Appointment (Syncing treatment details with Web Dashboard)
-        $stmt = $pdo->prepare("INSERT INTO tbl_appointments 
-            (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, total_treatment_cost, visit_type, service_type, service_description, created_by) 
-            VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 'pre_book', ?, ?, ?)");
-        // FIX: The execute array must only have values for the '?' marks (10 placeholders). 
-        // Literals like 'pending' and 'pre_book' are already inside the SQL string!
-        $stmt->execute([
-            $tenant_id, 
-            $dentist_id, 
-            $booking_id, 
-            $patient_id, 
-            $appointment_date, 
-            $appointment_time, 
-            $total_amount, 
-            $aggregated_services, 
-            $service_description, 
-            $user_id
-        ]);
-        $appointment_id = $pdo->lastInsertId();
+    // 1. Insert Appointment
+    $stmt = $pdo->prepare("INSERT INTO tbl_appointments 
+        (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, total_treatment_cost, visit_type, created_by) 
+        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 'pre_book', ?)");
+    $stmt->execute([$tenant_id, $dentist_id, $booking_id, $patient_id, $appointment_date, $appointment_time, $total_amount, $user_id]);
+    $appointment_id = $pdo->lastInsertId();
 
     // 2. Insert Services Breakdown
     $services = is_array($services_json) ? $services_json : json_decode($services_json, true);
