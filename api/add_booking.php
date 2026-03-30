@@ -26,37 +26,26 @@ if (!$user_id || !$appointment_date || !$appointment_time) {
     die(json_encode(["status" => "error", "message" => "Missing required fields"]));
 }
 
-// Map User ID to Patient ID (usually same or linked)
+// Map User ID to Patient ID
 try {
     $stmt = $pdo->prepare("SELECT patient_id, first_name, last_name FROM tbl_patients WHERE owner_user_id = ? OR linked_user_id = ? LIMIT 1");
     $stmt->execute([$user_id, $user_id]);
     $patRow = $stmt->fetch();
     
-    if ($patRow) {
-        $patient_id = $patRow['patient_id'];
-    } else {
-        // Create a basic patient record if it doesn't exist
-        $patient_id = 'PAT-' . strtoupper(substr(md5($user_id), 0, 8));
-        
-        // Fetch user info for the patient record
-        $stmt = $pdo->prepare("SELECT full_name FROM tbl_users WHERE user_id = ?");
-        $stmt->execute([$user_id]);
-        $userRow = $stmt->fetch();
-        $names = explode(' ', ($userRow['full_name'] ?? 'New Patient'), 2);
-        
-        $stmt = $pdo->prepare("INSERT INTO tbl_patients (tenant_id, patient_id, owner_user_id, first_name, last_name, status) VALUES (?, ?, ?, ?, ?, 'active')");
-        $stmt->execute([$tenant_id, $patient_id, $user_id, $names[0] ?? 'New', $names[1] ?? 'Patient']);
+    if (!$patRow) {
+        throw new Exception("Patient profile not found for this user. Please complete your registration.");
     }
+    $patient_id = $patRow['patient_id'];
 
-    // Generate unique booking_id
-    $booking_id = 'BK-' . strtoupper(substr(md5(time() . $user_id), 0, 8));
+    // Generate highly unique booking_id (10 chars + BK prefix)
+    $booking_id = 'BK-' . strtoupper(substr(md5(microtime(true) . $user_id . mt_rand()), 0, 10));
 
     $pdo->beginTransaction();
 
     // 1. Insert Appointment
     $stmt = $pdo->prepare("INSERT INTO tbl_appointments 
         (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, total_treatment_cost, visit_type, created_by) 
-        VALUES (?, ?, ?, ?, ?, ?, 'confirmed', ?, 'pre_book', ?)");
+        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 'pre_book', ?)");
     $stmt->execute([$tenant_id, $dentist_id, $booking_id, $patient_id, $appointment_date, $appointment_time, $total_amount, $user_id]);
     $appointment_id = $pdo->lastInsertId();
 
@@ -70,7 +59,7 @@ try {
     }
 
     // 3. Insert Payment
-    $payment_id = 'PAY-' . rand(100000, 999999);
+    $payment_id = 'PAY-' . strtoupper(substr(md5(microtime(true) . $booking_id . mt_rand()), 0, 10));
     // Set status to 'completed' only if paid in full, 'pending' if partial/downpayment
     $final_status = ($payment_amount >= $total_amount) ? 'completed' : 'pending';
     
