@@ -110,7 +110,7 @@ function createPatient() {
         $patientDisplayId = generatePatientId();
         
         $stmt = $pdo->prepare("
-            INSERT INTO patients (
+            INSERT INTO tbl_patients (
                 tenant_id,
                 patient_id, owner_user_id, linked_user_id, first_name, last_name, contact_number,
                 date_of_birth, gender, house_street, barangay, city_municipality, province, profile_image, created_at
@@ -168,7 +168,7 @@ function getPatients() {
             // Get single patient
             $stmt = $pdo->prepare("
                 SELECT p.*
-                FROM patients p
+                FROM tbl_patients p
                 WHERE p.id = ? AND p.tenant_id = ?
             ");
             $stmt->execute([$patientId, $tenantId]);
@@ -187,7 +187,7 @@ function getPatients() {
                        u.email,
                        (SELECT COUNT(*) FROM appointments WHERE patient_id = p.patient_id) as appointment_count,
                        (SELECT COUNT(*) FROM payments WHERE patient_id = p.id) as payment_count
-                FROM patients p
+                FROM tbl_patients p
                 LEFT JOIN tbl_users u ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id
                 WHERE p.tenant_id = ?
             ";
@@ -215,7 +215,7 @@ function getPatients() {
             // Get total count
             $countSql = "
                 SELECT COUNT(*) as total 
-                FROM patients p
+                FROM tbl_patients p
                 LEFT JOIN tbl_users u ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id
                 WHERE p.tenant_id = ?
             ";
@@ -284,7 +284,7 @@ function updatePatient() {
     }
     
     // Check if patient exists
-    $stmt = $pdo->prepare("SELECT id FROM patients WHERE id = ? AND tenant_id = ?");
+    $stmt = $pdo->prepare("SELECT id FROM tbl_patients WHERE id = ? AND tenant_id = ?");
     $stmt->execute([$patientId, $tenantId]);
     if (!$stmt->fetch()) {
         jsonResponse(false, 'Patient not found.');
@@ -349,7 +349,7 @@ function updatePatient() {
     $params[] = $patientId;
     
     try {
-        $sql = "UPDATE patients SET " . implode(', ', $updates) . " WHERE id = ? AND tenant_id = ?";
+        $sql = "UPDATE tbl_patients SET " . implode(', ', $updates) . " WHERE id = ? AND tenant_id = ?";
         $stmt = $pdo->prepare($sql);
         $params[] = $tenantId;
         $stmt->execute($params);
@@ -391,7 +391,7 @@ function deletePatient() {
     if ($appointmentCount > 0 || $paymentCount > 0) {
         // Soft delete - set status to inactive
         try {
-            $stmt = $pdo->prepare("UPDATE patients SET status = 'inactive', updated_at = NOW() WHERE id = ? AND tenant_id = ?");
+            $stmt = $pdo->prepare("UPDATE tbl_patients SET status = 'inactive', updated_at = NOW() WHERE id = ? AND tenant_id = ?");
             $stmt->execute([$patientId, $tenantId]);
             
             jsonResponse(true, 'Patient deactivated successfully.');
@@ -401,7 +401,7 @@ function deletePatient() {
     } else {
         // Hard delete if no related records
         try {
-            $stmt = $pdo->prepare("DELETE FROM patients WHERE id = ? AND tenant_id = ?");
+            $stmt = $pdo->prepare("DELETE FROM tbl_patients WHERE id = ? AND tenant_id = ?");
             $stmt->execute([$patientId, $tenantId]);
             
             jsonResponse(true, 'Patient deleted successfully.');
