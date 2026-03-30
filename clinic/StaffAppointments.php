@@ -1,15 +1,16 @@
 <?php
-/**
- * Staff appointments — requires staff-class login for the same tenant as clinic_slug.
- */
 $pageTitle = 'Appointments';
+$staff_nav_active = 'appointments';
 require_once __DIR__ . '/config/config.php';
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+
 if (empty($_GET['clinic_slug']) && !empty($_SESSION['public_tenant_slug'])) {
     $_GET['clinic_slug'] = $_SESSION['public_tenant_slug'];
 }
+
 if (empty($_GET['clinic_slug'])) {
     $reqUri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
     $reqPath = $reqUri !== '' ? parse_url($reqUri, PHP_URL_PATH) : '';
@@ -25,57 +26,196 @@ if (empty($_GET['clinic_slug'])) {
         }
     }
 }
-$clinic_slug_boot = isset($_GET['clinic_slug']) ? trim((string) $_GET['clinic_slug']) : '';
-if ($clinic_slug_boot !== '' && preg_match('/^[a-z0-9\-]+$/', strtolower($clinic_slug_boot))) {
-    $_GET['clinic_slug'] = strtolower($clinic_slug_boot);
+
+$clinicSlugBoot = isset($_GET['clinic_slug']) ? trim((string) $_GET['clinic_slug']) : '';
+if ($clinicSlugBoot !== '' && preg_match('/^[a-z0-9\-]+$/', strtolower($clinicSlugBoot))) {
+    $_GET['clinic_slug'] = strtolower($clinicSlugBoot);
     require_once __DIR__ . '/tenant_bootstrap.php';
     if (!isset($currentTenantSlug) || trim((string) $currentTenantSlug) === '') {
-        $currentTenantSlug = strtolower($clinic_slug_boot);
+        $currentTenantSlug = strtolower($clinicSlugBoot);
     }
 } else {
     $currentTenantSlug = '';
 }
 
-$staffDisplayName = isset($_SESSION['user_name']) ? htmlspecialchars((string) $_SESSION['user_name'], ENT_QUOTES, 'UTF-8') : 'Staff';
-$staffRoleLabel = isset($_SESSION['user_role']) ? htmlspecialchars(ucwords(str_replace('_', ' ', (string) $_SESSION['user_role'])), ENT_QUOTES, 'UTF-8') : 'Staff';
-$staffInitials = 'S';
-$__nm = trim((string) ($_SESSION['user_name'] ?? ''));
-if ($__nm !== '') {
-    $__parts = preg_split('/\s+/', $__nm, -1, PREG_SPLIT_NO_EMPTY);
-    $staffInitials = '';
-    foreach (array_slice($__parts, 0, 2) as $__p) {
-        $staffInitials .= strtoupper(substr($__p, 0, 1));
-    }
-    if ($staffInitials === '') {
-        $staffInitials = 'S';
-    }
+$tenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
+$selectedDate = isset($_GET['date']) ? trim((string) $_GET['date']) : date('Y-m-d');
+if (!preg_match('/^\d{4}\-\d{2}\-\d{2}$/', $selectedDate)) {
+    $selectedDate = date('Y-m-d');
 }
-$staffInitialsEsc = htmlspecialchars($staffInitials, ENT_QUOTES, 'UTF-8');
-$staffDisplayEmail = isset($_SESSION['user_email']) ? trim((string) $_SESSION['user_email']) : '';
-$staffDisplayEmailEsc = $staffDisplayEmail !== '' ? htmlspecialchars($staffDisplayEmail, ENT_QUOTES, 'UTF-8') : '';
-$staffLogoutUrl = htmlspecialchars(BASE_URL . 'api/logout.php', ENT_QUOTES, 'UTF-8');
-$staffDashUrl = htmlspecialchars(BASE_URL . 'StaffDashboard.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
-$staffApptsUrl = htmlspecialchars(BASE_URL . 'StaffAppointments.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
-$staff_portal_sidebar_mode = 'appointments';
-$staff_nav_active = 'appointments';
-unset($__nm, $__parts, $__p);
+
+$selectedMonth = isset($_GET['month']) ? trim((string) $_GET['month']) : substr($selectedDate, 0, 7);
+if (!preg_match('/^\d{4}\-\d{2}$/', $selectedMonth)) {
+    $selectedMonth = substr($selectedDate, 0, 7);
+}
+
+$allowedStatuses = ['all', 'scheduled', 'pending', 'cancelled', 'completed', 'no_show'];
+$selectedStatus = isset($_GET['status']) ? strtolower(trim((string) $_GET['status'])) : 'all';
+if (!in_array($selectedStatus, $allowedStatuses, true)) {
+    $selectedStatus = 'all';
+}
+
+$searchTerm = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
+
+$summary = [
+    'scheduled' => 0,
+    'cancelled' => 0,
+    'pending' => 0,
+];
+$dailyAppointments = [];
+$monthCounts = [];
+
+$monthStart = $selectedMonth . '-01';
+$monthStartTs = strtotime($monthStart);
+$monthEnd = date('Y-m-t', $monthStartTs ?: time());
+$prevMonth = date('Y-m', strtotime('-1 month', $monthStartTs ?: time()));
+$nextMonth = date('Y-m', strtotime('+1 month', $monthStartTs ?: time()));
+
+function buildAppointmentsUrl(array $overrides = []): string
+{
+    global $currentTenantSlug, $selectedDate, $selectedMonth, $selectedStatus, $searchTerm;
+    $params = [
+        'clinic_slug' => $currentTenantSlug,
+        'date' => $selectedDate,
+        'month' => $selectedMonth,
+        'status' => $selectedStatus,
+        'q' => $searchTerm,
+    ];
+    foreach ($overrides as $key => $value) {
+        if ($value === null || $value === '') {
+            unset($params[$key]);
+        } else {
+            $params[$key] = $value;
+        }
+    }
+    return BASE_URL . 'StaffAppointments.php?' . http_build_query($params);
+}
+
+try {
+    $pdo = getDBConnection();
+
+    if ($tenantId === '' && $currentTenantSlug !== '') {
+        $tenantStmt = $pdo->prepare('SELECT tenant_id FROM tbl_tenants WHERE clinic_slug = ? LIMIT 1');
+        $tenantStmt->execute([$currentTenantSlug]);
+        $tenantRow = $tenantStmt->fetch(PDO::FETCH_ASSOC);
+        if ($tenantRow && isset($tenantRow['tenant_id'])) {
+            $tenantId = (string) $tenantRow['tenant_id'];
+        }
+    }
+
+    if ($tenantId !== '') {
+        $summaryStmt = $pdo->prepare("
+            SELECT
+                SUM(CASE WHEN status IN ('confirmed', 'scheduled') THEN 1 ELSE 0 END) AS scheduled_count,
+                SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_count,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_count
+            FROM tbl_appointments
+            WHERE tenant_id = ? AND appointment_date = ?
+        ");
+        $summaryStmt->execute([$tenantId, $selectedDate]);
+        $summaryRow = $summaryStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $summary['scheduled'] = (int) ($summaryRow['scheduled_count'] ?? 0);
+        $summary['cancelled'] = (int) ($summaryRow['cancelled_count'] ?? 0);
+        $summary['pending'] = (int) ($summaryRow['pending_count'] ?? 0);
+
+        $monthStmt = $pdo->prepare("
+            SELECT appointment_date, COUNT(*) AS day_count
+            FROM tbl_appointments
+            WHERE tenant_id = ?
+              AND appointment_date BETWEEN ? AND ?
+            GROUP BY appointment_date
+        ");
+        $monthStmt->execute([$tenantId, $monthStart, $monthEnd]);
+        foreach ($monthStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $day = (string) ($row['appointment_date'] ?? '');
+            if ($day !== '') {
+                $monthCounts[$day] = (int) ($row['day_count'] ?? 0);
+            }
+        }
+
+        $dailySql = "
+            SELECT
+                a.booking_id,
+                a.patient_id,
+                a.appointment_date,
+                a.appointment_time,
+                a.service_type,
+                a.service_description,
+                a.treatment_type,
+                a.status,
+                a.notes,
+                a.total_treatment_cost,
+                a.created_by,
+                p.first_name AS patient_first_name,
+                p.last_name AS patient_last_name,
+                p.contact_number AS patient_contact_number,
+                p.patient_id AS patient_display_id,
+                u.email AS created_by_email
+            FROM tbl_appointments a
+            LEFT JOIN tbl_patients p
+              ON p.tenant_id = a.tenant_id
+             AND p.patient_id = a.patient_id
+            LEFT JOIN tbl_users u
+              ON u.user_id = a.created_by
+            WHERE a.tenant_id = ?
+              AND a.appointment_date = ?
+        ";
+        $params = [$tenantId, $selectedDate];
+
+        if ($selectedStatus === 'scheduled') {
+            $dailySql .= " AND a.status IN ('confirmed', 'scheduled')";
+        } elseif ($selectedStatus !== 'all') {
+            $dailySql .= " AND a.status = ?";
+            $params[] = $selectedStatus;
+        }
+
+        if ($searchTerm !== '') {
+            $dailySql .= " AND (
+                a.booking_id LIKE ?
+                OR a.service_type LIKE ?
+                OR a.service_description LIKE ?
+                OR a.patient_id LIKE ?
+                OR CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(p.last_name, '')) LIKE ?
+            )";
+            $like = '%' . $searchTerm . '%';
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+        }
+
+        $dailySql .= " ORDER BY a.appointment_time ASC, a.created_at ASC";
+        $dailyStmt = $pdo->prepare($dailySql);
+        $dailyStmt->execute($params);
+        $dailyAppointments = $dailyStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+} catch (Throwable $e) {
+    error_log('Staff appointments load error: ' . $e->getMessage());
+}
+
+$statusLabels = [
+    'all' => 'All Statuses',
+    'scheduled' => 'Scheduled',
+    'pending' => 'Pending',
+    'cancelled' => 'Cancelled',
+    'completed' => 'Completed',
+    'no_show' => 'No Show',
+];
 ?>
 <!DOCTYPE html>
-
-<html class="light" lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Appointments | Clinical Precision</title>
-<!-- Google Fonts: Manrope & Playfair Display -->
-<link href="https://fonts.googleapis.com" rel="preconnect"/>
-<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,400;1,700&amp;display=swap" rel="stylesheet"/>
-<!-- Material Symbols -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<!-- Tailwind CSS -->
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script id="tailwind-config">
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Appointments | Clinical Precision</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect"/>
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,400;1,700&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
             theme: {
@@ -85,9 +225,7 @@ unset($__nm, $__parts, $__p);
                         "background": "#f8fafc",
                         "surface": "#ffffff",
                         "on-background": "#101922",
-                        "on-surface-variant": "#404752",
-                        "surface-container-low": "#edf4ff",
-                        "outline-variant": "#cbd5e1"
+                        "on-surface-variant": "#404752"
                     },
                     fontFamily: {
                         "headline": ["Manrope", "sans-serif"],
@@ -98,12 +236,12 @@ unset($__nm, $__parts, $__p);
                         "xl": "1rem",
                         "2xl": "1.5rem",
                         "3xl": "2.5rem"
-                    },
-                },
-            },
-        }
+                    }
+                }
+            }
+        };
     </script>
-<style>
+    <style>
         body { font-family: 'Manrope', sans-serif; }
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
@@ -111,7 +249,7 @@ unset($__nm, $__parts, $__p);
         }
         .mesh-bg {
             background-color: #f8fafc;
-            background-image: 
+            background-image:
                 radial-gradient(at 0% 0%, rgba(43, 139, 235, 0.03) 0px, transparent 50%),
                 radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.01) 0px, transparent 50%);
         }
@@ -120,236 +258,329 @@ unset($__nm, $__parts, $__p);
             border: 1px solid rgba(226, 232, 240, 0.8);
             box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
         }
-        .active-glow {
-            box-shadow: 0 0 20px -5px rgba(43, 139, 235, 0.4);
-        }
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
-<!-- SideNavBar Component -->
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<!-- Main Content Area -->
 <main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20">
-<?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
-<!-- Scrollable Content -->
-<div class="p-10 space-y-10">
-<!-- Welcome Header -->
-<section class="flex flex-col gap-4 mb-4">
-<div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
-<span class="w-12 h-[1.5px] bg-primary"></span> APPOINTMENT MANAGEMENT
+    <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
+    <div class="p-10 space-y-8">
+        <section class="flex flex-col gap-4">
+            <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
+                <span class="w-12 h-[1.5px] bg-primary"></span> APPOINTMENT MANAGEMENT
+            </div>
+            <div>
+                <h2 class="font-headline text-5xl font-extrabold tracking-tighter leading-tight text-on-background">
+                    Bookings <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Manager</span>
+                </h2>
+                <p class="font-body text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3">
+                    Daily schedule with status tracking and treatment details.
+                </p>
+            </div>
+        </section>
+
+        <section class="elevated-card p-6 rounded-3xl">
+            <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <input type="hidden" name="clinic_slug" value="<?php echo htmlspecialchars($currentTenantSlug, ENT_QUOTES, 'UTF-8'); ?>"/>
+                <input type="hidden" name="month" value="<?php echo htmlspecialchars($selectedMonth, ENT_QUOTES, 'UTF-8'); ?>"/>
+                <div>
+                    <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-widest mb-2">Date</label>
+                    <input class="w-full bg-slate-50 border-none rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 text-sm font-bold" type="date" name="date" value="<?php echo htmlspecialchars($selectedDate, ENT_QUOTES, 'UTF-8'); ?>"/>
                 </div>
-<div>
-<h2 class="font-headline text-6xl font-extrabold tracking-tighter leading-tight text-on-background">
-                        Manage <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Appointments</span>
-</h2>
-<p class="font-body text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-4">
-                        Track and manage all patient visits and clinical staff scheduling for today.
+                <div>
+                    <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-widest mb-2">Status</label>
+                    <select class="w-full bg-slate-50 border-none rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 text-sm font-bold" name="status">
+                        <?php foreach ($statusLabels as $value => $label): ?>
+                            <option value="<?php echo htmlspecialchars($value, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $selectedStatus === $value ? ' selected' : ''; ?>>
+                                <?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-widest mb-2">Search</label>
+                    <input class="w-full bg-slate-50 border-none rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 text-sm font-bold" type="text" name="q" value="<?php echo htmlspecialchars($searchTerm, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Patient, booking, service"/>
+                </div>
+                <button class="bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-primary/25" type="submit">
+                    Apply Filters
+                </button>
+            </form>
+        </section>
+
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="elevated-card p-7 rounded-3xl">
+                <div class="w-11 h-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-5">
+                    <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event_available</span>
+                </div>
+                <p class="text-4xl font-extrabold tracking-tight"><?php echo number_format($summary['scheduled']); ?></p>
+                <p class="text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Scheduled</p>
+            </div>
+            <div class="elevated-card p-7 rounded-3xl">
+                <div class="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-5">
+                    <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">cancel</span>
+                </div>
+                <p class="text-4xl font-extrabold tracking-tight"><?php echo number_format($summary['cancelled']); ?></p>
+                <p class="text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Cancelled</p>
+            </div>
+            <div class="elevated-card p-7 rounded-3xl">
+                <div class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-5">
+                    <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">pending_actions</span>
+                </div>
+                <p class="text-4xl font-extrabold tracking-tight"><?php echo number_format($summary['pending']); ?></p>
+                <p class="text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Pending</p>
+            </div>
+        </section>
+
+        <section class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div class="xl:col-span-2 elevated-card rounded-3xl overflow-hidden">
+                <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white">
+                    <h3 class="text-2xl font-bold font-headline text-on-background">Daily Schedule</h3>
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                        <?php echo htmlspecialchars(date('M d, Y', strtotime($selectedDate)), ENT_QUOTES, 'UTF-8'); ?>
                     </p>
-</div>
-</section>
-<!-- Filters & View Switcher -->
-<section class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-<div class="flex flex-wrap items-center gap-3">
-<button class="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
-<span class="material-symbols-outlined text-primary text-lg">calendar_month</span>
-                        Today, Oct 24
-                        <span class="material-symbols-outlined text-xs">expand_more</span>
-</button>
-<button class="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
-<span class="material-symbols-outlined text-primary text-lg">filter_list</span>
-                        All Statuses
-                        <span class="material-symbols-outlined text-xs">expand_more</span>
-</button>
-<button class="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
-<span class="material-symbols-outlined text-primary text-lg">person</span>
-                        All Staff
-                        <span class="material-symbols-outlined text-xs">expand_more</span>
-</button>
-</div>
-<div class="flex bg-slate-100 p-1 rounded-xl">
-<button class="px-5 py-2 text-[10px] font-black uppercase tracking-widest bg-white text-primary rounded-lg shadow-sm flex items-center gap-2">
-<span class="material-symbols-outlined text-sm">format_list_bulleted</span>
-                        Table View
-                    </button>
-<button class="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors flex items-center gap-2">
-<span class="material-symbols-outlined text-sm">calendar_view_month</span>
-                        Calendar View
-                    </button>
-</div>
-</section>
-<!-- Appointments Table -->
-<div class="elevated-card rounded-3xl overflow-hidden border-2 border-primary/20 w-full">
-<div class="px-10 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
-<h5 class="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">Live Appointment Manifest</h5>
-<p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Total 24 Entries</p>
-</div>
-<div class="overflow-x-auto">
-<table class="w-full text-left">
-<thead>
-<tr class="bg-slate-50/50">
-<th class="px-10 py-6 text-[11px] font-black uppercase tracking-widest text-on-surface-variant/60">Patient Name</th>
-<th class="px-10 py-6 text-[11px] font-black uppercase tracking-widest text-on-surface-variant/60">Date &amp; Time</th>
-<th class="px-10 py-6 text-[11px] font-black uppercase tracking-widest text-on-surface-variant/60">Service</th>
-<th class="px-10 py-6 text-[11px] font-black uppercase tracking-widest text-on-surface-variant/60">Assigned Staff</th>
-<th class="px-10 py-6 text-[11px] font-black uppercase tracking-widest text-on-surface-variant/60">Status</th>
-<th class="px-10 py-6 text-[11px] font-black uppercase tracking-widest text-on-surface-variant/60 text-right">Actions</th>
-</tr>
-</thead>
-<tbody class="divide-y divide-primary/20">
-<!-- Row 1: Confirmed -->
-<tr class="group hover:bg-slate-50/50 transition-colors">
-<td class="px-10 py-8">
-<div class="flex items-center gap-4">
-<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">AM</div>
-<div>
-<div class="text-lg font-bold text-on-background">Alice Morgenstern</div>
-<div class="text-sm text-slate-500 font-medium">#PT-8821</div>
-</div>
-</div>
-</td>
-<td class="px-10 py-8">
-<div class="text-lg font-bold text-on-background">09:30 AM</div>
-<div class="text-sm text-primary font-medium">Oct 24, 2023</div>
-</td>
-<td class="px-10 py-8">
-<span class="bg-slate-100 text-slate-700 text-[10px] font-black px-4 py-1.5 rounded-lg uppercase tracking-widest">Root Canal Therapy</span>
-</td>
-<td class="px-10 py-8">
-<div class="flex items-center gap-3">
-<img class="w-8 h-8 rounded-full object-cover border border-slate-200" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3xcEPvMDx3hKWppixKOrr9H_ESv5Ox3wKTgMMWAl9jvv5sJ-sM_otbjdnQGCSpaD0Y1G8r5ACrVRTSTZItSHBgROwPNw2Wt_87L8rHTNzXjrB3A4YHtrb_JUtRrQUGCNwitn2a8T5iYFdX8X_uwAZOgUNPWzrTVhEbWb7iISWohOrlXGJTn2aw2wXAlSd4omAEGJED3VDPNfEc-o1RrMIiNUwMDdc5OFKbyVZKFG4Lh0wJdrwxxzDw0KSBl5pmyebE1i1QfQ1C1Q"/>
-<span class="text-sm font-bold text-on-background">Dr. Robert Chen</span>
-</div>
-</td>
-<td class="px-10 py-8">
-<span class="bg-blue-100 text-blue-700 text-[10px] font-black px-4 py-1.5 rounded-lg uppercase tracking-widest">Confirmed</span>
-</td>
-<td class="px-10 py-8 text-right">
-<button class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white border border-slate-200 text-primary hover:border-primary transition-all shadow-sm">
-<span class="material-symbols-outlined text-xl">more_horiz</span>
-</button>
-</td>
-</tr>
-<!-- Row 2: Pending -->
-<tr class="group hover:bg-slate-50/50 transition-colors">
-<td class="px-10 py-8">
-<div class="flex items-center gap-4">
-<div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-xs">JH</div>
-<div>
-<div class="text-lg font-bold text-on-background">James Henderson</div>
-<div class="text-sm text-slate-500 font-medium">#PT-4590</div>
-</div>
-</div>
-</td>
-<td class="px-10 py-8">
-<div class="text-lg font-bold text-on-background">11:00 AM</div>
-<div class="text-sm text-primary font-medium">Oct 24, 2023</div>
-</td>
-<td class="px-10 py-8">
-<span class="bg-slate-100 text-slate-700 text-[10px] font-black px-4 py-1.5 rounded-lg uppercase tracking-widest">Routine Checkup</span>
-</td>
-<td class="px-10 py-8">
-<div class="flex items-center gap-3">
-<img class="w-8 h-8 rounded-full object-cover border border-slate-200" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfhQWKAdBy45m6Kfy6gisRKsXcfm64-3XzLPPgcfJor8a4_WryOgQp1LFH1q40sTaPWRKrqrWKPhcgIZrFBGSL2LjIQcM81GKW_kvv9SzwJLmwZOo2Q-v5eMGgCCzgVyn4C4sfMsQ39NxrDE_l2mYzD-YN9lBnMtiwdB0-_AhJGgOPCUEdpW8n3-W4OjYE5zDb4WstzBmyHMnM6z5H2FtfQW3vL_R_Muak2rOVsJdIZ2KO99JIbIrLYCsMY6qW4ER0Yqbt8MEi6YI"/>
-<span class="text-sm font-bold text-on-background">Dr. Sarah Jenkins</span>
-</div>
-</td>
-<td class="px-10 py-8">
-<span class="bg-amber-100 text-amber-700 text-[10px] font-black px-4 py-1.5 rounded-lg uppercase tracking-widest">Pending</span>
-</td>
-<td class="px-10 py-8 text-right">
-<button class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white border border-slate-200 text-primary hover:border-primary transition-all shadow-sm">
-<span class="material-symbols-outlined text-xl">more_horiz</span>
-</button>
-</td>
-</tr>
-<!-- Row 3: Completed -->
-<tr class="group hover:bg-slate-50/50 transition-colors">
-<td class="px-10 py-8">
-<div class="flex items-center gap-4">
-<div class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-xs">LB</div>
-<div>
-<div class="text-lg font-bold text-on-background">Linda Belcher</div>
-<div class="text-sm text-slate-500 font-medium">#PT-1209</div>
-</div>
-</div>
-</td>
-<td class="px-10 py-8">
-<div class="text-lg font-bold text-on-background">08:00 AM</div>
-<div class="text-sm text-primary font-medium">Oct 24, 2023</div>
-</td>
-<td class="px-10 py-8">
-<span class="bg-slate-100 text-slate-700 text-[10px] font-black px-4 py-1.5 rounded-lg uppercase tracking-widest">Teeth Whitening</span>
-</td>
-<td class="px-10 py-8">
-<div class="flex items-center gap-3">
-<img class="w-8 h-8 rounded-full object-cover border border-slate-200" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7K5wkGGvbQlR3D68i4kaLEW8dCAcoQsteLUon03eIgvCsFZaGEaekjBZP3NW83QCLivercvQ6n_A2f8yst2itmHiGXnoYkSw3Dx4N-XpZM1JtZY_7ZH7vrclKCGeHCHMMnmvNZglgrXHjkLdOCAjiz32Exjj_rv5TDEK7LheBzS0n3c3F1k3M4qvZ73n690xm6nVPnySFHzexspEnYoLGgbo-iTxHh6gixLKiEUzkI03I5R68oCRGuQFdAcaB3GfXNxAgmNWvTfE"/>
-<span class="text-sm font-bold text-on-background">Dr. Michael Vance</span>
-</div>
-</td>
-<td class="px-10 py-8">
-<span class="bg-green-100 text-green-700 text-[10px] font-black px-4 py-1.5 rounded-lg uppercase tracking-widest">Completed</span>
-</td>
-<td class="px-10 py-8 text-right">
-<button class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white border border-slate-200 text-primary hover:border-primary transition-all shadow-sm">
-<span class="material-symbols-outlined text-xl">more_horiz</span>
-</button>
-</td>
-</tr>
-<!-- Row 4: Cancelled -->
-<tr class="group hover:bg-slate-50/50 transition-colors opacity-75">
-<td class="px-10 py-8">
-<div class="flex items-center gap-4">
-<div class="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-700 font-bold text-xs">TP</div>
-<div>
-<div class="text-lg font-bold text-on-background">Tom Phillips</div>
-<div class="text-sm text-slate-500 font-medium">#PT-7734</div>
-</div>
-</div>
-</td>
-<td class="px-10 py-8">
-<div class="text-lg font-bold text-on-background">01:30 PM</div>
-<div class="text-sm text-primary font-medium">Oct 24, 2023</div>
-</td>
-<td class="px-10 py-8">
-<span class="bg-slate-100 text-slate-700 text-[10px] font-black px-4 py-1.5 rounded-lg uppercase tracking-widest">Braces Fitting</span>
-</td>
-<td class="px-10 py-8">
-<div class="flex items-center gap-3">
-<img class="w-8 h-8 rounded-full object-cover border border-slate-200" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3xcEPvMDx3hKWppixKOrr9H_ESv5Ox3wKTgMMWAl9jvv5sJ-sM_otbjdnQGCSpaD0Y1G8r5ACrVRTSTZItSHBgROwPNw2Wt_87L8rHTNzXjrB3A4YHtrb_JUtRrQUGCNwitn2a8T5iYFdX8X_uwAZOgUNPWzrTVhEbWb7iISWohOrlXGJTn2aw2wXAlSd4omAEGJED3VDPNfEc-o1RrMIiNUwMDdc5OFKbyVZKFG4Lh0wJdrwxxzDw0KSBl5pmyebE1i1QfQ1C1Q"/>
-<span class="text-sm font-bold text-on-background">Dr. Robert Chen</span>
-</div>
-</td>
-<td class="px-10 py-8">
-<span class="bg-rose-100 text-rose-700 text-[10px] font-black px-4 py-1.5 rounded-lg uppercase tracking-widest">Cancelled</span>
-</td>
-<td class="px-10 py-8 text-right">
-<button class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white border border-slate-200 text-primary hover:border-primary transition-all shadow-sm">
-<span class="material-symbols-outlined text-xl">more_horiz</span>
-</button>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-<!-- Pagination / Table Footer -->
-<div class="bg-slate-50/50 px-10 py-5 border-t border-slate-100 flex justify-between items-center">
-<p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Showing 4 of 24 appointments</p>
-<div class="flex gap-2">
-<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400">
-<span class="material-symbols-outlined text-xl">chevron_left</span>
-</button>
-<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-primary text-white text-[10px] font-black shadow-lg shadow-primary/30">1</button>
-<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-primary text-[10px] font-black hover:border-primary transition-all">2</button>
-<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-primary text-[10px] font-black hover:border-primary transition-all">3</button>
-<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-primary hover:border-primary transition-all shadow-sm">
-<span class="material-symbols-outlined text-xl">chevron_right</span>
-</button>
-</div>
-</div>
-</div>
-</div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                        <tr class="bg-slate-50/70">
+                            <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Time</th>
+                            <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Patient</th>
+                            <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Treatment</th>
+                            <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Type</th>
+                            <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
+                            <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                        <?php if (empty($dailyAppointments)): ?>
+                            <tr>
+                                <td colspan="6" class="px-6 py-10 text-center text-slate-500 font-semibold">No appointments found for this day/filter.</td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($dailyAppointments as $appointment): ?>
+                                <?php
+                                $patientName = trim(((string) ($appointment['patient_first_name'] ?? '')) . ' ' . ((string) ($appointment['patient_last_name'] ?? '')));
+                                if ($patientName === '') {
+                                    $patientName = 'Unknown Patient';
+                                }
+                                $timeLabel = !empty($appointment['appointment_time']) ? date('g:i A', strtotime((string) $appointment['appointment_time'])) : '-';
+                                $statusRaw = strtolower(trim((string) ($appointment['status'] ?? 'pending')));
+                                if ($statusRaw === 'confirmed') {
+                                    $statusRaw = 'scheduled';
+                                }
+                                $statusLabel = ucfirst(str_replace('_', ' ', $statusRaw));
+                                $statusClass = 'bg-amber-50 text-amber-600';
+                                if ($statusRaw === 'scheduled') {
+                                    $statusClass = 'bg-primary/10 text-primary';
+                                } elseif ($statusRaw === 'cancelled') {
+                                    $statusClass = 'bg-rose-50 text-rose-600';
+                                } elseif ($statusRaw === 'completed') {
+                                    $statusClass = 'bg-emerald-50 text-emerald-600';
+                                } elseif ($statusRaw === 'no_show') {
+                                    $statusClass = 'bg-slate-200 text-slate-700';
+                                }
+                                $treatmentType = (string) ($appointment['treatment_type'] ?? 'short_term');
+                                $typeLabel = ucfirst(str_replace('_', ' ', $treatmentType));
+                                $patientIdLabel = (string) ($appointment['patient_display_id'] ?? $appointment['patient_id'] ?? 'N/A');
+                                $staffLabel = trim((string) ($appointment['created_by_email'] ?? ''));
+                                if ($staffLabel === '') {
+                                    $staffLabel = trim((string) ($appointment['created_by'] ?? ''));
+                                }
+                                if ($staffLabel === '') {
+                                    $staffLabel = 'Unassigned';
+                                }
+                                ?>
+                                <tr class="hover:bg-slate-50/40 transition-colors">
+                                    <td class="px-6 py-5 text-sm font-bold text-primary"><?php echo htmlspecialchars($timeLabel, ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td class="px-6 py-5">
+                                        <p class="text-sm font-bold text-slate-800"><?php echo htmlspecialchars($patientName, ENT_QUOTES, 'UTF-8'); ?></p>
+                                        <p class="text-[10px] font-bold uppercase tracking-wide text-slate-500 mt-0.5"><?php echo htmlspecialchars((string) $patientIdLabel, ENT_QUOTES, 'UTF-8'); ?></p>
+                                    </td>
+                                    <td class="px-6 py-5 text-sm font-semibold text-slate-700"><?php echo htmlspecialchars((string) ($appointment['service_type'] ?? 'General Consultation'), ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td class="px-6 py-5">
+                                        <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-wider">
+                                            <?php echo htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8'); ?>
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-5">
+                                        <span class="px-2.5 py-1 rounded-full <?php echo $statusClass; ?> text-[10px] font-black uppercase tracking-wider">
+                                            <?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?>
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-5 text-right">
+                                        <button
+                                            type="button"
+                                            class="open-treatment-modal inline-flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200 text-primary hover:border-primary transition-all"
+                                            data-booking-id="<?php echo htmlspecialchars((string) ($appointment['booking_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-patient-name="<?php echo htmlspecialchars($patientName, ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-patient-id="<?php echo htmlspecialchars((string) $patientIdLabel, ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-patient-contact="<?php echo htmlspecialchars((string) ($appointment['patient_contact_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-staff="<?php echo htmlspecialchars($staffLabel, ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-date="<?php echo htmlspecialchars(date('F j, Y', strtotime((string) ($appointment['appointment_date'] ?? $selectedDate))), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-time="<?php echo htmlspecialchars($timeLabel, ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-type="<?php echo htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-treatment="<?php echo htmlspecialchars((string) ($appointment['service_type'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-description="<?php echo htmlspecialchars((string) ($appointment['service_description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-cost="<?php echo htmlspecialchars(number_format((float) ($appointment['total_treatment_cost'] ?? 0), 2), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-notes="<?php echo htmlspecialchars((string) ($appointment['notes'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-status="<?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?>"
+                                        >
+                                            <span class="material-symbols-outlined text-[20px]">visibility</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/40">
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                        Showing <?php echo number_format(count($dailyAppointments)); ?> appointment(s)
+                    </p>
+                </div>
+            </div>
+
+            <div class="elevated-card rounded-3xl p-6">
+                <div class="flex items-center justify-between mb-5">
+                    <a href="<?php echo htmlspecialchars(buildAppointmentsUrl(['month' => $prevMonth]), ENT_QUOTES, 'UTF-8'); ?>" class="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:text-primary hover:border-primary transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">chevron_left</span>
+                    </a>
+                    <h4 class="text-lg font-bold text-primary"><?php echo htmlspecialchars(date('F Y', strtotime($selectedMonth . '-01')), ENT_QUOTES, 'UTF-8'); ?></h4>
+                    <a href="<?php echo htmlspecialchars(buildAppointmentsUrl(['month' => $nextMonth]), ENT_QUOTES, 'UTF-8'); ?>" class="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:text-primary hover:border-primary transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">chevron_right</span>
+                    </a>
+                </div>
+                <div class="grid grid-cols-7 gap-2 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                    <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+                </div>
+                <div class="grid grid-cols-7 gap-2">
+                    <?php
+                    $firstDayTs = strtotime($selectedMonth . '-01');
+                    $firstDayWeekIndex = (int) date('w', $firstDayTs ?: time());
+                    $daysInMonth = (int) date('t', $firstDayTs ?: time());
+                    for ($blank = 0; $blank < $firstDayWeekIndex; $blank++):
+                    ?>
+                        <div class="h-10"></div>
+                    <?php endfor; ?>
+                    <?php for ($day = 1; $day <= $daysInMonth; $day++): ?>
+                        <?php
+                        $dayDate = sprintf('%s-%02d', $selectedMonth, $day);
+                        $isSelected = $dayDate === $selectedDate;
+                        $count = isset($monthCounts[$dayDate]) ? (int) $monthCounts[$dayDate] : 0;
+                        ?>
+                        <a
+                            href="<?php echo htmlspecialchars(buildAppointmentsUrl(['date' => $dayDate]), ENT_QUOTES, 'UTF-8'); ?>"
+                            class="h-10 rounded-xl border flex items-center justify-center relative text-sm font-bold transition-colors <?php echo $isSelected ? 'bg-primary text-white border-primary' : 'border-slate-200 text-slate-700 hover:border-primary hover:text-primary'; ?>"
+                        >
+                            <?php echo (int) $day; ?>
+                            <?php if ($count > 0): ?>
+                                <span class="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full <?php echo $isSelected ? 'bg-white' : 'bg-primary'; ?>"></span>
+                            <?php endif; ?>
+                        </a>
+                    <?php endfor; ?>
+                </div>
+            </div>
+        </section>
+    </div>
 </main>
-</body></html>
+
+<div id="treatmentModal" class="hidden fixed inset-0 z-[70]">
+    <div class="absolute inset-0 bg-slate-900/50" id="modalBackdrop"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-3xl rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h4 class="text-2xl font-bold text-primary">Treatment Details</h4>
+                <button type="button" id="modalCloseBtn" class="w-8 h-8 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                <div>
+                    <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Patient Information</p>
+                    <p class="font-semibold text-slate-500">Name</p>
+                    <p id="mPatientName" class="font-bold text-slate-900 mb-3">-</p>
+                    <p class="font-semibold text-slate-500">Patient ID</p>
+                    <p id="mPatientId" class="font-bold text-slate-900 mb-3">-</p>
+                    <p class="font-semibold text-slate-500">Contact Number</p>
+                    <p id="mPatientContact" class="font-bold text-slate-900 mb-3">-</p>
+                    <p class="font-semibold text-slate-500">Assigned Staff</p>
+                    <p id="mStaff" class="font-bold text-slate-900">-</p>
+                </div>
+                <div>
+                    <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Appointment Details</p>
+                    <p class="font-semibold text-slate-500">Booking ID</p>
+                    <p id="mBookingId" class="font-bold text-slate-900 mb-3">-</p>
+                    <p class="font-semibold text-slate-500">Date</p>
+                    <p id="mDate" class="font-bold text-slate-900 mb-3">-</p>
+                    <p class="font-semibold text-slate-500">Time</p>
+                    <p id="mTime" class="font-bold text-slate-900 mb-3">-</p>
+                    <p class="font-semibold text-slate-500">Treatment Type</p>
+                    <p id="mType" class="font-bold text-slate-900 mb-3">-</p>
+                    <p class="font-semibold text-slate-500">Status</p>
+                    <p id="mStatus" class="font-bold text-slate-900">-</p>
+                </div>
+                <div class="md:col-span-2">
+                    <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Treatment Information</p>
+                    <p class="font-semibold text-slate-500">Treatment/Service</p>
+                    <p id="mTreatment" class="font-bold text-slate-900 mb-3">-</p>
+                    <p class="font-semibold text-slate-500">Service Description</p>
+                    <p id="mDescription" class="font-medium text-slate-700 bg-slate-50 p-3 rounded-lg mb-3">-</p>
+                    <p class="font-semibold text-slate-500">Total Cost</p>
+                    <p id="mCost" class="font-bold text-slate-900 mb-3">-</p>
+                    <p class="font-semibold text-slate-500">Notes</p>
+                    <p id="mNotes" class="font-medium text-slate-700">-</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const modal = document.getElementById('treatmentModal');
+    const modalBackdrop = document.getElementById('modalBackdrop');
+    const closeBtn = document.getElementById('modalCloseBtn');
+    const openButtons = document.querySelectorAll('.open-treatment-modal');
+
+    function setText(id, value) {
+        const node = document.getElementById(id);
+        if (node) {
+            node.textContent = value && value.trim() !== '' ? value : '-';
+        }
+    }
+
+    function openModal(button) {
+        setText('mBookingId', button.dataset.bookingId || '');
+        setText('mPatientName', button.dataset.patientName || '');
+        setText('mPatientId', button.dataset.patientId || '');
+        setText('mPatientContact', button.dataset.patientContact || '');
+        setText('mStaff', button.dataset.staff || '');
+        setText('mDate', button.dataset.date || '');
+        setText('mTime', button.dataset.time || '');
+        setText('mType', button.dataset.type || '');
+        setText('mStatus', button.dataset.status || '');
+        setText('mTreatment', button.dataset.treatment || '');
+        setText('mDescription', button.dataset.description || '');
+        setText('mCost', button.dataset.cost ? 'PHP ' + button.dataset.cost : '');
+        setText('mNotes', button.dataset.notes || '');
+        modal.classList.remove('hidden');
+    }
+
+    function closeModal() {
+        modal.classList.add('hidden');
+    }
+
+    openButtons.forEach((button) => {
+        button.addEventListener('click', () => openModal(button));
+    });
+
+    closeBtn.addEventListener('click', closeModal);
+    modalBackdrop.addEventListener('click', closeModal);
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+</script>
+</body>
+</html>
