@@ -142,8 +142,8 @@ function createService() {
     try {
         $stmt = $pdo->prepare("
             INSERT INTO tbl_services (
-                tenant_id, service_id, service_name, service_details, category, price, status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+                tenant_id, service_id, service_name, service_details, category, price, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
         ");
         
         $stmt->execute([
@@ -237,7 +237,7 @@ function getServices() {
             $totalItems = $countStmt->fetchColumn();
             
             // Get paginated results
-            $sql = "SELECT * FROM tbl_services $whereClause ORDER BY created_at DESC LIMIT ? OFFSET ?";
+            $sql = "SELECT * FROM tbl_services $whereClause ORDER BY id DESC LIMIT ? OFFSET ?";
             $stmt = $pdo->prepare($sql);
             $params[] = $limit;
             $params[] = $offset;
@@ -344,8 +344,7 @@ function updateService() {
                 service_details = ?, 
                 category = ?, 
                 price = ?, 
-                status = ?,
-                updated_at = NOW()
+                status = ?
             WHERE id = ? AND tenant_id = ?
         ");
         
@@ -413,8 +412,7 @@ function deleteService() {
         // Soft delete by setting status to inactive
         $stmt = $pdo->prepare("
             UPDATE tbl_services 
-            SET status = 'inactive',
-                updated_at = NOW()
+            SET status = 'inactive'
             WHERE id = ? AND tenant_id = ?
         ");
         
