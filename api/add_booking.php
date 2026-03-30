@@ -22,6 +22,20 @@ $payment_amount = $input['payment_amount'] ?? 0;
 $payment_method = $input['payment_method'] ?? 'gcash';
 $reference_number = $input['reference_number'] ?? null;
 
+// Prepare Summary for Web Dashboard display
+$services = is_array($services_json) ? $services_json : json_decode($services_json, true);
+$service_type_summary = [];
+$service_desc_summary = [];
+foreach ($services as $srv) {
+    $service_type_summary[] = $srv['name'] ?? 'Service';
+    if (!empty($srv['details'])) {
+        $service_desc_summary[] = $srv['details'];
+    }
+}
+$combined_types = implode(", ", $service_type_summary);
+$combined_descs = implode("\n", $service_desc_summary);
+if (empty($combined_descs)) $combined_descs = $combined_types; // Fallback
+
 if (!$user_id || !$appointment_date || !$appointment_time) {
     die(json_encode(["status" => "error", "message" => "Missing required fields"]));
 }
@@ -39,11 +53,11 @@ try {
 
     $pdo->beginTransaction();
 
-    // 1. Insert Appointment
+    // 1. Insert Appointment (Include summaries for Web Dashboard display)
     $stmt = $pdo->prepare("INSERT INTO tbl_appointments 
-        (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, total_treatment_cost, visit_type, created_by) 
-        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 'pre_book', ?)");
-    $stmt->execute([$tenant_id, $dentist_id, $booking_id, $patient_id, $appointment_date, $appointment_time, $total_amount, $user_id]);
+        (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, service_type, service_description, total_treatment_cost, visit_type, created_by) 
+        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, 'pre_book', ?)");
+    $stmt->execute([$tenant_id, $dentist_id, $booking_id, $patient_id, $appointment_date, $appointment_time, $combined_types, $combined_descs, $total_amount, $user_id]);
     $appointment_id = $pdo->lastInsertId();
 
     // 2. Insert Services Breakdown
