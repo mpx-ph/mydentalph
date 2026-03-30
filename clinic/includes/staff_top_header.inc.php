@@ -56,7 +56,7 @@ $__staff_profile_url = 'StaffMyProfile.php';
 if ($__slug_title !== '') {
     $__staff_profile_url .= '?clinic_slug=' . rawurlencode($__slug_title);
 }
-$__staff_logout_url = '../api/logout.php';
+$__staff_logout_url = '/clinic/api/logout.php';
 ?>
 <header class="fixed top-0 right-0 left-64 z-30 min-h-[4.5rem] sm:h-20 sm:min-h-0 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 shadow-sm shadow-slate-200/30" data-purpose="top-header">
   <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-6 lg:px-10 py-3 sm:py-0 sm:h-full">
