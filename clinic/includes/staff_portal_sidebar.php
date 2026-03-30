@@ -36,11 +36,6 @@ if (isset($currentTenantSlug) && trim((string) $currentTenantSlug) !== '') {
     }
 }
 
-$slugQuery = '';
-if ($sidebarClinicSlug !== '') {
-    $slugQuery = '?clinic_slug=' . rawurlencode($sidebarClinicSlug);
-}
-
 $requestPath = isset($_SERVER['REQUEST_URI']) ? (string) parse_url((string) $_SERVER['REQUEST_URI'], PHP_URL_PATH) : '';
 if (!is_string($requestPath) || $requestPath === '') {
     $requestPath = '/' . basename($scriptName !== '' ? $scriptName : 'StaffDashboard.php');
@@ -51,9 +46,12 @@ if ($linkBaseDir === '.' || $linkBaseDir === '\\') {
     $linkBaseDir = '';
 }
 
-$buildStaffHref = function ($targetFile) use ($linkBaseDir, $slugQuery) {
+$buildStaffHref = function ($targetFile) use ($linkBaseDir, $sidebarClinicSlug) {
+    if ($sidebarClinicSlug !== '') {
+        return '/' . rawurlencode($sidebarClinicSlug) . '/' . $targetFile;
+    }
     $base = $linkBaseDir !== '' ? $linkBaseDir : '';
-    return ($base === '' ? '/' : ($base . '/')) . $targetFile . $slugQuery;
+    return ($base === '' ? '/' : ($base . '/')) . $targetFile;
 };
 
 $navItems = [
