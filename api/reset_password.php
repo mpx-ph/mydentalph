@@ -60,9 +60,9 @@ try {
     $stmt = $pdo->prepare("UPDATE tbl_email_verifications SET verified_at = NOW() WHERE id = ?");
     $stmt->execute([$row['id']]);
 
-    // Update user's password
+    // Update user's password - uses 'password_hash' column per tbl_users schema
     $new_hash = password_hash($new_password, PASSWORD_DEFAULT);
-    $stmt = $pdo->prepare("UPDATE tbl_users SET password = ? WHERE user_id = ?");
+    $stmt = $pdo->prepare("UPDATE tbl_users SET password_hash = ? WHERE user_id = ?");
     $stmt->execute([$new_hash, $user_id]);
 
     $pdo->commit();
