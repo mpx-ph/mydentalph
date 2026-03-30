@@ -136,7 +136,10 @@ function createPatient() {
         
         $patientId = $pdo->lastInsertId();
         
-        jsonResponse(true, 'Patient created successfully.', ['patient_id' => $patientId]);
+        jsonResponse(true, 'Patient created successfully.', [
+            'id' => $patientId,
+            'patient_id' => $patientDisplayId
+        ]);
         
     } catch (Exception $e) {
         error_log('Patient creation error: ' . $e->getMessage());
@@ -185,8 +188,8 @@ function getPatients() {
             $sql = "
                 SELECT p.*,
                        u.email,
-                       (SELECT COUNT(*) FROM appointments WHERE patient_id = p.patient_id) as appointment_count,
-                       (SELECT COUNT(*) FROM payments WHERE patient_id = p.id) as payment_count
+                       (SELECT COUNT(*) FROM tbl_appointments a WHERE a.tenant_id = p.tenant_id AND a.patient_id = p.patient_id) as appointment_count,
+                       (SELECT COUNT(*) FROM tbl_payments py WHERE py.tenant_id = p.tenant_id AND py.patient_id = p.patient_id) as payment_count
                 FROM tbl_patients p
                 LEFT JOIN tbl_users u ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id
                 WHERE p.tenant_id = ?
@@ -377,35 +380,36 @@ function deletePatient() {
         jsonResponse(false, 'Patient ID is required.');
     }
     
+    // Resolve patient display id first (tbl_appointments/tbl_payments use patient_id VARCHAR)
+    $stmt = $pdo->prepare("SELECT patient_id FROM tbl_patients WHERE id = ? AND tenant_id = ?");
+    $stmt->execute([$patientId, $tenantId]);
+    $patientRow = $stmt->fetch();
+    if (!$patientRow) {
+        jsonResponse(false, 'Patient not found.');
+    }
+    $patientDisplayId = (string) ($patientRow['patient_id'] ?? '');
+
     // Check if patient has appointments or payments
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM appointments WHERE patient_id = ?");
-    $stmt->execute([$patientId]);
-    $appointmentCount = $stmt->fetch()['count'];
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM tbl_appointments WHERE tenant_id = ? AND patient_id = ?");
+    $stmt->execute([$tenantId, $patientDisplayId]);
+    $appointmentCount = (int) ($stmt->fetch()['count'] ?? 0);
     
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM payments WHERE patient_id = ?");
-    $stmt->execute([$patientId]);
-    $paymentCount = $stmt->fetch()['count'];
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM tbl_payments WHERE tenant_id = ? AND patient_id = ?");
+    $stmt->execute([$tenantId, $patientDisplayId]);
+    $paymentCount = (int) ($stmt->fetch()['count'] ?? 0);
     
     if ($appointmentCount > 0 || $paymentCount > 0) {
-        // Soft delete - set status to inactive
-        try {
-            $stmt = $pdo->prepare("UPDATE tbl_patients SET status = 'inactive', updated_at = NOW() WHERE id = ? AND tenant_id = ?");
-            $stmt->execute([$patientId, $tenantId]);
-            
-            jsonResponse(true, 'Patient deactivated successfully.');
-        } catch (Exception $e) {
-            jsonResponse(false, 'Failed to deactivate patient.');
-        }
-    } else {
-        // Hard delete if no related records
-        try {
-            $stmt = $pdo->prepare("DELETE FROM tbl_patients WHERE id = ? AND tenant_id = ?");
-            $stmt->execute([$patientId, $tenantId]);
-            
-            jsonResponse(true, 'Patient deleted successfully.');
-        } catch (Exception $e) {
-            jsonResponse(false, 'Failed to delete patient.');
-        }
+        jsonResponse(false, 'Cannot delete patient with existing appointments or payments.');
+    }
+
+    // Hard delete only (tbl_patients has no status column in schema.sql)
+    try {
+        $stmt = $pdo->prepare("DELETE FROM tbl_patients WHERE id = ? AND tenant_id = ?");
+        $stmt->execute([$patientId, $tenantId]);
+        
+        jsonResponse(true, 'Patient deleted successfully.');
+    } catch (Exception $e) {
+        jsonResponse(false, 'Failed to delete patient.');
     }
 }
 
