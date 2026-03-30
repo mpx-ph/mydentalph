@@ -26,6 +26,15 @@ if (!$user_id || !$appointment_date || !$appointment_time) {
     die(json_encode(["status" => "error", "message" => "Missing required fields"]));
 }
 
+// Prepare service summary for Web Portal dashboard
+$services = is_array($services_json) ? $services_json : json_decode($services_json, true);
+$service_names = [];
+foreach ($services as $srv) {
+    $service_names[] = $srv['name'] ?? 'Treatment';
+}
+$aggregated_services = implode(", ", $service_names);
+$service_description = "Selected Services: " . $aggregated_services;
+
 // Map User ID to Patient ID (usually same or linked)
 // For this demo, we'll assume a direct match or fetch first patient_id for that user
 try {
@@ -39,11 +48,11 @@ try {
 
     $pdo->beginTransaction();
 
-    // 1. Insert Appointment
+    // 1. Insert Appointment (Populate service_type and service_description for Web Staff Portal)
     $stmt = $pdo->prepare("INSERT INTO tbl_appointments 
-        (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, total_treatment_cost, visit_type, created_by) 
-        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 'pre_book', ?)");
-    $stmt->execute([$tenant_id, $dentist_id, $booking_id, $patient_id, $appointment_date, $appointment_time, $total_amount, $user_id]);
+        (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, total_treatment_cost, visit_type, service_type, service_description, created_by) 
+        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 'pre_book', ?, ?, ?)");
+    $stmt->execute([$tenant_id, $dentist_id, $booking_id, $patient_id, $appointment_date, $appointment_time, $total_amount, $aggregated_services, $service_description, $user_id]);
     $appointment_id = $pdo->lastInsertId();
 
     // 2. Insert Services Breakdown
