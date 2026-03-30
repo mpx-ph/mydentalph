@@ -37,11 +37,15 @@ $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https'
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $origin = $protocol . '://' . $host;
 
-// Client logout: go back to tenant root if possible; staff-portal logout: go to unified clinic login
+// Client logout: go back to tenant root if possible; staff-portal logout: go to tenant login
 if ($userType === 'manager' || $userType === 'admin' || $userType === 'doctor' || $userType === 'staff') {
-    // Always return staff-portal users to the clinic unified login page.
+    // Prefer tenant-specific public login for staff-portal sessions.
     if ($accountKind === 'staff') {
-        $redirectUrl = $origin . '/clinic/Login.php';
+        if ($clientClinicSlug !== '' && preg_match('/^[a-z0-9\-]+$/', strtolower($clientClinicSlug))) {
+            $redirectUrl = $origin . '/' . rawurlencode(strtolower($clientClinicSlug)) . '/login';
+        } else {
+            $redirectUrl = $origin . '/clinic/Login.php';
+        }
     } elseif ($adminClinicSlug !== '' && preg_match('/^[a-z0-9\-]+$/', $adminClinicSlug)) {
         $redirectUrl = $origin . '/' . rawurlencode(strtolower($adminClinicSlug)) . '/AdminLoginPage.php';
     } else {
