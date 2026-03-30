@@ -52,7 +52,7 @@ try {
     $stmt = $pdo->prepare("INSERT INTO tbl_appointments 
         (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, total_treatment_cost, visit_type, service_type, service_description, created_by) 
         VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 'pre_book', ?, ?, ?)");
-    $stmt->execute([$tenant_id, $dentist_id, $booking_id, $patient_id, $appointment_date, $appointment_time, $total_amount, $aggregated_services, $service_description, $user_id]);
+    $stmt->execute([$tenant_id, $dentist_id, $booking_id, $patient_id, $appointment_date, $appointment_time, 'pending', $total_amount, 'pre_book', $aggregated_services, $service_description, $user_id]);
     $appointment_id = $pdo->lastInsertId();
 
     // 2. Insert Services Breakdown
