@@ -69,14 +69,10 @@ if (strpos($loginLogoUrl, '?') === false && $loginLogoLocalPath && is_file($logi
     $loginLogoUrl .= '?v=' . @filemtime($loginLogoLocalPath);
 }
 $loginLogoAlt = isset($CLINIC['clinic_name']) ? htmlspecialchars($CLINIC['clinic_name'], ENT_QUOTES, 'UTF-8') : 'Dental Clinic';
-$loginNavClinicName = isset($CLINIC['clinic_name']) ? trim((string) $CLINIC['clinic_name']) : '';
-$loginNavClinicNameEsc = $loginNavClinicName !== '' ? htmlspecialchars($loginNavClinicName, ENT_QUOTES, 'UTF-8') : '';
 $publicHomeUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/') : (BASE_URL . 'MainPageClient.php');
 $publicServicesUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/services') : (BASE_URL . 'PatientServices.php');
 $publicAboutUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/about') : (BASE_URL . 'AboutUsClient.php');
 $publicContactUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/contact') : (BASE_URL . 'ContactUsClient.php');
-$loginPageUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/login') : (BASE_URL . 'Login.php');
-$bookOnlineUrl = BASE_URL . 'BookAppointmentClient.php';
 ?>
 <!DOCTYPE html>
 <html class="scroll-smooth light" lang="en">
@@ -140,23 +136,14 @@ $bookOnlineUrl = BASE_URL . 'BookAppointmentClient.php';
 <!-- Navigation -->
 <nav class="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl shadow-sm">
 <div class="flex justify-between items-center h-20 px-8 max-w-screen-2xl mx-auto">
-<a href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>" class="text-2xl font-bold tracking-tighter font-headline flex items-center gap-2 min-w-0 shrink no-underline text-inherit">
+<a href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>" class="text-2xl font-bold tracking-tighter font-headline flex items-center min-w-0 shrink no-underline text-inherit">
 <img src="<?php echo htmlspecialchars($loginLogoUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo $loginLogoAlt; ?>" class="h-10 w-auto max-h-10 object-contain shrink-0"/>
-<?php if ($loginNavClinicNameEsc !== '') { ?>
-<span class="uppercase truncate max-w-[10rem] sm:max-w-[14rem] md:max-w-xs"><?php echo $loginNavClinicNameEsc; ?></span>
-<?php } ?>
 </a>
 <div class="hidden md:flex items-center space-x-12 text-sm font-semibold tracking-tight text-on-surface/60 font-headline uppercase">
 <a class="text-primary border-b-2 border-primary pb-1" href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>">Home</a>
 <a class="hover:text-primary transition-colors" href="<?php echo htmlspecialchars($publicServicesUrl, ENT_QUOTES, 'UTF-8'); ?>">Services</a>
 <a class="hover:text-primary transition-colors" href="<?php echo htmlspecialchars($publicAboutUrl, ENT_QUOTES, 'UTF-8'); ?>">About Us</a>
 <a class="hover:text-primary transition-colors" href="<?php echo htmlspecialchars($publicContactUrl, ENT_QUOTES, 'UTF-8'); ?>">Contact Us</a>
-</div>
-<div class="flex items-center gap-4">
-<button type="button" class="text-on-surface font-semibold text-sm hover:text-primary transition-all uppercase" onclick="window.location.href=<?php echo json_encode($loginPageUrl, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>">Login</button>
-<button type="button" class="bg-primary text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95 uppercase" onclick="window.location.href=<?php echo json_encode($bookOnlineUrl, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>">
-                Book Online
-            </button>
 </div>
 </div>
 </nav>
