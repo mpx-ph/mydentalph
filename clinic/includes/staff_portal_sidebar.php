@@ -6,23 +6,35 @@ if (isset($currentTenantData['clinic_name']) && trim((string) $currentTenantData
     $clinicName = (string) $currentTenantData['clinic_name'];
 }
 
-$baseUrl = defined('BASE_URL') ? (string) BASE_URL : '';
-$slugQuery = '';
+$scriptName = isset($_SERVER['SCRIPT_NAME']) ? (string) $_SERVER['SCRIPT_NAME'] : '';
+$requestBasePath = $scriptName !== '' ? rtrim(str_replace('\\', '/', dirname($scriptName)), '/') . '/' : '';
+if ($requestBasePath === '//' || $requestBasePath === './') {
+    $requestBasePath = '/';
+}
+
+$sidebarClinicSlug = '';
 if (isset($currentTenantSlug) && trim((string) $currentTenantSlug) !== '') {
-    $slugQuery = '?clinic_slug=' . rawurlencode((string) $currentTenantSlug);
+    $sidebarClinicSlug = trim((string) $currentTenantSlug);
+} elseif (isset($_GET['clinic_slug']) && trim((string) $_GET['clinic_slug']) !== '') {
+    $sidebarClinicSlug = trim((string) $_GET['clinic_slug']);
+}
+
+$slugQuery = '';
+if ($sidebarClinicSlug !== '') {
+    $slugQuery = '?clinic_slug=' . rawurlencode($sidebarClinicSlug);
 }
 
 $navItems = [
-    ['key' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'dashboard', 'href' => $baseUrl . 'StaffDashboard.php' . $slugQuery],
-    ['key' => 'patients', 'label' => 'Patients', 'icon' => 'group', 'href' => $baseUrl . 'StaffManagePatient.php' . $slugQuery],
-    ['key' => 'appointments', 'label' => 'Appointments', 'icon' => 'calendar_month', 'href' => $baseUrl . 'StaffAppointments.php' . $slugQuery],
-    ['key' => 'services', 'label' => 'Services & Pricing', 'icon' => 'medical_services', 'href' => $baseUrl . 'StaffManageServices.php' . $slugQuery],
-    ['key' => 'payments', 'label' => 'Payments', 'icon' => 'payments', 'href' => $baseUrl . 'StaffPaymentRecording.php' . $slugQuery],
-    ['key' => 'payment_settings', 'label' => 'Payment Settings', 'icon' => 'settings', 'href' => $baseUrl . 'StaffPaymentSetting.php' . $slugQuery],
-    ['key' => 'reports', 'label' => 'Reports', 'icon' => 'bar_chart', 'href' => $baseUrl . 'StaffReports.php' . $slugQuery],
-    ['key' => 'users', 'label' => 'Users', 'icon' => 'people', 'href' => $baseUrl . 'StaffManageUsers.php' . $slugQuery],
-    ['key' => 'reviews', 'label' => 'Reviews', 'icon' => 'rate_review', 'href' => $baseUrl . 'StaffManageReview.php' . $slugQuery],
-    ['key' => 'profile', 'label' => 'My Profile', 'icon' => 'account_circle', 'href' => $baseUrl . 'StaffMyProfile.php' . $slugQuery],
+    ['key' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'dashboard', 'href' => $requestBasePath . 'StaffDashboard.php' . $slugQuery],
+    ['key' => 'patients', 'label' => 'Patients', 'icon' => 'group', 'href' => $requestBasePath . 'StaffManagePatient.php' . $slugQuery],
+    ['key' => 'appointments', 'label' => 'Appointments', 'icon' => 'calendar_month', 'href' => $requestBasePath . 'StaffAppointments.php' . $slugQuery],
+    ['key' => 'services', 'label' => 'Services & Pricing', 'icon' => 'medical_services', 'href' => $requestBasePath . 'StaffManageServices.php' . $slugQuery],
+    ['key' => 'payments', 'label' => 'Payments', 'icon' => 'payments', 'href' => $requestBasePath . 'StaffPaymentRecording.php' . $slugQuery],
+    ['key' => 'payment_settings', 'label' => 'Payment Settings', 'icon' => 'settings', 'href' => $requestBasePath . 'StaffPaymentSetting.php' . $slugQuery],
+    ['key' => 'reports', 'label' => 'Reports', 'icon' => 'bar_chart', 'href' => $requestBasePath . 'StaffReports.php' . $slugQuery],
+    ['key' => 'users', 'label' => 'Users', 'icon' => 'people', 'href' => $requestBasePath . 'StaffManageUsers.php' . $slugQuery],
+    ['key' => 'reviews', 'label' => 'Reviews', 'icon' => 'rate_review', 'href' => $requestBasePath . 'StaffManageReview.php' . $slugQuery],
+    ['key' => 'profile', 'label' => 'My Profile', 'icon' => 'account_circle', 'href' => $requestBasePath . 'StaffMyProfile.php' . $slugQuery],
 ];
 ?>
 <aside class="fixed left-0 top-0 h-full w-64 z-40 bg-white flex flex-col py-8 border-r border-slate-200/60">
