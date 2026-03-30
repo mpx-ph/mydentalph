@@ -20,6 +20,7 @@ $services_json = $input['services'] ?? '[]';
 $total_amount = $input['total_amount'] ?? 0;
 $payment_amount = $input['payment_amount'] ?? 0;
 $payment_method = $input['payment_method'] ?? 'gcash';
+$reference_number = $input['reference_number'] ?? null;
 
 if (!$user_id || !$appointment_date || !$appointment_time) {
     die(json_encode(["status" => "error", "message" => "Missing required fields"]));
@@ -60,9 +61,9 @@ try {
     $final_status = ($payment_amount >= $total_amount) ? 'completed' : 'pending';
     
     $stmt = $pdo->prepare("INSERT INTO tbl_payments 
-        (tenant_id, payment_id, patient_id, booking_id, amount, payment_method, status, created_by) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$tenant_id, $payment_id, $patient_id, $booking_id, $payment_amount, $payment_method, $final_status, $user_id]);
+        (tenant_id, payment_id, patient_id, booking_id, amount, payment_method, reference_number, status, created_by) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$tenant_id, $payment_id, $patient_id, $booking_id, $payment_amount, $payment_method, $reference_number, $final_status, $user_id]);
 
     $pdo->commit();
 
