@@ -34,19 +34,27 @@ try {
     $patRow = $stmt->fetch();
     $patient_id = $patRow ? $patRow['patient_id'] : 'PAT_NEW_' . rand(1000, 9999);
 
-    // Generate unique booking_id
-    $booking_id = 'BK-' . strtoupper(substr(md5(time() . $user_id), 0, 8));
+    // 1. Extract Primary Service for the main Appointment table (Dashboard views)
+    $services = is_array($services_json) ? $services_json : json_decode($services_json, true);
+    $primary_service = $services[0] ?? ['id' => null, 'name' => '-', 'details' => '-'];
+    $service_id_main = $primary_service['id'];
+    $service_name_main = $primary_service['name'];
+    $service_desc_main = $primary_service['details'] ?? '-';
 
     $pdo->beginTransaction();
 
-    // 1. Insert Appointment
+    // 1. Insert Appointment (Including Primary Service for Dashboard Compat)
     $stmt = $pdo->prepare("INSERT INTO tbl_appointments 
-        (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, total_treatment_cost, visit_type, created_by) 
-        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 'pre_book', ?)");
-    $stmt->execute([$tenant_id, $dentist_id, $booking_id, $patient_id, $appointment_date, $appointment_time, $total_amount, $user_id]);
+        (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, 
+         total_treatment_cost, visit_type, created_by, service_id, service_name, service_description) 
+        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 'pre_book', ?, ?, ?, ?)");
+    $stmt->execute([
+        $tenant_id, $dentist_id, $booking_id, $patient_id, $appointment_date, $appointment_time, 
+        $total_amount, $user_id, $service_id_main, $service_name_main, $service_desc_main
+    ]);
     $appointment_id = $pdo->lastInsertId();
 
-    // 2. Insert Services Breakdown
+    // 2. Insert Services Breakdown (For detailed reporting)
     $services = is_array($services_json) ? $services_json : json_decode($services_json, true);
     foreach ($services as $srv) {
         $stmt = $pdo->prepare("INSERT INTO tbl_appointment_services 
