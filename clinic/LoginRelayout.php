@@ -53,25 +53,19 @@
 </head>
 <body class="mesh-gradient min-h-screen flex flex-col items-center selection:bg-primary/20">
 <!-- Navigation -->
-<nav class="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl shadow-sm">
-<div class="flex justify-between items-center h-20 px-8 max-w-screen-2xl mx-auto">
-<div class="text-2xl font-bold tracking-tighter font-headline flex items-center gap-2">
-<div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-<span class="material-symbols-outlined text-white text-lg">select_check_box</span>
-</div> 
-            Your Logo Here
-        </div>
-<div class="hidden md:flex items-center space-x-12 text-sm font-semibold tracking-tight text-on-surface/60 font-headline">
-<a class="text-primary border-b-2 border-primary pb-1" href="#">Home</a>
+<nav class="fixed top-0 z-50 w-full bg-white border-t border-on-surface">
+<div class="flex items-center justify-between h-[4.5rem] px-6 sm:px-10 lg:px-14 max-w-[1920px] mx-auto w-full gap-6">
+<a class="flex items-center shrink-0 py-2" href="#">
+<img src="assets/navbar-logo.png" alt="Clinic" class="h-9 w-auto sm:h-10 md:h-11"/>
+</a>
+<div class="flex items-center gap-8 md:gap-10 lg:gap-14 shrink-0">
+<div class="hidden md:flex items-center gap-8 lg:gap-10 text-[11px] font-bold tracking-[0.12em] uppercase font-headline text-[#3d4d5c]">
+<a class="hover:text-primary transition-colors" href="#">Home</a>
 <a class="hover:text-primary transition-colors" href="#">Services</a>
 <a class="hover:text-primary transition-colors" href="#">About Us</a>
-<a class="hover:text-primary transition-colors" href="#">Contact Us</a>
+<a class="text-primary border-b border-primary pb-0.5" href="#">Contact Us</a>
 </div>
-<div class="flex items-center gap-4">
-<button class="text-on-surface font-semibold text-sm hover:text-primary transition-all">Login</button>
-<button class="bg-primary text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95">
-                Book Online
-            </button>
+<a class="inline-flex items-center justify-center bg-primary text-white px-6 sm:px-7 py-2.5 rounded-full text-[11px] font-bold tracking-[0.18em] uppercase font-headline hover:opacity-90 transition-opacity whitespace-nowrap" href="#">Login</a>
 </div>
 </div>
 </nav>
