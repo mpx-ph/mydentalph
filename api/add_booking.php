@@ -46,11 +46,11 @@ try {
     // 1. Insert Appointment (Including Primary Service for Dashboard Compat)
     $stmt = $pdo->prepare("INSERT INTO tbl_appointments 
         (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, 
-         total_treatment_cost, visit_type, created_by, service_id, service_name, service_description) 
-        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 'pre_book', ?, ?, ?, ?)");
+         total_treatment_cost, visit_type, created_by, service_type, service_description) 
+        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 'pre_book', ?, ?, ?)");
     $stmt->execute([
         $tenant_id, $dentist_id, $booking_id, $patient_id, $appointment_date, $appointment_time, 
-        $total_amount, $user_id, $service_id_main, $service_name_main, $service_desc_main
+        $total_amount, $user_id, $service_name_main, $service_desc_main
     ]);
     $appointment_id = $pdo->lastInsertId();
 
