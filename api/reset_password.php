@@ -28,7 +28,7 @@ try {
     $stmt = $pdo->prepare(
         "SELECT id, otp_hash, otp_expires_at, attempts 
          FROM tbl_email_verifications 
-         WHERE user_id = ? AND verified_at IS NULL 
+         WHERE user_id = ? 
          ORDER BY id DESC LIMIT 1"
     );
     $stmt->execute([$user_id]);
