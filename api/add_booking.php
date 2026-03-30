@@ -34,27 +34,19 @@ try {
     $patRow = $stmt->fetch();
     $patient_id = $patRow ? $patRow['patient_id'] : 'PAT_NEW_' . rand(1000, 9999);
 
-    // 1. Extract Primary Service for the main Appointment table (Dashboard views)
-    $services = is_array($services_json) ? $services_json : json_decode($services_json, true);
-    $primary_service = $services[0] ?? ['id' => null, 'name' => '-', 'details' => '-'];
-    $service_id_main = $primary_service['id'];
-    $service_name_main = $primary_service['name'];
-    $service_desc_main = $primary_service['details'] ?? '-';
+    // Generate unique booking_id
+    $booking_id = 'BK-' . strtoupper(substr(md5(time() . $user_id), 0, 8));
 
     $pdo->beginTransaction();
 
-    // 1. Insert Appointment (Including Primary Service for Dashboard Compat)
+    // 1. Insert Appointment
     $stmt = $pdo->prepare("INSERT INTO tbl_appointments 
-        (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, 
-         total_treatment_cost, visit_type, created_by, service_type, service_description) 
-        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 'pre_book', ?, ?, ?)");
-    $stmt->execute([
-        $tenant_id, $dentist_id, $booking_id, $patient_id, $appointment_date, $appointment_time, 
-        $total_amount, $user_id, $service_name_main, $service_desc_main
-    ]);
+        (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, total_treatment_cost, visit_type, created_by) 
+        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 'pre_book', ?)");
+    $stmt->execute([$tenant_id, $dentist_id, $booking_id, $patient_id, $appointment_date, $appointment_time, $total_amount, $user_id]);
     $appointment_id = $pdo->lastInsertId();
 
-    // 2. Insert Services Breakdown (For detailed reporting)
+    // 2. Insert Services Breakdown
     $services = is_array($services_json) ? $services_json : json_decode($services_json, true);
     foreach ($services as $srv) {
         $stmt = $pdo->prepare("INSERT INTO tbl_appointment_services 
