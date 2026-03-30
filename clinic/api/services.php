@@ -49,7 +49,7 @@ function generateServiceId() {
     // Find the last service_id with this prefix and year
     $stmt = $pdo->prepare("
         SELECT service_id 
-        FROM services 
+        FROM tbl_services 
         WHERE service_id LIKE ?
           AND tenant_id = ?
         ORDER BY service_id DESC 
@@ -72,7 +72,7 @@ function generateServiceId() {
     $serviceId = $prefix . '-' . $year . '-' . $formattedSequence;
     
     // Double-check uniqueness
-    $stmt = $pdo->prepare("SELECT service_id FROM services WHERE service_id = ? AND tenant_id = ?");
+    $stmt = $pdo->prepare("SELECT service_id FROM tbl_services WHERE service_id = ? AND tenant_id = ?");
     $stmt->execute([$serviceId, $tenantId]);
     if ($stmt->fetchColumn()) {
         $sequence++;
@@ -141,7 +141,7 @@ function createService() {
     
     try {
         $stmt = $pdo->prepare("
-            INSERT INTO services (
+            INSERT INTO tbl_services (
                 tenant_id, service_id, service_name, service_details, category, price, status, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
         ");
@@ -159,7 +159,7 @@ function createService() {
         $serviceDbId = $pdo->lastInsertId();
         
         // Get the created service
-        $stmt = $pdo->prepare("SELECT * FROM services WHERE id = ? AND tenant_id = ?");
+        $stmt = $pdo->prepare("SELECT * FROM tbl_services WHERE id = ? AND tenant_id = ?");
         $stmt->execute([$serviceDbId, $tenantId]);
         $service = $stmt->fetch();
         
@@ -191,10 +191,10 @@ function getServices() {
         if ($serviceId || $serviceIdCode) {
             // Get single service
             if ($serviceId) {
-                $stmt = $pdo->prepare("SELECT * FROM services WHERE id = ? AND tenant_id = ?");
+                $stmt = $pdo->prepare("SELECT * FROM tbl_services WHERE id = ? AND tenant_id = ?");
                 $stmt->execute([$serviceId, $tenantId]);
             } else {
-                $stmt = $pdo->prepare("SELECT * FROM services WHERE service_id = ? AND tenant_id = ?");
+                $stmt = $pdo->prepare("SELECT * FROM tbl_services WHERE service_id = ? AND tenant_id = ?");
                 $stmt->execute([$serviceIdCode, $tenantId]);
             }
             
@@ -232,12 +232,12 @@ function getServices() {
             $whereClause = !empty($whereConditions) ? 'WHERE ' . implode(' AND ', $whereConditions) : '';
             
             // Get total count
-            $countStmt = $pdo->prepare("SELECT COUNT(*) FROM services $whereClause");
+            $countStmt = $pdo->prepare("SELECT COUNT(*) FROM tbl_services $whereClause");
             $countStmt->execute($params);
             $totalItems = $countStmt->fetchColumn();
             
             // Get paginated results
-            $sql = "SELECT * FROM services $whereClause ORDER BY created_at DESC LIMIT ? OFFSET ?";
+            $sql = "SELECT * FROM tbl_services $whereClause ORDER BY created_at DESC LIMIT ? OFFSET ?";
             $stmt = $pdo->prepare($sql);
             $params[] = $limit;
             $params[] = $offset;
@@ -280,10 +280,10 @@ function updateService() {
     
     // Get existing service
     if ($serviceId) {
-        $stmt = $pdo->prepare("SELECT * FROM services WHERE id = ? AND tenant_id = ?");
+        $stmt = $pdo->prepare("SELECT * FROM tbl_services WHERE id = ? AND tenant_id = ?");
         $stmt->execute([$serviceId, $tenantId]);
     } else {
-        $stmt = $pdo->prepare("SELECT * FROM services WHERE service_id = ? AND tenant_id = ?");
+        $stmt = $pdo->prepare("SELECT * FROM tbl_services WHERE service_id = ? AND tenant_id = ?");
         $stmt->execute([$serviceIdCode, $tenantId]);
     }
     
@@ -339,7 +339,7 @@ function updateService() {
         $updateId = $serviceId ?: $existing['id'];
         
         $stmt = $pdo->prepare("
-            UPDATE services 
+            UPDATE tbl_services 
             SET service_name = ?, 
                 service_details = ?, 
                 category = ?, 
@@ -360,7 +360,7 @@ function updateService() {
         ]);
         
         // Get updated service
-        $stmt = $pdo->prepare("SELECT * FROM services WHERE id = ? AND tenant_id = ?");
+        $stmt = $pdo->prepare("SELECT * FROM tbl_services WHERE id = ? AND tenant_id = ?");
         $stmt->execute([$updateId, $tenantId]);
         $service = $stmt->fetch();
         
@@ -394,10 +394,10 @@ function deleteService() {
     
     // Get existing service
     if ($serviceId) {
-        $stmt = $pdo->prepare("SELECT * FROM services WHERE id = ? AND tenant_id = ?");
+        $stmt = $pdo->prepare("SELECT * FROM tbl_services WHERE id = ? AND tenant_id = ?");
         $stmt->execute([$serviceId, $tenantId]);
     } else {
-        $stmt = $pdo->prepare("SELECT * FROM services WHERE service_id = ? AND tenant_id = ?");
+        $stmt = $pdo->prepare("SELECT * FROM tbl_services WHERE service_id = ? AND tenant_id = ?");
         $stmt->execute([$serviceIdCode, $tenantId]);
     }
     
@@ -412,7 +412,7 @@ function deleteService() {
         
         // Soft delete by setting status to inactive
         $stmt = $pdo->prepare("
-            UPDATE services 
+            UPDATE tbl_services 
             SET status = 'inactive',
                 updated_at = NOW()
             WHERE id = ? AND tenant_id = ?
