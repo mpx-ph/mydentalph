@@ -17,12 +17,13 @@ if (empty($user_id) || empty($tenant_id)) {
 
 try {
     // 1. Find the patient record linked to the logged-in user
+    // We match by user_id across owner or linked fields
     $stmt = $pdo->prepare(
         "SELECT patient_id FROM tbl_patients 
-         WHERE tenant_id = ? AND (linked_user_id = ? OR owner_user_id = ?)
+         WHERE owner_user_id = ? OR linked_user_id = ?
          LIMIT 1"
     );
-    $stmt->execute([$tenant_id, $user_id, $user_id]);
+    $stmt->execute([$user_id, $user_id]);
     $patient = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$patient) {
@@ -32,27 +33,28 @@ try {
 
     $patient_id = $patient['patient_id'];
 
-    // 2. Fetch all their appointments with dentist info and services
+    // 2. Fetch appointments
+    // We use a subquery to grab the first service name from tbl_appointment_services 
+    // since tbl_appointments.service_type is often null in the mobile booking flow.
     $stmt = $pdo->prepare(
         "SELECT 
             a.id,
             a.booking_id,
             a.appointment_date,
             a.appointment_time,
-            a.service_type,
+            COALESCE(a.service_type, (SELECT service_name FROM tbl_appointment_services WHERE appointment_id = a.id LIMIT 1)) AS display_service,
             a.status,
             a.total_treatment_cost,
-            CONCAT(d.first_name, ' ', d.last_name) AS dentist_name,
-            d.specialization AS dentist_specialization
+            CONCAT(d.first_name, ' ', d.last_name) AS dentist_name
          FROM tbl_appointments a
          LEFT JOIN tbl_dentists d ON a.dentist_id = d.dentist_id
-         WHERE a.tenant_id = ? AND a.patient_id = ?
+         WHERE a.patient_id = ?
          ORDER BY a.appointment_date DESC, a.appointment_time DESC"
     );
-    $stmt->execute([$tenant_id, $patient_id]);
+    $stmt->execute([$patient_id]);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // 3. Map DB status values to display labels used by the Android app
+    // 3. Status Mapping
     $statusMap = [
         'pending'   => 'PENDING',
         'confirmed' => 'SCHEDULED',
@@ -69,7 +71,7 @@ try {
         $appointments[] = [
             'id'               => $row['id'],
             'booking_id'       => $row['booking_id'],
-            'service_name'     => $row['service_type'] ?? 'Appointment',
+            'service_name'     => $row['display_service'] ?: 'Appointment',
             'dentist_name'     => $row['dentist_name'] ? 'DR. ' . strtoupper($row['dentist_name']) : 'CLINIC',
             'appointment_date' => $row['appointment_date'],
             'appointment_time' => $row['appointment_time'],
