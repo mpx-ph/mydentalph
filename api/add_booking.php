@@ -45,7 +45,7 @@ try {
     // 1. Insert Appointment
     $stmt = $pdo->prepare("INSERT INTO tbl_appointments 
         (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, total_treatment_cost, visit_type, created_by) 
-        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 'pre_book', ?)");
+        VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?, 'pre_book', ?)");
     $stmt->execute([$tenant_id, $dentist_id, $booking_id, $patient_id, $appointment_date, $appointment_time, $total_amount, $user_id]);
     $appointment_id = $pdo->lastInsertId();
 
