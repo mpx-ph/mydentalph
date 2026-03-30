@@ -53,14 +53,14 @@ try {
 
     $pdo->beginTransaction();
 
-    // 1. Insert Appointment (Include summaries for Web Dashboard display)
+    // 1. Insert Appointment (Normalized: No combined string)
     $stmt = $pdo->prepare("INSERT INTO tbl_appointments 
-        (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, service_type, service_description, total_treatment_cost, visit_type, created_by) 
-        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, 'pre_book', ?)");
-    $stmt->execute([$tenant_id, $dentist_id, $booking_id, $patient_id, $appointment_date, $appointment_time, $combined_types, $combined_descs, $total_amount, $user_id]);
+        (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, total_treatment_cost, visit_type, created_by) 
+        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 'pre_book', ?)");
+    $stmt->execute([$tenant_id, $dentist_id, $booking_id, $patient_id, $appointment_date, $appointment_time, $total_amount, $user_id]);
     $appointment_id = $pdo->lastInsertId();
 
-    // 2. Insert Services Breakdown
+    // 2. Insert Services Breakdown (The individual rows)
     $services = is_array($services_json) ? $services_json : json_decode($services_json, true);
     foreach ($services as $srv) {
         $stmt = $pdo->prepare("INSERT INTO tbl_appointment_services 

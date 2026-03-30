@@ -139,8 +139,8 @@ try {
                 a.patient_id,
                 a.appointment_date,
                 a.appointment_time,
-                a.service_type,
-                a.service_description,
+                COALESCE(s.services_list, a.service_type) AS service_type,
+                COALESCE(s.descriptions_list, a.service_description) AS service_description,
                 a.treatment_type,
                 a.status,
                 a.notes,
@@ -152,6 +152,14 @@ try {
                 p.patient_id AS patient_display_id,
                 u.email AS created_by_email
             FROM tbl_appointments a
+            LEFT JOIN (
+                SELECT 
+                    booking_id, 
+                    GROUP_CONCAT(service_name SEPARATOR ', ') as services_list,
+                    GROUP_CONCAT(COALESCE(service_name, '') SEPARATOR '\n') as descriptions_list
+                FROM tbl_appointment_services 
+                GROUP BY booking_id
+            ) s ON s.booking_id = a.booking_id
             LEFT JOIN tbl_patients p
               ON p.tenant_id = a.tenant_id
              AND p.patient_id = a.patient_id
