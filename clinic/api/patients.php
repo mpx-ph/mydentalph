@@ -210,7 +210,7 @@ function getPatients() {
                 $params[] = $searchTerm;
             }
             
-            $sql .= " ORDER BY p.created_at DESC LIMIT ? OFFSET ?";
+            $sql .= " ORDER BY p.created_at DESC LIMIT " . intval($limit) . " OFFSET " . intval($offset);
             
             // Get total count
             $countSql = "
@@ -241,8 +241,6 @@ function getPatients() {
             $total = $countStmt->fetch()['total'];
             
             // Get patients
-            $params[] = $limit;
-            $params[] = $offset;
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
             $patients = $stmt->fetchAll();
