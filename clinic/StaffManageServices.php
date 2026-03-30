@@ -265,7 +265,7 @@ const itemsPerPage = 10;
 let currentCategory = '';
 let currentSearchTerm = '';
 
-const apiUrl = <?php echo json_encode(BASE_URL . 'api/services.php', JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS); ?>;
+const apiUrl = <?php echo json_encode(PROVIDER_BASE_URL . 'clinic/api/services.php', JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS); ?>;
 const categoryColors = {
     'General Dentistry': 'bg-blue-100 text-blue-700',
     'Restorative Dentistry': 'bg-green-100 text-green-700',
