@@ -130,20 +130,33 @@ $publicContactUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($s
             border: 1px solid rgba(0, 0, 0, 0.05);
             box-shadow: 0 40px 80px -20px rgba(<?php echo (int) $loginPrimaryR; ?>, <?php echo (int) $loginPrimaryG; ?>, <?php echo (int) $loginPrimaryB; ?>, 0.08);
         }
+        /* Nav links: fixed border box so hover/active never shifts layout */
+        .login-nav-link {
+            border-bottom-width: 2px;
+            border-bottom-style: solid;
+            border-bottom-color: transparent;
+            padding-bottom: 0.25rem;
+            transition: color 220ms ease-out, border-color 220ms ease-out;
+        }
+        .login-nav-link:hover,
+        .login-nav-link:focus-visible {
+            color: <?php echo htmlspecialchars($cPrimary, ENT_QUOTES, 'UTF-8'); ?>;
+            border-bottom-color: rgba(<?php echo (int) $loginPrimaryR; ?>, <?php echo (int) $loginPrimaryG; ?>, <?php echo (int) $loginPrimaryB; ?>, 0.45);
+        }
     </style>
 </head>
 <body class="mesh-gradient min-h-screen flex flex-col items-center selection:bg-primary/20 text-on-surface font-body">
 <!-- Navigation -->
-<nav class="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl shadow-sm">
-<div class="flex justify-between items-center h-20 px-8 max-w-screen-2xl mx-auto">
-<a href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>" class="text-2xl font-bold tracking-tighter font-headline flex items-center min-w-0 shrink no-underline text-inherit">
-<img src="<?php echo htmlspecialchars($loginLogoUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo $loginLogoAlt; ?>" class="h-10 w-auto max-h-10 object-contain shrink-0"/>
+<nav class="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl shadow-sm" aria-label="Main">
+<div class="relative flex h-20 items-center justify-center max-w-screen-2xl mx-auto px-6 sm:px-8">
+<a href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>" class="absolute left-6 sm:left-8 top-1/2 -translate-y-1/2 flex items-center shrink-0 z-10 no-underline text-inherit outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 rounded-lg">
+<img src="<?php echo htmlspecialchars($loginLogoUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo $loginLogoAlt; ?>" class="h-10 w-auto max-h-10 object-contain"/>
 </a>
-<div class="hidden md:flex items-center space-x-12 text-sm font-semibold tracking-tight text-on-surface/60 font-headline uppercase">
-<a class="text-primary border-b-2 border-primary pb-1" href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>">Home</a>
-<a class="hover:text-primary transition-colors" href="<?php echo htmlspecialchars($publicServicesUrl, ENT_QUOTES, 'UTF-8'); ?>">Services</a>
-<a class="hover:text-primary transition-colors" href="<?php echo htmlspecialchars($publicAboutUrl, ENT_QUOTES, 'UTF-8'); ?>">About Us</a>
-<a class="hover:text-primary transition-colors" href="<?php echo htmlspecialchars($publicContactUrl, ENT_QUOTES, 'UTF-8'); ?>">Contact Us</a>
+<div class="flex flex-wrap items-center justify-center gap-x-8 sm:gap-x-12 gap-y-2 w-full min-h-[2.5rem] pl-[4.25rem] sm:pl-28 pr-4 sm:pr-8 text-sm font-semibold tracking-tight text-on-surface/60 font-headline uppercase">
+<a class="login-nav-link no-underline outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 rounded-sm" href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>">Home</a>
+<a class="login-nav-link no-underline outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 rounded-sm" href="<?php echo htmlspecialchars($publicServicesUrl, ENT_QUOTES, 'UTF-8'); ?>">Services</a>
+<a class="login-nav-link no-underline outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 rounded-sm" href="<?php echo htmlspecialchars($publicAboutUrl, ENT_QUOTES, 'UTF-8'); ?>">About Us</a>
+<a class="login-nav-link no-underline outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 rounded-sm" href="<?php echo htmlspecialchars($publicContactUrl, ENT_QUOTES, 'UTF-8'); ?>">Contact Us</a>
 </div>
 </div>
 </nav>
