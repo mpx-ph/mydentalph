@@ -10,6 +10,21 @@ if (session_status() === PHP_SESSION_NONE) {
 if (empty($_GET['clinic_slug']) && !empty($_SESSION['public_tenant_slug'])) {
     $_GET['clinic_slug'] = $_SESSION['public_tenant_slug'];
 }
+if (empty($_GET['clinic_slug'])) {
+    $reqUri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+    $reqPath = $reqUri !== '' ? parse_url($reqUri, PHP_URL_PATH) : '';
+    $scriptBase = isset($_SERVER['SCRIPT_NAME']) ? basename((string) $_SERVER['SCRIPT_NAME']) : 'StaffAppointments.php';
+    if (is_string($reqPath) && $reqPath !== '') {
+        $segments = array_values(array_filter(explode('/', trim($reqPath, '/')), 'strlen'));
+        $scriptIdx = array_search($scriptBase, $segments, true);
+        if ($scriptIdx !== false && $scriptIdx > 0) {
+            $slugFromPath = strtolower(trim((string) $segments[$scriptIdx - 1]));
+            if ($slugFromPath !== '' && preg_match('/^[a-z0-9\-]+$/', $slugFromPath)) {
+                $_GET['clinic_slug'] = $slugFromPath;
+            }
+        }
+    }
+}
 $clinic_slug_boot = isset($_GET['clinic_slug']) ? trim((string) $_GET['clinic_slug']) : '';
 if ($clinic_slug_boot !== '' && preg_match('/^[a-z0-9\-]+$/', strtolower($clinic_slug_boot))) {
     $_GET['clinic_slug'] = strtolower($clinic_slug_boot);

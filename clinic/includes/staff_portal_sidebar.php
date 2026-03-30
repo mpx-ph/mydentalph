@@ -22,6 +22,22 @@ if (isset($currentTenantSlug) && trim((string) $currentTenantSlug) !== '') {
     $sidebarClinicSlug = trim((string) $_GET['clinic_slug']);
 } elseif (!empty($_SESSION['public_tenant_slug'])) {
     $sidebarClinicSlug = trim((string) $_SESSION['public_tenant_slug']);
+} else {
+    $requestUri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+    if ($requestUri !== '') {
+        $uriPath = parse_url($requestUri, PHP_URL_PATH);
+        if (is_string($uriPath) && $uriPath !== '') {
+            $segments = array_values(array_filter(explode('/', trim($uriPath, '/')), 'strlen'));
+            $scriptBase = basename($scriptName);
+            $scriptIdx = array_search($scriptBase, $segments, true);
+            if ($scriptIdx !== false && $scriptIdx > 0) {
+                $candidate = strtolower(trim((string) $segments[$scriptIdx - 1]));
+                if ($candidate !== '' && preg_match('/^[a-z0-9\-]+$/', $candidate)) {
+                    $sidebarClinicSlug = $candidate;
+                }
+            }
+        }
+    }
 }
 
 $slugQuery = '';
