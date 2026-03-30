@@ -2,7 +2,7 @@
 /**
  * Client Login Page
  */
-$pageTitle = 'Patient Login';
+$pageTitle = 'Sign In';
 require_once __DIR__ . '/config/config.php';
 
 // Establish tenant context when opened via slug (e.g. /{slug}/login)
@@ -36,8 +36,13 @@ $loginPrimaryB = hexdec(substr($h, 4, 2));
 
 require_once __DIR__ . '/includes/auth.php';
 
+$slugLower = strtolower($clinic_slug);
 // Redirect URL after login: back to MainPageClient with same clinic (tenant) context
 $redirectAfterLogin = ($clinic_slug !== '') ? (BASE_URL . 'MainPageClient.php?clinic_slug=' . rawurlencode($clinic_slug)) : (BASE_URL . 'MainPageClient.php');
+// Staff portal (slug-based URL when rewrite rules are active)
+$staffRedirectAfterLogin = ($clinic_slug !== '' && preg_match('/^[a-z0-9\-]+$/', $slugLower))
+    ? (rtrim(PROVIDER_BASE_URL, '/') . '/' . rawurlencode($slugLower) . '/StaffDashboard.php')
+    : (($clinic_slug !== '') ? (BASE_URL . 'StaffDashboard.php?clinic_slug=' . rawurlencode($clinic_slug)) : (BASE_URL . 'StaffDashboard.php'));
 
 // URL for "Create new account" respecting clinic slug routing
 // .htaccess maps /{slug}/register -> clinic/RegisterClient.php?clinic_slug={slug}
@@ -47,9 +52,13 @@ $registerClientUrl = ($clinic_slug !== '')
     ? (PROVIDER_BASE_URL . rawurlencode(strtolower($clinic_slug)) . '/register')
     : (BASE_URL . 'RegisterClient.php');
 
-// Redirect if already logged in
+// Redirect if already logged in (patient vs staff)
 if (isLoggedIn('client')) {
     header('Location: ' . $redirectAfterLogin);
+    exit;
+}
+if (isLoggedIn(['manager', 'doctor', 'staff', 'admin'])) {
+    header('Location: ' . $staffRedirectAfterLogin);
     exit;
 }
 
@@ -60,7 +69,6 @@ if (strpos($loginLogoUrl, '?') === false && $loginLogoLocalPath && is_file($logi
     $loginLogoUrl .= '?v=' . @filemtime($loginLogoLocalPath);
 }
 $loginLogoAlt = isset($CLINIC['clinic_name']) ? htmlspecialchars($CLINIC['clinic_name'], ENT_QUOTES, 'UTF-8') : 'Dental Clinic';
-$slugLower = strtolower($clinic_slug);
 $publicHomeUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/') : (BASE_URL . 'MainPageClient.php');
 $publicServicesUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/services') : (BASE_URL . 'PatientServices.php');
 $publicAboutUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/about') : (BASE_URL . 'AboutUsClient.php');
@@ -148,9 +156,9 @@ $downloadAppUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slu
 <div class="login-card rounded-[2.5rem] overflow-hidden p-10 md:p-12 space-y-8">
 <div class="text-center space-y-4">
 <h1 class="font-headline text-4xl sm:text-5xl font-extrabold tracking-tighter leading-[1.1] text-slate-900">
-                    Patient <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Login</span>
+                    Sign <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">In</span>
 </h1>
-<p class="text-slate-600 font-medium text-base leading-relaxed max-w-sm mx-auto font-body">Enter your credentials to manage your dental care.</p>
+<p class="text-slate-600 font-medium text-base leading-relaxed max-w-sm mx-auto font-body">Patient or staff: use your clinic credentials. You will be routed to the right portal.</p>
 </div>
 <div id="errorMessage" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm"></div>
 <div id="successMessage" class="hidden mb-4 p-3 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm"></div>
@@ -329,7 +337,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     body: JSON.stringify({
                         email: email.trim(),
                         password: password,
-                        user_type: 'client',
+                        user_type: 'portal',
                         clinic_slug: clinicSlug || undefined,
                         debug: debugLogin
                     })
@@ -339,8 +347,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (data.success) {
                     showSuccess('Login successful! Redirecting...');
+                    var nextUrl = (data.data && data.data.redirect_url) ? data.data.redirect_url : '<?php echo addslashes($redirectAfterLogin); ?>';
                     setTimeout(function() {
-                        window.location.href = '<?php echo addslashes($redirectAfterLogin); ?>';
+                        window.location.href = nextUrl;
                     }, 500);
                 } else {
                     // Check if user needs email verification

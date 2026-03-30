@@ -15,7 +15,7 @@ RewriteRule ^ - [L]
 
 # Admin routes (slug-based, shared templates in /clinic)
 # Example: /{slug}/AdminLoginPage.php -> clinic/AdminLoginPage.php?clinic_slug={slug}
-RewriteRule ^([a-z0-9\-]+)/(Admin[A-Za-z0-9_\-]*\.php|Dentist_Dashboard\.php|Staff_Dashboard\.php)$ clinic/$2?clinic_slug=$1 [L,QSA]
+RewriteRule ^([a-z0-9\-]+)/(Admin[A-Za-z0-9_\-]*\.php|Dentist_Dashboard\.php|Staff_Dashboard\.php|StaffDashboard\.php)$ clinic/$2?clinic_slug=$1 [L,QSA]
 
 # Public clinic routes (slug-based, shared templates in /clinic)
 

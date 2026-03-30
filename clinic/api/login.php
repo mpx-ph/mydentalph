@@ -61,12 +61,33 @@ try {
     $result = loginUser($email, $password, $userType);
 
     if ($result['success']) {
-        jsonResponse(true, $result['message'], ['user' => [
-            'id' => $result['user']['id'],
-            'name' => $result['user']['first_name'] . ' ' . $result['user']['last_name'],
-            'email' => $result['user']['email'],
-            'type' => $result['user']['user_type']
-        ]]);
+        $slugOut = $clinicSlug !== '' ? strtolower($clinicSlug) : (isset($_SESSION['public_tenant_slug']) ? strtolower((string) $_SESSION['public_tenant_slug']) : '');
+        $portal = isset($result['portal']) ? (string) $result['portal'] : 'patient';
+        $redirectUrl = '';
+        if ($portal === 'staff') {
+            if (defined('PROVIDER_BASE_URL') && $slugOut !== '' && preg_match('/^[a-z0-9\-]+$/', $slugOut)) {
+                $redirectUrl = rtrim(PROVIDER_BASE_URL, '/') . '/' . rawurlencode($slugOut) . '/StaffDashboard.php';
+            } elseif ($slugOut !== '' && preg_match('/^[a-z0-9\-]+$/', $slugOut)) {
+                $redirectUrl = BASE_URL . 'StaffDashboard.php?clinic_slug=' . rawurlencode($slugOut);
+            } else {
+                $redirectUrl = BASE_URL . 'StaffDashboard.php';
+            }
+        } else {
+            $redirectUrl = ($slugOut !== '' && preg_match('/^[a-z0-9\-]+$/', $slugOut))
+                ? (BASE_URL . 'MainPageClient.php?clinic_slug=' . rawurlencode($slugOut))
+                : (BASE_URL . 'MainPageClient.php');
+        }
+
+        jsonResponse(true, $result['message'], [
+            'user' => [
+                'id' => $result['user']['id'],
+                'name' => trim($result['user']['first_name'] . ' ' . $result['user']['last_name']),
+                'email' => $result['user']['email'],
+                'type' => $result['user']['user_type'],
+            ],
+            'portal' => $portal,
+            'redirect_url' => $redirectUrl,
+        ]);
     } else {
         jsonResponse(false, $result['message']);
     }

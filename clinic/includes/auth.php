@@ -156,11 +156,169 @@ function requireLogin($type) {
 }
 
 /**
+ * DB roles that must have a tbl_staffs row for this tenant (clinic staff / dentist).
+ */
+function _authRoleRequiresStaffTableRow($dbRole) {
+    $r = strtolower((string) $dbRole);
+    return in_array($r, ['staff', 'dentist'], true);
+}
+
+/**
+ * Unified clinic-portal login: same credentials resolve to patient (client) or staff portal
+ * by tbl_users.role within the current tenant. Superadmin cannot use this endpoint.
+ *
+ * @return array success, message, user, portal keys
+ */
+function _loginPortalUnified(PDO $pdo, $tenantId, $email, $password) {
+    $tenantId = trim((string) $tenantId);
+    $stmt = $pdo->prepare("
+        SELECT user_id, tenant_id, email, username, full_name, password_hash, role, status
+        FROM tbl_users
+        WHERE (email = ? OR username = ?)
+          AND status = 'active'
+          AND tenant_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$email, $email, $tenantId]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    $fail = ['success' => false, 'message' => 'Invalid credentials.', 'user' => null, 'portal' => null];
+    if (!$user) {
+        return $fail;
+    }
+
+    if (!password_verify($password, $user['password_hash'] ?? '')) {
+        return $fail;
+    }
+
+    $rawRole = strtolower((string) ($user['role'] ?? ''));
+    if ($rawRole === 'superadmin') {
+        return $fail;
+    }
+
+    if (trim((string) ($user['tenant_id'] ?? '')) !== $tenantId) {
+        return $fail;
+    }
+
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_regenerate_id(true);
+    }
+
+    $userDbType = _authRoleToUserType($user['role'] ?? 'client');
+    $adminTypes = ['manager', 'doctor', 'staff', 'admin'];
+
+    if ($userDbType === 'client') {
+        unset($_SESSION['staff_id']);
+        $_SESSION['account_kind'] = 'patient';
+
+        $stmt2 = $pdo->prepare("
+            SELECT first_name, last_name FROM tbl_patients
+            WHERE tenant_id = ? AND linked_user_id = ?
+            LIMIT 1
+        ");
+        $stmt2->execute([$tenantId, $user['user_id']]);
+        $profile = $stmt2->fetch(PDO::FETCH_ASSOC);
+        $first_name = $profile ? (string) ($profile['first_name'] ?? '') : '';
+        $last_name = $profile ? (string) ($profile['last_name'] ?? '') : '';
+        if ($first_name === '' && $last_name === '') {
+            $fullName = $user['full_name'] ?? $user['username'] ?? 'User';
+            $parts = explode(' ', trim($fullName), 2);
+            $first_name = $parts[0] ?? 'User';
+            $last_name = $parts[1] ?? '';
+        }
+
+        $_SESSION['user_id'] = $user['user_id'];
+        $_SESSION['user_name'] = trim($first_name . ' ' . $last_name) ?: ($user['full_name'] ?? $user['username']);
+        $_SESSION['user_type'] = 'client';
+        $_SESSION['tenant_id'] = $tenantId;
+        $_SESSION['clinic_id'] = $tenantId;
+        $_SESSION['user_role'] = (string) ($user['role'] ?? 'client');
+
+        writeAuditLog($tenantId, (string) $user['user_id'], 'LOGIN', 'Patient portal login');
+        auth_update_user_last_activity($pdo, (string) $user['user_id']);
+
+        return [
+            'success' => true,
+            'message' => 'Login successful.',
+            'portal' => 'patient',
+            'user' => [
+                'id' => $user['user_id'],
+                'user_id' => $user['user_id'],
+                'first_name' => $first_name,
+                'last_name' => $last_name,
+                'email' => $user['email'],
+                'user_type' => 'client',
+            ],
+        ];
+    }
+
+    if (!in_array($userDbType, $adminTypes, true)) {
+        return $fail;
+    }
+
+    $stmt2 = $pdo->prepare("
+        SELECT staff_id, first_name, last_name FROM tbl_staffs
+        WHERE tenant_id = ? AND user_id = ?
+        LIMIT 1
+    ");
+    $stmt2->execute([$tenantId, $user['user_id']]);
+    $staff = $stmt2->fetch(PDO::FETCH_ASSOC);
+
+    if (_authRoleRequiresStaffTableRow($user['role'] ?? '') && (!$staff || trim((string) ($staff['staff_id'] ?? '')) === '')) {
+        return $fail;
+    }
+
+    $first_name = $staff ? (string) ($staff['first_name'] ?? '') : '';
+    $last_name = $staff ? (string) ($staff['last_name'] ?? '') : '';
+    if ($first_name === '' && $last_name === '') {
+        $fullName = $user['full_name'] ?? $user['username'] ?? 'User';
+        $parts = explode(' ', trim($fullName), 2);
+        $first_name = $parts[0] ?? 'User';
+        $last_name = $parts[1] ?? '';
+    }
+
+    $_SESSION['user_id'] = $user['user_id'];
+    $_SESSION['user_name'] = trim($first_name . ' ' . $last_name) ?: ($user['full_name'] ?? $user['username']);
+    $_SESSION['user_type'] = $userDbType;
+    $_SESSION['tenant_id'] = $tenantId;
+    $_SESSION['clinic_id'] = $tenantId;
+    $_SESSION['user_role'] = (string) ($user['role'] ?? '');
+    $_SESSION['account_kind'] = 'staff';
+    $_SESSION['staff_id'] = ($staff && trim((string) ($staff['staff_id'] ?? '')) !== '')
+        ? (string) $staff['staff_id']
+        : null;
+
+    writeAuditLog(
+        $tenantId,
+        (string) $user['user_id'],
+        'LOGIN',
+        'Staff portal login as ' . $userDbType
+    );
+    auth_update_user_last_activity($pdo, (string) $user['user_id']);
+
+    return [
+        'success' => true,
+        'message' => 'Login successful.',
+        'portal' => 'staff',
+        'user' => [
+            'id' => $user['user_id'],
+            'user_id' => $user['user_id'],
+            'first_name' => $first_name,
+            'last_name' => $last_name,
+            'email' => $user['email'],
+            'user_type' => $userDbType,
+            'staff_id' => $_SESSION['staff_id'],
+            'role' => $_SESSION['user_role'],
+        ],
+    ];
+}
+
+/**
  * Attempt login: find user by email or username, verify password, set session, return result.
  * @param string $email Email or username
  * @param string $password Plain password
- * @param string $userType Requested type: 'client', 'manager', 'doctor', 'staff'
- * @return array ['success' => bool, 'message' => string, 'user' => array|null]
+ * @param string $userType Requested type: 'client', 'manager', 'doctor', 'staff', 'portal' (patient + staff auto)
+ * @return array ['success' => bool, 'message' => string, 'user' => array|null, 'portal' => string|null]
  */
 function loginUser($email, $password, $userType) {
     if (!function_exists('getDBConnection')) {
@@ -168,6 +326,11 @@ function loginUser($email, $password, $userType) {
     }
     $pdo = getDBConnection();
     $tenantId = requireClinicTenantId();
+
+    $requestedType = strtolower((string) $userType);
+    if ($requestedType === 'portal' || $requestedType === 'unified') {
+        return _loginPortalUnified($pdo, $tenantId, $email, $password);
+    }
 
     // Find by email or username (schema: tbl_users has user_id, password_hash, role; no id/password/user_type)
     $stmt = $pdo->prepare("
@@ -182,41 +345,52 @@ function loginUser($email, $password, $userType) {
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$user) {
-        return ['success' => false, 'message' => 'Invalid credentials.', 'user' => null];
+        return ['success' => false, 'message' => 'Invalid credentials.', 'user' => null, 'portal' => null];
     }
 
     if (!password_verify($password, $user['password_hash'] ?? '')) {
-        return ['success' => false, 'message' => 'Invalid credentials.', 'user' => null];
+        return ['success' => false, 'message' => 'Invalid credentials.', 'user' => null, 'portal' => null];
+    }
+
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_regenerate_id(true);
     }
 
     // Map DB role to app user_type: dentist→doctor, tenant_owner→manager
     $userDbType = _authRoleToUserType($user['role'] ?? 'client');
-    $requestedType = strtolower($userType);
     $adminTypes = ['manager', 'doctor', 'staff', 'admin'];
     if ($requestedType === 'client') {
         if ($userDbType !== 'client') {
-            return ['success' => false, 'message' => 'This account is not a patient account.', 'user' => null];
+            return ['success' => false, 'message' => 'This account is not a patient account.', 'user' => null, 'portal' => null];
         }
     } else {
         if (!in_array($userDbType, $adminTypes)) {
-            return ['success' => false, 'message' => 'Access denied. Admin, Doctor, or Staff credentials required.', 'user' => null];
+            return ['success' => false, 'message' => 'Access denied. Admin, Doctor, or Staff credentials required.', 'user' => null, 'portal' => null];
         }
     }
 
-    // Get first_name, last_name from tbl_staffs or tbl_patients (schema table names)
+    // Get first_name, last_name from tbl_staffs or tbl_patients (tenant-scoped)
     $first_name = '';
     $last_name = '';
     if (in_array($userDbType, $adminTypes)) {
-        $stmt2 = $pdo->prepare("SELECT first_name, last_name FROM tbl_staffs WHERE user_id = ? LIMIT 1");
-        $stmt2->execute([$user['user_id']]);
+        $stmt2 = $pdo->prepare("
+            SELECT first_name, last_name FROM tbl_staffs
+            WHERE tenant_id = ? AND user_id = ?
+            LIMIT 1
+        ");
+        $stmt2->execute([$tenantId, $user['user_id']]);
         $profile = $stmt2->fetch(PDO::FETCH_ASSOC);
         if ($profile) {
             $first_name = isset($profile['first_name']) ? $profile['first_name'] : '';
             $last_name = isset($profile['last_name']) ? $profile['last_name'] : '';
         }
     } else {
-        $stmt2 = $pdo->prepare("SELECT first_name, last_name FROM tbl_patients WHERE linked_user_id = ? LIMIT 1");
-        $stmt2->execute([$user['user_id']]);
+        $stmt2 = $pdo->prepare("
+            SELECT first_name, last_name FROM tbl_patients
+            WHERE tenant_id = ? AND linked_user_id = ?
+            LIMIT 1
+        ");
+        $stmt2->execute([$tenantId, $user['user_id']]);
         $profile = $stmt2->fetch(PDO::FETCH_ASSOC);
         if ($profile) {
             $first_name = isset($profile['first_name']) ? $profile['first_name'] : '';
@@ -233,8 +407,20 @@ function loginUser($email, $password, $userType) {
     $_SESSION['user_id'] = $user['user_id'];
     $_SESSION['user_name'] = trim($first_name . ' ' . $last_name) ?: ($user['full_name'] ?? $user['username']);
     $_SESSION['user_type'] = $userDbType;
-    // Persist tenant context for the logged-in session
     $_SESSION['tenant_id'] = $tenantId;
+    $_SESSION['clinic_id'] = $tenantId;
+    $_SESSION['user_role'] = (string) ($user['role'] ?? '');
+    if (in_array($userDbType, $adminTypes, true)) {
+        $_SESSION['account_kind'] = 'staff';
+        $st = $pdo->prepare("SELECT staff_id FROM tbl_staffs WHERE tenant_id = ? AND user_id = ? LIMIT 1");
+        $st->execute([$tenantId, $user['user_id']]);
+        $sr = $st->fetch(PDO::FETCH_ASSOC);
+        $_SESSION['staff_id'] = ($sr && trim((string) ($sr['staff_id'] ?? '')) !== '') ? (string) $sr['staff_id'] : null;
+    } else {
+        unset($_SESSION['staff_id']);
+        $_SESSION['account_kind'] = 'patient';
+    }
+
     writeAuditLog(
         $tenantId,
         (string) $user['user_id'],
@@ -247,14 +433,15 @@ function loginUser($email, $password, $userType) {
     return [
         'success' => true,
         'message' => 'Login successful.',
+        'portal' => $userDbType === 'client' ? 'patient' : 'staff',
         'user' => [
             'id' => $user['user_id'],
             'user_id' => $user['user_id'],
             'first_name' => $first_name,
             'last_name' => $last_name,
             'email' => $user['email'],
-            'user_type' => $userDbType
-        ]
+            'user_type' => $userDbType,
+        ],
     ];
 }
 

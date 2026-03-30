@@ -10,6 +10,7 @@ require_once __DIR__ . '/../includes/auth.php';
 
 // Get user type and client clinic slug BEFORE destroying session
 $userType = isset($_SESSION['user_type']) ? $_SESSION['user_type'] : 'client';
+$accountKind = isset($_SESSION['account_kind']) ? trim((string) $_SESSION['account_kind']) : '';
 $userId = isset($_SESSION['user_id']) ? trim((string) $_SESSION['user_id']) : '';
 $tenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
 $clientClinicSlug = isset($_SESSION['public_tenant_slug']) ? trim((string) $_SESSION['public_tenant_slug']) : '';
@@ -38,7 +39,10 @@ $origin = $protocol . '://' . $host;
 
 // Client logout: go back to tenant root if possible; admin logout: go to tenant-slug admin login
 if ($userType === 'manager' || $userType === 'admin' || $userType === 'doctor' || $userType === 'staff') {
-    if ($adminClinicSlug !== '' && preg_match('/^[a-z0-9\-]+$/', $adminClinicSlug)) {
+    // Staff who signed in via unified public Login.php (account_kind set in session)
+    if ($accountKind === 'staff' && $clientClinicSlug !== '' && preg_match('/^[a-z0-9\-]+$/', strtolower($clientClinicSlug))) {
+        $redirectUrl = $origin . '/' . rawurlencode(strtolower($clientClinicSlug)) . '/login';
+    } elseif ($adminClinicSlug !== '' && preg_match('/^[a-z0-9\-]+$/', $adminClinicSlug)) {
         $redirectUrl = $origin . '/' . rawurlencode(strtolower($adminClinicSlug)) . '/AdminLoginPage.php';
     } else {
         // Fallback to legacy /clinic path
