@@ -75,7 +75,7 @@ unset($__nm, $__parts, $__p);
 <html class="light" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title><?php echo htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8'); ?> | <?php echo htmlspecialchars(isset($currentTenantData['clinic_name']) ? (string) $currentTenantData['clinic_name'] : 'Clinic', ENT_QUOTES, 'UTF-8'); ?></title>
+<title>Appointments | Clinical Precision</title>
 <!-- Google Fonts: Manrope & Playfair Display -->
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
