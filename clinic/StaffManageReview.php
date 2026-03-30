@@ -1,4 +1,16 @@
-<?php $staff_nav_active = 'reviews'; ?>\n<!DOCTYPE html>
+<?php
+$staff_nav_active = 'reviews';
+if (!isset($currentTenantSlug)) {
+    $currentTenantSlug = '';
+    if (isset($_GET['clinic_slug'])) {
+        $staffTenantSlug = strtolower(trim((string) $_GET['clinic_slug']));
+        if ($staffTenantSlug !== '' && preg_match('/^[a-z0-9\-]+$/', $staffTenantSlug)) {
+            $currentTenantSlug = $staffTenantSlug;
+        }
+    }
+}
+?>
+<!DOCTYPE html>
 
 <html class="light" lang="en"><head>
 <meta charset="utf-8"/>
@@ -66,69 +78,8 @@
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
-<!-- SideNavBar (Exact style from SCREEN_142) -->
-<aside class="fixed left-0 top-0 h-full w-64 z-40 bg-white flex flex-col py-8 border-r border-slate-200/60">
-<div class="px-7 mb-10">
-<h1 class="text-xl font-extrabold text-slate-900 tracking-tight font-headline flex items-center gap-2">
-<span class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/30">
-<span class="material-symbols-outlined text-white text-lg" style="font-variation-settings: 'FILL' 1;">medical_services</span>
-</span>
-                Precision Dental
-            </h1>
-<p class="text-primary font-bold text-[10px] tracking-[0.2em] uppercase mt-2 opacity-80">Admin Console</p>
-</div>
-<nav class="flex-1 space-y-1 overflow-y-auto no-scrollbar">
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">dashboard</span>
-<span class="font-headline text-sm font-medium tracking-tight">Dashboard</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">medical_services</span>
-<span class="font-headline text-sm font-medium tracking-tight">Services</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">group</span>
-<span class="font-headline text-sm font-medium tracking-tight">Staff Management</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">analytics</span>
-<span class="font-headline text-sm font-medium tracking-tight">Reports &amp; Analytics</span>
-</a>
-</div>
-<!-- Active State for Patient Reviews -->
-<div class="relative px-3">
-<a class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl transition-all duration-200 active-glow" href="#">
-<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">rate_review</span>
-<span class="font-headline text-sm font-bold tracking-tight">Patient Reviews</span>
-</a>
-<div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full"></div>
-</div>
-<div class="px-3 mt-6">
-<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">settings</span>
-<span class="font-headline text-sm font-medium tracking-tight">Settings</span>
-</a>
-</div>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-rose-500 transition-colors duration-200 hover:bg-rose-50 rounded-xl" href="#">
-<span class="material-symbols-outlined text-[22px]">logout</span>
-<span class="font-headline text-sm font-medium tracking-tight">Logout</span>
-</a>
-</div>
-</nav>
-<div class="px-4 mt-auto">
-<button class="w-full py-3.5 bg-primary text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-primary/30 transition-all active:scale-95">
-                Schedule Surgery
-            </button>
-</div>
-</aside>
+<!-- SideNavBar Component -->
+<?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
 <!-- Main Wrapper -->
 <main class="flex-1 flex flex-col min-w-0 ml-64">
 <!-- TopAppBar (Plain style) -->
