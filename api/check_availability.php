@@ -24,12 +24,10 @@ if (!$dentist_id || !$date || !$time) {
 }
 
 try {
-    // We only block slots for LIVE appointments (pending, confirmed, scheduled, completed)
-    // We EXCLUDE cancelled, rejected, or any empty/invalid status
     $stmt = $pdo->prepare("SELECT id FROM tbl_appointments 
-        WHERE tenant_id = ? AND dentist_id = ? AND appointment_date = ? AND appointment_time = ? 
-        AND status IN ('pending', 'confirmed', 'scheduled', 'completed') LIMIT 1");
-    $stmt->execute([$tenant_id, $dentist_id, $date, $time]);
+        WHERE dentist_id = ? AND appointment_date = ? AND appointment_time = ? 
+        AND status NOT IN ('cancelled') LIMIT 1");
+    $stmt->execute([$dentist_id, $date, $time]);
     
     if ($stmt->fetch()) {
         echo json_encode([
@@ -41,8 +39,7 @@ try {
         echo json_encode([
             "status" => "success",
             "available" => true,
-            "message" => "Slot is available",
-            "debug" => ["dentist" => $dentist_id, "tenant" => $tenant_id]
+            "message" => "Slot is available"
         ]);
     }
 
