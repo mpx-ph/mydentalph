@@ -73,6 +73,7 @@ $publicHomeUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slug
 $publicServicesUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/services') : (BASE_URL . 'PatientServices.php');
 $publicAboutUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/about') : (BASE_URL . 'AboutUsClient.php');
 $publicContactUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/contact') : (BASE_URL . 'ContactUsClient.php');
+$loginPageUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/login') : (BASE_URL . 'Login.php');
 ?>
 <!DOCTYPE html>
 <html class="scroll-smooth light" lang="en">
@@ -143,21 +144,31 @@ $publicContactUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($s
             color: <?php echo htmlspecialchars($cPrimary, ENT_QUOTES, 'UTF-8'); ?>;
             border-bottom-color: rgba(<?php echo (int) $loginPrimaryR; ?>, <?php echo (int) $loginPrimaryG; ?>, <?php echo (int) $loginPrimaryB; ?>, 0.45);
         }
+        .login-nav-link.is-active {
+            color: <?php echo htmlspecialchars($cPrimary, ENT_QUOTES, 'UTF-8'); ?>;
+            border-bottom-color: <?php echo htmlspecialchars($cPrimary, ENT_QUOTES, 'UTF-8'); ?>;
+        }
+        .login-nav-link.is-active:hover,
+        .login-nav-link.is-active:focus-visible {
+            color: <?php echo htmlspecialchars($cPrimary, ENT_QUOTES, 'UTF-8'); ?>;
+            border-bottom-color: <?php echo htmlspecialchars($cPrimary, ENT_QUOTES, 'UTF-8'); ?>;
+        }
     </style>
 </head>
 <body class="mesh-gradient min-h-screen flex flex-col items-center selection:bg-primary/20 text-on-surface font-body">
-<!-- Navigation -->
+<!-- Navigation (layout aligned with includes/nav_client.php: max-w-7xl, px-6 md:px-12, py-4, h-12 logo) -->
 <nav class="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl shadow-sm" aria-label="Main">
-<div class="relative flex h-20 items-center justify-center max-w-screen-2xl mx-auto px-6 sm:px-8">
-<a href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>" class="absolute left-6 sm:left-8 top-1/2 -translate-y-1/2 flex items-center shrink-0 z-10 no-underline text-inherit outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 rounded-lg">
-<img src="<?php echo htmlspecialchars($loginLogoUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo $loginLogoAlt; ?>" class="h-10 w-auto max-h-10 object-contain"/>
+<div class="grid grid-cols-[auto_1fr_auto] items-center gap-3 sm:gap-6 max-w-7xl mx-auto px-6 md:px-12 py-4 min-h-20">
+<a href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>" class="flex items-center shrink-0 no-underline text-inherit outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 rounded-lg">
+<img src="<?php echo htmlspecialchars($loginLogoUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo $loginLogoAlt; ?>" class="h-12 w-auto object-contain"/>
 </a>
-<div class="flex flex-wrap items-center justify-center gap-x-8 sm:gap-x-12 gap-y-2 w-full min-h-[2.5rem] pl-[4.25rem] sm:pl-28 pr-4 sm:pr-8 text-sm font-semibold tracking-tight text-on-surface/60 font-headline uppercase">
+<div class="flex flex-wrap items-center justify-center gap-x-6 sm:gap-x-10 lg:gap-12 gap-y-1 min-w-0 text-sm font-semibold tracking-tight text-on-surface/60 font-headline uppercase">
 <a class="login-nav-link no-underline outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 rounded-sm" href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>">Home</a>
 <a class="login-nav-link no-underline outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 rounded-sm" href="<?php echo htmlspecialchars($publicServicesUrl, ENT_QUOTES, 'UTF-8'); ?>">Services</a>
 <a class="login-nav-link no-underline outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 rounded-sm" href="<?php echo htmlspecialchars($publicAboutUrl, ENT_QUOTES, 'UTF-8'); ?>">About Us</a>
 <a class="login-nav-link no-underline outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 rounded-sm" href="<?php echo htmlspecialchars($publicContactUrl, ENT_QUOTES, 'UTF-8'); ?>">Contact Us</a>
 </div>
+<a class="login-nav-link is-active no-underline outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 rounded-sm justify-self-end shrink-0 whitespace-nowrap" href="<?php echo htmlspecialchars($loginPageUrl, ENT_QUOTES, 'UTF-8'); ?>" aria-current="page">Login</a>
 </div>
 </nav>
 <main class="flex-grow flex items-center justify-center w-full px-4 sm:px-6 lg:px-8 relative pt-24 pb-12">
