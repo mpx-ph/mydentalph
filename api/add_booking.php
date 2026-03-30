@@ -27,12 +27,26 @@ if (!$user_id || !$appointment_date || !$appointment_time) {
 }
 
 // Map User ID to Patient ID (usually same or linked)
-// For this demo, we'll assume a direct match or fetch first patient_id for that user
 try {
-    $stmt = $pdo->prepare("SELECT patient_id FROM tbl_patients WHERE owner_user_id = ? OR linked_user_id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT patient_id, first_name, last_name FROM tbl_patients WHERE owner_user_id = ? OR linked_user_id = ? LIMIT 1");
     $stmt->execute([$user_id, $user_id]);
     $patRow = $stmt->fetch();
-    $patient_id = $patRow ? $patRow['patient_id'] : 'PAT_NEW_' . rand(1000, 9999);
+    
+    if ($patRow) {
+        $patient_id = $patRow['patient_id'];
+    } else {
+        // Create a basic patient record if it doesn't exist
+        $patient_id = 'PAT-' . strtoupper(substr(md5($user_id), 0, 8));
+        
+        // Fetch user info for the patient record
+        $stmt = $pdo->prepare("SELECT full_name FROM tbl_users WHERE user_id = ?");
+        $stmt->execute([$user_id]);
+        $userRow = $stmt->fetch();
+        $names = explode(' ', ($userRow['full_name'] ?? 'New Patient'), 2);
+        
+        $stmt = $pdo->prepare("INSERT INTO tbl_patients (tenant_id, patient_id, owner_user_id, first_name, last_name, status) VALUES (?, ?, ?, ?, ?, 'active')");
+        $stmt->execute([$tenant_id, $patient_id, $user_id, $names[0] ?? 'New', $names[1] ?? 'Patient']);
+    }
 
     // Generate unique booking_id
     $booking_id = 'BK-' . strtoupper(substr(md5(time() . $user_id), 0, 8));
