@@ -51,6 +51,13 @@ $staffDisplayEmailEsc = $staffDisplayEmail !== '' ? htmlspecialchars($staffDispl
 $staffLogoutUrl = htmlspecialchars(BASE_URL . 'api/logout.php', ENT_QUOTES, 'UTF-8');
 $staffDashUrl = htmlspecialchars(BASE_URL . 'StaffDashboard.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
 $staffApptsUrl = htmlspecialchars(BASE_URL . 'StaffAppointments.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
+$managerDashUrl = htmlspecialchars(BASE_URL . 'ManagerDashboard.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
+$managerPatientsUrl = htmlspecialchars(BASE_URL . 'ManagerPatients.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
+$managerPaymentsUrl = htmlspecialchars(BASE_URL . 'ManagerPayments.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
+$managerPaymentSettingsUrl = htmlspecialchars(BASE_URL . 'ManagerPaymentSettings.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
+$managerServicesUrl = htmlspecialchars(BASE_URL . 'ManagerServices.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
+$managerUsersUrl = htmlspecialchars(BASE_URL . 'ManagerUsers.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
+$managerReviewsUrl = htmlspecialchars(BASE_URL . 'ManagerReviews.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
 unset($__nm, $__parts, $__p);
 ?>
 <!DOCTYPE html>
@@ -144,6 +151,51 @@ unset($__nm, $__parts, $__p);
 <a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="<?php echo $staffApptsUrl; ?>">
 <span class="material-symbols-outlined text-[22px]">calendar_month</span>
 <span class="font-headline text-sm font-medium tracking-tight">Appointments</span>
+</a>
+</div>
+<div class="px-3 mt-6">
+<p class="px-4 text-[10px] font-bold text-primary uppercase tracking-[0.2em] opacity-80">Manager Menus</p>
+</div>
+<div class="px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="<?php echo $managerDashUrl; ?>">
+<span class="material-symbols-outlined text-[22px]">dashboard</span>
+<span class="font-headline text-sm font-medium tracking-tight">Dashboard</span>
+</a>
+</div>
+<div class="px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="<?php echo $managerPatientsUrl; ?>">
+<span class="material-symbols-outlined text-[22px]">group</span>
+<span class="font-headline text-sm font-medium tracking-tight">Patients</span>
+</a>
+</div>
+<div class="px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="<?php echo $managerPaymentsUrl; ?>">
+<span class="material-symbols-outlined text-[22px]">payments</span>
+<span class="font-headline text-sm font-medium tracking-tight">Payments</span>
+</a>
+</div>
+<div class="px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="<?php echo $managerPaymentSettingsUrl; ?>">
+<span class="material-symbols-outlined text-[22px]">settings</span>
+<span class="font-headline text-sm font-medium tracking-tight">Payment Settings</span>
+</a>
+</div>
+<div class="px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="<?php echo $managerServicesUrl; ?>">
+<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">medical_services</span>
+<span class="font-headline text-sm font-medium tracking-tight">Services</span>
+</a>
+</div>
+<div class="px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="<?php echo $managerUsersUrl; ?>">
+<span class="material-symbols-outlined text-[22px]">people</span>
+<span class="font-headline text-sm font-medium tracking-tight">Users</span>
+</a>
+</div>
+<div class="px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="<?php echo $managerReviewsUrl; ?>">
+<span class="material-symbols-outlined text-[22px]">rate_review</span>
+<span class="font-headline text-sm font-medium tracking-tight">Reviews</span>
 </a>
 </div>
 <div class="px-3">
