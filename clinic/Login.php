@@ -73,10 +73,11 @@ $publicHomeUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slug
 $publicServicesUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/services') : (BASE_URL . 'PatientServices.php');
 $publicAboutUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/about') : (BASE_URL . 'AboutUsClient.php');
 $publicContactUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/contact') : (BASE_URL . 'ContactUsClient.php');
-$downloadAppUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/download') : (BASE_URL . 'DownloadApp.php');
+$loginPageUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugLower) . '/login') : (BASE_URL . 'Login.php');
+$bookOnlineUrl = BASE_URL . 'BookAppointmentClient.php';
 ?>
 <!DOCTYPE html>
-<html class="light" lang="en">
+<html class="scroll-smooth light" lang="en">
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
@@ -98,20 +99,22 @@ $downloadAppUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slu
               "surface-variant": "#f7f9ff",
               "on-surface-variant": "#404752",
               "outline-variant": "#c0c7d4",
+              "primary-fixed": "#d4e3ff",
+              "on-primary-fixed-variant": "#004883",
               "surface-container-low": "<?php echo htmlspecialchars($cPrimaryLight, ENT_QUOTES, 'UTF-8'); ?>",
+              "inverse-surface": "#131c25",
             },
             fontFamily: {
               "headline": ["Manrope", "sans-serif"],
-              "body": ["Manrope", "sans-serif"],
+              "body": ["Inter", "sans-serif"],
               "editorial": ["Playfair Display", "serif"]
             },
-            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "2.5rem", "full": "9999px"},
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1.5rem", "3xl": "2.5rem", "full": "9999px"},
           },
         },
       }
     </script>
     <style>
-        body { font-family: Manrope, ui-sans-serif, system-ui, sans-serif; }
         .mesh-gradient {
             background-color: #ffffff;
             background-image:
@@ -131,23 +134,27 @@ $downloadAppUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slu
         }
     </style>
 </head>
-<body class="mesh-gradient min-h-screen flex flex-col items-center selection:bg-primary/20 text-slate-900">
+<body class="mesh-gradient min-h-screen flex flex-col items-center selection:bg-primary/20 text-on-surface font-body">
+<!-- Navigation -->
 <nav class="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl shadow-sm">
-<div class="flex justify-between items-center h-20 px-8 max-w-screen-2xl mx-auto w-full">
-<a href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>" class="text-xl font-bold tracking-tighter font-headline flex items-center gap-2 text-inherit no-underline">
-<img src="<?php echo htmlspecialchars($loginLogoUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo $loginLogoAlt; ?>" class="h-10 w-auto object-contain"/>
-</a>
-<div class="hidden md:flex items-center space-x-12 text-sm font-semibold tracking-tight text-slate-600 font-headline">
-<a class="hover:text-primary transition-colors" href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>">Home</a>
+<div class="flex justify-between items-center h-20 px-8 max-w-screen-2xl mx-auto">
+<div class="text-2xl font-bold tracking-tighter font-headline flex items-center gap-2">
+<div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-lg">select_check_box</span>
+</div> 
+            Your Logo Here
+        </div>
+<div class="hidden md:flex items-center space-x-12 text-sm font-semibold tracking-tight text-on-surface/60 font-headline">
+<a class="text-primary border-b-2 border-primary pb-1" href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>">Home</a>
 <a class="hover:text-primary transition-colors" href="<?php echo htmlspecialchars($publicServicesUrl, ENT_QUOTES, 'UTF-8'); ?>">Services</a>
 <a class="hover:text-primary transition-colors" href="<?php echo htmlspecialchars($publicAboutUrl, ENT_QUOTES, 'UTF-8'); ?>">About Us</a>
 <a class="hover:text-primary transition-colors" href="<?php echo htmlspecialchars($publicContactUrl, ENT_QUOTES, 'UTF-8'); ?>">Contact Us</a>
 </div>
 <div class="flex items-center gap-4">
-<span class="text-sm font-semibold tracking-tight text-primary font-headline border-b-2 border-primary pb-1">Login</span>
-<a href="<?php echo htmlspecialchars($downloadAppUrl, ENT_QUOTES, 'UTF-8'); ?>" class="bg-primary text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95 no-underline inline-flex items-center">
-                Download App
-            </a>
+<button class="text-on-surface font-semibold text-sm hover:text-primary transition-all" onclick="window.location.href=<?php echo json_encode($loginPageUrl, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>">Login</button>
+<button class="bg-primary text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95" onclick="window.location.href=<?php echo json_encode($bookOnlineUrl, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>">
+                Book Online
+            </button>
 </div>
 </div>
 </nav>

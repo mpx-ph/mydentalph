@@ -119,7 +119,7 @@ $pageTitle = 'Create Account';
 <div class="text-2xl font-bold tracking-tighter font-headline flex items-center gap-2">
 <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
 <span class="material-symbols-outlined text-white text-lg">select_check_box</span>
-</div>
+</div> 
             Your Logo Here
         </div>
 <div class="hidden md:flex items-center space-x-12 text-sm font-semibold tracking-tight text-on-surface/60 font-headline">
@@ -129,8 +129,8 @@ $pageTitle = 'Create Account';
 <a class="hover:text-primary transition-colors" href="<?php echo htmlspecialchars($publicContactUrl, ENT_QUOTES, 'UTF-8'); ?>">Contact Us</a>
 </div>
 <div class="flex items-center gap-4">
-<button type="button" class="text-on-surface font-semibold text-sm hover:text-primary transition-all" onclick="window.location.href=<?php echo json_encode($loginPageUrl, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>">Login</button>
-<button type="button" class="bg-primary text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95" onclick="window.location.href=<?php echo json_encode($bookOnlineUrl, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>">
+<button class="text-on-surface font-semibold text-sm hover:text-primary transition-all" onclick="window.location.href=<?php echo json_encode($loginPageUrl, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>">Login</button>
+<button class="bg-primary text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95" onclick="window.location.href=<?php echo json_encode($bookOnlineUrl, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>">
                 Book Online
             </button>
 </div>
