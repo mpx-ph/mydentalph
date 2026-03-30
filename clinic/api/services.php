@@ -237,10 +237,11 @@ function getServices() {
             $totalItems = $countStmt->fetchColumn();
             
             // Get paginated results
-            $sql = "SELECT * FROM tbl_services $whereClause ORDER BY id DESC LIMIT ? OFFSET ?";
+            // Use validated integer literals for LIMIT/OFFSET to avoid PDO string-binding SQL errors.
+            $safeLimit = (int) $limit;
+            $safeOffset = (int) $offset;
+            $sql = "SELECT * FROM tbl_services $whereClause ORDER BY id DESC LIMIT $safeLimit OFFSET $safeOffset";
             $stmt = $pdo->prepare($sql);
-            $params[] = $limit;
-            $params[] = $offset;
             $stmt->execute($params);
             $services = $stmt->fetchAll();
             
