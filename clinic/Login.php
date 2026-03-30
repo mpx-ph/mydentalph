@@ -53,10 +53,6 @@ $staffRedirectAfterLogin = ($clinicSlugForFetch !== '' && preg_match('/^[a-z0-9\
     ? (rtrim(PROVIDER_BASE_URL, '/') . '/' . rawurlencode($slugLower) . '/StaffDashboard.php')
     : (($clinicSlugForFetch !== '') ? (BASE_URL . 'StaffDashboard.php?clinic_slug=' . rawurlencode($clinicSlugForFetch)) : (BASE_URL . 'StaffDashboard.php'));
 
-$staffRoleAdminRedirectAfterLogin = ($clinicSlugForFetch !== '' && preg_match('/^[a-z0-9\-]+$/', $slugLower))
-    ? (rtrim(PROVIDER_BASE_URL, '/') . '/' . rawurlencode($slugLower) . '/AdminDashboard.php')
-    : (($clinicSlugForFetch !== '') ? (BASE_URL . 'AdminDashboard.php?clinic_slug=' . rawurlencode($clinicSlugForFetch)) : (BASE_URL . 'AdminDashboard.php'));
-
 // URL for "Create new account" respecting clinic slug routing
 // .htaccess maps /{slug}/register -> clinic/RegisterClient.php?clinic_slug={slug}
 // For slug-based access (e.g. mydental.ct.ws/{slug}/login), we must build URLs from the domain root,
@@ -71,7 +67,7 @@ if (isLoggedIn('client')) {
     exit;
 }
 if (isLoggedIn('staff')) {
-    header('Location: ' . $staffRoleAdminRedirectAfterLogin);
+    header('Location: ' . $staffRedirectAfterLogin);
     exit;
 }
 if (isLoggedIn(['manager', 'doctor', 'admin'])) {

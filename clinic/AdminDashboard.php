@@ -39,96 +39,64 @@ require_once __DIR__ . '/includes/header.php';
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
 </head>
 <body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex">
-<style>
-    /* Visual helpers copied from StaffDashboard vibe */
-    .mesh-bg {
-        background-color: #f8fafc;
-        background-image:
-            radial-gradient(at 0% 0%, rgba(43, 139, 235, 0.03) 0px, transparent 50%),
-            radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.01) 0px, transparent 50%);
-    }
-    .elevated-card {
-        background: #ffffff;
-        border: 1px solid rgba(226, 232, 240, 0.8);
-        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
-    }
-    .dark .elevated-card {
-        background: rgba(15, 23, 42, 0.95);
-        border-color: rgba(51, 65, 85, 0.9);
-        box-shadow: 0 10px 40px -20px rgba(0, 0, 0, 0.35);
-    }
-    .active-glow {
-        box-shadow: 0 0 20px -5px rgba(43, 139, 235, 0.4);
-    }
-    .no-scrollbar::-webkit-scrollbar {
-        display: none;
-    }
-</style>
 <?php include __DIR__ . '/includes/nav_admin.php'; ?>
 
 <main class="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-<header class="px-2">
-<div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
-<span class="w-12 h-[1.5px] bg-primary"></span> ADMIN DASHBOARD
-</div>
-<div class="mt-5">
-<h2 class="font-headline text-4xl sm:text-5xl font-extrabold tracking-tighter leading-tight text-slate-900 dark:text-white">
-            Admin <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Dashboard</span>
-</h2>
-<p class="font-body text-sm sm:text-base font-medium text-slate-500 dark:text-slate-400 mt-4">
-            Daily overview for <?php echo date('F j, Y'); ?>
-</p>
+<header class="h-20 border-b border-slate-200 dark:border-slate-800 bg-surface-light dark:bg-surface-dark flex items-center justify-between px-8 sticky top-0 z-10 shrink-0">
+<div>
+<h1 class="text-2xl font-bold">Admin Dashboard</h1>
+<p class="text-sm text-slate-500 dark:text-slate-400">Daily overview for <?php echo date('F j, Y'); ?></p>
 </div>
 </header>
-<div class="flex-1 overflow-y-auto p-10 space-y-10 mesh-bg">
-<div class="mx-auto max-w-7xl">
-<div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2">
-<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
-    <div class="flex justify-between items-start mb-6">
-        <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
-            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event_available</span>
-        </div>
-        <span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">Today</span>
-    </div>
-    <div>
-        <p id="todayAppointments" class="text-5xl font-extrabold font-headline text-slate-900 dark:text-white tracking-tighter">
-            <?php echo number_format($todayAppointments); ?>
-        </p>
-        <p class="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] mt-2">Today's Appointments</p>
-    </div>
-    <div class="mt-6 flex items-center pt-4 border-t border-slate-100 dark:border-slate-800">
-        <a class="group/link flex items-center text-sm font-bold text-primary hover:text-primary-dark" href="#">
-            View Schedule <span class="material-symbols-outlined ml-1 transition-transform group-hover/link:translate-x-1" style="font-size: 16px;">arrow_forward</span>
-        </a>
-    </div>
+<div class="flex-1 overflow-y-auto p-8">
+<div class="mx-auto max-w-7xl space-y-8">
+<div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+<div class="relative overflow-hidden rounded-2xl bg-surface-light dark:bg-surface-dark p-6 shadow-card hover:shadow-lg transition-shadow duration-300 group">
+<div class="absolute right-0 top-0 h-32 w-32 translate-x-8 translate-y-[-8px] rounded-full bg-blue-50 dark:bg-blue-900/10 opacity-50 blur-2xl transition-all group-hover:bg-blue-100 dark:group-hover:bg-blue-900/20"></div>
+<div class="relative z-10 flex flex-col h-full justify-between">
+<div class="flex justify-between items-start">
+<div class="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
+<span class="material-symbols-outlined">event_available</span>
 </div>
-
-<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
-    <div class="flex justify-between items-start mb-6">
-        <div class="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-700 transition-colors group-hover:bg-amber-500 group-hover:text-white">
-            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">pending_actions</span>
-        </div>
-        <span class="text-[10px] font-black text-amber-700 bg-amber-100 px-3 py-1.5 rounded-full uppercase tracking-widest">Pending</span>
-    </div>
-    <div>
-        <p id="pendingRequests" class="text-5xl font-extrabold font-headline text-slate-900 dark:text-white tracking-tighter">
-            <?php echo number_format($pendingRequests); ?>
-        </p>
-        <p class="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] mt-2">Pending Requests</p>
-    </div>
-    <div class="mt-6 flex items-center pt-4 border-t border-slate-100 dark:border-slate-800">
-        <a class="group/link flex items-center text-sm font-bold text-primary hover:text-primary-dark" href="#">
-            View Requests <span class="material-symbols-outlined ml-1 transition-transform group-hover/link:translate-x-1" style="font-size: 16px;">arrow_forward</span>
-        </a>
+<span class="text-xs font-bold uppercase tracking-wide text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md">Today</span>
+</div>
+<div class="mt-6">
+<p class="text-sm font-medium text-slate-500 dark:text-slate-400">Today's Appointments</p>
+<h3 id="todayAppointments" class="mt-1 text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight"><?php echo number_format($todayAppointments); ?></h3>
+</div>
+<div class="mt-4 flex items-center pt-4 border-t border-slate-50 dark:border-slate-800">
+<a class="group/link flex items-center text-sm font-bold text-primary hover:text-primary-dark" href="#">
+                                    View Schedule <span class="material-symbols-outlined ml-1 transition-transform group-hover/link:translate-x-1" style="font-size: 16px;">arrow_forward</span>
+</a>
+</div>
+</div>
+</div>
+<div class="relative overflow-hidden rounded-2xl bg-surface-light dark:bg-surface-dark p-6 shadow-card hover:shadow-lg transition-shadow duration-300 group">
+<div class="absolute right-0 top-0 h-32 w-32 translate-x-8 translate-y-[-8px] rounded-full bg-violet-50 dark:bg-violet-900/10 opacity-50 blur-2xl transition-all group-hover:bg-violet-100 dark:group-hover:bg-violet-900/20"></div>
+<div class="relative z-10 flex flex-col h-full justify-between">
+<div class="flex justify-between items-start">
+<div class="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400">
+<span class="material-symbols-outlined">pending_actions</span>
+</div>
+</div>
+<div class="mt-6">
+<p class="text-sm font-medium text-slate-500 dark:text-slate-400">Pending Requests</p>
+<h3 id="pendingRequests" class="mt-1 text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight"><?php echo number_format($pendingRequests); ?></h3>
+</div>
+<div class="mt-4 flex items-center pt-4 border-t border-slate-50 dark:border-slate-800">
+<a class="group/link flex items-center text-sm font-bold text-primary hover:text-primary-dark" href="#">
+                                    View Requests <span class="material-symbols-outlined ml-1 transition-transform group-hover/link:translate-x-1" style="font-size: 16px;">arrow_forward</span>
+</a>
+</div>
     </div>
 </div>
 </div>
 <div class="grid grid-cols-1 gap-6">
-<div class="elevated-card rounded-3xl overflow-hidden border-2 border-primary/20">
-<div class="px-10 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+<div class="rounded-2xl bg-surface-light dark:bg-surface-dark p-8 shadow-card">
+<div class="mb-8 flex flex-wrap items-center justify-between gap-4">
 <div>
-<h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Recent Bookings</h3>
-<p class="text-xs font-medium text-slate-500 dark:text-slate-400 mt-2">Latest appointment bookings</p>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white">Recent Bookings</h3>
+<p class="text-sm text-slate-500 dark:text-slate-400 font-medium">Latest appointment bookings</p>
 </div>
 <div class="flex items-center gap-2">
 <a href="#" class="flex items-center gap-2 rounded-lg bg-primary/10 dark:bg-primary/20 px-4 py-2 text-sm font-bold text-primary hover:bg-primary/20 dark:hover:bg-primary/30 transition-all">
@@ -159,24 +127,24 @@ try {
     $recentBookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     if (empty($recentBookings)) {
-        echo '<div class="text-center py-14">
+        echo '<div class="text-center py-12">
                 <span class="material-symbols-outlined text-slate-300 dark:text-slate-600 mb-3" style="font-size: 48px;">event_busy</span>
-                <p class="text-sm font-medium text-slate-500 dark:text-slate-400">No bookings found</p>
+                <p class="text-sm font-medium text-slate-400 dark:text-slate-500">No bookings found</p>
                 <p class="text-xs mt-1 text-slate-400 dark:text-slate-500">Bookings will appear here once created</p>
               </div>';
     } else {
         echo '<div class="overflow-x-auto">
-                <table class="w-full text-left">
+                <table class="w-full">
                   <thead>
-                    <tr class="bg-slate-50/50">
-                      <th class="px-10 py-6 text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Patient</th>
-                      <th class="px-10 py-6 text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Booking ID</th>
-                      <th class="px-10 py-6 text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Date &amp; Time</th>
-                      <th class="px-10 py-6 text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Service</th>
-                      <th class="px-10 py-6 text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Status</th>
+                    <tr class="border-b border-slate-200 dark:border-slate-700">
+                      <th class="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Patient</th>
+                      <th class="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Booking ID</th>
+                      <th class="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Date & Time</th>
+                      <th class="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Service</th>
+                      <th class="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
                     </tr>
                   </thead>
-                  <tbody class="divide-y divide-primary/20">';
+                  <tbody class="divide-y divide-slate-100 dark:divide-slate-800">';
         
         foreach ($recentBookings as $booking) {
             $patientName = trim((isset($booking['first_name']) ? $booking['first_name'] : '') . ' ' . (isset($booking['last_name']) ? $booking['last_name'] : ''));
@@ -197,19 +165,19 @@ try {
             // Status badge styling
             $status = strtolower(isset($booking['status']) ? $booking['status'] : 'pending');
             $statusConfig = [
-                'pending' => ['bg' => 'bg-amber-100 dark:bg-amber-900/20', 'text' => 'text-amber-700 dark:text-amber-400', 'label' => 'Pending'],
-                'confirmed' => ['bg' => 'bg-blue-100 dark:bg-blue-900/20', 'text' => 'text-blue-700 dark:text-blue-400', 'label' => 'Confirmed'],
-                'completed' => ['bg' => 'bg-emerald-100 dark:bg-emerald-900/20', 'text' => 'text-emerald-700 dark:text-emerald-400', 'label' => 'Completed'],
-                'cancelled' => ['bg' => 'bg-slate-100 dark:bg-slate-800', 'text' => 'text-slate-700 dark:text-slate-300', 'label' => 'Cancelled'],
-                'no_show' => ['bg' => 'bg-red-100 dark:bg-red-900/20', 'text' => 'text-red-700 dark:text-red-400', 'label' => 'No Show']
+                'pending' => ['bg' => 'bg-amber-50 dark:bg-amber-900/20', 'text' => 'text-amber-700 dark:text-amber-400', 'label' => 'Pending'],
+                'confirmed' => ['bg' => 'bg-blue-50 dark:bg-blue-900/20', 'text' => 'text-blue-700 dark:text-blue-400', 'label' => 'Confirmed'],
+                'completed' => ['bg' => 'bg-green-50 dark:bg-green-900/20', 'text' => 'text-green-700 dark:text-green-400', 'label' => 'Completed'],
+                'cancelled' => ['bg' => 'bg-slate-100 dark:bg-slate-800', 'text' => 'text-slate-600 dark:text-slate-400', 'label' => 'Cancelled'],
+                'no_show' => ['bg' => 'bg-red-50 dark:bg-red-900/20', 'text' => 'text-red-700 dark:text-red-400', 'label' => 'No Show']
             ];
             
             $statusStyle = isset($statusConfig[$status]) ? $statusConfig[$status] : $statusConfig['pending'];
             
-            echo '<tr class="group hover:bg-slate-50/50 transition-colors">
-                    <td class="px-10 py-8">
-                      <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+            echo '<tr class="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <td class="py-4 px-4">
+                      <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
                           <span class="text-primary font-bold text-sm">' . strtoupper(substr($patientName, 0, 1)) . '</span>
                         </div>
                         <div>
@@ -218,20 +186,20 @@ try {
                         </div>
                       </div>
                     </td>
-                    <td class="px-10 py-8">
+                    <td class="py-4 px-4">
                       <span class="font-mono text-sm font-medium text-slate-600 dark:text-slate-300">' . htmlspecialchars(isset($booking['booking_id']) ? $booking['booking_id'] : 'N/A') . '</span>
                     </td>
-                    <td class="px-10 py-8">
+                    <td class="py-4 px-4">
                       <div class="flex flex-col">
                         <span class="text-sm font-medium text-slate-900 dark:text-white">' . $appointmentDate . '</span>
                         <span class="text-xs text-slate-500 dark:text-slate-400">' . $appointmentTime . '</span>
                       </div>
                     </td>
-                    <td class="px-10 py-8">
+                    <td class="py-4 px-4">
                       <p class="text-sm text-slate-700 dark:text-slate-300">' . htmlspecialchars($serviceType) . '</p>
                     </td>
-                    <td class="px-10 py-8">
-                      <span class="inline-flex items-center px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ' . $statusStyle['bg'] . ' ' . $statusStyle['text'] . '">' . $statusStyle['label'] . '</span>
+                    <td class="py-4 px-4">
+                      <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ' . $statusStyle['bg'] . ' ' . $statusStyle['text'] . '">' . $statusStyle['label'] . '</span>
                     </td>
                   </tr>';
         }
@@ -241,7 +209,7 @@ try {
             </div>';
     }
 } catch (Exception $e) {
-    echo '<div class="text-center py-14">
+    echo '<div class="text-center py-12">
             <span class="material-symbols-outlined text-red-300 dark:text-red-600 mb-3" style="font-size: 48px;">error</span>
             <p class="text-sm font-medium text-red-600 dark:text-red-400">Error loading bookings</p>
             <p class="text-xs mt-1 text-slate-400 dark:text-slate-500">' . htmlspecialchars($e->getMessage()) . '</p>

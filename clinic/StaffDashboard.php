@@ -1,80 +1,16 @@
-<?php
-/**
- * Staff dashboard — requires staff-class login for the same tenant as clinic_slug.
- */
-$pageTitle = 'Staff Dashboard';
-require_once __DIR__ . '/config/config.php';
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-if (empty($_GET['clinic_slug']) && !empty($_SESSION['public_tenant_slug'])) {
-    $_GET['clinic_slug'] = $_SESSION['public_tenant_slug'];
-}
-$clinic_slug_boot = isset($_GET['clinic_slug']) ? trim((string) $_GET['clinic_slug']) : '';
-if ($clinic_slug_boot !== '' && preg_match('/^[a-z0-9\-]+$/', strtolower($clinic_slug_boot))) {
-    $_GET['clinic_slug'] = strtolower($clinic_slug_boot);
-    require_once __DIR__ . '/tenant_bootstrap.php';
-} else {
-    header('Location: ' . BASE_URL . 'Login.php');
-    exit;
-}
-require_once __DIR__ . '/includes/auth.php';
-
-$staffTypes = ['manager', 'doctor', 'staff', 'admin'];
-if (!isLoggedIn($staffTypes)) {
-    header('Location: ' . BASE_URL . 'Login.php?clinic_slug=' . rawurlencode($currentTenantSlug));
-    exit;
-}
-$sessionTenant = getClinicTenantId();
-if ($sessionTenant === null || (string) $sessionTenant !== (string) $currentTenantId) {
-    header('Location: ' . BASE_URL . 'Login.php?clinic_slug=' . rawurlencode($currentTenantSlug));
-    exit;
-}
-
-$staffDisplayName = isset($_SESSION['user_name']) ? htmlspecialchars((string) $_SESSION['user_name'], ENT_QUOTES, 'UTF-8') : 'Staff';
-$staffRoleLabel = isset($_SESSION['user_role']) ? htmlspecialchars(ucwords(str_replace('_', ' ', (string) $_SESSION['user_role'])), ENT_QUOTES, 'UTF-8') : 'Staff';
-$staffInitials = 'S';
-$__nm = trim((string) ($_SESSION['user_name'] ?? ''));
-if ($__nm !== '') {
-    $__parts = preg_split('/\s+/', $__nm, -1, PREG_SPLIT_NO_EMPTY);
-    $staffInitials = '';
-    foreach (array_slice($__parts, 0, 2) as $__p) {
-        $staffInitials .= strtoupper(substr($__p, 0, 1));
-    }
-    if ($staffInitials === '') {
-        $staffInitials = 'S';
-    }
-}
-$staffInitialsEsc = htmlspecialchars($staffInitials, ENT_QUOTES, 'UTF-8');
-$staffDisplayEmail = isset($_SESSION['user_email']) ? trim((string) $_SESSION['user_email']) : '';
-$staffDisplayEmailEsc = $staffDisplayEmail !== '' ? htmlspecialchars($staffDisplayEmail, ENT_QUOTES, 'UTF-8') : '';
-$staffLogoutUrl = htmlspecialchars(BASE_URL . 'api/logout.php', ENT_QUOTES, 'UTF-8');
-$staffDashUrl = htmlspecialchars(BASE_URL . 'StaffDashboard.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
-$staffApptsUrl = htmlspecialchars(BASE_URL . 'StaffAppointments.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
-$managerDashUrl = htmlspecialchars(BASE_URL . 'ManagerDashboard.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
-$managerPatientsUrl = htmlspecialchars(BASE_URL . 'ManagerPatients.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
-$managerPaymentsUrl = htmlspecialchars(BASE_URL . 'ManagerPayments.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
-$managerPaymentSettingsUrl = htmlspecialchars(BASE_URL . 'ManagerPaymentSettings.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
-$managerServicesUrl = htmlspecialchars(BASE_URL . 'ManagerServices.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
-$managerUsersUrl = htmlspecialchars(BASE_URL . 'ManagerUsers.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
-$managerReviewsUrl = htmlspecialchars(BASE_URL . 'ManagerReviews.php?clinic_slug=' . rawurlencode($currentTenantSlug), ENT_QUOTES, 'UTF-8');
-$staff_portal_sidebar_mode = 'dashboard';
-$staff_nav_active = 'dashboard';
-unset($__nm, $__parts, $__p);
-?>
 <!DOCTYPE html>
 
 <html class="light" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title><?php echo htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8'); ?> | <?php echo htmlspecialchars(isset($currentTenantData['clinic_name']) ? (string) $currentTenantData['clinic_name'] : 'Clinic', ENT_QUOTES, 'UTF-8'); ?></title>
-<!-- Google Fonts: Manrope -->
+<title>Clinical Precision - Manager Dashboard</title>
+<!-- Google Fonts: Manrope & Playfair Display -->
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,400;1,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,400;1,700&amp;display=swap" rel="stylesheet"/>
 <!-- Material Symbols -->
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<!-- Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script id="tailwind-config">
         tailwind.config = {
@@ -130,11 +66,65 @@ unset($__nm, $__parts, $__p);
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
-<!-- SideNavBar Component -->
-<?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<!-- Main Content Area -->
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-64 z-40 bg-white flex flex-col py-8 border-r border-slate-200/60">
+<div class="px-7 mb-10">
+<h1 class="text-xl font-extrabold text-slate-900 tracking-tight font-headline flex items-center gap-2">
+<span class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/30">
+<span class="material-symbols-outlined text-white text-lg" style="font-variation-settings: 'FILL' 1;">medical_services</span>
+</span>
+            Precision Dental
+        </h1>
+<p class="text-primary font-bold text-[10px] tracking-[0.2em] uppercase mt-2 opacity-80">Admin Console</p>
+</div>
+<nav class="flex-1 space-y-1 overflow-y-auto no-scrollbar">
+<div class="relative px-3">
+<a class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl transition-all duration-200 active-glow" href="#">
+<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-headline text-sm font-bold tracking-tight">Dashboard</span>
+</a>
+<div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full"></div>
+</div>
+<div class="px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[22px]">medical_services</span>
+<span class="font-headline text-sm font-medium tracking-tight">Services</span>
+</a>
+</div>
+<div class="px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[22px]">group</span>
+<span class="font-headline text-sm font-medium tracking-tight">Staff Management</span>
+</a>
+</div>
+<div class="px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[22px]">analytics</span>
+<span class="font-headline text-sm font-medium tracking-tight">Reports &amp; Analytics</span>
+</a>
+</div>
+<div class="px-3 mt-6">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-slate-900 transition-colors duration-200 hover:bg-slate-50 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[22px]">settings</span>
+<span class="font-headline text-sm font-medium tracking-tight">Settings</span>
+</a>
+</div>
+<div class="px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-rose-500 transition-colors duration-200 hover:bg-rose-50 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[22px]">logout</span>
+<span class="font-headline text-sm font-medium tracking-tight">Logout</span>
+</a>
+</div>
+</nav>
+<div class="px-4 mt-auto">
+<button class="w-full py-3.5 bg-primary text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-primary/30 transition-all active:scale-95">
+            Schedule Surgery
+        </button>
+</div>
+</aside>
+<!-- Main Wrapper -->
 <main class="flex-1 flex flex-col min-w-0 ml-64">
-<!-- TopNavBar Component -->
+<!-- TopAppBar -->
 <header class="flex justify-between items-center w-full px-10 sticky top-0 z-40 bg-white border-b border-slate-200 h-20">
 <div class="flex items-center flex-1 max-w-xl">
 <div class="relative w-full group">
@@ -143,216 +133,331 @@ unset($__nm, $__parts, $__p);
 </div>
 </div>
 <div class="flex items-center gap-6 ml-8">
-<div class="flex items-center gap-6 text-slate-400">
+<div class="hidden lg:flex items-center gap-6 text-slate-500 font-bold text-xs uppercase tracking-widest">
+<a class="hover:text-primary transition-colors" href="#">Support</a>
+<a class="hover:text-primary transition-colors" href="#">System Status</a>
+</div>
+<div class="flex items-center gap-4 text-slate-400 ml-4">
 <button class="material-symbols-outlined hover:text-primary transition-colors relative">
                     notifications
                     <span class="absolute top-0 right-0 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white"></span>
 </button>
-<button class="material-symbols-outlined hover:text-primary transition-colors">help_outline</button>
+<button class="material-symbols-outlined hover:text-primary transition-colors">settings</button>
 </div>
 <div class="h-8 w-px bg-slate-200 mx-2"></div>
 <div class="flex items-center gap-3">
 <div class="text-right hidden sm:block">
-<p class="text-sm font-bold text-slate-900 leading-none"><?php echo $staffDisplayName; ?></p>
-<p class="text-[11px] text-slate-500 font-bold uppercase tracking-wider mt-1"><?php echo $staffRoleLabel !== '' ? $staffRoleLabel : 'Staff'; ?></p>
+<p class="text-sm font-bold text-slate-900 leading-none">Clinical Precision</p>
+<p class="text-[11px] text-slate-500 font-bold uppercase tracking-wider mt-1">Clinic Manager</p>
 </div>
-<div class="h-10 w-10 rounded-full overflow-hidden border-2 border-primary/20 p-0.5 bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-<span class="select-none"><?php echo $staffInitialsEsc; ?></span>
+<div class="h-10 w-10 rounded-full overflow-hidden border-2 border-primary/20 p-0.5">
+<img alt="Manager Profile" class="w-full h-full rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC7dGIBm_3RlenM-4jNkyKdHQT-M-7rXFP6FVYEx_NLY3PuxuE_nUTMlZKI8OSdySvqsSepJyfw4wZ_zLXBfpPE5rSUCRwQ0kn9WObJlvQsZho7CZPKQf3rGBISrdc4eRxDuD_zybVHwMUipDqnCFlIzwk3ZorxLWj_E2DVVHtd3Aq198CpkcDZUFNlDfg5midtgcJW6f8CYIQGJrPUiug3sDkkG12W0HX16N7-uPoo7FLUM7jnSIMboaaH3nqMZ-7I8S5yn89-07A"/>
 </div>
 </div>
 </div>
 </header>
 <!-- Scrollable Content -->
 <div class="p-10 space-y-10">
-<!-- Welcome Header -->
+<!-- Page Header -->
 <section class="flex flex-col gap-4 mb-4">
 <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
-<span class="w-12 h-[1.5px] bg-primary"></span> STAFF DASHBOARD
-    </div>
+<span class="w-12 h-[1.5px] bg-primary"></span> MANAGER DASHBOARD
+            </div>
+<div class="flex items-end justify-between">
 <div>
 <h2 class="font-headline text-6xl font-extrabold tracking-tighter leading-tight text-on-background">
-            Staff <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Dashboard</span>
+                        Manager <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Dashboard</span>
 </h2>
 <p class="font-body text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-4">
-            Monitoring clinic performance and patient flow for today.
-        </p>
+                        Overview of clinic operations and performance
+                    </p>
+</div>
+<button class="px-6 py-3 bg-primary/10 text-primary text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-primary hover:text-white transition-all">
+                    View Reports
+                </button>
 </div>
 </section>
-<!-- Summary Cards -->
+<!-- Stats Grid -->
 <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-<!-- Today's Appointments -->
+<!-- Services -->
 <div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">calendar_today</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">medical_services</span>
 </div>
-<span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">+12%</span>
+<span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">+4%</span>
+</div>
+<div>
+<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">24</p>
+<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Services Offered</p>
+</div>
+</div>
+<!-- Staff -->
+<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
+<div class="flex justify-between items-start mb-6">
+<div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">group</span>
+</div>
+<span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">Active</span>
 </div>
 <div>
 <p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">12</p>
-<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Today's Appointments</p>
+<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Active Staff</p>
 </div>
 </div>
-<!-- Pending -->
+<!-- Appointments -->
 <div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
 <div class="flex justify-between items-start mb-6">
-<div class="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 transition-colors group-hover:bg-amber-500 group-hover:text-white">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">pending_actions</span>
+<div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event_available</span>
 </div>
+<span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">Today</span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">3</p>
-<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Pending Check-ins</p>
+<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">18</p>
+<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Appointments</p>
 </div>
 </div>
-<!-- Completed -->
+<!-- Revenue -->
 <div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 transition-colors group-hover:bg-emerald-500 group-hover:text-white">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">payments</span>
 </div>
-</div>
-<div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">9</p>
-<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Completed Today</p>
-</div>
-</div>
-<!-- Total Patients -->
-<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
-<div class="flex justify-between items-start mb-6">
-<div class="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-600 transition-colors group-hover:bg-slate-900 group-hover:text-white">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">group</span>
-</div>
+<span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full uppercase tracking-widest">+12%</span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">15</p>
-<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Daily Patient Flow</p>
+<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">$42k</p>
+<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Monthly Revenue</p>
 </div>
 </div>
 </section>
-<!-- Main Section: Today's Schedule -->
-<section class="space-y-6 pb-16">
-<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-<div class="flex items-center gap-4">
-<h3 class="text-2xl font-bold font-headline text-on-background">Today's Schedule</h3>
-<span class="px-4 py-1.5 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest rounded-full">October 24, 2023</span>
+<!-- Main Content Area: Analytics & Appointments -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Performance Analytics -->
+<div class="lg:col-span-2 elevated-card rounded-3xl p-10 flex flex-col">
+<div class="flex justify-between items-start mb-8">
+<div>
+<h3 class="text-2xl font-bold font-headline text-on-background">Performance Analytics</h3>
+<p class="text-[11px] text-on-surface-variant/60 font-black uppercase tracking-widest mt-1">Revenue vs Appointments (Last 7 Days)</p>
 </div>
-<div class="flex items-center gap-3">
-<div class="flex bg-slate-100 p-1 rounded-xl">
-<button class="px-5 py-2 text-xs font-black uppercase tracking-widest bg-white text-primary rounded-lg shadow-sm">Today</button>
-<button class="px-5 py-2 text-xs font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors">Upcoming</button>
+<button class="w-10 h-10 flex items-center justify-center text-slate-400 hover:bg-slate-50 rounded-xl transition-all">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
 </div>
-<button class="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 text-xs font-black uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
-<span class="material-symbols-outlined text-lg">filter_list</span>
-                        Filter
-                    </button>
+<div class="flex-1 flex items-end justify-between gap-4 mt-6 min-h-[250px]">
+<!-- Chart Bars -->
+<div class="flex-1 flex flex-col items-center gap-4 group">
+<div class="w-full bg-primary/10 rounded-xl relative h-32 overflow-hidden">
+<div class="absolute bottom-0 w-full bg-primary transition-all group-hover:scale-y-110 origin-bottom" style="height: 60%;"></div>
+</div>
+<span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mon</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-4 group">
+<div class="w-full bg-primary/10 rounded-xl relative h-48 overflow-hidden">
+<div class="absolute bottom-0 w-full bg-primary transition-all group-hover:scale-y-110 origin-bottom" style="height: 80%;"></div>
+</div>
+<span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tue</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-4 group">
+<div class="w-full bg-primary/10 rounded-xl relative h-40 overflow-hidden">
+<div class="absolute bottom-0 w-full bg-primary transition-all group-hover:scale-y-110 origin-bottom" style="height: 70%;"></div>
+</div>
+<span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Wed</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-4 group">
+<div class="w-full bg-primary/10 rounded-xl relative h-56 overflow-hidden">
+<div class="absolute bottom-0 w-full bg-primary transition-all group-hover:scale-y-110 origin-bottom" style="height: 95%;"></div>
+</div>
+<span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Thu</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-4 group">
+<div class="w-full bg-primary/10 rounded-xl relative h-36 overflow-hidden">
+<div class="absolute bottom-0 w-full bg-primary transition-all group-hover:scale-y-110 origin-bottom" style="height: 55%;"></div>
+</div>
+<span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fri</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-4 group">
+<div class="w-full bg-primary/10 rounded-xl relative h-24 overflow-hidden">
+<div class="absolute bottom-0 w-full bg-primary transition-all group-hover:scale-y-110 origin-bottom" style="height: 40%;"></div>
+</div>
+<span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sat</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-4 group">
+<div class="w-full bg-primary/10 rounded-xl relative h-20 overflow-hidden">
+<div class="absolute bottom-0 w-full bg-primary transition-all group-hover:scale-y-110 origin-bottom" style="height: 30%;"></div>
+</div>
+<span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sun</span>
 </div>
 </div>
-<!-- Schedule Table: Styled like Subscription Billing Table -->
-<div class="elevated-card rounded-3xl overflow-hidden border-2 border-primary/20">
-<div class="px-10 py-6 border-b border-slate-100 flex items-center justify-between">
-<h5 class="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">Live Appointment Manifest</h5>
-<p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Total 12 Entries</p>
+</div>
+<!-- Upcoming Appointments -->
+<div class="elevated-card rounded-3xl p-8 flex flex-col">
+<h3 class="text-xl font-bold font-headline text-on-background mb-8">Upcoming Appointments</h3>
+<div class="flex-1 space-y-6">
+<div class="flex gap-4 items-center group cursor-pointer">
+<img alt="Sarah Jenkins" class="w-11 h-11 rounded-full object-cover ring-2 ring-primary/10" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDCKFeADgd9maUSKi7u9rfRcbwszVeKD2P8XrfW_5RSoEJ5aCxvlW774Pl7W0gsa6BtFo3rFcyD3_K128vVnJ9SPPjqawrbJLZp46r5PIbNnq1BccgxJS574eqXImK9oeNyhHct_jXi4LeEttwR_Mj0jKknSThyv3pHHcaxg-PPMapLhpuyKrbgjM5iQKA3-UOx3KSAQ6aOkmxVzdy1ReMJ1lWudi6KOCZLFYC09VWQRcnDmsMAhXpkiY6djOcPth4tBJfQE28-TGY"/>
+<div class="flex-1 border-b border-slate-100 pb-3 group-hover:border-primary/20 transition-all">
+<p class="text-sm font-bold text-on-background group-hover:text-primary transition-colors">Sarah Jenkins</p>
+<p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Root Canal • 09:30 AM</p>
+</div>
+</div>
+<div class="flex gap-4 items-center group cursor-pointer">
+<img alt="Michael Chen" class="w-11 h-11 rounded-full object-cover ring-2 ring-primary/10" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAphMnPQqk3s0rAnVLEy9fpdG7FN4xomr8h-Cu8HZlTehtdEPQUOORz9QKXN5aXMRAx4JFKWnvp41un4SvYYzZIcpU0n2mULCBWo308d6Y4ax2K1RZJj_5BOsQBh9gMTYeZn_RbdQ_WpyDg4B7TmeX1NHR5F_lAhIrurJkbJH3Kv7OhfvA6YGn6HzqGP-MF91shtOn_IeGtbSNa6DhfBrEo_KNMefpztKtWC9TKbwB59ab4d73D4BpDyFowKRw9xLPnh75UVJ1umMg"/>
+<div class="flex-1 border-b border-slate-100 pb-3 group-hover:border-primary/20 transition-all">
+<p class="text-sm font-bold text-on-background group-hover:text-primary transition-colors">Michael Chen</p>
+<p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Cleaning • 11:00 AM</p>
+</div>
+</div>
+<div class="flex gap-4 items-center group cursor-pointer">
+<div class="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xs ring-2 ring-primary/10">JS</div>
+<div class="flex-1 border-b border-slate-100 pb-3 group-hover:border-primary/20 transition-all">
+<p class="text-sm font-bold text-on-background group-hover:text-primary transition-colors">James Smith</p>
+<p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Consult • 02:30 PM</p>
+</div>
+</div>
+<div class="flex gap-4 items-center group cursor-pointer">
+<img alt="Emily Rivera" class="w-11 h-11 rounded-full object-cover ring-2 ring-primary/10" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBYHVEeUPe6-2j7_z7Q1aegznqCbTXSlGCQwKeTLiw-PS2XkaBcONBAT6SJWxpki4bZFRklHpg7HmApY0r_Et891aWMsp5UE2bpLLzwvQ3Q3Y-fiSHmfkeTG9F0k2gqq8xqu5ecLD0K-Vi9rSxwKxYJ5LgIn8wsRVuSM3_o1WP_Qxi82S7ojVnjHinRbgMTa36AWgjMbfkyJMZiHux6aALjVmuVPkzdCaeehUXC13rRREXdSEpxO7MlrVMsI5hNS5LkKFD382YLA5o"/>
+<div class="flex-1 pb-3">
+<p class="text-sm font-bold text-on-background group-hover:text-primary transition-colors">Emily Rivera</p>
+<p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Whitening • 04:00 PM</p>
+</div>
+</div>
+</div>
+<button class="w-full mt-6 py-3.5 bg-primary/10 text-primary font-black text-[11px] uppercase tracking-[0.2em] rounded-xl hover:bg-primary hover:text-white transition-all duration-300">
+                    View Full Schedule
+                </button>
+</div>
+</div>
+<!-- Recent Bookings Section -->
+<section class="elevated-card rounded-3xl overflow-hidden">
+<div class="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
+<div>
+<h3 class="text-2xl font-bold font-headline text-on-background">Recent Bookings</h3>
+<p class="text-[11px] text-on-surface-variant/60 font-black uppercase tracking-widest mt-1">Daily appointment logs and financial summary</p>
+</div>
+<button class="px-5 py-2.5 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">filter_list</span> Filter List
+                </button>
 </div>
 <div class="overflow-x-auto">
-<table class="w-full text-left">
+<table class="w-full text-left border-collapse">
 <thead>
 <tr class="bg-slate-50/50">
-<th class="px-10 py-6 text-[11px] font-black uppercase tracking-widest text-on-surface-variant/60">Patient &amp; ID</th>
-<th class="px-10 py-6 text-[11px] font-black uppercase tracking-widest text-on-surface-variant/60">Appointment</th>
-<th class="px-10 py-6 text-[11px] font-black uppercase tracking-widest text-on-surface-variant/60">Clinical Service</th>
-<th class="px-10 py-6 text-[11px] font-black uppercase tracking-widest text-on-surface-variant/60">Assigned Staff</th>
-<th class="px-10 py-6 text-[11px] font-black uppercase tracking-widest text-on-surface-variant/60">Status</th>
-<th class="px-10 py-6 text-[11px] font-black uppercase tracking-widest text-on-surface-variant/60 text-right">Actions</th>
+<th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Patient Name</th>
+<th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date &amp; Time</th>
+<th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Service Type</th>
+<th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Assigned Dentist</th>
+<th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+<th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
 </tr>
 </thead>
-<tbody class="divide-y divide-primary/20">
-<!-- Row 1 -->
-<tr class="group hover:bg-slate-50/50 transition-colors">
-<td class="px-10 py-8">
+<tbody class="divide-y divide-slate-100">
+<tr class="hover:bg-slate-50/30 transition-colors group">
+<td class="px-8 py-5">
 <div class="flex items-center gap-4">
-<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">AM</div>
+<img alt="Marcus Wright" class="w-9 h-9 rounded-full object-cover ring-2 ring-primary/5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCwXG7XG0Zz6w6Yk_W7X-k7N8m8e9r-k1w2x3y4z5a6b7c8d9e0f1g2h3i4j5k6l7m8n9o0p1q2r3s4t5u6v7w8x9y0"/>
 <div>
-<div class="text-lg font-bold text-on-background">Alexander Miller</div>
-<div class="text-sm text-slate-500 font-medium">#PT-8821</div>
+<p class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">Marcus Wright</p>
+<p class="text-[10px] text-slate-500 font-medium mt-0.5">ID: #PD-4421</p>
 </div>
 </div>
 </td>
-<td class="px-10 py-8">
-<div class="text-lg font-bold text-on-background">09:00 AM</div>
-<div class="text-sm text-slate-500 font-medium flex items-center gap-1">
-<span class="material-symbols-outlined text-sm">schedule</span> In 15 min
-                                    </div>
+<td class="px-6 py-5">
+<p class="text-sm font-semibold text-slate-700">Oct 24, 2023</p>
+<p class="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-0.5">09:15 AM</p>
 </td>
-<td class="px-10 py-8">
-<span class="bg-slate-100 text-slate-700 text-[10px] font-black px-4 py-1.5 rounded-lg uppercase tracking-widest">Scaling &amp; Polishing</span>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full uppercase tracking-wider">Tooth Extraction</span>
 </td>
-<td class="px-10 py-8">
-<div class="flex items-center gap-3">
-<img class="w-8 h-8 rounded-full object-cover border border-slate-200" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC-iEstP6S-it5gfwZADh9zDTwAmnB6ymId9llNn_dmSMcXaPkgqpH2tHwVBCI89SOu6tent3PmmPamfD1qWGTBelwA5Wk6m-krKD4VyE9tUixOt0n-ZpNFz_RqxtSE9xyQHtZK84J9Tj_Qy_JT3z6wKIsJpkJbdiZ5_CTzENVFBRlwgxbXE3ZrhDQA285QtWq78znd6nhjHbU34FyMTI6a1zalTC-jg9ogQuq_NMHPAefKxtlmSINK232IZD2c6entRD1A5nGnRMw"/>
-<span class="text-sm font-bold text-on-background">Dr. Robert Chen</span>
-</div>
+<td class="px-6 py-5">
+<p class="text-sm font-medium text-slate-700">Dr. Helena Vance</p>
 </td>
-<td class="px-10 py-8">
-<span class="bg-green-100 text-green-700 text-[10px] font-black px-4 py-1.5 rounded-lg uppercase tracking-widest">Confirmed</span>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-full uppercase tracking-widest">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    Completed
+                                </span>
 </td>
-<td class="px-10 py-8 text-right">
-<button class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white border border-slate-200 text-primary hover:border-primary transition-all shadow-sm">
-<span class="material-symbols-outlined text-xl">more_horiz</span>
-</button>
+<td class="px-8 py-5 text-right">
+<p class="text-sm font-extrabold text-slate-900">$350.00</p>
 </td>
 </tr>
-<!-- Row 2 -->
-<tr class="group hover:bg-slate-50/50 transition-colors">
-<td class="px-10 py-8">
+<tr class="hover:bg-slate-50/30 transition-colors group">
+<td class="px-8 py-5">
 <div class="flex items-center gap-4">
-<div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-xs">EJ</div>
+<div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs">LH</div>
 <div>
-<div class="text-lg font-bold text-on-background">Elena Jakes</div>
-<div class="text-sm text-slate-500 font-medium">#PT-4412</div>
+<p class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">Linda Harrison</p>
+<p class="text-[10px] text-slate-500 font-medium mt-0.5">ID: #PD-4422</p>
 </div>
 </div>
 </td>
-<td class="px-10 py-8">
-<div class="text-lg font-bold text-on-background">10:30 AM</div>
-<div class="text-sm text-slate-500 font-medium">Duration: 45 min</div>
+<td class="px-6 py-5">
+<p class="text-sm font-semibold text-slate-700">Oct 24, 2023</p>
+<p class="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-0.5">10:45 AM</p>
 </td>
-<td class="px-10 py-8">
-<span class="bg-slate-100 text-slate-700 text-[10px] font-black px-4 py-1.5 rounded-lg uppercase tracking-widest">Orthodontic</span>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full uppercase tracking-wider">Orthodontic Review</span>
 </td>
-<td class="px-10 py-8">
-<div class="flex items-center gap-3">
-<img class="w-8 h-8 rounded-full object-cover border border-slate-200" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAgzKjrNLyWIxE9sKX2LhYg8xVK6g91YIPm0z87efZL59mI42c4vrCMw3JUMWLWdlsPisHCNNZBue3Ie0m5cJ2Wpv7hIS3vmjXNRaEbMx_ZiSa8Ow0uyBzSzBxpQeB7lq5km4_WebNYSBOGa-SW5W6NPAxRm0biyjbSF23Vb5a1TPh6ANFvHc4uwQdagvPsN-to4quPOEi9_3eeX52FBARbFKbZ8PwXveUMqCxut02Qm5fj4wk-MSvYanHt-t64z8RWfk0hDHmbLqU"/>
-<span class="text-sm font-bold text-on-background">Dr. Sarah Aetheris</span>
+<td class="px-6 py-5">
+<p class="text-sm font-medium text-slate-700">Dr. Simon Kaan</p>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-full uppercase tracking-widest">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                                    Confirmed
+                                </span>
+</td>
+<td class="px-8 py-5 text-right">
+<p class="text-sm font-extrabold text-slate-900">$120.00</p>
+</td>
+</tr>
+<tr class="hover:bg-slate-50/30 transition-colors group">
+<td class="px-8 py-5">
+<div class="flex items-center gap-4">
+<img alt="David Miller" class="w-9 h-9 rounded-full object-cover ring-2 ring-primary/5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAphMnPQqk3s0rAnVLEy9fpdG7FN4xomr8h-Cu8HZlTehtdEPQUOORz9QKXN5aXMRAx4JFKWnvp41un4SvYYzZIcpU0n2mULCBWo308d6Y4ax2K1RZJj_5BOsQBh9gMTYeZn_RbdQ_WpyDg4B7TmeX1NHR5F_lAhIrurJkbJH3Kv7OhfvA6YGn6HzqGP-MF91shtOn_IeGtbSNa6DhfBrEo_KNMefpztKtWC9TKbwB59ab4d73D4BpDyFowKRw9xLPnh75UVJ1umMg"/>
+<div>
+<p class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">David Miller</p>
+<p class="text-[10px] text-slate-500 font-medium mt-0.5">ID: #PD-4423</p>
+</div>
 </div>
 </td>
-<td class="px-10 py-8">
-<span class="bg-amber-100 text-amber-700 text-[10px] font-black px-4 py-1.5 rounded-lg uppercase tracking-widest">Pending</span>
+<td class="px-6 py-5">
+<p class="text-sm font-semibold text-slate-700">Oct 24, 2023</p>
+<p class="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-0.5">01:30 PM</p>
 </td>
-<td class="px-10 py-8 text-right">
-<button class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white border border-slate-200 text-primary hover:border-primary transition-all shadow-sm">
-<span class="material-symbols-outlined text-xl">more_horiz</span>
-</button>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full uppercase tracking-wider">Emergency Repair</span>
+</td>
+<td class="px-6 py-5">
+<p class="text-sm font-medium text-slate-700">Dr. Helena Vance</p>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 text-[10px] font-black rounded-full uppercase tracking-widest">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                    Pending
+                                </span>
+</td>
+<td class="px-8 py-5 text-right">
+<p class="text-sm font-extrabold text-slate-900">$580.00</p>
 </td>
 </tr>
 </tbody>
 </table>
 </div>
-<!-- Pagination / Table Footer -->
-<div class="bg-slate-50/50 px-10 py-5 border-t border-slate-100 flex justify-between items-center">
-<p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Showing 2 of 12 appointments</p>
+<div class="p-6 bg-slate-50/30 border-t border-slate-100 flex items-center justify-between">
+<p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Showing 3 of 12 recent entries</p>
 <div class="flex gap-2">
-<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 disabled:opacity-30 cursor-not-allowed">
-<span class="material-symbols-outlined text-xl">chevron_left</span>
+<button class="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-sm">chevron_left</span>
 </button>
-<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-primary hover:border-primary transition-all shadow-sm">
-<span class="material-symbols-outlined text-xl">chevron_right</span>
+<button class="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-sm">chevron_right</span>
 </button>
-</div>
 </div>
 </div>
 </section>
 </div>
-<!-- Footer Status Bar -->
 </main>
 </body></html>

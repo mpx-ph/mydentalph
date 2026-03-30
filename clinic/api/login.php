@@ -65,9 +65,9 @@ try {
         $portal = isset($result['portal']) ? (string) $result['portal'] : 'patient';
         $redirectUrl = '';
         if ($portal === 'staff') {
-            // Per requirement: `role=staff` goes to AdminDashboard.php; other staff-type users keep StaffDashboard.
+            // Staff users should go to the staff portal dashboard.
             $role = strtolower(trim((string) ($result['user']['role'] ?? $result['user']['user_type'] ?? '')));
-            $targetPage = ($role === 'staff') ? 'AdminDashboard.php' : 'StaffDashboard.php';
+            $targetPage = 'StaffDashboard.php';
 
             if (defined('PROVIDER_BASE_URL') && $slugOut !== '' && preg_match('/^[a-z0-9\-]+$/', $slugOut)) {
                 $redirectUrl = rtrim(PROVIDER_BASE_URL, '/') . '/' . rawurlencode($slugOut) . '/' . $targetPage;
