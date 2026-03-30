@@ -1,6 +1,7 @@
 <?php
 // api/forgot_password.php
 require_once '../db.php';
+require_once '../mail_config.php';
 
 header('Content-Type: application/json');
 
@@ -46,10 +47,17 @@ try {
     );
     $stmt->execute([$tenant_id, $user_id, $otp_hash, $otp_expires]);
 
+    // Actually send the email using Gmail SMTP configurations from mail_config.php
+    $email_sent = send_otp_email($email, $otp_code);
+
+    if (!$email_sent) {
+        die(json_encode(["status" => "error", "message" => "Failed to send the email. Please try again later."]));
+    }
+
     // ✅ Return OTP in response for testing (REMOVE test_otp in production!)
     echo json_encode([
         "status"   => "success",
-        "message"  => "Verification code ready. Check the DEV toast for the code.",
+        "message"  => "Verification code sent to your email.",
         "user_id"  => $user_id,
         "test_otp" => $otp_code
     ]);
