@@ -46,6 +46,9 @@ if ($__nm !== '') {
     }
 }
 $staffInitialsEsc = htmlspecialchars($staffInitials, ENT_QUOTES, 'UTF-8');
+$staffDisplayEmail = isset($_SESSION['user_email']) ? trim((string) $_SESSION['user_email']) : '';
+$staffDisplayEmailEsc = $staffDisplayEmail !== '' ? htmlspecialchars($staffDisplayEmail, ENT_QUOTES, 'UTF-8') : '';
+$staffLogoutUrl = htmlspecialchars(BASE_URL . 'api/logout.php', ENT_QUOTES, 'UTF-8');
 unset($__nm, $__parts, $__p);
 ?>
 <!DOCTYPE html>
@@ -127,7 +130,7 @@ unset($__nm, $__parts, $__p);
         </h1>
 <p class="text-primary font-bold text-[10px] tracking-[0.2em] uppercase mt-2 opacity-80">Staff Portal</p>
 </div>
-<nav class="flex-1 space-y-1 overflow-y-auto no-scrollbar">
+<nav class="flex-1 min-h-0 space-y-1 overflow-y-auto no-scrollbar">
 <div class="relative px-3">
 <a class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl transition-all duration-200 active-glow" href="#">
 <span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">dashboard</span>
@@ -172,10 +175,26 @@ unset($__nm, $__parts, $__p);
 </a>
 </div>
 </nav>
-<div class="px-4 mt-auto">
-<button class="w-full py-3.5 bg-primary text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-primary/30 transition-all active:scale-95">
+<div class="px-4 pt-5 mt-auto border-t border-slate-200/80 space-y-3 shrink-0">
+<button type="button" class="w-full py-3.5 bg-primary text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-primary/30 transition-all active:scale-95">
             New Appointment
         </button>
+<div class="rounded-2xl bg-slate-50 border border-slate-200/80 p-3 flex items-center gap-3">
+<div class="h-11 w-11 rounded-xl bg-primary/15 flex items-center justify-center text-primary font-bold text-sm shrink-0" aria-hidden="true">
+<span class="select-none"><?php echo $staffInitialsEsc; ?></span>
+</div>
+<div class="min-w-0 flex-1">
+<p class="text-sm font-bold text-slate-900 font-headline truncate leading-tight"><?php echo $staffDisplayName; ?></p>
+<?php if ($staffDisplayEmailEsc !== '') { ?>
+<p class="text-[11px] text-slate-500 truncate mt-0.5"><?php echo $staffDisplayEmailEsc; ?></p>
+<?php } ?>
+<p class="text-[10px] font-bold text-primary uppercase tracking-wider mt-1"><?php echo $staffRoleLabel !== '' ? $staffRoleLabel : 'Staff'; ?></p>
+</div>
+</div>
+<a href="<?php echo $staffLogoutUrl; ?>" class="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-xs uppercase tracking-widest hover:bg-slate-50 hover:border-slate-300 transition-all no-underline text-inherit">
+<span class="material-symbols-outlined text-[20px] text-slate-500">logout</span>
+            Log out
+        </a>
 </div>
 </aside>
 <!-- Main Content Area -->

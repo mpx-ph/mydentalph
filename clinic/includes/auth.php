@@ -229,6 +229,7 @@ function _loginPortalUnified(PDO $pdo, $tenantId, $email, $password) {
 
         $_SESSION['user_id'] = $user['user_id'];
         $_SESSION['user_name'] = trim($first_name . ' ' . $last_name) ?: ($user['full_name'] ?? $user['username']);
+        $_SESSION['user_email'] = (string) ($user['email'] ?? '');
         $_SESSION['user_type'] = 'client';
         $_SESSION['tenant_id'] = $tenantId;
         $_SESSION['clinic_id'] = $tenantId;
@@ -279,6 +280,7 @@ function _loginPortalUnified(PDO $pdo, $tenantId, $email, $password) {
 
     $_SESSION['user_id'] = $user['user_id'];
     $_SESSION['user_name'] = trim($first_name . ' ' . $last_name) ?: ($user['full_name'] ?? $user['username']);
+    $_SESSION['user_email'] = (string) ($user['email'] ?? '');
     $_SESSION['user_type'] = $userDbType;
     $_SESSION['tenant_id'] = $tenantId;
     $_SESSION['clinic_id'] = $tenantId;
@@ -406,6 +408,7 @@ function loginUser($email, $password, $userType) {
 
     $_SESSION['user_id'] = $user['user_id'];
     $_SESSION['user_name'] = trim($first_name . ' ' . $last_name) ?: ($user['full_name'] ?? $user['username']);
+    $_SESSION['user_email'] = (string) ($user['email'] ?? '');
     $_SESSION['user_type'] = $userDbType;
     $_SESSION['tenant_id'] = $tenantId;
     $_SESSION['clinic_id'] = $tenantId;
