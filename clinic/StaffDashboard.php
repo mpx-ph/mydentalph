@@ -136,7 +136,7 @@ unset($__nm, $__parts, $__p);
 <div class="relative px-3">
 <a class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl transition-all duration-200 active-glow" href="<?php echo $staffDashUrl; ?>">
 <span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">dashboard</span>
-<span class="font-headline text-sm font-bold tracking-tight">Dashboard</span>
+<span class="font-headline text-sm font-bold tracking-tight">Staff Dashboard</span>
 </a>
 <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full"></div>
 </div>
