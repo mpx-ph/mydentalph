@@ -52,6 +52,7 @@
     </style>
 </head>
 <body class="mesh-gradient min-h-screen flex flex-col items-center selection:bg-primary/20">
+<!-- Navigation -->
 <nav class="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl shadow-sm">
 <div class="flex justify-between items-center h-20 px-8 max-w-screen-2xl mx-auto">
 <div class="text-2xl font-bold tracking-tighter font-headline flex items-center gap-2">
@@ -67,9 +68,9 @@
 <a class="hover:text-primary transition-colors" href="#">Contact Us</a>
 </div>
 <div class="flex items-center gap-4">
-<a class="text-sm font-semibold tracking-tight text-on-surface/60 font-headline hover:text-primary transition-colors" href="#">Login</a>
+<button class="text-on-surface font-semibold text-sm hover:text-primary transition-all">Login</button>
 <button class="bg-primary text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95">
-                Download App
+                Book Online
             </button>
 </div>
 </div>
