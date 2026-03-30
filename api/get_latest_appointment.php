@@ -1,0 +1,72 @@
+<?php
+// api/get_latest_appointment.php
+require_once '../db.php';
+
+header('Content-Type: application/json');
+
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    die(json_encode(["status" => "error", "message" => "GET required"]));
+}
+
+$user_id   = $_GET['user_id']   ?? '';
+$tenant_id = $_GET['tenant_id'] ?? 'TNT_00025';
+
+if (empty($user_id)) {
+    die(json_encode(["status" => "error", "message" => "Missing user_id"]));
+}
+
+try {
+    // 1. Find the patient record linked to the logged-in user
+    $stmt = $pdo->prepare(
+        "SELECT patient_id FROM tbl_patients 
+         WHERE owner_user_id = ? OR linked_user_id = ?
+         LIMIT 1"
+    );
+    $stmt->execute([$user_id, $user_id]);
+    $patient = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$patient) {
+        echo json_encode(["status" => "success", "appointments" => [], "message" => "No patient record found."]);
+        exit;
+    }
+
+    $patient_id = $patient['patient_id'];
+
+    // 2. Fetch the FIRST upcoming 'confirmed' appointment (SCHEDULED)
+    // We look for dates greater than or equal to today, ordered by arrival time.
+    $stmt = $pdo->prepare(
+        "SELECT 
+            a.booking_id,
+            a.appointment_date,
+            a.appointment_time,
+            a.status,
+            CONCAT(d.first_name, ' ', d.last_name) AS dentist_name,
+            d.specialization AS dentist_specialization
+         FROM tbl_appointments a
+         LEFT JOIN tbl_dentists d ON a.dentist_id = d.dentist_id
+         WHERE a.patient_id = ? AND a.status = 'confirmed' AND a.appointment_date >= CURDATE()
+         ORDER BY a.appointment_date ASC, a.appointment_time ASC
+         LIMIT 1"
+    );
+    $stmt->execute([$patient_id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$row) {
+        echo json_encode(["status" => "success", "appointment" => null, "message" => "No upcoming scheduled appointments."]);
+        exit;
+    }
+
+    // 3. Format the response
+    $appointment = [
+        'booking_id'       => $row['booking_id'],
+        'appointment_date' => $row['appointment_date'],
+        'appointment_time' => $row['appointment_time'],
+        'dentist_name'     => 'DR. ' . strtoupper($row['dentist_name']),
+        'specialization'   => strtoupper($row['dentist_specialization'] ?? 'Dentist'),
+    ];
+
+    echo json_encode(["status" => "success", "appointment" => $appointment]);
+
+} catch (Exception $e) {
+    echo json_encode(["status" => "error", "message" => "Database Error: " . $e->getMessage()]);
+}
