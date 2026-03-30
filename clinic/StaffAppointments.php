@@ -29,21 +29,11 @@ $clinic_slug_boot = isset($_GET['clinic_slug']) ? trim((string) $_GET['clinic_sl
 if ($clinic_slug_boot !== '' && preg_match('/^[a-z0-9\-]+$/', strtolower($clinic_slug_boot))) {
     $_GET['clinic_slug'] = strtolower($clinic_slug_boot);
     require_once __DIR__ . '/tenant_bootstrap.php';
+    if (!isset($currentTenantSlug) || trim((string) $currentTenantSlug) === '') {
+        $currentTenantSlug = strtolower($clinic_slug_boot);
+    }
 } else {
-    header('Location: ' . BASE_URL . 'Login.php');
-    exit;
-}
-require_once __DIR__ . '/includes/auth.php';
-
-$staffTypes = ['manager', 'doctor', 'staff', 'admin'];
-if (!isLoggedIn($staffTypes)) {
-    header('Location: ' . BASE_URL . 'Login.php?clinic_slug=' . rawurlencode($currentTenantSlug));
-    exit;
-}
-$sessionTenant = getClinicTenantId();
-if ($sessionTenant === null || (string) $sessionTenant !== (string) $currentTenantId) {
-    header('Location: ' . BASE_URL . 'Login.php?clinic_slug=' . rawurlencode($currentTenantSlug));
-    exit;
+    $currentTenantSlug = '';
 }
 
 $staffDisplayName = isset($_SESSION['user_name']) ? htmlspecialchars((string) $_SESSION['user_name'], ENT_QUOTES, 'UTF-8') : 'Staff';
