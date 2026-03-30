@@ -36,13 +36,26 @@ $loginPrimaryB = hexdec(substr($h, 4, 2));
 
 require_once __DIR__ . '/includes/auth.php';
 
-$slugLower = strtolower($clinic_slug);
+// Ensure we can resolve tenant context even when `clinic_slug` isn't in the query string
+// (e.g. navigation/redirects that keep session tenant_slug but drop URL params).
+$clinicSlugForFetch = $clinic_slug !== ''
+    ? strtolower((string) $clinic_slug)
+    : (isset($_SESSION['public_tenant_slug']) ? strtolower(trim((string) $_SESSION['public_tenant_slug'])) : '');
+if ($clinicSlugForFetch !== '' && !preg_match('/^[a-z0-9\-]+$/', $clinicSlugForFetch)) {
+    $clinicSlugForFetch = '';
+}
+
+$slugLower = strtolower($clinicSlugForFetch);
 // Redirect URL after login: back to MainPageClient with same clinic (tenant) context
-$redirectAfterLogin = ($clinic_slug !== '') ? (BASE_URL . 'MainPageClient.php?clinic_slug=' . rawurlencode($clinic_slug)) : (BASE_URL . 'MainPageClient.php');
+$redirectAfterLogin = ($clinicSlugForFetch !== '') ? (BASE_URL . 'MainPageClient.php?clinic_slug=' . rawurlencode($clinicSlugForFetch)) : (BASE_URL . 'MainPageClient.php');
 // Staff portal (slug-based URL when rewrite rules are active)
-$staffRedirectAfterLogin = ($clinic_slug !== '' && preg_match('/^[a-z0-9\-]+$/', $slugLower))
+$staffRedirectAfterLogin = ($clinicSlugForFetch !== '' && preg_match('/^[a-z0-9\-]+$/', $slugLower))
     ? (rtrim(PROVIDER_BASE_URL, '/') . '/' . rawurlencode($slugLower) . '/StaffDashboard.php')
-    : (($clinic_slug !== '') ? (BASE_URL . 'StaffDashboard.php?clinic_slug=' . rawurlencode($clinic_slug)) : (BASE_URL . 'StaffDashboard.php'));
+    : (($clinicSlugForFetch !== '') ? (BASE_URL . 'StaffDashboard.php?clinic_slug=' . rawurlencode($clinicSlugForFetch)) : (BASE_URL . 'StaffDashboard.php'));
+
+$staffRoleAdminRedirectAfterLogin = ($clinicSlugForFetch !== '' && preg_match('/^[a-z0-9\-]+$/', $slugLower))
+    ? (rtrim(PROVIDER_BASE_URL, '/') . '/' . rawurlencode($slugLower) . '/AdminDashboard.php')
+    : (($clinicSlugForFetch !== '') ? (BASE_URL . 'AdminDashboard.php?clinic_slug=' . rawurlencode($clinicSlugForFetch)) : (BASE_URL . 'AdminDashboard.php'));
 
 // URL for "Create new account" respecting clinic slug routing
 // .htaccess maps /{slug}/register -> clinic/RegisterClient.php?clinic_slug={slug}
@@ -57,7 +70,11 @@ if (isLoggedIn('client')) {
     header('Location: ' . $redirectAfterLogin);
     exit;
 }
-if (isLoggedIn(['manager', 'doctor', 'staff', 'admin'])) {
+if (isLoggedIn('staff')) {
+    header('Location: ' . $staffRoleAdminRedirectAfterLogin);
+    exit;
+}
+if (isLoggedIn(['manager', 'doctor', 'admin'])) {
     header('Location: ' . $staffRedirectAfterLogin);
     exit;
 }
@@ -349,7 +366,7 @@ document.addEventListener('DOMContentLoaded', function() {
             loginBtn.innerHTML = '<span class="flex items-center gap-2"><span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>Signing in...</span>';
             
             try {
-                const clinicSlug = '<?php echo isset($_GET['clinic_slug']) ? addslashes(trim((string)$_GET['clinic_slug'])) : ''; ?>';
+                const clinicSlug = <?php echo json_encode($clinicSlugForFetch, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
                 const debugLogin = <?php echo (isset($_GET['debug']) && $_GET['debug'] === '1') ? 'true' : 'false'; ?>;
                 const response = await fetch('<?php echo BASE_URL; ?>api/login.php', {
                     method: 'POST',

@@ -65,12 +65,16 @@ try {
         $portal = isset($result['portal']) ? (string) $result['portal'] : 'patient';
         $redirectUrl = '';
         if ($portal === 'staff') {
+            // Per requirement: `role=staff` goes to AdminDashboard.php; other staff-type users keep StaffDashboard.
+            $role = strtolower(trim((string) ($result['user']['role'] ?? $result['user']['user_type'] ?? '')));
+            $targetPage = ($role === 'staff') ? 'AdminDashboard.php' : 'StaffDashboard.php';
+
             if (defined('PROVIDER_BASE_URL') && $slugOut !== '' && preg_match('/^[a-z0-9\-]+$/', $slugOut)) {
-                $redirectUrl = rtrim(PROVIDER_BASE_URL, '/') . '/' . rawurlencode($slugOut) . '/StaffDashboard.php';
+                $redirectUrl = rtrim(PROVIDER_BASE_URL, '/') . '/' . rawurlencode($slugOut) . '/' . $targetPage;
             } elseif ($slugOut !== '' && preg_match('/^[a-z0-9\-]+$/', $slugOut)) {
-                $redirectUrl = BASE_URL . 'StaffDashboard.php?clinic_slug=' . rawurlencode($slugOut);
+                $redirectUrl = BASE_URL . $targetPage . '?clinic_slug=' . rawurlencode($slugOut);
             } else {
-                $redirectUrl = BASE_URL . 'StaffDashboard.php';
+                $redirectUrl = BASE_URL . $targetPage;
             }
         } else {
             $redirectUrl = ($slugOut !== '' && preg_match('/^[a-z0-9\-]+$/', $slugOut))
