@@ -11,25 +11,15 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 $user_id   = $_GET['user_id']   ?? '';
 $tenant_id = $_GET['tenant_id'] ?? '';
 
-if (empty($user_id)) {
-    die(json_encode(["status" => "error", "message" => "Missing user_id"]));
+if (empty($user_id) || empty($tenant_id)) {
+    die(json_encode(["status" => "error", "message" => "Missing user_id or tenant_id"]));
 }
 
 try {
-    // 0. Get Clinic Name for the Header
-    $clinic_name = "Denta Cleene"; // Default
-    if (!empty($tenant_id)) {
-        $stmt = $pdo->prepare("SELECT clinic_name FROM tbl_tenants WHERE tenant_id = ? LIMIT 1");
-        $stmt->execute([$tenant_id]);
-        $tenantInfo = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($tenantInfo) {
-            $clinic_name = $tenantInfo['clinic_name'];
-        }
-    }
-
     // 1. Find the patient record linked to the logged-in user
+    // We match by user_id across owner or linked fields
     $stmt = $pdo->prepare(
-        "SELECT patient_id, first_name, last_name FROM tbl_patients 
+        "SELECT patient_id FROM tbl_patients 
          WHERE owner_user_id = ? OR linked_user_id = ?
          LIMIT 1"
     );
@@ -37,14 +27,15 @@ try {
     $patient = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$patient) {
-        echo json_encode(["status" => "success", "appointments" => [], "clinic_name" => $clinic_name, "message" => "No patient record found."]);
+        echo json_encode(["status" => "success", "appointments" => [], "message" => "No patient record found for this user."]);
         exit;
     }
 
     $patient_id = $patient['patient_id'];
-    $patient_name = ($patient['first_name'] ?? '') . ' ' . ($patient['last_name'] ?? '');
 
-    // 2. Fetch all their appointments
+    // 2. Fetch appointments
+    // We use a subquery to grab the first service name from tbl_appointment_services 
+    // since tbl_appointments.service_type is often null in the mobile booking flow.
     $stmt = $pdo->prepare(
         "SELECT 
             a.id,
@@ -89,12 +80,7 @@ try {
         ];
     }
 
-    echo json_encode([
-        "status" => "success", 
-        "appointments" => $appointments,
-        "clinic_name" => $clinic_name,
-        "patient_name" => strtoupper($patient_name)
-    ]);
+    echo json_encode(["status" => "success", "appointments" => $appointments]);
 
 } catch (Exception $e) {
     echo json_encode(["status" => "error", "message" => "Database Error: " . $e->getMessage()]);
