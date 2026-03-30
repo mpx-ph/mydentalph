@@ -26,13 +26,46 @@ if (!$user_id || !$appointment_date || !$appointment_time) {
     die(json_encode(["status" => "error", "message" => "Missing required fields"]));
 }
 
-// Map User ID to Patient ID (usually same or linked)
-// For this demo, we'll assume a direct match or fetch first patient_id for that user
+// 1. Ensure Patient Record exists
 try {
     $stmt = $pdo->prepare("SELECT patient_id FROM tbl_patients WHERE owner_user_id = ? OR linked_user_id = ? LIMIT 1");
     $stmt->execute([$user_id, $user_id]);
     $patRow = $stmt->fetch();
-    $patient_id = $patRow ? $patRow['patient_id'] : 'PAT_NEW_' . rand(1000, 9999);
+    
+    if ($patRow) {
+        $patient_id = $patRow['patient_id'];
+    } else {
+        // Create a new patient record automatically from user profile
+        $stmt = $pdo->prepare("SELECT first_name, last_name, email, phone, gender, date_of_birth, address FROM tbl_users WHERE user_id = ?");
+        $stmt->execute([$user_id]);
+        $u = $stmt->fetch();
+        
+        if (!$u) {
+            die(json_encode(["status" => "error", "message" => "User profile not found ($user_id)"]));
+        }
+
+        $patient_id = 'PAT-' . strtoupper(substr(md5(time() . $user_id), 0, 8));
+        
+        $stmt = $pdo->prepare("INSERT INTO tbl_patients 
+            (tenant_id, patient_id, first_name, last_name, email, phone, gender, birthdate, address, owner_user_id, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')");
+        
+        // Map gender to valid enum
+        $gender = strtolower($u['gender'] ?? 'other');
+        if (!in_array($gender, ['male', 'female', 'other'])) $gender = 'other';
+        
+        $stmt->execute([
+            $tenant_id, $patient_id, 
+            $u['first_name'], $u['last_name'], $u['email'], $u['phone'], 
+            $gender, $u['date_of_birth'], $u['address'], 
+            $user_id
+        ]);
+        
+        // Final verification that insert worked
+        if (!$pdo->lastInsertId()) {
+             die(json_encode(["status" => "error", "message" => "Failed to create patient profile"]));
+        }
+    }
 
     // Generate unique booking_id
     $booking_id = 'BK-' . strtoupper(substr(md5(time() . $user_id), 0, 8));
