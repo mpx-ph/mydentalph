@@ -20,77 +20,130 @@ $regHex = function($k) use ($CLINIC) {
     return (strlen($v) === 6 && ctype_xdigit($v)) ? '#' . $v : '';
 };
 $regPrimary = $regHex('color_primary') ?: '#2b8cee';
-$regPrimaryDark = $regHex('color_primary_dark') ?: '#1e6bb5';
-$regPrimaryDeep = $regHex('color_primary_dark') ?: '#164e85';
+$regPrimaryDark = $regHex('color_primary_dark') ?: '#1a6cb6';
+$regPrimaryLight = $regHex('color_primary_light') ?: '#eef7ff';
+$h = ltrim($regPrimary, '#');
+if (strlen($h) !== 6 || !ctype_xdigit($h)) {
+    $h = '2b8cee';
+}
+$regPrimaryR = hexdec(substr($h, 0, 2));
+$regPrimaryG = hexdec(substr($h, 2, 2));
+$regPrimaryB = hexdec(substr($h, 4, 2));
+
+$slugLower = strtolower($currentTenantSlug);
+$loginLogo = isset($CLINIC['logo_nav']) ? trim($CLINIC['logo_nav']) : 'DRCGLogo2.png';
+$loginLogoUrl = (strpos($loginLogo, 'http') === 0) ? $loginLogo : (BASE_URL . ltrim($loginLogo, '/'));
+$loginLogoLocalPath = (strpos($loginLogo, 'http') === 0) ? null : (defined('ROOT_PATH') ? (ROOT_PATH . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, ltrim($loginLogo, '/\\'))) : null);
+if (strpos($loginLogoUrl, '?') === false && $loginLogoLocalPath && is_file($loginLogoLocalPath)) {
+    $loginLogoUrl .= '?v=' . @filemtime($loginLogoLocalPath);
+}
+$loginLogoAlt = isset($CLINIC['clinic_name']) ? htmlspecialchars($CLINIC['clinic_name'], ENT_QUOTES, 'UTF-8') : 'Dental Clinic';
+$publicHomeUrl = PROVIDER_BASE_URL . rawurlencode($slugLower) . '/';
+$publicServicesUrl = PROVIDER_BASE_URL . rawurlencode($slugLower) . '/services';
+$publicAboutUrl = PROVIDER_BASE_URL . rawurlencode($slugLower) . '/about';
+$publicContactUrl = PROVIDER_BASE_URL . rawurlencode($slugLower) . '/contact';
+$downloadAppUrl = PROVIDER_BASE_URL . rawurlencode($slugLower) . '/download';
+$loginPageUrl = PROVIDER_BASE_URL . rawurlencode($slugLower) . '/login';
+$pageTitle = 'Create Account';
 ?>
 <!DOCTYPE html>
-<html lang="en"><head>
+<html class="light" lang="en">
+<head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Patient Registration - Dental Care Portal</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<title><?php echo htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8'); ?> - <?php echo htmlspecialchars(SITE_NAME, ENT_QUOTES, 'UTF-8'); ?></title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: "<?php echo $regPrimary; ?>",
-                        darkBlue: "<?php echo $regPrimaryDark; ?>",
-                        deepBlue: "<?php echo $regPrimaryDeep; ?>",
-                    },
-                    fontFamily: {
-                        sans: ["Inter", "sans-serif"],
-                    },
-                },
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "<?php echo htmlspecialchars($regPrimary, ENT_QUOTES, 'UTF-8'); ?>",
+              "primary-dark": "<?php echo htmlspecialchars($regPrimaryDark, ENT_QUOTES, 'UTF-8'); ?>",
+              "primary-light": "<?php echo htmlspecialchars($regPrimaryLight, ENT_QUOTES, 'UTF-8'); ?>",
+              "on-surface": "#131c25",
+              "surface": "#ffffff",
+              "surface-variant": "#f7f9ff",
+              "on-surface-variant": "#404752",
+              "outline-variant": "#c0c7d4",
+              "surface-container-low": "<?php echo htmlspecialchars($regPrimaryLight, ENT_QUOTES, 'UTF-8'); ?>",
             },
-        };
+            fontFamily: {
+              "headline": ["Manrope", "sans-serif"],
+              "body": ["Manrope", "sans-serif"],
+              "editorial": ["Playfair Display", "serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "2.5rem", "full": "9999px"},
+          },
+        },
+      }
     </script>
-<style type="text/tailwindcss">
-        @layer base {
-            body {
-                @apply font-sans antialiased text-slate-900;
-            }
-        }
+<style>
+        body { font-family: Manrope, ui-sans-serif, system-ui, sans-serif; }
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
         }
-        .glass-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
+        .mesh-gradient {
+            background-color: #ffffff;
+            background-image:
+                radial-gradient(at 100% 0%, rgba(<?php echo (int) $regPrimaryR; ?>, <?php echo (int) $regPrimaryG; ?>, <?php echo (int) $regPrimaryB; ?>, 0.1) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(<?php echo (int) $regPrimaryR; ?>, <?php echo (int) $regPrimaryG; ?>, <?php echo (int) $regPrimaryB; ?>, 0.05) 0px, transparent 50%);
+        }
+        .editorial-word {
+            text-shadow: 0 0 12px rgba(<?php echo (int) $regPrimaryR; ?>, <?php echo (int) $regPrimaryG; ?>, <?php echo (int) $regPrimaryB; ?>, 0.25);
+            letter-spacing: -0.02em;
+        }
+        .register-form-card {
+            background: linear-gradient(145deg, <?php echo htmlspecialchars($regPrimary, ENT_QUOTES, 'UTF-8'); ?> 0%, <?php echo htmlspecialchars($regPrimaryDark, ENT_QUOTES, 'UTF-8'); ?> 100%);
             border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 40px 80px -20px rgba(<?php echo (int) $regPrimaryR; ?>, <?php echo (int) $regPrimaryG; ?>, <?php echo (int) $regPrimaryB; ?>, 0.35);
         }
-        .bg-gradient-blue {
-            background: radial-gradient(circle at center, <?php echo $regPrimary; ?> 0%, <?php echo $regPrimaryDeep; ?> 100%);
-        }
-        @keyframes pulse-border {
+        @keyframes pulse-border-reg {
             0%, 100% {
-                border-color: rgb(43, 140, 238);
-                box-shadow: 0 0 0 0 rgba(43, 140, 238, 0.4);
+                border-color: rgba(255, 255, 255, 0.9);
+                box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35);
             }
             50% {
-                border-color: rgb(30, 107, 181);
-                box-shadow: 0 0 0 4px rgba(43, 140, 238, 0.1);
+                border-color: rgba(255, 255, 255, 0.5);
+                box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.12);
             }
         }
         .checking-username {
-            animation: pulse-border 1.5s ease-in-out infinite;
+            animation: pulse-border-reg 1.5s ease-in-out infinite;
         }
     </style>
 </head>
-<body class="bg-gradient-blue min-h-screen flex items-center justify-center p-6 sm:p-12 relative overflow-x-hidden">
-<div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-400/20 rounded-full blur-[120px]"></div>
-<div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-300/20 rounded-full blur-[120px]"></div>
-<div class="w-full max-w-2xl relative z-10">
-<div class="flex flex-col items-center mb-8 text-white">
-<img src="<?php echo $logoRegisterUrl; ?>" alt="<?php echo $clinicName; ?>" class="h-20 object-contain mb-4"/>
+<body class="mesh-gradient min-h-screen flex flex-col items-center selection:bg-primary/20 text-slate-900">
+<nav class="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl shadow-sm">
+<div class="flex justify-between items-center h-20 px-8 max-w-screen-2xl mx-auto w-full">
+<a href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>" class="text-xl font-bold tracking-tighter font-headline flex items-center gap-2 text-inherit no-underline">
+<img src="<?php echo htmlspecialchars($loginLogoUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo $loginLogoAlt; ?>" class="h-10 w-auto object-contain"/>
+</a>
+<div class="hidden md:flex items-center space-x-12 text-sm font-semibold tracking-tight text-slate-600 font-headline">
+<a class="hover:text-primary transition-colors" href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>">Home</a>
+<a class="hover:text-primary transition-colors" href="<?php echo htmlspecialchars($publicServicesUrl, ENT_QUOTES, 'UTF-8'); ?>">Services</a>
+<a class="hover:text-primary transition-colors" href="<?php echo htmlspecialchars($publicAboutUrl, ENT_QUOTES, 'UTF-8'); ?>">About Us</a>
+<a class="hover:text-primary transition-colors" href="<?php echo htmlspecialchars($publicContactUrl, ENT_QUOTES, 'UTF-8'); ?>">Contact Us</a>
 </div>
-<div class="glass-card rounded-[2.5rem] shadow-2xl overflow-hidden p-8 sm:p-12">
-<div class="text-center mb-10">
-<h2 class="text-3xl font-extrabold text-slate-800 mb-3"><?php echo $registerHeading; ?></h2>
-<div class="h-1 w-20 bg-primary mx-auto rounded-full mb-4"></div>
-<p class="text-slate-500 max-w-sm mx-auto"><?php echo $registerSubtext; ?></p>
+<div class="flex items-center gap-4">
+<a href="<?php echo htmlspecialchars($loginPageUrl, ENT_QUOTES, 'UTF-8'); ?>" class="text-sm font-semibold tracking-tight text-slate-600 hover:text-primary transition-colors font-headline no-underline">Login</a>
+<a href="<?php echo htmlspecialchars($downloadAppUrl, ENT_QUOTES, 'UTF-8'); ?>" class="bg-primary text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95 no-underline inline-flex items-center">
+                Download App
+            </a>
+</div>
+</div>
+</nav>
+<main class="flex-grow flex items-center justify-center w-full px-4 sm:px-6 lg:px-8 relative pt-24 pb-12">
+<div class="w-full max-w-2xl relative z-10">
+<div class="register-form-card rounded-[2.5rem] overflow-hidden p-8 sm:p-12">
+<div class="text-center space-y-4 mb-10">
+<h1 class="font-headline text-4xl sm:text-5xl font-extrabold tracking-tighter leading-[1.1] text-white">
+                    Create <span class="font-editorial italic font-normal text-primary-light editorial-word transform -skew-x-6 inline-block">Account</span>
+</h1>
+<p class="text-primary-light/90 font-medium text-base leading-relaxed max-w-md mx-auto font-body"><?php echo $registerSubtext; ?></p>
 </div>
 <div id="formMessage" class="hidden mb-6"></div>
 <form id="registerForm" class="space-y-6" action="<?php echo BASE_URL; ?>api/register.php" method="POST">
@@ -100,50 +153,50 @@ $regPrimaryDeep = $regHex('color_primary_dark') ?: '#164e85';
 <?php endif; ?>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 <div class="space-y-2">
-<label class="block text-[11px] font-bold text-primary uppercase tracking-widest ml-1" for="first_name">First Name</label>
+<label class="block text-[10px] font-black text-white/90 uppercase tracking-[0.2em] ml-1 font-headline" for="first_name">First Name</label>
 <div class="relative group">
 <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-primary/50 group-focus-within:text-primary transition-colors">person</span>
-<input autocomplete="given-name" class="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all placeholder:text-slate-400" id="first_name" name="first_name" placeholder="Jane" type="text" required/>
+<input autocomplete="given-name" class="w-full pl-12 pr-4 py-3.5 bg-white/95 border border-white/40 rounded-2xl focus:ring-2 focus:ring-white/50 focus:border-white transition-all placeholder:text-slate-400" id="first_name" name="first_name" placeholder="Jane" type="text" required/>
 </div>
 </div>
 <div class="space-y-2">
-<label class="block text-[11px] font-bold text-primary uppercase tracking-widest ml-1" for="last_name">Last Name</label>
+<label class="block text-[10px] font-black text-white/90 uppercase tracking-[0.2em] ml-1 font-headline" for="last_name">Last Name</label>
 <div class="relative group">
 <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-primary/50 group-focus-within:text-primary transition-colors">person</span>
-<input autocomplete="family-name" class="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all placeholder:text-slate-400" id="last_name" name="last_name" placeholder="Doe" type="text" required/>
+<input autocomplete="family-name" class="w-full pl-12 pr-4 py-3.5 bg-white/95 border border-white/40 rounded-2xl focus:ring-2 focus:ring-white/50 focus:border-white transition-all placeholder:text-slate-400" id="last_name" name="last_name" placeholder="Doe" type="text" required/>
 </div>
 </div>
 </div>
 <div class="space-y-2">
-<label class="block text-[11px] font-bold text-primary uppercase tracking-widest ml-1" for="email">Email Address</label>
+<label class="block text-[10px] font-black text-white/90 uppercase tracking-[0.2em] ml-1 font-headline" for="email">Email Address</label>
 <div class="relative group">
 <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-primary/50 group-focus-within:text-primary transition-colors">mail</span>
-<input autocomplete="email" class="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all placeholder:text-slate-400" id="email" name="email" placeholder="jane@example.com" type="email" required/>
+<input autocomplete="email" class="w-full pl-12 pr-4 py-3.5 bg-white/95 border border-white/40 rounded-2xl focus:ring-2 focus:ring-white/50 focus:border-white transition-all placeholder:text-slate-400" id="email" name="email" placeholder="jane@example.com" type="email" required/>
 </div>
 </div>
 <div class="space-y-2">
-<label class="block text-[11px] font-bold text-primary uppercase tracking-widest ml-1" for="username">Username</label>
+<label class="block text-[10px] font-black text-white/90 uppercase tracking-[0.2em] ml-1 font-headline" for="username">Username</label>
 <div class="relative group">
 <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-primary/50 group-focus-within:text-primary transition-colors">alternate_email</span>
-<input autocomplete="username" class="w-full pl-12 pr-12 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all placeholder:text-slate-400" id="username" name="username" placeholder="jane_doe" type="text" required/>
+<input autocomplete="username" class="w-full pl-12 pr-12 py-3.5 bg-white/95 border border-white/40 rounded-2xl focus:ring-2 focus:ring-white/50 focus:border-white transition-all placeholder:text-slate-400" id="username" name="username" placeholder="jane_doe" type="text" required/>
 <span id="usernameStatusIcon" class="absolute right-4 top-1/2 -translate-y-1/2 hidden"></span>
 </div>
 <div id="usernameMessage" class="hidden mt-2 text-xs"></div>
 </div>
 <div class="space-y-2">
-<label class="block text-[11px] font-bold text-primary uppercase tracking-widest ml-1" for="mobile">Mobile Number (Philippines Only)</label>
+<label class="block text-[10px] font-black text-white/90 uppercase tracking-[0.2em] ml-1 font-headline" for="mobile">Mobile Number (Philippines Only)</label>
 <div class="relative group">
 <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-primary/50 group-focus-within:text-primary transition-colors">smartphone</span>
 <span class="absolute left-12 top-1/2 -translate-y-1/2 text-slate-600 font-semibold text-sm">+63</span>
-<input autocomplete="tel" class="w-full pl-20 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all placeholder:text-slate-400" id="mobile" name="mobile" placeholder="9XX XXX XXXX" type="tel" maxlength="12"/>
+<input autocomplete="tel" class="w-full pl-20 pr-4 py-3.5 bg-white/95 border border-white/40 rounded-2xl focus:ring-2 focus:ring-white/50 focus:border-white transition-all placeholder:text-slate-400" id="mobile" name="mobile" placeholder="9XX XXX XXXX" type="tel" maxlength="12"/>
 </div>
 <div id="mobileMessage" class="hidden mt-2 text-xs"></div>
 </div>
 <div class="space-y-2">
-<label class="block text-[11px] font-bold text-primary uppercase tracking-widest ml-1" for="date_of_birth">Date of Birth <span class="text-red-500">*</span></label>
+<label class="block text-[10px] font-black text-white/90 uppercase tracking-[0.2em] ml-1 font-headline" for="date_of_birth">Date of Birth <span class="text-amber-200">*</span></label>
 <div class="relative group">
 <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-primary/50 group-focus-within:text-primary transition-colors">calendar_today</span>
-<input autocomplete="bday" class="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all placeholder:text-slate-400" id="date_of_birth" name="date_of_birth" type="date" required/>
+<input autocomplete="bday" class="w-full pl-12 pr-4 py-3.5 bg-white/95 border border-white/40 rounded-2xl focus:ring-2 focus:ring-white/50 focus:border-white transition-all placeholder:text-slate-400" id="date_of_birth" name="date_of_birth" type="date" required/>
 </div>
 <div id="ageWarning" class="hidden mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 leading-relaxed">
 <span class="material-symbols-outlined text-base align-middle mr-1">warning</span>
@@ -152,79 +205,90 @@ $regPrimaryDeep = $regHex('color_primary_dark') ?: '#164e85';
 </div>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 <div class="space-y-2">
-<label class="block text-[11px] font-bold text-primary uppercase tracking-widest ml-1" for="password">Password</label>
+<label class="block text-[10px] font-black text-white/90 uppercase tracking-[0.2em] ml-1 font-headline" for="password">Password</label>
 <div class="relative group">
 <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-primary/50 group-focus-within:text-primary transition-colors">lock</span>
-<input class="w-full pl-12 pr-11 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all placeholder:text-slate-400" id="password" name="password" placeholder="••••••••" type="password" required/>
+<input class="w-full pl-12 pr-11 py-3.5 bg-white/95 border border-white/40 rounded-2xl focus:ring-2 focus:ring-white/50 focus:border-white transition-all placeholder:text-slate-400" id="password" name="password" placeholder="••••••••" type="password" required/>
 <button id="togglePassword" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary cursor-pointer transition-colors" type="button">
 <span class="material-symbols-outlined text-xl">visibility</span>
 </button>
 </div>
 </div>
 <div class="space-y-2">
-<label class="block text-[11px] font-bold text-primary uppercase tracking-widest ml-1" for="confirm_password">Confirm Password</label>
+<label class="block text-[10px] font-black text-white/90 uppercase tracking-[0.2em] ml-1 font-headline" for="confirm_password">Confirm Password</label>
 <div class="relative group">
 <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-primary/50 group-focus-within:text-primary transition-colors">lock_reset</span>
-<input class="w-full pl-12 pr-11 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all placeholder:text-slate-400" id="confirm_password" name="confirm_password" placeholder="••••••••" type="password" required/>
+<input class="w-full pl-12 pr-11 py-3.5 bg-white/95 border border-white/40 rounded-2xl focus:ring-2 focus:ring-white/50 focus:border-white transition-all placeholder:text-slate-400" id="confirm_password" name="confirm_password" placeholder="••••••••" type="password" required/>
 <button id="toggleConfirmPassword" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary cursor-pointer transition-colors" type="button">
 <span class="material-symbols-outlined text-xl">visibility</span>
 </button>
 </div>
 </div>
 </div>
-<div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+<div class="bg-white/15 p-3 rounded-xl border border-white/25 backdrop-blur-sm">
 <div class="flex items-center justify-between mb-2">
-<span class="text-xs font-semibold text-slate-500">Password Strength</span>
-<span id="passwordStrengthLabel" class="text-xs font-bold text-slate-400">Enter password</span>
+<span class="text-xs font-semibold text-white/80">Password Strength</span>
+<span id="passwordStrengthLabel" class="text-xs font-bold text-white/70">Enter password</span>
 </div>
 <div class="flex gap-1.5 h-1.5 w-full">
-<div id="strengthBar1" class="flex-1 bg-slate-200 rounded-full h-full transition-all duration-300"></div>
-<div id="strengthBar2" class="flex-1 bg-slate-200 rounded-full h-full transition-all duration-300"></div>
-<div id="strengthBar3" class="flex-1 bg-slate-200 rounded-full h-full transition-all duration-300"></div>
-<div id="strengthBar4" class="flex-1 bg-slate-200 rounded-full h-full transition-all duration-300"></div>
+<div id="strengthBar1" class="flex-1 bg-white/30 rounded-full h-full transition-all duration-300"></div>
+<div id="strengthBar2" class="flex-1 bg-white/30 rounded-full h-full transition-all duration-300"></div>
+<div id="strengthBar3" class="flex-1 bg-white/30 rounded-full h-full transition-all duration-300"></div>
+<div id="strengthBar4" class="flex-1 bg-white/30 rounded-full h-full transition-all duration-300"></div>
 </div>
-<p class="mt-2 text-[10px] text-slate-400">Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.</p>
+<p class="mt-2 text-[10px] text-white/70">Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.</p>
 </div>
 <div class="flex items-start py-1">
 <div class="flex h-6 items-center">
-<input class="h-5 w-5 rounded border-slate-300 text-primary focus:ring-primary/20 bg-slate-50 cursor-pointer" id="terms" name="terms" type="checkbox" required/>
+<input class="h-5 w-5 rounded border-white/50 text-primary focus:ring-white/30 bg-white/95 cursor-pointer" id="terms" name="terms" type="checkbox" required/>
 </div>
 <div class="ml-3 text-sm leading-6">
-<label class="font-medium text-slate-600 select-none" for="terms">I agree to the <a class="text-primary hover:text-darkBlue hover:underline font-semibold transition-colors" href="<?php echo BASE_URL; ?>TermsofService.php">Terms of Service</a> and <a class="text-primary hover:text-darkBlue hover:underline font-semibold transition-colors" href="<?php echo BASE_URL; ?>PrivacyPolicy.php">Privacy Policy</a></label>
+<label class="font-medium text-primary-light/95 select-none" for="terms">I agree to the <a class="text-white font-bold hover:underline underline-offset-4 transition-all" href="<?php echo BASE_URL; ?>TermsofService.php">Terms of Service</a> and <a class="text-white font-bold hover:underline underline-offset-4 transition-all" href="<?php echo BASE_URL; ?>PrivacyPolicy.php">Privacy Policy</a></label>
 </div>
 </div>
 <div class="pt-4">
-<button id="submitBtn" class="w-full bg-primary hover:bg-darkBlue text-white font-bold py-5 px-8 rounded-2xl transition-all shadow-xl shadow-primary/30 active:scale-[0.98] text-sm uppercase tracking-widest flex items-center justify-center space-x-3" type="submit">
+<button id="submitBtn" class="w-full py-5 px-6 bg-white text-primary font-black text-sm uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-black/10 hover:bg-primary-light hover:shadow-lg active:scale-[0.98] transition-all duration-200 font-headline flex items-center justify-center space-x-3" type="submit">
 <span class="material-symbols-outlined text-xl">how_to_reg</span>
 <span>Create Account</span>
 </button>
 </div>
 </form>
-<div class="mt-10 flex flex-col items-center space-y-6">
-<div class="flex items-center space-x-6 text-slate-400">
+</div>
+<div class="mt-10 flex justify-center items-center space-x-10 opacity-40 hover:opacity-70 transition-all duration-500 text-slate-600">
 <div class="flex items-center space-x-2">
-<span class="material-symbols-outlined text-primary text-xl">verified_user</span>
-<span class="text-[10px] font-bold uppercase tracking-widest">256-bit SSL</span>
+<span class="material-symbols-outlined text-lg">verified_user</span>
+<span class="text-[10px] uppercase font-black tracking-[0.2em] font-headline">Secure access</span>
 </div>
-<div class="w-px h-4 bg-slate-200"></div>
 <div class="flex items-center space-x-2">
-<span class="material-symbols-outlined text-primary text-xl">security</span>
-<span class="text-[10px] font-bold uppercase tracking-widest">Secure Portal</span>
+<span class="material-symbols-outlined text-lg">lock_person</span>
+<span class="text-[10px] uppercase font-black tracking-[0.2em] font-headline">Encrypted</span>
 </div>
 </div>
-<div class="w-full pt-6 border-t border-slate-100 flex flex-col items-center">
-<p class="text-slate-500 text-sm mb-4">Already a member?</p>
-<a class="group inline-flex items-center text-primary font-bold text-sm hover:text-darkBlue transition-colors" href="<?php echo BASE_URL; ?>LoginClient.php">
-<span class="material-symbols-outlined text-xl mr-2 group-hover:translate-x-[-2px] transition-transform">login</span>
-                        Log in here
-                    </a>
+<div class="pt-6 text-center">
+<p class="text-sm font-semibold text-slate-600 font-body">
+                    Already a member?
+                    <a class="font-black text-primary hover:underline underline-offset-4 transition-all no-underline" href="<?php echo htmlspecialchars($loginPageUrl, ENT_QUOTES, 'UTF-8'); ?>">Log in here</a>
+</p>
 </div>
 </div>
+</main>
+<footer class="w-full border-t border-slate-200 bg-slate-50/50 backdrop-blur-sm mt-auto">
+<div class="flex flex-col md:flex-row justify-between items-center py-12 px-10 max-w-screen-2xl mx-auto gap-8">
+<a href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>" class="text-lg font-bold text-slate-900 font-headline flex items-center gap-2 no-underline text-inherit">
+<img src="<?php echo htmlspecialchars($loginLogoUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="" class="h-8 w-auto object-contain"/>
+</a>
+<div class="flex flex-wrap justify-center gap-10 text-[10px] font-black uppercase tracking-widest text-slate-500 font-headline">
+<a class="hover:text-primary transition-colors no-underline text-inherit" href="<?php echo BASE_URL; ?>PrivacyPolicy.php">Privacy Policy</a>
+<a class="hover:text-primary transition-colors no-underline text-inherit" href="<?php echo BASE_URL; ?>TermsofService.php">Terms of Service</a>
+<a class="hover:text-primary transition-colors no-underline text-inherit" href="#">Help Center</a>
 </div>
-<footer class="mt-8 text-center text-white/60 text-[10px] uppercase tracking-[0.2em] leading-loose">
+<div class="text-[10px] font-black uppercase tracking-widest text-slate-400 font-headline text-center">
             <?php echo nl2br($registerFooterText); ?>
-        </footer>
+        </div>
 </div>
+</footer>
+<div class="fixed top-[-10%] right-[-5%] w-[40rem] h-[40rem] bg-primary/5 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
+<div class="fixed bottom-[-10%] left-[-5%] w-[30rem] h-[30rem] bg-primary/5 rounded-full blur-[100px] -z-10 pointer-events-none"></div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const passwordInput = document.getElementById('password');
@@ -278,7 +342,7 @@ document.addEventListener('DOMContentLoaded', function() {
         usernameStatusIcon.classList.remove('hidden');
         usernameStatusIcon.innerHTML = '<span class="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></span>';
         usernameMessage.classList.remove('hidden');
-        usernameMessage.className = 'mt-2 text-xs text-primary flex items-center gap-2';
+        usernameMessage.className = 'mt-2 text-xs text-primary-light flex items-center gap-2';
         usernameMessage.innerHTML = '<span class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></span><span>Checking availability...</span>';
         usernameInput.classList.remove('border-red-500', 'border-green-500', 'checking-username');
         usernameInput.classList.add('border-primary', 'checking-username');
@@ -527,7 +591,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Password strength calculator
     function calculatePasswordStrength(password) {
         if (!password || password.length === 0) {
-            return { strength: 0, label: 'Enter password', color: 'text-slate-400' };
+            return { strength: 0, label: 'Enter password', color: 'text-white/70' };
         }
 
         let checks = {
@@ -609,7 +673,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     bar.className = 'flex-1 bg-green-400 rounded-full h-full transition-all duration-300 shadow-[0_0_10px_rgba(34,197,94,0.5)]';
                 }
             } else {
-                bar.className = 'flex-1 bg-slate-200 rounded-full h-full transition-all duration-300';
+                bar.className = 'flex-1 bg-white/30 rounded-full h-full transition-all duration-300';
             }
         });
     }
@@ -796,7 +860,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Show loading state
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="flex items-center justify-center space-x-3"><span class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span><span>Creating Account...</span></span>';
+            submitBtn.innerHTML = '<span class="flex items-center justify-center space-x-3"><span class="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></span><span>Creating Account...</span></span>';
             formMessage.classList.add('hidden');
             
             // Submit via AJAX
