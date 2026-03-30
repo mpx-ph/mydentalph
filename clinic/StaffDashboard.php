@@ -54,7 +54,7 @@ try {
                 a.booking_id,
                 a.appointment_date,
                 a.appointment_time,
-                COALESCE(s.services_list, a.service_type) AS service_type,
+                a.service_type,
                 a.status,
                 a.total_treatment_cost,
                 p.patient_id AS patient_display_id,
@@ -63,13 +63,6 @@ try {
                 d.first_name AS dentist_first_name,
                 d.last_name AS dentist_last_name
             FROM tbl_appointments a
-            LEFT JOIN (
-                SELECT 
-                    booking_id, 
-                    GROUP_CONCAT(service_name SEPARATOR ', ') as services_list
-                FROM tbl_appointment_services 
-                GROUP BY booking_id
-            ) s ON s.booking_id = a.booking_id
             LEFT JOIN tbl_patients p
                 ON p.tenant_id = a.tenant_id
                AND p.patient_id = a.patient_id
