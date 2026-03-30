@@ -27,7 +27,12 @@ try {
     $patient = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$patient) {
-        echo json_encode(["status" => "success", "appointments" => [], "message" => "No patient record found for this user."]);
+        echo json_encode([
+            "status" => "success", 
+            "appointments" => [], 
+            "debug_info" => "Step 1 Failed: No patient record found in tbl_patients where owner_user_id or linked_user_id matches '$user_id'. Check if the user is registered as a patient.",
+            "message" => "No patient record found for this user."
+        ]);
         exit;
     }
 
@@ -53,6 +58,16 @@ try {
     );
     $stmt->execute([$patient_id]);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($rows)) {
+        echo json_encode([
+            "status" => "success", 
+            "appointments" => [], 
+            "debug_info" => "Step 2 Empty: Found patient_id '$patient_id', but 0 rows exist in tbl_appointments for this patient.",
+            "message" => "No transaction history found."
+        ]);
+        exit;
+    }
 
     // 3. Status Mapping
     $statusMap = [
