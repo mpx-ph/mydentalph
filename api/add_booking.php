@@ -39,6 +39,14 @@ try {
 
     // Generate highly unique booking_id (10 chars + BK prefix)
     $booking_id = 'BK-' . strtoupper(substr(md5(microtime(true) . $user_id . mt_rand()), 0, 10));
+    // Check Availability (Double-booking validation)
+    $stmt = $pdo->prepare("SELECT id FROM tbl_appointments 
+        WHERE dentist_id = ? AND appointment_date = ? AND appointment_time = ? 
+        AND status NOT IN ('cancelled') LIMIT 1");
+    $stmt->execute([$dentist_id, $appointment_date, $appointment_time]);
+    if ($stmt->fetch()) {
+        throw new Exception("This time slot is already reserved. Please choose a different time.");
+    }
 
     $pdo->beginTransaction();
 
