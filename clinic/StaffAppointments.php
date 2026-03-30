@@ -139,7 +139,7 @@ try {
                 a.patient_id,
                 a.appointment_date,
                 a.appointment_time,
-                a.service_type,
+                (SELECT GROUP_CONCAT(service_name SEPARATOR ', ') FROM tbl_appointment_services WHERE booking_id = a.booking_id) as service_type,
                 a.service_description,
                 a.treatment_type,
                 a.status,
