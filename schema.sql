@@ -448,6 +448,25 @@ CREATE TABLE IF NOT EXISTS tbl_dentist_schedules (
 );
 
 -- ============================================
+-- BLOCKED SCHEDULES
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_blocked_schedules (
+    block_id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(20) NOT NULL,
+    dentist_id INT DEFAULT NULL,
+    block_date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    reason TEXT,
+    created_by VARCHAR(20),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_blocked_schedules_tenant (tenant_id),
+    KEY idx_blocked_schedules_date (tenant_id, block_date),
+    KEY idx_blocked_schedules_dentist (dentist_id),
+    KEY idx_blocked_schedules_created_by (created_by)
+);
+
+-- ============================================
 -- PATIENT QUEUE
 -- ============================================
 CREATE TABLE IF NOT EXISTS tbl_patient_queue (

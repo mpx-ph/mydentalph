@@ -12,6 +12,59 @@ if (!isset($currentTenantSlug)) {
     }
 }
 $currentStaffUserId = isset($_SESSION['user_id']) ? (string) $_SESSION['user_id'] : '';
+$tenantId = isset($_SESSION['tenant_id']) ? (string) $_SESSION['tenant_id'] : '';
+
+try {
+    $pdo = getDBConnection();
+    
+    // Handle POST Actions
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        header('Content-Type: application/json');
+        
+        $input = json_decode(file_get_contents('php://input'), true);
+        $action = $input['action'] ?? '';
+        
+        if ($action === 'create') {
+            $date = $input['date'] ?? '';
+            $start = $input['start_time'] ?? '';
+            $end = $input['end_time'] ?? '';
+            $reason = $input['reason'] ?? '';
+            
+            if (!$date || !$start || !$end) {
+                echo json_encode(['success' => false, 'error' => 'Missing required fields']);
+                exit;
+            }
+            if ($start >= $end) {
+                echo json_encode(['success' => false, 'error' => 'Start time must be before end time']);
+                exit;
+            }
+            
+            $stmt = $pdo->prepare("INSERT INTO tbl_blocked_schedules (tenant_id, block_date, start_time, end_time, reason, created_by) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$tenantId, $date, $start, $end, $reason, $currentStaffUserId]);
+            echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]);
+            exit;
+        }
+        
+        if ($action === 'delete') {
+            $id = $input['id'] ?? 0;
+            $stmt = $pdo->prepare("DELETE FROM tbl_blocked_schedules WHERE block_id = ? AND tenant_id = ?");
+            $stmt->execute([$id, $tenantId]);
+            echo json_encode(['success' => true]);
+            exit;
+        }
+    }
+
+    // Fetch Blocked Schedules
+    $stmt = $pdo->prepare("SELECT block_id AS id, block_date AS date, start_time, end_time, reason FROM tbl_blocked_schedules WHERE tenant_id = ? ORDER BY block_date DESC, start_time DESC");
+    $stmt->execute([$tenantId]);
+    $blockedSchedules = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (Exception $e) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        exit;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html class="light" lang="en">
@@ -156,15 +209,8 @@ body { font-family: "Manrope", sans-serif; }
 </main>
 
 <script>
-// Mock data and API implementation for demonstration. 
-// Replace API_SCHEDULES_URL with the real API endpoint later.
-const API_SCHEDULES_URL = '/api/block_schedule.php'; 
-
-let allSchedulesData = [
-    // Provide a mocked example to match the layout
-    { id: 1, date: '2026-04-10', start_time: '10:00', end_time: '12:00', reason: 'Clinic Maintenance' },
-    { id: 2, date: '2026-04-15', start_time: '14:00', end_time: '16:00', reason: 'Staff Meeting' }
-];
+// Load initial data from PHP
+let allSchedulesData = <?php echo !empty($blockedSchedules) ? json_encode($blockedSchedules) : '[]'; ?>;
 
 const tableBody = document.getElementById('schedulesTableBody');
 const blockScheduleForm = document.getElementById('blockScheduleForm');
@@ -204,40 +250,40 @@ function renderSchedules(schedules) {
     }
 
     tableBody.innerHTML = schedules.map(schedule => {
-        return \`
+        return `
             <tr class="hover:bg-slate-50/30 transition-colors group">
                 <td class="px-8 py-6">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500">
                              <span class="material-symbols-outlined text-lg">event</span>
                         </div>
-                        <span class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">\${escapeHtml(formatDate(schedule.date))}</span>
+                        <span class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">${escapeHtml(formatDate(schedule.date))}</span>
                     </div>
                 </td>
                 <td class="px-6 py-6 text-sm font-bold text-slate-700">
                     <div class="flex items-center gap-1.5 bg-slate-50 w-fit px-3 py-1.5 rounded-lg border border-slate-100">
                         <span class="material-symbols-outlined text-[14px] text-slate-400">schedule</span>
-                        \${escapeHtml(formatTime(schedule.start_time))} - \${escapeHtml(formatTime(schedule.end_time))}
+                        ${escapeHtml(formatTime(schedule.start_time))} - ${escapeHtml(formatTime(schedule.end_time))}
                     </div>
                 </td>
                 <td class="px-6 py-6 text-sm font-medium text-slate-600">
-                    \${escapeHtml(schedule.reason || 'N/A')}
+                    ${escapeHtml(schedule.reason || 'N/A')}
                 </td>
                 <td class="px-8 py-6 text-right">
                     <div class="flex justify-end gap-2">
-                        <button data-action="delete" data-id="\${schedule.id}" class="w-9 h-9 flex items-center justify-center border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-100 rounded-xl transition-all" title="Remove Block">
+                        <button data-action="delete" data-id="${schedule.id}" class="w-9 h-9 flex items-center justify-center border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-100 rounded-xl transition-all" title="Remove Block">
                             <span class="material-symbols-outlined text-lg">delete</span>
                         </button>
                     </div>
                 </td>
             </tr>
-        \`;
+        `;
     }).join('');
 
-    recordsSummary.textContent = \`Showing \${schedules.length} blocked \${schedules.length === 1 ? 'schedule' : 'schedules'}\`;
+    recordsSummary.textContent = `Showing ${schedules.length} blocked ${schedules.length === 1 ? 'schedule' : 'schedules'}`;
 }
 
-// Initial render since we are mocking for now
+// Initial render
 renderSchedules(allSchedulesData);
 
 async function saveBlockSchedule(event) {
@@ -258,31 +304,67 @@ async function saveBlockSchedule(event) {
     saveBtn.disabled = true;
     saveBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">sync</span> Saving...';
 
-    // Simulate saving via API
-    setTimeout(() => {
-        const newSchedule = {
-            id: Date.now(), 
-            date: dateInput, 
-            start_time: startTimeInput, 
-            end_time: endTimeInput, 
-            reason: reasonInput
-        };
-        allSchedulesData.unshift(newSchedule); // Add to the top of the array
-        renderSchedules(allSchedulesData);
+    try {
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'create',
+                date: dateInput,
+                start_time: startTimeInput,
+                end_time: endTimeInput,
+                reason: reasonInput
+            })
+        });
         
-        blockScheduleForm.reset();
+        const data = await response.json();
         
-        saveBtn.disabled = false;
-        saveBtn.innerHTML = oldHtml;
-    }, 500);
+        if (data.success) {
+            const newSchedule = {
+                id: data.id, 
+                date: dateInput, 
+                start_time: startTimeInput, 
+                end_time: endTimeInput, 
+                reason: reasonInput
+            };
+            
+            // Add to frontend
+            allSchedulesData.unshift(newSchedule);
+            allSchedulesData.sort((a,b) => new Date(b.date) - new Date(a.date));
+            renderSchedules(allSchedulesData);
+            blockScheduleForm.reset();
+        } else {
+            alert(data.error || "Failed to block schedule");
+        }
+    } catch (err) {
+        alert("Server error occurred.");
+    }
+
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = oldHtml;
 }
 
-function deleteSchedule(id) {
+async function deleteSchedule(id) {
     if (!confirm('Are you sure you want to remove this blocked schedule limit?')) return;
     
-    // Simulate removing via API
-    allSchedulesData = allSchedulesData.filter(s => s.id !== id);
-    renderSchedules(allSchedulesData);
+    try {
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete', id: id })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            allSchedulesData = allSchedulesData.filter(s => s.id !== id);
+            renderSchedules(allSchedulesData);
+        } else {
+            alert(data.error || "Failed to delete block");
+        }
+    } catch (err) {
+        alert("Server error occurred.");
+    }
 }
 
 blockScheduleForm.addEventListener('submit', saveBlockSchedule);
