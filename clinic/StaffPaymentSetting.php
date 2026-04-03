@@ -2,6 +2,13 @@
 $staff_nav_active = 'payment_settings';
 require_once __DIR__ . '/config/config.php';
 
+// Dentist role restriction: redirect to dashboard
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
+if (isset($_SESSION['user_role']) && strtolower(trim((string) $_SESSION['user_role'])) === 'dentist') {
+    header('Location: StaffDashboard.php');
+    exit;
+}
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }

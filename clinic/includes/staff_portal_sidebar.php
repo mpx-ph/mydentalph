@@ -54,18 +54,31 @@ $buildStaffHref = function ($targetFile) use ($linkBaseDir, $sidebarClinicSlug) 
     return ($base === '' ? '/' : ($base . '/')) . $targetFile;
 };
 
-$navItems = [
-    ['key' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'dashboard', 'href' => $buildStaffHref('StaffDashboard.php')],
-    ['key' => 'patients', 'label' => 'Patients', 'icon' => 'group', 'href' => $buildStaffHref('StaffManagePatient.php')],
-    ['key' => 'appointments', 'label' => 'Appointments', 'icon' => 'calendar_month', 'href' => $buildStaffHref('StaffAppointments.php')],
-    ['key' => 'services', 'label' => 'Services & Pricing', 'icon' => 'medical_services', 'href' => $buildStaffHref('StaffManageServices.php')],
-    ['key' => 'payments', 'label' => 'Payments', 'icon' => 'payments', 'href' => $buildStaffHref('StaffPaymentRecording.php')],
-    ['key' => 'payment_settings', 'label' => 'Payment Settings', 'icon' => 'settings', 'href' => $buildStaffHref('StaffPaymentSetting.php')],
-    ['key' => 'reports', 'label' => 'Reports', 'icon' => 'bar_chart', 'href' => $buildStaffHref('StaffReports.php')],
-    ['key' => 'users', 'label' => 'Users', 'icon' => 'people', 'href' => $buildStaffHref('StaffManageUsers.php')],
-    ['key' => 'reviews', 'label' => 'Reviews', 'icon' => 'rate_review', 'href' => $buildStaffHref('StaffManageReview.php')],
-    ['key' => 'profile', 'label' => 'My Profile', 'icon' => 'account_circle', 'href' => $buildStaffHref('StaffMyProfile.php')],
+$allNavItems = [
+    ['key' => 'dashboard',        'label' => 'Dashboard',         'icon' => 'dashboard',        'href' => $buildStaffHref('StaffDashboard.php')],
+    ['key' => 'patients',         'label' => 'Patients',          'icon' => 'group',             'href' => $buildStaffHref('StaffManagePatient.php')],
+    ['key' => 'appointments',     'label' => 'Appointments',      'icon' => 'calendar_month',   'href' => $buildStaffHref('StaffAppointments.php')],
+    ['key' => 'block_schedule',   'label' => 'Block Schedule',    'icon' => 'event_busy',        'href' => $buildStaffHref('StaffBlockSchedule.php')],
+    ['key' => 'services',         'label' => 'Services & Pricing','icon' => 'medical_services',  'href' => $buildStaffHref('StaffManageServices.php')],
+    ['key' => 'payments',         'label' => 'Payments',          'icon' => 'payments',          'href' => $buildStaffHref('StaffPaymentRecording.php')],
+    ['key' => 'payment_settings', 'label' => 'Payment Settings',  'icon' => 'settings',          'href' => $buildStaffHref('StaffPaymentSetting.php')],
+    ['key' => 'reports',          'label' => 'Reports',           'icon' => 'bar_chart',         'href' => $buildStaffHref('StaffReports.php')],
+    ['key' => 'users',            'label' => 'Users',             'icon' => 'people',            'href' => $buildStaffHref('StaffManageUsers.php')],
+    ['key' => 'reviews',          'label' => 'Reviews',           'icon' => 'rate_review',       'href' => $buildStaffHref('StaffManageReview.php')],
+    ['key' => 'profile',          'label' => 'My Profile',        'icon' => 'account_circle',    'href' => $buildStaffHref('StaffMyProfile.php')],
 ];
+
+// Dentist role: only these pages are accessible
+$dentistAllowedKeys = ['dashboard', 'patients', 'appointments', 'block_schedule', 'profile'];
+$currentUserRole = isset($_SESSION['user_role']) ? strtolower(trim((string) $_SESSION['user_role'])) : '';
+
+if ($currentUserRole === 'dentist') {
+    $navItems = array_values(array_filter($allNavItems, function ($item) use ($dentistAllowedKeys) {
+        return in_array($item['key'], $dentistAllowedKeys, true);
+    }));
+} else {
+    $navItems = $allNavItems;
+}
 ?>
 <aside class="fixed left-0 top-0 h-full w-64 z-40 bg-white flex flex-col py-8 border-r border-slate-200/60">
     <div class="px-7 mb-8">
