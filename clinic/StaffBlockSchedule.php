@@ -1,5 +1,7 @@
 <?php
 $staff_nav_active = 'block_schedule';
+require_once __DIR__ . '/config/config.php';
+
 if (!isset($currentTenantSlug)) {
     $currentTenantSlug = '';
     if (isset($_GET['clinic_slug'])) {
