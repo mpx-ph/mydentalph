@@ -56,6 +56,13 @@ body { font-family: "Manrope", sans-serif; }
     border: 1px solid rgba(226, 232, 240, 0.8);
     box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
 }
+.patient-tab-btn {
+    border-bottom: 2px solid transparent;
+}
+.patient-tab-btn.active {
+    color: #2b8beb;
+    border-bottom-color: #2b8beb;
+}
 </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
@@ -216,12 +223,18 @@ body { font-family: "Manrope", sans-serif; }
 </div>
 
 <div id="viewPatientModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full border border-slate-200">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[92vh] overflow-hidden border border-slate-200 flex flex-col">
         <div class="flex items-center justify-between p-5 border-b border-slate-200">
-            <h3 class="text-xl font-bold">Patient Details</h3>
+            <h3 class="text-lg font-black tracking-tight text-slate-900">Patient Profile</h3>
             <button id="closeViewPatientModal" class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><span class="material-symbols-outlined">close</span></button>
         </div>
-        <div id="viewPatientContent" class="p-6 text-sm text-slate-700 space-y-2"></div>
+        <div id="viewPatientContent" class="flex-1 overflow-y-auto p-6 text-sm text-slate-700"></div>
+        <div class="p-4 border-t border-slate-200 bg-white">
+            <button id="schedulePatientBtn" type="button" class="w-full bg-primary hover:bg-primary/90 text-white py-3 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center gap-2 transition-all">
+                <span class="material-symbols-outlined text-[18px]">calendar_add_on</span>
+                Schedule Next Appointment
+            </button>
+        </div>
     </div>
 </div>
 
@@ -311,13 +324,14 @@ function renderPatients(patients) {
                 </td>
                 <td class="px-8 py-6 text-right">
                     <div class="flex justify-end gap-2">
-                        <button data-action="view" data-id="${patient.id}" class="w-9 h-9 flex items-center justify-center border border-slate-200 text-slate-400 hover:text-primary hover:border-primary/20 rounded-xl transition-all">
-                            <span class="material-symbols-outlined text-lg">visibility</span>
+                        <button data-action="profile" data-id="${patient.id}" class="inline-flex items-center gap-1.5 px-3.5 py-2 border border-primary/20 text-primary hover:bg-primary/5 rounded-xl transition-all text-xs font-bold uppercase tracking-wider">
+                            <span class="material-symbols-outlined text-[16px]">badge</span>
+                            View Profile
                         </button>
-                        <button data-action="edit" data-id="${patient.id}" class="w-9 h-9 flex items-center justify-center border border-slate-200 text-slate-400 hover:text-primary hover:border-primary/20 rounded-xl transition-all">
+                        <button data-action="edit" data-id="${patient.id}" class="w-9 h-9 flex items-center justify-center border border-slate-200 text-slate-400 hover:text-primary hover:border-primary/20 rounded-xl transition-all" title="Edit Patient">
                             <span class="material-symbols-outlined text-lg">edit_square</span>
                         </button>
-                        <button data-action="delete" data-id="${patient.id}" class="w-9 h-9 flex items-center justify-center border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-100 rounded-xl transition-all">
+                        <button data-action="delete" data-id="${patient.id}" class="w-9 h-9 flex items-center justify-center border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-100 rounded-xl transition-all" title="Delete Patient">
                             <span class="material-symbols-outlined text-lg">delete</span>
                         </button>
                     </div>
@@ -398,18 +412,110 @@ function closeAddModal() {
 
 function openViewModal(patient) {
     const fullName = `${patient.firstName} ${patient.lastName}`.trim() || 'Patient';
+    const patientStatus = patient.status === 'inactive' ? 'Inactive' : 'Active';
+    const statusClasses = patient.status === 'inactive'
+        ? 'bg-slate-100 text-slate-600'
+        : 'bg-emerald-50 text-emerald-600';
+    const address = [patient.houseStreet, patient.barangay, patient.city, patient.province].filter(Boolean).join(', ') || 'N/A';
+    const treatmentText = patient.status === 'inactive' ? 'No active treatment plan found.' : 'No long-term treatment plan found.';
     document.getElementById('viewPatientContent').innerHTML = `
-        <div><strong>Name:</strong> ${escapeHtml(fullName)}</div>
-        <div><strong>Patient ID:</strong> ${escapeHtml(patient.patientId || patient.id)}</div>
-        <div><strong>Contact:</strong> ${escapeHtml(patient.contact || 'N/A')}</div>
-        <div><strong>Email:</strong> ${escapeHtml(patient.email || 'N/A')}</div>
-        <div><strong>Gender:</strong> ${escapeHtml(patient.gender || 'N/A')}</div>
-        <div><strong>Date of Birth:</strong> ${escapeHtml(formatDate(patient.dob))}</div>
-        <div><strong>Address:</strong> ${escapeHtml([patient.houseStreet, patient.barangay, patient.city, patient.province].filter(Boolean).join(', ') || 'N/A')}</div>
-        <div><strong>Created:</strong> ${escapeHtml(formatDate(patient.createdAt))}</div>
+        <div class="space-y-6">
+            <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-5">
+                <div class="flex items-center gap-4">
+                    <div class="w-16 h-16 rounded-full bg-primary/10 text-primary font-black text-xl flex items-center justify-center">
+                        ${escapeHtml(`${patient.firstName?.[0] || ''}${patient.lastName?.[0] || ''}`.toUpperCase() || 'PT')}
+                    </div>
+                    <div>
+                        <h4 class="text-3xl font-black tracking-tight text-slate-900">${escapeHtml(fullName)}</h4>
+                        <div class="flex items-center gap-3 mt-1">
+                            <span class="text-slate-400 text-sm font-bold">#${escapeHtml(patient.patientId || patient.id)}</span>
+                            <span class="px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider ${statusClasses}">${patientStatus}</span>
+                        </div>
+                    </div>
+                </div>
+                <button data-action="edit" data-id="${patient.id}" class="self-start inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/20 rounded-xl transition-all text-xs font-bold uppercase tracking-wider">
+                    <span class="material-symbols-outlined text-[16px]">edit_square</span>
+                    Edit
+                </button>
+            </div>
+            <div class="flex flex-wrap gap-8 text-sm border-t border-slate-200 pt-4">
+                <div>
+                    <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Created At</p>
+                    <p class="text-xl font-bold text-slate-800 mt-1">${escapeHtml(formatDate(patient.createdAt))}</p>
+                </div>
+                <div>
+                    <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Last Visit</p>
+                    <p class="text-xl font-bold text-slate-800 mt-1">${escapeHtml(formatDate(patient.updatedAt || patient.createdAt))}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-7 border-b border-slate-200 text-base font-semibold text-slate-500">
+                <button type="button" class="patient-tab-btn active py-3" data-tab-target="basic">Basic Info</button>
+                <button type="button" class="patient-tab-btn py-3" data-tab-target="appointments">Appointments</button>
+                <button type="button" class="patient-tab-btn py-3" data-tab-target="treatment">Active Treatment</button>
+                <button type="button" class="patient-tab-btn py-3" data-tab-target="files">Files & Documents</button>
+            </div>
+            <div id="patient-tab-basic" class="space-y-4">
+                <div class="rounded-2xl border border-slate-200 p-5">
+                    <h5 class="text-lg font-black mb-4">Basic Information</h5>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
+                        <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">First Name</p><p class="text-lg font-bold text-slate-800">${escapeHtml(patient.firstName || 'N/A')}</p></div>
+                        <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Last Name</p><p class="text-lg font-bold text-slate-800">${escapeHtml(patient.lastName || 'N/A')}</p></div>
+                        <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Contact Number</p><p class="text-lg font-bold text-slate-800">${escapeHtml(patient.contact || 'N/A')}</p></div>
+                        <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Email</p><p class="text-lg font-bold text-slate-800">${escapeHtml(patient.email || 'N/A')}</p></div>
+                        <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Date of Birth</p><p class="text-lg font-bold text-slate-800">${escapeHtml(formatDate(patient.dob))}</p></div>
+                        <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Gender</p><p class="text-lg font-bold text-slate-800">${escapeHtml(patient.gender || 'N/A')}</p></div>
+                    </div>
+                </div>
+                <div class="rounded-2xl border border-slate-200 p-5">
+                    <h5 class="text-lg font-black mb-4">Address Information</h5>
+                    <p class="text-lg font-semibold text-slate-700">${escapeHtml(address)}</p>
+                </div>
+            </div>
+            <div id="patient-tab-appointments" class="hidden">
+                <div class="rounded-2xl border border-slate-200 p-5">
+                    <h5 class="text-lg font-black mb-3">Appointments History</h5>
+                    <p class="text-slate-500 font-medium">Appointments list will appear here once linked to patient scheduling records.</p>
+                </div>
+            </div>
+            <div id="patient-tab-treatment" class="hidden">
+                <div class="rounded-2xl border border-primary/10 bg-primary/[0.03] p-5">
+                    <h5 class="text-lg font-black mb-3">Long-Term Treatment Plans</h5>
+                    <p class="text-slate-500 font-medium">${escapeHtml(treatmentText)}</p>
+                </div>
+            </div>
+            <div id="patient-tab-files" class="hidden">
+                <div class="rounded-2xl border border-slate-200 p-5">
+                    <h5 class="text-lg font-black mb-3">Files & Documents</h5>
+                    <p class="text-slate-500 font-medium">No uploaded files yet for this patient.</p>
+                </div>
+            </div>
+        </div>
     `;
+    setupPatientTabs();
     viewPatientModal.classList.remove('hidden');
     viewPatientModal.classList.add('flex');
+}
+
+function setupPatientTabs() {
+    const tabButtons = Array.from(document.querySelectorAll('[data-tab-target]'));
+    const tabSections = {
+        basic: document.getElementById('patient-tab-basic'),
+        appointments: document.getElementById('patient-tab-appointments'),
+        treatment: document.getElementById('patient-tab-treatment'),
+        files: document.getElementById('patient-tab-files')
+    };
+
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = btn.getAttribute('data-tab-target');
+            tabButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            Object.entries(tabSections).forEach(([key, section]) => {
+                if (!section) return;
+                section.classList.toggle('hidden', key !== target);
+            });
+        });
+    });
 }
 
 function closeViewModal() {
@@ -520,13 +626,20 @@ tableBody.addEventListener('click', function (event) {
     const patient = allPatientsData.find(p => Number(p.id) === id);
     if (!patient) return;
 
-    if (action === 'view') {
+    if (action === 'profile') {
         openViewModal(patient);
     } else if (action === 'edit') {
+        if (!viewPatientModal.classList.contains('hidden')) {
+            closeViewModal();
+        }
         openAddModal(patient);
     } else if (action === 'delete') {
         deletePatient(id);
     }
+});
+
+document.getElementById('schedulePatientBtn').addEventListener('click', () => {
+    alert('Schedule workflow will be wired to appointments module.');
 });
 
 loadPatients();
