@@ -30,7 +30,6 @@ $formMessageType = 'success';
 $paymentSettings = [
     'regular_downpayment_percentage' => 20.00,
     'long_term_min_downpayment' => 500.00,
-    'auto_invoice_enabled' => 1,
 ];
 
 try {
@@ -50,13 +49,12 @@ try {
             $updateField = isset($_POST['update_field']) ? trim((string) $_POST['update_field']) : '';
             $newSettings = $paymentSettings;
 
-            $existingStmt = $pdo->prepare('SELECT regular_downpayment_percentage, long_term_min_downpayment, auto_invoice_enabled FROM tbl_payment_settings WHERE tenant_id = ? LIMIT 1');
+            $existingStmt = $pdo->prepare('SELECT regular_downpayment_percentage, long_term_min_downpayment FROM tbl_payment_settings WHERE tenant_id = ? LIMIT 1');
             $existingStmt->execute([$tenantId]);
             $existingSettings = $existingStmt->fetch(PDO::FETCH_ASSOC);
             if ($existingSettings) {
                 $newSettings['regular_downpayment_percentage'] = (float) $existingSettings['regular_downpayment_percentage'];
                 $newSettings['long_term_min_downpayment'] = (float) $existingSettings['long_term_min_downpayment'];
-                $newSettings['auto_invoice_enabled'] = (int) $existingSettings['auto_invoice_enabled'];
             }
 
             if ($updateField === 'regular') {
@@ -75,8 +73,6 @@ try {
                 } else {
                     $newSettings['long_term_min_downpayment'] = round($longTermInput, 2);
                 }
-            } elseif ($updateField === 'invoice_toggle') {
-                $newSettings['auto_invoice_enabled'] = isset($_POST['auto_invoice_enabled']) ? 1 : 0;
             } else {
                 $formMessage = 'Unknown update action.';
                 $formMessageType = 'error';
@@ -88,13 +84,11 @@ try {
                         tenant_id,
                         regular_downpayment_percentage,
                         long_term_min_downpayment,
-                        auto_invoice_enabled,
                         updated_by
-                    ) VALUES (?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
                         regular_downpayment_percentage = VALUES(regular_downpayment_percentage),
                         long_term_min_downpayment = VALUES(long_term_min_downpayment),
-                        auto_invoice_enabled = VALUES(auto_invoice_enabled),
                         updated_by = VALUES(updated_by),
                         updated_at = CURRENT_TIMESTAMP
                 ";
@@ -103,7 +97,6 @@ try {
                     $tenantId,
                     $newSettings['regular_downpayment_percentage'],
                     $newSettings['long_term_min_downpayment'],
-                    $newSettings['auto_invoice_enabled'],
                     $currentStaffUserId !== '' ? $currentStaffUserId : null,
                 ]);
 
@@ -113,13 +106,12 @@ try {
             }
         }
 
-        $settingsStmt = $pdo->prepare('SELECT regular_downpayment_percentage, long_term_min_downpayment, auto_invoice_enabled FROM tbl_payment_settings WHERE tenant_id = ? LIMIT 1');
+        $settingsStmt = $pdo->prepare('SELECT regular_downpayment_percentage, long_term_min_downpayment FROM tbl_payment_settings WHERE tenant_id = ? LIMIT 1');
         $settingsStmt->execute([$tenantId]);
         $settingsRow = $settingsStmt->fetch(PDO::FETCH_ASSOC);
         if ($settingsRow) {
             $paymentSettings['regular_downpayment_percentage'] = (float) $settingsRow['regular_downpayment_percentage'];
             $paymentSettings['long_term_min_downpayment'] = (float) $settingsRow['long_term_min_downpayment'];
-            $paymentSettings['auto_invoice_enabled'] = (int) $settingsRow['auto_invoice_enabled'];
         }
     } else {
         $formMessage = 'Unable to resolve clinic tenant. Payment settings are unavailable.';
@@ -297,47 +289,6 @@ try {
                     </button>
 </div>
 </form>
-</div>
-</div>
-<!-- Global Configuration Bento -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-<div class="md:col-span-2 elevated-card rounded-3xl p-8 flex items-center justify-between">
-<div class="space-y-2">
-<h4 class="font-headline font-bold text-xl text-on-background">Automatic Invoice Generation</h4>
-<p class="text-sm text-on-surface-variant/60 font-medium font-body">Automatically send down-payment invoices upon appointment confirmation.</p>
-</div>
-<form method="post" class="relative inline-flex items-center cursor-pointer group">
-<input type="hidden" name="update_field" value="invoice_toggle"/>
-<input class="sr-only peer" type="checkbox" name="auto_invoice_enabled" value="1" onchange="this.form.submit()" <?php echo ((int) $paymentSettings['auto_invoice_enabled'] === 1) ? 'checked' : ''; ?>/>
-<div class="w-16 h-9 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:start-[4px] after:bg-white after:border-slate-200 after:border after:rounded-full after:h-7 after:w-7 after:transition-all peer-checked:bg-primary shadow-sm"></div>
-</form>
-</div>
-<div class="bg-primary rounded-3xl p-8 flex flex-col justify-center relative overflow-hidden active-glow">
-<div class="relative z-10">
-<p class="text-[10px] font-black uppercase tracking-[0.2em] text-white/70 mb-2">Financial Health</p>
-<div class="flex items-baseline gap-2">
-<span class="text-4xl font-headline font-extrabold text-white">98.4%</span>
-<span class="text-[10px] text-white/70 font-black uppercase tracking-widest">Collection Rate</span>
-</div>
-</div>
-<!-- Decorative pattern -->
-<div class="absolute -right-6 -bottom-6 opacity-20 transform -rotate-12">
-<span class="material-symbols-outlined text-[120px] text-white">trending_up</span>
-</div>
-</div>
-</div>
-<!-- Footer Meta Info -->
-<div class="pt-8 border-t border-slate-200 flex justify-between items-center">
-<div class="flex items-center gap-4">
-<div class="flex -space-x-3">
-<img alt="Admin" class="w-9 h-9 rounded-full border-2 border-white object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDlKy5_WAt4BER0EmlhL1incjxs3s8yftPBA7KR-4vxpcljzva4HHwtUD6nQrafpLqj12Vn167N86EV5dcFCUoojIfz9mkiSIhzXoYxvLjZUEXDS5y28MLGI_nIOJD85UpG_6UG-IP_-MutF53V5bqlFV4glVJeir90GnY0wFyKGopBq5N13y6SrQVd15BAfQXevf_Qg7MClVt1Q8Aq08HT_KZGzs6SO3s6AAfBlbqsK9WAVhBgHvKZWt3qCb_WMYB2T3qPNktt6k0"/>
-<img alt="Admin 2" class="w-9 h-9 rounded-full border-2 border-white object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAzdJIJZU9YM4q5ghsEjXFPrGyNKmb18OXDMYd67PNLG22vzRTh19NYRmfeccugFRhfqNqSIYLw_GPRLk_dT59B6CLNUNti15BTzsoETD9SvwDAbYF0m6EN8K5wv5iTmKSZ5Je07-F4twAsImjVJSuyLTHPWKvCIobSAcq9SzZiteBCroz-cy8JsvGN8PMpjd5Ce7nnahguUC4TI0uafGLSyH0SlqFmC_Hp3ZcY6zUfrNWP6duoScvCy9_bU9Wjp55mf2UTX8juW4s"/>
-</div>
-<p class="text-[11px] text-slate-400 font-bold uppercase tracking-widest italic">Last modified by Sarah J. &amp; Dr. Miller today at 10:45 AM</p>
-</div>
-<div class="flex items-center gap-6">
-<button class="text-[10px] font-black text-slate-400 hover:text-primary transition-colors uppercase tracking-widest">Export Audit Log</button>
-<button class="text-[10px] font-black text-slate-400 hover:text-primary transition-colors uppercase tracking-widest">Restore Defaults</button>
 </div>
 </div>
 </div>
