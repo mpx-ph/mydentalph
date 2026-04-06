@@ -657,76 +657,135 @@ $statusLabels = [
 <div id="treatmentModal" class="hidden fixed inset-0 z-[70]">
     <div class="absolute inset-0 bg-slate-900/50" id="modalBackdrop"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-3xl rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                <h4 class="text-2xl font-bold text-primary">Treatment Details</h4>
+        <div class="bg-white w-full max-w-5xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white">
+                <div>
+                    <p class="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Appointment Overview</p>
+                    <h4 class="text-2xl font-bold text-primary">Treatment Details</h4>
+                </div>
                 <button type="button" id="modalCloseBtn" class="w-8 h-8 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
-            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-sm max-h-[80vh] overflow-y-auto">
-                <div>
-                    <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Patient Information</p>
-                    <p class="font-semibold text-slate-500">Name</p>
-                    <p id="mPatientName" class="font-bold text-slate-900 mb-3">-</p>
-                    <p class="font-semibold text-slate-500">Patient ID</p>
-                    <p id="mPatientId" class="font-bold text-slate-900 mb-3">-</p>
-                    <p class="font-semibold text-slate-500">Contact Number</p>
-                    <p id="mPatientContact" class="font-bold text-slate-900 mb-3">-</p>
-                    <p class="font-semibold text-slate-500">Assigned Staff</p>
-                    <p id="mStaff" class="font-bold text-slate-900">-</p>
-                </div>
-                <div>
-                    <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Appointment Details</p>
-                    <p class="font-semibold text-slate-500">Booking ID</p>
-                    <p id="mBookingId" class="font-bold text-slate-900 mb-3">-</p>
-                    <p class="font-semibold text-slate-500">Date</p>
-                    <p id="mDate" class="font-bold text-slate-900 mb-3">-</p>
-                    <p class="font-semibold text-slate-500">Time</p>
-                    <p id="mTime" class="font-bold text-slate-900 mb-3">-</p>
-                    <p class="font-semibold text-slate-500">Treatment Type</p>
-                    <p id="mType" class="font-bold text-slate-900 mb-3">-</p>
-                    <p class="font-semibold text-slate-500">Status</p>
-                    <p id="mStatus" class="font-bold text-slate-900">-</p>
-                </div>
-                <div class="md:col-span-2">
-                    <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Treatment Information</p>
-                    <p class="font-semibold text-slate-500">Treatment/Service</p>
-                    <p id="mTreatment" class="font-bold text-slate-900 mb-3">-</p>
-                    <p class="font-semibold text-slate-500">Service Description</p>
-                    <p id="mDescription" class="font-medium text-slate-700 bg-slate-50 p-3 rounded-lg mb-3">-</p>
-                    <p class="font-semibold text-slate-500">Total Cost</p>
-                    <p id="mCost" class="font-bold text-slate-900 mb-3">-</p>
-                    <p class="font-semibold text-slate-500">Notes</p>
-                    <p id="mNotes" class="font-medium text-slate-700">-</p>
-                </div>
-                <div class="md:col-span-2">
-                    <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Payment Balance</p>
-                    <div class="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-2">
-                        <div class="flex items-center justify-between">
-                            <span class="text-slate-600 font-semibold">Total Cost</span>
-                            <span id="mBalanceTotalCost" class="font-black text-slate-900">P0.00</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-slate-600 font-semibold">Total Paid</span>
-                            <span id="mBalanceTotalPaid" class="font-black text-emerald-600">P0.00</span>
-                        </div>
-                        <div class="h-px bg-slate-200"></div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-slate-800 font-bold">Pending Balance</span>
-                            <span id="mBalancePending" class="font-black text-rose-600">P0.00</span>
-                        </div>
+            <div class="p-6 space-y-5 text-sm max-h-[80vh] overflow-y-auto bg-slate-50/50">
+                <div class="bg-white rounded-2xl border border-slate-200 px-4 py-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-wider text-slate-400">Booking ID</p>
+                        <p id="mBookingId" class="mt-1 text-sm font-extrabold text-primary">-</p>
                     </div>
-                    <div id="mPaymentWarning" class="hidden mt-3 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 px-3 py-2">
-                        <p class="text-sm font-semibold">This short-term appointment has a pending balance and cannot be marked as completed until payments are recorded.</p>
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-wider text-slate-400">Date & Time</p>
+                        <p class="mt-1 text-sm font-bold text-slate-800"><span id="mDate">-</span> • <span id="mTime">-</span></p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-wider text-slate-400">Treatment Type</p>
+                        <p id="mType" class="mt-1 text-sm font-bold text-slate-800">-</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-wider text-slate-400">Status</p>
+                        <p id="mStatus" class="mt-1 text-sm font-bold text-slate-800">-</p>
                     </div>
                 </div>
-                <div class="md:col-span-2">
-                    <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Additional Services</p>
+
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                    <div class="xl:col-span-2 space-y-5">
+                        <div class="bg-white rounded-2xl border border-slate-200 p-4">
+                            <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Patient Information</p>
+                            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <dt class="text-xs font-black uppercase tracking-wide text-slate-400">Name</dt>
+                                    <dd id="mPatientName" class="mt-1 font-bold text-slate-900">-</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs font-black uppercase tracking-wide text-slate-400">Patient ID</dt>
+                                    <dd id="mPatientId" class="mt-1 font-bold text-slate-900">-</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs font-black uppercase tracking-wide text-slate-400">Contact Number</dt>
+                                    <dd id="mPatientContact" class="mt-1 font-bold text-slate-900">-</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs font-black uppercase tracking-wide text-slate-400">Assigned Staff</dt>
+                                    <dd id="mStaff" class="mt-1 font-bold text-slate-900">-</dd>
+                                </div>
+                            </dl>
+                        </div>
+
+                        <div class="bg-white rounded-2xl border border-slate-200 p-4">
+                            <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Treatment Information</p>
+                            <div class="space-y-3">
+                                <div>
+                                    <p class="text-xs font-black uppercase tracking-wide text-slate-400">Treatment / Service</p>
+                                    <p id="mTreatment" class="mt-1 font-bold text-slate-900">-</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-black uppercase tracking-wide text-slate-400">Service Description</p>
+                                    <p id="mDescription" class="mt-1 font-medium text-slate-700 bg-slate-50 border border-slate-200 p-3 rounded-xl">-</p>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <p class="text-xs font-black uppercase tracking-wide text-slate-400">Total Cost</p>
+                                        <p id="mCost" class="mt-1 font-bold text-slate-900">-</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-black uppercase tracking-wide text-slate-400">Notes</p>
+                                        <p id="mNotes" class="mt-1 font-medium text-slate-700">-</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-5">
+                        <div class="bg-white rounded-2xl border border-slate-200 p-4">
+                            <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Payment Balance</p>
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-600 font-semibold">Total Cost</span>
+                                    <span id="mBalanceTotalCost" class="font-black text-slate-900">P0.00</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-600 font-semibold">Total Paid</span>
+                                    <span id="mBalanceTotalPaid" class="font-black text-emerald-600">P0.00</span>
+                                </div>
+                                <div class="h-px bg-slate-200"></div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-800 font-bold">Pending Balance</span>
+                                    <span id="mBalancePending" class="font-black text-rose-600">P0.00</span>
+                                </div>
+                            </div>
+                            <div id="mPaymentWarning" class="hidden mt-3 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 px-3 py-2">
+                                <p class="text-xs font-semibold leading-relaxed">This short-term appointment has pending balance and cannot be marked as completed until payments are recorded.</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-2xl border border-slate-200 p-4">
+                            <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Update Status</p>
+                            <form method="post" class="space-y-3">
+                                <input type="hidden" name="modal_action" value="update_status"/>
+                                <input type="hidden" name="modal_booking_id" id="statusBookingId" value=""/>
+                                <select id="statusSelector" name="update_status" class="w-full bg-white border border-slate-200 rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 text-sm font-bold text-slate-700">
+                                    <option value="confirmed">Confirmed</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="no_show">No Show</option>
+                                </select>
+                                <button type="submit" class="w-full inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-colors">
+                                    <span class="material-symbols-outlined text-[18px]">update</span>
+                                    Update Status
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200 p-4">
+                    <div class="flex items-center justify-between gap-3 mb-3">
+                        <p class="text-[11px] font-black uppercase tracking-widest text-slate-400">Additional Services</p>
+                        <p class="text-xs font-semibold text-slate-500">Select one or more services to append in this booking.</p>
+                    </div>
                     <form method="post" class="space-y-3">
                         <input type="hidden" name="modal_action" value="add_services"/>
                         <input type="hidden" name="modal_booking_id" id="addServiceBookingId" value=""/>
-                        <div class="border border-slate-200 rounded-xl p-3 max-h-48 overflow-y-auto bg-white space-y-2">
+                        <div class="border border-slate-200 rounded-xl p-2.5 max-h-56 overflow-y-auto bg-slate-50/40 space-y-1.5">
                             <?php if (empty($availableServices)): ?>
                                 <p class="text-sm font-semibold text-slate-500">No active services available.</p>
                             <?php else: ?>
@@ -737,7 +796,7 @@ $statusLabels = [
                                     $serviceCategory = (string) ($service['category'] ?? 'General');
                                     $servicePrice = (float) ($service['price'] ?? 0);
                                     ?>
-                                    <label class="flex items-center justify-between gap-3 p-2 rounded-lg hover:bg-slate-50">
+                                    <label class="flex items-center justify-between gap-3 p-2.5 rounded-lg hover:bg-white border border-transparent hover:border-slate-200">
                                         <span class="flex items-start gap-3">
                                             <input type="checkbox" name="service_ids[]" value="<?php echo htmlspecialchars($serviceId, ENT_QUOTES, 'UTF-8'); ?>" class="mt-1 rounded border-slate-300 text-primary focus:ring-primary/30">
                                             <span>
@@ -753,22 +812,6 @@ $statusLabels = [
                         <button type="submit" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors">
                             <span class="material-symbols-outlined text-[18px]">add</span>
                             Add Extra Services
-                        </button>
-                    </form>
-                </div>
-                <div class="md:col-span-2">
-                    <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Update Status</p>
-                    <form method="post" class="flex flex-col sm:flex-row gap-3">
-                        <input type="hidden" name="modal_action" value="update_status"/>
-                        <input type="hidden" name="modal_booking_id" id="statusBookingId" value=""/>
-                        <select id="statusSelector" name="update_status" class="flex-1 bg-white border border-slate-200 rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 text-sm font-bold text-slate-700">
-                            <option value="confirmed">Confirmed</option>
-                            <option value="completed">Completed</option>
-                            <option value="no_show">No Show</option>
-                        </select>
-                        <button type="submit" class="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-colors">
-                            <span class="material-symbols-outlined text-[18px]">update</span>
-                            Update Status
                         </button>
                     </form>
                 </div>
@@ -819,6 +862,9 @@ $statusLabels = [
         const statusBookingId = document.getElementById('statusBookingId');
         const statusSelector = document.getElementById('statusSelector');
         const warning = document.getElementById('mPaymentWarning');
+        document.querySelectorAll('#treatmentModal input[name="service_ids[]"]').forEach((checkbox) => {
+            checkbox.checked = false;
+        });
         if (addServiceBookingId) addServiceBookingId.value = button.dataset.bookingId || '';
         if (statusBookingId) statusBookingId.value = button.dataset.bookingId || '';
 
@@ -846,6 +892,9 @@ $statusLabels = [
     }
 
     function closeModal() {
+        document.querySelectorAll('#treatmentModal input[name="service_ids[]"]').forEach((checkbox) => {
+            checkbox.checked = false;
+        });
         modal.classList.add('hidden');
     }
 
