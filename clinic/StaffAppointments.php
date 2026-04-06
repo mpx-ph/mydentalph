@@ -269,6 +269,16 @@ try {
             }
         }
 
+        $totalPaidSelectSql = "
+            (
+                SELECT COALESCE(SUM(py.amount), 0)
+                FROM tbl_payments py
+                WHERE py.tenant_id = a.tenant_id
+                  AND py.booking_id = a.booking_id
+                  AND py.status = 'completed'
+            ) AS total_paid
+        ";
+
         $dailySql = "
             SELECT
                 a.booking_id,
@@ -281,13 +291,7 @@ try {
                 a.status,
                 a.notes,
                 a.total_treatment_cost,
-                (
-                    SELECT COALESCE(SUM(py.amount), 0)
-                    FROM payments py
-                    WHERE py.tenant_id = a.tenant_id
-                      AND py.booking_id = a.booking_id
-                      AND py.status = 'completed'
-                ) AS total_paid,
+                {$totalPaidSelectSql},
                 a.created_by,
                 p.first_name AS patient_first_name,
                 p.last_name AS patient_last_name,
