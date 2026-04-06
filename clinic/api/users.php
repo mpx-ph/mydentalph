@@ -96,14 +96,14 @@ function createUser() {
     }
     
     // Check if email exists
-    $stmt = $pdo->prepare("SELECT id FROM tbl_users WHERE email = ?");
+    $stmt = $pdo->prepare("SELECT user_id FROM tbl_users WHERE email = ?");
     $stmt->execute([$data['email']]);
     if ($stmt->fetch()) {
         jsonResponse(false, 'Email already registered.');
     }
     
     // Check if username exists
-    $stmt = $pdo->prepare("SELECT id FROM tbl_users WHERE username = ?");
+    $stmt = $pdo->prepare("SELECT user_id FROM tbl_users WHERE username = ?");
     $stmt->execute([$data['username']]);
     if ($stmt->fetch()) {
         jsonResponse(false, 'Username already taken.');
@@ -323,10 +323,8 @@ function getUsers() {
             $countStmt->execute($params);
             $total = $countStmt->fetch()['total'];
             
-            // Get users with pagination
-            $sql .= " LIMIT ? OFFSET ?";
-            $params[] = $limit;
-            $params[] = $offset;
+            // Get users with pagination (inject validated ints to avoid LIMIT bind issues)
+            $sql .= " LIMIT " . (int) $limit . " OFFSET " . (int) $offset;
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
             $users = $stmt->fetchAll();
