@@ -1,7 +1,7 @@
 <?php
 // api/get_my_files.php
-// Returns all files uploaded by the logged-in user from tbl_patient_files
-// Ordered newest → oldest
+// Returns all files uploaded by the logged-in user
+// Uses uploaded_by (always reliable) as the primary key — no strict tenant filter
 
 header("Content-Type: application/json");
 header("Access-Control-Allow-Origin: *");
@@ -14,53 +14,57 @@ require_once '../db.php';
 $user_id   = $_GET['user_id']   ?? null;
 $tenant_id = $_GET['tenant_id'] ?? null;
 
-if (!$user_id || !$tenant_id) {
-    echo json_encode(["success" => false, "message" => "Missing user_id or tenant_id."]);
+if (!$user_id) {
+    echo json_encode(["success" => false, "message" => "Missing user_id."]);
     exit;
 }
 
 try {
-    // 1. Resolve patient_id from tbl_patients (linked to this user + tenant)
+    // Primary query: find all files this user ever uploaded (any tenant)
+    // uploaded_by is ALWAYS set to user_id so this is the most reliable anchor
     $stmt = $pdo->prepare("
-        SELECT patient_id FROM tbl_patients
-        WHERE linked_user_id = ? AND tenant_id = ?
-        ORDER BY patient_id DESC LIMIT 1
+        SELECT id, tenant_id, patient_id, file_name, file_path,
+               file_type, file_size, file_category, created_at
+        FROM tbl_patient_files
+        WHERE uploaded_by = ?
+        ORDER BY created_at DESC
     ");
-    $stmt->execute([$user_id, $tenant_id]);
-    $patient   = $stmt->fetch(PDO::FETCH_ASSOC);
-    $patientId = $patient['patient_id'] ?? null;
-
-    // 2. Query files — match by uploaded_by (always set) + optionally patient_id
-    if ($patientId) {
-        $stmt = $pdo->prepare("
-            SELECT id, file_name, file_path, file_type, file_size, file_category, created_at
-            FROM tbl_patient_files
-            WHERE tenant_id = ?
-              AND (patient_id = ? OR uploaded_by = ?)
-            ORDER BY created_at DESC
-        ");
-        $stmt->execute([$tenant_id, $patientId, $user_id]);
-    } else {
-        // Fallback: no patient profile yet — match by uploaded_by only
-        $stmt = $pdo->prepare("
-            SELECT id, file_name, file_path, file_type, file_size, file_category, created_at
-            FROM tbl_patient_files
-            WHERE tenant_id = ?
-              AND uploaded_by = ?
-            ORDER BY created_at DESC
-        ");
-        $stmt->execute([$tenant_id, $user_id]);
-    }
-
+    $stmt->execute([$user_id]);
     $files = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Build full URLs
+    // If tenant_id provided but nothing found, also try patient_id match
+    if (empty($files) && $tenant_id) {
+        // Try resolving patient_id
+        try {
+            $stmt2 = $pdo->prepare("
+                SELECT patient_id FROM tbl_patients
+                WHERE linked_user_id = ?
+                ORDER BY patient_id DESC LIMIT 1
+            ");
+            $stmt2->execute([$user_id]);
+            $pat = $stmt2->fetch(PDO::FETCH_ASSOC);
+            if ($pat && !empty($pat['patient_id'])) {
+                $stmt3 = $pdo->prepare("
+                    SELECT id, tenant_id, patient_id, file_name, file_path,
+                           file_type, file_size, file_category, created_at
+                    FROM tbl_patient_files
+                    WHERE patient_id = ?
+                    ORDER BY created_at DESC
+                ");
+                $stmt3->execute([$pat['patient_id']]);
+                $files = $stmt3->fetchAll(PDO::FETCH_ASSOC);
+            }
+        } catch (Exception $e) {}
+    }
+
+    // Build file URLs
     $scheme  = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
     $host    = $_SERVER['HTTP_HOST'];
     $baseUrl = $scheme . '://' . $host . '/';
 
     foreach ($files as &$file) {
-        $file['file_url']       = $baseUrl . ltrim($file['file_path'], '/');
+        $path = ltrim($file['file_path'], '/');
+        $file['file_url']       = $baseUrl . $path;
         $file['formatted_size'] = formatBytes((int)($file['file_size'] ?? 0));
         $file['formatted_date'] = date('M j, Y', strtotime($file['created_at']));
     }
