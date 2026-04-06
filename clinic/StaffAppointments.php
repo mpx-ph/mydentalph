@@ -70,6 +70,8 @@ $monthStartTs = strtotime($monthStart);
 $monthEnd = date('Y-m-t', $monthStartTs ?: time());
 $prevMonth = date('Y-m', strtotime('-1 month', $monthStartTs ?: time()));
 $nextMonth = date('Y-m', strtotime('+1 month', $monthStartTs ?: time()));
+$pageNotice = null;
+$availableServices = [];
 
 function buildAppointmentsUrl(array $overrides = []): string
 {
@@ -89,6 +91,140 @@ function buildAppointmentsUrl(array $overrides = []): string
         }
     }
     return BASE_URL . 'StaffAppointments.php?' . http_build_query($params);
+}
+
+if (isset($_SESSION['staff_appointments_notice']) && is_array($_SESSION['staff_appointments_notice'])) {
+    $noticeType = (string) ($_SESSION['staff_appointments_notice']['type'] ?? '');
+    $noticeMessage = (string) ($_SESSION['staff_appointments_notice']['message'] ?? '');
+    if ($noticeType !== '' && $noticeMessage !== '') {
+        $pageNotice = ['type' => $noticeType, 'message' => $noticeMessage];
+    }
+    unset($_SESSION['staff_appointments_notice']);
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tenantId !== '') {
+    $postAction = strtolower(trim((string) ($_POST['modal_action'] ?? '')));
+    $bookingId = trim((string) ($_POST['modal_booking_id'] ?? ''));
+    $notice = ['type' => 'error', 'message' => 'Unable to process request.'];
+
+    try {
+        $pdo = getDBConnection();
+        if ($postAction === 'update_status') {
+            $allowedUpdateStatuses = ['confirmed', 'completed', 'no_show'];
+            $newStatus = strtolower(trim((string) ($_POST['update_status'] ?? '')));
+            if ($bookingId === '' || !in_array($newStatus, $allowedUpdateStatuses, true)) {
+                throw new RuntimeException('Please select a valid status.');
+            }
+
+            $statusStmt = $pdo->prepare("
+                UPDATE tbl_appointments
+                SET status = ?, updated_at = NOW()
+                WHERE tenant_id = ? AND booking_id = ?
+                LIMIT 1
+            ");
+            $statusStmt->execute([$newStatus, $tenantId, $bookingId]);
+            $notice = ['type' => 'success', 'message' => 'Appointment status updated successfully.'];
+        } elseif ($postAction === 'add_services') {
+            $serviceIds = isset($_POST['service_ids']) && is_array($_POST['service_ids']) ? array_values(array_unique($_POST['service_ids'])) : [];
+            $serviceIds = array_values(array_filter(array_map('trim', $serviceIds), static function ($item) {
+                return $item !== '';
+            }));
+            if ($bookingId === '' || empty($serviceIds)) {
+                throw new RuntimeException('Please select at least one service to add.');
+            }
+
+            $pdo->beginTransaction();
+
+            $aptStmt = $pdo->prepare("
+                SELECT booking_id, status, total_treatment_cost, service_description
+                FROM tbl_appointments
+                WHERE tenant_id = ? AND booking_id = ?
+                LIMIT 1
+            ");
+            $aptStmt->execute([$tenantId, $bookingId]);
+            $appointment = $aptStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$appointment) {
+                throw new RuntimeException('Appointment not found.');
+            }
+
+            $statusRaw = strtolower(trim((string) ($appointment['status'] ?? '')));
+            if (in_array($statusRaw, ['completed', 'cancelled'], true)) {
+                throw new RuntimeException('Cannot add services to completed or cancelled appointments.');
+            }
+
+            $placeholders = implode(',', array_fill(0, count($serviceIds), '?'));
+            $serviceSql = "
+                SELECT service_id, service_name, price
+                FROM tbl_services
+                WHERE tenant_id = ? AND status = 'active' AND service_id IN ($placeholders)
+            ";
+            $serviceStmt = $pdo->prepare($serviceSql);
+            $serviceStmt->execute(array_merge([$tenantId], $serviceIds));
+            $servicesToAdd = $serviceStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            if (empty($servicesToAdd)) {
+                throw new RuntimeException('Selected services were not found.');
+            }
+
+            $existingStmt = $pdo->prepare("
+                SELECT service_id
+                FROM tbl_appointment_services
+                WHERE tenant_id = ? AND booking_id = ?
+            ");
+            $existingStmt->execute([$tenantId, $bookingId]);
+            $existingServiceIds = array_map('strval', $existingStmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
+            $existingLookup = array_fill_keys($existingServiceIds, true);
+
+            $insertStmt = $pdo->prepare("
+                INSERT INTO tbl_appointment_services (tenant_id, booking_id, service_id, service_name, price, is_original, added_at)
+                VALUES (?, ?, ?, ?, ?, 0, NOW())
+            ");
+
+            $addedNames = [];
+            $addedCost = 0.0;
+            foreach ($servicesToAdd as $serviceRow) {
+                $sid = (string) ($serviceRow['service_id'] ?? '');
+                if ($sid === '' || isset($existingLookup[$sid])) {
+                    continue;
+                }
+                $sname = (string) ($serviceRow['service_name'] ?? '');
+                $sprice = (float) ($serviceRow['price'] ?? 0);
+                $insertStmt->execute([$tenantId, $bookingId, $sid, $sname, $sprice]);
+                $addedNames[] = $sname . ' (P' . number_format($sprice, 2) . ')';
+                $addedCost += $sprice;
+            }
+
+            if ($addedCost <= 0) {
+                throw new RuntimeException('No new services were added. Selected services may already be included.');
+            }
+
+            $currentTotal = (float) ($appointment['total_treatment_cost'] ?? 0);
+            $newTotal = $currentTotal + $addedCost;
+            $desc = trim((string) ($appointment['service_description'] ?? ''));
+            $appendText = '[ADDED] ' . implode('; ', $addedNames);
+            $newDescription = $desc !== '' ? ($desc . '; ' . $appendText) : $appendText;
+
+            $updateAptStmt = $pdo->prepare("
+                UPDATE tbl_appointments
+                SET total_treatment_cost = ?, service_description = ?, updated_at = NOW()
+                WHERE tenant_id = ? AND booking_id = ?
+                LIMIT 1
+            ");
+            $updateAptStmt->execute([$newTotal, $newDescription, $tenantId, $bookingId]);
+
+            $pdo->commit();
+            $notice = ['type' => 'success', 'message' => 'Additional services were added and treatment cost was updated.'];
+        }
+    } catch (Throwable $e) {
+        if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        $message = trim((string) $e->getMessage());
+        $notice = ['type' => 'error', 'message' => $message !== '' ? $message : 'Failed to process request.'];
+    }
+
+    $_SESSION['staff_appointments_notice'] = $notice;
+    header('Location: ' . buildAppointmentsUrl());
+    exit;
 }
 
 try {
@@ -145,13 +281,13 @@ try {
                 a.status,
                 a.notes,
                 a.total_treatment_cost,
-                COALESCE((
-                    SELECT SUM(py.amount)
-                    FROM tbl_payments py
+                (
+                    SELECT COALESCE(SUM(py.amount), 0)
+                    FROM payments py
                     WHERE py.tenant_id = a.tenant_id
                       AND py.booking_id = a.booking_id
-                      AND LOWER(COALESCE(py.status, '')) = 'completed'
-                ), 0) AS total_paid,
+                      AND py.status = 'completed'
+                ) AS total_paid,
                 a.created_by,
                 p.first_name AS patient_first_name,
                 p.last_name AS patient_last_name,
@@ -196,6 +332,15 @@ try {
         $dailyStmt = $pdo->prepare($dailySql);
         $dailyStmt->execute($params);
         $dailyAppointments = $dailyStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $servicesStmt = $pdo->prepare("
+            SELECT service_id, service_name, category, price
+            FROM tbl_services
+            WHERE tenant_id = ? AND status = 'active'
+            ORDER BY service_name ASC
+        ");
+        $servicesStmt->execute([$tenantId]);
+        $availableServices = $servicesStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 } catch (Throwable $e) {
     error_log('Staff appointments load error: ' . $e->getMessage());
@@ -272,6 +417,12 @@ $statusLabels = [
 <main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20">
     <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
     <div class="p-10 space-y-8">
+        <?php if ($pageNotice): ?>
+            <?php $noticeIsSuccess = $pageNotice['type'] === 'success'; ?>
+            <section class="rounded-2xl border px-4 py-3 <?php echo $noticeIsSuccess ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-700'; ?>">
+                <p class="text-sm font-semibold"><?php echo htmlspecialchars((string) $pageNotice['message'], ENT_QUOTES, 'UTF-8'); ?></p>
+            </section>
+        <?php endif; ?>
         <section class="flex flex-col gap-4">
             <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
                 <span class="w-12 h-[1.5px] bg-primary"></span> APPOINTMENT MANAGEMENT
@@ -388,6 +539,9 @@ $statusLabels = [
                                 }
                                 $treatmentType = (string) ($appointment['treatment_type'] ?? 'short_term');
                                 $typeLabel = ucfirst(str_replace('_', ' ', $treatmentType));
+                                $totalCost = (float) ($appointment['total_treatment_cost'] ?? 0);
+                                $totalPaid = (float) ($appointment['total_paid'] ?? 0);
+                                $pendingBalance = max(0, $totalCost - $totalPaid);
                                 $patientIdLabel = (string) ($appointment['patient_display_id'] ?? $appointment['patient_id'] ?? 'N/A');
                                 $staffLabel = trim((string) ($appointment['created_by_email'] ?? ''));
                                 if ($staffLabel === '') {
@@ -396,9 +550,6 @@ $statusLabels = [
                                 if ($staffLabel === '') {
                                     $staffLabel = 'Unassigned';
                                 }
-                                $totalCost = (float) ($appointment['total_treatment_cost'] ?? 0);
-                                $totalPaid = (float) ($appointment['total_paid'] ?? 0);
-                                $pendingBalance = max(0, $totalCost - $totalPaid);
                                 ?>
                                 <tr class="hover:bg-slate-50/40 transition-colors">
                                     <td class="px-6 py-5 text-sm font-bold text-primary"><?php echo htmlspecialchars($timeLabel, ENT_QUOTES, 'UTF-8'); ?></td>
@@ -431,11 +582,13 @@ $statusLabels = [
                                             data-type="<?php echo htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8'); ?>"
                                             data-treatment="<?php echo htmlspecialchars((string) ($appointment['service_type'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-description="<?php echo htmlspecialchars((string) ($appointment['service_description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
-                                            data-cost="<?php echo htmlspecialchars(number_format((float) ($appointment['total_treatment_cost'] ?? 0), 2), ENT_QUOTES, 'UTF-8'); ?>"
-                                            data-paid="<?php echo htmlspecialchars(number_format($totalPaid, 2), ENT_QUOTES, 'UTF-8'); ?>"
-                                            data-pending="<?php echo htmlspecialchars(number_format($pendingBalance, 2), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-cost="<?php echo htmlspecialchars(number_format($totalCost, 2), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-total-paid="<?php echo htmlspecialchars(number_format($totalPaid, 2), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-pending-balance="<?php echo htmlspecialchars(number_format($pendingBalance, 2), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-notes="<?php echo htmlspecialchars((string) ($appointment['notes'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-status="<?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-status-raw="<?php echo htmlspecialchars((string) ($appointment['status'] ?? 'pending'), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-treatment-type-raw="<?php echo htmlspecialchars($treatmentType, ENT_QUOTES, 'UTF-8'); ?>"
                                         >
                                             <span class="material-symbols-outlined text-[20px]">visibility</span>
                                         </button>
@@ -507,7 +660,7 @@ $statusLabels = [
                     <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
-            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-sm max-h-[80vh] overflow-y-auto">
                 <div>
                     <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Patient Information</p>
                     <p class="font-semibold text-slate-500">Name</p>
@@ -545,29 +698,75 @@ $statusLabels = [
                 </div>
                 <div class="md:col-span-2">
                     <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Payment Balance</p>
-                    <div class="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-2">
-                        <div class="flex items-center justify-between text-sm">
-                            <span class="font-semibold text-slate-600">Total Cost</span>
-                            <span id="mBalanceTotal" class="font-extrabold text-slate-900">PHP 0.00</span>
+                    <div class="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-600 font-semibold">Total Cost</span>
+                            <span id="mBalanceTotalCost" class="font-black text-slate-900">P0.00</span>
                         </div>
-                        <div class="flex items-center justify-between text-sm">
-                            <span class="font-semibold text-slate-600">Total Paid</span>
-                            <span id="mBalancePaid" class="font-extrabold text-emerald-600">PHP 0.00</span>
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-600 font-semibold">Total Paid</span>
+                            <span id="mBalanceTotalPaid" class="font-black text-emerald-600">P0.00</span>
                         </div>
                         <div class="h-px bg-slate-200"></div>
-                        <div class="flex items-center justify-between text-sm">
-                            <span class="font-semibold text-slate-700">Pending Balance</span>
-                            <span id="mBalancePending" class="font-extrabold text-rose-600">PHP 0.00</span>
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-800 font-bold">Pending Balance</span>
+                            <span id="mBalancePending" class="font-black text-rose-600">P0.00</span>
                         </div>
                     </div>
-                    <div id="mPendingBalanceNotice" class="hidden mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-800">
-                        <div class="flex items-start gap-2">
-                            <span class="material-symbols-outlined text-[18px] leading-none mt-[2px]">warning</span>
-                            <p class="text-sm font-semibold leading-snug">
-                                This short-term appointment still has an unpaid balance. Keep it non-completed until payment is settled.
-                            </p>
-                        </div>
+                    <div id="mPaymentWarning" class="hidden mt-3 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 px-3 py-2">
+                        <p class="text-sm font-semibold">This short-term appointment has a pending balance and cannot be marked as completed until payments are recorded.</p>
                     </div>
+                </div>
+                <div class="md:col-span-2">
+                    <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Additional Services</p>
+                    <form method="post" class="space-y-3">
+                        <input type="hidden" name="modal_action" value="add_services"/>
+                        <input type="hidden" name="modal_booking_id" id="addServiceBookingId" value=""/>
+                        <div class="border border-slate-200 rounded-xl p-3 max-h-48 overflow-y-auto bg-white space-y-2">
+                            <?php if (empty($availableServices)): ?>
+                                <p class="text-sm font-semibold text-slate-500">No active services available.</p>
+                            <?php else: ?>
+                                <?php foreach ($availableServices as $service): ?>
+                                    <?php
+                                    $serviceId = (string) ($service['service_id'] ?? '');
+                                    $serviceName = (string) ($service['service_name'] ?? 'Service');
+                                    $serviceCategory = (string) ($service['category'] ?? 'General');
+                                    $servicePrice = (float) ($service['price'] ?? 0);
+                                    ?>
+                                    <label class="flex items-center justify-between gap-3 p-2 rounded-lg hover:bg-slate-50">
+                                        <span class="flex items-start gap-3">
+                                            <input type="checkbox" name="service_ids[]" value="<?php echo htmlspecialchars($serviceId, ENT_QUOTES, 'UTF-8'); ?>" class="mt-1 rounded border-slate-300 text-primary focus:ring-primary/30">
+                                            <span>
+                                                <span class="block text-sm font-bold text-slate-800"><?php echo htmlspecialchars($serviceName, ENT_QUOTES, 'UTF-8'); ?></span>
+                                                <span class="block text-xs text-slate-500"><?php echo htmlspecialchars($serviceCategory, ENT_QUOTES, 'UTF-8'); ?></span>
+                                            </span>
+                                        </span>
+                                        <span class="text-sm font-black text-primary">P<?php echo htmlspecialchars(number_format($servicePrice, 2), ENT_QUOTES, 'UTF-8'); ?></span>
+                                    </label>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+                        <button type="submit" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors">
+                            <span class="material-symbols-outlined text-[18px]">add</span>
+                            Add Extra Services
+                        </button>
+                    </form>
+                </div>
+                <div class="md:col-span-2">
+                    <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Update Status</p>
+                    <form method="post" class="flex flex-col sm:flex-row gap-3">
+                        <input type="hidden" name="modal_action" value="update_status"/>
+                        <input type="hidden" name="modal_booking_id" id="statusBookingId" value=""/>
+                        <select id="statusSelector" name="update_status" class="flex-1 bg-white border border-slate-200 rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 text-sm font-bold text-slate-700">
+                            <option value="confirmed">Confirmed</option>
+                            <option value="completed">Completed</option>
+                            <option value="no_show">No Show</option>
+                        </select>
+                        <button type="submit" class="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-colors">
+                            <span class="material-symbols-outlined text-[18px]">update</span>
+                            Update Status
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -579,7 +778,6 @@ $statusLabels = [
     const modalBackdrop = document.getElementById('modalBackdrop');
     const closeBtn = document.getElementById('modalCloseBtn');
     const openButtons = document.querySelectorAll('.open-treatment-modal');
-    const pendingBalanceNotice = document.getElementById('mPendingBalanceNotice');
 
     function setText(id, value) {
         const node = document.getElementById(id);
@@ -588,24 +786,12 @@ $statusLabels = [
         }
     }
 
-    function parseMoney(value) {
-        const parsed = Number.parseFloat(value || '0');
-        return Number.isFinite(parsed) ? parsed : 0;
-    }
-
-    function formatPeso(value) {
-        return 'PHP ' + value.toLocaleString('en-PH', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        });
-    }
-
     function openModal(button) {
-        const totalCost = parseMoney(button.dataset.cost);
-        const totalPaid = parseMoney(button.dataset.paid);
-        const pendingBalance = Math.max(0, parseMoney(button.dataset.pending) || (totalCost - totalPaid));
-        const treatmentType = (button.dataset.type || '').toLowerCase();
-        const hasPendingShortTermBalance = treatmentType.includes('short') && pendingBalance > 0.009;
+        const totalCost = Number.parseFloat(button.dataset.cost || '0') || 0;
+        const totalPaid = Number.parseFloat(button.dataset.totalPaid || '0') || 0;
+        const pendingBalance = Number.parseFloat(button.dataset.pendingBalance || '0') || 0;
+        const treatmentTypeRaw = (button.dataset.treatmentTypeRaw || '').toLowerCase();
+        const statusRaw = (button.dataset.statusRaw || '').toLowerCase();
 
         setText('mBookingId', button.dataset.bookingId || '');
         setText('mPatientName', button.dataset.patientName || '');
@@ -621,14 +807,37 @@ $statusLabels = [
         setText('mCost', button.dataset.cost ? 'PHP ' + button.dataset.cost : '');
         setText('mNotes', button.dataset.notes || '');
 
-        setText('mBalanceTotal', formatPeso(totalCost));
-        setText('mBalancePaid', formatPeso(totalPaid));
-        setText('mBalancePending', formatPeso(pendingBalance));
+        setText('mBalanceTotalCost', 'PHP ' + totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+        setText('mBalanceTotalPaid', 'PHP ' + totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+        setText('mBalancePending', 'PHP ' + pendingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
-        if (pendingBalanceNotice) {
-            pendingBalanceNotice.classList.toggle('hidden', !hasPendingShortTermBalance);
+        const addServiceBookingId = document.getElementById('addServiceBookingId');
+        const statusBookingId = document.getElementById('statusBookingId');
+        const statusSelector = document.getElementById('statusSelector');
+        const warning = document.getElementById('mPaymentWarning');
+        if (addServiceBookingId) addServiceBookingId.value = button.dataset.bookingId || '';
+        if (statusBookingId) statusBookingId.value = button.dataset.bookingId || '';
+
+        if (statusSelector) {
+            let selectedStatus = 'confirmed';
+            if (statusRaw === 'completed' || statusRaw === 'no_show' || statusRaw === 'confirmed') {
+                selectedStatus = statusRaw;
+            } else if (statusRaw === 'scheduled') {
+                selectedStatus = 'confirmed';
+            }
+            statusSelector.value = selectedStatus;
+            const completedOption = statusSelector.querySelector('option[value="completed"]');
+            const shouldWarn = treatmentTypeRaw === 'short_term' && pendingBalance > 0;
+            if (completedOption) {
+                completedOption.disabled = shouldWarn;
+            }
+            if (warning) {
+                warning.classList.toggle('hidden', !shouldWarn);
+            }
+            if (shouldWarn && statusSelector.value === 'completed') {
+                statusSelector.value = 'confirmed';
+            }
         }
-
         modal.classList.remove('hidden');
     }
 
