@@ -161,7 +161,7 @@ function createUser() {
                 
                 // Create patient profile (owner_user_id = linked_user_id = user_id for self profile)
                 $stmt = $pdo->prepare("
-                    INSERT INTO patients (
+                    INSERT INTO tbl_patients (
                         tenant_id, patient_id, owner_user_id, linked_user_id, first_name, last_name, contact_number, created_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
                 ");
@@ -178,20 +178,21 @@ function createUser() {
             } else {
                 // Create staff profile for admin, staff, doctor, manager
                 $year = date('Y');
-                $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM staffs WHERE staff_id LIKE ?");
-                $stmt->execute(["S-{$year}-%"]);
+                $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM tbl_staffs WHERE tenant_id = ? AND staff_id LIKE ?");
+                $stmt->execute([$tenantId, "S-{$year}-%"]);
                 $result = $stmt->fetch();
                 $sequence = str_pad((int)$result['count'] + 1, 5, '0', STR_PAD_LEFT);
                 $staffDisplayId = "S-{$year}-{$sequence}";
                 
                 // Create staff profile
                 $stmt = $pdo->prepare("
-                    INSERT INTO staffs (
-                        staff_id, user_id, first_name, last_name, contact_number, created_at
-                    ) VALUES (?, ?, ?, ?, ?, NOW())
+                    INSERT INTO tbl_staffs (
+                        tenant_id, staff_id, user_id, first_name, last_name, contact_number, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, NOW())
                 ");
                 
                 $stmt->execute([
+                    $tenantId,
                     $staffDisplayId,
                     $userId,
                     $data['first_name'],
@@ -235,7 +236,7 @@ function getUsers() {
     $isRestricted = in_array($currentUserType, ['staff', 'doctor']);
     
     // Get query parameters
-    $userId = isset($_GET['id']) ? intval($_GET['id']) : null;
+    $userId = isset($_GET['id']) ? sanitize((string) $_GET['id']) : null;
     $search = isset($_GET['search']) ? sanitize($_GET['search']) : '';
     $userType = isset($_GET['user_type']) ? sanitize($_GET['user_type']) : null;
     $status = isset($_GET['status']) ? sanitize($_GET['status']) : null;
@@ -255,8 +256,8 @@ function getUsers() {
                        COALESCE(p.contact_number, s.contact_number) as contact_number,
                        COALESCE(p.profile_image, s.profile_image) as profile_image
                 FROM tbl_users u
-                LEFT JOIN patients p ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id AND u.role = 'client'
-                LEFT JOIN staffs s ON s.user_id = u.user_id AND u.role IN ('tenant_owner', 'staff', 'dentist', 'manager')
+                LEFT JOIN tbl_patients p ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id AND p.tenant_id = u.tenant_id AND u.role = 'client'
+                LEFT JOIN tbl_staffs s ON s.user_id = u.user_id AND s.tenant_id = u.tenant_id AND u.role IN ('tenant_owner', 'staff', 'dentist', 'manager')
                 WHERE u.user_id = ? AND u.tenant_id = ?
             ";
             
@@ -283,10 +284,10 @@ function getUsers() {
                        COALESCE(p.last_name, s.last_name) as last_name,
                        COALESCE(p.contact_number, s.contact_number) as contact_number,
                        COALESCE(p.profile_image, s.profile_image) as profile_image,
-                       (SELECT COUNT(*) FROM appointments WHERE created_by = u.user_id) as appointment_count
+                       (SELECT COUNT(*) FROM tbl_appointments a WHERE a.created_by = u.user_id AND a.tenant_id = u.tenant_id) as appointment_count
                 FROM tbl_users u
-                LEFT JOIN patients p ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id AND u.role = 'client'
-                LEFT JOIN staffs s ON s.user_id = u.user_id AND u.role IN ('tenant_owner', 'staff', 'dentist', 'manager')
+                LEFT JOIN tbl_patients p ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id AND p.tenant_id = u.tenant_id AND u.role = 'client'
+                LEFT JOIN tbl_staffs s ON s.user_id = u.user_id AND s.tenant_id = u.tenant_id AND u.role IN ('tenant_owner', 'staff', 'dentist', 'manager')
                 WHERE u.tenant_id = ?
             ";
             
@@ -368,15 +369,15 @@ function updateUser() {
     }
     
     $input = json_decode(file_get_contents('php://input'), true);
-    $userId = intval($input['id'] ?? 0);
+    $userId = sanitize((string) ($input['id'] ?? ''));
     
-    if (!$userId) {
+    if ($userId === '') {
         jsonResponse(false, 'User ID is required.');
     }
     
     // Prevent updating own account to inactive
     $currentUserId = getCurrentUserId();
-    if ($userId == $currentUserId && isset($input['status']) && $input['status'] === 'inactive') {
+    if ((string) $userId === (string) $currentUserId && isset($input['status']) && $input['status'] === 'inactive') {
         jsonResponse(false, 'You cannot deactivate your own account.');
     }
     
@@ -504,15 +505,15 @@ function updateUser() {
         if (!empty($profileUpdates)) {
             if (strtolower($targetUserType) === 'client') {
                 // Update/create patient profile for clients only
-                $stmt = $pdo->prepare("SELECT id FROM patients WHERE linked_user_id = ? AND owner_user_id = ?");
-                $stmt->execute([$userUserId, $userUserId]);
+                $stmt = $pdo->prepare("SELECT id FROM tbl_patients WHERE linked_user_id = ? AND owner_user_id = ? AND tenant_id = ?");
+                $stmt->execute([$userUserId, $userUserId, $tenantId]);
                 $patient = $stmt->fetch();
                 
                 if ($patient) {
                     // Update existing patient profile
                     $profileUpdates[] = "updated_at = NOW()";
                     $profileParams[] = $patient['id'];
-                    $sql = "UPDATE patients SET " . implode(', ', $profileUpdates) . " WHERE id = ?";
+                    $sql = "UPDATE tbl_patients SET " . implode(', ', $profileUpdates) . " WHERE id = ?";
                     $stmt = $pdo->prepare($sql);
                     $stmt->execute($profileParams);
                 } else {
@@ -525,11 +526,12 @@ function updateUser() {
                     $contact_number = $contactNumber ? sanitize($contactNumber) : null;
                     
                     $stmt = $pdo->prepare("
-                        INSERT INTO patients (
-                            patient_id, owner_user_id, linked_user_id, first_name, last_name, contact_number, created_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, NOW())
+                        INSERT INTO tbl_patients (
+                            tenant_id, patient_id, owner_user_id, linked_user_id, first_name, last_name, contact_number, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
                     ");
                     $stmt->execute([
+                        $tenantId,
                         $patientDisplayId,
                         $userUserId,
                         $userUserId,
@@ -540,22 +542,22 @@ function updateUser() {
                 }
             } else {
                 // Update/create staff profile for non-clients
-                $stmt = $pdo->prepare("SELECT id FROM staffs WHERE user_id = ?");
-                $stmt->execute([$userUserId]);
+                $stmt = $pdo->prepare("SELECT id FROM tbl_staffs WHERE user_id = ? AND tenant_id = ?");
+                $stmt->execute([$userUserId, $tenantId]);
                 $staff = $stmt->fetch();
                 
                 if ($staff) {
                     // Update existing staff profile
                     $profileUpdates[] = "updated_at = NOW()";
                     $profileParams[] = $staff['id'];
-                    $sql = "UPDATE staffs SET " . implode(', ', $profileUpdates) . " WHERE id = ?";
+                    $sql = "UPDATE tbl_staffs SET " . implode(', ', $profileUpdates) . " WHERE id = ?";
                     $stmt = $pdo->prepare($sql);
                     $stmt->execute($profileParams);
                 } else {
                     // Create staff profile if it doesn't exist (only for non-clients)
                     $year = date('Y');
-                    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM staffs WHERE staff_id LIKE ?");
-                    $stmt->execute(["S-{$year}-%"]);
+                    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM tbl_staffs WHERE tenant_id = ? AND staff_id LIKE ?");
+                    $stmt->execute([$tenantId, "S-{$year}-%"]);
                     $result = $stmt->fetch();
                     $sequence = str_pad((int)$result['count'] + 1, 5, '0', STR_PAD_LEFT);
                     $staffDisplayId = "S-{$year}-{$sequence}";
@@ -565,11 +567,12 @@ function updateUser() {
                     $contact_number = $contactNumber ? sanitize($contactNumber) : null;
                     
                     $stmt = $pdo->prepare("
-                        INSERT INTO staffs (
-                            staff_id, user_id, first_name, last_name, contact_number, created_at
-                        ) VALUES (?, ?, ?, ?, ?, NOW())
+                        INSERT INTO tbl_staffs (
+                            tenant_id, staff_id, user_id, first_name, last_name, contact_number, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, NOW())
                     ");
                     $stmt->execute([
+                        $tenantId,
                         $staffDisplayId,
                         $userUserId,
                         $first_name,
@@ -599,24 +602,24 @@ function deleteUser() {
     }
     
     $input = json_decode(file_get_contents('php://input'), true);
-    $userId = intval($input['id'] ?? 0);
+    $userId = sanitize((string) ($input['id'] ?? ''));
     
-    if (!$userId) {
+    if ($userId === '') {
         jsonResponse(false, 'User ID is required.');
     }
     
     // Prevent deleting own account
     $currentUserId = getCurrentUserId();
-    if ($userId == $currentUserId) {
+    if ((string) $userId === (string) $currentUserId) {
         jsonResponse(false, 'You cannot delete your own account.');
     }
     
     // Check if user has related records (as owner or linked)
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM patients WHERE (owner_user_id = ? OR linked_user_id = ?) AND tenant_id = ?");
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM tbl_patients WHERE (owner_user_id = ? OR linked_user_id = ?) AND tenant_id = ?");
     $stmt->execute([$userId, $userId, $tenantId]);
     $patientCount = $stmt->fetch()['count'];
     
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM appointments WHERE created_by = ? AND tenant_id = ?");
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM tbl_appointments WHERE created_by = ? AND tenant_id = ?");
     $stmt->execute([$userId, $tenantId]);
     $appointmentCount = $stmt->fetch()['count'];
     

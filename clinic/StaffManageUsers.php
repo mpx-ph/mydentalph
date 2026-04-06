@@ -308,10 +308,10 @@ function renderUsers(users) {
             + '<td class="px-6 py-6">' + roleBadge(user.user_type) + '</td>'
             + '<td class="px-6 py-6 text-sm font-semibold text-slate-700">' + escapeHtml(formatLastLogin(user.last_login)) + '</td>'
             + '<td class="px-6 py-6"><label class="inline-flex items-center cursor-pointer">'
-            + '<input class="sr-only peer user-status-toggle" data-user-id="' + Number(user.id) + '" type="checkbox" ' + (isActive ? 'checked' : '') + '>'
+            + '<input class="sr-only peer user-status-toggle" data-user-id="' + escapeHtml(user.id) + '" type="checkbox" ' + (isActive ? 'checked' : '') + '>'
             + '<div class="relative w-11 h-6 bg-slate-200 rounded-full peer-checked:bg-primary after:content-[\'\'] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>'
             + '<span class="ms-3 text-xs font-medium text-slate-600 status-label">' + (isActive ? 'Active' : 'Suspended') + '</span></label></td>'
-            + '<td class="px-8 py-6 text-right"><button class="inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 rounded-xl transition-all text-xs font-bold uppercase tracking-wider edit-user-btn" data-user-id="' + Number(user.id) + '"><span class="material-symbols-outlined text-[16px]">edit_square</span>Update</button></td>'
+            + '<td class="px-8 py-6 text-right"><button class="inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 rounded-xl transition-all text-xs font-bold uppercase tracking-wider edit-user-btn" data-user-id="' + escapeHtml(user.id) + '"><span class="material-symbols-outlined text-[16px]">edit_square</span>Update</button></td>'
             + '</tr>';
     }).join('');
 
@@ -349,7 +349,7 @@ async function loadUsers() {
 
 async function handleStatusToggle(event) {
     const toggle = event.currentTarget;
-    const userId = Number(toggle.dataset.userId);
+    const userId = String(toggle.dataset.userId || '');
     const isActive = toggle.checked;
     try {
         const res = await fetch(API_USERS_URL, {
@@ -372,7 +372,7 @@ async function handleStatusToggle(event) {
 }
 
 function openEditModal(userId) {
-    const user = usersData.find(function (item) { return Number(item.id) === Number(userId); });
+    const user = usersData.find(function (item) { return String(item.id) === String(userId); });
     if (!user) return;
     document.getElementById('editUserId').value = String(user.id);
     document.getElementById('editFirstName').value = user.first_name || '';
@@ -394,7 +394,7 @@ function closeEditModal() {
 usersTableBody.addEventListener('click', function (event) {
     const editBtn = event.target.closest('.edit-user-btn');
     if (editBtn) {
-        openEditModal(Number(editBtn.dataset.userId));
+        openEditModal(String(editBtn.dataset.userId || ''));
     }
 });
 
@@ -407,7 +407,7 @@ editUserModal.addEventListener('click', function (event) {
 editUserForm.addEventListener('submit', async function (event) {
     event.preventDefault();
     const payload = {
-        id: Number(document.getElementById('editUserId').value),
+        id: String(document.getElementById('editUserId').value || '').trim(),
         first_name: document.getElementById('editFirstName').value.trim(),
         last_name: document.getElementById('editLastName').value.trim(),
         email: document.getElementById('editEmail').value.trim(),
