@@ -11,7 +11,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 // Get POST data
 $input = json_decode(file_get_contents('php://input'), true);
-if (!$input) $input = $_POST;
+if (!$input)
+    $input = $_POST;
 
 $user_id = $input['user_id'] ?? null;
 $tenant_id = $input['tenant_id'] ?? 'TNT_00025';
@@ -34,20 +35,19 @@ if (empty($paymongo_secret)) {
 
 try {
     // 1. Get Patient Profile
-    $stmt = $pdo->prepare("SELECT patient_id, first_name, last_name, email FROM tbl_patients WHERE owner_user_id = ? OR linked_user_id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT patient_id, first_name, last_name FROM tbl_patients WHERE owner_user_id = ? OR linked_user_id = ? LIMIT 1");
     $stmt->execute([$user_id, $user_id]);
     $patRow = $stmt->fetch();
-    
+
     if (!$patRow) {
         throw new Exception("Patient profile not found for this user. Please complete your registration.");
     }
     $patient_id = $patRow['patient_id'];
     $patient_name = trim($patRow['first_name'] . ' ' . $patRow['last_name']);
-    $patient_email = $patRow['email'] ?? 'patient@example.com';
 
     // Generate highly unique booking_id
     $booking_id = 'BK-' . strtoupper(substr(md5(microtime(true) . $user_id . mt_rand()), 0, 10));
-    
+
     // Check Availability (Double-booking validation)
     $stmt = $pdo->prepare("SELECT id FROM tbl_appointments 
         WHERE dentist_id = ? AND appointment_date = ? AND appointment_time = ? 
@@ -70,7 +70,7 @@ try {
     // 3. Insert Services Breakdown
     $services = is_array($services_json) ? $services_json : json_decode($services_json, true);
     $paymongo_line_items = [];
-    
+
     foreach ($services as $srv) {
         $stmt = $pdo->prepare("INSERT INTO tbl_appointment_services 
             (tenant_id, booking_id, appointment_id, service_id, service_name, price) 
@@ -83,16 +83,16 @@ try {
 
     // Prepare PayMongo line items
     $description = ($payment_amount < $total_amount) ? "Downpayment for Appointment" : "Full Payment for Appointment";
-    
+
     // Paymongo amount is in centavos (multiply PHP amount by 100)
-    $amount_in_cents = (int)round($payment_amount * 100);
+    $amount_in_cents = (int) round($payment_amount * 100);
 
     // 4. Insert Payment record as 'pending'
     $payment_id = 'PAY-' . strtoupper(substr(md5(microtime(true) . $booking_id . mt_rand()), 0, 10));
-    
+
     $stmt = $pdo->prepare("INSERT INTO tbl_payments 
         (tenant_id, payment_id, patient_id, booking_id, amount, payment_method, status, created_by) 
-        VALUES (?, ?, ?, ?, ?, 'paymongo', 'pending', ?)");
+        VALUES (?, ?, ?, ?, ?, 'gcash', 'pending', ?)");
     $stmt->execute([$tenant_id, $payment_id, $patient_id, $booking_id, $payment_amount, $user_id]);
 
     $pdo->commit();
@@ -160,7 +160,8 @@ try {
     }
 
 } catch (Exception $e) {
-    if ($pdo->inTransaction()) $pdo->rollBack();
+    if ($pdo->inTransaction())
+        $pdo->rollBack();
     echo json_encode([
         "status" => "error",
         "message" => $e->getMessage()
