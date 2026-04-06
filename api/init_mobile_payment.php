@@ -97,19 +97,30 @@ try {
 
     $pdo->commit();
 
-    // 5. Create PayMongo Link / Checkout Session
-    // Using PayMongo Links API for simplicity. It creates a robust payment page for the amount.
+    // 5. Create PayMongo Checkout Session
+    // We use checkout_sessions instead of links to force specific payment methods (GCash, Maya, Card) and avoid QRPh.
     $paymongo_data = [
         'data' => [
             'attributes' => [
-                'amount' => $amount_in_cents,
+                'send_email_receipt' => false,
+                'show_description' => true,
+                'show_line_items' => true,
+                'payment_method_types' => ['gcash', 'paymaya', 'card'],
                 'description' => "$description ($booking_id) - $patient_name",
-                'remarks' => "Mobile App Booking $booking_id"
+                'line_items' => [
+                    [
+                        'currency' => 'PHP',
+                        'amount' => $amount_in_cents,
+                        'description' => 'Payment for Booking',
+                        'name' => 'Dental Services',
+                        'quantity' => 1
+                    ]
+                ]
             ]
         ]
     ];
 
-    $ch = curl_init('https://api.paymongo.com/v1/links');
+    $ch = curl_init('https://api.paymongo.com/v1/checkout_sessions');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($paymongo_data));
@@ -137,9 +148,10 @@ try {
 
     if ($httpCode >= 200 && $httpCode < 300 && isset($responseData['data']['attributes']['checkout_url'])) {
         $checkout_url = $responseData['data']['attributes']['checkout_url'];
-        $paymongo_reference_number = $responseData['data']['attributes']['reference_number'];
+        // For checkout sessions, we use the session ID as the reference
+        $paymongo_reference_number = $responseData['data']['id'];
 
-        // Optionally update the payment record with PayMongo's reference number
+        // Optionally update the payment record with PayMongo's session ID
         $stmt = $pdo->prepare("UPDATE tbl_payments SET reference_number = ? WHERE payment_id = ?");
         $stmt->execute([$paymongo_reference_number, $payment_id]);
 
