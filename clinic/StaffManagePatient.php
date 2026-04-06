@@ -222,8 +222,8 @@ body { font-family: "Manrope", sans-serif; }
     </div>
 </div>
 
-<div id="viewPatientModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[92vh] overflow-hidden border border-slate-200 flex flex-col">
+<div id="viewPatientModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden">
+    <div id="viewPatientPanel" class="ml-auto h-full w-full max-w-5xl bg-white shadow-2xl overflow-hidden border-l border-slate-200 flex flex-col transform translate-x-full transition-transform duration-300 ease-out">
         <div class="flex items-center justify-between p-5 border-b border-slate-200">
             <h3 class="text-lg font-black tracking-tight text-slate-900">Patient Profile</h3>
             <button id="closeViewPatientModal" class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><span class="material-symbols-outlined">close</span></button>
@@ -243,6 +243,7 @@ const STAFF_OWNER_USER_ID = <?php echo json_encode($currentStaffUserId, JSON_HEX
 const API_PATIENTS_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patients.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
 let allPatientsData = [];
+let viewPatientCloseTimer = null;
 
 const tableBody = document.getElementById('patientsTableBody');
 const recordsSummary = document.getElementById('recordsSummary');
@@ -252,6 +253,7 @@ const genderFilter = document.getElementById('genderFilter');
 const registrationDateFilter = document.getElementById('registrationDateFilter');
 const addPatientModal = document.getElementById('addPatientModal');
 const viewPatientModal = document.getElementById('viewPatientModal');
+const viewPatientPanel = document.getElementById('viewPatientPanel');
 const addPatientForm = document.getElementById('addPatientForm');
 
 function escapeHtml(text) {
@@ -411,6 +413,10 @@ function closeAddModal() {
 }
 
 function openViewModal(patient) {
+    if (viewPatientCloseTimer) {
+        clearTimeout(viewPatientCloseTimer);
+        viewPatientCloseTimer = null;
+    }
     const fullName = `${patient.firstName} ${patient.lastName}`.trim() || 'Patient';
     const patientStatus = patient.status === 'inactive' ? 'Inactive' : 'Active';
     const statusClasses = patient.status === 'inactive'
@@ -493,7 +499,10 @@ function openViewModal(patient) {
     `;
     setupPatientTabs();
     viewPatientModal.classList.remove('hidden');
-    viewPatientModal.classList.add('flex');
+    requestAnimationFrame(() => {
+        viewPatientPanel.classList.remove('translate-x-full');
+        viewPatientPanel.classList.add('translate-x-0');
+    });
 }
 
 function setupPatientTabs() {
@@ -519,8 +528,15 @@ function setupPatientTabs() {
 }
 
 function closeViewModal() {
-    viewPatientModal.classList.add('hidden');
-    viewPatientModal.classList.remove('flex');
+    if (viewPatientCloseTimer) {
+        clearTimeout(viewPatientCloseTimer);
+    }
+    viewPatientPanel.classList.add('translate-x-full');
+    viewPatientPanel.classList.remove('translate-x-0');
+    viewPatientCloseTimer = window.setTimeout(() => {
+        viewPatientModal.classList.add('hidden');
+        viewPatientCloseTimer = null;
+    }, 300);
 }
 
 async function savePatient(event) {
