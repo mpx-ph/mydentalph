@@ -107,72 +107,19 @@ if (!isset($currentTenantSlug)) {
 </div>
 <div class="flex items-center gap-4">
 <div class="relative">
-<select class="appearance-none bg-white border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl px-5 py-3 pr-10 focus:ring-primary/20 focus:border-primary transition-all outline-none">
-<option>All Roles</option>
-<option>Lead Dentist</option>
-<option>Clinical Admin</option>
-<option>Hygienist</option>
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base">search</span>
+<input id="userSearchInput" class="pl-10 pr-4 py-3 w-72 bg-white border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl focus:ring-primary/20 focus:border-primary transition-all outline-none" placeholder="Search name, email or role..." type="text"/>
+</div>
+<div class="relative">
+<select id="roleFilterSelect" class="appearance-none bg-white border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl px-5 py-3 pr-10 focus:ring-primary/20 focus:border-primary transition-all outline-none">
+<option value="">All Roles</option>
+<option value="manager">Manager</option>
+<option value="doctor">Doctor</option>
+<option value="staff">Staff</option>
+<option value="client">Client</option>
 </select>
 <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm">expand_more</span>
 </div>
-<button class="px-6 py-3 bg-primary text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:scale-[0.98] transition-all">
-                            Add New User
-                        </button>
-</div>
-</div>
-</section>
-<!-- Stats Grid -->
-<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-<!-- Total Users -->
-<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
-<div class="flex justify-between items-start mb-6">
-<div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">groups</span>
-</div>
-<span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">+4%</span>
-</div>
-<div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">42</p>
-<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Total Users</p>
-</div>
-</div>
-<!-- Total Doctors -->
-<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
-<div class="flex justify-between items-start mb-6">
-<div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">medical_services</span>
-</div>
-<span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">Active</span>
-</div>
-<div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">18</p>
-<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Total Doctors</p>
-</div>
-</div>
-<!-- Total Staff -->
-<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
-<div class="flex justify-between items-start mb-6">
-<div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">badge</span>
-</div>
-<span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">Contract</span>
-</div>
-<div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">24</p>
-<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Total Staffs</p>
-</div>
-</div>
-<!-- Present Today -->
-<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
-<div class="flex justify-between items-start mb-6">
-<div class="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 transition-colors group-hover:bg-emerald-500 group-hover:text-white">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">how_to_reg</span>
-</div>
-<span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full uppercase tracking-widest">92%</span>
-</div>
-<div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">38</p>
-<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Present Today</p>
 </div>
 </div>
 </section>
@@ -183,177 +130,94 @@ if (!isset($currentTenantSlug)) {
 <h3 class="text-2xl font-bold font-headline text-on-background">User Registry</h3>
 <p class="text-[11px] text-on-surface-variant/60 font-black uppercase tracking-widest mt-1">Practitioner profiles and access logs</p>
 </div>
-<button class="px-5 py-2.5 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all flex items-center gap-2">
-<span class="material-symbols-outlined text-sm">filter_list</span> Filter List
-                    </button>
+<div class="relative">
+<select id="statusFilterSelect" class="appearance-none bg-white border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl px-5 py-2.5 pr-10 focus:ring-primary/20 focus:border-primary transition-all outline-none">
+<option value="">All Status</option>
+<option value="active">Active</option>
+<option value="inactive">Suspended</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm">expand_more</span>
+</div>
 </div>
 <div class="overflow-x-auto">
 <table class="w-full text-left border-collapse">
 <thead>
 <tr class="bg-slate-50/50">
 <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Name &amp; Profile</th>
-<th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Clinical Role</th>
+<th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Role</th>
+<th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Last Login</th>
 <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-<th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Last Activity</th>
-<th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+<th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
 </tr>
 </thead>
-<tbody class="divide-y divide-slate-100">
-<!-- Row 1 -->
-<tr class="hover:bg-slate-50/30 transition-colors group">
-<td class="px-8 py-6">
-<div class="flex items-center gap-4">
-<img alt="Dr. Julian Thorne" class="w-10 h-10 rounded-xl object-cover ring-2 ring-primary/5 group-hover:ring-primary/20 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAm1xcfHMOHYZ3Rp0z2JmxbVXV4luP91phGrfWu45ABgJ08Txpmxd42JOREQyqX9XQRLKgSgB2ArstafHKnNYBqwWjQPaFpfPnV3IWvEhtCH07Rkt62pzZHBrOYR0VNLWfg96PhvfBFGY66MLaxsRr18a6IhrUAditAZNM5JkqK_DDjEqUmg1eWJ6-yOq1VoWm4DphiEekFx18gIecRo93cQ2x83bQVpCFfCqb1LMb4NDZAYG1kjoicW1MmAUB1m1uLiZiMSlloAH4"/>
-<div>
-<p class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">Dr. Julian Thorne</p>
-<p class="text-[10px] text-slate-500 font-medium mt-0.5">julian.t@aetherisdental.com</p>
-</div>
-</div>
-</td>
-<td class="px-6 py-6">
-<span class="px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full uppercase tracking-wider">Lead Dentist</span>
-</td>
-<td class="px-6 py-6">
-<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-full uppercase tracking-widest">
-<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
-                                    </span>
-</td>
-<td class="px-6 py-6">
-<p class="text-sm font-semibold text-slate-700">2 mins ago</p>
-<p class="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-0.5">IP: 192.168.1.45</p>
-</td>
-<td class="px-8 py-6 text-right">
-<div class="flex justify-end gap-2">
-<button class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all">
-<span class="material-symbols-outlined text-xl">edit</span>
-</button>
-<button class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all">
-<span class="material-symbols-outlined text-xl">delete</span>
-</button>
-</div>
-</td>
-</tr>
-<!-- Row 2 -->
-<tr class="hover:bg-slate-50/30 transition-colors group">
-<td class="px-8 py-6 border-l-4 border-transparent hover:border-primary">
-<div class="flex items-center gap-4">
-<img alt="Sarah Jenkins" class="w-10 h-10 rounded-xl object-cover ring-2 ring-primary/5 group-hover:ring-primary/20 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDCj8N01J9eTJuiMe4SNP-AqwhjZ227LgfZ_15h4_JGWunxHebC-YFBuhUDkyRqpxJVlbKJRwvT8eY8CDFtJCRyMOaBkYV0y7yxDYhIgtdZ6FzlcAk9jT7hKo6YSnBz5WE0Wt8JQhsQYDBGe0WudW288QSMut8XQdUn7-lxcKpOj957I2P5RhqYg2ldUOgDLxEnOHLuFgiWwNyogV_hoAZIvDJvgZffEjyHI0J0vEH2inzELquxsYf8i84nJRpNW3L2ha_-6omY6Rg"/>
-<div>
-<p class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">Sarah Jenkins</p>
-<p class="text-[10px] text-slate-500 font-medium mt-0.5">s.jenkins@aetherisdental.com</p>
-</div>
-</div>
-</td>
-<td class="px-6 py-6">
-<span class="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full uppercase tracking-wider">Clinical Admin</span>
-</td>
-<td class="px-6 py-6">
-<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-full uppercase tracking-widest">
-<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
-                                    </span>
-</td>
-<td class="px-6 py-6">
-<p class="text-sm font-semibold text-slate-700">Oct 24, 11:20 AM</p>
-<p class="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-0.5">Mobile App</p>
-</td>
-<td class="px-8 py-6 text-right">
-<div class="flex justify-end gap-2">
-<button class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all">
-<span class="material-symbols-outlined text-xl">edit</span>
-</button>
-<button class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all">
-<span class="material-symbols-outlined text-xl">delete</span>
-</button>
-</div>
-</td>
-</tr>
-<!-- Row 3 -->
-<tr class="hover:bg-slate-50/30 transition-colors group">
-<td class="px-8 py-6">
-<div class="flex items-center gap-4">
-<div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xs ring-2 ring-primary/5">MR</div>
-<div>
-<p class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">Marcus Rossi</p>
-<p class="text-[10px] text-slate-500 font-medium mt-0.5">m.rossi@aetherisdental.com</p>
-</div>
-</div>
-</td>
-<td class="px-6 py-6">
-<span class="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full uppercase tracking-wider">Hygienist</span>
-</td>
-<td class="px-6 py-6">
-<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-500 text-[10px] font-black rounded-full uppercase tracking-widest">
-<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Inactive
-                                    </span>
-</td>
-<td class="px-6 py-6">
-<p class="text-sm font-semibold text-slate-700">3 days ago</p>
-<p class="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-0.5">User Disabled</p>
-</td>
-<td class="px-8 py-6 text-right">
-<div class="flex justify-end gap-2">
-<button class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all">
-<span class="material-symbols-outlined text-xl">edit</span>
-</button>
-<button class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all">
-<span class="material-symbols-outlined text-xl">delete</span>
-</button>
-</div>
-</td>
-</tr>
-<!-- Row 4 -->
-<tr class="hover:bg-slate-50/30 transition-colors group">
-<td class="px-8 py-6">
-<div class="flex items-center gap-4">
-<img alt="Elena Rodriguez" class="w-10 h-10 rounded-xl object-cover ring-2 ring-primary/5 group-hover:ring-primary/20 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZo0L_oqtnr3M6sVNxchZH7HCYJsDdVH0qYoPLHXJ0uqq8Ox5LLZkHRE838biMfm-xe1Clq3zKv10JEZXpyEQJigT82BzszoCjXVT5D-eVN7Zzf4qv8deFrcA7N5lfq4AOObeUhwRDwrMGjGyNAidCNUHYTF0OsuHLZm0jqvYCYxVme-w7TfJ8bXagL8UgNY8HqQw2Zz3LQqoIU3rke8MV9oMpOg-3jXjiBq1BZL3uPp7HZdWI2yXgwuvjDZfd9gmN4LARChe9H3Y"/>
-<div>
-<p class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">Elena Rodriguez</p>
-<p class="text-[10px] text-slate-500 font-medium mt-0.5">e.rodriguez@aetherisdental.com</p>
-</div>
-</div>
-</td>
-<td class="px-6 py-6">
-<span class="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full uppercase tracking-wider">Receptionist</span>
-</td>
-<td class="px-6 py-6">
-<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-full uppercase tracking-widest">
-<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
-                                    </span>
-</td>
-<td class="px-6 py-6">
-<p class="text-sm font-semibold text-slate-700">14 mins ago</p>
-<p class="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-0.5">Dashboard</p>
-</td>
-<td class="px-8 py-6 text-right">
-<div class="flex justify-end gap-2">
-<button class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all">
-<span class="material-symbols-outlined text-xl">edit</span>
-</button>
-<button class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all">
-<span class="material-symbols-outlined text-xl">delete</span>
-</button>
-</div>
-</td>
+<tbody id="usersTableBody" class="divide-y divide-slate-100">
+<tr>
+<td class="px-6 py-10 text-center text-slate-500 font-medium" colspan="5">Loading users...</td>
 </tr>
 </tbody>
 </table>
 </div>
 <!-- Pagination Footer -->
 <div class="p-6 bg-slate-50/30 border-t border-slate-100 flex items-center justify-between">
-<p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Showing 4 of 42 practitioners</p>
-<div class="flex gap-2">
-<button class="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-primary hover:bg-white transition-colors disabled:opacity-50" disabled="">
-<span class="material-symbols-outlined text-sm">chevron_left</span>
-</button>
-<button class="px-3 h-8 rounded-lg bg-primary text-white text-[10px] font-black uppercase">1</button>
-<button class="px-3 h-8 rounded-lg border border-slate-200 text-slate-600 text-[10px] font-black uppercase hover:bg-white hover:text-primary transition-all">2</button>
-<button class="px-3 h-8 rounded-lg border border-slate-200 text-slate-600 text-[10px] font-black uppercase hover:bg-white hover:text-primary transition-all">3</button>
-<button class="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-primary hover:bg-white transition-colors">
-<span class="material-symbols-outlined text-sm">chevron_right</span>
-</button>
-</div>
+<p id="recordsSummary" class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Showing 0 of 0 users</p>
 </div>
 </section>
+</div>
+<div class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4" id="editUserModal">
+<div class="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 border border-slate-200">
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-2xl font-bold text-slate-900">Update User Details</h2>
+<button class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" id="closeEditModal" type="button">
+<span class="material-symbols-outlined text-[24px]">close</span>
+</button>
+</div>
+<form class="space-y-4" id="editUserForm">
+<input id="editUserId" type="hidden"/>
+<div class="grid grid-cols-2 gap-3">
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1" for="editFirstName">First name</label>
+<input class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" id="editFirstName" required type="text"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1" for="editLastName">Last name</label>
+<input class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" id="editLastName" required type="text"/>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1" for="editEmail">Email</label>
+<input class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" id="editEmail" required type="email"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1" for="editUsername">Username</label>
+<input class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" id="editUsername" type="text"/>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1" for="editRole">Role</label>
+<select class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" id="editRole">
+<option value="manager">Manager</option>
+<option value="doctor">Doctor</option>
+<option value="staff">Staff</option>
+<option value="client">Client</option>
+</select>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1" for="editContact">Contact number</label>
+<input class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" id="editContact" type="text"/>
+</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1" for="editPassword">New password (optional)</label>
+<input class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" id="editPassword" placeholder="Leave blank to keep current password" type="password"/>
+</div>
+<div class="flex justify-end gap-3 pt-3">
+<button class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-sm" id="cancelEditBtn" type="button">Cancel</button>
+<button class="px-4 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl font-semibold text-sm" type="submit">Save Changes</button>
+</div>
+</form>
+</div>
 </div>
 <!-- Site Footer -->
 <footer class="mt-auto px-10 py-8 border-t border-slate-100 flex justify-between items-center text-[11px] font-bold text-slate-400 uppercase tracking-widest">
@@ -369,4 +233,217 @@ if (!isset($currentTenantSlug)) {
 <button class="fixed bottom-8 right-8 w-14 h-14 bg-primary text-white rounded-2xl shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50">
 <span class="material-symbols-outlined text-2xl">add</span>
 </button>
+<script>
+const API_USERS_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/users.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+const usersTableBody = document.getElementById('usersTableBody');
+const recordsSummary = document.getElementById('recordsSummary');
+const userSearchInput = document.getElementById('userSearchInput');
+const roleFilterSelect = document.getElementById('roleFilterSelect');
+const statusFilterSelect = document.getElementById('statusFilterSelect');
+const editUserModal = document.getElementById('editUserModal');
+const editUserForm = document.getElementById('editUserForm');
+
+let usersData = [];
+let searchTimer = null;
+
+function escapeHtml(text) {
+    return String(text || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+}
+
+function formatLastLogin(lastLogin) {
+    if (!lastLogin) return 'Never';
+    const date = new Date(lastLogin);
+    if (Number.isNaN(date.getTime())) return 'Never';
+    const now = new Date();
+    const diffMin = Math.floor((now - date) / 60000);
+    if (diffMin < 1) return 'Just now';
+    if (diffMin < 60) return diffMin + ' mins ago';
+    const diffHour = Math.floor(diffMin / 60);
+    if (diffHour < 24) return diffHour + ' hours ago';
+    const diffDay = Math.floor(diffHour / 24);
+    if (diffDay < 7) return diffDay + ' days ago';
+    return date.toLocaleDateString();
+}
+
+function roleBadge(userType) {
+    const label = (userType || '').toLowerCase();
+    const map = {
+        manager: 'bg-purple-50 text-purple-700',
+        doctor: 'bg-blue-50 text-blue-700',
+        staff: 'bg-slate-100 text-slate-700',
+        client: 'bg-emerald-50 text-emerald-700'
+    };
+    const cls = map[label] || 'bg-slate-100 text-slate-700';
+    return '<span class="px-3 py-1 ' + cls + ' text-[10px] font-bold rounded-full uppercase tracking-wider">' + escapeHtml(label || 'user') + '</span>';
+}
+
+function initialsFromName(firstName, lastName, email) {
+    const initials = ((firstName || '').charAt(0) + (lastName || '').charAt(0)).toUpperCase();
+    if (initials.trim() !== '') return initials;
+    return String(email || 'U').charAt(0).toUpperCase();
+}
+
+function renderUsers(users) {
+    if (!Array.isArray(users) || users.length === 0) {
+        usersTableBody.innerHTML = '<tr><td class="px-6 py-10 text-center text-slate-500 font-medium" colspan="5">No users found.</td></tr>';
+        recordsSummary.textContent = 'Showing 0 of 0 users';
+        return;
+    }
+
+    usersTableBody.innerHTML = users.map(function (user) {
+        const fullName = (String(user.first_name || '') + ' ' + String(user.last_name || '')).trim() || String(user.email || 'User');
+        const initials = initialsFromName(user.first_name, user.last_name, user.email);
+        const isActive = String(user.status || '').toLowerCase() === 'active';
+        return ''
+            + '<tr class="hover:bg-slate-50/30 transition-colors group">'
+            + '<td class="px-8 py-6"><div class="flex items-center gap-4">'
+            + '<div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">' + escapeHtml(initials) + '</div>'
+            + '<div><p class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">' + escapeHtml(fullName) + '</p>'
+            + '<p class="text-[10px] text-slate-500 font-medium mt-0.5">' + escapeHtml(user.email || '') + '</p></div></div></td>'
+            + '<td class="px-6 py-6">' + roleBadge(user.user_type) + '</td>'
+            + '<td class="px-6 py-6 text-sm font-semibold text-slate-700">' + escapeHtml(formatLastLogin(user.last_login)) + '</td>'
+            + '<td class="px-6 py-6"><label class="inline-flex items-center cursor-pointer">'
+            + '<input class="sr-only peer user-status-toggle" data-user-id="' + Number(user.id) + '" type="checkbox" ' + (isActive ? 'checked' : '') + '>'
+            + '<div class="relative w-11 h-6 bg-slate-200 rounded-full peer-checked:bg-primary after:content-[\'\'] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>'
+            + '<span class="ms-3 text-xs font-medium text-slate-600 status-label">' + (isActive ? 'Active' : 'Suspended') + '</span></label></td>'
+            + '<td class="px-8 py-6 text-right"><button class="inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 rounded-xl transition-all text-xs font-bold uppercase tracking-wider edit-user-btn" data-user-id="' + Number(user.id) + '"><span class="material-symbols-outlined text-[16px]">edit_square</span>Update</button></td>'
+            + '</tr>';
+    }).join('');
+
+    recordsSummary.textContent = 'Showing ' + users.length + ' of ' + users.length + ' users';
+
+    usersTableBody.querySelectorAll('.user-status-toggle').forEach(function (toggle) {
+        toggle.addEventListener('change', handleStatusToggle);
+    });
+}
+
+async function loadUsers() {
+    usersTableBody.innerHTML = '<tr><td class="px-6 py-10 text-center text-slate-500 font-medium" colspan="5">Loading users...</td></tr>';
+    const params = new URLSearchParams();
+    const search = (userSearchInput.value || '').trim();
+    const role = roleFilterSelect.value;
+    const status = statusFilterSelect.value;
+    if (search) params.append('search', search);
+    if (role) params.append('user_type', role);
+    if (status) params.append('status', status);
+    params.append('limit', '100');
+
+    try {
+        const res = await fetch(API_USERS_URL + '?' + params.toString(), { credentials: 'include' });
+        const data = await res.json();
+        if (!res.ok || !data.success || !data.data || !Array.isArray(data.data.users)) {
+            throw new Error(data.message || 'Unable to load users.');
+        }
+        usersData = data.data.users;
+        renderUsers(usersData);
+    } catch (error) {
+        usersTableBody.innerHTML = '<tr><td class="px-6 py-10 text-center text-red-500 font-medium" colspan="5">' + escapeHtml(error.message || 'Unable to load users.') + '</td></tr>';
+        recordsSummary.textContent = 'Showing 0 of 0 users';
+    }
+}
+
+async function handleStatusToggle(event) {
+    const toggle = event.currentTarget;
+    const userId = Number(toggle.dataset.userId);
+    const isActive = toggle.checked;
+    try {
+        const res = await fetch(API_USERS_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ id: userId, status: isActive ? 'active' : 'inactive' })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || 'Failed to update status.');
+        }
+        const row = toggle.closest('tr');
+        const label = row ? row.querySelector('.status-label') : null;
+        if (label) label.textContent = isActive ? 'Active' : 'Suspended';
+    } catch (error) {
+        toggle.checked = !isActive;
+        alert(error.message || 'Failed to update user status.');
+    }
+}
+
+function openEditModal(userId) {
+    const user = usersData.find(function (item) { return Number(item.id) === Number(userId); });
+    if (!user) return;
+    document.getElementById('editUserId').value = String(user.id);
+    document.getElementById('editFirstName').value = user.first_name || '';
+    document.getElementById('editLastName').value = user.last_name || '';
+    document.getElementById('editEmail').value = user.email || '';
+    document.getElementById('editUsername').value = user.username || '';
+    document.getElementById('editRole').value = user.user_type || 'staff';
+    document.getElementById('editContact').value = user.contact_number || '';
+    document.getElementById('editPassword').value = '';
+    editUserModal.classList.remove('hidden');
+    editUserModal.classList.add('flex');
+}
+
+function closeEditModal() {
+    editUserModal.classList.add('hidden');
+    editUserModal.classList.remove('flex');
+}
+
+usersTableBody.addEventListener('click', function (event) {
+    const editBtn = event.target.closest('.edit-user-btn');
+    if (editBtn) {
+        openEditModal(Number(editBtn.dataset.userId));
+    }
+});
+
+document.getElementById('closeEditModal').addEventListener('click', closeEditModal);
+document.getElementById('cancelEditBtn').addEventListener('click', closeEditModal);
+editUserModal.addEventListener('click', function (event) {
+    if (event.target === editUserModal) closeEditModal();
+});
+
+editUserForm.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    const payload = {
+        id: Number(document.getElementById('editUserId').value),
+        first_name: document.getElementById('editFirstName').value.trim(),
+        last_name: document.getElementById('editLastName').value.trim(),
+        email: document.getElementById('editEmail').value.trim(),
+        username: document.getElementById('editUsername').value.trim(),
+        user_type: document.getElementById('editRole').value,
+        contact_number: document.getElementById('editContact').value.trim()
+    };
+    const password = document.getElementById('editPassword').value.trim();
+    if (password) payload.password = password;
+
+    try {
+        const res = await fetch(API_USERS_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || 'Failed to update user.');
+        }
+        closeEditModal();
+        await loadUsers();
+    } catch (error) {
+        alert(error.message || 'Failed to update user.');
+    }
+});
+
+function triggerLoad() {
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(loadUsers, 300);
+}
+
+userSearchInput.addEventListener('input', triggerLoad);
+roleFilterSelect.addEventListener('change', loadUsers);
+statusFilterSelect.addEventListener('change', loadUsers);
+loadUsers();
+</script>
 </body></html>
