@@ -145,6 +145,13 @@ try {
                 a.status,
                 a.notes,
                 a.total_treatment_cost,
+                COALESCE((
+                    SELECT SUM(py.amount)
+                    FROM tbl_payments py
+                    WHERE py.tenant_id = a.tenant_id
+                      AND py.booking_id = a.booking_id
+                      AND LOWER(COALESCE(py.status, '')) = 'completed'
+                ), 0) AS total_paid,
                 a.created_by,
                 p.first_name AS patient_first_name,
                 p.last_name AS patient_last_name,
@@ -389,6 +396,9 @@ $statusLabels = [
                                 if ($staffLabel === '') {
                                     $staffLabel = 'Unassigned';
                                 }
+                                $totalCost = (float) ($appointment['total_treatment_cost'] ?? 0);
+                                $totalPaid = (float) ($appointment['total_paid'] ?? 0);
+                                $pendingBalance = max(0, $totalCost - $totalPaid);
                                 ?>
                                 <tr class="hover:bg-slate-50/40 transition-colors">
                                     <td class="px-6 py-5 text-sm font-bold text-primary"><?php echo htmlspecialchars($timeLabel, ENT_QUOTES, 'UTF-8'); ?></td>
@@ -422,6 +432,8 @@ $statusLabels = [
                                             data-treatment="<?php echo htmlspecialchars((string) ($appointment['service_type'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-description="<?php echo htmlspecialchars((string) ($appointment['service_description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-cost="<?php echo htmlspecialchars(number_format((float) ($appointment['total_treatment_cost'] ?? 0), 2), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-paid="<?php echo htmlspecialchars(number_format($totalPaid, 2), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-pending="<?php echo htmlspecialchars(number_format($pendingBalance, 2), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-notes="<?php echo htmlspecialchars((string) ($appointment['notes'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-status="<?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?>"
                                         >
@@ -531,6 +543,32 @@ $statusLabels = [
                     <p class="font-semibold text-slate-500">Notes</p>
                     <p id="mNotes" class="font-medium text-slate-700">-</p>
                 </div>
+                <div class="md:col-span-2">
+                    <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Payment Balance</p>
+                    <div class="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-2">
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="font-semibold text-slate-600">Total Cost</span>
+                            <span id="mBalanceTotal" class="font-extrabold text-slate-900">PHP 0.00</span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="font-semibold text-slate-600">Total Paid</span>
+                            <span id="mBalancePaid" class="font-extrabold text-emerald-600">PHP 0.00</span>
+                        </div>
+                        <div class="h-px bg-slate-200"></div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="font-semibold text-slate-700">Pending Balance</span>
+                            <span id="mBalancePending" class="font-extrabold text-rose-600">PHP 0.00</span>
+                        </div>
+                    </div>
+                    <div id="mPendingBalanceNotice" class="hidden mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-800">
+                        <div class="flex items-start gap-2">
+                            <span class="material-symbols-outlined text-[18px] leading-none mt-[2px]">warning</span>
+                            <p class="text-sm font-semibold leading-snug">
+                                This short-term appointment still has an unpaid balance. Keep it non-completed until payment is settled.
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -541,6 +579,7 @@ $statusLabels = [
     const modalBackdrop = document.getElementById('modalBackdrop');
     const closeBtn = document.getElementById('modalCloseBtn');
     const openButtons = document.querySelectorAll('.open-treatment-modal');
+    const pendingBalanceNotice = document.getElementById('mPendingBalanceNotice');
 
     function setText(id, value) {
         const node = document.getElementById(id);
@@ -549,7 +588,25 @@ $statusLabels = [
         }
     }
 
+    function parseMoney(value) {
+        const parsed = Number.parseFloat(value || '0');
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function formatPeso(value) {
+        return 'PHP ' + value.toLocaleString('en-PH', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
     function openModal(button) {
+        const totalCost = parseMoney(button.dataset.cost);
+        const totalPaid = parseMoney(button.dataset.paid);
+        const pendingBalance = Math.max(0, parseMoney(button.dataset.pending) || (totalCost - totalPaid));
+        const treatmentType = (button.dataset.type || '').toLowerCase();
+        const hasPendingShortTermBalance = treatmentType.includes('short') && pendingBalance > 0.009;
+
         setText('mBookingId', button.dataset.bookingId || '');
         setText('mPatientName', button.dataset.patientName || '');
         setText('mPatientId', button.dataset.patientId || '');
@@ -563,6 +620,15 @@ $statusLabels = [
         setText('mDescription', button.dataset.description || '');
         setText('mCost', button.dataset.cost ? 'PHP ' + button.dataset.cost : '');
         setText('mNotes', button.dataset.notes || '');
+
+        setText('mBalanceTotal', formatPeso(totalCost));
+        setText('mBalancePaid', formatPeso(totalPaid));
+        setText('mBalancePending', formatPeso(pendingBalance));
+
+        if (pendingBalanceNotice) {
+            pendingBalanceNotice.classList.toggle('hidden', !hasPendingShortTermBalance);
+        }
+
         modal.classList.remove('hidden');
     }
 
