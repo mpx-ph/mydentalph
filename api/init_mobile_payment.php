@@ -34,9 +34,13 @@ if (empty($paymongo_secret)) {
 }
 
 try {
-    // 1. Get Patient Profile
-    $stmt = $pdo->prepare("SELECT patient_id, first_name, last_name FROM tbl_patients WHERE owner_user_id = ? OR linked_user_id = ? LIMIT 1");
-    $stmt->execute([$user_id, $user_id]);
+    // 1. Get Patient Profile & User Info for Pre-filling
+    $stmt = $pdo->prepare("SELECT p.patient_id, p.first_name, p.last_name, u.email, u.phone 
+        FROM tbl_patients p
+        LEFT JOIN tbl_users u ON u.user_id = ?
+        WHERE p.owner_user_id = ? OR p.linked_user_id = ? 
+        LIMIT 1");
+    $stmt->execute([$user_id, $user_id, $user_id]);
     $patRow = $stmt->fetch();
 
     if (!$patRow) {
@@ -44,6 +48,8 @@ try {
     }
     $patient_id = $patRow['patient_id'];
     $patient_name = trim($patRow['first_name'] . ' ' . $patRow['last_name']);
+    $user_email = !empty($patRow['email']) ? $patRow['email'] : 'patient@mydentalph.com';
+    $user_phone = !empty($patRow['phone']) ? $patRow['phone'] : '';
 
     // Generate highly unique booking_id
     $booking_id = 'BK-' . strtoupper(substr(md5(microtime(true) . $user_id . mt_rand()), 0, 10));
@@ -107,6 +113,12 @@ try {
                 'show_line_items' => true,
                 'payment_method_types' => ['gcash', 'paymaya', 'card'],
                 'description' => "$description ($booking_id) - $patient_name",
+                'success_url' => "http://mydentalph.ct.ws/api/payment_success.php",
+                'billing' => [
+                    'name' => $patient_name,
+                    'email' => $user_email,
+                    'phone' => $user_phone
+                ],
                 'line_items' => [
                     [
                         'currency' => 'PHP',
