@@ -310,11 +310,11 @@ function getUsers() {
             }
             
             if ($status) {
-                $sql .= " AND status = ?";
+                $sql .= " AND u.status = ?";
                 $params[] = $status;
             }
             
-            $sql .= " ORDER BY created_at DESC";
+            $sql .= " ORDER BY u.created_at DESC";
             
             // Get total count
             $countSql = "SELECT COUNT(*) as total FROM (" . $sql . ") as count_query";
