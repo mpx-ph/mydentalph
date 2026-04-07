@@ -112,20 +112,20 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </div>
 <div class="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10">
 <div class="md:col-span-5 lg:col-span-4 md:mt-24">
-<div class="group h-full bg-white dark:bg-slate-800 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 hover:border-primary/20 transition-all duration-700 hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.08)] relative overflow-hidden">
+<div class="group h-full bg-white dark:bg-slate-800 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 hover:border-primary/20 transition-all duration-700 hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.08)] hover:bg-primary relative overflow-hidden">
 <div class="absolute -right-8 -top-8 w-32 h-32 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors"></div>
-<div class="w-14 h-14 bg-primary/10 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:scale-110">
+<div class="w-14 h-14 bg-primary/10 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:scale-110 group-hover:bg-white/20 group-hover:text-white">
 <span class="material-symbols-outlined text-3xl font-light">align_items_stretch</span>
 </div>
-<h3 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white"><?php echo $cu('main_service_card1_title', 'Orthodontics'); ?></h3>
-<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium mb-8 font-body"><?php echo $cuMultiline('main_service_card1_body', 'Achieve perfect alignment with clear aligners and modern braces. We specialize in discreet corrections for all ages.'); ?></p>
-<a href="<?php echo $servicesHref; ?>#orthodontics" class="inline-flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-widest tracking-[0.3em] font-headline">
-<span class="w-8 h-[1px] bg-primary/30"></span> <?php echo $cu('main_service_card1_cta', 'Learn more'); ?>
+<h3 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white group-hover:text-white"><?php echo $cu('main_service_card1_title', 'Orthodontics'); ?></h3>
+<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium mb-8 font-body group-hover:text-white/90"><?php echo $cuMultiline('main_service_card1_body', 'Achieve perfect alignment with clear aligners and modern braces. We specialize in discreet corrections for all ages.'); ?></p>
+<a href="<?php echo $servicesHref; ?>#orthodontics" class="inline-flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-widest tracking-[0.3em] font-headline group-hover:text-white">
+<span class="w-8 h-[1px] bg-primary/30 group-hover:bg-white/70"></span> <?php echo $cu('main_service_card1_cta', 'Learn more'); ?>
                         </a>
 </div>
 </div>
 <div class="md:col-span-7 lg:col-span-4">
-<div class="group h-full bg-primary p-12 rounded-[2.5rem] shadow-[0_50px_100px_-20px_rgba(43,139,235,0.3)] transition-all duration-700 relative overflow-hidden flex flex-col justify-between">
+<div class="group h-full bg-white dark:bg-slate-800 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 hover:border-primary/20 shadow-[0_50px_100px_-20px_rgba(43,139,235,0.08)] transition-all duration-700 hover:bg-primary hover:shadow-[0_50px_100px_-20px_rgba(43,139,235,0.3)] relative overflow-hidden flex flex-col justify-between">
 <div class="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none">
 <svg class="w-full h-full stroke-white fill-none" viewBox="0 0 100 100">
 <circle cx="100" cy="0" r="80" stroke-width="0.5"></circle>
@@ -134,26 +134,26 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </svg>
 </div>
 <div>
-<div class="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-10 text-white border border-white/20">
+<div class="w-14 h-14 bg-primary/10 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:bg-white/20 group-hover:text-white group-hover:border-white/20">
 <span class="material-symbols-outlined text-3xl font-light">auto_awesome</span>
 </div>
-<h3 class="font-headline text-4xl font-extrabold mb-6 tracking-tight text-white leading-tight"><?php echo $cuMultiline('main_service_card2_title', "Cosmetic\nDentistry"); ?></h3>
-<p class="text-white/80 text-xl leading-relaxed font-medium mb-12 font-body"><?php echo $cuMultiline('main_service_card2_body', 'Transform your smile with premium porcelain veneers, professional whitening, and aesthetic restoration techniques.'); ?></p>
+<h3 class="font-headline text-4xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white leading-tight group-hover:text-white"><?php echo $cuMultiline('main_service_card2_title', "Cosmetic\nDentistry"); ?></h3>
+<p class="text-slate-600 dark:text-slate-400 text-xl leading-relaxed font-medium mb-12 font-body group-hover:text-white/90"><?php echo $cuMultiline('main_service_card2_body', 'Transform your smile with premium porcelain veneers, professional whitening, and aesthetic restoration techniques.'); ?></p>
 </div>
-<a href="<?php echo $servicesHref; ?>#cosmetic" class="bg-white text-primary w-full py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-50 transition-colors text-center font-headline inline-block">
+<a href="<?php echo $servicesHref; ?>#cosmetic" class="bg-primary text-white w-full py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-colors text-center font-headline inline-block group-hover:bg-white group-hover:text-primary">
                             <?php echo $cu('main_service_card2_cta', 'View Gallery'); ?>
                         </a>
 </div>
 </div>
 <div class="md:col-span-12 lg:col-span-4 lg:mt-36">
-<div class="group h-full glass-card dark:bg-slate-800/80 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 hover:border-primary/30 transition-all duration-700 hover:shadow-xl relative overflow-hidden">
-<div class="w-14 h-14 bg-primary/10 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:scale-110">
+<div class="group h-full glass-card dark:bg-slate-800/80 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 hover:border-primary/30 transition-all duration-700 hover:shadow-xl hover:bg-primary relative overflow-hidden">
+<div class="w-14 h-14 bg-primary/10 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:scale-110 group-hover:bg-white/20 group-hover:text-white">
 <span class="material-symbols-outlined text-3xl font-light">health_and_safety</span>
 </div>
-<h3 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white"><?php echo $cu('main_service_card3_title', 'Preventative Care'); ?></h3>
-<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium mb-8 font-body"><?php echo $cuMultiline('main_service_card3_body', 'Maintain lifelong oral health with comprehensive wellness exams, advanced cleanings, and digital diagnostics.'); ?></p>
-<a href="<?php echo $servicesHref; ?>#general" class="inline-flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-widest tracking-[0.3em] font-headline">
-<span class="w-8 h-[1px] bg-primary/30"></span> <?php echo $cu('main_service_card3_cta', 'Learn more'); ?>
+<h3 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white group-hover:text-white"><?php echo $cu('main_service_card3_title', 'Preventative Care'); ?></h3>
+<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium mb-8 font-body group-hover:text-white/90"><?php echo $cuMultiline('main_service_card3_body', 'Maintain lifelong oral health with comprehensive wellness exams, advanced cleanings, and digital diagnostics.'); ?></p>
+<a href="<?php echo $servicesHref; ?>#general" class="inline-flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-widest tracking-[0.3em] font-headline group-hover:text-white">
+<span class="w-8 h-[1px] bg-primary/30 group-hover:bg-white/70"></span> <?php echo $cu('main_service_card3_cta', 'Learn more'); ?>
                         </a>
 </div>
 </div>
