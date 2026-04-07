@@ -188,7 +188,7 @@ try {
             box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
         }
         .provider-page-enter {
-            animation: staff-page-pop 1.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation: staff-page-pop 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
         @keyframes staff-page-pop {
             from { opacity: 0; transform: translateY(20px) scale(0.985); }
