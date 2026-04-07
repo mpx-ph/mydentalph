@@ -9,6 +9,34 @@ $error = '';
 $success = '';
 $chosen_plan = isset($_GET['plan']) ? strtolower(trim($_GET['plan'])) : '';
 $allowed_plans = ['starter', 'professional', 'enterprise'];
+
+function provider_password_strength_score(string $password): int
+{
+    $score = 0;
+    $length = strlen($password);
+
+    if ($length >= 8) {
+        $score++;
+    }
+    if ($length >= 12) {
+        $score++;
+    }
+    if (preg_match('/[a-z]/', $password)) {
+        $score++;
+    }
+    if (preg_match('/[A-Z]/', $password)) {
+        $score++;
+    }
+    if (preg_match('/\d/', $password)) {
+        $score++;
+    }
+    if (preg_match('/[^A-Za-z0-9]/', $password)) {
+        $score++;
+    }
+
+    return $score;
+}
+
 if (!in_array($chosen_plan, $allowed_plans, true)) {
     $chosen_plan = 'professional';
 }
@@ -39,6 +67,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($clinic_name) || empty($country_region) || empty($username) || empty($email) || empty($password) || empty($confirm_password)) {
         $error = "All fields are required.";
+    } elseif (strlen($clinic_name) < 2 || strlen($clinic_name) > 100) {
+        $error = 'Company/Clinic name must be between 2 and 100 characters.';
+    } elseif (!preg_match('/^[A-Za-z0-9 .,&\'()-]{2,100}$/', $clinic_name)) {
+        $error = 'Company/Clinic name contains invalid characters.';
+    } elseif (!in_array($country_region, ['PH'], true)) {
+        $error = 'Please select a valid country/region.';
+    } elseif (!empty($_POST['full_name']) && !preg_match('/^[A-Za-z][A-Za-z .\'-]{1,99}$/', trim((string) $_POST['full_name']))) {
+        $error = 'Full name format is invalid.';
+    } elseif (!preg_match('/^[A-Za-z0-9_.]{4,32}$/', $username)) {
+        $error = 'Username must be 4-32 characters and can only contain letters, numbers, underscore, and dot.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Please enter a valid email address.';
+    } elseif (strlen($password) < 8) {
+        $error = 'Password must be at least 8 characters long.';
+    } elseif (
+        !preg_match('/[a-z]/', $password)
+        || !preg_match('/[A-Z]/', $password)
+        || !preg_match('/\d/', $password)
+        || !preg_match('/[^A-Za-z0-9]/', $password)
+    ) {
+        $error = 'Password must include uppercase, lowercase, number, and special character.';
     } elseif ($password !== $confirm_password) {
         $error = "Passwords do not match.";
     } else {
@@ -251,6 +300,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             placeholder="e.g. North Dental"
                             type="text"
                             required
+                            minlength="2"
+                            maxlength="100"
+                            pattern="[A-Za-z0-9 .,&'()\-]{2,100}"
                             value="<?php echo isset($_POST['clinic_name']) ? htmlspecialchars($_POST['clinic_name']) : ''; ?>"
                         />
                     </div>
@@ -282,6 +334,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             class="w-full px-5 py-4 bg-surface-container-low border border-on-surface/5 focus:border-primary focus:ring-1 focus:ring-primary rounded-2xl transition-all placeholder:text-outline-variant outline-none font-headline font-semibold text-sm"
                             placeholder="John Doe"
                             type="text"
+                            maxlength="100"
+                            pattern="[A-Za-z][A-Za-z .'-]{1,99}"
                             value="<?php echo isset($_POST['full_name']) ? htmlspecialchars($_POST['full_name']) : ''; ?>"
                         />
                     </div>
@@ -294,6 +348,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             placeholder="johndoe_dental"
                             type="text"
                             required
+                            minlength="4"
+                            maxlength="32"
+                            pattern="[A-Za-z0-9_.]{4,32}"
                             value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>"
                         />
                     </div>
@@ -324,11 +381,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 placeholder="••••••••"
                                 type="password"
                                 required
+                                minlength="8"
+                                pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}"
                                 autocomplete="new-password"
                             />
                             <button class="absolute right-4 top-1/2 -translate-y-1/2 text-primary/40 hover:text-primary transition-colors" type="button" onclick="togglePassword('password', this)">
                                 <span class="material-symbols-outlined text-lg">visibility</span>
                             </button>
+                        </div>
+                        <div class="pt-2">
+                            <div class="h-2 w-full rounded-full bg-surface-container-low overflow-hidden">
+                                <div id="password-strength-bar" class="h-full w-0 bg-red-500 transition-all duration-200"></div>
+                            </div>
+                            <p id="password-strength-text" class="mt-2 text-xs font-semibold text-on-surface-variant">Password strength: Very weak</p>
                         </div>
                     </div>
                     <div class="space-y-2">
@@ -341,6 +406,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 placeholder="••••••••"
                                 type="password"
                                 required
+                                minlength="8"
                                 autocomplete="new-password"
                             />
                             <button class="absolute right-4 top-1/2 -translate-y-1/2 text-primary/40 hover:text-primary transition-colors" type="button" onclick="togglePassword('confirm_password', this)">
@@ -397,6 +463,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         var icon = btn && btn.querySelector ? btn.querySelector('.material-symbols-outlined') : null;
         if (icon) icon.textContent = (input.type === 'password') ? 'visibility' : 'visibility_off';
     }
+
+    (function () {
+        var passwordInput = document.getElementById('password');
+        var confirmInput = document.getElementById('confirm_password');
+        var strengthBar = document.getElementById('password-strength-bar');
+        var strengthText = document.getElementById('password-strength-text');
+
+        function evaluateStrength(password) {
+            var score = 0;
+            if (password.length >= 8) score++;
+            if (password.length >= 12) score++;
+            if (/[a-z]/.test(password)) score++;
+            if (/[A-Z]/.test(password)) score++;
+            if (/\d/.test(password)) score++;
+            if (/[^A-Za-z0-9]/.test(password)) score++;
+            return score;
+        }
+
+        function updatePasswordStrength() {
+            if (!passwordInput || !strengthBar || !strengthText) return;
+
+            var password = passwordInput.value || '';
+            var score = evaluateStrength(password);
+            var percentage = Math.min(Math.round((score / 6) * 100), 100);
+            var label = 'Very weak';
+            var colorClass = 'bg-red-500';
+
+            if (score >= 5) {
+                label = 'Strong';
+                colorClass = 'bg-green-500';
+            } else if (score >= 4) {
+                label = 'Good';
+                colorClass = 'bg-emerald-500';
+            } else if (score >= 3) {
+                label = 'Fair';
+                colorClass = 'bg-yellow-500';
+            } else if (score >= 2) {
+                label = 'Weak';
+                colorClass = 'bg-orange-500';
+            }
+
+            strengthBar.style.width = percentage + '%';
+            strengthBar.className = 'h-full transition-all duration-200 ' + colorClass;
+            strengthText.textContent = 'Password strength: ' + label;
+        }
+
+        function validatePasswordMatch() {
+            if (!confirmInput || !passwordInput) return;
+            if (confirmInput.value && confirmInput.value !== passwordInput.value) {
+                confirmInput.setCustomValidity('Passwords do not match.');
+            } else {
+                confirmInput.setCustomValidity('');
+            }
+        }
+
+        if (passwordInput) {
+            passwordInput.addEventListener('input', function () {
+                updatePasswordStrength();
+                validatePasswordMatch();
+            });
+            updatePasswordStrength();
+        }
+        if (confirmInput) {
+            confirmInput.addEventListener('input', validatePasswordMatch);
+        }
+    })();
 </script>
 <script>
     (function () {
