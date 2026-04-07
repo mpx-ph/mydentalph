@@ -325,7 +325,11 @@ CREATE TABLE IF NOT EXISTS tbl_payments (
     FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id),
     FOREIGN KEY (patient_id) REFERENCES tbl_patients(patient_id),
     FOREIGN KEY (created_by) REFERENCES tbl_users(user_id)
+    
 );
+
+    ALTER TABLE tbl_payments
+    ADD payment_type ENUM('downpayment', 'fullpayment', 'balancepayment') NOT NULL;
 
 -- ============================================
 -- INSTALLMENTS
