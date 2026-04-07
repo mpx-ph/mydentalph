@@ -373,6 +373,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border: 1px solid rgba(19, 28, 37, 0.08);
             background: #fff;
         }
+        .upload-bin {
+            border: 1px solid rgba(19, 28, 37, 0.08);
+            background: linear-gradient(180deg, rgba(247, 249, 255, 0.75) 0%, rgba(255, 255, 255, 0.95) 100%);
+            box-shadow: 0 18px 40px -26px rgba(43, 139, 235, 0.45);
+        }
+        .upload-bin-drop {
+            border: 2px dashed rgba(64, 71, 82, 0.25);
+            background: rgba(255, 255, 255, 0.85);
+            transition: border-color 220ms ease, background-color 220ms ease, transform 220ms ease, box-shadow 220ms ease;
+        }
+        .upload-bin:hover .upload-bin-drop {
+            border-color: rgba(43, 139, 235, 0.8);
+            background: rgba(212, 227, 255, 0.22);
+            transform: translateY(-1px);
+            box-shadow: 0 14px 30px -24px rgba(43, 139, 235, 0.8);
+        }
+        .upload-badge {
+            border: 1px solid rgba(19, 28, 37, 0.08);
+            background: #fff;
+            font-size: 10px;
+            letter-spacing: 0.2em;
+        }
     </style>
 </head>
 <body class="bg-background-light font-body text-on-surface dark:bg-background-dark dark:text-surface antialiased">
@@ -409,53 +431,87 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <!-- Upload Area -->
 <form method="POST" enctype="multipart/form-data" class="w-full flex flex-col items-center" id="clinic-verification-form">
     <input type="hidden" name="action" value="submit_clinic_verification"/>
-<div class="relative group cursor-pointer mb-8 w-full">
-<div class="border-2 border-dashed border-outline-variant group-hover:border-primary bg-surface-variant/50 group-hover:bg-primary/[0.02] transition-all duration-500 rounded-2xl p-8 text-center flex flex-col items-center justify-center gap-4">
-<div class="w-16 h-16 rounded-3xl bg-primary-fixed flex items-center justify-center mb-1 transition-transform duration-500 group-hover:scale-110">
-<span class="material-symbols-outlined text-primary text-4xl font-light" data-icon="cloud_upload">cloud_upload</span>
-</div>
-<div class="space-y-2">
-<h3 class="font-headline font-extrabold text-xl text-on-surface tracking-tight">Upload Credentials</h3>
-<p class="text-on-surface-variant font-medium text-sm">Drag and drop your required documents here</p>
-</div>
-<div class="flex gap-4">
-<span class="px-4 py-1.5 bg-white border border-on-surface/5 rounded-full text-[10px] font-black text-on-surface-variant uppercase tracking-widest shadow-sm">PDF / Image</span>
-<span class="px-4 py-1.5 bg-white border border-on-surface/5 rounded-full text-[10px] font-black text-on-surface-variant uppercase tracking-widest shadow-sm">8MB Limit</span>
-</div>
-</div>
-<input class="absolute inset-0 opacity-0 cursor-pointer clinic-upload-input" type="file" name="business_permit_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png" data-doc-label="Business Permit" data-preview-target="preview-business-permit" data-error-target="error-business-permit"/>
-</div>
-<p class="text-xs text-on-surface-variant font-bold mb-6">Required: Business Permit (PDF/JPG/PNG, multiple files allowed)</p>
-<div id="error-business-permit" class="hidden w-full mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold"></div>
-<div id="preview-business-permit" class="hidden w-full mb-8 rounded-2xl border border-outline-variant/60 bg-white p-4"></div>
+    <div class="w-full space-y-5 mb-8">
+        <div class="upload-bin rounded-3xl p-4 md:p-5">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <div>
+                    <h3 class="font-headline font-extrabold text-lg text-on-surface tracking-tight">Business Permit</h3>
+                    <p class="text-on-surface-variant text-xs font-semibold">PDF/JPG/PNG, multiple files, up to 8MB each</p>
+                </div>
+                <span class="upload-badge rounded-full px-3 py-1 font-black uppercase text-on-surface-variant">Required</span>
+            </div>
+            <div class="relative upload-bin-drop rounded-2xl p-6 md:p-7 text-center">
+                <div class="w-14 h-14 mx-auto rounded-2xl bg-primary-fixed flex items-center justify-center mb-3">
+                    <span class="material-symbols-outlined text-primary text-3xl">upload_file</span>
+                </div>
+                <p class="font-headline text-sm md:text-base font-extrabold text-on-surface">Drop files here or click to browse</p>
+                <p class="text-xs font-semibold text-on-surface-variant mt-1">Business Permit documents</p>
+                <input class="absolute inset-0 opacity-0 cursor-pointer clinic-upload-input" type="file" name="business_permit_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png" data-doc-label="Business Permit" data-preview-target="preview-business-permit" data-error-target="error-business-permit"/>
+            </div>
+            <div id="error-business-permit" class="hidden w-full mt-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold"></div>
+            <div id="preview-business-permit" class="hidden w-full mt-3 rounded-2xl border border-outline-variant/60 bg-white p-4"></div>
+        </div>
 
-<div class="relative group cursor-pointer mb-8 w-full">
-<div class="border-2 border-dashed border-outline-variant group-hover:border-primary bg-surface-variant/50 group-hover:bg-primary/[0.02] transition-all duration-500 rounded-2xl p-6 text-center flex flex-col items-center justify-center gap-3">
-<h3 class="font-headline font-extrabold text-lg text-on-surface tracking-tight">Upload BIR Certificate / Form 2303</h3>
-<p class="text-on-surface-variant font-medium text-xs">Required</p>
-</div>
-<input class="absolute inset-0 opacity-0 cursor-pointer clinic-upload-input" type="file" name="bir_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png" data-doc-label="BIR Certificate / Form 2303" data-preview-target="preview-bir" data-error-target="error-bir"/>
-</div>
-<div id="error-bir" class="hidden w-full mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold"></div>
-<div id="preview-bir" class="hidden w-full mb-8 rounded-2xl border border-outline-variant/60 bg-white p-4"></div>
+        <div class="upload-bin rounded-3xl p-4 md:p-5">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <div>
+                    <h3 class="font-headline font-extrabold text-lg text-on-surface tracking-tight">BIR Certificate / Form 2303</h3>
+                    <p class="text-on-surface-variant text-xs font-semibold">PDF/JPG/PNG, multiple files, up to 8MB each</p>
+                </div>
+                <span class="upload-badge rounded-full px-3 py-1 font-black uppercase text-on-surface-variant">Required</span>
+            </div>
+            <div class="relative upload-bin-drop rounded-2xl p-6 md:p-7 text-center">
+                <div class="w-14 h-14 mx-auto rounded-2xl bg-primary-fixed flex items-center justify-center mb-3">
+                    <span class="material-symbols-outlined text-primary text-3xl">fact_check</span>
+                </div>
+                <p class="font-headline text-sm md:text-base font-extrabold text-on-surface">Drop files here or click to browse</p>
+                <p class="text-xs font-semibold text-on-surface-variant mt-1">BIR registration files</p>
+                <input class="absolute inset-0 opacity-0 cursor-pointer clinic-upload-input" type="file" name="bir_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png" data-doc-label="BIR Certificate / Form 2303" data-preview-target="preview-bir" data-error-target="error-bir"/>
+            </div>
+            <div id="error-bir" class="hidden w-full mt-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold"></div>
+            <div id="preview-bir" class="hidden w-full mt-3 rounded-2xl border border-outline-variant/60 bg-white p-4"></div>
+        </div>
 
-<div class="relative group cursor-pointer mb-8 w-full">
-<div class="border-2 border-dashed border-outline-variant group-hover:border-primary bg-surface-variant/50 group-hover:bg-primary/[0.02] transition-all duration-500 rounded-2xl p-6 text-center flex flex-col items-center justify-center gap-3">
-<h3 class="font-headline font-extrabold text-lg text-on-surface tracking-tight">Upload SEC/DTI Certificate (Optional)</h3>
-</div>
-<input class="absolute inset-0 opacity-0 cursor-pointer clinic-upload-input" type="file" name="sec_dti_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png" data-doc-label="SEC/DTI Certificate" data-preview-target="preview-sec-dti" data-error-target="error-sec-dti"/>
-</div>
-<div id="error-sec-dti" class="hidden w-full mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold"></div>
-<div id="preview-sec-dti" class="hidden w-full mb-8 rounded-2xl border border-outline-variant/60 bg-white p-4"></div>
+        <div class="upload-bin rounded-3xl p-4 md:p-5">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <div>
+                    <h3 class="font-headline font-extrabold text-lg text-on-surface tracking-tight">SEC/DTI Certificate</h3>
+                    <p class="text-on-surface-variant text-xs font-semibold">Optional supporting registration document</p>
+                </div>
+                <span class="upload-badge rounded-full px-3 py-1 font-black uppercase text-on-surface-variant">Optional</span>
+            </div>
+            <div class="relative upload-bin-drop rounded-2xl p-6 md:p-7 text-center">
+                <div class="w-14 h-14 mx-auto rounded-2xl bg-primary-fixed flex items-center justify-center mb-3">
+                    <span class="material-symbols-outlined text-primary text-3xl">apartment</span>
+                </div>
+                <p class="font-headline text-sm md:text-base font-extrabold text-on-surface">Drop files here or click to browse</p>
+                <p class="text-xs font-semibold text-on-surface-variant mt-1">SEC/DTI files (if available)</p>
+                <input class="absolute inset-0 opacity-0 cursor-pointer clinic-upload-input" type="file" name="sec_dti_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png" data-doc-label="SEC/DTI Certificate" data-preview-target="preview-sec-dti" data-error-target="error-sec-dti"/>
+            </div>
+            <div id="error-sec-dti" class="hidden w-full mt-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold"></div>
+            <div id="preview-sec-dti" class="hidden w-full mt-3 rounded-2xl border border-outline-variant/60 bg-white p-4"></div>
+        </div>
 
-<div class="relative group cursor-pointer mb-8 w-full">
-<div class="border-2 border-dashed border-outline-variant group-hover:border-primary bg-surface-variant/50 group-hover:bg-primary/[0.02] transition-all duration-500 rounded-2xl p-6 text-center flex flex-col items-center justify-center gap-3">
-<h3 class="font-headline font-extrabold text-lg text-on-surface tracking-tight">Upload Other Supporting Documents (Optional)</h3>
-</div>
-<input class="absolute inset-0 opacity-0 cursor-pointer clinic-upload-input" type="file" name="other_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png" data-doc-label="Other Supporting Document" data-preview-target="preview-other" data-error-target="error-other"/>
-</div>
-<div id="error-other" class="hidden w-full mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold"></div>
-<div id="preview-other" class="hidden w-full mb-8 rounded-2xl border border-outline-variant/60 bg-white p-4"></div>
+        <div class="upload-bin rounded-3xl p-4 md:p-5">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <div>
+                    <h3 class="font-headline font-extrabold text-lg text-on-surface tracking-tight">Other Supporting Documents</h3>
+                    <p class="text-on-surface-variant text-xs font-semibold">Additional files that help verification</p>
+                </div>
+                <span class="upload-badge rounded-full px-3 py-1 font-black uppercase text-on-surface-variant">Optional</span>
+            </div>
+            <div class="relative upload-bin-drop rounded-2xl p-6 md:p-7 text-center">
+                <div class="w-14 h-14 mx-auto rounded-2xl bg-primary-fixed flex items-center justify-center mb-3">
+                    <span class="material-symbols-outlined text-primary text-3xl">note_stack</span>
+                </div>
+                <p class="font-headline text-sm md:text-base font-extrabold text-on-surface">Drop files here or click to browse</p>
+                <p class="text-xs font-semibold text-on-surface-variant mt-1">Any extra supporting proof</p>
+                <input class="absolute inset-0 opacity-0 cursor-pointer clinic-upload-input" type="file" name="other_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png" data-doc-label="Other Supporting Document" data-preview-target="preview-other" data-error-target="error-other"/>
+            </div>
+            <div id="error-other" class="hidden w-full mt-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold"></div>
+            <div id="preview-other" class="hidden w-full mt-3 rounded-2xl border border-outline-variant/60 bg-white p-4"></div>
+        </div>
+    </div>
 <!-- Note & CTA -->
 <div class="space-y-6 w-full">
 <div class="flex items-center justify-center gap-3 text-on-surface-variant">
