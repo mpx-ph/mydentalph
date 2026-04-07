@@ -1,5 +1,6 @@
 <?php
 $staff_nav_active = 'reports';
+require_once __DIR__ . '/config/config.php';
 // Dentist role restriction: redirect to dashboard
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
 if (isset($_SESSION['user_role']) && strtolower(trim((string) $_SESSION['user_role'])) === 'dentist') {
@@ -14,6 +15,70 @@ if (!isset($currentTenantSlug)) {
             $currentTenantSlug = $staffTenantSlug;
         }
     }
+}
+
+$tenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
+$totalRevenue = 0.0;
+$totalAppointments = 0;
+$totalPatients = 0;
+$allAppointments = [];
+
+try {
+    $pdo = getDBConnection();
+
+    if ($tenantId === '' && $currentTenantSlug !== '') {
+        $tenantStmt = $pdo->prepare('SELECT tenant_id FROM tbl_tenants WHERE clinic_slug = ? LIMIT 1');
+        $tenantStmt->execute([$currentTenantSlug]);
+        $tenantRow = $tenantStmt->fetch(PDO::FETCH_ASSOC);
+        if ($tenantRow && isset($tenantRow['tenant_id'])) {
+            $tenantId = (string) $tenantRow['tenant_id'];
+        }
+    }
+
+    if ($tenantId !== '') {
+        $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) AS total_revenue FROM tbl_payments WHERE tenant_id = ? AND status = 'completed'");
+        $stmt->execute([$tenantId]);
+        $totalRevenue = (float) ($stmt->fetch(PDO::FETCH_ASSOC)['total_revenue'] ?? 0);
+
+        $stmt = $pdo->prepare('SELECT COUNT(*) AS total_appointments FROM tbl_appointments WHERE tenant_id = ?');
+        $stmt->execute([$tenantId]);
+        $totalAppointments = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['total_appointments'] ?? 0);
+
+        $stmt = $pdo->prepare('SELECT COUNT(*) AS total_patients FROM tbl_patients WHERE tenant_id = ?');
+        $stmt->execute([$tenantId]);
+        $totalPatients = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['total_patients'] ?? 0);
+
+        $appointmentsSql = "
+            SELECT
+                a.booking_id,
+                a.appointment_date,
+                a.appointment_time,
+                a.service_type,
+                a.service_description,
+                a.status,
+                a.total_treatment_cost,
+                p.patient_id,
+                p.first_name AS patient_first_name,
+                p.last_name AS patient_last_name,
+                d.first_name AS dentist_first_name,
+                d.last_name AS dentist_last_name
+            FROM tbl_appointments a
+            LEFT JOIN tbl_patients p
+                ON p.tenant_id = a.tenant_id
+               AND p.patient_id = a.patient_id
+            LEFT JOIN tbl_dentists d
+                ON d.tenant_id = a.tenant_id
+               AND d.dentist_id = a.dentist_id
+            WHERE a.tenant_id = ?
+            ORDER BY a.appointment_date DESC, a.appointment_time DESC, a.created_at DESC
+            LIMIT 100
+        ";
+        $stmt = $pdo->prepare($appointmentsSql);
+        $stmt->execute([$tenantId]);
+        $allAppointments = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+} catch (Throwable $e) {
+    error_log('Staff reports load error: ' . $e->getMessage());
 }
 ?>
 <!DOCTYPE html>
@@ -139,7 +204,7 @@ if (!isset($currentTenantSlug)) {
 <span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full uppercase tracking-widest">Monthly</span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">$58,400</p>
+<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">$<?php echo number_format($totalRevenue, 2); ?></p>
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Total Revenue</p>
 </div>
 </div>
@@ -152,7 +217,7 @@ if (!isset($currentTenantSlug)) {
 <span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">All Time</span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">428</p>
+<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo number_format($totalAppointments); ?></p>
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Total Appointments</p>
 </div>
 </div>
@@ -165,7 +230,7 @@ if (!isset($currentTenantSlug)) {
 <span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">Registered</span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">312</p>
+<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo number_format($totalPatients); ?></p>
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Total Patients</p>
 </div>
 </div>
@@ -219,84 +284,84 @@ if (!isset($currentTenantSlug)) {
 </tr>
 </thead>
 <tbody class="divide-y divide-slate-100">
+<?php if (empty($allAppointments)): ?>
+<tr>
+<td class="px-8 py-8 text-sm font-semibold text-slate-500" colspan="6">No appointments found for this clinic yet.</td>
+</tr>
+<?php else: ?>
+<?php foreach ($allAppointments as $appointment): ?>
+<?php
+    $patientName = trim(((string) ($appointment['patient_first_name'] ?? '')) . ' ' . ((string) ($appointment['patient_last_name'] ?? '')));
+    if ($patientName === '') {
+        $patientName = 'Unknown Patient';
+    }
+    $patientId = trim((string) ($appointment['patient_id'] ?? ''));
+    $patientInitials = strtoupper(substr(trim((string) ($appointment['patient_first_name'] ?? 'U')), 0, 1) . substr(trim((string) ($appointment['patient_last_name'] ?? 'P')), 0, 1));
+    if ($patientInitials === '') {
+        $patientInitials = 'NA';
+    }
+    $dateLabel = '-';
+    if (!empty($appointment['appointment_date'])) {
+        $dateLabel = date('M d, Y', strtotime((string) $appointment['appointment_date']));
+    }
+    $timeLabel = '-';
+    if (!empty($appointment['appointment_time'])) {
+        $timeLabel = date('h:i A', strtotime((string) $appointment['appointment_time']));
+    }
+    $serviceMain = trim((string) ($appointment['service_type'] ?? ''));
+    if ($serviceMain === '') {
+        $serviceMain = 'General Consultation';
+    }
+    $serviceDetails = trim((string) ($appointment['service_description'] ?? ''));
+    $serviceLabel = $serviceDetails !== '' ? ($serviceMain . ' - ' . $serviceDetails) : $serviceMain;
+    $dentistName = trim(((string) ($appointment['dentist_first_name'] ?? '')) . ' ' . ((string) ($appointment['dentist_last_name'] ?? '')));
+    if ($dentistName === '') {
+        $dentistName = 'Unassigned Dentist';
+    }
+    $status = strtolower(trim((string) ($appointment['status'] ?? 'pending')));
+    $statusLabel = $status !== '' ? ucfirst(str_replace('_', ' ', $status)) : 'Pending';
+    $statusClasses = 'bg-amber-50 text-amber-600';
+    $dotClass = 'bg-amber-500';
+    if ($status === 'completed') {
+        $statusClasses = 'bg-emerald-50 text-emerald-600';
+        $dotClass = 'bg-emerald-500';
+    } elseif ($status === 'confirmed') {
+        $statusClasses = 'bg-primary/10 text-primary';
+        $dotClass = 'bg-primary';
+    } elseif ($status === 'cancelled' || $status === 'no_show') {
+        $statusClasses = 'bg-slate-100 text-slate-600';
+        $dotClass = 'bg-slate-500';
+    }
+    $amount = (float) ($appointment['total_treatment_cost'] ?? 0);
+?>
 <tr class="hover:bg-slate-50/30 transition-colors group">
 <td class="px-8 py-6">
 <div class="flex items-center gap-4">
-<div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary text-xs">JR</div>
+<div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary text-xs"><?php echo htmlspecialchars($patientInitials, ENT_QUOTES, 'UTF-8'); ?></div>
 <div class="flex flex-col">
-<span class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">Julian Reed</span>
-<span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">ID: #PT-2103</span>
+<span class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors"><?php echo htmlspecialchars($patientName, ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5"><?php echo $patientId !== '' ? 'ID: #' . htmlspecialchars($patientId, ENT_QUOTES, 'UTF-8') : 'ID: N/A'; ?></span>
 </div>
 </div>
 </td>
 <td class="px-6 py-6">
 <div class="flex flex-col">
-<span class="text-sm font-bold text-slate-700">Mar 28, 2026</span>
-<span class="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-0.5">10:30 AM</span>
+<span class="text-sm font-bold text-slate-700"><?php echo htmlspecialchars($dateLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-0.5"><?php echo htmlspecialchars($timeLabel, ENT_QUOTES, 'UTF-8'); ?></span>
 </div>
 </td>
-<td class="px-6 py-6 text-sm font-semibold text-slate-700">Root Canal Treatment - Follow-up Session</td>
-<td class="px-6 py-6 text-sm font-medium text-slate-700">Dr. Helena Vance</td>
+<td class="px-6 py-6 text-sm font-semibold text-slate-700"><?php echo htmlspecialchars($serviceLabel, ENT_QUOTES, 'UTF-8'); ?></td>
+<td class="px-6 py-6 text-sm font-medium text-slate-700"><?php echo htmlspecialchars($dentistName, ENT_QUOTES, 'UTF-8'); ?></td>
 <td class="px-6 py-6">
-<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-full uppercase tracking-widest">
-<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                Completed
-                            </span>
+<span class="inline-flex items-center gap-1.5 px-3 py-1 <?php echo $statusClasses; ?> text-[10px] font-black rounded-full uppercase tracking-widest">
+<span class="w-1.5 h-1.5 rounded-full <?php echo $dotClass; ?>"></span>
+<?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?>
+</span>
 </td>
-<td class="px-8 py-6 text-right text-sm font-extrabold text-slate-900">$450.00</td>
+<td class="px-8 py-6 text-right text-sm font-extrabold text-slate-900">$<?php echo number_format($amount, 2); ?></td>
 </tr>
-<tr class="hover:bg-slate-50/30 transition-colors group">
-<td class="px-8 py-6">
-<div class="flex items-center gap-4">
-<img alt="Patient Avatar" class="w-10 h-10 rounded-xl object-cover ring-2 ring-primary/5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA72WvYph63Cvd5Atneh6QZXaWc7iOrxN4WyZVU-_hZiGTZGeS3EHCBnfouNfAda5nzXjMUDmkO_VscwiN4byshrJtKn49rhoNdH6rJDBkTuK27skPUinXXpbIdzmhE3dOhJU6zNC-Ht_yiUbFlt1WsJtCYzoWhJrMsaUswo55fw_m86nBUcr71f8hYDIgocyA9pKTJgXnvYuHvlx-ZkOz8fp-NQ63yB-Fb5EXCpVgKs8L_3HtSunjZTi-qdXvahJjxaaomYFaoF-8"/>
-<div class="flex flex-col">
-<span class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">Elena Rodriguez</span>
-<span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">ID: #PT-1889</span>
-</div>
-</div>
-</td>
-<td class="px-6 py-6">
-<div class="flex flex-col">
-<span class="text-sm font-bold text-slate-700">Mar 29, 2026</span>
-<span class="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-0.5">01:45 PM</span>
-</div>
-</td>
-<td class="px-6 py-6 text-sm font-semibold text-slate-700">Teeth Whitening - Full Session</td>
-<td class="px-6 py-6 text-sm font-medium text-slate-700">Dr. Simon Kaan</td>
-<td class="px-6 py-6">
-<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-full uppercase tracking-widest">
-<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                                Confirmed
-                            </span>
-</td>
-<td class="px-8 py-6 text-right text-sm font-extrabold text-slate-900">$220.00</td>
-</tr>
-<tr class="hover:bg-slate-50/30 transition-colors group">
-<td class="px-8 py-6">
-<div class="flex items-center gap-4">
-<div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-600 text-xs">AM</div>
-<div class="flex flex-col">
-<span class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">Arthur Morgan</span>
-<span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">ID: #PT-1742</span>
-</div>
-</div>
-</td>
-<td class="px-6 py-6">
-<div class="flex flex-col">
-<span class="text-sm font-bold text-slate-700">Mar 30, 2026</span>
-<span class="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-0.5">09:00 AM</span>
-</div>
-</td>
-<td class="px-6 py-6 text-sm font-semibold text-slate-700">Emergency Restoration - Initial Assessment</td>
-<td class="px-6 py-6 text-sm font-medium text-slate-700">Dr. Noah Ellis</td>
-<td class="px-6 py-6">
-<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 text-[10px] font-black rounded-full uppercase tracking-widest">
-<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                                Pending
-                            </span>
-</td>
-<td class="px-8 py-6 text-right text-sm font-extrabold text-slate-900">$300.00</td>
-</tr>
+<?php endforeach; ?>
+<?php endif; ?>
 </tbody>
 </table>
 </div>
