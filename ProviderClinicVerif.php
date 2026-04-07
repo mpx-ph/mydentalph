@@ -649,6 +649,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         let selectedFiles = [];
 
+        function fileKey(file) {
+            return `${file.name || ''}__${Number(file.size || 0)}__${Number(file.lastModified || 0)}`;
+        }
+
         function syncInputFiles() {
             const dt = new DataTransfer();
             selectedFiles.forEach((f) => dt.items.add(f));
@@ -691,9 +695,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         input.addEventListener('change', () => {
             const picked = Array.from(input.files || []);
             if (picked.length === 0) {
-                selectedFiles = [];
-                renderError(errorEl, '');
-                renderPreview();
                 return;
             }
 
@@ -715,7 +716,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 return;
             }
 
-            selectedFiles = picked;
+            const existing = new Set(selectedFiles.map(fileKey));
+            picked.forEach((file) => {
+                const key = fileKey(file);
+                if (!existing.has(key)) {
+                    selectedFiles.push(file);
+                    existing.add(key);
+                }
+            });
             syncInputFiles();
             renderError(errorEl, '');
             renderPreview();
