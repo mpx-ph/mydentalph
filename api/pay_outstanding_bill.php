@@ -66,7 +66,7 @@ try {
                 'show_line_items' => true,
                 'payment_method_types' => ['gcash', 'paymaya', 'card'],
                 'description' => "$description - $patient_name",
-                'success_url' => "http://mydentalph.ct.ws/api/payment_success.php",
+                'success_url' => "http://mydentalph.ct.ws/api/payment_success.php?pid=" . $payment_id,
                 'billing' => [
                     'name' => $patient_name,
                     'email' => $user_email,

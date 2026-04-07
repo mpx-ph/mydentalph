@@ -1,3 +1,14 @@
+<?php
+require_once '../db.php';
+
+$pid = $_GET['pid'] ?? null;
+
+if ($pid) {
+    // Update the payment status to 'completed'
+    $stmt = $pdo->prepare("UPDATE tbl_payments SET status = 'completed' WHERE payment_id = ?");
+    $stmt->execute([$pid]);
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,8 +28,8 @@
     <div class="card">
         <div class="icon">✨</div>
         <h1>Payment Successful!</h1>
-        <p>Your appointment is confirmed. You can now return to your Dento Cleene app dashboard.</p>
-        <a href="mydentalph://app" class="btn">Return to Merchant Dashboard</a>
+        <p>Your transaction has been securely processed and recorded. You can now return to your Dento Cleene app dashboard.</p>
+        <a href="mydentalph://app" class="btn">Return to App Settings</a>
     </div>
 </body>
 </html>
