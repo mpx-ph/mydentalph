@@ -419,19 +419,19 @@ $back_href = 'ProviderClinicSetup.php';
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
 <div class="space-y-1.5 md:col-span-2">
 <label class="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant px-0.5">Clinic Name</label>
-<input name="clinic_name" autocomplete="organization" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10" placeholder="e.g. Precision Dental" type="text" value="<?php echo htmlspecialchars($prefill_clinic_name); ?>"/>
+<input name="clinic_name" autocomplete="organization" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10" placeholder="e.g. Precision Dental" type="text" value="<?php echo htmlspecialchars($prefill_clinic_name); ?>" required/>
 </div>
 <div class="space-y-1.5">
 <label class="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant px-0.5">Work Email</label>
-<input name="clinic_email" autocomplete="email" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10" placeholder="admin@clinic.com" type="email" value="<?php echo htmlspecialchars($prefill_email); ?>"/>
+<input name="clinic_email" autocomplete="email" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10" placeholder="admin@clinic.com" type="email" value="<?php echo htmlspecialchars($prefill_email); ?>" required/>
 </div>
 <div class="space-y-1.5">
 <label class="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant px-0.5">Contact Number</label>
-<input name="clinic_phone" autocomplete="tel" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10" placeholder="+63 912 345 6789" type="tel" value="<?php echo htmlspecialchars($tenant['contact_phone'] ?? ''); ?>"/>
+<input name="clinic_phone" autocomplete="tel" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10" placeholder="+63 912 345 6789" type="tel" value="<?php echo htmlspecialchars($tenant['contact_phone'] ?? ''); ?>" required/>
 </div>
 <div class="space-y-1.5 md:col-span-2">
 <label class="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant px-0.5">Business Address</label>
-<textarea name="clinic_address" autocomplete="street-address" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10 min-h-[88px] resize-y" placeholder="Street, City, ZIP" rows="3"><?php echo htmlspecialchars($tenant['clinic_address'] ?? ''); ?></textarea>
+<textarea name="clinic_address" autocomplete="street-address" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10 min-h-[88px] resize-y" placeholder="Street, City, ZIP" rows="3" required><?php echo htmlspecialchars($tenant['clinic_address'] ?? ''); ?></textarea>
 </div>
 </div>
 </section>
@@ -448,7 +448,7 @@ $back_href = 'ProviderClinicSetup.php';
 </div>
 <div id="payment-methods" class="grid grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-3">
 <label for="pm_gcash" data-method="gcash" class="pm-option group flex flex-col items-center justify-center p-3 sm:p-4 bg-white border rounded-xl transition-all duration-300 cursor-pointer border-on-surface/5 hover:border-primary/30">
-<input id="pm_gcash" class="sr-only" name="payment_method" value="gcash" type="radio" <?php echo $selected_payment_method === 'gcash' ? 'checked' : ''; ?>/>
+<input id="pm_gcash" class="sr-only" name="payment_method" value="gcash" type="radio" <?php echo $selected_payment_method === 'gcash' ? 'checked' : ''; ?> required/>
 <span class="material-symbols-outlined pm-icon text-primary text-2xl mb-1.5">account_balance_wallet</span>
 <span class="pm-text font-bold text-[10px] uppercase tracking-wider text-on-surface-variant group-hover:text-primary transition-colors">GCash</span>
 </label>
@@ -664,17 +664,17 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
     });
 
     form.addEventListener('submit', function (e) {
+      if (!form.checkValidity()) {
+        e.preventDefault();
+        form.reportValidity();
+        return;
+      }
+
       var selected = root.querySelector('input[name="payment_method"]:checked');
       if (!selected) {
-        var fallbackCard = document.getElementById('pm_card');
-        if (fallbackCard) {
-          fallbackCard.checked = true;
-          selected = fallbackCard;
-          applySelection();
-        }
-      }
-      if (!selected) {
-        // Do not block submission; backend will still validate and return clear errors.
+        e.preventDefault();
+        if (paymentError) paymentError.classList.remove('hidden');
+        return;
       }
       if (!selectedPlanInput || !selectedPlanInput.value) {
         // Fail-safe default plan if hidden field was unexpectedly cleared client-side.
