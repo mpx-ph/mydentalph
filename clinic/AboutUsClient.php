@@ -47,7 +47,12 @@ $aboutHeroCaption = trim((string) ($CLINIC['about_hero_caption_title'] ?? ''));
                 </div>
 <?php endif; ?>
 <h1 class="font-headline text-[clamp(2.5rem,6vw,5rem)] font-extrabold tracking-[-0.05em] mb-10 leading-[0.9] flex flex-col items-center justify-center text-slate-900 dark:text-white">
-<span class="block"><?php echo $cu('about_intro_heading'); ?></span>
+<span class="block">
+                        <?php echo $cu('about_intro_heading_before', 'About'); ?>
+                        <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">
+                            <?php echo $cu('about_intro_heading_accent', 'Us'); ?>
+                        </span>
+                    </span>
 </h1>
 <p class="font-body text-xl max-w-2xl mx-auto mb-12 leading-relaxed text-slate-600 dark:text-slate-400 font-medium">
                     <?php echo $cu('about_intro_text'); ?>
