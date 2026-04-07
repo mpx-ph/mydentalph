@@ -33,18 +33,18 @@ if (!function_exists('clinic_link')) {
     }
 }
 ?>
-<nav class="fixed top-0 z-50 w-full border-b border-slate-100 dark:border-slate-800 bg-white/90 dark:bg-background-dark/90 backdrop-blur-md transition-all duration-300">
+<nav class="fixed top-0 z-50 w-full border-b border-slate-200/70 dark:border-slate-800 bg-white/75 dark:bg-background-dark/75 backdrop-blur-xl transition-all duration-300">
     <div class="px-6 md:px-12 py-4 max-w-7xl mx-auto flex items-center justify-between">
         <div class="flex items-center gap-2.5 text-slate-900 dark:text-white group cursor-pointer">
             <a href="<?php echo clinic_link('', $currentSlug, BASE_URL . 'MainPageClient.php'); ?>">
                 <img src="<?php echo $navLogoUrl; ?>" alt="<?php echo $navLogoAlt; ?>" class="h-12 w-auto object-contain">
             </a>
         </div>
-        <div class="hidden lg:flex items-center gap-8">
-            <a class="text-sm font-medium <?php echo ($currentPage == 'MainPageClient.php') ? 'text-primary dark:text-white border-b-2 border-primary pb-0.5' : 'text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white transition-colors'; ?>" href="<?php echo clinic_link('', $currentSlug, BASE_URL . 'MainPageClient.php'); ?>">HOME</a>
-            <a class="text-sm font-medium <?php echo ($currentPage == 'PatientServices.php') ? 'text-primary dark:text-white border-b-2 border-primary pb-0.5' : 'text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white transition-colors'; ?>" href="<?php echo clinic_link('services', $currentSlug, BASE_URL . 'PatientServices.php'); ?>">SERVICES</a>
-            <a class="text-sm font-medium <?php echo ($currentPage == 'AboutUsClient.php') ? 'text-primary dark:text-white border-b-2 border-primary pb-0.5' : 'text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white transition-colors'; ?>" href="<?php echo clinic_link('about', $currentSlug, BASE_URL . 'AboutUsClient.php'); ?>">ABOUT US</a>
-            <a class="text-sm font-medium <?php echo ($currentPage == 'ContactUsClient.php') ? 'text-primary dark:text-white border-b-2 border-primary pb-0.5' : 'text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white transition-colors'; ?>" href="<?php echo clinic_link('contact', $currentSlug, BASE_URL . 'ContactUsClient.php'); ?>">CONTACT US</a>
+        <div class="hidden lg:flex items-center gap-3">
+            <a class="rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] <?php echo ($currentPage == 'MainPageClient.php') ? 'text-primary bg-primary/10' : 'text-slate-600 dark:text-slate-300 hover:text-primary hover:bg-primary/5'; ?> transition-all" href="<?php echo clinic_link('', $currentSlug, BASE_URL . 'MainPageClient.php'); ?>">HOME</a>
+            <a class="rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] <?php echo ($currentPage == 'PatientServices.php') ? 'text-primary bg-primary/10' : 'text-slate-600 dark:text-slate-300 hover:text-primary hover:bg-primary/5'; ?> transition-all" href="<?php echo clinic_link('services', $currentSlug, BASE_URL . 'PatientServices.php'); ?>">SERVICES</a>
+            <a class="rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] <?php echo ($currentPage == 'AboutUsClient.php') ? 'text-primary bg-primary/10' : 'text-slate-600 dark:text-slate-300 hover:text-primary hover:bg-primary/5'; ?> transition-all" href="<?php echo clinic_link('about', $currentSlug, BASE_URL . 'AboutUsClient.php'); ?>">ABOUT US</a>
+            <a class="rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] <?php echo ($currentPage == 'ContactUsClient.php') ? 'text-primary bg-primary/10' : 'text-slate-600 dark:text-slate-300 hover:text-primary hover:bg-primary/5'; ?> transition-all" href="<?php echo clinic_link('contact', $currentSlug, BASE_URL . 'ContactUsClient.php'); ?>">CONTACT US</a>
         </div>
         <?php
         $loginUrl = clinic_link('login', $currentSlug, BASE_URL . 'Login.php');
@@ -68,7 +68,7 @@ if (!function_exists('clinic_link')) {
                 </div>
             </div>
             <?php else: ?>
-            <a class="hidden md:flex items-center justify-center rounded-full h-11 px-6 bg-primary hover:bg-primary-dark text-white text-sm font-semibold transition-all shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 hover:-translate-y-0.5 active:translate-y-0" href="<?php echo htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8'); ?>">
+            <a class="hidden md:flex items-center justify-center rounded-full h-11 px-8 bg-primary hover:bg-primary-dark text-white text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/35 hover:-translate-y-0.5 active:translate-y-0" href="<?php echo htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8'); ?>">
                 <span class="truncate">LOGIN</span>
             </a>
             <?php endif; ?>

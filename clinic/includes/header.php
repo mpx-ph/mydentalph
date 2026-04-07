@@ -174,6 +174,45 @@ $ffEdJs = json_encode($ffEdArr, $jsonFfFlags);
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
         }
+        .mesh-gradient {
+            background-color: #ffffff;
+            background-image:
+                radial-gradient(at 100% 0%, color-mix(in srgb, <?php echo $cPrimary; ?> 12%, transparent) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, color-mix(in srgb, <?php echo $cPrimary; ?> 8%, transparent) 0px, transparent 50%);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+        }
+        .editorial-word {
+            text-shadow: 0 0 12px color-mix(in srgb, <?php echo $cPrimary; ?> 25%, transparent);
+            letter-spacing: -0.02em;
+        }
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px) scale(0.985);
+            filter: blur(10px);
+            transition:
+                opacity 820ms cubic-bezier(0.22, 1, 0.36, 1),
+                transform 820ms cubic-bezier(0.22, 1, 0.36, 1),
+                filter 820ms cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: opacity, transform, filter;
+        }
+        .reveal.is-visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            filter: blur(0);
+        }
+        @keyframes popIn {
+            0% { transform: translateY(10px) scale(0.985); opacity: 0; }
+            60% { transform: translateY(-2px) scale(1.01); opacity: 1; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        .pop-up {
+            animation: popIn 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
         .text-balance {
             text-wrap: balance;
         }
@@ -198,6 +237,17 @@ $ffEdJs = json_encode($ffEdArr, $jsonFfFlags);
         }
         html.clinic-patient-theme body {
             line-height: <?php echo htmlspecialchars((string) $lineHeight, ENT_QUOTES, 'UTF-8'); ?>;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .reveal {
+                opacity: 1;
+                transform: none;
+                filter: none;
+                transition: none;
+            }
+            .pop-up {
+                animation: none;
+            }
         }
     </style>
 </head>

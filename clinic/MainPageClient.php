@@ -64,9 +64,9 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </style>
 <?php include __DIR__ . '/includes/nav_client.php'; ?>
 
-<main class="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+<main class="mesh-gradient dark:bg-slate-950 text-slate-900 dark:text-slate-100">
 <!-- Centered Hero Section -->
-<section class="relative min-h-[90vh] flex items-center justify-center pt-20 overflow-hidden" style="background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.8)), url('<?php echo $heroBgEsc; ?>'); background-size: cover; background-position: center;">
+<section class="relative min-h-[90vh] flex items-center justify-center pt-20 overflow-hidden reveal" data-reveal="section" style="background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.8)), url('<?php echo $heroBgEsc; ?>'); background-size: cover; background-position: center;">
 <div class="max-w-7xl mx-auto w-full px-10 relative z-10 flex flex-col items-center text-center justify-center">
 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8 font-headline">
                 <?php
@@ -82,7 +82,7 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
                 <?php echo $cuMultiline('main_hero_subtext', 'Experience modern dentistry in a sterile, calming environment. We combine clinical excellence with a gentle touch to ensure your long-term oral health.'); ?>
             </p>
 <div class="flex flex-col items-center justify-center">
-<a href="<?php echo htmlspecialchars($setAppointmentHref, ENT_QUOTES, 'UTF-8'); ?>" class="group relative px-12 py-5 bg-primary text-white font-bold rounded-full overflow-hidden transition-all hover:pr-16 active:scale-95 font-headline inline-flex items-center">
+<a href="<?php echo htmlspecialchars($setAppointmentHref, ENT_QUOTES, 'UTF-8'); ?>" class="group relative px-12 py-5 bg-primary text-white font-bold rounded-full overflow-hidden transition-all hover:pr-16 hover:shadow-xl hover:shadow-primary/35 active:scale-95 font-headline inline-flex items-center pop-up">
 <span class="relative z-10"><?php echo isLoggedIn('client') ? $cu('main_hero_cta_logged_in', 'Download Our App') : $cu('main_hero_cta_guest', 'Set Appointment'); ?></span>
 <span class="material-symbols-outlined absolute right-6 opacity-0 group-hover:opacity-100 transition-all">arrow_right_alt</span>
 </a>
@@ -94,7 +94,7 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </div>
 </section>
 <!-- Our Specialized Care Section -->
-<section class="py-24 px-10 bg-white dark:bg-slate-900 relative overflow-hidden" id="services">
+<section class="py-24 px-10 bg-white/90 dark:bg-slate-900 relative overflow-hidden reveal" data-reveal="section" id="services">
 <div class="max-w-[1800px] mx-auto">
 <div class="flex flex-col justify-between items-start mb-20 gap-12 items-center text-center">
 <div class="max-w-3xl">
@@ -161,7 +161,7 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </div>
 </section>
 <!-- The Patient Journey Section -->
-<section class="py-32 bg-slate-50 dark:bg-slate-900/50 relative border-y border-slate-200/80 dark:border-slate-800" id="journey">
+<section class="py-32 bg-slate-50/90 dark:bg-slate-900/50 relative border-y border-slate-200/80 dark:border-slate-800 reveal" data-reveal="section" id="journey">
 <div class="max-w-[1800px] mx-auto px-10">
 <div class="flex flex-col items-center text-center mb-24">
 <div class="inline-flex items-center gap-4 px-4 py-2 rounded-full bg-primary/5 text-primary text-[10px] font-black uppercase tracking-[0.4em] mb-6 font-headline">
@@ -220,7 +220,7 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </div>
 </section>
 <!-- Final CTA Section -->
-<section class="py-24 px-10">
+<section class="py-24 px-10 reveal" data-reveal="section">
 <div class="mx-auto rounded-[4rem] bg-primary relative overflow-hidden flex flex-col items-center text-center shadow-[0_40px_100px_-20px_rgba(43,139,235,0.4)] max-w-6xl py-24 px-10 md:px-20">
 <div class="relative z-10 max-w-3xl">
 <div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-10 font-headline">

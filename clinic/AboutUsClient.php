@@ -35,11 +35,11 @@ $aboutHeroCaption = trim((string) ($CLINIC['about_hero_caption_title'] ?? ''));
     letter-spacing: -0.02em;
 }
 </style>
-<div class="relative flex min-h-screen w-full flex-col bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+<div class="relative flex min-h-screen w-full flex-col mesh-gradient dark:bg-slate-950 text-slate-900 dark:text-slate-100">
 <?php include __DIR__ . '/includes/nav_client.php'; ?>
 <main>
 <!-- Hero Section -->
-<section class="relative flex items-center justify-center pt-32 overflow-hidden bg-slate-50 dark:bg-slate-900 pb-12 min-h-[40vh]">
+<section class="relative flex items-center justify-center pt-32 overflow-hidden bg-slate-50/80 dark:bg-slate-900 pb-12 min-h-[40vh] reveal" data-reveal="section">
 <div class="max-w-7xl mx-auto px-8 text-center relative z-10">
 <?php if ($aboutHeroCaption !== ''): ?>
 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8 font-headline">
@@ -59,7 +59,7 @@ $aboutHeroCaption = trim((string) ($CLINIC['about_hero_caption_title'] ?? ''));
 </div>
 </section>
 <!-- The Curator's Philosophy -->
-<section class="bg-white dark:bg-slate-950 pt-16 pb-32" id="philosophy">
+<section class="bg-white/90 dark:bg-slate-950 pt-16 pb-32 reveal" data-reveal="section" id="philosophy">
 <div class="max-w-[1800px] mx-auto px-10">
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
 <div class="relative">
@@ -102,7 +102,7 @@ $aboutHeroCaption = trim((string) ($CLINIC['about_hero_caption_title'] ?? ''));
 </div>
 </section>
 <!-- Clinical Standards -->
-<section class="py-32 bg-slate-50 dark:bg-slate-900/50">
+<section class="py-32 bg-slate-50/80 dark:bg-slate-900/50 reveal" data-reveal="section">
 <div class="max-w-[1800px] mx-auto px-10">
 <div class="flex flex-col items-center text-center mb-20">
 <h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white mb-6"><?php echo $cu('about_clinical_title_before'); ?> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $cu('about_clinical_title_accent'); ?></span></h2>
@@ -134,7 +134,7 @@ $aboutHeroCaption = trim((string) ($CLINIC['about_hero_caption_title'] ?? ''));
 </div>
 </section>
 <!-- Our Elite Team -->
-<section class="py-32 bg-white dark:bg-slate-950">
+<section class="py-32 bg-white/90 dark:bg-slate-950 reveal" data-reveal="section">
 <div class="max-w-[1800px] mx-auto px-10">
 <div class="flex flex-col items-center text-center mb-20 gap-8">
 <h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white mb-6"><?php echo $cu('about_team_title_before'); ?> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $cu('about_team_title_accent'); ?></span></h2>
@@ -180,7 +180,7 @@ foreach ($teamCards as $keys) {
 </div>
 </section>
 <!-- Final CTA -->
-<section class="py-24 px-10">
+<section class="py-24 px-10 reveal" data-reveal="section">
 <div class="mx-auto rounded-[4rem] bg-primary relative overflow-hidden flex flex-col items-center text-center shadow-[0_40px_100px_-20px_rgba(43,139,235,0.4)] max-w-6xl py-24 px-10 md:px-20">
 <div class="relative z-10 max-w-3xl">
 <div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-10 font-headline">

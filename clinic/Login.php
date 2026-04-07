@@ -144,6 +144,23 @@ $loginPageUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugL
             border: 1px solid rgba(0, 0, 0, 0.05);
             box-shadow: 0 40px 80px -20px rgba(<?php echo (int) $loginPrimaryR; ?>, <?php echo (int) $loginPrimaryG; ?>, <?php echo (int) $loginPrimaryB; ?>, 0.08);
         }
+        .reveal {
+            opacity: 0;
+            transform: translateY(28px) scale(0.985);
+            filter: blur(10px);
+            transition: opacity 820ms cubic-bezier(0.22, 1, 0.36, 1), transform 820ms cubic-bezier(0.22, 1, 0.36, 1), filter 820ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .reveal.is-visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            filter: blur(0);
+        }
+        @keyframes popIn {
+            0% { transform: translateY(10px) scale(0.985); opacity: 0; }
+            60% { transform: translateY(-2px) scale(1.01); opacity: 1; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        .pop-up { animation: popIn 620ms cubic-bezier(0.22, 1, 0.36, 1) both; }
         /* Nav links: fixed border box so hover/active never shifts layout */
         .login-nav-link {
             border-bottom-width: 2px;
@@ -186,9 +203,9 @@ $loginPageUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugL
 </div>
 </div>
 </nav>
-<main class="flex-grow flex items-center justify-center w-full px-4 sm:px-6 lg:px-8 relative pt-24 pb-12">
+<main class="flex-grow flex items-center justify-center w-full px-4 sm:px-6 lg:px-8 relative pt-24 pb-12 reveal" data-reveal="section">
 <div class="w-full max-w-lg">
-<div class="login-card rounded-[2.5rem] overflow-hidden p-10 md:p-12 space-y-8">
+<div class="login-card rounded-[2.5rem] overflow-hidden p-10 md:p-12 space-y-8 pop-up">
 <div class="text-center space-y-4">
 <h1 class="font-headline text-4xl sm:text-5xl font-extrabold tracking-tighter leading-[1.1] text-slate-900">
                     Sign <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">In</span>
@@ -247,7 +264,7 @@ $loginPageUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugL
 </div>
 </div>
 </main>
-<footer class="w-full border-t border-slate-200 bg-slate-50/50 backdrop-blur-sm mt-auto">
+<footer class="w-full border-t border-slate-200 bg-slate-50/50 backdrop-blur-sm mt-auto reveal" data-reveal="section">
 <div class="flex flex-col md:flex-row justify-between items-center py-12 px-10 max-w-screen-2xl mx-auto gap-8">
 <a href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>" class="text-lg font-bold text-slate-900 font-headline flex items-center gap-2 no-underline text-inherit">
 <img src="<?php echo htmlspecialchars($loginLogoUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="" class="h-8 w-auto object-contain"/>
@@ -267,7 +284,7 @@ $loginPageUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugL
 
 <!-- Forgot / Reset Password Modal -->
 <div id="forgotPasswordModal" class="hidden fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
-<div class="relative bg-white dark:bg-[#151f2b] rounded-2xl shadow-2xl max-w-md w-full overflow-hidden ring-1 ring-white/10">
+<div class="relative bg-white dark:bg-[#151f2b] rounded-2xl shadow-2xl max-w-md w-full overflow-hidden ring-1 ring-white/10 pop-up">
 <div class="bg-slate-50 dark:bg-[#1a2634] px-8 py-5 border-b border-slate-100 dark:border-slate-700/50">
 <h3 class="text-[#0d141b] dark:text-white text-lg font-bold">Reset Password</h3>
 <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">Enter the email on your account. We'll send an OTP to verify.</p>
@@ -310,6 +327,26 @@ $loginPageUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugL
 </div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    (function () {
+        var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var elements = document.querySelectorAll('[data-reveal="section"]');
+        if (!elements || !elements.length) return;
+        if (prefersReduced || !('IntersectionObserver' in window)) {
+            elements.forEach(function (el) { el.classList.add('is-visible'); });
+            return;
+        }
+        var observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                } else {
+                    entry.target.classList.remove('is-visible');
+                }
+            });
+        }, { threshold: 0.15, rootMargin: '0px 0px -10% 0px' });
+        elements.forEach(function (el) { observer.observe(el); });
+    })();
+
     const loginForm = document.getElementById('loginForm');
     const loginBtn = document.getElementById('loginBtn');
     const loginEmail = document.getElementById('loginEmail');

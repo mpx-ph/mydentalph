@@ -63,7 +63,7 @@ $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars(
 
 <main class="contact-page-shell pt-24 flex-grow w-full min-h-screen">
 <!-- Hero Section -->
-<section class="py-20 md:py-28 lg:py-32 text-center px-4 sm:px-6 overflow-hidden">
+<section class="py-20 md:py-28 lg:py-32 text-center px-4 sm:px-6 overflow-hidden reveal" data-reveal="section">
 <div class="max-w-3xl mx-auto flex flex-col items-center">
 <div class="inline-flex items-center justify-center px-4 py-2 rounded-full contact-hero-badge text-[10px] font-black uppercase mb-8 sm:mb-10 font-headline">
                     <?php echo $cu('contact_hero_badge'); ?>
@@ -77,9 +77,9 @@ $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars(
 </div>
 </section>
 <!-- Contact Information -->
-<section class="max-w-[1800px] mx-auto px-10 mb-24">
+<section class="max-w-[1800px] mx-auto px-10 mb-24 reveal" data-reveal="section">
 <div class="max-w-3xl mx-auto space-y-6">
-<div class="bg-white dark:bg-slate-800 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 shadow-[0_20px_50px_-15px_rgba(43,139,235,0.05)] space-y-12">
+<div class="bg-white dark:bg-slate-800 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 shadow-[0_20px_50px_-15px_rgba(43,139,235,0.05)] space-y-12 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_30px_60px_-20px_rgba(43,139,235,0.2)]">
 <div>
 <div class="text-primary font-bold text-xs uppercase mb-10 flex items-center gap-4 tracking-[0.3em] font-headline">
 <span class="w-12 h-[1.5px] bg-primary"></span> <?php echo $cu('contact_info_section_label'); ?>
@@ -135,7 +135,7 @@ $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars(
 </section>
 <!-- Map Section -->
 <?php if (trim($CLINIC['contact_map_embed'] ?? '')): ?>
-<section class="max-w-[1800px] mx-auto px-10 mb-24">
+<section class="max-w-[1800px] mx-auto px-10 mb-24 reveal" data-reveal="section">
 <div class="relative w-full h-[400px] md:h-[500px] lg:h-[600px] rounded-[4rem] overflow-hidden bg-slate-100 dark:bg-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700">
 <iframe
     class="w-full h-full border-0"

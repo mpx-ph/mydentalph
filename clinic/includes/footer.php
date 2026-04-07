@@ -12,33 +12,33 @@ if (strpos($footerLogoUrl, '?') === false && $footerLogoLocalPath && is_file($fo
 }
 $footerLogoAlt = isset($CLINIC['clinic_name']) ? htmlspecialchars($CLINIC['clinic_name'], ENT_QUOTES, 'UTF-8') : 'Dental Clinic';
 ?>
-<footer class="bg-slate-900 text-white pt-20 pb-10 mt-10">
+<footer class="w-full border-t border-slate-200 bg-slate-50 reveal" data-reveal="section">
     <div class="max-w-7xl mx-auto px-6 md:px-12">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-12 mb-16">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-12 py-16">
             <div class="space-y-6">
-                <div class="flex items-center gap-2 text-white">
+                <div class="flex items-center gap-2 text-slate-900">
                     <img src="<?php echo $footerLogoUrl; ?>" alt="<?php echo $footerLogoAlt; ?>" class="h-10 w-auto object-contain">
                 </div>
-                <p class="text-slate-400 text-sm leading-relaxed max-w-xs">
+                <p class="text-slate-500 text-sm leading-relaxed max-w-xs">
                     Providing top-quality dental care with a gentle touch. Your health and comfort are our top priorities.
                 </p>
                 <div class="flex items-center gap-3">
-                    <span class="text-sm text-slate-400 font-medium">Follow Us</span>
-                    <a class="size-9 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-primary hover:text-white transition-all duration-300" href="https://www.facebook.com/DocRickGonzales/" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined text-sm">thumb_up</span></a>
+                    <span class="text-sm text-slate-500 font-medium">Follow Us</span>
+                    <a class="size-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-primary hover:text-white hover:border-primary transition-all duration-300" href="https://www.facebook.com/DocRickGonzales/" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined text-sm">thumb_up</span></a>
                 </div>
             </div>
             <div>
-                <h3 class="font-bold text-white mb-6 text-sm uppercase tracking-wider">Opening Hours</h3>
-                <ul class="space-y-3 text-sm text-slate-400">
-                    <li class="flex justify-between items-center border-b border-slate-800 pb-2"><span>Mon - Fri</span> <span class="text-white font-medium">8:00 AM - 6:00 PM</span></li>
-                    <li class="flex justify-between items-center border-b border-slate-800 pb-2"><span>Saturday</span> <span class="text-white font-medium">9:00 AM - 2:00 PM</span></li>
-                    <li class="flex justify-between items-center border-b border-slate-800 pb-2"><span>Sunday</span> <span class="text-red-400 font-medium">Closed</span></li>
+                <h3 class="font-bold text-slate-900 mb-6 text-sm uppercase tracking-wider">Opening Hours</h3>
+                <ul class="space-y-3 text-sm text-slate-500">
+                    <li class="flex justify-between items-center border-b border-slate-200 pb-2"><span>Mon - Fri</span> <span class="text-slate-900 font-medium">8:00 AM - 6:00 PM</span></li>
+                    <li class="flex justify-between items-center border-b border-slate-200 pb-2"><span>Saturday</span> <span class="text-slate-900 font-medium">9:00 AM - 2:00 PM</span></li>
+                    <li class="flex justify-between items-center border-b border-slate-200 pb-2"><span>Sunday</span> <span class="text-red-500 font-medium">Closed</span></li>
                 </ul>
             </div>
         </div>
-        <div class="border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
+        <div class="border-t border-slate-200 pb-10 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
             <p class="text-xs text-slate-500">© <?php echo date('Y'); ?> Dr. Romarico C. Gonzales Dental Clinic. All rights reserved.</p>
-            <a href="https://mydentalph.ct.ws/" class="text-xs text-slate-500 hover:text-slate-300 transition-colors" target="_blank" rel="noopener noreferrer">Powered by MyDental Philippines</a>
+            <a href="https://mydentalph.ct.ws/" class="text-xs text-slate-500 hover:text-primary transition-colors" target="_blank" rel="noopener noreferrer">Powered by MyDental Philippines</a>
         </div>
     </div>
 </footer>
@@ -83,6 +83,27 @@ $footerLogoAlt = isset($CLINIC['clinic_name']) ? htmlspecialchars($CLINIC['clini
             });
         }
     });
+</script>
+<script>
+    (function () {
+        var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var elements = document.querySelectorAll('[data-reveal="section"]');
+        if (!elements || !elements.length) return;
+        if (prefersReduced || !('IntersectionObserver' in window)) {
+            elements.forEach(function (el) { el.classList.add('is-visible'); });
+            return;
+        }
+        var observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                } else {
+                    entry.target.classList.remove('is-visible');
+                }
+            });
+        }, { threshold: 0.15, rootMargin: '0px 0px -10% 0px' });
+        elements.forEach(function (el) { observer.observe(el); });
+    })();
 </script>
 </body>
 </html>

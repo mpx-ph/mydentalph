@@ -37,15 +37,15 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .service-card:hover {
-            transform: translateY(-4px);
+            transform: translateY(-6px) scale(1.005);
             box-shadow: 0 20px 40px -12px rgba(43, 140, 238, 0.15);
         }
     </style>
-<div class="min-h-screen flex flex-col bg-white dark:bg-background-dark">
+<div class="min-h-screen flex flex-col mesh-gradient dark:bg-background-dark">
 <?php include __DIR__ . '/includes/nav_client.php'; ?>
 <main class="flex-grow w-full">
 <!-- Hero Section -->
-<section class="max-w-7xl mx-auto px-6 md:px-12 pt-28 lg:pt-32 pb-16 text-center">
+<section class="max-w-7xl mx-auto px-6 md:px-12 pt-28 lg:pt-32 pb-16 text-center reveal" data-reveal="section">
 <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[11px] font-extrabold uppercase tracking-[0.2em] mb-8">
                 <?php echo $cu('services_hero_badge', 'Clinically Proven Care'); ?>
             </div>
@@ -57,7 +57,7 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
             </p>
 </section>
 <!-- Vertical Services List (from tenant catalog) -->
-<section class="max-w-5xl mx-auto px-6 md:px-12 pb-20 space-y-6">
+<section class="max-w-5xl mx-auto px-6 md:px-12 pb-20 space-y-6 reveal" data-reveal="section">
 <?php if (count($publicServices) === 0) { ?>
 <div class="text-center py-20 px-6 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20">
 <p class="text-slate-500 dark:text-slate-400 font-medium text-lg">No services are listed yet. Please check back soon.</p>
@@ -79,7 +79,7 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
 <?php } ?>
 </div>
 <div class="shrink-0">
-<a href="<?php echo $bookUrl; ?>" class="inline-flex px-8 py-4 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-sm uppercase tracking-widest transition-all items-center gap-2">
+<a href="<?php echo $bookUrl; ?>" class="inline-flex px-8 py-4 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-sm uppercase tracking-widest transition-all items-center gap-2 hover:shadow-lg hover:shadow-primary/30 active:scale-95">
                         <?php echo $cu('services_card_book_label', 'Book Appointment'); ?>
                         <span class="material-symbols-outlined text-sm">calendar_today</span>
 </a>
@@ -89,8 +89,8 @@ $bookUrl = htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 
 <?php } ?>
 </section>
 <!-- Final CTA Section -->
-<section class="max-w-7xl mx-auto px-6 md:px-12 pb-24">
-<div class="rounded-3xl bg-primary p-12 md:p-20 text-center text-white shadow-xl shadow-primary/20">
+<section class="max-w-7xl mx-auto px-6 md:px-12 pb-24 reveal" data-reveal="section">
+<div class="rounded-[2.5rem] bg-primary p-12 md:p-20 text-center text-white shadow-xl shadow-primary/20">
 <h2 class="font-display text-4xl md:text-5xl font-extrabold tracking-tight mb-6"><?php echo $cu('services_cta_title', 'Ready to start your journey?'); ?></h2>
 <p class="text-white/80 text-lg md:text-xl max-w-xl mx-auto mb-10 font-medium"><?php echo $cuMultiline('services_cta_subtext', 'Join thousands of happy patients who trust us with their oral health and aesthetic transformations.'); ?></p>
 <a href="<?php echo $bookUrl; ?>" class="inline-block bg-white text-primary px-12 py-5 rounded-full font-extrabold text-sm uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-lg active:scale-95">
