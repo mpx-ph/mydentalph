@@ -273,6 +273,9 @@ function sa_document_label(string $type): string
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
+        .doc-preview-modal.hidden {
+            display: none;
+        }
     </style>
 </head>
 <body class="mesh-bg font-body text-on-surface selection:bg-primary/10 min-h-screen">
@@ -373,20 +376,20 @@ require __DIR__ . '/superadmin_header.php';
 <?php else: ?>
 <div class="grid grid-cols-2 gap-4">
 <?php foreach ($files as $f): ?>
-<a target="_blank" href="../<?php echo htmlspecialchars((string) ($f['stored_file_path'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" class="group relative aspect-[4/3] rounded-2xl overflow-hidden editorial-shadow bg-white/40 border border-white cursor-pointer">
+<button type="button" data-file-url="../<?php echo htmlspecialchars((string) ($f['stored_file_path'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" data-file-name="<?php echo htmlspecialchars((string) ($f['original_file_name'] ?? 'file'), ENT_QUOTES, 'UTF-8'); ?>" class="doc-preview-trigger group relative aspect-[4/3] rounded-2xl overflow-hidden editorial-shadow bg-white/40 border border-white cursor-pointer text-left">
 <div class="w-full h-full flex flex-col items-center justify-center px-3 text-center bg-gradient-to-br from-white to-blue-50/60">
 <span class="material-symbols-outlined text-4xl text-primary/70">description</span>
 <p class="mt-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant"><?php echo htmlspecialchars(sa_document_label((string) ($f['document_type'] ?? 'other')), ENT_QUOTES, 'UTF-8'); ?></p>
 <p class="text-[11px] font-bold text-on-surface line-clamp-2"><?php echo htmlspecialchars((string) ($f['original_file_name'] ?? 'file'), ENT_QUOTES, 'UTF-8'); ?></p>
 </div>
 <div class="absolute inset-0 bg-primary/20 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-<span class="material-symbols-outlined text-white text-3xl">open_in_new</span>
-<span class="text-white text-[10px] font-extrabold tracking-widest">OPEN FILE</span>
+<span class="material-symbols-outlined text-white text-3xl">visibility</span>
+<span class="text-white text-[10px] font-extrabold tracking-widest">VIEW FILE</span>
 </div>
 <div class="absolute bottom-3 left-3 px-2 py-1 bg-white/90 backdrop-blur-md rounded-lg text-[9px] font-bold text-on-surface border border-white">
 <?php echo htmlspecialchars((string) ($f['mime_type'] ?? 'file'), ENT_QUOTES, 'UTF-8'); ?> • <?php echo number_format(((int) ($f['file_size_bytes'] ?? 0)) / 1024, 1); ?> KB
 </div>
-</a>
+</button>
 <?php endforeach; ?>
  </div>
 <?php endif; ?>
@@ -419,4 +422,64 @@ Final approval will trigger automated onboarding email to clinic administrator.
 </aside>
 </div>
 </main>
+<div id="docPreviewModal" class="doc-preview-modal hidden fixed inset-0 z-50">
+    <div id="docPreviewBackdrop" class="absolute inset-0 bg-slate-900/70"></div>
+    <div class="relative h-full w-full p-4 md:p-8 flex items-center justify-center">
+        <div class="w-full max-w-5xl h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden border border-white/60">
+            <div class="h-14 px-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <h6 id="docPreviewTitle" class="text-sm font-bold text-slate-700 truncate pr-4">Document Preview</h6>
+                <button id="docPreviewClose" type="button" class="inline-flex items-center justify-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100">Close</button>
+            </div>
+            <div class="h-[calc(90vh-3.5rem)] bg-slate-100">
+                <iframe id="docPreviewFrame" src="" class="w-full h-full border-0" title="Submitted document preview"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    (function () {
+        const modal = document.getElementById('docPreviewModal');
+        const frame = document.getElementById('docPreviewFrame');
+        const title = document.getElementById('docPreviewTitle');
+        const closeBtn = document.getElementById('docPreviewClose');
+        const backdrop = document.getElementById('docPreviewBackdrop');
+        const triggers = document.querySelectorAll('.doc-preview-trigger');
+
+        if (!modal || !frame || !title || !closeBtn || !backdrop || !triggers.length) {
+            return;
+        }
+
+        function openModal(fileUrl, fileName) {
+            frame.src = fileUrl;
+            title.textContent = fileName || 'Document Preview';
+            modal.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+        }
+
+        function closeModal() {
+            modal.classList.add('hidden');
+            frame.src = '';
+            document.body.classList.remove('overflow-hidden');
+        }
+
+        triggers.forEach((trigger) => {
+            trigger.addEventListener('click', function () {
+                const fileUrl = this.getAttribute('data-file-url') || '';
+                const fileName = this.getAttribute('data-file-name') || 'Document Preview';
+                if (!fileUrl) {
+                    return;
+                }
+                openModal(fileUrl, fileName);
+            });
+        });
+
+        closeBtn.addEventListener('click', closeModal);
+        backdrop.addEventListener('click', closeModal);
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
+                closeModal();
+            }
+        });
+    })();
+</script>
 </body></html>
