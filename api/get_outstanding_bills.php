@@ -62,16 +62,15 @@ try {
         }
 
         // Logic:
-        // 1. If they have COMPLETED the downpayment ($paid > 0), they owe the remaining balance
-        // 2. If they have NOT completed the downpayment yet ($paid == 0), they owe the downpayment itself
-        if ($paid > 0) {
-            if ($cost > 0) {
-                $unpaid_due = max(0, $cost - $paid);
-            } else {
-                $unpaid_due = $base_amount; // assuming 50/50 rule, the remaining half
-            }
-        } else {
-            $unpaid_due = $base_amount; // They need to pay the pending downpayment amount
+        // 1. If total cost is not stored, we assume the total was exactly double the downpayment
+        $actual_cost = ($cost > 0) ? $cost : ($base_amount * 2);
+        
+        $unpaid_due = max(0, $actual_cost - $paid);
+
+        // However, if they have absolutely NO completed payments yet (i.e. even the downpayment is pending),
+        // we show the downpayment amount as due right now.
+        if ($paid == 0) {
+            $unpaid_due = $base_amount;
         }
 
         // Only show bills that still have a balance remaining 
