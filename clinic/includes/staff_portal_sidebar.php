@@ -4,18 +4,38 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-$clinicName = 'Dental Clinic';
-if (isset($currentTenantData['clinic_name']) && trim((string) $currentTenantData['clinic_name']) !== '') {
+if (!isset($currentTenantId) || trim((string) $currentTenantId) === '') {
+    if (isset($_SESSION['tenant_id']) && trim((string) $_SESSION['tenant_id']) !== '') {
+        $currentTenantId = trim((string) $_SESSION['tenant_id']);
+    }
+}
+
+require_once __DIR__ . '/clinic_customization.php';
+
+$clinicName = '';
+if (isset($CLINIC['clinic_name']) && trim((string) $CLINIC['clinic_name']) !== '') {
+    $clinicName = (string) $CLINIC['clinic_name'];
+} elseif (isset($currentTenantData['clinic_name']) && trim((string) $currentTenantData['clinic_name']) !== '') {
     $clinicName = (string) $currentTenantData['clinic_name'];
 } elseif (isset($_SESSION['clinic_name']) && trim((string) $_SESSION['clinic_name']) !== '') {
     $clinicName = (string) $_SESSION['clinic_name'];
+} elseif (isset($currentTenantSlug) && trim((string) $currentTenantSlug) !== '') {
+    $clinicName = ucwords(str_replace('-', ' ', (string) $currentTenantSlug));
+}
+if ($clinicName === '') {
+    $clinicName = 'Precision Dental';
 }
 
-$clinicLogo = 'DRCGLogo2.png';
-if (isset($currentTenantData['logo_nav']) && trim((string) $currentTenantData['logo_nav']) !== '') {
+$clinicLogo = '';
+if (isset($CLINIC['logo_nav']) && trim((string) $CLINIC['logo_nav']) !== '') {
+    $clinicLogo = (string) $CLINIC['logo_nav'];
+} elseif (isset($currentTenantData['logo_nav']) && trim((string) $currentTenantData['logo_nav']) !== '') {
     $clinicLogo = (string) $currentTenantData['logo_nav'];
 } elseif (isset($_SESSION['clinic_logo_nav']) && trim((string) $_SESSION['clinic_logo_nav']) !== '') {
     $clinicLogo = (string) $_SESSION['clinic_logo_nav'];
+}
+if ($clinicLogo === '') {
+    $clinicLogo = 'DRCGLogo2.png';
 }
 
 $clinicLogoUrl = strpos($clinicLogo, 'http') === 0 ? $clinicLogo : (BASE_URL . ltrim($clinicLogo, '/'));
