@@ -21,8 +21,6 @@ $todayAppointments = 0;
 $pendingRequests = 0;
 $todayRevenue = 0.0;
 $recentBookings = [];
-$todayCompleted = 0;
-$todayCancelled = 0;
 
 try {
     $pdo = getDBConnection();
@@ -46,14 +44,6 @@ try {
         $stmt = $pdo->prepare("SELECT COUNT(*) AS count FROM tbl_appointments WHERE tenant_id = ? AND status = 'pending'");
         $stmt->execute([$tenantId]);
         $pendingRequests = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0);
-
-        $stmt = $pdo->prepare("SELECT COUNT(*) AS count FROM tbl_appointments WHERE tenant_id = ? AND appointment_date = ? AND status = 'completed'");
-        $stmt->execute([$tenantId, $today]);
-        $todayCompleted = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0);
-
-        $stmt = $pdo->prepare("SELECT COUNT(*) AS count FROM tbl_appointments WHERE tenant_id = ? AND appointment_date = ? AND (status = 'cancelled' OR status = 'no_show')");
-        $stmt->execute([$tenantId, $today]);
-        $todayCancelled = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0);
 
         $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) AS total_revenue FROM tbl_payments WHERE tenant_id = ? AND DATE(payment_date) = ? AND status = 'completed'");
         $stmt->execute([$tenantId, $today]);
@@ -131,7 +121,9 @@ try {
         };
     </script>
 <style>
-        html { scrollbar-gutter: stable; }
+        html {
+            scrollbar-gutter: stable;
+        }
         body { font-family: 'Manrope', sans-serif; }
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
@@ -148,101 +140,98 @@ try {
             border: 1px solid rgba(226, 232, 240, 0.8);
             box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
         }
-        .glass-card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+        .provider-page-enter {
+            animation: provider-page-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
-        .editorial-shadow {
-            box-shadow: 0 12px 40px -10px rgba(19, 28, 37, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.8);
-        }
-        .editorial-word {
-            text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
-            letter-spacing: -0.02em;
-        }
-        @keyframes staff-page-in {
+        @keyframes provider-page-in {
             from { opacity: 0; transform: translateY(14px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .staff-page-enter {
-            animation: staff-page-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-        }
-        .staff-card-lift {
+        .provider-card-lift {
             transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
         }
-        .staff-card-lift:hover {
+        .provider-card-lift:hover {
             transform: translateY(-4px);
             box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.12);
         }
-        .staff-stat-card {
-            background: linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.92) 100%);
-            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.95), 0 10px 40px -10px rgba(15, 23, 42, 0.1);
-        }
-        .staff-welcome-banner {
+        .provider-welcome-banner {
             background: linear-gradient(120deg, #1e3a5f 0%, #2b8beb 42%, #5ab0ff 100%);
             box-shadow: 0 20px 50px -20px rgba(43, 139, 235, 0.45);
         }
-        .staff-action-btn {
-            transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+        .dash-stat-card {
+            background: linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.92) 100%);
+            box-shadow:
+                0 0 0 1px rgba(255, 255, 255, 0.95),
+                0 10px 40px -10px rgba(15, 23, 42, 0.1);
         }
-        .staff-action-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 14px 30px -14px rgba(15, 23, 42, 0.45);
-        }
-        .staff-modal-hidden {
-            opacity: 0;
+        .dash-stat-card::before {
+            content: '';
+            position: absolute;
+            inset: 0 0 auto 0;
+            height: 3px;
+            border-radius: 1.5rem 1.5rem 0 0;
+            opacity: 0.85;
             pointer-events: none;
-            transform: scale(0.98);
         }
-        .staff-modal-visible {
-            opacity: 1;
-            pointer-events: auto;
-            transform: scale(1);
+        .dash-stat-card--appointments::before {
+            background: linear-gradient(90deg, #2b8beb, #60a5fa);
+        }
+        .dash-stat-card--pending::before {
+            background: linear-gradient(90deg, #f59e0b, #fbbf24);
+        }
+        .dash-stat-card--revenue::before {
+            background: linear-gradient(90deg, #0d9488, #34d399);
+        }
+        .info-modal-backdrop {
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
         }
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 staff-page-enter">
+<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
-<div class="p-10 space-y-10">
-<section class="relative">
-<div class="absolute top-10 right-8 w-[26rem] h-[26rem] bg-primary/10 rounded-full blur-[120px] -z-10 pointer-events-none" aria-hidden="true"></div>
-<p class="text-primary font-bold text-[10px] sm:text-xs uppercase tracking-[0.35em] flex items-center gap-3 mb-3">
-<span class="w-8 sm:w-10 h-px bg-primary/40"></span> Staff dashboard
-</p>
-<h2 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold font-headline tracking-tight text-on-background">
-                Clinic <span class="font-editorial italic font-normal text-primary editorial-word">Command Center</span>
+<div class="p-6 lg:p-10 pb-20 space-y-8 relative">
+<div class="absolute top-24 right-8 w-[28rem] h-[28rem] bg-primary/10 rounded-full blur-[120px] -z-10 pointer-events-none" aria-hidden="true"></div>
+<div class="absolute bottom-40 left-10 w-72 h-72 bg-teal-400/10 rounded-full blur-[100px] -z-10 pointer-events-none" aria-hidden="true"></div>
+<section class="flex flex-col gap-4 mb-4">
+<div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
+<span class="w-12 h-[1.5px] bg-primary"></span> STAFF DASHBOARD
+</div>
+<div>
+<h2 class="font-headline text-6xl font-extrabold tracking-tighter leading-tight text-on-background">
+                    Welcome to <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Dashboard</span>
 </h2>
-<p class="text-on-surface-variant mt-3 text-base sm:text-lg font-medium max-w-2xl leading-relaxed">
-                Live overview of appointments, pending requests, and today&rsquo;s revenue.
-</p>
+<p class="font-body text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-4">
+                    Live overview of appointments, pending requests, and today's revenue.
+                </p>
+</div>
 </section>
 
-<section class="staff-welcome-banner rounded-3xl px-6 sm:px-10 py-7 sm:py-8 text-white relative overflow-hidden">
+<section class="provider-welcome-banner rounded-3xl px-6 sm:px-10 py-7 sm:py-8 text-white relative overflow-hidden">
 <div class="absolute inset-0 opacity-[0.12] pointer-events-none" style="background-image: radial-gradient(circle at 20% 120%, #fff 0, transparent 55%), radial-gradient(circle at 90% -20%, #fff 0, transparent 45%);" aria-hidden="true"></div>
 <div class="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
 <div class="max-w-2xl">
-<p class="text-white/80 text-xs font-bold uppercase tracking-[0.25em] mb-2">Today at a glance</p>
-<p class="text-2xl sm:text-3xl font-extrabold font-headline tracking-tight">Keep the queue moving and monitor daily outcomes.</p>
-<p class="text-white/85 mt-2 text-sm sm:text-base font-medium leading-relaxed">Use quick actions to jump to appointments or review today&rsquo;s booking activity.</p>
+<p class="text-white/80 text-xs font-bold uppercase tracking-[0.25em] mb-2">Care operations</p>
+<p class="text-2xl sm:text-3xl font-extrabold font-headline tracking-tight">Manage your clinic flow with <span class="font-editorial italic font-normal text-white/95">confidence</span>.</p>
+<p class="text-white/85 mt-2 text-sm sm:text-base font-medium leading-relaxed">Track bookings in real time, review pending cases, and keep the front desk and dentists aligned.</p>
 </div>
 <div class="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 shrink-0">
-<a class="staff-action-btn inline-flex items-center justify-center gap-2 rounded-2xl bg-white text-primary px-6 py-3.5 text-sm font-bold shadow-lg shadow-black/10 hover:brightness-[1.03] transition-all ring-2 ring-white/30" href="StaffAppointments.php">
-<span class="material-symbols-outlined text-xl">calendar_month</span>
-                    Open Appointments
-</a>
-<button id="staff-open-quick-modal" type="button" class="staff-action-btn inline-flex items-center justify-center gap-2 rounded-2xl bg-white/10 text-white border border-white/25 px-6 py-3.5 text-sm font-bold hover:bg-white/15 transition-all backdrop-blur-sm">
-<span class="material-symbols-outlined text-xl">tips_and_updates</span>
-                    Quick Actions
+<button type="button" id="staff-workflow-tips-btn" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-white text-primary px-6 py-3.5 text-sm font-bold shadow-lg shadow-black/10 hover:brightness-[1.03] transition-all ring-2 ring-white/30">
+<span class="material-symbols-outlined text-xl">lightbulb</span>
+Workflow Tips
 </button>
+<a href="<?php echo htmlspecialchars((string) ($currentTenantSlug !== '' ? ('/' . rawurlencode($currentTenantSlug) . '/StaffAppointments.php') : 'StaffAppointments.php'), ENT_QUOTES, 'UTF-8'); ?>" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-white/10 text-white border border-white/25 px-6 py-3.5 text-sm font-bold hover:bg-white/15 transition-all backdrop-blur-sm">
+<span class="material-symbols-outlined text-xl">calendar_month</span>
+View Appointments
+</a>
 </div>
 </div>
 </section>
 
 <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-<div class="elevated-card staff-card-lift staff-stat-card p-8 rounded-3xl flex flex-col justify-between">
+<div class="elevated-card provider-card-lift dash-stat-card dash-stat-card--appointments relative overflow-hidden p-8 rounded-3xl flex flex-col justify-between">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event_available</span>
@@ -255,7 +244,7 @@ try {
 </div>
 </div>
 
-<div class="elevated-card staff-card-lift staff-stat-card p-8 rounded-3xl flex flex-col justify-between">
+<div class="elevated-card provider-card-lift dash-stat-card dash-stat-card--pending relative overflow-hidden p-8 rounded-3xl flex flex-col justify-between">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">pending_actions</span>
@@ -268,7 +257,7 @@ try {
 </div>
 </div>
 
-<div class="elevated-card staff-card-lift staff-stat-card p-8 rounded-3xl flex flex-col justify-between">
+<div class="elevated-card provider-card-lift dash-stat-card dash-stat-card--revenue relative overflow-hidden p-8 rounded-3xl flex flex-col justify-between">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">payments</span>
@@ -276,14 +265,13 @@ try {
 <span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full uppercase tracking-widest">Today</span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">₱<?php echo number_format($todayRevenue, 2); ?></p>
+<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">$<?php echo number_format($todayRevenue, 2); ?></p>
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Today's Revenue</p>
 </div>
 </div>
 </section>
 
-<section class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
-<div class="lg:col-span-2 elevated-card glass-card editorial-shadow rounded-3xl overflow-hidden staff-card-lift">
+<section class="elevated-card provider-card-lift rounded-3xl overflow-hidden">
 <div class="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
 <div>
 <h3 class="text-2xl font-bold font-headline text-on-background">Recent Bookings</h3>
@@ -343,7 +331,7 @@ try {
     }
     $amount = (float) ($booking['total_treatment_cost'] ?? 0);
 ?>
-<tr class="hover:bg-slate-50/30 transition-colors group">
+<tr class="hover:bg-slate-50/50 transition-colors group">
 <td class="px-8 py-5">
 <div>
 <p class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors"><?php echo htmlspecialchars($patientName, ENT_QUOTES, 'UTF-8'); ?></p>
@@ -380,106 +368,65 @@ try {
 <div class="p-6 bg-slate-50/30 border-t border-slate-100">
 <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Showing <?php echo count($recentBookings); ?> recent entries</p>
 </div>
-</div>
-
-<div class="space-y-4">
-<div class="glass-card rounded-3xl p-6 editorial-shadow staff-card-lift">
-<h3 class="text-base font-extrabold font-headline text-on-background mb-1">Today&rsquo;s outcomes</h3>
-<p class="text-xs text-on-surface-variant mb-5">Status breakdown for staff operations today</p>
-<div class="space-y-4">
-<div class="flex items-center justify-between gap-3 rounded-2xl bg-amber-50/90 border border-amber-100 px-4 py-3">
-<div class="flex items-center gap-2 min-w-0">
-<span class="material-symbols-outlined text-amber-700 text-xl shrink-0">schedule</span>
-<span class="text-sm font-bold text-amber-950">Pending</span>
-</div>
-<span class="text-xl font-extrabold tabular-nums text-amber-950"><?php echo number_format($pendingRequests); ?></span>
-</div>
-<div class="flex items-center justify-between gap-3 rounded-2xl bg-emerald-50/90 border border-emerald-100 px-4 py-3">
-<div class="flex items-center gap-2 min-w-0">
-<span class="material-symbols-outlined text-emerald-700 text-xl shrink-0">check_circle</span>
-<span class="text-sm font-bold text-emerald-950">Completed</span>
-</div>
-<span class="text-xl font-extrabold tabular-nums text-emerald-950"><?php echo number_format($todayCompleted); ?></span>
-</div>
-<div class="flex items-center justify-between gap-3 rounded-2xl bg-slate-100/90 border border-slate-200 px-4 py-3">
-<div class="flex items-center gap-2 min-w-0">
-<span class="material-symbols-outlined text-slate-600 text-xl shrink-0">cancel</span>
-<span class="text-sm font-bold text-slate-900">Cancelled / No-show</span>
-</div>
-<span class="text-xl font-extrabold tabular-nums text-slate-900"><?php echo number_format($todayCancelled); ?></span>
-</div>
-</div>
-</div>
-</div>
 </section>
 </div>
 </main>
-<div id="staff-quick-modal" class="fixed inset-0 z-[70] bg-slate-950/50 backdrop-blur-sm transition-all duration-200 staff-modal-hidden" aria-hidden="true">
-<div class="min-h-screen w-full flex items-center justify-center p-5">
-<div class="w-full max-w-lg rounded-3xl bg-white border border-slate-200 shadow-2xl shadow-slate-900/20 overflow-hidden">
-<div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between gap-3">
-<div>
-<p class="text-[11px] font-bold uppercase tracking-[0.22em] text-primary">Staff quick actions</p>
-<h3 class="text-xl font-extrabold font-headline text-on-background mt-1">Jump to frequently used pages</h3>
-</div>
-<button id="staff-close-quick-modal-top" type="button" class="w-9 h-9 rounded-xl border border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-all">
-<span class="material-symbols-outlined text-[20px]">close</span>
-</button>
-</div>
-<div class="p-6 space-y-3">
-<a href="StaffAppointments.php" class="block rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 hover:border-primary/40 hover:bg-primary/5 transition-all">
-<p class="font-bold text-slate-900">Manage Appointments</p>
-<p class="text-sm text-slate-600 mt-1">Review schedules, queue, and updates.</p>
-</a>
-<a href="StaffManagePatient.php" class="block rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 hover:border-primary/40 hover:bg-primary/5 transition-all">
-<p class="font-bold text-slate-900">Open Patient Records</p>
-<p class="text-sm text-slate-600 mt-1">Search and view patient information quickly.</p>
-</a>
-<a href="StaffPaymentRecording.php" class="block rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 hover:border-primary/40 hover:bg-primary/5 transition-all">
-<p class="font-bold text-slate-900">Record Payments</p>
-<p class="text-sm text-slate-600 mt-1">Capture completed payments for today.</p>
-</a>
-</div>
-<div class="px-6 pb-6">
-<button id="staff-close-quick-modal" type="button" class="w-full rounded-2xl bg-primary text-white font-bold py-3 hover:brightness-105 transition-all">Close</button>
-</div>
-</div>
-</div>
+<div id="staff-workflow-modal" class="fixed inset-0 z-[80] hidden">
+    <div class="absolute inset-0 bg-slate-900/45 info-modal-backdrop"></div>
+    <div class="relative h-full flex items-center justify-center p-5">
+        <div class="w-full max-w-xl rounded-3xl bg-white border border-slate-200 shadow-2xl shadow-slate-900/15 p-6 sm:p-8">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-primary font-bold text-[10px] uppercase tracking-[0.3em]">Quick guide</p>
+                    <h4 class="text-2xl font-headline font-extrabold tracking-tight mt-2">Staff Workflow Tips</h4>
+                </div>
+                <button type="button" id="staff-workflow-close" class="w-10 h-10 rounded-xl border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors" aria-label="Close">
+                    <span class="material-symbols-outlined text-xl">close</span>
+                </button>
+            </div>
+            <ul class="mt-6 space-y-3 text-sm text-slate-700">
+                <li class="rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3"><strong class="font-bold text-slate-900">Start with pending queue:</strong> prioritize pending requests to keep appointment lead times low.</li>
+                <li class="rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3"><strong class="font-bold text-slate-900">Validate details early:</strong> confirm service and dentist assignment before patient reminders go out.</li>
+                <li class="rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3"><strong class="font-bold text-slate-900">Track same-day payments:</strong> use the revenue card for quick end-of-day reconciliation.</li>
+            </ul>
+            <div class="mt-6 flex justify-end">
+                <button type="button" id="staff-workflow-dismiss" class="inline-flex items-center justify-center rounded-2xl bg-primary text-white px-5 py-2.5 text-sm font-bold hover:brightness-110 transition-all">
+                    Got it
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 <script>
     (function () {
-        var modal = document.getElementById('staff-quick-modal');
-        var openBtn = document.getElementById('staff-open-quick-modal');
-        var closeBtn = document.getElementById('staff-close-quick-modal');
-        var closeTopBtn = document.getElementById('staff-close-quick-modal-top');
-        if (!modal || !openBtn || !closeBtn || !closeTopBtn) {
+        var openBtn = document.getElementById('staff-workflow-tips-btn');
+        var modal = document.getElementById('staff-workflow-modal');
+        var closeBtn = document.getElementById('staff-workflow-close');
+        var dismissBtn = document.getElementById('staff-workflow-dismiss');
+        if (!openBtn || !modal) {
             return;
         }
-
-        function closeModal() {
-            modal.classList.remove('staff-modal-visible');
-            modal.classList.add('staff-modal-hidden');
-            modal.setAttribute('aria-hidden', 'true');
+        var closeModal = function () {
+            modal.classList.add('hidden');
             document.body.classList.remove('overflow-hidden');
-        }
-
-        function openModal() {
-            modal.classList.remove('staff-modal-hidden');
-            modal.classList.add('staff-modal-visible');
-            modal.setAttribute('aria-hidden', 'false');
+        };
+        openBtn.addEventListener('click', function () {
+            modal.classList.remove('hidden');
             document.body.classList.add('overflow-hidden');
+        });
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeModal);
         }
-
-        openBtn.addEventListener('click', openModal);
-        closeBtn.addEventListener('click', closeModal);
-        closeTopBtn.addEventListener('click', closeModal);
+        if (dismissBtn) {
+            dismissBtn.addEventListener('click', closeModal);
+        }
         modal.addEventListener('click', function (event) {
-            if (event.target === modal) {
+            if (event.target === modal || event.target === modal.firstElementChild) {
                 closeModal();
             }
         });
         document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape') {
+            if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
                 closeModal();
             }
         });

@@ -124,27 +124,22 @@ if ($currentUserRole === 'dentist') {
 }
 ?>
 <style>
-    .no-scrollbar::-webkit-scrollbar {
-        display: none;
-    }
-    .active-glow {
-        box-shadow: 0 0 20px -5px rgba(43, 139, 235, 0.35);
-    }
     .staff-sidebar-brand .editorial-word {
         text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
         letter-spacing: -0.02em;
     }
     .staff-sidebar-shell {
-        background: rgba(252, 253, 255, 0.86);
+        background: rgba(252, 253, 255, 0.85);
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
-        border-right: 1px solid rgba(224, 233, 246, 0.7);
+        border-right: 1px solid rgba(224, 233, 246, 0.5);
     }
     .staff-nav-link {
-        transition: transform 0.22s ease, background-color 0.22s ease, color 0.22s ease, box-shadow 0.22s ease;
+        transition: transform 0.25s ease, background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
     }
     .staff-nav-link:not(.staff-nav-link--active):hover {
         transform: translateX(4px);
+        box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.8);
     }
 </style>
 <aside class="staff-sidebar-brand staff-sidebar-shell fixed left-0 top-0 h-full w-64 z-40 flex flex-col py-8">
@@ -164,7 +159,7 @@ if ($currentUserRole === 'dentist') {
         <?php foreach ($navItems as $item) { ?>
             <?php $isActive = $staff_nav_active === $item['key']; ?>
             <div class="<?php echo $isActive ? 'relative ' : ''; ?>px-3">
-                <a href="<?php echo htmlspecialchars($item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="staff-nav-link <?php echo $isActive ? 'staff-nav-link--active' : ''; ?> flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?php echo $isActive ? 'bg-primary/10 text-primary active-glow' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50/90'; ?>">
+                <a href="<?php echo htmlspecialchars($item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="staff-nav-link <?php echo $isActive ? 'staff-nav-link--active' : ''; ?> flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?php echo $isActive ? 'bg-primary/10 text-primary active-glow' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'; ?>">
                     <span class="material-symbols-outlined text-[22px]" <?php echo $isActive ? 'style="font-variation-settings: \'FILL\' 1;"' : ''; ?>><?php echo htmlspecialchars($item['icon'], ENT_QUOTES, 'UTF-8'); ?></span>
                     <span class="font-headline text-sm <?php echo $isActive ? 'font-bold' : 'font-medium'; ?> tracking-tight"><?php echo htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
                 </a>
