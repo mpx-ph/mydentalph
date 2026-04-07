@@ -66,6 +66,18 @@ if (!isset($currentTenantSlug)) {
             background: #ffffff;
             border: 1px solid rgba(226, 232, 240, 0.8);
             box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+        }
+        .elevated-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.12);
+        }
+        .provider-page-enter {
+            animation: provider-page-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        @keyframes provider-page-in {
+            from { opacity: 0; transform: translateY(14px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         .active-glow {
             box-shadow: 0 0 20px -5px rgba(43, 139, 235, 0.4);
@@ -75,7 +87,7 @@ if (!isset($currentTenantSlug)) {
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20">
+<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
     <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
 
     <div class="p-10">

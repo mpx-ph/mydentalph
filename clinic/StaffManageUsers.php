@@ -74,6 +74,32 @@ if (!isset($currentTenantSlug)) {
             background: #ffffff;
             border: 1px solid rgba(226, 232, 240, 0.8);
             box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+        }
+        .elevated-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.12);
+        }
+        .provider-page-enter {
+            animation: provider-page-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        @keyframes provider-page-in {
+            from { opacity: 0; transform: translateY(14px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .staff-modal-overlay:not(.hidden) {
+            animation: staff-modal-fade-in 0.25s ease forwards;
+        }
+        .staff-modal-panel {
+            animation: staff-modal-panel-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        @keyframes staff-modal-fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes staff-modal-panel-in {
+            from { opacity: 0; transform: translateY(10px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
         }
         .active-glow {
             box-shadow: 0 0 20px -5px rgba(43, 139, 235, 0.4);
@@ -87,7 +113,7 @@ if (!isset($currentTenantSlug)) {
 <!-- SideNavBar Component -->
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
 <!-- Main Wrapper -->
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20">
+<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
 <!-- Scrollable Content -->
 <div class="p-10 space-y-10">
@@ -163,8 +189,8 @@ if (!isset($currentTenantSlug)) {
 </div>
 </section>
 </div>
-<div class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4" id="editUserModal">
-<div class="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 border border-slate-200">
+<div class="staff-modal-overlay fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4" id="editUserModal">
+<div class="staff-modal-panel bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 border border-slate-200">
 <div class="flex items-center justify-between mb-6">
 <h2 class="text-2xl font-bold text-slate-900">Update User Details</h2>
 <button class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" id="closeEditModal" type="button">

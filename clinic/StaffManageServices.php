@@ -76,6 +76,32 @@ if (!isset($currentTenantSlug)) {
             background: #ffffff;
             border: 1px solid rgba(226, 232, 240, 0.8);
             box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+        }
+        .elevated-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.12);
+        }
+        .provider-page-enter {
+            animation: provider-page-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        @keyframes provider-page-in {
+            from { opacity: 0; transform: translateY(14px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .staff-modal-overlay:not(.hidden) {
+            animation: staff-modal-fade-in 0.25s ease forwards;
+        }
+        .staff-modal-panel {
+            animation: staff-modal-panel-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        @keyframes staff-modal-fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes staff-modal-panel-in {
+            from { opacity: 0; transform: translateY(10px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
         }
         .active-glow {
             box-shadow: 0 0 20px -5px rgba(43, 139, 235, 0.4);
@@ -87,7 +113,7 @@ if (!isset($currentTenantSlug)) {
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20">
+<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
 <div class="p-10 space-y-8">
 <section class="flex flex-col gap-4">
@@ -164,8 +190,8 @@ if (!isset($currentTenantSlug)) {
 <div class="h-10"></div>
 </main>
 
-<div id="newServiceModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/45 p-4">
-<div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+<div id="newServiceModal" class="staff-modal-overlay fixed inset-0 z-50 hidden items-center justify-center bg-black/45 p-4">
+<div class="staff-modal-panel bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
 <div class="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
 <h3 class="text-2xl font-bold font-headline text-on-background">Add New Service</h3>
 <button id="closeNewServiceBtn" class="p-2 rounded-lg hover:bg-slate-100 transition-colors"><span class="material-symbols-outlined text-slate-500">close</span></button>
@@ -205,8 +231,8 @@ if (!isset($currentTenantSlug)) {
 </div>
 </div>
 
-<div id="editServiceModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/45 p-4">
-<div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+<div id="editServiceModal" class="staff-modal-overlay fixed inset-0 z-50 hidden items-center justify-center bg-black/45 p-4">
+<div class="staff-modal-panel bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
 <div class="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
 <h3 class="text-2xl font-bold font-headline text-on-background">Edit Service</h3>
 <button id="closeEditServiceBtn" class="p-2 rounded-lg hover:bg-slate-100 transition-colors"><span class="material-symbols-outlined text-slate-500">close</span></button>

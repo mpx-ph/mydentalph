@@ -55,6 +55,32 @@ body { font-family: "Manrope", sans-serif; }
     background: #ffffff;
     border: 1px solid rgba(226, 232, 240, 0.8);
     box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+}
+.elevated-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.12);
+}
+.provider-page-enter {
+    animation: provider-page-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes provider-page-in {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.staff-modal-overlay:not(.hidden) {
+    animation: staff-modal-fade-in 0.25s ease forwards;
+}
+.staff-modal-panel {
+    animation: staff-modal-panel-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes staff-modal-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+@keyframes staff-modal-panel-in {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .patient-tab-btn {
     border-bottom: 2px solid transparent;
@@ -67,7 +93,7 @@ body { font-family: "Manrope", sans-serif; }
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20">
+<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
 <div class="p-10 space-y-8">
     <section class="flex flex-col gap-4">
@@ -153,8 +179,8 @@ body { font-family: "Manrope", sans-serif; }
 </div>
 </main>
 
-<div id="addPatientModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-200">
+<div id="addPatientModal" class="staff-modal-overlay fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="staff-modal-panel bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-200">
         <div class="flex items-center justify-between p-6 border-b border-slate-200">
             <h2 id="patientModalTitle" class="text-2xl font-bold text-gray-900">Add New Patient</h2>
             <button id="closeAddPatientModal" class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
@@ -222,7 +248,7 @@ body { font-family: "Manrope", sans-serif; }
     </div>
 </div>
 
-<div id="viewPatientModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden">
+<div id="viewPatientModal" class="staff-modal-overlay fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden">
     <div id="viewPatientPanel" class="ml-auto h-full w-full max-w-5xl bg-white shadow-2xl overflow-hidden border-l border-slate-200 flex flex-col transform translate-x-full transition-transform duration-300 ease-out">
         <div class="flex items-center justify-between p-5 border-b border-slate-200">
             <h3 class="text-lg font-black tracking-tight text-slate-900">Patient Profile</h3>
