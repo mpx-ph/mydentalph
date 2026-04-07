@@ -32,13 +32,13 @@ try {
     }
     
     $debug = !empty($input['debug']);
-    $email = sanitize($input['email'] ?? '');
+    $login = trim((string) ($input['login'] ?? $input['email'] ?? $input['username'] ?? ''));
     $password = $input['password'] ?? '';
     $userType = sanitize($input['user_type'] ?? 'client');
     $clinicSlug = isset($input['clinic_slug']) ? trim((string) $input['clinic_slug']) : '';
 
-    if (empty($email) || empty($password)) {
-        jsonResponse(false, 'Email and password are required.');
+    if ($login === '' || empty($password)) {
+        jsonResponse(false, 'Email/Username and password are required.');
     }
 
     // If tenant context is missing but clinic_slug was sent, resolve and set session (e.g. direct API call or new tab)
@@ -58,7 +58,7 @@ try {
         }
     }
 
-    $result = loginUser($email, $password, $userType);
+    $result = loginUser($login, $password, $userType);
 
     if ($result['success']) {
         $slugOut = $clinicSlug !== '' ? strtolower($clinicSlug) : (isset($_SESSION['public_tenant_slug']) ? strtolower((string) $_SESSION['public_tenant_slug']) : '');

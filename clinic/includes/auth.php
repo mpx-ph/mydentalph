@@ -215,17 +215,18 @@ function _auth_resolve_staff_portal_profile(PDO $pdo, string $tenantId, array $u
  *
  * @return array success, message, user, portal keys
  */
-function _loginPortalUnified(PDO $pdo, $tenantId, $email, $password) {
+function _loginPortalUnified(PDO $pdo, $tenantId, $login, $password) {
     $tenantId = trim((string) $tenantId);
+    $loginNormalized = strtolower(trim((string) $login));
     $stmt = $pdo->prepare("
         SELECT user_id, tenant_id, email, username, full_name, password_hash, role, status
         FROM tbl_users
-        WHERE (email = ? OR username = ?)
+        WHERE (LOWER(TRIM(COALESCE(email, ''))) = ? OR LOWER(TRIM(COALESCE(username, ''))) = ?)
           AND status = 'active'
           AND tenant_id = ?
         LIMIT 1
     ");
-    $stmt->execute([$email, $email, $tenantId]);
+    $stmt->execute([$loginNormalized, $loginNormalized, $tenantId]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     $fail = ['success' => false, 'message' => 'Invalid credentials.', 'user' => null, 'portal' => null];
@@ -361,12 +362,12 @@ function _loginPortalUnified(PDO $pdo, $tenantId, $email, $password) {
 
 /**
  * Attempt login: find user by email or username, verify password, set session, return result.
- * @param string $email Email or username
+ * @param string $login Email or username
  * @param string $password Plain password
  * @param string $userType Requested type: 'client', 'manager', 'doctor', 'staff', 'portal' (patient + staff auto)
  * @return array ['success' => bool, 'message' => string, 'user' => array|null, 'portal' => string|null]
  */
-function loginUser($email, $password, $userType) {
+function loginUser($login, $password, $userType) {
     if (!function_exists('getDBConnection')) {
         require_once __DIR__ . '/../config/database.php';
     }
@@ -375,19 +376,20 @@ function loginUser($email, $password, $userType) {
 
     $requestedType = strtolower((string) $userType);
     if ($requestedType === 'portal' || $requestedType === 'unified') {
-        return _loginPortalUnified($pdo, $tenantId, $email, $password);
+        return _loginPortalUnified($pdo, $tenantId, $login, $password);
     }
 
-    // Find by email or username (schema: tbl_users has user_id, password_hash, role; no id/password/user_type)
+    // Find by email or username (case-insensitive and trimmed)
+    $loginNormalized = strtolower(trim((string) $login));
     $stmt = $pdo->prepare("
         SELECT user_id, email, username, full_name, password_hash, role, status
         FROM tbl_users
-        WHERE (email = ? OR username = ?)
+        WHERE (LOWER(TRIM(COALESCE(email, ''))) = ? OR LOWER(TRIM(COALESCE(username, ''))) = ?)
           AND status = 'active'
           AND tenant_id = ?
         LIMIT 1
     ");
-    $stmt->execute([$email, $email, $tenantId]);
+    $stmt->execute([$loginNormalized, $loginNormalized, $tenantId]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$user) {

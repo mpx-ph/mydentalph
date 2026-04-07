@@ -370,6 +370,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
+                        login: email.trim(),
                         email: email.trim(),
                         password: password,
                         user_type: 'portal',
