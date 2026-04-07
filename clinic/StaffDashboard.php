@@ -188,12 +188,11 @@ try {
             box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
         }
         .provider-page-enter {
-            animation: staff-page-pop 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            animation: provider-page-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
-        @keyframes staff-page-pop {
-            from { opacity: 0; transform: translateY(20px) scale(0.985); }
-            60% { opacity: 1; transform: translateY(-2px) scale(1.004); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
+        @keyframes provider-page-in {
+            from { opacity: 0; transform: translateY(14px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         .staff-card-lift {
             transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
