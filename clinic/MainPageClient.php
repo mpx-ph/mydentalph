@@ -66,7 +66,7 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 
 <main class="mesh-gradient dark:bg-slate-950 text-slate-900 dark:text-slate-100">
 <!-- Centered Hero Section -->
-<section class="relative min-h-[90vh] flex items-center justify-center pt-20 overflow-hidden reveal" data-reveal="section" style="background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.8)), url('<?php echo $heroBgEsc; ?>'); background-size: cover; background-position: center 58%;">
+<section class="relative min-h-[90vh] flex items-center justify-center pt-20 overflow-hidden reveal" data-reveal="section" style="background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.8)), url('<?php echo $heroBgEsc; ?>'); background-size: cover; background-position: center 72%;">
 <div class="max-w-7xl mx-auto w-full px-10 relative z-10 flex flex-col items-center text-center justify-center">
 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8 font-headline">
                 <?php
