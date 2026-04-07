@@ -329,7 +329,7 @@ try {
                         Record and track all clinic payment transactions
                     </p>
 </div>
-<button class="px-6 py-3 bg-primary text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all" type="button" onclick="window.scrollTo({ top: document.body.scrollHeight * 0.25, behavior: 'smooth' });">
+<button class="px-6 py-3 bg-primary text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all" id="open-transaction-modal" type="button">
                     New Transaction
                 </button>
 </div>
@@ -376,88 +376,13 @@ try {
 </div>
 </div>
 </section>
-<!-- Record New Payment Module -->
-<section class="max-w-4xl mx-auto w-full">
-<div class="glass-form p-10 rounded-[2.5rem] shadow-2xl shadow-primary/10">
 <?php if ($paymentSuccess !== ''): ?>
-<div class="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 px-5 py-3 text-sm font-semibold">
+<section>
+<div class="rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 px-5 py-3 text-sm font-semibold">
 <?php echo htmlspecialchars($paymentSuccess, ENT_QUOTES, 'UTF-8'); ?>
 </div>
-<?php endif; ?>
-<?php if ($paymentError !== ''): ?>
-<div class="mb-6 rounded-2xl border border-red-200 bg-red-50 text-red-700 px-5 py-3 text-sm font-semibold">
-<?php echo htmlspecialchars($paymentError, ENT_QUOTES, 'UTF-8'); ?>
-</div>
-<?php endif; ?>
-<div class="flex justify-between items-start mb-10 border-b border-primary/10 pb-6">
-<div>
-<h3 class="text-3xl font-black font-headline text-slate-900">Record New Payment</h3>
-<p class="text-xs text-primary font-bold uppercase tracking-[0.2em] mt-1">Submit digital transaction receipt</p>
-</div>
-<div class="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">add_card</span>
-</div>
-</div>
-<form class="space-y-10" method="post">
-<div class="space-y-3">
-<label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Patient Identification</label>
-<div class="relative group">
-<span class="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">person_search</span>
-<input class="w-full pl-14 pr-6 py-4 form-input-styled rounded-2xl text-base font-medium outline-none" name="patient_query" placeholder="Enter patient name or ID number..." required type="text" value="<?php echo htmlspecialchars((string) ($_POST['patient_query'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"/>
-</div>
-</div>
-<div class="flex flex-col md:flex-row gap-8 items-center">
-<div class="flex-1 w-full space-y-3">
-<label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Payment Amount</label>
-<div class="relative group">
-<span class="absolute left-5 top-1/2 -translate-y-1/2 text-lg font-extrabold text-slate-500 group-focus-within:text-primary transition-colors">₱</span>
-<input class="w-full pl-12 pr-6 py-4 form-input-styled rounded-2xl text-xl font-black outline-none" min="0.01" name="amount" placeholder="0.00" required step="0.01" type="number" value="<?php echo htmlspecialchars((string) ($_POST['amount'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"/>
-</div>
-</div>
-<div class="hidden md:block h-12 w-px bg-slate-200 mt-6"></div>
-<div class="flex-1 w-full space-y-3">
-<label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Transaction Date</label>
-<div class="relative group">
-<input class="w-full px-6 py-4 form-input-styled rounded-2xl text-base font-semibold outline-none" max="<?php echo date('Y-m-d'); ?>" name="payment_date" required type="date" value="<?php echo htmlspecialchars((string) ($_POST['payment_date'] ?? date('Y-m-d')), ENT_QUOTES, 'UTF-8'); ?>"/>
-</div>
-</div>
-</div>
-<div class="space-y-4">
-<label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Payment Method</label>
-<input id="payment_method_input" name="payment_method" type="hidden" value="<?php echo htmlspecialchars($selectedMethod, ENT_QUOTES, 'UTF-8'); ?>"/>
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-<button class="payment-card p-4 rounded-2xl border-2 border-slate-100 bg-white/50 flex flex-col items-center justify-center gap-3 group/btn <?php echo $selectedMethod === 'gcash' ? 'active' : ''; ?>" data-method="gcash" type="button">
-<span class="material-symbols-outlined text-3xl text-slate-400 group-hover/btn:text-primary transition-colors">account_balance_wallet</span>
-<span class="text-[11px] font-black uppercase tracking-widest">GCash</span>
-</button>
-<button class="payment-card p-4 rounded-2xl border-2 border-slate-100 bg-white/50 flex flex-col items-center justify-center gap-3 <?php echo $selectedMethod === 'cash' ? 'active' : ''; ?>" data-method="cash" type="button">
-<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">payments</span>
-<span class="text-[11px] font-black uppercase tracking-widest">Cash</span>
-</button>
-<button class="payment-card p-4 rounded-2xl border-2 border-slate-100 bg-white/50 flex flex-col items-center justify-center gap-3 group/btn <?php echo $selectedMethod === 'bank_transfer' ? 'active' : ''; ?>" data-method="bank_transfer" type="button">
-<span class="material-symbols-outlined text-3xl text-slate-400 group-hover/btn:text-primary transition-colors">account_balance</span>
-<span class="text-[11px] font-black uppercase tracking-widest">Bank</span>
-</button>
-<button class="payment-card p-4 rounded-2xl border-2 border-slate-100 bg-white/50 flex flex-col items-center justify-center gap-3 group/btn <?php echo $selectedMethod === 'credit_card' ? 'active' : ''; ?>" data-method="credit_card" type="button">
-<span class="material-symbols-outlined text-3xl text-slate-400 group-hover/btn:text-primary transition-colors">credit_card</span>
-<span class="text-[11px] font-black uppercase tracking-widest">Card</span>
-</button>
-</div>
-</div>
-<div class="space-y-3">
-<label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Additional Notes</label>
-<textarea class="w-full px-6 py-4 form-input-styled rounded-2xl text-sm font-medium outline-none resize-none" name="notes" placeholder="Describe the treatment or specific billing details..." rows="3"><?php echo htmlspecialchars((string) ($_POST['notes'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></textarea>
-</div>
-<div class="pt-4">
-<button class="w-full py-5 bg-primary text-white font-black text-sm uppercase tracking-[0.3em] rounded-2xl shadow-2xl shadow-primary/40 hover:shadow-primary/60 hover:-translate-y-1 active:translate-y-0 active:scale-[0.99] transition-all flex items-center justify-center gap-4 relative overflow-hidden group" type="submit">
-<span class="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></span>
-<span class="material-symbols-outlined text-2xl relative" style="font-variation-settings: 'FILL' 1;">verified</span>
-<span class="relative">Confirm &amp; Post Payment</span>
-</button>
-</div>
-</form>
-</div>
 </section>
+<?php endif; ?>
 <!-- Recent Transactions Section -->
 <section class="elevated-card rounded-3xl overflow-hidden">
 <div class="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
@@ -577,8 +502,129 @@ try {
 </section>
 </div>
 </main>
+<div class="fixed inset-0 z-50 hidden items-center justify-center p-6" id="transaction-modal" role="dialog" aria-modal="true" aria-labelledby="transaction-modal-title">
+<div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" id="transaction-modal-overlay"></div>
+<div class="relative z-10 w-full max-w-4xl">
+<div class="glass-form p-10 rounded-[2.5rem] shadow-2xl shadow-primary/20 max-h-[88vh] overflow-y-auto no-scrollbar">
+<?php if ($paymentError !== ''): ?>
+<div class="mb-6 rounded-2xl border border-red-200 bg-red-50 text-red-700 px-5 py-3 text-sm font-semibold">
+<?php echo htmlspecialchars($paymentError, ENT_QUOTES, 'UTF-8'); ?>
+</div>
+<?php endif; ?>
+<div class="flex justify-between items-start mb-10 border-b border-primary/10 pb-6">
+<div>
+<h3 class="text-3xl font-black font-headline text-slate-900" id="transaction-modal-title">Record New Payment</h3>
+<p class="text-xs text-primary font-bold uppercase tracking-[0.2em] mt-1">Submit digital transaction receipt</p>
+</div>
+<button class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors" id="close-transaction-modal" type="button">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<form class="space-y-10" method="post">
+<div class="space-y-3">
+<label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Patient Identification</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">person_search</span>
+<input class="w-full pl-14 pr-6 py-4 form-input-styled rounded-2xl text-base font-medium outline-none" name="patient_query" placeholder="Enter patient name or ID number..." required type="text" value="<?php echo htmlspecialchars((string) ($_POST['patient_query'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"/>
+</div>
+</div>
+<div class="flex flex-col md:flex-row gap-8 items-center">
+<div class="flex-1 w-full space-y-3">
+<label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Payment Amount</label>
+<div class="relative group">
+<span class="absolute left-5 top-1/2 -translate-y-1/2 text-lg font-extrabold text-slate-500 group-focus-within:text-primary transition-colors">₱</span>
+<input class="w-full pl-12 pr-6 py-4 form-input-styled rounded-2xl text-xl font-black outline-none" min="0.01" name="amount" placeholder="0.00" required step="0.01" type="number" value="<?php echo htmlspecialchars((string) ($_POST['amount'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"/>
+</div>
+</div>
+<div class="hidden md:block h-12 w-px bg-slate-200 mt-6"></div>
+<div class="flex-1 w-full space-y-3">
+<label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Transaction Date</label>
+<div class="relative group">
+<input class="w-full px-6 py-4 form-input-styled rounded-2xl text-base font-semibold outline-none" max="<?php echo date('Y-m-d'); ?>" name="payment_date" required type="date" value="<?php echo htmlspecialchars((string) ($_POST['payment_date'] ?? date('Y-m-d')), ENT_QUOTES, 'UTF-8'); ?>"/>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Payment Method</label>
+<input id="payment_method_input" name="payment_method" type="hidden" value="<?php echo htmlspecialchars($selectedMethod, ENT_QUOTES, 'UTF-8'); ?>"/>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+<button class="payment-card p-4 rounded-2xl border-2 border-slate-100 bg-white/50 flex flex-col items-center justify-center gap-3 group/btn <?php echo $selectedMethod === 'gcash' ? 'active' : ''; ?>" data-method="gcash" type="button">
+<span class="material-symbols-outlined text-3xl text-slate-400 group-hover/btn:text-primary transition-colors">account_balance_wallet</span>
+<span class="text-[11px] font-black uppercase tracking-widest">GCash</span>
+</button>
+<button class="payment-card p-4 rounded-2xl border-2 border-slate-100 bg-white/50 flex flex-col items-center justify-center gap-3 <?php echo $selectedMethod === 'cash' ? 'active' : ''; ?>" data-method="cash" type="button">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">payments</span>
+<span class="text-[11px] font-black uppercase tracking-widest">Cash</span>
+</button>
+<button class="payment-card p-4 rounded-2xl border-2 border-slate-100 bg-white/50 flex flex-col items-center justify-center gap-3 group/btn <?php echo $selectedMethod === 'bank_transfer' ? 'active' : ''; ?>" data-method="bank_transfer" type="button">
+<span class="material-symbols-outlined text-3xl text-slate-400 group-hover/btn:text-primary transition-colors">account_balance</span>
+<span class="text-[11px] font-black uppercase tracking-widest">Bank</span>
+</button>
+<button class="payment-card p-4 rounded-2xl border-2 border-slate-100 bg-white/50 flex flex-col items-center justify-center gap-3 group/btn <?php echo $selectedMethod === 'credit_card' ? 'active' : ''; ?>" data-method="credit_card" type="button">
+<span class="material-symbols-outlined text-3xl text-slate-400 group-hover/btn:text-primary transition-colors">credit_card</span>
+<span class="text-[11px] font-black uppercase tracking-widest">Card</span>
+</button>
+</div>
+</div>
+<div class="space-y-3">
+<label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Additional Notes</label>
+<textarea class="w-full px-6 py-4 form-input-styled rounded-2xl text-sm font-medium outline-none resize-none" name="notes" placeholder="Describe the treatment or specific billing details..." rows="3"><?php echo htmlspecialchars((string) ($_POST['notes'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></textarea>
+</div>
+<div class="pt-4">
+<button class="w-full py-5 bg-primary text-white font-black text-sm uppercase tracking-[0.3em] rounded-2xl shadow-2xl shadow-primary/40 hover:shadow-primary/60 hover:-translate-y-1 active:translate-y-0 active:scale-[0.99] transition-all flex items-center justify-center gap-4 relative overflow-hidden group" type="submit">
+<span class="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></span>
+<span class="material-symbols-outlined text-2xl relative" style="font-variation-settings: 'FILL' 1;">verified</span>
+<span class="relative">Confirm &amp; Post Payment</span>
+</button>
+</div>
+</form>
+</div>
+</div>
+</div>
 <script>
     (function () {
+        const modal = document.getElementById('transaction-modal');
+        const openBtn = document.getElementById('open-transaction-modal');
+        const closeBtn = document.getElementById('close-transaction-modal');
+        const overlay = document.getElementById('transaction-modal-overlay');
+        const hasServerError = <?php echo $paymentError !== '' ? 'true' : 'false'; ?>;
+
+        const openModal = () => {
+            if (!modal) {
+                return;
+            }
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.classList.add('overflow-hidden');
+        };
+
+        const closeModal = () => {
+            if (!modal) {
+                return;
+            }
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.classList.remove('overflow-hidden');
+        };
+
+        if (openBtn) {
+            openBtn.addEventListener('click', openModal);
+        }
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeModal);
+        }
+        if (overlay) {
+            overlay.addEventListener('click', closeModal);
+        }
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
+        });
+        if (hasServerError) {
+            openModal();
+        }
+
         const hiddenInput = document.getElementById('payment_method_input');
         const cards = document.querySelectorAll('.payment-card[data-method]');
         cards.forEach((card) => {
