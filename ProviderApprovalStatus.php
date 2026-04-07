@@ -74,6 +74,13 @@ if ($verificationStatus === 'approved') {
     header('Location: ' . $next);
     exit;
 }
+
+// Pending/under-review tenants should not be blocked on this page.
+// Let them continue to the provider home experience.
+if ($verificationStatus !== 'rejected' && $emailVerified && $docsSubmitted) {
+    header('Location: ProviderMain.php');
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html class="light" lang="en">
