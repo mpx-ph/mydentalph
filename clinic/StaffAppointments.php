@@ -586,9 +586,9 @@ $statusLabels = [
                                             data-type="<?php echo htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8'); ?>"
                                             data-treatment="<?php echo htmlspecialchars((string) ($appointment['service_type'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-description="<?php echo htmlspecialchars((string) ($appointment['service_description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
-                                            data-cost="<?php echo htmlspecialchars(number_format($totalCost, 2), ENT_QUOTES, 'UTF-8'); ?>"
-                                            data-total-paid="<?php echo htmlspecialchars(number_format($totalPaid, 2), ENT_QUOTES, 'UTF-8'); ?>"
-                                            data-pending-balance="<?php echo htmlspecialchars(number_format($pendingBalance, 2), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-cost="<?php echo htmlspecialchars((string) $totalCost, ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-total-paid="<?php echo htmlspecialchars((string) $totalPaid, ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-pending-balance="<?php echo htmlspecialchars((string) $pendingBalance, ENT_QUOTES, 'UTF-8'); ?>"
                                             data-notes="<?php echo htmlspecialchars((string) ($appointment['notes'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-status="<?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?>"
                                             data-status-raw="<?php echo htmlspecialchars((string) ($appointment['status'] ?? 'pending'), ENT_QUOTES, 'UTF-8'); ?>"
@@ -833,10 +833,16 @@ $statusLabels = [
         }
     }
 
+    function parseMoney(value) {
+        const normalized = String(value || '0').replace(/,/g, '').trim();
+        const parsed = Number.parseFloat(normalized);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
     function openModal(button) {
-        const totalCost = Number.parseFloat(button.dataset.cost || '0') || 0;
-        const totalPaid = Number.parseFloat(button.dataset.totalPaid || '0') || 0;
-        const pendingBalance = Number.parseFloat(button.dataset.pendingBalance || '0') || 0;
+        const totalCost = parseMoney(button.dataset.cost);
+        const totalPaid = parseMoney(button.dataset.totalPaid);
+        const pendingBalance = parseMoney(button.dataset.pendingBalance);
         const treatmentTypeRaw = (button.dataset.treatmentTypeRaw || '').toLowerCase();
         const statusRaw = (button.dataset.statusRaw || '').toLowerCase();
 
@@ -851,7 +857,7 @@ $statusLabels = [
         setText('mStatus', button.dataset.status || '');
         setText('mTreatment', button.dataset.treatment || '');
         setText('mDescription', button.dataset.description || '');
-        setText('mCost', button.dataset.cost ? 'PHP ' + button.dataset.cost : '');
+        setText('mCost', 'PHP ' + totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
         setText('mNotes', button.dataset.notes || '');
 
         setText('mBalanceTotalCost', 'PHP ' + totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
