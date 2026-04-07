@@ -121,126 +121,45 @@ try {
         };
     </script>
 <style>
-        html { scrollbar-gutter: stable; }
         body { font-family: 'Manrope', sans-serif; }
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
             vertical-align: middle;
         }
         .mesh-bg {
-            background-color: #f7f9ff;
+            background-color: #f8fafc;
             background-image:
-                radial-gradient(at 0% 0%, hsla(210, 100%, 98%, 1) 0, transparent 50%),
-                radial-gradient(at 50% 0%, hsla(217, 100%, 94%, 1) 0, transparent 50%),
-                radial-gradient(at 100% 0%, hsla(210, 100%, 98%, 1) 0, transparent 50%);
+                radial-gradient(at 0% 0%, rgba(43, 139, 235, 0.03) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.01) 0px, transparent 50%);
         }
         .elevated-card {
             background: #ffffff;
             border: 1px solid rgba(226, 232, 240, 0.8);
             box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
         }
-        .glass-card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
-        }
-        .editorial-shadow {
-            box-shadow: 0 12px 40px -10px rgba(19, 28, 37, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.8);
-        }
-        .editorial-word {
-            text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
-            letter-spacing: -0.02em;
-        }
-        .staff-welcome-banner {
-            background: linear-gradient(120deg, #1e3a5f 0%, #2b8beb 42%, #5ab0ff 100%);
-            box-shadow: 0 20px 50px -20px rgba(43, 139, 235, 0.45);
-        }
-        @keyframes staff-page-in {
-            from { opacity: 0; transform: translateY(14px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .staff-page-enter {
-            animation: staff-page-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-        }
-        .staff-card-lift {
-            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
-        }
-        .staff-card-lift:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.12);
-        }
-        .staff-stat-card {
-            background: linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.92) 100%);
-            box-shadow:
-                0 0 0 1px rgba(255, 255, 255, 0.95),
-                0 10px 40px -10px rgba(15, 23, 42, 0.1);
-        }
-        .staff-stat-card::before {
-            content: '';
-            position: absolute;
-            inset: 0 0 auto 0;
-            height: 3px;
-            border-radius: 1.5rem 1.5rem 0 0;
-            opacity: 0.85;
-            pointer-events: none;
-        }
-        .staff-stat-card--appts::before { background: linear-gradient(90deg, #2b8beb, #60a5fa); }
-        .staff-stat-card--pending::before { background: linear-gradient(90deg, #d97706, #f59e0b); }
-        .staff-stat-card--revenue::before { background: linear-gradient(90deg, #0d9488, #2dd4bf); }
-        .table-row-hover {
-            transition: background-color 0.2s ease, transform 0.2s ease;
-        }
-        .table-row-hover:hover {
-            background-color: rgba(248, 250, 252, 0.8);
-            transform: translateX(2px);
-        }
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 staff-page-enter">
+<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20">
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
-<div class="p-6 lg:p-10 space-y-8 lg:space-y-10 relative">
-<div class="absolute top-24 right-8 w-[28rem] h-[28rem] bg-primary/10 rounded-full blur-[120px] -z-10 pointer-events-none" aria-hidden="true"></div>
-<div class="absolute bottom-40 left-10 w-72 h-72 bg-teal-400/10 rounded-full blur-[100px] -z-10 pointer-events-none" aria-hidden="true"></div>
+<div class="p-10 space-y-10">
 <section class="flex flex-col gap-4 mb-4">
-<div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.35em]">
+<div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
 <span class="w-12 h-[1.5px] bg-primary"></span> STAFF DASHBOARD
 </div>
 <div>
-<h2 class="font-headline text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight text-on-background">
-                    Clinic <span class="font-editorial italic font-normal text-primary editorial-word">Operations</span>
+<h2 class="font-headline text-6xl font-extrabold tracking-tighter leading-tight text-on-background">
+                    Welcome to <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Dashboard</span>
 </h2>
-<p class="font-body text-base sm:text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3">
+<p class="font-body text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-4">
                     Live overview of appointments, pending requests, and today's revenue.
                 </p>
 </div>
 </section>
 
-<section class="staff-welcome-banner rounded-3xl px-6 sm:px-10 py-7 sm:py-8 text-white relative overflow-hidden">
-<div class="absolute inset-0 opacity-[0.12] pointer-events-none" style="background-image: radial-gradient(circle at 20% 120%, #fff 0, transparent 55%), radial-gradient(circle at 90% -20%, #fff 0, transparent 45%);" aria-hidden="true"></div>
-<div class="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-<div class="max-w-2xl">
-<p class="text-white/80 text-xs font-bold uppercase tracking-[0.25em] mb-2">Staff command center</p>
-<p class="text-2xl sm:text-3xl font-extrabold font-headline tracking-tight">Keep appointments moving and patients informed.</p>
-<p class="text-white/85 mt-2 text-sm sm:text-base font-medium leading-relaxed">Jump quickly to daily workflows and monitor the most recent bookings in one view.</p>
-</div>
-<div class="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 shrink-0">
-<a class="inline-flex items-center justify-center gap-2 rounded-2xl bg-white text-primary px-6 py-3.5 text-sm font-bold shadow-lg shadow-black/10 hover:brightness-[1.03] transition-all ring-2 ring-white/30" href="<?php echo htmlspecialchars($currentTenantSlug !== '' ? ('/' . rawurlencode($currentTenantSlug) . '/StaffAppointments.php') : 'StaffAppointments.php', ENT_QUOTES, 'UTF-8'); ?>">
-<span class="material-symbols-outlined text-xl">calendar_month</span>
-View Appointments
-</a>
-<a class="inline-flex items-center justify-center gap-2 rounded-2xl bg-white/10 text-white border border-white/25 px-6 py-3.5 text-sm font-bold hover:bg-white/15 transition-all backdrop-blur-sm" href="<?php echo htmlspecialchars($currentTenantSlug !== '' ? ('/' . rawurlencode($currentTenantSlug) . '/StaffManagePatient.php') : 'StaffManagePatient.php', ENT_QUOTES, 'UTF-8'); ?>">
-<span class="material-symbols-outlined text-xl">group</span>
-Manage Patients
-</a>
-</div>
-</div>
-</section>
-
 <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-<div class="relative overflow-hidden rounded-2xl border border-slate-200/80 p-8 flex flex-col justify-between staff-card-lift staff-stat-card staff-stat-card--appts">
+<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event_available</span>
@@ -253,7 +172,7 @@ Manage Patients
 </div>
 </div>
 
-<div class="relative overflow-hidden rounded-2xl border border-slate-200/80 p-8 flex flex-col justify-between staff-card-lift staff-stat-card staff-stat-card--pending">
+<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">pending_actions</span>
@@ -266,7 +185,7 @@ Manage Patients
 </div>
 </div>
 
-<div class="relative overflow-hidden rounded-2xl border border-slate-200/80 p-8 flex flex-col justify-between staff-card-lift staff-stat-card staff-stat-card--revenue">
+<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">payments</span>
@@ -280,7 +199,7 @@ Manage Patients
 </div>
 </section>
 
-<section class="glass-card rounded-3xl overflow-hidden editorial-shadow">
+<section class="elevated-card rounded-3xl overflow-hidden">
 <div class="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
 <div>
 <h3 class="text-2xl font-bold font-headline text-on-background">Recent Bookings</h3>
@@ -340,7 +259,7 @@ Manage Patients
     }
     $amount = (float) ($booking['total_treatment_cost'] ?? 0);
 ?>
-<tr class="table-row-hover group">
+<tr class="hover:bg-slate-50/30 transition-colors group">
 <td class="px-8 py-5">
 <div>
 <p class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors"><?php echo htmlspecialchars($patientName, ENT_QUOTES, 'UTF-8'); ?></p>
