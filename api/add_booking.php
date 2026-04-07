@@ -70,11 +70,12 @@ try {
     $payment_id = 'PAY-' . strtoupper(substr(md5(microtime(true) . $booking_id . mt_rand()), 0, 10));
     // Set status to 'completed' only if paid in full, 'pending' if partial/downpayment
     $final_status = ($payment_amount >= $total_amount) ? 'completed' : 'pending';
+    $payment_type = ($payment_amount < $total_amount) ? 'downpayment' : 'fullpayment';
     
     $stmt = $pdo->prepare("INSERT INTO tbl_payments 
-        (tenant_id, payment_id, patient_id, booking_id, amount, payment_method, reference_number, status, created_by) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$tenant_id, $payment_id, $patient_id, $booking_id, $payment_amount, $payment_method, $reference_number, $final_status, $user_id]);
+        (tenant_id, payment_id, patient_id, booking_id, amount, payment_method, reference_number, status, created_by, payment_type) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$tenant_id, $payment_id, $patient_id, $booking_id, $payment_amount, $payment_method, $reference_number, $final_status, $user_id, $payment_type]);
 
     $pdo->commit();
 

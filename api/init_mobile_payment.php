@@ -93,13 +93,15 @@ try {
     // Paymongo amount is in centavos (multiply PHP amount by 100)
     $amount_in_cents = (int) round($payment_amount * 100);
 
+    $payment_type = ($payment_amount < $total_amount) ? 'downpayment' : 'fullpayment';
+
     // 4. Insert Payment record as 'pending'
     $payment_id = 'PAY-' . strtoupper(substr(md5(microtime(true) . $booking_id . mt_rand()), 0, 10));
 
     $stmt = $pdo->prepare("INSERT INTO tbl_payments 
-        (tenant_id, payment_id, patient_id, booking_id, amount, payment_method, status, created_by) 
-        VALUES (?, ?, ?, ?, ?, 'gcash', 'pending', ?)");
-    $stmt->execute([$tenant_id, $payment_id, $patient_id, $booking_id, $payment_amount, $user_id]);
+        (tenant_id, payment_id, patient_id, booking_id, amount, payment_method, status, created_by, payment_type) 
+        VALUES (?, ?, ?, ?, ?, 'gcash', 'pending', ?, ?)");
+    $stmt->execute([$tenant_id, $payment_id, $patient_id, $booking_id, $payment_amount, $user_id, $payment_type]);
 
     $pdo->commit();
 
