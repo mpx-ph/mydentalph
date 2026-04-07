@@ -64,16 +64,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $to_email = trim((string) ($request['owner_email'] ?? ''));
                     if ($to_email !== '') {
-                        $is_https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
-                        $scheme = $is_https ? 'https' : 'http';
-                        $host = $_SERVER['HTTP_HOST'] ?? '';
-                        $base = rtrim($scheme . '://' . $host, '/');
-                        $setup_url = $base . '/ProviderClinicSetup.php?request_id=' . urlencode((string) $request_id) . '&setup_token=' . urlencode($raw_token);
+                        $login_url = 'https://mydentalph.ct.ws/ProviderLogin.php';
                         $safe_owner = htmlspecialchars((string) ($request['owner_name'] ?? 'Clinic Owner'), ENT_QUOTES, 'UTF-8');
                         $safe_clinic = htmlspecialchars((string) ($request['clinic_name'] ?? 'Clinic'), ENT_QUOTES, 'UTF-8');
-                        $safe_setup_url = htmlspecialchars($setup_url, ENT_QUOTES, 'UTF-8');
-                        $body_text = "Hello {$request['owner_name']},\n\nYour clinic verification for {$request['clinic_name']} has been approved.\nUse this secure link to continue setup:\n{$setup_url}\n\nThis link expires in 7 days.";
-                        $body_html = "<p>Hello {$safe_owner},</p><p>Your clinic verification for <strong>{$safe_clinic}</strong> has been approved.</p><p><a href=\"{$safe_setup_url}\">Continue clinic setup</a></p><p>This secure link expires in 7 days.</p>";
+                        $safe_login_url = htmlspecialchars($login_url, ENT_QUOTES, 'UTF-8');
+                        $body_text = "Hello {$request['owner_name']},\n\nYour clinic verification for {$request['clinic_name']} has been approved.\nPlease log in to continue:\n{$login_url}";
+                        $body_html = "<p>Hello {$safe_owner},</p><p>Your clinic verification for <strong>{$safe_clinic}</strong> has been approved.</p><p><a href=\"{$safe_login_url}\">https://mydentalph.ct.ws/ProviderLogin.php</a></p>";
                         if (!send_smtp_gmail($to_email, 'Clinic Verification Approved - Continue Setup', $body_text, $body_html)) {
                             $success = 'Request approved. Email could not be sent; check SMTP settings.';
                         } else {
