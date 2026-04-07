@@ -15,16 +15,34 @@ if (isset($_GET['debug']) && $_GET['debug'] === '1') {
     error_reporting(E_ALL);
 }
 
-// Base URL: auto-detect from request so it works on any domain (e.g. mydental.ct.ws)
+// Base URL: clinic web root (folder that contains MainPageClient.php, api/, etc.)
+// Must NOT use dirname(SCRIPT_NAME) alone — requests from clinic/api/*.php would yield
+// …/clinic/api/ and break redirects (e.g. MainPageClient.php → 404 on shared hosts).
 $_s = isset($_SERVER) ? $_SERVER : array();
 $protocol = (!empty($_s['HTTPS']) && $_s['HTTPS'] !== 'off') ? 'https' : 'http';
 $host = isset($_s['HTTP_HOST']) ? (string) $_s['HTTP_HOST'] : 'localhost';
-$script = isset($_s['SCRIPT_NAME']) ? (string) $_s['SCRIPT_NAME'] : '';
-$basePath = $script !== '' ? rtrim(dirname($script), '/\\') : '';
-if ($basePath === '' || $basePath === '\\' || $basePath === '.') {
-    $basePath = '';
-} else {
-    $basePath = '/' . trim(str_replace('\\', '/', $basePath), '/');
+$basePath = '';
+$clinicRootFs = @realpath(dirname(__DIR__));
+$docRootFs = isset($_s['DOCUMENT_ROOT']) ? @realpath((string) $_s['DOCUMENT_ROOT']) : false;
+if ($clinicRootFs && $docRootFs) {
+    $c = rtrim(str_replace('\\', '/', $clinicRootFs), '/');
+    $d = rtrim(str_replace('\\', '/', $docRootFs), '/');
+    if (strpos($c, $d) === 0) {
+        $tail = trim(substr($c, strlen($d)), '/');
+        $basePath = $tail !== '' ? '/' . $tail : '';
+    }
+}
+if ($basePath === '') {
+    $script = isset($_s['SCRIPT_NAME']) ? (string) $_s['SCRIPT_NAME'] : '';
+    $basePath = $script !== '' ? rtrim(dirname($script), '/\\') : '';
+    if ($basePath === '' || $basePath === '\\' || $basePath === '.') {
+        $basePath = '';
+    } else {
+        $basePath = '/' . trim(str_replace('\\', '/', $basePath), '/');
+    }
+    if ($basePath !== '' && preg_match('#/api$#', $basePath)) {
+        $basePath = preg_replace('#/api$#', '', $basePath);
+    }
 }
 define('BASE_URL', $protocol . '://' . $host . $basePath . '/');
 
