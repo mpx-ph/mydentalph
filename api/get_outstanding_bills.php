@@ -24,19 +24,21 @@ try {
     
     $patient_id = $patRow['patient_id'];
 
-    // 2. Fetch bookings where a downpayment was made but balance still remains
+    // 2. Get all booking_ids for this patient that have a downpayment in tbl_payments
+    //    Then sum all payments per booking and compute remaining balance.
     $sql = "
         SELECT 
-            a.booking_id,
+            p.booking_id,
             a.appointment_date,
-            a.total_treatment_cost,
-            COALESCE(SUM(CASE WHEN p.status IN ('completed', 'pending') THEN p.amount ELSE 0 END), 0) as total_paid
-        FROM tbl_appointments a
-        INNER JOIN tbl_payments p ON a.booking_id = p.booking_id AND a.tenant_id = p.tenant_id
-        WHERE a.patient_id = ? AND a.tenant_id = ? AND a.total_treatment_cost > 0 AND a.status != 'cancelled'
+            COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
+            SUM(p.amount) AS total_paid
+        FROM tbl_payments p
+        LEFT JOIN tbl_appointments a 
+            ON a.booking_id = p.booking_id AND a.tenant_id = p.tenant_id
+        WHERE p.patient_id = ?
+          AND p.tenant_id = ?
           AND p.payment_type = 'downpayment'
-        GROUP BY a.id, a.booking_id, a.appointment_date, a.total_treatment_cost
-        HAVING total_paid < a.total_treatment_cost
+        GROUP BY p.booking_id, a.appointment_date, a.total_treatment_cost
         ORDER BY a.appointment_date DESC
     ";
 
@@ -47,20 +49,26 @@ try {
     $total_unpaid_across_all = 0.0;
 
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $cost = (float)$row['total_treatment_cost'];
-        $paid = (float)$row['total_paid'];
-        $unpaid_due = $cost - $paid;
+        $cost  = (float)$row['total_treatment_cost'];
+        $paid  = (float)$row['total_paid'];
 
-        if ($unpaid_due > 0) {
-            $total_unpaid_across_all += $unpaid_due;
-            $bills[] = [
-                "booking_id"       => $row['booking_id'],
-                "appointment_date" => date("M d, Y", strtotime($row['appointment_date'])),
-                "total_cost"       => $cost,
-                "amount_paid"      => $paid,
-                "unpaid_due"       => $unpaid_due
-            ];
-        }
+        // Remaining = total cost minus what was paid (downpayment)
+        // If total_treatment_cost was never set, fall back to showing paid amount as the bill
+        $unpaid_due = ($cost > 0) ? max(0, $cost - $paid) : 0;
+
+        $total_unpaid_across_all += $unpaid_due;
+
+        $date_label = !empty($row['appointment_date'])
+            ? date("M d, Y", strtotime($row['appointment_date']))
+            : 'Date N/A';
+
+        $bills[] = [
+            "booking_id"       => $row['booking_id'],
+            "appointment_date" => $date_label,
+            "total_cost"       => $cost,
+            "amount_paid"      => $paid,
+            "unpaid_due"       => $unpaid_due
+        ];
     }
 
     echo json_encode([
