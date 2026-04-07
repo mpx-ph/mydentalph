@@ -25,22 +25,22 @@ try {
     $patient_id = $patRow['patient_id'];
 
     // 2. Identify all bookings for this patient that have a downpayment record
-    //    We sum ONLY 'completed' payments for the actual balance calculation.
+    //    We sum ALL 'completed' payments (downpayment + remaining balance) for the actual balance calculation.
     $sql = "
         SELECT 
             p.booking_id,
             a.appointment_date,
             COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
             SUM(CASE WHEN p.status = 'completed' THEN p.amount ELSE 0 END) AS total_paid_completed,
-            MAX(p.amount) AS amount_to_calculate
+            MAX(CASE WHEN p.payment_type = 'downpayment' THEN p.amount ELSE 0 END) AS amount_to_calculate
         FROM tbl_payments p
         LEFT JOIN tbl_appointments a 
             ON a.booking_id = p.booking_id AND a.tenant_id = p.tenant_id
         WHERE p.patient_id = ?
           AND p.tenant_id = ?
-          AND p.payment_type = 'downpayment'
           AND (a.status IS NULL OR a.status != 'cancelled')
         GROUP BY p.booking_id, a.appointment_date, a.total_treatment_cost
+        HAVING SUM(CASE WHEN p.payment_type = 'downpayment' THEN 1 ELSE 0 END) > 0
         ORDER BY a.appointment_date DESC
     ";
 
