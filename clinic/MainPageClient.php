@@ -101,8 +101,8 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 <div class="text-primary font-bold text-xs uppercase mb-6 flex gap-4 tracking-[0.3em] justify-center items-center font-headline">
 <span class="w-12 h-[1.5px] bg-primary"></span> <?php echo $cu('main_services_heading', 'Our Expertise'); ?>
                     </div>
-<h2 class="font-headline text-6xl md:text-8xl font-extrabold tracking-tighter leading-[0.9] mb-8 text-slate-900 dark:text-white"><?php echo $cu('main_services_title', 'Comprehensive Dental Solutions'); ?></h2>
-<p class="text-slate-600 dark:text-slate-400 text-2xl leading-relaxed max-w-xl font-medium font-body">
+<h2 class="font-headline text-6xl md:text-8xl font-extrabold tracking-tighter leading-[0.9] mb-8 text-primary"><?php echo $cu('main_services_title', 'Comprehensive Dental Solutions'); ?></h2>
+<p class="text-slate-600 dark:text-slate-400 text-2xl leading-relaxed max-w-2xl mx-auto text-center font-medium font-body">
                         <?php echo $cuMultiline('main_services_description', 'From routine hygiene to complex restoration, our treatments are tailored to your specific oral health needs.'); ?>
                     </p>
 </div>
@@ -174,42 +174,42 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 <div class="hidden lg:block absolute top-1/2 left-0 w-full h-px step-connector -translate-y-1/2 z-0"></div>
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-24 relative z-10">
 <div class="relative group">
-<div class="bg-white dark:bg-slate-800 rounded-[2rem] p-12 border border-slate-200/80 dark:border-slate-700 transition-all duration-500 group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5">
+<div class="bg-white dark:bg-slate-800 rounded-[2rem] p-12 border border-slate-200/80 dark:border-slate-700 transition-all duration-500 group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5 hover:bg-primary">
 <div class="absolute -top-6 left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30">01</div>
-<div class="mb-10 text-primary opacity-40 group-hover:opacity-100 transition-opacity">
+<div class="mb-10 text-primary opacity-40 group-hover:opacity-100 transition-all group-hover:text-white">
 <span class="material-symbols-outlined text-5xl font-light">chat_bubble</span>
 </div>
-<h4 class="font-headline font-extrabold text-2xl mb-4 text-slate-900 dark:text-white"><?php echo $cu('main_journey_step1_title', 'Consultation'); ?></h4>
-<p class="text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-8 font-body"><?php echo $cuMultiline('main_journey_step1_body', 'Discuss your dental goals and concerns with our experts in a relaxed, pressure-free environment.'); ?></p>
-<div class="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 font-headline">
+<h4 class="font-headline font-extrabold text-2xl mb-4 text-slate-900 dark:text-white transition-colors group-hover:text-white"><?php echo $cu('main_journey_step1_title', 'Consultation'); ?></h4>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-8 font-body transition-colors group-hover:text-white/90"><?php echo $cuMultiline('main_journey_step1_body', 'Discuss your dental goals and concerns with our experts in a relaxed, pressure-free environment.'); ?></p>
+<div class="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 font-headline transition-colors group-hover:text-white/80">
 <span class="material-symbols-outlined text-lg">forum</span>
                                 <?php echo $cu('main_journey_step1_tag', 'Goal Alignment'); ?>
                             </div>
 </div>
 </div>
 <div class="relative group">
-<div class="bg-white dark:bg-slate-800 rounded-[2rem] p-12 border border-slate-200/80 dark:border-slate-700 transition-all duration-500 group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5">
+<div class="bg-white dark:bg-slate-800 rounded-[2rem] p-12 border border-slate-200/80 dark:border-slate-700 transition-all duration-500 group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5 hover:bg-primary">
 <div class="absolute -top-6 left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30">02</div>
-<div class="mb-10 text-primary opacity-40 group-hover:opacity-100 transition-opacity">
+<div class="mb-10 text-primary opacity-40 group-hover:opacity-100 transition-all group-hover:text-white">
 <span class="material-symbols-outlined text-5xl font-light">biotech</span>
 </div>
-<h4 class="font-headline font-extrabold text-2xl mb-4 text-slate-900 dark:text-white"><?php echo $cu('main_journey_step2_title', 'Treatment Planning'); ?></h4>
-<p class="text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-8 font-body"><?php echo $cuMultiline('main_journey_step2_body', 'Utilizing 3D imaging to create a custom roadmap and digital preview of your future results.'); ?></p>
-<div class="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 font-headline">
+<h4 class="font-headline font-extrabold text-2xl mb-4 text-slate-900 dark:text-white transition-colors group-hover:text-white"><?php echo $cu('main_journey_step2_title', 'Treatment Planning'); ?></h4>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-8 font-body transition-colors group-hover:text-white/90"><?php echo $cuMultiline('main_journey_step2_body', 'Utilizing 3D imaging to create a custom roadmap and digital preview of your future results.'); ?></p>
+<div class="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 font-headline transition-colors group-hover:text-white/80">
 <span class="material-symbols-outlined text-lg">map</span>
                                 <?php echo $cu('main_journey_step2_tag', 'Custom Roadmap'); ?>
                             </div>
 </div>
 </div>
 <div class="relative group">
-<div class="bg-white dark:bg-slate-800 rounded-[2rem] p-12 border border-slate-200/80 dark:border-slate-700 transition-all duration-500 group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5">
+<div class="bg-white dark:bg-slate-800 rounded-[2rem] p-12 border border-slate-200/80 dark:border-slate-700 transition-all duration-500 group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5 hover:bg-primary">
 <div class="absolute -top-6 left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30">03</div>
-<div class="mb-10 text-primary opacity-40 group-hover:opacity-100 transition-opacity">
+<div class="mb-10 text-primary opacity-40 group-hover:opacity-100 transition-all group-hover:text-white">
 <span class="material-symbols-outlined text-5xl font-light">face_6</span>
 </div>
-<h4 class="font-headline font-extrabold text-2xl mb-4 text-slate-900 dark:text-white"><?php echo $cu('main_journey_step3_title', 'Transformation'); ?></h4>
-<p class="text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-8 font-body"><?php echo $cuMultiline('main_journey_step3_body', 'Executing your clinical plan with precision and care, revealing your healthy, radiant new smile.'); ?></p>
-<div class="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 font-headline">
+<h4 class="font-headline font-extrabold text-2xl mb-4 text-slate-900 dark:text-white transition-colors group-hover:text-white"><?php echo $cu('main_journey_step3_title', 'Transformation'); ?></h4>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-8 font-body transition-colors group-hover:text-white/90"><?php echo $cuMultiline('main_journey_step3_body', 'Executing your clinical plan with precision and care, revealing your healthy, radiant new smile.'); ?></p>
+<div class="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 font-headline transition-colors group-hover:text-white/80">
 <span class="material-symbols-outlined text-lg">verified</span>
                                 <?php echo $cu('main_journey_step3_tag', 'Reveal Success'); ?>
                             </div>
