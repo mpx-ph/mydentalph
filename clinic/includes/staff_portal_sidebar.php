@@ -123,15 +123,21 @@ if ($currentUserRole === 'dentist') {
     $navItems = $allNavItems;
 }
 ?>
-<aside class="fixed left-0 top-0 h-full w-64 z-40 bg-white flex flex-col py-8 border-r border-slate-200/60">
+<style>
+    .staff-sidebar-brand .editorial-word {
+        text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
+        letter-spacing: -0.02em;
+    }
+</style>
+<aside class="staff-sidebar-brand fixed left-0 top-0 h-full w-64 z-40 bg-white flex flex-col py-8 border-r border-slate-200/60">
     <div class="px-7 mb-8">
-        <h1 class="text-xl font-extrabold text-slate-900 tracking-tight font-headline flex items-center gap-2">
+        <h1 class="flex items-center gap-2 min-w-0 font-headline tracking-tight">
             <img
                 src="<?php echo htmlspecialchars($clinicLogoUrl, ENT_QUOTES, 'UTF-8'); ?>"
                 alt="<?php echo htmlspecialchars($clinicName, ENT_QUOTES, 'UTF-8'); ?>"
-                class="h-9 w-auto object-contain"
+                class="h-9 w-auto shrink-0 object-contain"
             />
-            <?php echo htmlspecialchars($clinicName, ENT_QUOTES, 'UTF-8'); ?>
+            <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block text-lg leading-snug min-w-0 break-words"><?php echo htmlspecialchars($clinicName, ENT_QUOTES, 'UTF-8'); ?></span>
         </h1>
         <p class="text-primary font-bold text-[10px] tracking-[0.2em] uppercase mt-2 opacity-80">Staff Portal</p>
     </div>
