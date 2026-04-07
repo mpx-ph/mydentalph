@@ -52,9 +52,17 @@ try {
         $cost  = (float)$row['total_treatment_cost'];
         $paid  = (float)$row['total_paid'];
 
-        // Remaining = total cost minus what was paid (downpayment)
-        // If total_treatment_cost was never set, fall back to showing paid amount as the bill
-        $unpaid_due = ($cost > 0) ? max(0, $cost - $paid) : 0;
+        // Since downpayment = 50% of total:
+        // - If total_treatment_cost is set: remaining = total - paid
+        // - If total_treatment_cost is NOT set: remaining = paid (they paid half, so the other half = same amount)
+        if ($cost > 0) {
+            $unpaid_due = max(0, $cost - $paid);
+        } else {
+            $unpaid_due = $paid; // 50% was paid, so 50% (= same amount) is still owed
+        }
+
+        // Only show bills that still have a balance remaining 
+        if ($unpaid_due <= 0) continue;
 
         $total_unpaid_across_all += $unpaid_due;
 
@@ -65,7 +73,7 @@ try {
         $bills[] = [
             "booking_id"       => $row['booking_id'],
             "appointment_date" => $date_label,
-            "total_cost"       => $cost,
+            "total_cost"       => ($cost > 0) ? $cost : ($paid * 2), // estimate full cost if not stored
             "amount_paid"      => $paid,
             "unpaid_due"       => $unpaid_due
         ];
