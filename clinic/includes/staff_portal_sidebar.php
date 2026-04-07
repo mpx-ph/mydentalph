@@ -114,6 +114,7 @@ $allNavItems = [
 // Dentist role: only these pages are accessible
 $dentistAllowedKeys = ['dashboard', 'patients', 'appointments', 'block_schedule', 'profile'];
 $currentUserRole = isset($_SESSION['user_role']) ? strtolower(trim((string) $_SESSION['user_role'])) : '';
+$portalLabel = $currentUserRole === 'dentist' ? 'Dentist Portal' : 'Staff Portal';
 
 if ($currentUserRole === 'dentist') {
     $navItems = array_values(array_filter($allNavItems, function ($item) use ($dentistAllowedKeys) {
@@ -139,7 +140,7 @@ if ($currentUserRole === 'dentist') {
             />
             <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block text-lg leading-snug min-w-0 break-words"><?php echo htmlspecialchars($clinicName, ENT_QUOTES, 'UTF-8'); ?></span>
         </h1>
-        <p class="text-primary font-bold text-[10px] tracking-[0.2em] uppercase mt-2 opacity-80">Staff Portal</p>
+        <p class="text-primary font-bold text-[10px] tracking-[0.2em] uppercase mt-2 opacity-80"><?php echo htmlspecialchars($portalLabel, ENT_QUOTES, 'UTF-8'); ?></p>
     </div>
 
     <nav class="flex-1 min-h-0 space-y-1 overflow-y-auto no-scrollbar">

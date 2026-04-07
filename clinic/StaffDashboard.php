@@ -30,6 +30,7 @@ if ($staffFullName === '') {
     $staffFullName = 'Staff';
 }
 $staffRole = strtolower(trim((string) ($_SESSION['user_role'] ?? 'staff')));
+$portalLabel = $staffRole === 'dentist' ? 'Dentist Portal' : 'Staff Portal';
 $staffRoleMessage = 'Here&rsquo;s what&rsquo;s happening at your practice today. Invite staff and manage roles anytime.';
 if ($staffRole === 'dentist') {
     $staffRoleMessage = 'Here&rsquo;s your chairside snapshot today. Review appointments and keep patient care on track.';
@@ -265,7 +266,7 @@ try {
 <div class="shrink-0">
 <span class="inline-flex items-center gap-2 rounded-2xl bg-white/10 border border-white/25 px-5 py-3 text-sm font-bold backdrop-blur-sm">
 <span class="material-symbols-outlined text-xl">groups</span>
-Staff Portal
+<?php echo htmlspecialchars($portalLabel, ENT_QUOTES, 'UTF-8'); ?>
 </span>
 </div>
 </div>
