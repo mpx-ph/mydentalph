@@ -121,9 +121,6 @@ try {
         };
     </script>
 <style>
-        html {
-            scrollbar-gutter: stable;
-        }
         body { font-family: 'Manrope', sans-serif; }
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
@@ -140,61 +137,13 @@ try {
             border: 1px solid rgba(226, 232, 240, 0.8);
             box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
         }
-        .provider-page-enter {
-            animation: provider-page-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-        }
-        @keyframes provider-page-in {
-            from { opacity: 0; transform: translateY(14px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .provider-card-lift {
-            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
-        }
-        .provider-card-lift:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.12);
-        }
-        .provider-welcome-banner {
-            background: linear-gradient(120deg, #1e3a5f 0%, #2b8beb 42%, #5ab0ff 100%);
-            box-shadow: 0 20px 50px -20px rgba(43, 139, 235, 0.45);
-        }
-        .dash-stat-card {
-            background: linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.92) 100%);
-            box-shadow:
-                0 0 0 1px rgba(255, 255, 255, 0.95),
-                0 10px 40px -10px rgba(15, 23, 42, 0.1);
-        }
-        .dash-stat-card::before {
-            content: '';
-            position: absolute;
-            inset: 0 0 auto 0;
-            height: 3px;
-            border-radius: 1.5rem 1.5rem 0 0;
-            opacity: 0.85;
-            pointer-events: none;
-        }
-        .dash-stat-card--appointments::before {
-            background: linear-gradient(90deg, #2b8beb, #60a5fa);
-        }
-        .dash-stat-card--pending::before {
-            background: linear-gradient(90deg, #f59e0b, #fbbf24);
-        }
-        .dash-stat-card--revenue::before {
-            background: linear-gradient(90deg, #0d9488, #34d399);
-        }
-        .info-modal-backdrop {
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-        }
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
+<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20">
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
-<div class="p-6 lg:p-10 pb-20 space-y-8 relative">
-<div class="absolute top-24 right-8 w-[28rem] h-[28rem] bg-primary/10 rounded-full blur-[120px] -z-10 pointer-events-none" aria-hidden="true"></div>
-<div class="absolute bottom-40 left-10 w-72 h-72 bg-teal-400/10 rounded-full blur-[100px] -z-10 pointer-events-none" aria-hidden="true"></div>
+<div class="p-10 space-y-10">
 <section class="flex flex-col gap-4 mb-4">
 <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
 <span class="w-12 h-[1.5px] bg-primary"></span> STAFF DASHBOARD
@@ -209,29 +158,8 @@ try {
 </div>
 </section>
 
-<section class="provider-welcome-banner rounded-3xl px-6 sm:px-10 py-7 sm:py-8 text-white relative overflow-hidden">
-<div class="absolute inset-0 opacity-[0.12] pointer-events-none" style="background-image: radial-gradient(circle at 20% 120%, #fff 0, transparent 55%), radial-gradient(circle at 90% -20%, #fff 0, transparent 45%);" aria-hidden="true"></div>
-<div class="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-<div class="max-w-2xl">
-<p class="text-white/80 text-xs font-bold uppercase tracking-[0.25em] mb-2">Care operations</p>
-<p class="text-2xl sm:text-3xl font-extrabold font-headline tracking-tight">Manage your clinic flow with <span class="font-editorial italic font-normal text-white/95">confidence</span>.</p>
-<p class="text-white/85 mt-2 text-sm sm:text-base font-medium leading-relaxed">Track bookings in real time, review pending cases, and keep the front desk and dentists aligned.</p>
-</div>
-<div class="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 shrink-0">
-<button type="button" id="staff-workflow-tips-btn" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-white text-primary px-6 py-3.5 text-sm font-bold shadow-lg shadow-black/10 hover:brightness-[1.03] transition-all ring-2 ring-white/30">
-<span class="material-symbols-outlined text-xl">lightbulb</span>
-Workflow Tips
-</button>
-<a href="<?php echo htmlspecialchars((string) ($currentTenantSlug !== '' ? ('/' . rawurlencode($currentTenantSlug) . '/StaffAppointments.php') : 'StaffAppointments.php'), ENT_QUOTES, 'UTF-8'); ?>" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-white/10 text-white border border-white/25 px-6 py-3.5 text-sm font-bold hover:bg-white/15 transition-all backdrop-blur-sm">
-<span class="material-symbols-outlined text-xl">calendar_month</span>
-View Appointments
-</a>
-</div>
-</div>
-</section>
-
 <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-<div class="elevated-card provider-card-lift dash-stat-card dash-stat-card--appointments relative overflow-hidden p-8 rounded-3xl flex flex-col justify-between">
+<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event_available</span>
@@ -244,7 +172,7 @@ View Appointments
 </div>
 </div>
 
-<div class="elevated-card provider-card-lift dash-stat-card dash-stat-card--pending relative overflow-hidden p-8 rounded-3xl flex flex-col justify-between">
+<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">pending_actions</span>
@@ -257,7 +185,7 @@ View Appointments
 </div>
 </div>
 
-<div class="elevated-card provider-card-lift dash-stat-card dash-stat-card--revenue relative overflow-hidden p-8 rounded-3xl flex flex-col justify-between">
+<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">payments</span>
@@ -271,7 +199,7 @@ View Appointments
 </div>
 </section>
 
-<section class="elevated-card provider-card-lift rounded-3xl overflow-hidden">
+<section class="elevated-card rounded-3xl overflow-hidden">
 <div class="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
 <div>
 <h3 class="text-2xl font-bold font-headline text-on-background">Recent Bookings</h3>
@@ -331,7 +259,7 @@ View Appointments
     }
     $amount = (float) ($booking['total_treatment_cost'] ?? 0);
 ?>
-<tr class="hover:bg-slate-50/50 transition-colors group">
+<tr class="hover:bg-slate-50/30 transition-colors group">
 <td class="px-8 py-5">
 <div>
 <p class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors"><?php echo htmlspecialchars($patientName, ENT_QUOTES, 'UTF-8'); ?></p>
@@ -371,65 +299,4 @@ View Appointments
 </section>
 </div>
 </main>
-<div id="staff-workflow-modal" class="fixed inset-0 z-[80] hidden">
-    <div class="absolute inset-0 bg-slate-900/45 info-modal-backdrop"></div>
-    <div class="relative h-full flex items-center justify-center p-5">
-        <div class="w-full max-w-xl rounded-3xl bg-white border border-slate-200 shadow-2xl shadow-slate-900/15 p-6 sm:p-8">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <p class="text-primary font-bold text-[10px] uppercase tracking-[0.3em]">Quick guide</p>
-                    <h4 class="text-2xl font-headline font-extrabold tracking-tight mt-2">Staff Workflow Tips</h4>
-                </div>
-                <button type="button" id="staff-workflow-close" class="w-10 h-10 rounded-xl border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors" aria-label="Close">
-                    <span class="material-symbols-outlined text-xl">close</span>
-                </button>
-            </div>
-            <ul class="mt-6 space-y-3 text-sm text-slate-700">
-                <li class="rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3"><strong class="font-bold text-slate-900">Start with pending queue:</strong> prioritize pending requests to keep appointment lead times low.</li>
-                <li class="rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3"><strong class="font-bold text-slate-900">Validate details early:</strong> confirm service and dentist assignment before patient reminders go out.</li>
-                <li class="rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3"><strong class="font-bold text-slate-900">Track same-day payments:</strong> use the revenue card for quick end-of-day reconciliation.</li>
-            </ul>
-            <div class="mt-6 flex justify-end">
-                <button type="button" id="staff-workflow-dismiss" class="inline-flex items-center justify-center rounded-2xl bg-primary text-white px-5 py-2.5 text-sm font-bold hover:brightness-110 transition-all">
-                    Got it
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-<script>
-    (function () {
-        var openBtn = document.getElementById('staff-workflow-tips-btn');
-        var modal = document.getElementById('staff-workflow-modal');
-        var closeBtn = document.getElementById('staff-workflow-close');
-        var dismissBtn = document.getElementById('staff-workflow-dismiss');
-        if (!openBtn || !modal) {
-            return;
-        }
-        var closeModal = function () {
-            modal.classList.add('hidden');
-            document.body.classList.remove('overflow-hidden');
-        };
-        openBtn.addEventListener('click', function () {
-            modal.classList.remove('hidden');
-            document.body.classList.add('overflow-hidden');
-        });
-        if (closeBtn) {
-            closeBtn.addEventListener('click', closeModal);
-        }
-        if (dismissBtn) {
-            dismissBtn.addEventListener('click', closeModal);
-        }
-        modal.addEventListener('click', function (event) {
-            if (event.target === modal || event.target === modal.firstElementChild) {
-                closeModal();
-            }
-        });
-        document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
-                closeModal();
-            }
-        });
-    })();
-</script>
 </body></html>
