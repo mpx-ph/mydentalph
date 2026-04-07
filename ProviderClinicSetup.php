@@ -220,6 +220,69 @@ if ($tenant_id !== '') {
 $current_clinic_name = (string) ($tenant['clinic_name'] ?? '');
 $current_slug = (string) ($tenant['clinic_slug'] ?? '');
 
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && (string) ($_GET['action'] ?? '') === 'check_slug') {
+    header('Content-Type: application/json; charset=utf-8');
+
+    $raw_slug = trim((string) ($_GET['clinic_slug'] ?? ''));
+    $normalized_slug = preg_replace('/[^a-z0-9\-]/', '', strtolower($raw_slug));
+
+    if ($normalized_slug === '') {
+        http_response_code(400);
+        echo json_encode([
+            'ok' => false,
+            'available' => false,
+            'message' => 'Clinic URL slug is required.',
+        ]);
+        exit;
+    }
+
+    if (!preg_match('/^[a-z0-9\-]+$/', $normalized_slug)) {
+        http_response_code(400);
+        echo json_encode([
+            'ok' => false,
+            'available' => false,
+            'message' => 'Use lowercase letters, numbers, and hyphens only.',
+        ]);
+        exit;
+    }
+
+    $slug_length = strlen($normalized_slug);
+    if ($slug_length < 3 || $slug_length > 100) {
+        http_response_code(400);
+        echo json_encode([
+            'ok' => false,
+            'available' => false,
+            'message' => 'Clinic URL must be between 3 and 100 characters.',
+        ]);
+        exit;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM tbl_tenants WHERE clinic_slug = ? AND tenant_id != ?");
+        $stmt->execute([$normalized_slug, $tenant_id]);
+        $is_taken = ((int) $stmt->fetchColumn() > 0);
+
+        echo json_encode([
+            'ok' => true,
+            'available' => !$is_taken,
+            'normalized_slug' => $normalized_slug,
+            'message' => $is_taken
+                ? 'This clinic URL is already taken.'
+                : 'This clinic URL is available.',
+        ]);
+    } catch (Throwable $e) {
+        setup_log_error('Clinic slug availability check failed.', $e);
+        http_response_code(500);
+        echo json_encode([
+            'ok' => false,
+            'available' => false,
+            'message' => 'Could not check URL availability right now. Please try again.',
+        ]);
+    }
+
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $setup_access_granted) {
     $clinic_name = trim((string) ($_POST['clinic_name'] ?? ''));
     $clinic_slug_raw = trim((string) ($_POST['clinic_slug'] ?? ''));
@@ -429,9 +492,9 @@ if ($current_slug === '' && $current_clinic_name !== '') {
                 <div class="group">
                     <div class="flex justify-between items-end mb-3">
                         <label class="block font-headline text-xs font-bold uppercase tracking-[0.2em] text-on-surface/60 px-1" for="clinic-url">Clinic URL / Domain</label>
-                        <span class="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-600">
-                            <span class="material-symbols-outlined text-sm">check_circle</span>
-                            Available
+                        <span id="slug-status-indicator" class="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-[0.2em] text-on-surface/50">
+                            <span id="slug-status-icon" class="material-symbols-outlined text-sm">info</span>
+                            <span id="slug-status-text">Enter a clinic URL</span>
                         </span>
                     </div>
 
@@ -449,6 +512,7 @@ if ($current_slug === '' && $current_clinic_name !== '') {
                             required
                             pattern="[a-z0-9\-]+"
                             title="Lowercase letters, numbers and hyphens only"
+                            autocomplete="off"
                             <?php echo $setup_access_granted ? '' : 'disabled'; ?>
                         />
                     </div>
@@ -475,6 +539,7 @@ if ($current_slug === '' && $current_clinic_name !== '') {
 
             <div class="flex flex-col items-center pt-2">
                 <button
+                    id="continue-button"
                     class="w-full bg-primary text-white py-5 px-8 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95"
                     type="submit"
                     <?php echo $setup_access_granted ? '' : 'disabled'; ?>
@@ -492,6 +557,159 @@ if ($current_slug === '' && $current_clinic_name !== '') {
         </form>
     </div>
 </main>
+<script>
+    (function () {
+        const slugInput = document.getElementById('clinic-url');
+        const statusIndicator = document.getElementById('slug-status-indicator');
+        const statusIcon = document.getElementById('slug-status-icon');
+        const statusText = document.getElementById('slug-status-text');
+        const continueButton = document.getElementById('continue-button');
+        const isSetupGranted = <?php echo $setup_access_granted ? 'true' : 'false'; ?>;
+        const initialSlug = <?php echo json_encode($current_slug, JSON_UNESCAPED_SLASHES); ?>;
+
+        if (!slugInput || !statusIndicator || !statusIcon || !statusText || !continueButton || !isSetupGranted) {
+            return;
+        }
+
+        let debounceTimer = null;
+        let requestCounter = 0;
+
+        const setStatus = function (type, message) {
+            const classes = [
+                'text-on-surface/50',
+                'text-primary',
+                'text-emerald-600',
+                'text-error'
+            ];
+            statusIndicator.classList.remove(...classes);
+
+            if (type === 'checking') {
+                statusIndicator.classList.add('text-primary');
+                statusIcon.textContent = 'progress_activity';
+                statusText.textContent = message || 'Checking availability...';
+                continueButton.disabled = true;
+                continueButton.classList.add('opacity-70', 'cursor-not-allowed');
+                return;
+            }
+
+            if (type === 'available') {
+                statusIndicator.classList.add('text-emerald-600');
+                statusIcon.textContent = 'check_circle';
+                statusText.textContent = message || 'Available';
+                continueButton.disabled = false;
+                continueButton.classList.remove('opacity-70', 'cursor-not-allowed');
+                return;
+            }
+
+            if (type === 'taken' || type === 'invalid' || type === 'error') {
+                statusIndicator.classList.add('text-error');
+                statusIcon.textContent = type === 'error' ? 'error' : 'cancel';
+                statusText.textContent = message || 'Unavailable';
+                continueButton.disabled = true;
+                continueButton.classList.add('opacity-70', 'cursor-not-allowed');
+                return;
+            }
+
+            statusIndicator.classList.add('text-on-surface/50');
+            statusIcon.textContent = 'info';
+            statusText.textContent = message || 'Enter a clinic URL';
+            continueButton.disabled = true;
+            continueButton.classList.add('opacity-70', 'cursor-not-allowed');
+        };
+
+        const normalizeSlug = function (value) {
+            return String(value || '')
+                .toLowerCase()
+                .replace(/[^a-z0-9-]/g, '');
+        };
+
+        const validateSlug = function (slug) {
+            if (!slug) {
+                return 'Clinic URL slug is required.';
+            }
+            if (!/^[a-z0-9-]+$/.test(slug)) {
+                return 'Use lowercase letters, numbers, and hyphens only.';
+            }
+            if (slug.length < 3 || slug.length > 100) {
+                return 'Clinic URL must be between 3 and 100 characters.';
+            }
+            return '';
+        };
+
+        const checkAvailability = function (rawValue) {
+            const normalized = normalizeSlug(rawValue);
+            if (slugInput.value !== normalized) {
+                slugInput.value = normalized;
+            }
+
+            const validationError = validateSlug(normalized);
+            if (validationError) {
+                setStatus('invalid', validationError);
+                return;
+            }
+
+            setStatus('checking', 'Checking availability...');
+            const currentRequestId = ++requestCounter;
+
+            const params = new URLSearchParams({
+                action: 'check_slug',
+                clinic_slug: normalized
+            });
+
+            fetch('ProviderClinicSetup.php?' + params.toString(), {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin'
+            })
+                .then(function (response) {
+                    return response.json().then(function (data) {
+                        return { response: response, data: data };
+                    });
+                })
+                .then(function (result) {
+                    if (currentRequestId !== requestCounter) {
+                        return;
+                    }
+
+                    const payload = result.data || {};
+                    if (!result.response.ok || payload.ok === false) {
+                        setStatus('error', payload.message || 'Could not check URL availability.');
+                        return;
+                    }
+
+                    if (payload.available) {
+                        setStatus('available', payload.message || 'This clinic URL is available.');
+                    } else {
+                        setStatus('taken', payload.message || 'This clinic URL is already taken.');
+                    }
+                })
+                .catch(function () {
+                    if (currentRequestId !== requestCounter) {
+                        return;
+                    }
+                    setStatus('error', 'Could not check URL availability.');
+                });
+        };
+
+        slugInput.addEventListener('input', function (event) {
+            if (debounceTimer) {
+                clearTimeout(debounceTimer);
+            }
+            debounceTimer = setTimeout(function () {
+                checkAvailability(event.target.value);
+            }, 350);
+        });
+
+        const startingSlug = normalizeSlug(initialSlug);
+        if (startingSlug) {
+            checkAvailability(startingSlug);
+        } else {
+            setStatus('idle', 'Enter a clinic URL');
+        }
+    })();
+</script>
 </body>
 </html>
 
