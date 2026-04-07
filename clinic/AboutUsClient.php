@@ -28,6 +28,13 @@ $servicesHref = htmlspecialchars(clinic_link('services', $slug, BASE_URL . 'Pati
 $contactHref = htmlspecialchars(clinic_link('contact', $slug, BASE_URL . 'ContactUsClient.php'), ENT_QUOTES, 'UTF-8');
 $aboutHeroImg = $cuImg('about_hero_image');
 $aboutHeroCaption = trim((string) ($CLINIC['about_hero_caption_title'] ?? ''));
+$aboutIntroHeadingRaw = trim((string) ($CLINIC['about_intro_heading'] ?? 'About Us'));
+if ($aboutIntroHeadingRaw === '') {
+    $aboutIntroHeadingRaw = 'About Us';
+}
+$aboutIntroHeadingParts = preg_split('/\s+/', $aboutIntroHeadingRaw);
+$aboutIntroHeadingAccent = array_pop($aboutIntroHeadingParts);
+$aboutIntroHeadingBefore = trim(implode(' ', $aboutIntroHeadingParts));
 ?>
 <style>
 .editorial-word {
@@ -48,9 +55,11 @@ $aboutHeroCaption = trim((string) ($CLINIC['about_hero_caption_title'] ?? ''));
 <?php endif; ?>
 <h1 class="font-headline text-[clamp(2.5rem,6vw,5rem)] font-extrabold tracking-[-0.05em] mb-10 leading-[0.9] flex flex-col items-center justify-center text-slate-900 dark:text-white">
 <span class="block">
-                        <?php echo $cu('about_intro_heading_before', 'About'); ?>
+                        <?php if ($aboutIntroHeadingBefore !== ''): ?>
+                            <?php echo htmlspecialchars($aboutIntroHeadingBefore, ENT_QUOTES, 'UTF-8'); ?>
+                        <?php endif; ?>
                         <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">
-                            <?php echo $cu('about_intro_heading_accent', 'Us'); ?>
+                            <?php echo htmlspecialchars((string) $aboutIntroHeadingAccent, ENT_QUOTES, 'UTF-8'); ?>
                         </span>
                     </span>
 </h1>
