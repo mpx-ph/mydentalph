@@ -56,14 +56,16 @@ try {
         $base_amount = (float) $row['amount_to_calculate'];
 
         // Logic:
-        // 1. If we have a cost, balance = cost - paid
-        // 2. If cost is missing, balance = base_amount (assume 50/50 rule)
-        if ($cost > 0) {
-            $unpaid_due = max(0, $cost - $paid);
+        // 1. If they have COMPLETED the downpayment ($paid > 0), they owe the remaining balance
+        // 2. If they have NOT completed the downpayment yet ($paid == 0), they owe the downpayment itself
+        if ($paid > 0) {
+            if ($cost > 0) {
+                $unpaid_due = max(0, $cost - $paid);
+            } else {
+                $unpaid_due = $base_amount; // assuming 50/50 rule, the remaining half
+            }
         } else {
-            // Case where cost isn't set yet. If they haven't paid yet, the due is the downpayment itself.
-            // If they already paid the downpayment, the due is the remaining 50%.
-            $unpaid_due = $base_amount; 
+            $unpaid_due = $base_amount; // They need to pay the pending downpayment amount
         }
 
         // Only show bills that still have a balance remaining 
