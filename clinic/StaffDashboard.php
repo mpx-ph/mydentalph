@@ -17,7 +17,10 @@ if (!isset($currentTenantSlug)) {
 }
 
 $tenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
-$staffFullName = trim((string) ($_SESSION['full_name'] ?? ''));
+$staffFullName = trim((string) ($_SESSION['user_name'] ?? ''));
+if ($staffFullName === '') {
+    $staffFullName = trim((string) ($_SESSION['full_name'] ?? ''));
+}
 if ($staffFullName === '') {
     $staffFirst = trim((string) ($_SESSION['first_name'] ?? ''));
     $staffLast = trim((string) ($_SESSION['last_name'] ?? ''));
@@ -57,6 +60,20 @@ $recentBookings = [];
 
 try {
     $pdo = getDBConnection();
+    if ($staffFullName === '' && !empty($_SESSION['user_id'])) {
+        $nameStmt = $pdo->prepare('SELECT full_name, first_name, last_name FROM tbl_users WHERE user_id = ? LIMIT 1');
+        $nameStmt->execute([(string) $_SESSION['user_id']]);
+        $nameRow = $nameStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $staffFullName = trim((string) ($nameRow['full_name'] ?? ''));
+        if ($staffFullName === '') {
+            $dbFirst = trim((string) ($nameRow['first_name'] ?? ''));
+            $dbLast = trim((string) ($nameRow['last_name'] ?? ''));
+            $staffFullName = trim($dbFirst . ' ' . $dbLast);
+        }
+        if ($staffFullName === '') {
+            $staffFullName = 'Staff';
+        }
+    }
 
     if ($tenantId === '' && $currentTenantSlug !== '') {
         $tenantStmt = $pdo->prepare('SELECT tenant_id FROM tbl_tenants WHERE clinic_slug = ? LIMIT 1');
