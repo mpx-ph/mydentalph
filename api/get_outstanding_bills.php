@@ -32,8 +32,7 @@ try {
             a.appointment_date,
             COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
             SUM(CASE WHEN p.status = 'completed' THEN p.amount ELSE 0 END) AS total_paid_completed,
-            MAX(CASE WHEN p.payment_type = 'downpayment' THEN p.amount ELSE 0 END) AS amount_to_calculate,
-            SUM(CASE WHEN p.payment_type = 'downpayment' THEN 1 ELSE 0 END) AS has_downpayment
+            MAX(p.amount) AS amount_to_calculate
         FROM tbl_payments p
         LEFT JOIN tbl_appointments a 
             ON a.booking_id = p.booking_id AND a.tenant_id = p.tenant_id
@@ -54,12 +53,6 @@ try {
         $cost = (float) $row['total_treatment_cost'];
         $paid = (float) $row['total_paid_completed'];
         $base_amount = (float) $row['amount_to_calculate'];
-        $has_downpayment = (int) $row['has_downpayment'];
-
-        // Only process bookings that started with a downpayment
-        if ($has_downpayment <= 0) {
-            continue;
-        }
 
         // Logic:
         // 1. If total cost is not stored, we assume the total was exactly double the downpayment
