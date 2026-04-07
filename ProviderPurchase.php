@@ -112,8 +112,10 @@ if (!in_array($requested_plan_slug, $allowed, true)) {
     $requested_plan_slug = 'professional';
 }
 $force_from_clinic_setup_once = !empty($_SESSION['force_purchase_from_clinic_setup_once']);
+$return_source = strtolower(trim((string) ($_GET['source'] ?? '')));
+$is_checkout_return = ($return_source === 'checkout');
 // Consumed after we decide identity; used to skip VerifyBusiness on first load after clinic setup / approval redirect.
-$skip_business_verification_gate = $force_from_clinic_setup_once;
+$skip_business_verification_gate = $force_from_clinic_setup_once || $is_checkout_return;
 
 if (!provider_has_authenticated_provider_session()) {
     $redirect = 'ProviderPurchase.php?plan=' . urlencode($requested_plan_slug);
@@ -194,8 +196,28 @@ try {
 
 $prefill_clinic_name = (string) ($tenant['clinic_name'] ?? '');
 $prefill_email = (string) ($tenant['account_email'] ?? $tenant['owner_email'] ?? $tenant['contact_email'] ?? $_SESSION['email'] ?? '');
+$prefill_phone = (string) ($tenant['contact_phone'] ?? '');
+$prefill_address = (string) ($tenant['clinic_address'] ?? '');
 if ($prefill_clinic_name === '') {
     $prefill_clinic_name = (string) ($_SESSION['onboarding_clinic_name'] ?? '');
+}
+$session_prefill_clinic_name = trim((string) ($_SESSION['provider_purchase_clinic_name'] ?? ''));
+$session_prefill_email = trim((string) ($_SESSION['provider_purchase_contact_email'] ?? ''));
+$session_prefill_phone = trim((string) ($_SESSION['provider_purchase_contact_phone'] ?? ''));
+$session_prefill_address = trim((string) ($_SESSION['provider_purchase_clinic_address'] ?? ''));
+if ($is_checkout_return) {
+    if ($session_prefill_clinic_name !== '') {
+        $prefill_clinic_name = $session_prefill_clinic_name;
+    }
+    if ($session_prefill_email !== '') {
+        $prefill_email = $session_prefill_email;
+    }
+    if ($session_prefill_phone !== '') {
+        $prefill_phone = $session_prefill_phone;
+    }
+    if ($session_prefill_address !== '') {
+        $prefill_address = $session_prefill_address;
+    }
 }
 
 $available_plans = [];
@@ -427,11 +449,11 @@ $back_href = 'ProviderClinicSetup.php';
 </div>
 <div class="space-y-1.5">
 <label class="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant px-0.5">Contact Number</label>
-<input name="clinic_phone" autocomplete="tel" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10" placeholder="+63 912 345 6789" type="tel" value="<?php echo htmlspecialchars($tenant['contact_phone'] ?? ''); ?>" required/>
+<input name="clinic_phone" autocomplete="tel" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10" placeholder="+63 912 345 6789" type="tel" value="<?php echo htmlspecialchars($prefill_phone); ?>" required/>
 </div>
 <div class="space-y-1.5 md:col-span-2">
 <label class="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant px-0.5">Business Address</label>
-<textarea name="clinic_address" autocomplete="street-address" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10 min-h-[88px] resize-y" placeholder="Street, City, ZIP" rows="3" required><?php echo htmlspecialchars($tenant['clinic_address'] ?? ''); ?></textarea>
+<textarea name="clinic_address" autocomplete="street-address" class="purchase-input w-full bg-white focus:ring-2 focus:ring-primary/20 rounded-xl px-4 py-2.5 text-sm shadow-sm transition-all placeholder:text-outline-variant/60 font-medium border border-on-surface/10 min-h-[88px] resize-y" placeholder="Street, City, ZIP" rows="3" required><?php echo htmlspecialchars($prefill_address); ?></textarea>
 </div>
 </div>
 </section>
