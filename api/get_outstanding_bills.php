@@ -32,20 +32,20 @@ try {
             a.appointment_date,
             COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
             SUM(CASE WHEN p.status = 'completed' THEN p.amount ELSE 0 END) AS total_paid_completed,
-            MAX(CASE WHEN p.payment_type = 'downpayment' THEN p.amount ELSE 0 END) AS amount_to_calculate
+            MAX(CASE WHEN p.payment_type = 'downpayment' THEN p.amount ELSE 0 END) AS amount_to_calculate,
+            SUM(CASE WHEN p.payment_type = 'downpayment' THEN 1 ELSE 0 END) AS has_downpayment
         FROM tbl_payments p
         LEFT JOIN tbl_appointments a 
             ON a.booking_id = p.booking_id AND a.tenant_id = p.tenant_id
-        WHERE p.patient_id = ?
+        WHERE (p.patient_id = ? OR p.created_by = ?)
           AND p.tenant_id = ?
           AND (a.status IS NULL OR a.status != 'cancelled')
         GROUP BY p.booking_id, a.appointment_date, a.total_treatment_cost
-        HAVING SUM(CASE WHEN p.payment_type = 'downpayment' THEN 1 ELSE 0 END) > 0
         ORDER BY a.appointment_date DESC
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$patient_id, $tenant_id]);
+    $stmt->execute([$patient_id, $user_id, $tenant_id]);
 
     $bills = [];
     $total_unpaid_across_all = 0.0;
@@ -54,6 +54,12 @@ try {
         $cost = (float) $row['total_treatment_cost'];
         $paid = (float) $row['total_paid_completed'];
         $base_amount = (float) $row['amount_to_calculate'];
+        $has_downpayment = (int) $row['has_downpayment'];
+
+        // Only process bookings that started with a downpayment
+        if ($has_downpayment <= 0) {
+            continue;
+        }
 
         // Logic:
         // 1. If they have COMPLETED the downpayment ($paid > 0), they owe the remaining balance
