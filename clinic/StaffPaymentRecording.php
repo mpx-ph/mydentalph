@@ -505,7 +505,7 @@ try {
 <div class="fixed inset-0 z-50 hidden items-center justify-center p-6" id="transaction-modal" role="dialog" aria-modal="true" aria-labelledby="transaction-modal-title">
 <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" id="transaction-modal-overlay"></div>
 <div class="relative z-10 w-full max-w-4xl">
-<div class="glass-form p-10 rounded-[2.5rem] shadow-2xl shadow-primary/20 max-h-[88vh] overflow-y-auto no-scrollbar">
+<div class="glass-form bg-white p-10 rounded-[2.5rem] shadow-2xl shadow-primary/20 max-h-[88vh] overflow-y-auto no-scrollbar">
 <?php if ($paymentError !== ''): ?>
 <div class="mb-6 rounded-2xl border border-red-200 bg-red-50 text-red-700 px-5 py-3 text-sm font-semibold">
 <?php echo htmlspecialchars($paymentError, ENT_QUOTES, 'UTF-8'); ?>
