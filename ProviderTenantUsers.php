@@ -47,9 +47,14 @@ function provider_tenant_fetch_team_members(PDO $pdo, string $tenant_id): array
     try {
         $st = $pdo->prepare(
             'SELECT u.user_id, u.email, u.full_name, u.role, u.status, u.last_active, u.last_login, u.updated_at,
-                    s.profile_image, s.first_name AS staff_first, s.last_name AS staff_last
+                    s.profile_image,
+                    COALESCE(NULLIF(TRIM(s.first_name), \'\'), NULLIF(TRIM(d.first_name), \'\')) AS staff_first,
+                    COALESCE(NULLIF(TRIM(s.last_name), \'\'), NULLIF(TRIM(d.last_name), \'\')) AS staff_last
              FROM tbl_users u
              LEFT JOIN tbl_staffs s ON s.tenant_id = u.tenant_id AND s.user_id = u.user_id
+             LEFT JOIN tbl_dentists d ON u.role = \'dentist\'
+               AND d.tenant_id = u.tenant_id
+               AND LOWER(TRIM(COALESCE(d.email, \'\'))) = LOWER(TRIM(COALESCE(u.email, \'\')))
              WHERE u.tenant_id = ?
                AND u.role NOT IN (\'client\', \'superadmin\')
              ORDER BY u.full_name ASC'

@@ -95,6 +95,20 @@ function tenant_staff_invite_next_staff_display_id(PDO $pdo, string $tenant_id):
     return 'S-' . $year . '-' . $sequence;
 }
 
+function tenant_staff_invite_insert_dentist_profile(
+    PDO $pdo,
+    string $tenant_id,
+    string $first_name,
+    string $last_name,
+    string $email
+): void {
+    $stmt = $pdo->prepare('
+        INSERT INTO tbl_dentists (tenant_id, first_name, last_name, email, status, created_at)
+        VALUES (?, ?, ?, ?, \'active\', NOW())
+    ');
+    $stmt->execute([$tenant_id, $first_name, $last_name, strtolower(trim($email))]);
+}
+
 function tenant_staff_invite_read_session(): ?array
 {
     $s = $_SESSION[TENANT_STAFF_INVITE_SESSION] ?? null;
@@ -226,12 +240,24 @@ if ($action === 'send_code' || $action === 'resend') {
         }
 
         if ($owner_mode) {
-            $stmt = $pdo->prepare('SELECT 1 FROM tbl_staffs WHERE tenant_id = ? AND user_id = ? LIMIT 1');
-            $stmt->execute([$tenant_id, $inviter_user_id]);
-            if ((bool) $stmt->fetchColumn()) {
-                http_response_code(400);
-                echo json_encode(['ok' => false, 'error' => 'You already have a staff profile for this clinic.']);
-                exit;
+            if ($role_db === 'dentist') {
+                $stmt = $pdo->prepare(
+                    'SELECT 1 FROM tbl_dentists WHERE tenant_id = ? AND LOWER(TRIM(COALESCE(email, \'\'))) = ? LIMIT 1'
+                );
+                $stmt->execute([$tenant_id, $email]);
+                if ((bool) $stmt->fetchColumn()) {
+                    http_response_code(400);
+                    echo json_encode(['ok' => false, 'error' => 'You already have a dentist profile for this clinic.']);
+                    exit;
+                }
+            } else {
+                $stmt = $pdo->prepare('SELECT 1 FROM tbl_staffs WHERE tenant_id = ? AND user_id = ? LIMIT 1');
+                $stmt->execute([$tenant_id, $inviter_user_id]);
+                if ((bool) $stmt->fetchColumn()) {
+                    http_response_code(400);
+                    echo json_encode(['ok' => false, 'error' => 'You already have a staff profile for this clinic.']);
+                    exit;
+                }
             }
         }
 
@@ -320,27 +346,51 @@ if ($action === 'verify') {
 
         if ($owner_mode) {
             $uid = (string) $payload['inviter_user_id'];
-            $stmt = $pdo->prepare('SELECT 1 FROM tbl_staffs WHERE tenant_id = ? AND user_id = ? LIMIT 1');
-            $stmt->execute([$tenant_id, $uid]);
-            if ((bool) $stmt->fetchColumn()) {
-                $pdo->rollBack();
-                tenant_staff_invite_clear_session();
-                echo json_encode(['ok' => true, 'message' => 'Your staff profile was already active.']);
-                exit;
-            }
+            $invite_role = (string) ($payload['role'] ?? 'staff');
 
-            $staff_display = tenant_staff_invite_next_staff_display_id($pdo, $tenant_id);
-            $stmt = $pdo->prepare('
-                INSERT INTO tbl_staffs (tenant_id, staff_id, user_id, first_name, last_name, created_at)
-                VALUES (?, ?, ?, ?, ?, NOW())
-            ');
-            $stmt->execute([
-                $tenant_id,
-                $staff_display,
-                $uid,
-                $payload['first'],
-                $payload['last'],
-            ]);
+            if ($invite_role === 'dentist') {
+                $owner_email = strtolower(trim((string) ($payload['email'] ?? '')));
+                $stmt = $pdo->prepare(
+                    'SELECT 1 FROM tbl_dentists WHERE tenant_id = ? AND LOWER(TRIM(COALESCE(email, \'\'))) = ? LIMIT 1'
+                );
+                $stmt->execute([$tenant_id, $owner_email]);
+                if ((bool) $stmt->fetchColumn()) {
+                    $pdo->rollBack();
+                    tenant_staff_invite_clear_session();
+                    echo json_encode(['ok' => true, 'message' => 'Your dentist profile was already active.']);
+                    exit;
+                }
+
+                tenant_staff_invite_insert_dentist_profile(
+                    $pdo,
+                    $tenant_id,
+                    (string) $payload['first'],
+                    (string) $payload['last'],
+                    $owner_email
+                );
+            } else {
+                $stmt = $pdo->prepare('SELECT 1 FROM tbl_staffs WHERE tenant_id = ? AND user_id = ? LIMIT 1');
+                $stmt->execute([$tenant_id, $uid]);
+                if ((bool) $stmt->fetchColumn()) {
+                    $pdo->rollBack();
+                    tenant_staff_invite_clear_session();
+                    echo json_encode(['ok' => true, 'message' => 'Your staff profile was already active.']);
+                    exit;
+                }
+
+                $staff_display = tenant_staff_invite_next_staff_display_id($pdo, $tenant_id);
+                $stmt = $pdo->prepare('
+                    INSERT INTO tbl_staffs (tenant_id, staff_id, user_id, first_name, last_name, created_at)
+                    VALUES (?, ?, ?, ?, ?, NOW())
+                ');
+                $stmt->execute([
+                    $tenant_id,
+                    $staff_display,
+                    $uid,
+                    $payload['first'],
+                    $payload['last'],
+                ]);
+            }
         } else {
             $email = (string) $payload['email'];
             $stmt = $pdo->prepare('SELECT user_id FROM tbl_users WHERE tenant_id = ? AND email = ? LIMIT 1');
@@ -372,18 +422,28 @@ if ($action === 'verify') {
                 $role,
             ]);
 
-            $staff_display = tenant_staff_invite_next_staff_display_id($pdo, $tenant_id);
-            $stmt = $pdo->prepare('
-                INSERT INTO tbl_staffs (tenant_id, staff_id, user_id, first_name, last_name, created_at)
-                VALUES (?, ?, ?, ?, ?, NOW())
-            ');
-            $stmt->execute([
-                $tenant_id,
-                $staff_display,
-                $new_user_id,
-                $payload['first'],
-                $payload['last'],
-            ]);
+            if ($role === 'dentist') {
+                tenant_staff_invite_insert_dentist_profile(
+                    $pdo,
+                    $tenant_id,
+                    (string) $payload['first'],
+                    (string) $payload['last'],
+                    $email
+                );
+            } else {
+                $staff_display = tenant_staff_invite_next_staff_display_id($pdo, $tenant_id);
+                $stmt = $pdo->prepare('
+                    INSERT INTO tbl_staffs (tenant_id, staff_id, user_id, first_name, last_name, created_at)
+                    VALUES (?, ?, ?, ?, ?, NOW())
+                ');
+                $stmt->execute([
+                    $tenant_id,
+                    $staff_display,
+                    $new_user_id,
+                    $payload['first'],
+                    $payload['last'],
+                ]);
+            }
         }
 
         $pdo->commit();
@@ -398,11 +458,13 @@ if ($action === 'verify') {
     }
 
     tenant_staff_invite_clear_session();
+    $ownerMsg = 'Your staff profile is ready. You can use the clinic portal with your existing login.';
+    if ($owner_mode && (string) ($payload['role'] ?? '') === 'dentist') {
+        $ownerMsg = 'Your dentist profile is ready. You can use the clinic portal with your existing login.';
+    }
     echo json_encode([
         'ok' => true,
-        'message' => $owner_mode
-            ? 'Your staff profile is ready. You can use the clinic portal with your existing login.'
-            : 'Team member account created. They can sign in with their email and password.',
+        'message' => $owner_mode ? $ownerMsg : 'Team member account created. They can sign in with their email and password.',
     ]);
     exit;
 }

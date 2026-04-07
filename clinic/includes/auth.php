@@ -156,11 +156,57 @@ function requireLogin($type) {
 }
 
 /**
- * DB roles that must have a tbl_staffs row for this tenant (clinic staff / dentist).
+ * Names and staff display id for admin portal; dentists may only exist in tbl_dentists (matched by tenant + email).
+ *
+ * @return array{first_name: string, last_name: string, staff_id: string|null, has_profile: bool}
  */
-function _authRoleRequiresStaffTableRow($dbRole) {
-    $r = strtolower((string) $dbRole);
-    return in_array($r, ['staff', 'dentist'], true);
+function _auth_resolve_staff_portal_profile(PDO $pdo, string $tenantId, array $user): array {
+    $uid = trim((string) ($user['user_id'] ?? ''));
+    $email = strtolower(trim((string) ($user['email'] ?? '')));
+    $roleLower = strtolower((string) ($user['role'] ?? ''));
+
+    $stmt2 = $pdo->prepare('
+        SELECT staff_id, first_name, last_name FROM tbl_staffs
+        WHERE tenant_id = ? AND user_id = ?
+        LIMIT 1
+    ');
+    $stmt2->execute([$tenantId, $uid]);
+    $staff = $stmt2->fetch(PDO::FETCH_ASSOC);
+    $staffId = null;
+    if (is_array($staff) && trim((string) ($staff['staff_id'] ?? '')) !== '') {
+        $staffId = (string) $staff['staff_id'];
+        return [
+            'first_name' => (string) ($staff['first_name'] ?? ''),
+            'last_name' => (string) ($staff['last_name'] ?? ''),
+            'staff_id' => $staffId,
+            'has_profile' => true,
+        ];
+    }
+
+    if ($roleLower === 'dentist' && $email !== '') {
+        $st = $pdo->prepare('
+            SELECT first_name, last_name FROM tbl_dentists
+            WHERE tenant_id = ? AND LOWER(TRIM(COALESCE(email, \'\'))) = ?
+            LIMIT 1
+        ');
+        $st->execute([$tenantId, $email]);
+        $d = $st->fetch(PDO::FETCH_ASSOC);
+        if (is_array($d)) {
+            return [
+                'first_name' => (string) ($d['first_name'] ?? ''),
+                'last_name' => (string) ($d['last_name'] ?? ''),
+                'staff_id' => null,
+                'has_profile' => true,
+            ];
+        }
+    }
+
+    return [
+        'first_name' => '',
+        'last_name' => '',
+        'staff_id' => null,
+        'has_profile' => false,
+    ];
 }
 
 /**
@@ -257,20 +303,18 @@ function _loginPortalUnified(PDO $pdo, $tenantId, $email, $password) {
         return $fail;
     }
 
-    $stmt2 = $pdo->prepare("
-        SELECT staff_id, first_name, last_name FROM tbl_staffs
-        WHERE tenant_id = ? AND user_id = ?
-        LIMIT 1
-    ");
-    $stmt2->execute([$tenantId, $user['user_id']]);
-    $staff = $stmt2->fetch(PDO::FETCH_ASSOC);
+    $prof = _auth_resolve_staff_portal_profile($pdo, $tenantId, $user);
+    $roleLower = strtolower((string) ($user['role'] ?? ''));
 
-    if (_authRoleRequiresStaffTableRow($user['role'] ?? '') && (!$staff || trim((string) ($staff['staff_id'] ?? '')) === '')) {
+    if ($roleLower === 'staff' && !$prof['has_profile']) {
+        return $fail;
+    }
+    if ($roleLower === 'dentist' && !$prof['has_profile']) {
         return $fail;
     }
 
-    $first_name = $staff ? (string) ($staff['first_name'] ?? '') : '';
-    $last_name = $staff ? (string) ($staff['last_name'] ?? '') : '';
+    $first_name = $prof['first_name'];
+    $last_name = $prof['last_name'];
     if ($first_name === '' && $last_name === '') {
         $fullName = $user['full_name'] ?? $user['username'] ?? 'User';
         $parts = explode(' ', trim($fullName), 2);
@@ -286,8 +330,8 @@ function _loginPortalUnified(PDO $pdo, $tenantId, $email, $password) {
     $_SESSION['clinic_id'] = $tenantId;
     $_SESSION['user_role'] = (string) ($user['role'] ?? '');
     $_SESSION['account_kind'] = 'staff';
-    $_SESSION['staff_id'] = ($staff && trim((string) ($staff['staff_id'] ?? '')) !== '')
-        ? (string) $staff['staff_id']
+    $_SESSION['staff_id'] = ($prof['staff_id'] !== null && trim((string) $prof['staff_id']) !== '')
+        ? (string) $prof['staff_id']
         : null;
 
     writeAuditLog(
@@ -371,21 +415,22 @@ function loginUser($email, $password, $userType) {
         }
     }
 
-    // Get first_name, last_name from tbl_staffs or tbl_patients (tenant-scoped)
+    // Get first_name, last_name from tbl_staffs / tbl_dentists / tbl_patients (tenant-scoped)
     $first_name = '';
     $last_name = '';
+    $resolvedStaffId = null;
     if (in_array($userDbType, $adminTypes)) {
-        $stmt2 = $pdo->prepare("
-            SELECT first_name, last_name FROM tbl_staffs
-            WHERE tenant_id = ? AND user_id = ?
-            LIMIT 1
-        ");
-        $stmt2->execute([$tenantId, $user['user_id']]);
-        $profile = $stmt2->fetch(PDO::FETCH_ASSOC);
-        if ($profile) {
-            $first_name = isset($profile['first_name']) ? $profile['first_name'] : '';
-            $last_name = isset($profile['last_name']) ? $profile['last_name'] : '';
+        $prof = _auth_resolve_staff_portal_profile($pdo, $tenantId, $user);
+        $roleLower = strtolower((string) ($user['role'] ?? ''));
+        if ($roleLower === 'staff' && !$prof['has_profile']) {
+            return ['success' => false, 'message' => 'Invalid credentials.', 'user' => null, 'portal' => null];
         }
+        if ($roleLower === 'dentist' && !$prof['has_profile']) {
+            return ['success' => false, 'message' => 'Invalid credentials.', 'user' => null, 'portal' => null];
+        }
+        $first_name = $prof['first_name'];
+        $last_name = $prof['last_name'];
+        $resolvedStaffId = $prof['staff_id'];
     } else {
         $stmt2 = $pdo->prepare("
             SELECT first_name, last_name FROM tbl_patients
@@ -415,10 +460,9 @@ function loginUser($email, $password, $userType) {
     $_SESSION['user_role'] = (string) ($user['role'] ?? '');
     if (in_array($userDbType, $adminTypes, true)) {
         $_SESSION['account_kind'] = 'staff';
-        $st = $pdo->prepare("SELECT staff_id FROM tbl_staffs WHERE tenant_id = ? AND user_id = ? LIMIT 1");
-        $st->execute([$tenantId, $user['user_id']]);
-        $sr = $st->fetch(PDO::FETCH_ASSOC);
-        $_SESSION['staff_id'] = ($sr && trim((string) ($sr['staff_id'] ?? '')) !== '') ? (string) $sr['staff_id'] : null;
+        $_SESSION['staff_id'] = ($resolvedStaffId !== null && trim((string) $resolvedStaffId) !== '')
+            ? (string) $resolvedStaffId
+            : null;
     } else {
         unset($_SESSION['staff_id']);
         $_SESSION['account_kind'] = 'patient';
