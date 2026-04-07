@@ -17,8 +17,8 @@
     <div class="card">
         <div class="icon">✨</div>
         <h1>Payment Successful!</h1>
-        <p>Your appointment is confirmed. You can now close this browser and return to the Azure Dental app.</p>
-        <button class="btn" onclick="window.close()">Close</button>
+        <p>Your appointment is confirmed. You can now return to your Dento Cleene app dashboard.</p>
+        <a href="mydentalph://app" class="btn">Return to Merchant Dashboard</a>
     </div>
 </body>
 </html>
