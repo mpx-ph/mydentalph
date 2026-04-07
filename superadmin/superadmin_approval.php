@@ -65,11 +65,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $to_email = trim((string) ($request['owner_email'] ?? ''));
                     if ($to_email !== '') {
                         $login_url = 'https://mydentalph.ct.ws/ProviderLogin.php';
+                        $find_account_url = 'https://mydentalph.ct.ws/ProviderFindAccount.php';
+                        $owner_username = '';
+                        $owner_login_email = $to_email;
+                        if (!empty($request['owner_user_id'])) {
+                            $owner_stmt = $pdo->prepare("SELECT username, email FROM tbl_users WHERE user_id = ? LIMIT 1");
+                            $owner_stmt->execute([(string) $request['owner_user_id']]);
+                            $owner_row = $owner_stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+                            if ($owner_row) {
+                                $owner_username = trim((string) ($owner_row['username'] ?? ''));
+                                $db_email = trim((string) ($owner_row['email'] ?? ''));
+                                if ($db_email !== '') {
+                                    $owner_login_email = $db_email;
+                                }
+                            }
+                        }
                         $safe_owner = htmlspecialchars((string) ($request['owner_name'] ?? 'Clinic Owner'), ENT_QUOTES, 'UTF-8');
                         $safe_clinic = htmlspecialchars((string) ($request['clinic_name'] ?? 'Clinic'), ENT_QUOTES, 'UTF-8');
                         $safe_login_url = htmlspecialchars($login_url, ENT_QUOTES, 'UTF-8');
-                        $body_text = "Hello {$request['owner_name']},\n\nYour clinic verification for {$request['clinic_name']} has been approved.\nPlease log in to continue:\n{$login_url}";
-                        $body_html = "<p>Hello {$safe_owner},</p><p>Your clinic verification for <strong>{$safe_clinic}</strong> has been approved.</p><p><a href=\"{$safe_login_url}\">https://mydentalph.ct.ws/ProviderLogin.php</a></p>";
+                        $safe_find_account_url = htmlspecialchars($find_account_url, ENT_QUOTES, 'UTF-8');
+                        $safe_login_email = htmlspecialchars($owner_login_email, ENT_QUOTES, 'UTF-8');
+                        $safe_username = htmlspecialchars($owner_username !== '' ? $owner_username : 'Not available', ENT_QUOTES, 'UTF-8');
+                        $body_text = "Hello {$request['owner_name']},\n\nYour clinic verification for {$request['clinic_name']} has been approved.\n\nTenant Owner Login Details:\nEmail: {$owner_login_email}\nUsername: " . ($owner_username !== '' ? $owner_username : 'Not available') . "\nPassword: For security reasons, your current password cannot be sent by email.\n\nLog in here:\n{$login_url}\n\nForgot password?\n{$find_account_url}";
+                        $body_html = "<p>Hello {$safe_owner},</p><p>Your clinic verification for <strong>{$safe_clinic}</strong> has been approved.</p><p><strong>Tenant Owner Login Details</strong><br>Email: {$safe_login_email}<br>Username: {$safe_username}<br>Password: For security reasons, your current password cannot be sent by email.</p><p><a href=\"{$safe_login_url}\">https://mydentalph.ct.ws/ProviderLogin.php</a></p><p>Forgot password? <a href=\"{$safe_find_account_url}\">https://mydentalph.ct.ws/ProviderFindAccount.php</a></p>";
                         if (!send_smtp_gmail($to_email, 'Clinic Verification Approved - Continue Setup', $body_text, $body_html)) {
                             $success = 'Request approved. Email could not be sent; check SMTP settings.';
                         } else {
