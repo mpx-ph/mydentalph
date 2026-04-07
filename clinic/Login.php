@@ -161,48 +161,10 @@ $loginPageUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugL
             100% { transform: translateY(0) scale(1); opacity: 1; }
         }
         .pop-up { animation: popIn 620ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-        /* Nav links: fixed border box so hover/active never shifts layout */
-        .login-nav-link {
-            border-bottom-width: 2px;
-            border-bottom-style: solid;
-            border-bottom-color: transparent;
-            padding-bottom: 0.25rem;
-            transition: color 220ms ease-out, border-color 220ms ease-out;
-        }
-        .login-nav-link:hover,
-        .login-nav-link:focus-visible {
-            color: <?php echo htmlspecialchars($cPrimary, ENT_QUOTES, 'UTF-8'); ?>;
-            border-bottom-color: rgba(<?php echo (int) $loginPrimaryR; ?>, <?php echo (int) $loginPrimaryG; ?>, <?php echo (int) $loginPrimaryB; ?>, 0.45);
-        }
-        .login-nav-link.is-active {
-            color: <?php echo htmlspecialchars($cPrimary, ENT_QUOTES, 'UTF-8'); ?>;
-            border-bottom-color: <?php echo htmlspecialchars($cPrimary, ENT_QUOTES, 'UTF-8'); ?>;
-        }
-        .login-nav-link.is-active:hover,
-        .login-nav-link.is-active:focus-visible {
-            color: <?php echo htmlspecialchars($cPrimary, ENT_QUOTES, 'UTF-8'); ?>;
-            border-bottom-color: <?php echo htmlspecialchars($cPrimary, ENT_QUOTES, 'UTF-8'); ?>;
-        }
     </style>
 </head>
 <body class="mesh-gradient min-h-screen flex flex-col items-center selection:bg-primary/20 text-on-surface font-body">
-<!-- Navigation (layout aligned with includes/nav_client.php: max-w-7xl, px-6 md:px-12, py-4, h-12 logo) -->
-<nav class="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-xl shadow-sm" aria-label="Main">
-<div class="grid grid-cols-[auto_1fr_auto] items-center gap-3 sm:gap-6 max-w-7xl mx-auto px-6 md:px-12 py-4 min-h-20">
-<a href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>" class="flex items-center shrink-0 no-underline text-inherit outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 rounded-lg">
-<img src="<?php echo htmlspecialchars($loginLogoUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo $loginLogoAlt; ?>" class="h-12 w-auto object-contain"/>
-</a>
-<div class="flex flex-wrap items-center justify-center gap-x-6 sm:gap-x-10 lg:gap-12 gap-y-1 min-w-0 text-sm font-semibold tracking-tight text-on-surface/60 font-headline uppercase">
-<a class="login-nav-link no-underline outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 rounded-sm" href="<?php echo htmlspecialchars($publicHomeUrl, ENT_QUOTES, 'UTF-8'); ?>">Home</a>
-<a class="login-nav-link no-underline outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 rounded-sm" href="<?php echo htmlspecialchars($publicServicesUrl, ENT_QUOTES, 'UTF-8'); ?>">Services</a>
-<a class="login-nav-link no-underline outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 rounded-sm" href="<?php echo htmlspecialchars($publicAboutUrl, ENT_QUOTES, 'UTF-8'); ?>">About Us</a>
-<a class="login-nav-link no-underline outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 rounded-sm" href="<?php echo htmlspecialchars($publicContactUrl, ENT_QUOTES, 'UTF-8'); ?>">Contact Us</a>
-</div>
-<div class="flex items-center gap-4 justify-self-end shrink-0">
-<button class="text-on-surface font-semibold text-sm hover:text-primary transition-all">Login</button>
-</div>
-</div>
-</nav>
+<?php include __DIR__ . '/includes/nav_client.php'; ?>
 <main class="flex-grow flex items-center justify-center w-full px-4 sm:px-6 lg:px-8 relative pt-24 pb-12 reveal" data-reveal="section">
 <div class="w-full max-w-lg">
 <div class="login-card rounded-[2.5rem] overflow-hidden p-10 md:p-12 space-y-8 pop-up">
