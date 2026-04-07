@@ -324,8 +324,7 @@ $team_total = count($team_members);
 <?php include __DIR__ . '/provider_tenant_top_header.inc.php'; ?>
 <main class="ml-64 pt-[4.5rem] sm:pt-24 min-h-screen provider-page-enter">
 <div class="pt-4 sm:pt-6 px-6 lg:px-10 pb-20 space-y-8">
-<!-- Header Card -->
-<section class="elevated-card provider-card-lift rounded-3xl p-10 flex flex-col gap-6">
+<section class="flex flex-col gap-6">
 <div class="flex flex-col gap-4">
 <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]"><span class="w-12 h-[1.5px] bg-primary"></span> Team Management</div>
 <div class="flex justify-between items-end">
@@ -339,7 +338,6 @@ $team_total = count($team_members);
                     </button>
 </div>
 </div>
-<!-- Internal Control Bar (part of Header Card or separate, user asked for "each section" to sit on card) -->
 <form class="flex flex-wrap gap-4 items-center justify-between pt-8 border-t border-slate-100" method="get" action="">
 <div class="flex flex-wrap gap-4">
 <div class="relative">

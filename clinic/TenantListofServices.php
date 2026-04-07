@@ -107,7 +107,7 @@ $services_initial = tenant_public_services_fetch_for_tenant($pdo, (string) $tena
 <?php include dirname(__DIR__) . '/provider_tenant_top_header.inc.php'; ?>
 <main class="ml-64 pt-[4.5rem] sm:pt-24 min-h-screen provider-page-enter">
 <div class="pt-4 sm:pt-6 px-6 lg:px-10 pb-20 space-y-8">
-<section class="elevated-card provider-card-lift rounded-3xl p-8 sm:p-10 flex flex-col gap-6">
+<section class="p-8 sm:p-10 flex flex-col gap-6">
 <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8">
 <div>
 <p class="text-primary font-bold text-xs uppercase tracking-[0.3em] mb-2">Catalog</p>
