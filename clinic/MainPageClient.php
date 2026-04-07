@@ -101,7 +101,12 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 <div class="text-primary font-bold text-xs uppercase mb-6 flex gap-4 tracking-[0.3em] justify-center items-center font-headline">
 <span class="w-12 h-[1.5px] bg-primary"></span> <?php echo $cu('main_services_heading', 'Our Expertise'); ?>
                     </div>
-<h2 class="font-headline text-6xl md:text-8xl font-extrabold tracking-tighter leading-[0.9] mb-8 text-primary"><?php echo $cu('main_services_title', 'Comprehensive Dental Solutions'); ?></h2>
+<h2 class="font-headline text-6xl md:text-8xl font-extrabold tracking-tighter leading-[0.9] mb-8 text-slate-900 dark:text-white">
+                        <?php echo $cu('main_services_title_before', 'Comprehensive Dental'); ?>
+                        <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">
+                            <?php echo $cu('main_services_title_accent', 'Solutions'); ?>
+                        </span>
+                    </h2>
 <p class="text-slate-600 dark:text-slate-400 text-2xl leading-relaxed max-w-2xl mx-auto text-center font-medium font-body">
                         <?php echo $cuMultiline('main_services_description', 'From routine hygiene to complex restoration, our treatments are tailored to your specific oral health needs.'); ?>
                     </p>
