@@ -100,7 +100,7 @@ if ($verificationStatus === 'approved') {
                     <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">schedule</span>
                 </div>
                 <div>
-                    <h1 class="font-headline text-3xl font-extrabold tracking-tight">Your account is not approved yet</h1>
+                    <h1 class="font-headline text-3xl font-extrabold tracking-tight">Account Status</h1>
                     <p class="mt-2 text-on-surface-variant font-medium">
                         <?php if (!$emailVerified): ?>
                             Please complete email OTP verification to continue.
@@ -109,7 +109,7 @@ if ($verificationStatus === 'approved') {
                         <?php elseif ($verificationStatus === 'rejected'): ?>
                             Your account was rejected. You cannot log in at this time. Please contact support for next steps.
                         <?php else: ?>
-                            Your account is under review. Please wait for approval.
+                            Your application is currently being reviewed.
                         <?php endif; ?>
                     </p>
                 </div>
