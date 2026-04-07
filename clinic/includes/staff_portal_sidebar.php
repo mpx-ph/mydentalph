@@ -4,9 +4,32 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-$clinicName = 'Precision Dental';
+$clinicName = 'Dental Clinic';
 if (isset($currentTenantData['clinic_name']) && trim((string) $currentTenantData['clinic_name']) !== '') {
     $clinicName = (string) $currentTenantData['clinic_name'];
+} elseif (isset($_SESSION['clinic_name']) && trim((string) $_SESSION['clinic_name']) !== '') {
+    $clinicName = (string) $_SESSION['clinic_name'];
+}
+
+$clinicLogo = 'DRCGLogo2.png';
+if (isset($currentTenantData['logo_nav']) && trim((string) $currentTenantData['logo_nav']) !== '') {
+    $clinicLogo = (string) $currentTenantData['logo_nav'];
+} elseif (isset($_SESSION['clinic_logo_nav']) && trim((string) $_SESSION['clinic_logo_nav']) !== '') {
+    $clinicLogo = (string) $_SESSION['clinic_logo_nav'];
+}
+
+$clinicLogoUrl = strpos($clinicLogo, 'http') === 0 ? $clinicLogo : (BASE_URL . ltrim($clinicLogo, '/'));
+$clinicLogoLocalPath = null;
+if (strpos($clinicLogo, 'http') !== 0 && defined('ROOT_PATH')) {
+    $clinicLogoLocalPath = ROOT_PATH . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, ltrim($clinicLogo, '/\\'));
+}
+if (
+    strpos($clinicLogoUrl, '?') === false &&
+    is_string($clinicLogoLocalPath) &&
+    $clinicLogoLocalPath !== '' &&
+    is_file($clinicLogoLocalPath)
+) {
+    $clinicLogoUrl .= '?v=' . @filemtime($clinicLogoLocalPath);
 }
 
 $scriptName = isset($_SERVER['SCRIPT_NAME']) ? (string) $_SERVER['SCRIPT_NAME'] : '';
@@ -83,9 +106,11 @@ if ($currentUserRole === 'dentist') {
 <aside class="fixed left-0 top-0 h-full w-64 z-40 bg-white flex flex-col py-8 border-r border-slate-200/60">
     <div class="px-7 mb-8">
         <h1 class="text-xl font-extrabold text-slate-900 tracking-tight font-headline flex items-center gap-2">
-            <span class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/30">
-                <span class="material-symbols-outlined text-white text-lg" style="font-variation-settings: 'FILL' 1;">dentistry</span>
-            </span>
+            <img
+                src="<?php echo htmlspecialchars($clinicLogoUrl, ENT_QUOTES, 'UTF-8'); ?>"
+                alt="<?php echo htmlspecialchars($clinicName, ENT_QUOTES, 'UTF-8'); ?>"
+                class="h-9 w-auto object-contain"
+            />
             <?php echo htmlspecialchars($clinicName, ENT_QUOTES, 'UTF-8'); ?>
         </h1>
         <p class="text-primary font-bold text-[10px] tracking-[0.2em] uppercase mt-2 opacity-80">Staff Portal</p>
