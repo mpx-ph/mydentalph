@@ -24,16 +24,17 @@ try {
     
     $patient_id = $patRow['patient_id'];
 
-    // 2. Fetch bookings with total_treatment_cost > total_paid
+    // 2. Fetch bookings where a downpayment was made but balance still remains
     $sql = "
         SELECT 
             a.booking_id,
             a.appointment_date,
             a.total_treatment_cost,
-            COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.amount ELSE 0 END), 0) as total_paid
+            COALESCE(SUM(CASE WHEN p.status IN ('completed', 'pending') THEN p.amount ELSE 0 END), 0) as total_paid
         FROM tbl_appointments a
-        LEFT JOIN tbl_payments p ON a.booking_id = p.booking_id AND a.tenant_id = p.tenant_id
+        INNER JOIN tbl_payments p ON a.booking_id = p.booking_id AND a.tenant_id = p.tenant_id
         WHERE a.patient_id = ? AND a.tenant_id = ? AND a.total_treatment_cost > 0 AND a.status != 'cancelled'
+          AND p.payment_type = 'downpayment'
         GROUP BY a.id, a.booking_id, a.appointment_date, a.total_treatment_cost
         HAVING total_paid < a.total_treatment_cost
         ORDER BY a.appointment_date DESC
@@ -53,11 +54,11 @@ try {
         if ($unpaid_due > 0) {
             $total_unpaid_across_all += $unpaid_due;
             $bills[] = [
-                "booking_id" => $row['booking_id'],
+                "booking_id"       => $row['booking_id'],
                 "appointment_date" => date("M d, Y", strtotime($row['appointment_date'])),
-                "total_cost" => $cost,
-                "amount_paid" => $paid,
-                "unpaid_due" => $unpaid_due
+                "total_cost"       => $cost,
+                "amount_paid"      => $paid,
+                "unpaid_due"       => $unpaid_due
             ];
         }
     }
