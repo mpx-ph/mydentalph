@@ -17,6 +17,39 @@ if (!isset($currentTenantSlug)) {
 }
 
 $tenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
+$staffFullName = trim((string) ($_SESSION['full_name'] ?? ''));
+if ($staffFullName === '') {
+    $staffFirst = trim((string) ($_SESSION['first_name'] ?? ''));
+    $staffLast = trim((string) ($_SESSION['last_name'] ?? ''));
+    $staffFullName = trim($staffFirst . ' ' . $staffLast);
+}
+if ($staffFullName === '') {
+    $staffFullName = 'Staff';
+}
+$staffRole = strtolower(trim((string) ($_SESSION['user_role'] ?? 'staff')));
+$staffRoleMessage = 'Here&rsquo;s what&rsquo;s happening at your practice today. Invite staff and manage roles anytime.';
+if ($staffRole === 'dentist') {
+    $staffRoleMessage = 'Here&rsquo;s your chairside snapshot today. Review appointments and keep patient care on track.';
+} elseif ($staffRole === 'manager') {
+    $staffRoleMessage = 'Here&rsquo;s what&rsquo;s happening at your practice today. Keep workflows moving and support your team.';
+}
+
+$tzManila = null;
+try {
+    $tzManila = new DateTimeZone('Asia/Manila');
+} catch (Throwable $e) {
+    $tzManila = new DateTimeZone('UTC');
+}
+$nowManila = new DateTimeImmutable('now', $tzManila);
+$todayLongLabel = $nowManila->format('l, F j, Y');
+$hourNow = (int) $nowManila->format('G');
+if ($hourNow < 12) {
+    $greetingTime = 'Good morning';
+} elseif ($hourNow < 17) {
+    $greetingTime = 'Good afternoon';
+} else {
+    $greetingTime = 'Good evening';
+}
 $todayAppointments = 0;
 $pendingRequests = 0;
 $todayRevenue = 0.0;
@@ -137,11 +170,57 @@ try {
             border: 1px solid rgba(226, 232, 240, 0.8);
             box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
         }
+        .provider-page-enter {
+            animation: staff-page-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        @keyframes staff-page-in {
+            from { opacity: 0; transform: translateY(14px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .staff-card-lift {
+            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+        }
+        .staff-card-lift:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.12);
+        }
+        .staff-stat-card {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.92) 100%);
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.95), 0 10px 40px -10px rgba(15, 23, 42, 0.10);
+        }
+        .staff-stat-card::before {
+            content: "";
+            position: absolute;
+            inset: 0 0 auto 0;
+            height: 3px;
+            border-radius: 1.5rem 1.5rem 0 0;
+            opacity: 0.9;
+            pointer-events: none;
+        }
+        .staff-stat-card--appointments::before { background: linear-gradient(90deg, #2b8beb, #60a5fa); }
+        .staff-stat-card--pending::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+        .staff-stat-card--revenue::before { background: linear-gradient(90deg, #059669, #10b981); }
+        .staff-welcome-banner {
+            background: linear-gradient(120deg, #1e3a5f 0%, #2b8beb 42%, #5ab0ff 100%);
+            box-shadow: 0 20px 50px -20px rgba(43, 139, 235, 0.45);
+        }
+        .staff-table-row {
+            transition: background-color 0.2s ease, transform 0.2s ease;
+        }
+        .staff-table-row:hover {
+            background: rgba(43, 139, 235, 0.04);
+            transform: translateX(2px);
+        }
+        .staff-sidebar-brand nav a:hover {
+            transform: translateX(4px);
+        }
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20">
+<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
 <div class="p-10 space-y-10">
 <section class="flex flex-col gap-4 mb-4">
@@ -158,8 +237,25 @@ try {
 </div>
 </section>
 
+<section class="staff-welcome-banner rounded-3xl px-6 sm:px-10 py-7 sm:py-8 text-white relative overflow-hidden">
+<div class="absolute inset-0 opacity-[0.12] pointer-events-none" style="background-image: radial-gradient(circle at 20% 120%, #fff 0, transparent 55%), radial-gradient(circle at 90% -20%, #fff 0, transparent 45%);" aria-hidden="true"></div>
+<div class="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+<div class="max-w-3xl">
+<p class="text-white/80 text-xs font-bold uppercase tracking-[0.25em] mb-2"><?php echo htmlspecialchars($todayLongLabel, ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-2xl sm:text-3xl font-extrabold font-headline tracking-tight"><?php echo htmlspecialchars($greetingTime, ENT_QUOTES, 'UTF-8'); ?>, <span class="font-editorial italic font-normal text-white/95"><?php echo htmlspecialchars($staffFullName, ENT_QUOTES, 'UTF-8'); ?></span>.</p>
+<p class="text-white/85 mt-2 text-sm sm:text-base font-medium leading-relaxed"><?php echo $staffRoleMessage; ?></p>
+</div>
+<div class="shrink-0">
+<span class="inline-flex items-center gap-2 rounded-2xl bg-white/10 border border-white/25 px-5 py-3 text-sm font-bold backdrop-blur-sm">
+<span class="material-symbols-outlined text-xl">groups</span>
+Staff Portal
+</span>
+</div>
+</div>
+</section>
+
 <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between">
+<div class="elevated-card staff-card-lift staff-stat-card staff-stat-card--appointments p-8 rounded-3xl flex flex-col justify-between">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event_available</span>
@@ -172,7 +268,7 @@ try {
 </div>
 </div>
 
-<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between">
+<div class="elevated-card staff-card-lift staff-stat-card staff-stat-card--pending p-8 rounded-3xl flex flex-col justify-between">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">pending_actions</span>
@@ -185,7 +281,7 @@ try {
 </div>
 </div>
 
-<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between">
+<div class="elevated-card staff-card-lift staff-stat-card staff-stat-card--revenue p-8 rounded-3xl flex flex-col justify-between">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">payments</span>
@@ -199,7 +295,7 @@ try {
 </div>
 </section>
 
-<section class="elevated-card rounded-3xl overflow-hidden">
+<section class="elevated-card staff-card-lift rounded-3xl overflow-hidden">
 <div class="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
 <div>
 <h3 class="text-2xl font-bold font-headline text-on-background">Recent Bookings</h3>
@@ -259,7 +355,7 @@ try {
     }
     $amount = (float) ($booking['total_treatment_cost'] ?? 0);
 ?>
-<tr class="hover:bg-slate-50/30 transition-colors group">
+<tr class="staff-table-row group">
 <td class="px-8 py-5">
 <div>
 <p class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors"><?php echo htmlspecialchars($patientName, ENT_QUOTES, 'UTF-8'); ?></p>
