@@ -72,8 +72,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $safe_owner = htmlspecialchars((string) ($request['owner_name'] ?? 'Clinic Owner'), ENT_QUOTES, 'UTF-8');
                         $safe_clinic = htmlspecialchars((string) ($request['clinic_name'] ?? 'Clinic'), ENT_QUOTES, 'UTF-8');
                         $safe_setup_url = htmlspecialchars($setup_url, ENT_QUOTES, 'UTF-8');
-                        $body_text = "Hello {$request['owner_name']},\n\nYour clinic verification for {$request['clinic_name']} has been approved.\nUse this secure link to continue setup:\n{$setup_url}\n\nThis link expires in 7 days.";
-                        $body_html = "<p>Hello {$safe_owner},</p><p>Your clinic verification for <strong>{$safe_clinic}</strong> has been approved.</p><p><a href=\"{$safe_setup_url}\">Continue clinic setup</a></p><p>This secure link expires in 7 days.</p>";
+                        $provider_login_url = 'https://mydentalph.ct.ws/ProviderLogin.php';
+                        $safe_provider_login_url = htmlspecialchars($provider_login_url, ENT_QUOTES, 'UTF-8');
+                        $body_text = "Hello {$request['owner_name']},\n\nYour clinic verification for {$request['clinic_name']} has been approved.\nUse this secure link to continue setup:\n{$setup_url}\n\nAfter setup, you can log in here:\n{$provider_login_url}\n\nThis setup link expires in 7 days.";
+                        $body_html = "<p>Hello {$safe_owner},</p><p>Your clinic verification for <strong>{$safe_clinic}</strong> has been approved.</p><p><a href=\"{$safe_setup_url}\">Continue clinic setup</a></p><p>After setup, you can log in here:<br><a href=\"{$safe_provider_login_url}\">{$safe_provider_login_url}</a></p><p>This setup link expires in 7 days.</p>";
                         if (!send_smtp_gmail($to_email, 'Clinic Verification Approved - Continue Setup', $body_text, $body_html)) {
                             $success = 'Request approved. Email could not be sent; check SMTP settings.';
                         } else {
