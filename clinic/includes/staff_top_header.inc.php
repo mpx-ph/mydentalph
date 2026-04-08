@@ -44,7 +44,7 @@ if ($__slug_title !== '') {
 }
 $__staff_logout_url = '/clinic/api/logout.php';
 ?>
-<header class="fixed top-0 right-0 left-64 z-30 min-h-[4.5rem] sm:h-20 sm:min-h-0 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 shadow-sm shadow-slate-200/30" data-purpose="top-header">
+<header class="fixed top-0 right-0 left-64 z-30 min-h-[4.5rem] sm:h-20 sm:min-h-0 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 shadow-sm shadow-slate-200/30" style="left: 16rem;" data-purpose="top-header">
   <div class="flex items-center justify-end px-6 lg:px-10 py-3 sm:py-0 sm:h-full">
     <div class="flex items-center gap-2 sm:gap-3 shrink-0">
       <button type="button" class="hover:bg-surface-container-low rounded-full p-2.5 transition-all relative border-0 bg-transparent cursor-pointer hidden sm:inline-flex" aria-label="Notifications">
