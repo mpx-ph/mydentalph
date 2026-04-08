@@ -43,9 +43,35 @@ if ($__slug_title !== '') {
     $__staff_profile_url .= '?clinic_slug=' . rawurlencode($__slug_title);
 }
 $__staff_logout_url = '/clinic/api/logout.php';
+
+$__clinic_name = '';
+if (isset($CLINIC['clinic_name']) && is_string($CLINIC['clinic_name'])) {
+    $__clinic_name = trim($CLINIC['clinic_name']);
+}
+if ($__clinic_name === '' && isset($currentTenantData['clinic_name']) && is_string($currentTenantData['clinic_name'])) {
+    $__clinic_name = trim($currentTenantData['clinic_name']);
+}
+if ($__clinic_name === '' && isset($_SESSION['clinic_name']) && is_string($_SESSION['clinic_name'])) {
+    $__clinic_name = trim($_SESSION['clinic_name']);
+}
+if ($__clinic_name === '' && $__slug_title !== '') {
+    $__clinic_name = ucwords(str_replace('-', ' ', $__slug_title));
+}
+if ($__clinic_name === '') {
+    $__clinic_name = 'Dental Clinic';
+}
+
+$__portal_label = 'Staff Workspace';
+if (isset($_SESSION['user_role']) && strtolower(trim((string) $_SESSION['user_role'])) === 'dentist') {
+    $__portal_label = 'Dentist Workspace';
+}
 ?>
 <header class="fixed top-0 right-0 left-64 z-30 min-h-[4.5rem] sm:h-20 sm:min-h-0 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 shadow-sm shadow-slate-200/30" style="left: 16rem;" data-purpose="top-header">
-  <div class="flex items-center justify-end px-6 lg:px-10 py-3 sm:py-0 sm:h-full">
+  <div class="flex items-center justify-between gap-4 px-6 lg:px-10 py-3 sm:py-0 sm:h-full">
+    <div class="min-w-0">
+      <p class="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.24em] text-primary/80 truncate"><?php echo htmlspecialchars($__portal_label, ENT_QUOTES, 'UTF-8'); ?></p>
+      <p class="text-lg sm:text-[1.75rem] leading-tight font-extrabold tracking-tight text-[#0b3463] truncate"><?php echo htmlspecialchars($__clinic_name, ENT_QUOTES, 'UTF-8'); ?></p>
+    </div>
     <div class="flex items-center gap-2 sm:gap-3 shrink-0">
       <button type="button" class="hover:bg-surface-container-low rounded-full p-2.5 transition-all relative border-0 bg-transparent cursor-pointer hidden sm:inline-flex" aria-label="Notifications">
         <span class="material-symbols-outlined text-on-surface-variant">notifications</span>
