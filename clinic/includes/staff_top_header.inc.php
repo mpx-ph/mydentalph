@@ -66,7 +66,7 @@ if (isset($_SESSION['user_role']) && strtolower(trim((string) $_SESSION['user_ro
     $__portal_label = 'Dentist Workspace';
 }
 ?>
-<header class="fixed top-0 right-0 left-64 z-30 min-h-[4.5rem] sm:h-20 sm:min-h-0 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 shadow-sm shadow-slate-200/30" data-purpose="top-header">
+<header class="sticky top-0 z-30 min-h-[4.5rem] sm:h-20 sm:min-h-0 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 shadow-sm shadow-slate-200/30" data-purpose="top-header">
   <div class="flex items-center justify-between gap-4 px-4 lg:px-8 py-3 sm:py-0 sm:h-full">
     <div class="min-w-0">
       <p class="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.24em] text-primary/80 truncate"><?php echo htmlspecialchars($__portal_label, ENT_QUOTES, 'UTF-8'); ?></p>
@@ -104,6 +104,14 @@ if (isset($_SESSION['user_role']) && strtolower(trim((string) $_SESSION['user_ro
 </header>
 <script>
   (function () {
+    var headerRoot = document.currentScript ? document.currentScript.previousElementSibling : null;
+    if (headerRoot && headerRoot.tagName === 'HEADER') {
+      var parentMain = headerRoot.closest('main');
+      if (parentMain) {
+        parentMain.style.paddingTop = '0px';
+      }
+    }
+
     var trigger = document.getElementById('staff-user-menu-trigger');
     var menu = document.getElementById('staff-user-menu');
 
