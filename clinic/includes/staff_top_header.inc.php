@@ -66,7 +66,7 @@ if (isset($_SESSION['user_role']) && strtolower(trim((string) $_SESSION['user_ro
     $__portal_label = 'Dentist Workspace';
 }
 ?>
-<header class="fixed top-0 right-0 left-64 z-30 min-h-[4.5rem] sm:h-20 sm:min-h-0 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 shadow-sm shadow-slate-200/30" style="left: 16rem;" data-purpose="top-header">
+<header id="staff-top-header" class="fixed top-0 right-0 left-64 z-30 min-h-[4.5rem] sm:h-20 sm:min-h-0 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 shadow-sm shadow-slate-200/30" style="left: 16rem;" data-purpose="top-header">
   <div class="flex items-center justify-between gap-4 px-6 lg:px-10 py-3 sm:py-0 sm:h-full">
     <div class="min-w-0">
       <p class="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.24em] text-primary/80 truncate"><?php echo htmlspecialchars($__portal_label, ENT_QUOTES, 'UTF-8'); ?></p>
@@ -106,9 +106,23 @@ if (isset($_SESSION['user_role']) && strtolower(trim((string) $_SESSION['user_ro
   (function () {
     var trigger = document.getElementById('staff-user-menu-trigger');
     var menu = document.getElementById('staff-user-menu');
+    var header = document.getElementById('staff-top-header');
+    var sidebar = document.querySelector('.staff-sidebar-brand');
     if (!trigger || !menu) {
       return;
     }
+
+    function syncHeaderOffset() {
+      if (!header || !sidebar) {
+        return;
+      }
+      var sidebarRect = sidebar.getBoundingClientRect();
+      var left = Math.max(0, Math.round(sidebarRect.right));
+      header.style.left = left + 'px';
+    }
+
+    syncHeaderOffset();
+    window.addEventListener('resize', syncHeaderOffset);
 
     function closeMenu() {
       menu.classList.add('hidden');
