@@ -38,6 +38,7 @@ $summaryTotalPayments = 0;
 $recentPayments = [];
 $transactionCandidates = [];
 $supportsPaymentTypeColumn = false;
+$supportsAppointmentUpdatedAtColumn = false;
 $formSelectedBookingId = trim((string) ($_POST['selected_booking_id'] ?? ''));
 $formPatientQuery = trim((string) ($_POST['patient_query'] ?? ''));
 $formAmount = trim((string) ($_POST['amount'] ?? ''));
@@ -67,6 +68,17 @@ try {
         ");
         $paymentTypeColumnStmt->execute();
         $supportsPaymentTypeColumn = (bool) $paymentTypeColumnStmt->fetchColumn();
+
+        $appointmentUpdatedAtColumnStmt = $pdo->prepare("
+            SELECT 1
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'tbl_appointments'
+              AND COLUMN_NAME = 'updated_at'
+            LIMIT 1
+        ");
+        $appointmentUpdatedAtColumnStmt->execute();
+        $supportsAppointmentUpdatedAtColumn = (bool) $appointmentUpdatedAtColumnStmt->fetchColumn();
     }
 
     if ($tenantId !== '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -181,14 +193,14 @@ try {
                     $insertStmt = $pdo->prepare($insertSql);
                     $insertStmt->execute($insertParams);
 
-                    $updateAppointmentStmt = $pdo->prepare("
+                    $updateAppointmentSql = "
                         UPDATE tbl_appointments
-                        SET status = 'confirmed',
-                            updated_at = NOW()
+                        SET status = 'confirmed'" . ($supportsAppointmentUpdatedAtColumn ? ", updated_at = NOW()" : "") . "
                         WHERE tenant_id = ?
                           AND booking_id = ?
                           AND status = 'pending'
-                    ");
+                    ";
+                    $updateAppointmentStmt = $pdo->prepare($updateAppointmentSql);
                     $updateAppointmentStmt->execute([$tenantId, $selectedBookingId]);
 
                     $paymentSuccess = 'Payment recorded successfully.';
