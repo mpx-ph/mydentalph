@@ -85,6 +85,257 @@ try {
 } catch (Throwable $e) {
     $walkInDentists = [];
 }
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['action'] === 'create_walkin') {
+    header('Content-Type: application/json');
+    try {
+        if (empty($tenantId)) {
+            if (function_exists('getClinicTenantId')) {
+                $tenantId = getClinicTenantId();
+            }
+        }
+        if (empty($tenantId) && isset($currentTenantId) && $currentTenantId !== '') {
+            $tenantId = (string) $currentTenantId;
+        }
+        if (empty($tenantId) && !empty($_SESSION['tenant_id'])) {
+            $tenantId = (string) $_SESSION['tenant_id'];
+        }
+        if (empty($tenantId) && !empty($_SESSION['public_tenant_id'])) {
+            $tenantId = (string) $_SESSION['public_tenant_id'];
+        }
+
+        if (empty($tenantId)) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Tenant context missing. Please log in again.']);
+            exit;
+        }
+
+        $rawBody = file_get_contents('php://input');
+        $input = json_decode((string) $rawBody, true);
+        if (!is_array($input)) {
+            $input = [];
+        }
+
+        $patientId = trim((string) ($input['patient_id'] ?? ''));
+        $dentistId = trim((string) ($input['dentist_id'] ?? ''));
+        $appointmentDate = trim((string) ($input['appointment_date'] ?? ''));
+        $appointmentTime = trim((string) ($input['appointment_time'] ?? ''));
+        $notes = trim((string) ($input['notes'] ?? ''));
+        $services = isset($input['services']) && is_array($input['services']) ? $input['services'] : [];
+        $status = trim((string) ($input['status'] ?? 'pending'));
+        $visitType = 'walk_in';
+
+        if ($patientId === '') {
+            echo json_encode(['success' => false, 'message' => 'Patient selection is required.']);
+            exit;
+        }
+        if ($dentistId === '') {
+            echo json_encode(['success' => false, 'message' => 'Assigned dentist is required.']);
+            exit;
+        }
+        if ($appointmentDate === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $appointmentDate)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid appointment date.']);
+            exit;
+        }
+        if ($appointmentTime === '' || !preg_match('/^\d{2}:\d{2}:\d{2}$/', $appointmentTime)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid appointment time.']);
+            exit;
+        }
+        if (empty($services)) {
+            echo json_encode(['success' => false, 'message' => 'Please select at least one service.']);
+            exit;
+        }
+
+        $statusAllowed = ['pending', 'confirmed', 'scheduled'];
+        if (!in_array(strtolower($status), $statusAllowed, true)) {
+            $status = 'pending';
+        }
+
+        $pdo = getDBConnection();
+        $pdo->beginTransaction();
+
+        $patientCheckStmt = $pdo->prepare("
+            SELECT patient_id
+            FROM tbl_patients
+            WHERE tenant_id = ? AND patient_id = ?
+            LIMIT 1
+        ");
+        $patientCheckStmt->execute([$tenantId, $patientId]);
+        if (!$patientCheckStmt->fetch(PDO::FETCH_ASSOC)) {
+            $pdo->rollBack();
+            echo json_encode(['success' => false, 'message' => 'Selected patient was not found.']);
+            exit;
+        }
+
+        $dentistCheckStmt = $pdo->prepare("
+            SELECT dentist_id
+            FROM tbl_dentists
+            WHERE tenant_id = ? AND dentist_id = ?
+            LIMIT 1
+        ");
+        $dentistCheckStmt->execute([$tenantId, $dentistId]);
+        if (!$dentistCheckStmt->fetch(PDO::FETCH_ASSOC)) {
+            $pdo->rollBack();
+            echo json_encode(['success' => false, 'message' => 'Selected dentist was not found.']);
+            exit;
+        }
+
+        $bookingPrefix = 'BK-' . date('Y') . '-';
+        $bookingStmt = $pdo->prepare("
+            SELECT booking_id
+            FROM tbl_appointments
+            WHERE tenant_id = ?
+              AND booking_id LIKE ?
+            ORDER BY booking_id DESC
+            LIMIT 1
+        ");
+        $bookingStmt->execute([$tenantId, $bookingPrefix . '%']);
+        $lastBookingId = (string) ($bookingStmt->fetchColumn() ?: '');
+        $sequence = 1;
+        if ($lastBookingId !== '') {
+            $parts = explode('-', $lastBookingId);
+            if (count($parts) === 3) {
+                $sequence = ((int) $parts[2]) + 1;
+            }
+        }
+        $bookingId = $bookingPrefix . str_pad((string) $sequence, 6, '0', STR_PAD_LEFT);
+
+        $serviceNames = [];
+        $serviceDescriptions = [];
+        $totalCost = 0.0;
+        $normalizedServices = [];
+
+        foreach ($services as $service) {
+            $serviceId = trim((string) ($service['id'] ?? $service['service_id'] ?? ''));
+            if ($serviceId === '') {
+                continue;
+            }
+            $serviceStmt = $pdo->prepare("
+                SELECT service_id, service_name, category, price
+                FROM tbl_services
+                WHERE tenant_id = ? AND service_id = ? AND status = 'active'
+                LIMIT 1
+            ");
+            $serviceStmt->execute([$tenantId, $serviceId]);
+            $serviceRow = $serviceStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$serviceRow) {
+                continue;
+            }
+            $price = (float) ($serviceRow['price'] ?? 0);
+            $name = trim((string) ($serviceRow['service_name'] ?? ''));
+            $normalizedServices[] = [
+                'service_id' => (string) ($serviceRow['service_id'] ?? ''),
+                'service_name' => $name,
+                'price' => $price,
+            ];
+            if ($name !== '') {
+                $serviceNames[] = $name;
+                $serviceDescriptions[] = $name . ' (₱' . number_format($price, 2) . ')';
+            }
+            $totalCost += $price;
+        }
+
+        if (empty($normalizedServices)) {
+            $pdo->rollBack();
+            echo json_encode(['success' => false, 'message' => 'No valid active services were selected.']);
+            exit;
+        }
+
+        $serviceType = implode(', ', array_slice($serviceNames, 0, 3));
+        if (count($serviceNames) > 3) {
+            $serviceType .= ' (+' . (count($serviceNames) - 3) . ' more)';
+        }
+        $serviceDescription = implode('; ', $serviceDescriptions) . ' | Total: ₱' . number_format($totalCost, 2);
+        $createdBy = isset($_SESSION['user_id']) ? trim((string) $_SESSION['user_id']) : null;
+        if ($createdBy === '') {
+            $createdBy = null;
+        }
+
+        $insertAppointmentStmt = $pdo->prepare("
+            INSERT INTO tbl_appointments (
+                tenant_id,
+                dentist_id,
+                booking_id,
+                patient_id,
+                appointment_date,
+                appointment_time,
+                service_type,
+                service_description,
+                treatment_type,
+                visit_type,
+                status,
+                notes,
+                total_treatment_cost,
+                created_by,
+                created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'short_term', ?, ?, ?, ?, ?, NOW())
+        ");
+        $insertAppointmentStmt->execute([
+            $tenantId,
+            $dentistId,
+            $bookingId,
+            $patientId,
+            $appointmentDate,
+            $appointmentTime,
+            $serviceType,
+            $serviceDescription,
+            $visitType,
+            $status,
+            $notes !== '' ? $notes : null,
+            $totalCost,
+            $createdBy,
+        ]);
+
+        $appointmentId = (int) $pdo->lastInsertId();
+        $serviceInsertStmt = $pdo->prepare("
+            INSERT INTO tbl_appointment_services (
+                tenant_id,
+                booking_id,
+                appointment_id,
+                service_id,
+                service_name,
+                price,
+                is_original,
+                added_by,
+                added_at
+            ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, NOW())
+        ");
+        foreach ($normalizedServices as $serviceRow) {
+            $serviceInsertStmt->execute([
+                $tenantId,
+                $bookingId,
+                $appointmentId > 0 ? $appointmentId : null,
+                $serviceRow['service_id'],
+                $serviceRow['service_name'],
+                $serviceRow['price'],
+                $createdBy,
+            ]);
+        }
+
+        $pdo->commit();
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Walk-in appointment created successfully.',
+            'data' => [
+                'booking_id' => $bookingId,
+                'appointment_id' => $appointmentId,
+            ],
+        ]);
+        exit;
+    } catch (Throwable $e) {
+        if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log('Staff walk-in create error: ' . $e->getMessage());
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Unable to create walk-in appointment right now.',
+        ]);
+        exit;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html class="light" lang="en">
@@ -448,7 +699,14 @@ try {
         const dentistsSeedData = <?php echo json_encode($walkInDentists, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const patientsApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patients.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const servicesApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/services.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
-        const appointmentsApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/appointments.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const appointmentsApiUrl = <?php
+            $selfPath = (string) ($_SERVER['SCRIPT_NAME'] ?? '');
+            $query = ['action' => 'create_walkin'];
+            if ($currentTenantSlug !== '') {
+                $query['clinic_slug'] = $currentTenantSlug;
+            }
+            echo json_encode($selfPath . '?' . http_build_query($query), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        ?>;
         const clinicSlug = <?php echo json_encode((string) $currentTenantSlug, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const stockDentistImage = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=60';
         let allPatients = [];
@@ -780,6 +1038,7 @@ try {
                     return String(service.category || '').trim();
                 }).filter(Boolean))),
                 notes: notes,
+                dentist_id: dentistId,
                 visit_type: 'walk_in',
                 status: 'pending'
             };
