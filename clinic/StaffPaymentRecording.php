@@ -37,6 +37,7 @@ $summaryTodayRevenue = 0.0;
 $summaryTotalPayments = 0;
 $recentPayments = [];
 $transactionCandidates = [];
+$supportsPaymentTypeColumn = false;
 
 try {
     $pdo = getDBConnection();
@@ -48,6 +49,19 @@ try {
         if ($tenantRow && isset($tenantRow['tenant_id'])) {
             $tenantId = (string) $tenantRow['tenant_id'];
         }
+    }
+
+    if ($tenantId !== '') {
+        $paymentTypeColumnStmt = $pdo->prepare("
+            SELECT 1
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'tbl_payments'
+              AND COLUMN_NAME = 'payment_type'
+            LIMIT 1
+        ");
+        $paymentTypeColumnStmt->execute();
+        $supportsPaymentTypeColumn = (bool) $paymentTypeColumnStmt->fetchColumn();
     }
 
     if ($tenantId !== '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -98,50 +112,86 @@ try {
             } elseif ($amount > $pendingBalance) {
                 $paymentError = 'Payment amount exceeds the pending balance of ₱' . number_format($pendingBalance, 2) . '.';
             } else {
-                $paymentId = 'PAY-' . date('YmdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
-                // Keep compatibility with deployments where payment_type enum only allows downpayment/fullpayment.
-                $paymentType = ($amount + 0.009 >= $pendingBalance) ? 'fullpayment' : 'downpayment';
-                $insertSql = "
-                    INSERT INTO tbl_payments (
-                        tenant_id,
-                        payment_id,
-                        patient_id,
-                        booking_id,
-                        amount,
-                        payment_method,
-                        payment_date,
-                        notes,
-                        status,
-                        created_by,
-                        payment_type
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?)
-                ";
-                $insertStmt = $pdo->prepare($insertSql);
-                $insertStmt->execute([
-                    $tenantId,
-                    $paymentId,
-                    $patientId,
-                    $selectedBookingId,
-                    $amount,
-                    $method,
-                    $paymentDate . ' ' . date('H:i:s'),
-                    $notes !== '' ? $notes : null,
-                    $userId !== '' ? $userId : null,
-                    $paymentType,
-                ]);
+                try {
+                    $paymentId = 'PAY-' . date('YmdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
+                    // Keep compatibility with deployments where payment_type enum only allows downpayment/fullpayment.
+                    $paymentType = ($amount + 0.009 >= $pendingBalance) ? 'fullpayment' : 'downpayment';
 
-                $updateAppointmentStmt = $pdo->prepare("
-                    UPDATE tbl_appointments
-                    SET status = 'confirmed',
-                        updated_at = NOW()
-                    WHERE tenant_id = ?
-                      AND booking_id = ?
-                      AND status = 'pending'
-                ");
-                $updateAppointmentStmt->execute([$tenantId, $selectedBookingId]);
+                    if ($supportsPaymentTypeColumn) {
+                        $insertSql = "
+                            INSERT INTO tbl_payments (
+                                tenant_id,
+                                payment_id,
+                                patient_id,
+                                booking_id,
+                                amount,
+                                payment_method,
+                                payment_date,
+                                notes,
+                                status,
+                                created_by,
+                                payment_type
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?)
+                        ";
+                        $insertParams = [
+                            $tenantId,
+                            $paymentId,
+                            $patientId,
+                            $selectedBookingId,
+                            $amount,
+                            $method,
+                            $paymentDate . ' ' . date('H:i:s'),
+                            $notes !== '' ? $notes : null,
+                            $userId !== '' ? $userId : null,
+                            $paymentType,
+                        ];
+                    } else {
+                        $insertSql = "
+                            INSERT INTO tbl_payments (
+                                tenant_id,
+                                payment_id,
+                                patient_id,
+                                booking_id,
+                                amount,
+                                payment_method,
+                                payment_date,
+                                notes,
+                                status,
+                                created_by
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?)
+                        ";
+                        $insertParams = [
+                            $tenantId,
+                            $paymentId,
+                            $patientId,
+                            $selectedBookingId,
+                            $amount,
+                            $method,
+                            $paymentDate . ' ' . date('H:i:s'),
+                            $notes !== '' ? $notes : null,
+                            $userId !== '' ? $userId : null,
+                        ];
+                    }
 
-                $paymentSuccess = 'Payment recorded successfully.';
-                $selectedMethod = $method;
+                    $insertStmt = $pdo->prepare($insertSql);
+                    $insertStmt->execute($insertParams);
+
+                    $updateAppointmentStmt = $pdo->prepare("
+                        UPDATE tbl_appointments
+                        SET status = 'confirmed',
+                            updated_at = NOW()
+                        WHERE tenant_id = ?
+                          AND booking_id = ?
+                          AND status = 'pending'
+                    ");
+                    $updateAppointmentStmt->execute([$tenantId, $selectedBookingId]);
+
+                    $paymentSuccess = 'Payment recorded successfully.';
+                    $selectedMethod = $method;
+                } catch (Throwable $postError) {
+                    error_log('Staff payment record submit error: ' . $postError->getMessage());
+                    $paymentError = 'Unable to record payment right now. Please try again.';
+                }
             }
         }
     }
