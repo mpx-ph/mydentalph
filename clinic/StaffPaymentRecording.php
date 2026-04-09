@@ -99,6 +99,7 @@ try {
                 $paymentError = 'Payment amount exceeds the pending balance of ₱' . number_format($pendingBalance, 2) . '.';
             } else {
                 $paymentId = 'PAY-' . date('YmdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
+                $paymentType = ($amount + 0.009 >= $pendingBalance) ? 'fullpayment' : 'balancepayment';
                 $insertSql = "
                     INSERT INTO tbl_payments (
                         tenant_id,
@@ -110,8 +111,9 @@ try {
                         payment_date,
                         notes,
                         status,
-                        created_by
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?)
+                        created_by,
+                        payment_type
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?)
                 ";
                 $insertStmt = $pdo->prepare($insertSql);
                 $insertStmt->execute([
@@ -124,6 +126,7 @@ try {
                     $paymentDate . ' ' . date('H:i:s'),
                     $notes !== '' ? $notes : null,
                     $userId !== '' ? $userId : null,
+                    $paymentType,
                 ]);
 
                 $updateAppointmentStmt = $pdo->prepare("
