@@ -280,7 +280,7 @@ function generatePatientId() {
     // Use ORDER BY patient_id DESC to get the highest sequence number
     $stmt = $pdo->prepare("
         SELECT patient_id 
-        FROM patients 
+        FROM tbl_patients 
         WHERE patient_id LIKE ? 
         ORDER BY patient_id DESC 
         LIMIT 1
@@ -310,7 +310,7 @@ function generatePatientId() {
         $patientId = 'P-' . $year . '-' . $formattedSequence;
         
         // Double-check uniqueness (in case of race condition)
-        $stmt = $pdo->prepare("SELECT patient_id FROM patients WHERE patient_id = ?");
+        $stmt = $pdo->prepare("SELECT patient_id FROM tbl_patients WHERE patient_id = ?");
         $stmt->execute([$patientId]);
         if (!$stmt->fetchColumn()) {
             // Patient ID is available, return it
