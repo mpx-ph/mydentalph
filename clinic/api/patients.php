@@ -57,6 +57,7 @@ function createPatient() {
     $data = [
         'first_name' => sanitize($input['first_name'] ?? ''),
         'last_name' => sanitize($input['last_name'] ?? ''),
+        'email' => sanitize($input['email'] ?? ''),
         'contact_number' => sanitize($input['mobile'] ?? $input['contact_number'] ?? $input['contact'] ?? ''),
         'date_of_birth' => sanitize($input['date_of_birth'] ?? $input['dob'] ?? ''),
         'gender' => sanitize($input['gender'] ?? ''),
@@ -92,6 +93,14 @@ function createPatient() {
     
     if (empty($data['last_name'])) {
         jsonResponse(false, 'Last name is required.');
+    }
+
+    if (empty($data['email'])) {
+        jsonResponse(false, 'Email is required.');
+    }
+
+    if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+        jsonResponse(false, 'Invalid email format.');
     }
 
     if (!empty($data['date_of_birth'])) {
@@ -137,9 +146,9 @@ function createPatient() {
         $stmt = $pdo->prepare("
             INSERT INTO tbl_patients (
                 tenant_id,
-                patient_id, owner_user_id, linked_user_id, first_name, last_name, contact_number,
+                patient_id, owner_user_id, linked_user_id, first_name, last_name, email, contact_number,
                 date_of_birth, gender, blood_type, house_street, barangay, city_municipality, province, profile_image, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         ");
         
         $stmt->execute([
@@ -149,6 +158,7 @@ function createPatient() {
             $data['linked_user_id'] ?: null,
             $data['first_name'],
             $data['last_name'],
+            $data['email'],
             $data['contact_number'] ?: null,
             $data['date_of_birth'] ?: null,
             $data['gender'] ?: null,
@@ -213,7 +223,7 @@ function getPatients() {
             // Join with users to get email for self profiles
             $sql = "
                 SELECT p.*,
-                       u.email,
+                       COALESCE(NULLIF(TRIM(p.email), ''), u.email) AS email,
                        (SELECT COUNT(*) FROM tbl_appointments a WHERE a.tenant_id = p.tenant_id AND a.patient_id = p.patient_id) as appointment_count,
                        (SELECT COUNT(*) FROM tbl_payments py WHERE py.tenant_id = p.tenant_id AND py.patient_id = p.patient_id) as payment_count
                 FROM tbl_patients p
@@ -228,10 +238,12 @@ function getPatients() {
                     p.first_name LIKE ? OR 
                     p.last_name LIKE ? OR 
                     p.contact_number LIKE ? OR
+                    p.email LIKE ? OR
                     p.patient_id LIKE ? OR
                     u.email LIKE ?
                 )";
                 $searchTerm = "%{$search}%";
+                $params[] = $searchTerm;
                 $params[] = $searchTerm;
                 $params[] = $searchTerm;
                 $params[] = $searchTerm;
@@ -254,10 +266,12 @@ function getPatients() {
                     p.first_name LIKE ? OR 
                     p.last_name LIKE ? OR 
                     p.contact_number LIKE ? OR
+                    p.email LIKE ? OR
                     p.patient_id LIKE ? OR
                     u.email LIKE ?
                 )";
                 $searchTerm = "%{$search}%";
+                $countParams[] = $searchTerm;
                 $countParams[] = $searchTerm;
                 $countParams[] = $searchTerm;
                 $countParams[] = $searchTerm;
@@ -322,7 +336,7 @@ function updatePatient() {
     $params = [];
     
     $fields = [
-        'first_name', 'last_name', 'contact_number', 'date_of_birth', 'gender', 'blood_type',
+        'first_name', 'last_name', 'email', 'contact_number', 'date_of_birth', 'gender', 'blood_type',
         'house_street', 'barangay', 'city_municipality', 'province', 'owner_user_id', 'linked_user_id'
     ];
     
