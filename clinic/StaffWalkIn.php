@@ -726,6 +726,25 @@ try {
             return baseUrl + separator + 'clinic_slug=' + encodeURIComponent(clinicSlug);
         }
 
+        async function parseJsonResponse(response) {
+            const rawText = await response.text();
+            if (!rawText || !rawText.trim()) {
+                return {
+                    success: false,
+                    message: 'Server returned an empty response.'
+                };
+            }
+            try {
+                return JSON.parse(rawText);
+            } catch (error) {
+                return {
+                    success: false,
+                    message: 'Unexpected server response. Please try again.',
+                    raw: rawText
+                };
+            }
+        }
+
         async function submitWalkInAppointment() {
             const patientId = selectedPatientIdInput ? String(selectedPatientIdInput.value || '').trim() : '';
             const dentistId = selectedDentistIdInput ? String(selectedDentistIdInput.value || '').trim() : '';
@@ -775,13 +794,15 @@ try {
                     method: 'POST',
                     credentials: 'include',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     },
                     body: JSON.stringify(payload)
                 });
-                const data = await response.json();
+                const data = await parseJsonResponse(response);
                 if (!response.ok || !data.success) {
-                    throw new Error((data && data.message) ? data.message : 'Failed to create walk-in appointment.');
+                    const message = (data && data.message) ? data.message : 'Failed to create walk-in appointment.';
+                    throw new Error(message);
                 }
 
                 alert('Walk-in appointment created successfully. Booking ID: ' + (data.data && data.data.booking_id ? data.data.booking_id : 'N/A'));
