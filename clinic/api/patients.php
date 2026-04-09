@@ -34,6 +34,79 @@ switch ($method) {
         jsonResponse(false, 'Invalid request method.');
 }
 
+function buildPatientUsername(PDO $pdo, string $tenantId, string $email, string $firstName, string $lastName): string {
+    $emailLocal = strtolower(trim((string) strstr($email, '@', true)));
+    $base = preg_replace('/[^a-z0-9._]/', '', $emailLocal);
+    if ($base === '') {
+        $nameSeed = strtolower(trim($firstName . $lastName));
+        $base = preg_replace('/[^a-z0-9]/', '', $nameSeed);
+    }
+    if ($base === '') {
+        $base = 'patient';
+    }
+    $base = substr($base, 0, 40);
+
+    $candidate = $base;
+    $suffix = 1;
+    while (true) {
+        $stmt = $pdo->prepare("SELECT user_id FROM tbl_users WHERE tenant_id = ? AND username = ? LIMIT 1");
+        $stmt->execute([$tenantId, $candidate]);
+        if (!$stmt->fetch()) {
+            return $candidate;
+        }
+        $suffix++;
+        $candidate = substr($base, 0, 36) . '_' . $suffix;
+    }
+}
+
+function resolveLinkedPatientUserId(PDO $pdo, string $tenantId, array $data): ?string {
+    $email = trim((string) ($data['email'] ?? ''));
+    if ($email === '') {
+        return null;
+    }
+
+    // Reuse existing account when email already exists in this tenant.
+    $stmt = $pdo->prepare("SELECT user_id FROM tbl_users WHERE tenant_id = ? AND LOWER(TRIM(email)) = LOWER(TRIM(?)) LIMIT 1");
+    $stmt->execute([$tenantId, $email]);
+    $existingUserId = $stmt->fetchColumn();
+    if ($existingUserId) {
+        return (string) $existingUserId;
+    }
+
+    // Auto-create patient user so linked_user_id is not null.
+    $linkedUserId = generateUserId('client');
+    $username = buildPatientUsername(
+        $pdo,
+        $tenantId,
+        $email,
+        (string) ($data['first_name'] ?? ''),
+        (string) ($data['last_name'] ?? '')
+    );
+    $fullName = trim(((string) ($data['first_name'] ?? '')) . ' ' . ((string) ($data['last_name'] ?? '')));
+    if ($fullName === '') {
+        $fullName = $username;
+    }
+    $temporaryPasswordHash = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
+    $role = function_exists('_authUserTypeToRole') ? _authUserTypeToRole('client') : 'client';
+
+    $insertUser = $pdo->prepare("
+        INSERT INTO tbl_users (
+            tenant_id, user_id, email, username, full_name, password_hash, role, status, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NOW())
+    ");
+    $insertUser->execute([
+        $tenantId,
+        $linkedUserId,
+        $email,
+        $username,
+        $fullName,
+        $temporaryPasswordHash,
+        $role
+    ]);
+
+    return $linkedUserId;
+}
+
 /**
  * Create new patient
  */
@@ -136,6 +209,11 @@ function createPatient() {
         $stmt->execute([$data['linked_user_id']]);
         if (!$stmt->fetch()) {
             jsonResponse(false, 'Linked user ID not found.');
+        }
+    } else {
+        $autoLinkedUserId = resolveLinkedPatientUserId($pdo, $tenantId, $data);
+        if (!empty($autoLinkedUserId)) {
+            $data['linked_user_id'] = $autoLinkedUserId;
         }
     }
     
