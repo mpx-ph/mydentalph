@@ -358,6 +358,10 @@ $statusLabels = [
     'completed' => 'Completed',
     'no_show' => 'No Show',
 ];
+$walkInBookingHref = BASE_URL . 'StaffWalkIn.php';
+if ($currentTenantSlug !== '') {
+    $walkInBookingHref .= '?' . http_build_query(['clinic_slug' => $currentTenantSlug]);
+}
 ?>
 <!DOCTYPE html>
 <html class="light" lang="en">
@@ -730,7 +734,7 @@ $statusLabels = [
             <div class="p-5 bg-slate-50/60">
                 <p class="text-xs font-semibold text-slate-500 mb-4">Choose the type of appointment you want to create.</p>
                 <div class="space-y-3">
-                    <button type="button" class="booking-type-option w-full rounded-2xl border border-primary/20 bg-white px-4 py-3 text-left">
+                    <button type="button" id="bookingTypeWalkInBtn" class="booking-type-option w-full rounded-2xl border border-primary/20 bg-white px-4 py-3 text-left">
                         <span class="flex items-center justify-between gap-3">
                             <span class="flex items-center gap-3">
                                 <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-blue-500 text-white flex items-center justify-center shadow-md shadow-primary/30">
@@ -744,7 +748,7 @@ $statusLabels = [
                             <span class="material-symbols-outlined text-primary">arrow_forward</span>
                         </span>
                     </button>
-                    <button type="button" class="booking-type-option w-full rounded-2xl border border-primary/20 bg-white px-4 py-3 text-left">
+                    <button type="button" id="bookingTypeAppointmentBtn" class="booking-type-option w-full rounded-2xl border border-primary/20 bg-white px-4 py-3 text-left">
                         <span class="flex items-center justify-between gap-3">
                             <span class="flex items-center gap-3">
                                 <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-blue-500 text-white flex items-center justify-center shadow-md shadow-primary/30">
@@ -945,6 +949,8 @@ $statusLabels = [
     const bookingTypeOpenBtn = document.getElementById('openBookingTypeModalBtn');
     const bookingTypeCloseBtn = document.getElementById('bookingTypeModalCloseBtn');
     const bookingTypeCancelBtn = document.getElementById('bookingTypeCancelBtn');
+    const bookingTypeWalkInBtn = document.getElementById('bookingTypeWalkInBtn');
+    const bookingTypeAppointmentBtn = document.getElementById('bookingTypeAppointmentBtn');
 
     function setText(id, value) {
         const node = document.getElementById(id);
@@ -1044,6 +1050,14 @@ $statusLabels = [
     if (bookingTypeCloseBtn) bookingTypeCloseBtn.addEventListener('click', closeBookingTypeModal);
     if (bookingTypeCancelBtn) bookingTypeCancelBtn.addEventListener('click', closeBookingTypeModal);
     if (bookingTypeBackdrop) bookingTypeBackdrop.addEventListener('click', closeBookingTypeModal);
+    if (bookingTypeWalkInBtn) {
+        bookingTypeWalkInBtn.addEventListener('click', () => {
+            window.location.href = <?php echo json_encode($walkInBookingHref, JSON_UNESCAPED_SLASHES); ?>;
+        });
+    }
+    if (bookingTypeAppointmentBtn) {
+        bookingTypeAppointmentBtn.addEventListener('click', closeBookingTypeModal);
+    }
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
             closeModal();
