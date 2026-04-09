@@ -857,11 +857,6 @@ async function savePatient(event) {
         return;
     }
 
-    if (!editingId && !STAFF_OWNER_USER_ID) {
-        alert('Unable to add patient: missing staff session user ID.');
-        return;
-    }
-
     const saveBtn = document.getElementById('savePatientBtn');
     const oldHtml = saveBtn.innerHTML;
     saveBtn.disabled = true;
@@ -873,7 +868,7 @@ async function savePatient(event) {
             method = 'PUT';
             payload.id = Number(editingId);
         } else {
-            payload.owner_user_id = STAFF_OWNER_USER_ID;
+            payload.owner_user_id = STAFF_OWNER_USER_ID || '';
         }
 
         const response = await fetch(API_PATIENTS_URL, {

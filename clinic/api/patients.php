@@ -46,6 +46,10 @@ function createPatient() {
     }
     
     $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+        $input = [];
+    }
+    $currentUserId = getCurrentUserId();
     
     // Extract and sanitize data - match actual database schema
     // Note: patients table now has first_name, last_name, contact_number
@@ -64,6 +68,10 @@ function createPatient() {
         'owner_user_id' => sanitize($input['owner_user_id'] ?? ''),
         'linked_user_id' => sanitize($input['linked_user_id'] ?? null)
     ];
+
+    if ($data['owner_user_id'] === '' && $currentUserId !== null) {
+        $data['owner_user_id'] = sanitize($currentUserId);
+    }
     
     // Handle photo upload (base64) - stored as profile_image in schema
     $profileImage = null;
@@ -84,6 +92,22 @@ function createPatient() {
     
     if (empty($data['last_name'])) {
         jsonResponse(false, 'Last name is required.');
+    }
+
+    if (!empty($data['date_of_birth'])) {
+        try {
+            $dob = new DateTime($data['date_of_birth']);
+            $today = new DateTime('today');
+            if ($dob > $today) {
+                jsonResponse(false, 'Date of birth cannot be in the future.');
+            }
+            $minimumDob = (new DateTime('today'))->modify('-1 year');
+            if ($dob > $minimumDob) {
+                jsonResponse(false, 'Patient must be at least 1 year old.');
+            }
+        } catch (Throwable $e) {
+            jsonResponse(false, 'Invalid date of birth.');
+        }
     }
     
     if (empty($data['owner_user_id'])) {
