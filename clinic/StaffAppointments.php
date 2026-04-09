@@ -437,9 +437,9 @@ $statusLabels = [
         }
         .booking-type-option:hover {
             transform: translateY(-3px);
-            border-color: rgba(45, 212, 191, 0.55);
-            box-shadow: 0 14px 28px -14px rgba(13, 148, 136, 0.45);
-            background-color: rgba(240, 253, 250, 0.95);
+            border-color: rgba(43, 139, 235, 0.5);
+            box-shadow: 0 14px 28px -14px rgba(43, 139, 235, 0.45);
+            background-color: rgba(239, 246, 255, 0.95);
         }
         .booking-type-option:active {
             transform: translateY(-1px) scale(0.99);
@@ -449,7 +449,7 @@ $statusLabels = [
         }
         .booking-action-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 18px 30px -18px rgba(13, 148, 136, 0.9);
+            box-shadow: 0 18px 30px -18px rgba(43, 139, 235, 0.9);
         }
         .booking-action-btn:active {
             transform: translateY(0) scale(0.98);
@@ -492,7 +492,7 @@ $statusLabels = [
                     <button
                         type="button"
                         id="openBookingTypeModalBtn"
-                        class="booking-action-btn inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-500 hover:to-cyan-600 text-white px-5 py-3 font-bold text-xs uppercase tracking-[0.14em] shadow-lg shadow-teal-500/30"
+                        class="booking-action-btn inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-blue-500 hover:from-primary hover:to-blue-600 text-white px-5 py-3 font-bold text-sm tracking-wide shadow-lg shadow-primary/30"
                     >
                         <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">add_circle</span>
                         Add New Booking
@@ -720,7 +720,7 @@ $statusLabels = [
         <div class="staff-modal-panel bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
             <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                 <div>
-                    <p class="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Create Booking</p>
+                    <p class="text-[11px] font-black uppercase tracking-[0.18em] text-primary/70">Create Booking</p>
                     <h4 class="text-xl font-bold text-on-background">Select Booking Type</h4>
                 </div>
                 <button type="button" id="bookingTypeModalCloseBtn" class="w-8 h-8 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors">
@@ -730,32 +730,32 @@ $statusLabels = [
             <div class="p-5 bg-slate-50/60">
                 <p class="text-xs font-semibold text-slate-500 mb-4">Choose the type of appointment you want to create.</p>
                 <div class="space-y-3">
-                    <button type="button" class="booking-type-option w-full rounded-2xl border border-teal-100 bg-white px-4 py-3 text-left">
+                    <button type="button" class="booking-type-option w-full rounded-2xl border border-primary/20 bg-white px-4 py-3 text-left">
                         <span class="flex items-center justify-between gap-3">
                             <span class="flex items-center gap-3">
-                                <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-400 to-cyan-500 text-white flex items-center justify-center shadow-md shadow-teal-500/30">
+                                <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-blue-500 text-white flex items-center justify-center shadow-md shadow-primary/30">
                                     <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">directions_walk</span>
                                 </span>
                                 <span>
-                                    <span class="block text-base font-extrabold text-slate-900">Walk-In</span>
-                                    <span class="block text-[11px] font-semibold text-slate-500 mt-0.5">Create an appointment for a patient without prior booking.</span>
+                                    <span class="block text-base font-bold text-slate-900">Walk-In</span>
+                                    <span class="block text-xs font-medium text-slate-500 mt-0.5">Create an appointment for a patient without prior booking.</span>
                                 </span>
                             </span>
-                            <span class="material-symbols-outlined text-teal-500">arrow_forward</span>
+                            <span class="material-symbols-outlined text-primary">arrow_forward</span>
                         </span>
                     </button>
-                    <button type="button" class="booking-type-option w-full rounded-2xl border border-teal-100 bg-white px-4 py-3 text-left">
+                    <button type="button" class="booking-type-option w-full rounded-2xl border border-primary/20 bg-white px-4 py-3 text-left">
                         <span class="flex items-center justify-between gap-3">
                             <span class="flex items-center gap-3">
-                                <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-400 to-cyan-500 text-white flex items-center justify-center shadow-md shadow-teal-500/30">
+                                <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-blue-500 text-white flex items-center justify-center shadow-md shadow-primary/30">
                                     <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">calendar_month</span>
                                 </span>
                                 <span>
-                                    <span class="block text-base font-extrabold text-slate-900">Appointment</span>
-                                    <span class="block text-[11px] font-semibold text-slate-500 mt-0.5">Schedule a future appointment for a patient.</span>
+                                    <span class="block text-base font-bold text-slate-900">Appointment</span>
+                                    <span class="block text-xs font-medium text-slate-500 mt-0.5">Schedule a future appointment for a patient.</span>
                                 </span>
                             </span>
-                            <span class="material-symbols-outlined text-teal-500">arrow_forward</span>
+                            <span class="material-symbols-outlined text-primary">arrow_forward</span>
                         </span>
                     </button>
                 </div>
