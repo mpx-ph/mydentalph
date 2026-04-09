@@ -240,6 +240,11 @@
                     <div class="value">ricatev198@agoalz.com</div>
                     <button class="copy-btn" data-copy="ricatev198@agoalz.com">Copy</button>
                 </div>
+                <div class="row">
+                    <div class="label">Password</div>
+                    <div class="value">Admin123456_</div>
+                    <button class="copy-btn" data-copy="Admin123456_">Copy</button>
+                </div>
             </div>
         </section>
 
