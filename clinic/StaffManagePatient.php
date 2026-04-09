@@ -89,6 +89,10 @@ body { font-family: "Manrope", sans-serif; }
     color: #2b8beb;
     border-bottom-color: #2b8beb;
 }
+.field-error {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15) !important;
+}
 </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
@@ -180,69 +184,142 @@ body { font-family: "Manrope", sans-serif; }
 </main>
 
 <div id="addPatientModal" class="staff-modal-overlay fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-    <div class="staff-modal-panel bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-200">
-        <div class="flex items-center justify-between p-6 border-b border-slate-200">
-            <h2 id="patientModalTitle" class="text-2xl font-bold text-gray-900">Add New Patient</h2>
-            <button id="closeAddPatientModal" class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+    <div class="staff-modal-panel bg-slate-100 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden flex flex-col border border-slate-200">
+        <div class="px-8 py-6 border-b border-slate-200 bg-slate-100 flex items-start justify-between gap-4">
+            <div>
+                <h2 id="patientModalTitle" class="text-4xl font-extrabold tracking-tight text-slate-900">Patient Registration</h2>
+                <p class="text-sm text-slate-500 font-medium mt-1">Register a new patient to the clinic management system</p>
+            </div>
+            <button id="closeAddPatientModal" type="button" class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
                 <span class="material-symbols-outlined">close</span>
             </button>
         </div>
-        <form id="addPatientForm" class="flex-1 overflow-y-auto p-6">
+        <form id="addPatientForm" class="flex-1 overflow-y-auto px-8 py-6">
             <input id="editingPatientId" type="hidden" value=""/>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="flex flex-col">
-                    <label class="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">First Name <span class="text-red-500">*</span></label>
-                    <input id="addFirstName" type="text" required class="text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                </div>
-                <div class="flex flex-col">
-                    <label class="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Last Name <span class="text-red-500">*</span></label>
-                    <input id="addLastName" type="text" required class="text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                </div>
-                <div class="flex flex-col">
-                    <label class="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Contact Number <span class="text-red-500">*</span></label>
-                    <input id="addContact" type="tel" required class="text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                </div>
-                <div class="flex flex-col">
-                    <label class="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Email</label>
-                    <input id="addEmail" type="email" class="text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                </div>
-                <div class="flex flex-col">
-                    <label class="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Date of Birth</label>
-                    <input id="addDob" type="date" class="text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                </div>
-                <div class="flex flex-col">
-                    <label class="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Gender</label>
-                    <select id="addGender" class="text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                        <option value="">Select gender</option>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                        <option value="Prefer not to say">Prefer not to say</option>
-                    </select>
-                </div>
-                <div class="flex flex-col md:col-span-2">
-                    <label class="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">House No. & Street</label>
-                    <input id="addHouseStreet" type="text" class="text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                </div>
-                <div class="flex flex-col">
-                    <label class="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Barangay</label>
-                    <input id="addBarangay" type="text" class="text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                </div>
-                <div class="flex flex-col">
-                    <label class="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">City/Municipality</label>
-                    <input id="addCity" type="text" class="text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                </div>
-                <div class="flex flex-col">
-                    <label class="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Province</label>
-                    <input id="addProvince" type="text" class="text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                </div>
+            <div class="bg-white rounded-3xl border border-slate-200 p-7 space-y-8">
+                <section class="space-y-4">
+                    <h3 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">person</span>
+                        Personal Information
+                    </h3>
+                    <div class="border-b border-slate-200"></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">First Name <span class="text-red-500">*</span></label>
+                            <input id="addFirstName" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Enter first name"/>
+                            <p id="addFirstNameError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Middle Name (Optional)</label>
+                            <input id="addMiddleName" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Enter middle name"/>
+                            <p id="addMiddleNameError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Last Name <span class="text-red-500">*</span></label>
+                            <input id="addLastName" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Enter last name"/>
+                            <p id="addLastNameError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Date of Birth <span class="text-red-500">*</span></label>
+                                <input id="addDob" type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"/>
+                                <p id="addDobError" class="mt-1 text-xs text-red-500 hidden"></p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Age</label>
+                                <input id="addAge" type="text" readonly class="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-500" placeholder="0"/>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Gender <span class="text-red-500">*</span></label>
+                            <div class="flex items-center gap-6 h-[42px]">
+                                <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                                    <input type="radio" name="addGender" value="Male" class="text-primary border-slate-300"/>
+                                    Male
+                                </label>
+                                <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                                    <input type="radio" name="addGender" value="Female" class="text-primary border-slate-300"/>
+                                    Female
+                                </label>
+                            </div>
+                            <p id="addGenderError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Blood Type <span class="text-red-500">*</span></label>
+                            <select id="addBloodType" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="">Select type</option>
+                                <option value="A+">A+</option>
+                                <option value="A-">A-</option>
+                                <option value="B+">B+</option>
+                                <option value="B-">B-</option>
+                                <option value="AB+">AB+</option>
+                                <option value="AB-">AB-</option>
+                                <option value="O+">O+</option>
+                                <option value="O-">O-</option>
+                            </select>
+                            <p id="addBloodTypeError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Medical History &amp; Alerts <span class="text-red-500">*</span></label>
+                            <textarea id="addMedicalHistory" rows="3" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Allergies, chronic conditions, current medications..."></textarea>
+                            <p id="addMedicalHistoryError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="space-y-4">
+                    <h3 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">contact_page</span>
+                        Contact Information
+                    </h3>
+                    <div class="border-b border-slate-200"></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Contact No. <span class="text-red-500">*</span></label>
+                            <input id="addContact" type="tel" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="09XX XXX XXXX"/>
+                            <p id="addContactError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Email Address <span class="text-red-500">*</span></label>
+                            <input id="addEmail" type="email" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="patient@example.com"/>
+                            <p id="addEmailError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                    </div>
+
+                    <p class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mt-4">Residential Address</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Province <span class="text-red-500">*</span></label>
+                            <select id="addProvince" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="">Select province</option>
+                            </select>
+                            <p id="addProvinceError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">City / Municipality <span class="text-red-500">*</span></label>
+                            <select id="addCity" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" disabled>
+                                <option value="">Select city/municipality</option>
+                            </select>
+                            <p id="addCityError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Barangay <span class="text-red-500">*</span></label>
+                            <select id="addBarangay" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" disabled>
+                                <option value="">Select barangay</option>
+                            </select>
+                            <p id="addBarangayError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Street / House No. <span class="text-red-500">*</span></label>
+                            <input id="addHouseStreet" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Unit, building, street"/>
+                            <p id="addHouseStreetError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                    </div>
+                </section>
             </div>
-            <div class="flex items-center justify-end gap-3 mt-6 pt-6 border-t border-slate-200">
-                <button type="button" id="cancelAddPatientBtn" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold">Cancel</button>
-                <button type="submit" id="savePatientBtn" class="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-semibold flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[18px]">save</span>
-                    Save Patient
-                </button>
+            <div class="flex items-center justify-end gap-3 mt-6 pt-1">
+                <button type="button" id="cancelAddPatientBtn" class="px-6 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-sm font-semibold">Cancel</button>
+                <button type="submit" id="savePatientBtn" class="px-6 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl text-sm font-semibold">Register Patient</button>
             </div>
         </form>
     </div>
@@ -267,6 +344,7 @@ body { font-family: "Manrope", sans-serif; }
 <script>
 const STAFF_OWNER_USER_ID = <?php echo json_encode($currentStaffUserId, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 const API_PATIENTS_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patients.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+const API_ADDRESS_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/philippine_address.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
 let allPatientsData = [];
 let viewPatientCloseTimer = null;
@@ -281,6 +359,28 @@ const addPatientModal = document.getElementById('addPatientModal');
 const viewPatientModal = document.getElementById('viewPatientModal');
 const viewPatientPanel = document.getElementById('viewPatientPanel');
 const addPatientForm = document.getElementById('addPatientForm');
+const addDobInput = document.getElementById('addDob');
+const addAgeInput = document.getElementById('addAge');
+const addProvinceSelect = document.getElementById('addProvince');
+const addCitySelect = document.getElementById('addCity');
+const addBarangaySelect = document.getElementById('addBarangay');
+const addGenderRadios = Array.from(document.querySelectorAll('input[name="addGender"]'));
+const bloodTypeOptions = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+const fieldValidators = {
+    addFirstName: { required: true, pattern: /^[a-zA-Z\s.'-]{2,50}$/, message: 'Enter a valid first name (2-50 letters).' },
+    addMiddleName: { required: false, pattern: /^[a-zA-Z\s.'-]{0,50}$/, message: 'Middle name can only contain letters and punctuation.' },
+    addLastName: { required: true, pattern: /^[a-zA-Z\s.'-]{2,50}$/, message: 'Enter a valid last name (2-50 letters).' },
+    addDob: { required: true, message: 'Date of birth is required.' },
+    addGender: { required: true, message: 'Gender is required.' },
+    addBloodType: { required: true, message: 'Blood type is required.' },
+    addMedicalHistory: { required: true, minLength: 5, message: 'Medical history is required.' },
+    addContact: { required: true, pattern: /^09\d{9}$/, message: 'Use PH mobile format: 09XXXXXXXXX.' },
+    addEmail: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Enter a valid email address.' },
+    addProvince: { required: true, message: 'Province is required.' },
+    addCity: { required: true, message: 'City/Municipality is required.' },
+    addBarangay: { required: true, message: 'Barangay is required.' },
+    addHouseStreet: { required: true, minLength: 3, message: 'Street / House No. is required.' }
+};
 
 function escapeHtml(text) {
     return String(text || '')
@@ -303,10 +403,13 @@ function normalizePatient(p) {
         id: p.id,
         patientId: p.patient_id || '',
         firstName: p.first_name || '',
+        middleName: p.middle_name || '',
         lastName: p.last_name || '',
         contact: p.contact_number || '',
         email: p.email || '',
         gender: p.gender || '',
+        bloodType: p.blood_type || '',
+        medicalHistory: p.medical_history || '',
         dob: p.date_of_birth || '',
         houseStreet: p.house_street || '',
         barangay: p.barangay || '',
@@ -316,6 +419,145 @@ function normalizePatient(p) {
         updatedAt: p.updated_at || '',
         status: (p.status || 'active').toLowerCase()
     };
+}
+
+function calculateAge(dateValue) {
+    if (!dateValue) return '';
+    const birthDate = new Date(dateValue);
+    if (Number.isNaN(birthDate.getTime())) return '';
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age -= 1;
+    }
+    return age >= 0 ? String(age) : '';
+}
+
+function clearFieldError(fieldId) {
+    const inputEl = document.getElementById(fieldId);
+    const errorEl = document.getElementById(`${fieldId}Error`);
+    if (inputEl) inputEl.classList.remove('field-error');
+    if (errorEl) {
+        errorEl.textContent = '';
+        errorEl.classList.add('hidden');
+    }
+}
+
+function showFieldError(fieldId, message) {
+    const inputEl = document.getElementById(fieldId);
+    const errorEl = document.getElementById(`${fieldId}Error`);
+    if (inputEl) inputEl.classList.add('field-error');
+    if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.classList.remove('hidden');
+    }
+}
+
+function resetFormValidation() {
+    Object.keys(fieldValidators).forEach(clearFieldError);
+}
+
+function getSelectedGender() {
+    const selected = addGenderRadios.find(r => r.checked);
+    return selected ? selected.value : '';
+}
+
+async function fetchAddress(action, params = {}) {
+    const url = new URL(API_ADDRESS_URL, window.location.origin);
+    url.searchParams.set('action', action);
+    Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
+    const response = await fetch(url.toString(), { credentials: 'include' });
+    const data = await response.json();
+    if (!response.ok || !data.success || !Array.isArray(data.data)) {
+        throw new Error(data.message || 'Failed to load address data.');
+    }
+    return data.data;
+}
+
+function fillSelect(selectEl, values, placeholder) {
+    selectEl.innerHTML = `<option value="">${placeholder}</option>` + values
+        .map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`)
+        .join('');
+    selectEl.disabled = values.length === 0;
+}
+
+async function loadProvinces(selectedProvince = '') {
+    try {
+        const provinces = await fetchAddress('provinces');
+        fillSelect(addProvinceSelect, provinces, 'Select province');
+        addProvinceSelect.value = selectedProvince || '';
+    } catch (error) {
+        fillSelect(addProvinceSelect, [], 'Unable to load provinces');
+    }
+}
+
+async function loadCities(province, selectedCity = '') {
+    if (!province) {
+        fillSelect(addCitySelect, [], 'Select city/municipality');
+        fillSelect(addBarangaySelect, [], 'Select barangay');
+        return;
+    }
+    try {
+        const cities = await fetchAddress('cities', { province });
+        fillSelect(addCitySelect, cities, 'Select city/municipality');
+        addCitySelect.value = selectedCity || '';
+    } catch (error) {
+        fillSelect(addCitySelect, [], 'Unable to load cities');
+    }
+}
+
+async function loadBarangays(province, city, selectedBarangay = '') {
+    if (!province || !city) {
+        fillSelect(addBarangaySelect, [], 'Select barangay');
+        return;
+    }
+    try {
+        const barangays = await fetchAddress('barangays', { province, city });
+        fillSelect(addBarangaySelect, barangays, 'Select barangay');
+        addBarangaySelect.value = selectedBarangay || '';
+    } catch (error) {
+        fillSelect(addBarangaySelect, [], 'Unable to load barangays');
+    }
+}
+
+function validatePatientForm(payload) {
+    resetFormValidation();
+    let isValid = true;
+
+    Object.entries(fieldValidators).forEach(([fieldId, rules]) => {
+        const value = (fieldId === 'addGender' ? payload.gender : (document.getElementById(fieldId)?.value || '')).trim();
+        if (rules.required && !value) {
+            showFieldError(fieldId, rules.message);
+            isValid = false;
+            return;
+        }
+        if (value && rules.minLength && value.length < rules.minLength) {
+            showFieldError(fieldId, rules.message);
+            isValid = false;
+            return;
+        }
+        if (value && rules.pattern && !rules.pattern.test(value)) {
+            showFieldError(fieldId, rules.message);
+            isValid = false;
+        }
+    });
+
+    if (payload.date_of_birth) {
+        const selectedDob = new Date(payload.date_of_birth);
+        const today = new Date();
+        if (Number.isNaN(selectedDob.getTime()) || selectedDob > today) {
+            showFieldError('addDob', 'Date of birth cannot be in the future.');
+            isValid = false;
+        }
+    }
+
+    if (payload.blood_type && !bloodTypeOptions.includes(payload.blood_type)) {
+        showFieldError('addBloodType', 'Select a valid blood type.');
+        isValid = false;
+    }
+
+    return isValid;
 }
 
 function renderPatients(patients) {
@@ -415,18 +657,25 @@ async function loadPatients() {
 }
 
 function openAddModal(patient) {
-    document.getElementById('patientModalTitle').textContent = patient ? 'Edit Patient' : 'Add New Patient';
+    document.getElementById('patientModalTitle').textContent = patient ? 'Edit Patient Registration' : 'Patient Registration';
     document.getElementById('editingPatientId').value = patient ? String(patient.id) : '';
     document.getElementById('addFirstName').value = patient?.firstName || '';
+    document.getElementById('addMiddleName').value = patient?.middleName || '';
     document.getElementById('addLastName').value = patient?.lastName || '';
     document.getElementById('addContact').value = patient?.contact || '';
     document.getElementById('addEmail').value = patient?.email || '';
     document.getElementById('addDob').value = patient?.dob ? String(patient.dob).slice(0, 10) : '';
-    document.getElementById('addGender').value = patient?.gender || '';
+    addAgeInput.value = calculateAge(document.getElementById('addDob').value);
+    addGenderRadios.forEach(radio => {
+        radio.checked = Boolean(patient?.gender) && radio.value === patient.gender;
+    });
+    document.getElementById('addBloodType').value = patient?.bloodType || '';
+    document.getElementById('addMedicalHistory').value = patient?.medicalHistory || '';
     document.getElementById('addHouseStreet').value = patient?.houseStreet || '';
-    document.getElementById('addBarangay').value = patient?.barangay || '';
-    document.getElementById('addCity').value = patient?.city || '';
-    document.getElementById('addProvince').value = patient?.province || '';
+    loadProvinces(patient?.province || '').then(() => loadCities(patient?.province || '', patient?.city || ''))
+        .then(() => loadBarangays(patient?.province || '', patient?.city || '', patient?.barangay || ''));
+    resetFormValidation();
+    document.getElementById('savePatientBtn').textContent = patient ? 'Save Patient' : 'Register Patient';
     addPatientModal.classList.remove('hidden');
     addPatientModal.classList.add('flex');
 }
@@ -434,6 +683,11 @@ function openAddModal(patient) {
 function closeAddModal() {
     addPatientForm.reset();
     document.getElementById('editingPatientId').value = '';
+    addAgeInput.value = '';
+    addGenderRadios.forEach(radio => { radio.checked = false; });
+    fillSelect(addCitySelect, [], 'Select city/municipality');
+    fillSelect(addBarangaySelect, [], 'Select barangay');
+    resetFormValidation();
     addPatientModal.classList.add('hidden');
     addPatientModal.classList.remove('flex');
 }
@@ -568,22 +822,25 @@ function closeViewModal() {
 async function savePatient(event) {
     event.preventDefault();
     const editingId = document.getElementById('editingPatientId').value.trim();
+    const selectedGender = getSelectedGender();
     const payload = {
         first_name: document.getElementById('addFirstName').value.trim(),
+        middle_name: document.getElementById('addMiddleName').value.trim(),
         last_name: document.getElementById('addLastName').value.trim(),
         contact_number: document.getElementById('addContact').value.trim(),
         mobile: document.getElementById('addContact').value.trim(),
         email: document.getElementById('addEmail').value.trim(),
         date_of_birth: document.getElementById('addDob').value,
-        gender: document.getElementById('addGender').value,
+        gender: selectedGender,
+        blood_type: document.getElementById('addBloodType').value.trim(),
+        medical_history: document.getElementById('addMedicalHistory').value.trim(),
         house_street: document.getElementById('addHouseStreet').value.trim(),
-        barangay: document.getElementById('addBarangay').value.trim(),
-        city_municipality: document.getElementById('addCity').value.trim(),
-        province: document.getElementById('addProvince').value.trim()
+        barangay: document.getElementById('addBarangay').value,
+        city_municipality: document.getElementById('addCity').value,
+        province: document.getElementById('addProvince').value
     };
 
-    if (!payload.first_name || !payload.last_name) {
-        alert('First name and last name are required.');
+    if (!validatePatientForm(payload)) {
         return;
     }
 
@@ -653,6 +910,28 @@ document.getElementById('closeViewPatientModal').addEventListener('click', close
 addPatientModal.addEventListener('click', e => { if (e.target === addPatientModal) closeAddModal(); });
 viewPatientModal.addEventListener('click', e => { if (e.target === viewPatientModal) closeViewModal(); });
 addPatientForm.addEventListener('submit', savePatient);
+addDobInput.addEventListener('change', () => {
+    addAgeInput.value = calculateAge(addDobInput.value);
+    clearFieldError('addDob');
+});
+addProvinceSelect.addEventListener('change', async () => {
+    clearFieldError('addProvince');
+    await loadCities(addProvinceSelect.value);
+    fillSelect(addBarangaySelect, [], 'Select barangay');
+});
+addCitySelect.addEventListener('change', async () => {
+    clearFieldError('addCity');
+    await loadBarangays(addProvinceSelect.value, addCitySelect.value);
+});
+addBarangaySelect.addEventListener('change', () => clearFieldError('addBarangay'));
+addGenderRadios.forEach(radio => radio.addEventListener('change', () => clearFieldError('addGender')));
+Object.keys(fieldValidators).forEach(fieldId => {
+    if (fieldId === 'addGender') return;
+    const inputEl = document.getElementById(fieldId);
+    if (!inputEl) return;
+    inputEl.addEventListener('input', () => clearFieldError(fieldId));
+    inputEl.addEventListener('change', () => clearFieldError(fieldId));
+});
 
 [searchInput, statusFilter, genderFilter, registrationDateFilter].forEach(el => {
     const eventName = el.tagName === 'INPUT' && el.type === 'text' ? 'input' : 'change';
@@ -684,6 +963,7 @@ document.getElementById('schedulePatientBtn').addEventListener('click', () => {
     alert('Schedule workflow will be wired to appointments module.');
 });
 
+loadProvinces();
 loadPatients();
 </script>
 </body>

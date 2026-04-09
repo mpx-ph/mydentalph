@@ -56,6 +56,7 @@ function createPatient() {
         'contact_number' => sanitize($input['mobile'] ?? $input['contact_number'] ?? $input['contact'] ?? ''),
         'date_of_birth' => sanitize($input['date_of_birth'] ?? $input['dob'] ?? ''),
         'gender' => sanitize($input['gender'] ?? ''),
+        'blood_type' => sanitize($input['blood_type'] ?? ''),
         'house_street' => sanitize($input['house_street'] ?? $input['houseStreet'] ?? ($input['address'] ? explode(',', $input['address'])[0] : '')),
         'barangay' => sanitize($input['barangay'] ?? ''),
         'city_municipality' => sanitize($input['city_municipality'] ?? $input['city'] ?? ''),
@@ -113,8 +114,8 @@ function createPatient() {
             INSERT INTO tbl_patients (
                 tenant_id,
                 patient_id, owner_user_id, linked_user_id, first_name, last_name, contact_number,
-                date_of_birth, gender, house_street, barangay, city_municipality, province, profile_image, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                date_of_birth, gender, blood_type, house_street, barangay, city_municipality, province, profile_image, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         ");
         
         $stmt->execute([
@@ -127,6 +128,7 @@ function createPatient() {
             $data['contact_number'] ?: null,
             $data['date_of_birth'] ?: null,
             $data['gender'] ?: null,
+            $data['blood_type'] ?: null,
             $data['house_street'] ?: null,
             $data['barangay'] ?: null,
             $data['city_municipality'] ?: null,
