@@ -38,6 +38,11 @@ $summaryTotalPayments = 0;
 $recentPayments = [];
 $transactionCandidates = [];
 $supportsPaymentTypeColumn = false;
+$formSelectedBookingId = trim((string) ($_POST['selected_booking_id'] ?? ''));
+$formPatientQuery = trim((string) ($_POST['patient_query'] ?? ''));
+$formAmount = trim((string) ($_POST['amount'] ?? ''));
+$formPaymentDate = trim((string) ($_POST['payment_date'] ?? date('Y-m-d')));
+$formNotes = trim((string) ($_POST['notes'] ?? ''));
 
 try {
     $pdo = getDBConnection();
@@ -187,7 +192,13 @@ try {
                     $updateAppointmentStmt->execute([$tenantId, $selectedBookingId]);
 
                     $paymentSuccess = 'Payment recorded successfully.';
-                    $selectedMethod = $method;
+                    // Reset the modal form after successful submission.
+                    $selectedMethod = 'cash';
+                    $formSelectedBookingId = '';
+                    $formPatientQuery = '';
+                    $formAmount = '';
+                    $formPaymentDate = date('Y-m-d');
+                    $formNotes = '';
                 } catch (Throwable $postError) {
                     error_log('Staff payment record submit error: ' . $postError->getMessage());
                     $paymentError = 'Unable to record payment right now. Please try again.';
@@ -623,12 +634,12 @@ try {
 <div class="space-y-3">
 <label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Patient Identification</label>
 <div class="relative group">
-<input name="selected_booking_id" id="selected_booking_id_input" type="hidden" value="<?php echo htmlspecialchars((string) ($_POST['selected_booking_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"/>
-<input name="patient_query" id="patient_query_input" type="hidden" value="<?php echo htmlspecialchars((string) ($_POST['patient_query'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"/>
+<input name="selected_booking_id" id="selected_booking_id_input" type="hidden" value="<?php echo htmlspecialchars($formSelectedBookingId, ENT_QUOTES, 'UTF-8'); ?>"/>
+<input name="patient_query" id="patient_query_input" type="hidden" value="<?php echo htmlspecialchars($formPatientQuery, ENT_QUOTES, 'UTF-8'); ?>"/>
 <button id="open-transaction-selector-modal" type="button" class="w-full px-6 py-4 form-input-styled rounded-2xl text-left text-base font-semibold outline-none inline-flex items-center justify-between gap-3">
 <span class="inline-flex items-center gap-3 min-w-0">
 <span class="material-symbols-outlined text-slate-400">person_search</span>
-<span id="selected_transaction_label" class="truncate"><?php echo htmlspecialchars((string) ($_POST['patient_query'] ?? 'Select appointment transaction with pending balance'), ENT_QUOTES, 'UTF-8'); ?></span>
+<span id="selected_transaction_label" class="truncate"><?php echo htmlspecialchars($formPatientQuery !== '' ? $formPatientQuery : 'Select appointment transaction with pending balance', ENT_QUOTES, 'UTF-8'); ?></span>
 </span>
 <span class="material-symbols-outlined text-slate-500">keyboard_arrow_down</span>
 </button>
@@ -640,14 +651,14 @@ try {
 <label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Payment Amount</label>
 <div class="relative group">
 <span class="absolute left-5 top-1/2 -translate-y-1/2 text-lg font-extrabold text-slate-500 group-focus-within:text-primary transition-colors">₱</span>
-<input class="w-full pl-12 pr-6 py-4 form-input-styled rounded-2xl text-xl font-black outline-none" min="0.01" name="amount" placeholder="0.00" required step="0.01" type="number" value="<?php echo htmlspecialchars((string) ($_POST['amount'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"/>
+<input class="w-full pl-12 pr-6 py-4 form-input-styled rounded-2xl text-xl font-black outline-none" min="0.01" name="amount" placeholder="0.00" required step="0.01" type="number" value="<?php echo htmlspecialchars($formAmount, ENT_QUOTES, 'UTF-8'); ?>"/>
 </div>
 </div>
 <div class="hidden md:block h-12 w-px bg-slate-200 mt-6"></div>
 <div class="flex-1 w-full space-y-3">
 <label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Transaction Date</label>
 <div class="relative group">
-<input class="w-full px-6 py-4 form-input-styled rounded-2xl text-base font-semibold outline-none" max="<?php echo date('Y-m-d'); ?>" name="payment_date" required type="date" value="<?php echo htmlspecialchars((string) ($_POST['payment_date'] ?? date('Y-m-d')), ENT_QUOTES, 'UTF-8'); ?>"/>
+<input class="w-full px-6 py-4 form-input-styled rounded-2xl text-base font-semibold outline-none" max="<?php echo date('Y-m-d'); ?>" name="payment_date" required type="date" value="<?php echo htmlspecialchars($formPaymentDate, ENT_QUOTES, 'UTF-8'); ?>"/>
 </div>
 </div>
 </div>
@@ -675,7 +686,7 @@ try {
 </div>
 <div class="space-y-3">
 <label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Additional Notes</label>
-<textarea class="w-full px-6 py-4 form-input-styled rounded-2xl text-sm font-medium outline-none resize-none" name="notes" placeholder="Describe the treatment or specific billing details..." rows="3"><?php echo htmlspecialchars((string) ($_POST['notes'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></textarea>
+<textarea class="w-full px-6 py-4 form-input-styled rounded-2xl text-sm font-medium outline-none resize-none" name="notes" placeholder="Describe the treatment or specific billing details..." rows="3"><?php echo htmlspecialchars($formNotes, ENT_QUOTES, 'UTF-8'); ?></textarea>
 </div>
 <div class="pt-4">
 <button class="w-full py-5 bg-primary text-white font-black text-sm uppercase tracking-[0.3em] rounded-2xl shadow-2xl shadow-primary/40 hover:shadow-primary/60 hover:-translate-y-1 active:translate-y-0 active:scale-[0.99] transition-all flex items-center justify-center gap-4 relative overflow-hidden group" type="submit">
