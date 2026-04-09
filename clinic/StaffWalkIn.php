@@ -70,9 +70,7 @@ $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('
                         "background": "#f8fafc",
                         "surface": "#ffffff",
                         "on-background": "#101922",
-                        "on-surface-variant": "#404752",
-                        "walkin-accent": "#22c7b8",
-                        "walkin-accent-strong": "#0ea5a1"
+                        "on-surface-variant": "#404752"
                     },
                     fontFamily: {
                         "headline": ["Manrope", "sans-serif"],
@@ -93,7 +91,7 @@ $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('
             background-color: #f8fafc;
             background-image:
                 radial-gradient(at 0% 0%, rgba(43, 139, 235, 0.03) 0px, transparent 50%),
-                radial-gradient(at 100% 0%, rgba(14, 165, 161, 0.04) 0px, transparent 50%);
+                radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.02) 0px, transparent 50%);
         }
         .elevated-card {
             background: #ffffff;
@@ -131,7 +129,7 @@ $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('
         }
         .walkin-primary-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 20px 35px -20px rgba(16, 185, 129, 0.9);
+            box-shadow: 0 20px 35px -20px rgba(43, 139, 235, 0.9);
             filter: brightness(1.02);
         }
         .walkin-primary-btn:active {
@@ -152,7 +150,7 @@ $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('
             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                     <h1 class="font-headline text-5xl font-extrabold tracking-tighter leading-tight text-on-background">
-                        Create <span class="font-editorial italic font-normal text-walkin-accent-strong transform -skew-x-6 inline-block">Walk-In Booking</span>
+                        Create <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Walk-In Booking</span>
                     </h1>
                     <p class="font-body text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3">
                         Register and schedule a same-day patient appointment with quick service and payment preview.
@@ -171,7 +169,7 @@ $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('
         <section class="grid grid-cols-1 xl:grid-cols-12 gap-6">
             <div class="xl:col-span-4 elevated-card rounded-3xl p-6">
                 <div class="flex items-center gap-3 mb-5">
-                    <div class="w-10 h-10 rounded-xl bg-walkin-accent/15 text-walkin-accent-strong flex items-center justify-center">
+                    <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                         <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person_search</span>
                     </div>
                     <div>
@@ -186,14 +184,7 @@ $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('
                             <option value="">Choose patient</option>
                         </select>
                     </label>
-                    <label class="block">
-                        <span class="block text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/70 mb-2">Search Patient</span>
-                        <div class="relative">
-                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-                            <input type="text" class="walkin-input w-full py-3 pl-10 pr-4" placeholder="Search patient"/>
-                        </div>
-                    </label>
-                    <button type="button" class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-walkin-accent to-walkin-accent-strong text-white py-3 text-sm font-bold shadow-lg shadow-walkin-accent/30 walkin-primary-btn">
+                    <button type="button" class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-blue-500 text-white py-3 text-sm font-bold shadow-lg shadow-primary/30 walkin-primary-btn">
                         <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">person_add</span>
                         Register Patient
                     </button>
@@ -228,7 +219,7 @@ $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('
                                 <select class="walkin-input w-full py-3 px-4">
                                     <option value="">Select service</option>
                                 </select>
-                                <button type="button" class="w-11 h-11 rounded-xl bg-walkin-accent text-white inline-flex items-center justify-center hover:bg-walkin-accent-strong transition-colors">
+                                <button type="button" class="w-11 h-11 rounded-xl bg-primary text-white inline-flex items-center justify-center hover:bg-primary/90 transition-colors">
                                     <span class="material-symbols-outlined text-[18px]">add</span>
                                 </button>
                             </div>
@@ -292,11 +283,13 @@ $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('
             </div>
         </section>
 
-        <section class="pt-1">
-            <button type="button" class="walkin-primary-btn w-full rounded-2xl bg-gradient-to-r from-walkin-accent to-walkin-accent-strong text-white py-3.5 text-sm font-extrabold uppercase tracking-wide shadow-lg shadow-walkin-accent/35 inline-flex items-center justify-center gap-2">
-                <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">calendar_add_on</span>
-                Create Walk-In Appointment
-            </button>
+        <section class="pt-1 grid grid-cols-1 xl:grid-cols-12">
+            <div class="xl:col-span-8 xl:col-start-5">
+                <button type="button" class="walkin-primary-btn w-full rounded-2xl bg-gradient-to-r from-primary to-blue-500 text-white py-3.5 text-sm font-extrabold uppercase tracking-wide shadow-lg shadow-primary/35 inline-flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">calendar_add_on</span>
+                    Create Walk-In Appointment
+                </button>
+            </div>
         </section>
     </div>
 </main>
