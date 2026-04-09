@@ -39,9 +39,10 @@ if ($clinicSlugBoot !== '' && preg_match('/^[a-z0-9\-]+$/', strtolower($clinicSl
 }
 
 $tenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
-$selectedDate = isset($_GET['date']) ? trim((string) $_GET['date']) : date('Y-m-d');
+$manilaToday = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d');
+$selectedDate = isset($_GET['date']) ? trim((string) $_GET['date']) : $manilaToday;
 if (!preg_match('/^\d{4}\-\d{2}\-\d{2}$/', $selectedDate)) {
-    $selectedDate = date('Y-m-d');
+    $selectedDate = $manilaToday;
 }
 
 $selectedMonth = isset($_GET['month']) ? trim((string) $_GET['month']) : substr($selectedDate, 0, 7);
@@ -332,7 +333,7 @@ try {
             $params[] = $like;
         }
 
-        $dailySql .= " ORDER BY a.appointment_time ASC, a.created_at ASC";
+        $dailySql .= " ORDER BY a.appointment_time DESC, a.created_at DESC";
         $dailyStmt = $pdo->prepare($dailySql);
         $dailyStmt->execute($params);
         $dailyAppointments = $dailyStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
