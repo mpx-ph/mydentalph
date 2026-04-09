@@ -37,6 +37,7 @@ $summaryTodayRevenue = 0.0;
 $summaryTotalPayments = 0;
 $recentPayments = [];
 $transactionCandidates = [];
+$availableServices = [];
 $supportsPaymentTypeColumn = false;
 $supportsAppointmentUpdatedAtColumn = false;
 $formSelectedBookingId = trim((string) ($_POST['selected_booking_id'] ?? ''));
@@ -44,6 +45,11 @@ $formPatientQuery = trim((string) ($_POST['patient_query'] ?? ''));
 $formAmount = trim((string) ($_POST['amount'] ?? ''));
 $formPaymentDate = trim((string) ($_POST['payment_date'] ?? date('Y-m-d')));
 $formNotes = trim((string) ($_POST['notes'] ?? ''));
+$formServiceIds = isset($_POST['additional_service_ids']) && is_array($_POST['additional_service_ids'])
+    ? array_values(array_filter(array_map('trim', $_POST['additional_service_ids']), static function ($item) {
+        return $item !== '';
+    }))
+    : [];
 
 try {
     $pdo = getDBConnection();
@@ -88,6 +94,11 @@ try {
         $paymentDate = trim((string) ($_POST['payment_date'] ?? date('Y-m-d')));
         $notes = trim((string) ($_POST['notes'] ?? ''));
         $method = strtolower(trim((string) ($_POST['payment_method'] ?? 'cash')));
+        $additionalServiceIds = isset($_POST['additional_service_ids']) && is_array($_POST['additional_service_ids'])
+            ? array_values(array_filter(array_map('trim', $_POST['additional_service_ids']), static function ($item) {
+                return $item !== '';
+            }))
+            : [];
 
         if (!isset($allowedMethods[$method])) {
             $method = 'cash';
@@ -99,37 +110,115 @@ try {
         } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $paymentDate)) {
             $paymentError = 'Please provide a valid payment date.';
         } else {
-            $bookingSql = "
-                SELECT
-                    a.booking_id,
-                    a.patient_id,
-                    COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
-                    COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0) AS total_paid
-                FROM tbl_appointments a
-                LEFT JOIN tbl_payments py
-                    ON py.tenant_id = a.tenant_id
-                   AND py.booking_id = a.booking_id
-                WHERE a.tenant_id = ?
-                  AND a.booking_id = ?
-                GROUP BY a.booking_id, a.patient_id, a.total_treatment_cost
-                LIMIT 1
-            ";
-            $bookingStmt = $pdo->prepare($bookingSql);
-            $bookingStmt->execute([$tenantId, $selectedBookingId]);
-            $bookingRow = $bookingStmt->fetch(PDO::FETCH_ASSOC);
-            $patientId = trim((string) ($bookingRow['patient_id'] ?? ''));
-            $totalCost = (float) ($bookingRow['total_treatment_cost'] ?? 0);
-            $totalPaid = (float) ($bookingRow['total_paid'] ?? 0);
-            $pendingBalance = max(0, $totalCost - $totalPaid);
+            try {
+                $pdo->beginTransaction();
 
-            if ($patientId === '') {
-                $paymentError = 'Selected transaction was not found.';
-            } elseif ($pendingBalance <= 0) {
-                $paymentError = 'Selected transaction is already fully paid.';
-            } elseif ($amount > $pendingBalance) {
-                $paymentError = 'Payment amount exceeds the pending balance of ₱' . number_format($pendingBalance, 2) . '.';
-            } else {
-                try {
+                $appointmentStmt = $pdo->prepare("
+                    SELECT booking_id, patient_id, service_description, COALESCE(total_treatment_cost, 0) AS total_treatment_cost
+                    FROM tbl_appointments
+                    WHERE tenant_id = ?
+                      AND booking_id = ?
+                    LIMIT 1
+                    FOR UPDATE
+                ");
+                $appointmentStmt->execute([$tenantId, $selectedBookingId]);
+                $appointmentRow = $appointmentStmt->fetch(PDO::FETCH_ASSOC);
+                $patientId = trim((string) ($appointmentRow['patient_id'] ?? ''));
+                if ($patientId === '') {
+                    throw new RuntimeException('Selected transaction was not found.');
+                }
+
+                if (!empty($additionalServiceIds)) {
+                    $placeholders = implode(',', array_fill(0, count($additionalServiceIds), '?'));
+                    $servicesSql = "
+                        SELECT service_id, service_name, price
+                        FROM tbl_services
+                        WHERE tenant_id = ?
+                          AND status = 'active'
+                          AND service_id IN ($placeholders)
+                    ";
+                    $servicesStmt = $pdo->prepare($servicesSql);
+                    $servicesStmt->execute(array_merge([$tenantId], $additionalServiceIds));
+                    $servicesToAdd = $servicesStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+                    if (count($servicesToAdd) !== count($additionalServiceIds)) {
+                        throw new RuntimeException('One or more selected additional services are unavailable.');
+                    }
+
+                    $existingServicesStmt = $pdo->prepare("
+                        SELECT service_id
+                        FROM tbl_appointment_services
+                        WHERE tenant_id = ?
+                          AND booking_id = ?
+                    ");
+                    $existingServicesStmt->execute([$tenantId, $selectedBookingId]);
+                    $existingServiceIds = array_map('strval', $existingServicesStmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
+                    $existingLookup = array_fill_keys($existingServiceIds, true);
+
+                    $insertServiceStmt = $pdo->prepare("
+                        INSERT INTO tbl_appointment_services (tenant_id, booking_id, service_id, service_name, price, is_original, added_at)
+                        VALUES (?, ?, ?, ?, ?, 0, NOW())
+                    ");
+
+                    $addedCost = 0.0;
+                    $addedLabels = [];
+                    foreach ($servicesToAdd as $serviceRow) {
+                        $serviceId = (string) ($serviceRow['service_id'] ?? '');
+                        if ($serviceId === '' || isset($existingLookup[$serviceId])) {
+                            continue;
+                        }
+                        $serviceName = trim((string) ($serviceRow['service_name'] ?? 'Additional Service'));
+                        $servicePrice = (float) ($serviceRow['price'] ?? 0);
+                        $insertServiceStmt->execute([$tenantId, $selectedBookingId, $serviceId, $serviceName, $servicePrice]);
+                        $addedCost += $servicePrice;
+                        $addedLabels[] = $serviceName . ' (P' . number_format($servicePrice, 2) . ')';
+                    }
+
+                    if ($addedCost > 0) {
+                        $currentTotalCost = (float) ($appointmentRow['total_treatment_cost'] ?? 0);
+                        $newTotalCost = $currentTotalCost + $addedCost;
+                        $currentDescription = trim((string) ($appointmentRow['service_description'] ?? ''));
+                        $newDescriptionPart = '[ADDED AT PAYMENT] ' . implode('; ', $addedLabels);
+                        $newDescription = $currentDescription !== '' ? ($currentDescription . '; ' . $newDescriptionPart) : $newDescriptionPart;
+
+                        $updateCostStmt = $pdo->prepare("
+                            UPDATE tbl_appointments
+                            SET total_treatment_cost = ?, service_description = ?
+                            WHERE tenant_id = ?
+                              AND booking_id = ?
+                            LIMIT 1
+                        ");
+                        $updateCostStmt->execute([$newTotalCost, $newDescription, $tenantId, $selectedBookingId]);
+                    }
+                }
+
+                $balanceStmt = $pdo->prepare("
+                    SELECT
+                        a.patient_id,
+                        COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
+                        COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0) AS total_paid
+                    FROM tbl_appointments a
+                    LEFT JOIN tbl_payments py
+                        ON py.tenant_id = a.tenant_id
+                       AND py.booking_id = a.booking_id
+                    WHERE a.tenant_id = ?
+                      AND a.booking_id = ?
+                    GROUP BY a.patient_id, a.total_treatment_cost
+                    LIMIT 1
+                ");
+                $balanceStmt->execute([$tenantId, $selectedBookingId]);
+                $balanceRow = $balanceStmt->fetch(PDO::FETCH_ASSOC);
+                $totalCost = (float) ($balanceRow['total_treatment_cost'] ?? 0);
+                $totalPaid = (float) ($balanceRow['total_paid'] ?? 0);
+                $pendingBalance = max(0, $totalCost - $totalPaid);
+
+                if ($pendingBalance <= 0) {
+                    throw new RuntimeException('Selected transaction is already fully paid.');
+                }
+                if ($amount > $pendingBalance) {
+                    throw new RuntimeException('Payment amount exceeds the pending balance of ₱' . number_format($pendingBalance, 2) . '.');
+                }
+
                     $paymentId = 'PAY-' . date('YmdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
                     // Keep compatibility with deployments where payment_type enum only allows downpayment/fullpayment.
                     $paymentType = ($amount + 0.009 >= $pendingBalance) ? 'fullpayment' : 'downpayment';
@@ -204,6 +293,7 @@ try {
                     $updateAppointmentStmt = $pdo->prepare($updateAppointmentSql);
                     $updateAppointmentStmt->execute([$nextAppointmentStatus, $tenantId, $selectedBookingId]);
 
+                    $pdo->commit();
                     $paymentSuccess = 'Payment recorded successfully.';
                     // Reset the modal form after successful submission.
                     $selectedMethod = 'cash';
@@ -212,9 +302,14 @@ try {
                     $formAmount = '';
                     $formPaymentDate = date('Y-m-d');
                     $formNotes = '';
+                    $formServiceIds = [];
                 } catch (Throwable $postError) {
+                    if ($pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
                     error_log('Staff payment record submit error: ' . $postError->getMessage());
-                    $paymentError = 'Unable to record payment right now. Please try again.';
+                    $postMessage = trim((string) $postError->getMessage());
+                    $paymentError = $postMessage !== '' ? $postMessage : 'Unable to record payment right now. Please try again.';
                 }
             }
         }
@@ -294,6 +389,16 @@ try {
         $transactionsStmt = $pdo->prepare($transactionsSql);
         $transactionsStmt->execute([$tenantId]);
         $transactionCandidates = $transactionsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $servicesStmt = $pdo->prepare("
+            SELECT service_id, service_name, category, price
+            FROM tbl_services
+            WHERE tenant_id = ?
+              AND status = 'active'
+            ORDER BY service_name ASC
+        ");
+        $servicesStmt->execute([$tenantId]);
+        $availableServices = $servicesStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             header('Content-Type: text/csv; charset=UTF-8');
@@ -676,6 +781,38 @@ try {
 </div>
 </div>
 <div class="space-y-4">
+<label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Additional Services</label>
+<div class="rounded-2xl border border-slate-200 bg-white/70 p-4 space-y-3">
+<p class="text-[11px] font-semibold text-slate-500">Optional: add extra services done on the spot. Added services increase total treatment cost and pending balance.</p>
+<div class="max-h-52 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/40 p-2 space-y-1.5">
+<?php if (empty($availableServices)): ?>
+<p class="px-2 py-2 text-sm font-semibold text-slate-500">No active services available.</p>
+<?php else: ?>
+<?php foreach ($availableServices as $service): ?>
+<?php
+    $serviceId = (string) ($service['service_id'] ?? '');
+    $serviceName = (string) ($service['service_name'] ?? 'Service');
+    $serviceCategory = (string) ($service['category'] ?? 'General');
+    $servicePrice = (float) ($service['price'] ?? 0);
+    $isChecked = in_array($serviceId, $formServiceIds, true);
+?>
+<label class="flex items-center justify-between gap-3 p-2.5 rounded-lg hover:bg-white border border-transparent hover:border-slate-200">
+<span class="flex items-start gap-3 min-w-0">
+<input class="additional-service-checkbox mt-1 rounded border-slate-300 text-primary focus:ring-primary/30" data-service-price="<?php echo htmlspecialchars((string) $servicePrice, ENT_QUOTES, 'UTF-8'); ?>" name="additional_service_ids[]" type="checkbox" value="<?php echo htmlspecialchars($serviceId, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $isChecked ? ' checked' : ''; ?>/>
+<span class="min-w-0">
+<span class="block text-sm font-bold text-slate-800 truncate"><?php echo htmlspecialchars($serviceName, ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="block text-xs text-slate-500"><?php echo htmlspecialchars($serviceCategory, ENT_QUOTES, 'UTF-8'); ?></span>
+</span>
+</span>
+<span class="text-sm font-black text-primary">₱<?php echo htmlspecialchars(number_format($servicePrice, 2), ENT_QUOTES, 'UTF-8'); ?></span>
+</label>
+<?php endforeach; ?>
+<?php endif; ?>
+</div>
+<p id="additional_services_total_hint" class="text-xs font-bold text-slate-600">Added services total: ₱0.00</p>
+</div>
+</div>
+<div class="space-y-4">
 <label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Payment Method</label>
 <input id="payment_method_input" name="payment_method" type="hidden" value="<?php echo htmlspecialchars($selectedMethod, ENT_QUOTES, 'UTF-8'); ?>"/>
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -752,6 +889,9 @@ try {
         const patientQueryInput = document.getElementById('patient_query_input');
         const selectedTransactionLabel = document.getElementById('selected_transaction_label');
         const amountInput = document.querySelector('input[name="amount"]');
+        const additionalServiceCheckboxes = document.querySelectorAll('.additional-service-checkbox');
+        const additionalServicesHint = document.getElementById('additional_services_total_hint');
+        let selectedTransaction = null;
 
         const normalizeTransactions = transactionCandidates.map((item) => {
             const totalCost = Number(item.total_treatment_cost || 0);
@@ -808,6 +948,30 @@ try {
                         '</div>' +
                     '</div>';
             }).join('');
+        }
+
+        function computeSelectedServicesTotal() {
+            let total = 0;
+            additionalServiceCheckboxes.forEach((checkbox) => {
+                if (!checkbox.checked) return;
+                const price = Number(checkbox.getAttribute('data-service-price') || 0);
+                if (Number.isFinite(price)) {
+                    total += price;
+                }
+            });
+            return total;
+        }
+
+        function updateAdditionalServicesUI() {
+            const addedTotal = computeSelectedServicesTotal();
+            if (additionalServicesHint) {
+                additionalServicesHint.textContent = 'Added services total: ₱' + addedTotal.toFixed(2);
+            }
+            if (amountInput && selectedTransaction) {
+                const pending = Number(selectedTransaction.pending_balance || 0);
+                const recalculatedPending = Math.max(0, pending + addedTotal);
+                amountInput.value = recalculatedPending.toFixed(2);
+            }
         }
 
         function openSelectorModal() {
@@ -910,11 +1074,17 @@ try {
                     selectedTransactionLabel.textContent = selected.label;
                 }
                 if (amountInput) {
-                    amountInput.value = selected.pending_balance.toFixed(2);
+                    selectedTransaction = selected;
+                    const addedTotal = computeSelectedServicesTotal();
+                    amountInput.value = Math.max(0, selected.pending_balance + addedTotal).toFixed(2);
                 }
                 closeSelectorModal();
             });
         }
+        additionalServiceCheckboxes.forEach((checkbox) => {
+            checkbox.addEventListener('change', updateAdditionalServicesUI);
+        });
+        updateAdditionalServicesUI();
 
         const hiddenInput = document.getElementById('payment_method_input');
         const cards = document.querySelectorAll('.payment-card[data-method]');

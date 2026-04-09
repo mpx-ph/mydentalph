@@ -286,7 +286,12 @@ try {
                 a.patient_id,
                 a.appointment_date,
                 a.appointment_time,
-                (SELECT GROUP_CONCAT(service_name SEPARATOR ', ') FROM tbl_appointment_services WHERE booking_id = a.booking_id) as service_type,
+                (
+                    SELECT COALESCE(GROUP_CONCAT(svc.service_name SEPARATOR ', '), a.service_type)
+                    FROM tbl_appointment_services svc
+                    WHERE svc.tenant_id = a.tenant_id
+                      AND svc.booking_id = a.booking_id
+                ) as service_type,
                 a.service_description,
                 a.treatment_type,
                 a.status,
