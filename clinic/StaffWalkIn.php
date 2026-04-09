@@ -56,16 +56,14 @@ try {
         if ($pdo && $tenantId) {
             $stmt = $pdo->prepare("
                 SELECT
-                    u.user_id,
-                    COALESCE(s.first_name, '') AS first_name,
-                    COALESCE(s.last_name, '') AS last_name,
-                    COALESCE(s.profile_image, '') AS profile_image,
-                    COALESCE(u.status, 'active') AS status
-                FROM tbl_users u
-                LEFT JOIN tbl_staffs s ON s.user_id = u.user_id AND s.tenant_id = u.tenant_id
-                WHERE u.tenant_id = ?
-                  AND u.role = 'dentist'
-                ORDER BY s.first_name ASC, s.last_name ASC
+                    d.dentist_id,
+                    COALESCE(d.first_name, '') AS first_name,
+                    COALESCE(d.last_name, '') AS last_name,
+                    '' AS profile_image,
+                    COALESCE(d.status, 'active') AS status
+                FROM tbl_dentists d
+                WHERE d.tenant_id = ?
+                ORDER BY d.first_name ASC, d.last_name ASC
             ");
             $stmt->execute([$tenantId]);
             $walkInDentists = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -578,7 +576,7 @@ try {
                 const fullName = escapeHtml(fullNameText);
                 const availability = String(dentist.status || '').toLowerCase() === 'active' ? 'Available today' : 'Unavailable';
                 const imageSrc = escapeHtml(dentist.profile_image || stockDentistImage);
-                const dentistId = escapeHtml(dentist.user_id || '');
+                const dentistId = escapeHtml(dentist.dentist_id || '');
                 return '' +
                     '<div class="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 flex flex-col items-center text-center">' +
                         '<img src="' + imageSrc + '" alt="' + fullName + '" class="w-24 h-24 rounded-full object-cover border border-slate-200 bg-white"/>' +
