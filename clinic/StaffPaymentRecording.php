@@ -99,7 +99,8 @@ try {
                 $paymentError = 'Payment amount exceeds the pending balance of ₱' . number_format($pendingBalance, 2) . '.';
             } else {
                 $paymentId = 'PAY-' . date('YmdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
-                $paymentType = ($amount + 0.009 >= $pendingBalance) ? 'fullpayment' : 'balancepayment';
+                // Keep compatibility with deployments where payment_type enum only allows downpayment/fullpayment.
+                $paymentType = ($amount + 0.009 >= $pendingBalance) ? 'fullpayment' : 'downpayment';
                 $insertSql = "
                     INSERT INTO tbl_payments (
                         tenant_id,
