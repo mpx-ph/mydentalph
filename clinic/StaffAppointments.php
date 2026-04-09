@@ -432,6 +432,28 @@ $statusLabels = [
         .staff-modal-panel {
             animation: staff-modal-panel-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
+        .booking-type-option {
+            transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease, border-color 0.28s ease, background-color 0.28s ease;
+        }
+        .booking-type-option:hover {
+            transform: translateY(-3px);
+            border-color: rgba(45, 212, 191, 0.55);
+            box-shadow: 0 14px 28px -14px rgba(13, 148, 136, 0.45);
+            background-color: rgba(240, 253, 250, 0.95);
+        }
+        .booking-type-option:active {
+            transform: translateY(-1px) scale(0.99);
+        }
+        .booking-action-btn {
+            transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease, background-color 0.25s ease;
+        }
+        .booking-action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 18px 30px -18px rgba(13, 148, 136, 0.9);
+        }
+        .booking-action-btn:active {
+            transform: translateY(0) scale(0.98);
+        }
         @keyframes staff-modal-fade-in {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -457,13 +479,25 @@ $statusLabels = [
             <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
                 <span class="w-12 h-[1.5px] bg-primary"></span> APPOINTMENT MANAGEMENT
             </div>
-            <div>
-                <h2 class="font-headline text-5xl font-extrabold tracking-tighter leading-tight text-on-background">
-                    Bookings <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Manager</span>
-                </h2>
-                <p class="font-body text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3">
-                    Daily schedule with status tracking and treatment details.
-                </p>
+            <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                    <h2 class="font-headline text-5xl font-extrabold tracking-tighter leading-tight text-on-background">
+                        Bookings <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Manager</span>
+                    </h2>
+                    <p class="font-body text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3">
+                        Daily schedule with status tracking and treatment details.
+                    </p>
+                </div>
+                <div class="shrink-0">
+                    <button
+                        type="button"
+                        id="openBookingTypeModalBtn"
+                        class="booking-action-btn inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-500 hover:to-cyan-600 text-white px-5 py-3 font-bold text-xs uppercase tracking-[0.14em] shadow-lg shadow-teal-500/30"
+                    >
+                        <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+                        Add New Booking
+                    </button>
+                </div>
             </div>
         </section>
 
@@ -680,6 +714,61 @@ $statusLabels = [
     </div>
 </main>
 
+<div id="bookingTypeModal" class="staff-modal-overlay hidden fixed inset-0 z-[80]">
+    <div class="absolute inset-0 bg-slate-900/50" id="bookingTypeBackdrop"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="staff-modal-panel bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                    <p class="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Create Booking</p>
+                    <h4 class="text-xl font-bold text-on-background">Select Booking Type</h4>
+                </div>
+                <button type="button" id="bookingTypeModalCloseBtn" class="w-8 h-8 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-5 bg-slate-50/60">
+                <p class="text-xs font-semibold text-slate-500 mb-4">Choose the type of appointment you want to create.</p>
+                <div class="space-y-3">
+                    <button type="button" class="booking-type-option w-full rounded-2xl border border-teal-100 bg-white px-4 py-3 text-left">
+                        <span class="flex items-center justify-between gap-3">
+                            <span class="flex items-center gap-3">
+                                <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-400 to-cyan-500 text-white flex items-center justify-center shadow-md shadow-teal-500/30">
+                                    <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">directions_walk</span>
+                                </span>
+                                <span>
+                                    <span class="block text-base font-extrabold text-slate-900">Walk-In</span>
+                                    <span class="block text-[11px] font-semibold text-slate-500 mt-0.5">Create an appointment for a patient without prior booking.</span>
+                                </span>
+                            </span>
+                            <span class="material-symbols-outlined text-teal-500">arrow_forward</span>
+                        </span>
+                    </button>
+                    <button type="button" class="booking-type-option w-full rounded-2xl border border-teal-100 bg-white px-4 py-3 text-left">
+                        <span class="flex items-center justify-between gap-3">
+                            <span class="flex items-center gap-3">
+                                <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-400 to-cyan-500 text-white flex items-center justify-center shadow-md shadow-teal-500/30">
+                                    <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">calendar_month</span>
+                                </span>
+                                <span>
+                                    <span class="block text-base font-extrabold text-slate-900">Appointment</span>
+                                    <span class="block text-[11px] font-semibold text-slate-500 mt-0.5">Schedule a future appointment for a patient.</span>
+                                </span>
+                            </span>
+                            <span class="material-symbols-outlined text-teal-500">arrow_forward</span>
+                        </span>
+                    </button>
+                </div>
+                <div class="mt-4">
+                    <button type="button" id="bookingTypeCancelBtn" class="w-full rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-sm font-bold py-2.5 transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="treatmentModal" class="staff-modal-overlay hidden fixed inset-0 z-[70]">
     <div class="absolute inset-0 bg-slate-900/50" id="modalBackdrop"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
@@ -851,6 +940,11 @@ $statusLabels = [
     const modalBackdrop = document.getElementById('modalBackdrop');
     const closeBtn = document.getElementById('modalCloseBtn');
     const openButtons = document.querySelectorAll('.open-treatment-modal');
+    const bookingTypeModal = document.getElementById('bookingTypeModal');
+    const bookingTypeBackdrop = document.getElementById('bookingTypeBackdrop');
+    const bookingTypeOpenBtn = document.getElementById('openBookingTypeModalBtn');
+    const bookingTypeCloseBtn = document.getElementById('bookingTypeModalCloseBtn');
+    const bookingTypeCancelBtn = document.getElementById('bookingTypeCancelBtn');
 
     function setText(id, value) {
         const node = document.getElementById(id);
@@ -930,15 +1024,32 @@ $statusLabels = [
         modal.classList.add('hidden');
     }
 
+    function openBookingTypeModal() {
+        if (!bookingTypeModal) return;
+        bookingTypeModal.classList.remove('hidden');
+    }
+
+    function closeBookingTypeModal() {
+        if (!bookingTypeModal) return;
+        bookingTypeModal.classList.add('hidden');
+    }
+
     openButtons.forEach((button) => {
         button.addEventListener('click', () => openModal(button));
     });
 
     closeBtn.addEventListener('click', closeModal);
     modalBackdrop.addEventListener('click', closeModal);
+    if (bookingTypeOpenBtn) bookingTypeOpenBtn.addEventListener('click', openBookingTypeModal);
+    if (bookingTypeCloseBtn) bookingTypeCloseBtn.addEventListener('click', closeBookingTypeModal);
+    if (bookingTypeCancelBtn) bookingTypeCancelBtn.addEventListener('click', closeBookingTypeModal);
+    if (bookingTypeBackdrop) bookingTypeBackdrop.addEventListener('click', closeBookingTypeModal);
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
             closeModal();
+        }
+        if (event.key === 'Escape' && bookingTypeModal && !bookingTypeModal.classList.contains('hidden')) {
+            closeBookingTypeModal();
         }
     });
 </script>
