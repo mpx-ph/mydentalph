@@ -210,11 +210,6 @@ body { font-family: "Manrope", sans-serif; }
                             <p id="addFirstNameError" class="mt-1 text-xs text-red-500 hidden"></p>
                         </div>
                         <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-2">Middle Name (Optional)</label>
-                            <input id="addMiddleName" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Enter middle name"/>
-                            <p id="addMiddleNameError" class="mt-1 text-xs text-red-500 hidden"></p>
-                        </div>
-                        <div>
                             <label class="block text-sm font-bold text-slate-700 mb-2">Last Name <span class="text-red-500">*</span></label>
                             <input id="addLastName" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Enter last name"/>
                             <p id="addLastNameError" class="mt-1 text-xs text-red-500 hidden"></p>
@@ -260,7 +255,7 @@ body { font-family: "Manrope", sans-serif; }
                             <p id="addBloodTypeError" class="mt-1 text-xs text-red-500 hidden"></p>
                         </div>
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-bold text-slate-700 mb-2">Medical History &amp; Alerts <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Medical History &amp; Alerts <span class="ml-1 text-[11px] font-semibold text-slate-400">(Optional)</span></label>
                             <textarea id="addMedicalHistory" rows="3" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Allergies, chronic conditions, current medications..."></textarea>
                             <p id="addMedicalHistoryError" class="mt-1 text-xs text-red-500 hidden"></p>
                         </div>
@@ -368,12 +363,11 @@ const addGenderRadios = Array.from(document.querySelectorAll('input[name="addGen
 const bloodTypeOptions = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const fieldValidators = {
     addFirstName: { required: true, pattern: /^[a-zA-Z\s.'-]{2,50}$/, message: 'Enter a valid first name (2-50 letters).' },
-    addMiddleName: { required: false, pattern: /^[a-zA-Z\s.'-]{0,50}$/, message: 'Middle name can only contain letters and punctuation.' },
     addLastName: { required: true, pattern: /^[a-zA-Z\s.'-]{2,50}$/, message: 'Enter a valid last name (2-50 letters).' },
     addDob: { required: true, message: 'Date of birth is required.' },
     addGender: { required: true, message: 'Gender is required.' },
     addBloodType: { required: true, message: 'Blood type is required.' },
-    addMedicalHistory: { required: true, minLength: 5, message: 'Medical history is required.' },
+    addMedicalHistory: { required: false },
     addContact: { required: true, pattern: /^09\d{9}$/, message: 'Use PH mobile format: 09XXXXXXXXX.' },
     addEmail: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Enter a valid email address.' },
     addProvince: { required: true, message: 'Province is required.' },
@@ -432,6 +426,25 @@ function calculateAge(dateValue) {
         age -= 1;
     }
     return age >= 0 ? String(age) : '';
+}
+
+function getDobMaxDateForMinimumAge(minYears = 1) {
+    const maxDate = new Date();
+    maxDate.setFullYear(maxDate.getFullYear() - minYears);
+    return maxDate.toISOString().slice(0, 10);
+}
+
+function isAtLeastOneYearOld(dateValue) {
+    if (!dateValue) return false;
+    const birthDate = new Date(dateValue);
+    if (Number.isNaN(birthDate.getTime())) return false;
+    const maxDob = new Date(getDobMaxDateForMinimumAge(1));
+    return birthDate <= maxDob;
+}
+
+function applyDobConstraints() {
+    if (!addDobInput) return;
+    addDobInput.max = getDobMaxDateForMinimumAge(1);
 }
 
 function clearFieldError(fieldId) {
@@ -545,9 +558,11 @@ function validatePatientForm(payload) {
 
     if (payload.date_of_birth) {
         const selectedDob = new Date(payload.date_of_birth);
-        const today = new Date();
-        if (Number.isNaN(selectedDob.getTime()) || selectedDob > today) {
-            showFieldError('addDob', 'Date of birth cannot be in the future.');
+        if (Number.isNaN(selectedDob.getTime())) {
+            showFieldError('addDob', 'Enter a valid date of birth.');
+            isValid = false;
+        } else if (!isAtLeastOneYearOld(payload.date_of_birth)) {
+            showFieldError('addDob', 'Patient must be at least 1 year old.');
             isValid = false;
         }
     }
@@ -660,7 +675,6 @@ function openAddModal(patient) {
     document.getElementById('patientModalTitle').textContent = patient ? 'Edit Patient Registration' : 'Patient Registration';
     document.getElementById('editingPatientId').value = patient ? String(patient.id) : '';
     document.getElementById('addFirstName').value = patient?.firstName || '';
-    document.getElementById('addMiddleName').value = patient?.middleName || '';
     document.getElementById('addLastName').value = patient?.lastName || '';
     document.getElementById('addContact').value = patient?.contact || '';
     document.getElementById('addEmail').value = patient?.email || '';
@@ -825,7 +839,6 @@ async function savePatient(event) {
     const selectedGender = getSelectedGender();
     const payload = {
         first_name: document.getElementById('addFirstName').value.trim(),
-        middle_name: document.getElementById('addMiddleName').value.trim(),
         last_name: document.getElementById('addLastName').value.trim(),
         contact_number: document.getElementById('addContact').value.trim(),
         mobile: document.getElementById('addContact').value.trim(),
@@ -912,7 +925,11 @@ viewPatientModal.addEventListener('click', e => { if (e.target === viewPatientMo
 addPatientForm.addEventListener('submit', savePatient);
 addDobInput.addEventListener('change', () => {
     addAgeInput.value = calculateAge(addDobInput.value);
-    clearFieldError('addDob');
+    if (addDobInput.value && !isAtLeastOneYearOld(addDobInput.value)) {
+        showFieldError('addDob', 'Patient must be at least 1 year old.');
+    } else {
+        clearFieldError('addDob');
+    }
 });
 addProvinceSelect.addEventListener('change', async () => {
     clearFieldError('addProvince');
@@ -963,6 +980,7 @@ document.getElementById('schedulePatientBtn').addEventListener('click', () => {
     alert('Schedule workflow will be wired to appointments module.');
 });
 
+applyDobConstraints();
 loadProvinces();
 loadPatients();
 </script>

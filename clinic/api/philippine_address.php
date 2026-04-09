@@ -13,8 +13,8 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET');
 header('Access-Control-Allow-Headers: Content-Type');
 
-// Path to the JSON data file
-$jsonFile = __DIR__ . '/../philippine_provinces_cities_municipalities_and_barangays_2019v2.json';
+// Path to the JSON data file (stored in project root)
+$jsonFile = dirname(__DIR__, 2) . '/philippine_provinces_cities_municipalities_and_barangays_2019v2.json';
 
 // Check if JSON file exists
 if (!file_exists($jsonFile)) {
