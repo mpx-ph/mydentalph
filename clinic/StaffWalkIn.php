@@ -47,6 +47,33 @@ if ($currentTenantSlug !== '') {
     $baseParams['clinic_slug'] = $currentTenantSlug;
 }
 $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('?' . http_build_query($baseParams)) : '');
+
+$walkInDentists = [];
+try {
+    if (function_exists('getDBConnection') && function_exists('getClinicTenantId')) {
+        $pdo = getDBConnection();
+        $tenantId = getClinicTenantId();
+        if ($pdo && $tenantId) {
+            $stmt = $pdo->prepare("
+                SELECT
+                    u.user_id,
+                    COALESCE(s.first_name, '') AS first_name,
+                    COALESCE(s.last_name, '') AS last_name,
+                    COALESCE(s.profile_image, '') AS profile_image,
+                    COALESCE(u.status, 'active') AS status
+                FROM tbl_users u
+                LEFT JOIN tbl_staffs s ON s.user_id = u.user_id AND s.tenant_id = u.tenant_id
+                WHERE u.tenant_id = ?
+                  AND u.role = 'dentist'
+                ORDER BY s.first_name ASC, s.last_name ASC
+            ");
+            $stmt->execute([$tenantId]);
+            $walkInDentists = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        }
+    }
+} catch (Throwable $e) {
+    $walkInDentists = [];
+}
 ?>
 <!DOCTYPE html>
 <html class="light" lang="en">
@@ -215,20 +242,25 @@ $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <label class="block">
                             <span class="block text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/70 mb-2">Assigned Dentist</span>
-                            <select class="walkin-input w-full py-3 px-4">
-                                <option value="">Select dentist</option>
-                            </select>
+                            <input id="selectedDentistId" type="hidden" value=""/>
+                            <button id="chooseDentistBtn" type="button" class="walkin-input w-full py-3 px-4 text-left inline-flex items-center justify-between">
+                                <span id="selectedDentistLabel">Select dentist</span>
+                                <span class="material-symbols-outlined text-[18px] text-slate-500">keyboard_arrow_down</span>
+                            </button>
                         </label>
                         <label class="block">
                             <span class="block text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/70 mb-2">Service / Treatment</span>
                             <div class="flex items-center gap-2">
-                                <select class="walkin-input w-full py-3 px-4">
-                                    <option value="">Select service</option>
-                                </select>
-                                <button type="button" class="w-11 h-11 rounded-xl bg-primary text-white inline-flex items-center justify-center hover:bg-primary/90 transition-colors">
+                                <input id="selectedServiceId" type="hidden" value=""/>
+                                <button id="chooseServiceBtn" type="button" class="walkin-input w-full py-3 px-4 text-left inline-flex items-center justify-between">
+                                    <span id="selectedServiceLabel">Select service</span>
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">keyboard_arrow_down</span>
+                                </button>
+                                <button id="addServiceBtn" type="button" class="w-11 h-11 rounded-xl bg-primary text-white inline-flex items-center justify-center hover:bg-primary/90 transition-colors">
                                     <span class="material-symbols-outlined text-[18px]">add</span>
                                 </button>
                             </div>
+                            <div id="selectedServicesContainer" class="mt-3 flex flex-wrap gap-2"></div>
                         </label>
                         <label class="block">
                             <span class="block text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/70 mb-2">Appointment Date</span>
@@ -326,6 +358,51 @@ $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('
     </div>
 </div>
 
+<div id="chooseDentistModal" class="hidden fixed inset-0 z-[70]">
+    <div class="absolute inset-0 bg-slate-900/45"></div>
+    <div class="relative h-full w-full flex items-center justify-center p-4">
+        <div class="w-full max-w-5xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Dentist Selection</p>
+                    <h3 class="text-lg font-extrabold text-slate-900">Choose Dentist</h3>
+                </div>
+                <button id="closeChooseDentistModalBtn" type="button" class="w-9 h-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center justify-center">
+                    <span class="material-symbols-outlined text-[18px]">close</span>
+                </button>
+            </div>
+            <div id="dentistListContainer" class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            <div id="dentistListEmptyState" class="hidden px-5 pb-5 text-sm font-semibold text-slate-500"></div>
+        </div>
+    </div>
+</div>
+
+<div id="chooseServiceModal" class="hidden fixed inset-0 z-[70]">
+    <div class="absolute inset-0 bg-slate-900/45"></div>
+    <div class="relative h-full w-full flex items-center justify-center p-4">
+        <div class="w-full max-w-3xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Service Selection</p>
+                    <h3 class="text-lg font-extrabold text-slate-900">Choose Service</h3>
+                </div>
+                <button id="closeChooseServiceModalBtn" type="button" class="w-9 h-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center justify-center">
+                    <span class="material-symbols-outlined text-[18px]">close</span>
+                </button>
+            </div>
+
+            <div class="px-5 py-4 border-b border-slate-100">
+                <input id="serviceSearchInput" type="text" class="walkin-input w-full py-3 px-4" placeholder="Search service name or category"/>
+            </div>
+
+            <div class="max-h-[24rem] overflow-y-auto">
+                <div id="serviceListEmptyState" class="hidden px-5 py-8 text-center text-sm font-semibold text-slate-500"></div>
+                <div id="serviceListContainer" class="divide-y divide-slate-100"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     (function () {
         const dateInput = document.getElementById('walkInDateInput');
@@ -338,8 +415,30 @@ $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('
         const patientSearchInput = document.getElementById('patientSearchInput');
         const patientListContainer = document.getElementById('patientListContainer');
         const patientListEmptyState = document.getElementById('patientListEmptyState');
+        const chooseDentistBtn = document.getElementById('chooseDentistBtn');
+        const selectedDentistLabel = document.getElementById('selectedDentistLabel');
+        const selectedDentistIdInput = document.getElementById('selectedDentistId');
+        const chooseDentistModal = document.getElementById('chooseDentistModal');
+        const closeChooseDentistModalBtn = document.getElementById('closeChooseDentistModalBtn');
+        const dentistListContainer = document.getElementById('dentistListContainer');
+        const dentistListEmptyState = document.getElementById('dentistListEmptyState');
+        const chooseServiceBtn = document.getElementById('chooseServiceBtn');
+        const selectedServiceLabel = document.getElementById('selectedServiceLabel');
+        const selectedServiceIdInput = document.getElementById('selectedServiceId');
+        const addServiceBtn = document.getElementById('addServiceBtn');
+        const selectedServicesContainer = document.getElementById('selectedServicesContainer');
+        const chooseServiceModal = document.getElementById('chooseServiceModal');
+        const closeChooseServiceModalBtn = document.getElementById('closeChooseServiceModalBtn');
+        const serviceSearchInput = document.getElementById('serviceSearchInput');
+        const serviceListContainer = document.getElementById('serviceListContainer');
+        const serviceListEmptyState = document.getElementById('serviceListEmptyState');
+        const dentistsSeedData = <?php echo json_encode($walkInDentists, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const patientsApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patients.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const servicesApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/services.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const stockDentistImage = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=60';
         let allPatients = [];
+        let allServices = [];
+        let selectedServices = [];
 
         function pad(number) {
             return String(number).padStart(2, '0');
@@ -407,6 +506,89 @@ $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('
             }).join('');
         }
 
+        function setServiceEmptyState(message) {
+            if (!serviceListContainer || !serviceListEmptyState) return;
+            serviceListEmptyState.textContent = message;
+            serviceListEmptyState.classList.remove('hidden');
+            serviceListContainer.innerHTML = '';
+        }
+
+        function renderServicesList(services) {
+            if (!serviceListContainer || !serviceListEmptyState) return;
+            if (!services.length) {
+                setServiceEmptyState('No services found.');
+                return;
+            }
+            serviceListEmptyState.classList.add('hidden');
+            serviceListContainer.innerHTML = services.map(function (service) {
+                const serviceId = escapeHtml(service.service_id || '');
+                const serviceName = escapeHtml(service.service_name || '');
+                const category = escapeHtml(service.category || '-');
+                const price = Number(service.price || 0);
+                return '' +
+                    '<div class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">' +
+                        '<div class="min-w-0">' +
+                            '<p class="text-sm font-bold text-slate-900 truncate">' + serviceName + '</p>' +
+                            '<p class="text-xs font-semibold text-slate-500 mt-1">' + category + ' | Php ' + price.toFixed(2) + '</p>' +
+                        '</div>' +
+                        '<button type="button" data-action="select-service" data-service-id="' + serviceId + '" class="shrink-0 rounded-lg bg-primary text-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide hover:bg-primary/90 transition-colors">Select</button>' +
+                    '</div>';
+            }).join('');
+        }
+
+        function renderSelectedServices() {
+            if (!selectedServicesContainer) return;
+            if (!selectedServices.length) {
+                selectedServicesContainer.innerHTML = '<p class="text-[11px] font-semibold text-slate-500">No services added yet.</p>';
+                document.getElementById('walkInTotalAmount').textContent = 'P0.00';
+                return;
+            }
+            const totalAmount = selectedServices.reduce(function (sum, svc) {
+                return sum + Number(svc.price || 0);
+            }, 0);
+            selectedServicesContainer.innerHTML = selectedServices.map(function (service) {
+                const serviceId = escapeHtml(service.service_id || '');
+                const serviceName = escapeHtml(service.service_name || '');
+                const price = Number(service.price || 0).toFixed(2);
+                return '' +
+                    '<div class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">' +
+                        '<span class="text-xs font-bold text-slate-700">' + serviceName + ' (Php ' + price + ')</span>' +
+                        '<button type="button" data-action="remove-service" data-service-id="' + serviceId + '" class="w-6 h-6 rounded-md bg-red-50 text-red-500 hover:bg-red-100 inline-flex items-center justify-center">' +
+                            '<span class="material-symbols-outlined text-[14px]">close</span>' +
+                        '</button>' +
+                    '</div>';
+            }).join('');
+            document.getElementById('walkInTotalAmount').textContent = 'P' + totalAmount.toFixed(2);
+        }
+
+        function renderDentistsList() {
+            if (!dentistListContainer || !dentistListEmptyState) return;
+            if (!dentistsSeedData.length) {
+                dentistListEmptyState.textContent = 'No dentists available.';
+                dentistListEmptyState.classList.remove('hidden');
+                dentistListContainer.innerHTML = '';
+                return;
+            }
+
+            dentistListEmptyState.classList.add('hidden');
+            dentistListContainer.innerHTML = dentistsSeedData.map(function (dentist) {
+                const firstName = String(dentist.first_name || '').trim();
+                const lastName = String(dentist.last_name || '').trim();
+                const fullNameText = (firstName + ' ' + lastName).trim() || 'Unnamed Dentist';
+                const fullName = escapeHtml(fullNameText);
+                const availability = String(dentist.status || '').toLowerCase() === 'active' ? 'Available today' : 'Unavailable';
+                const imageSrc = escapeHtml(dentist.profile_image || stockDentistImage);
+                const dentistId = escapeHtml(dentist.user_id || '');
+                return '' +
+                    '<div class="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 flex flex-col items-center text-center">' +
+                        '<img src="' + imageSrc + '" alt="' + fullName + '" class="w-24 h-24 rounded-full object-cover border border-slate-200 bg-white"/>' +
+                        '<p class="mt-3 text-sm font-extrabold text-slate-900">' + fullName + '</p>' +
+                        '<p class="mt-1 text-xs font-semibold text-slate-500">' + escapeHtml(availability) + '</p>' +
+                        '<button type="button" data-action="select-dentist" data-dentist-id="' + dentistId + '" data-dentist-name="' + fullName + '" class="mt-3 rounded-lg bg-primary text-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide hover:bg-primary/90 transition-colors">Select</button>' +
+                    '</div>';
+            }).join('');
+        }
+
         async function loadAllPatients() {
             if (!patientListContainer) return;
             setEmptyState('Loading patients...');
@@ -440,6 +622,35 @@ $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('
             renderPatientsList(allPatients);
         }
 
+        async function loadAllServices() {
+            setServiceEmptyState('Loading services...');
+            const mergedServices = [];
+            let page = 1;
+            let hasMore = true;
+
+            try {
+                while (hasMore) {
+                    const response = await fetch(servicesApiUrl + '?status=active&page=' + page + '&limit=100', {
+                        credentials: 'include'
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || 'Failed to load services.');
+                    }
+                    const pageServices = Array.isArray(data.data && data.data.services) ? data.data.services : [];
+                    mergedServices.push.apply(mergedServices, pageServices);
+                    hasMore = pageServices.length === 100;
+                    page += 1;
+                }
+            } catch (error) {
+                setServiceEmptyState(error.message || 'Failed to load services.');
+                return;
+            }
+
+            allServices = mergedServices;
+            renderServicesList(allServices);
+        }
+
         function openChoosePatientModal() {
             if (!choosePatientModal) return;
             choosePatientModal.classList.remove('hidden');
@@ -452,9 +663,42 @@ $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('
             choosePatientModal.classList.add('hidden');
         }
 
+        function openChooseDentistModal() {
+            if (!chooseDentistModal) return;
+            chooseDentistModal.classList.remove('hidden');
+            renderDentistsList();
+        }
+
+        function closeChooseDentistModal() {
+            if (!chooseDentistModal) return;
+            chooseDentistModal.classList.add('hidden');
+        }
+
+        function openChooseServiceModal() {
+            if (!chooseServiceModal) return;
+            chooseServiceModal.classList.remove('hidden');
+            if (serviceSearchInput) serviceSearchInput.value = '';
+            loadAllServices();
+        }
+
+        function closeChooseServiceModal() {
+            if (!chooseServiceModal) return;
+            chooseServiceModal.classList.add('hidden');
+        }
+
         function setSelectedPatient(patientId, patientName) {
             if (selectedPatientIdInput) selectedPatientIdInput.value = patientId || '';
             if (selectedPatientLabel) selectedPatientLabel.textContent = patientName || 'Choose patient';
+        }
+
+        function setSelectedDentist(dentistId, dentistName) {
+            if (selectedDentistIdInput) selectedDentistIdInput.value = dentistId || '';
+            if (selectedDentistLabel) selectedDentistLabel.textContent = dentistName || 'Select dentist';
+        }
+
+        function setSelectedService(serviceId, serviceName) {
+            if (selectedServiceIdInput) selectedServiceIdInput.value = serviceId || '';
+            if (selectedServiceLabel) selectedServiceLabel.textContent = serviceName || 'Select service';
         }
 
         if (choosePatientBtn) {
@@ -468,6 +712,50 @@ $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('
                 if (event.target === choosePatientModal || event.target === choosePatientModal.firstElementChild) {
                     closeChoosePatientModal();
                 }
+            });
+        }
+        if (chooseDentistBtn) {
+            chooseDentistBtn.addEventListener('click', openChooseDentistModal);
+        }
+        if (closeChooseDentistModalBtn) {
+            closeChooseDentistModalBtn.addEventListener('click', closeChooseDentistModal);
+        }
+        if (chooseDentistModal) {
+            chooseDentistModal.addEventListener('click', function (event) {
+                if (event.target === chooseDentistModal || event.target === chooseDentistModal.firstElementChild) {
+                    closeChooseDentistModal();
+                }
+            });
+        }
+        if (chooseServiceBtn) {
+            chooseServiceBtn.addEventListener('click', openChooseServiceModal);
+        }
+        if (closeChooseServiceModalBtn) {
+            closeChooseServiceModalBtn.addEventListener('click', closeChooseServiceModal);
+        }
+        if (chooseServiceModal) {
+            chooseServiceModal.addEventListener('click', function (event) {
+                if (event.target === chooseServiceModal || event.target === chooseServiceModal.firstElementChild) {
+                    closeChooseServiceModal();
+                }
+            });
+        }
+        if (serviceSearchInput) {
+            serviceSearchInput.addEventListener('input', function () {
+                const keyword = serviceSearchInput.value.trim().toLowerCase();
+                if (!keyword) {
+                    renderServicesList(allServices);
+                    return;
+                }
+                const filtered = allServices.filter(function (service) {
+                    const haystack = [
+                        service.service_name,
+                        service.category,
+                        service.service_id
+                    ].join(' ').toLowerCase();
+                    return haystack.indexOf(keyword) !== -1;
+                });
+                renderServicesList(filtered);
             });
         }
         if (patientSearchInput) {
@@ -499,8 +787,58 @@ $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('
                 closeChoosePatientModal();
             });
         }
+        if (dentistListContainer) {
+            dentistListContainer.addEventListener('click', function (event) {
+                const button = event.target.closest('button[data-action="select-dentist"]');
+                if (!button) return;
+                setSelectedDentist(button.getAttribute('data-dentist-id') || '', button.getAttribute('data-dentist-name') || '');
+                closeChooseDentistModal();
+            });
+        }
+        if (serviceListContainer) {
+            serviceListContainer.addEventListener('click', function (event) {
+                const button = event.target.closest('button[data-action="select-service"]');
+                if (!button) return;
+                const serviceId = button.getAttribute('data-service-id') || '';
+                const service = allServices.find(function (item) {
+                    return String(item.service_id || '') === serviceId;
+                });
+                if (!service) return;
+                setSelectedService(service.service_id || '', service.service_name || '');
+                closeChooseServiceModal();
+            });
+        }
+        if (addServiceBtn) {
+            addServiceBtn.addEventListener('click', function () {
+                const serviceId = selectedServiceIdInput ? selectedServiceIdInput.value : '';
+                if (!serviceId) return;
+                const service = allServices.find(function (item) {
+                    return String(item.service_id || '') === String(serviceId);
+                });
+                if (!service) return;
+                const alreadyAdded = selectedServices.some(function (item) {
+                    return String(item.service_id || '') === String(service.service_id || '');
+                });
+                if (alreadyAdded) return;
+                selectedServices.push(service);
+                setSelectedService('', 'Select service');
+                renderSelectedServices();
+            });
+        }
+        if (selectedServicesContainer) {
+            selectedServicesContainer.addEventListener('click', function (event) {
+                const button = event.target.closest('button[data-action="remove-service"]');
+                if (!button) return;
+                const serviceId = button.getAttribute('data-service-id') || '';
+                selectedServices = selectedServices.filter(function (item) {
+                    return String(item.service_id || '') !== String(serviceId);
+                });
+                renderSelectedServices();
+            });
+        }
 
         updateNow();
+        renderSelectedServices();
         setInterval(updateNow, 1000);
     })();
 </script>
