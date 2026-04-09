@@ -186,7 +186,7 @@ if ($selectedSuperadmin !== '') {
     }
 }
 
-$provider_nav_active = 'dashboard';
+$provider_nav_active = 'messages';
 $clinic_display_name = isset($clinic_name) && trim((string) $clinic_name) !== '' ? (string) $clinic_name : 'Clinic Workspace';
 $user_email_display = trim((string) ($_SESSION['email'] ?? ''));
 require_once __DIR__ . '/provider_tenant_header_context.inc.php';
