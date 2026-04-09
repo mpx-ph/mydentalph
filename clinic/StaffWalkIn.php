@@ -2,6 +2,7 @@
 $pageTitle = 'Walk-In Booking';
 $staff_nav_active = 'appointments';
 require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/includes/tenant.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -50,9 +51,21 @@ $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('
 
 $walkInDentists = [];
 try {
-    if (function_exists('getDBConnection') && function_exists('getClinicTenantId')) {
+    if (function_exists('getDBConnection')) {
         $pdo = getDBConnection();
-        $tenantId = getClinicTenantId();
+        $tenantId = null;
+        if (function_exists('getClinicTenantId')) {
+            $tenantId = getClinicTenantId();
+        }
+        if (empty($tenantId) && isset($currentTenantId) && $currentTenantId !== '') {
+            $tenantId = (string) $currentTenantId;
+        }
+        if (empty($tenantId) && !empty($_SESSION['tenant_id'])) {
+            $tenantId = (string) $_SESSION['tenant_id'];
+        }
+        if (empty($tenantId) && !empty($_SESSION['public_tenant_id'])) {
+            $tenantId = (string) $_SESSION['public_tenant_id'];
+        }
         if ($pdo && $tenantId) {
             $stmt = $pdo->prepare("
                 SELECT
