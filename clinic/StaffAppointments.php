@@ -118,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tenantId !== '') {
 
             $statusStmt = $pdo->prepare("
                 UPDATE tbl_appointments
-                SET status = ?, updated_at = NOW()
+                SET status = ?
                 WHERE tenant_id = ? AND booking_id = ?
                 LIMIT 1
             ");
@@ -205,7 +205,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tenantId !== '') {
 
             $updateAptStmt = $pdo->prepare("
                 UPDATE tbl_appointments
-                SET total_treatment_cost = ?, service_description = ?, updated_at = NOW()
+                SET total_treatment_cost = ?, service_description = ?
                 WHERE tenant_id = ? AND booking_id = ?
                 LIMIT 1
             ");
