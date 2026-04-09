@@ -45,11 +45,16 @@ $formPatientQuery = trim((string) ($_POST['patient_query'] ?? ''));
 $formAmount = trim((string) ($_POST['amount'] ?? ''));
 $formPaymentDate = trim((string) ($_POST['payment_date'] ?? date('Y-m-d')));
 $formNotes = trim((string) ($_POST['notes'] ?? ''));
-$formServiceIds = isset($_POST['additional_service_ids']) && is_array($_POST['additional_service_ids'])
-    ? array_values(array_filter(array_map('trim', $_POST['additional_service_ids']), static function ($item) {
-        return $item !== '';
-    }))
-    : [];
+$formServiceIds = [];
+if (isset($_POST['additional_service_ids']) && is_array($_POST['additional_service_ids'])) {
+    foreach ($_POST['additional_service_ids'] as $postedServiceId) {
+        $postedServiceId = trim((string) $postedServiceId);
+        if ($postedServiceId !== '') {
+            $formServiceIds[] = $postedServiceId;
+        }
+    }
+    $formServiceIds = array_values(array_unique($formServiceIds));
+}
 
 try {
     $pdo = getDBConnection();
@@ -94,11 +99,16 @@ try {
         $paymentDate = trim((string) ($_POST['payment_date'] ?? date('Y-m-d')));
         $notes = trim((string) ($_POST['notes'] ?? ''));
         $method = strtolower(trim((string) ($_POST['payment_method'] ?? 'cash')));
-        $additionalServiceIds = isset($_POST['additional_service_ids']) && is_array($_POST['additional_service_ids'])
-            ? array_values(array_filter(array_map('trim', $_POST['additional_service_ids']), static function ($item) {
-                return $item !== '';
-            }))
-            : [];
+        $additionalServiceIds = [];
+        if (isset($_POST['additional_service_ids']) && is_array($_POST['additional_service_ids'])) {
+            foreach ($_POST['additional_service_ids'] as $postedServiceId) {
+                $postedServiceId = trim((string) $postedServiceId);
+                if ($postedServiceId !== '') {
+                    $additionalServiceIds[] = $postedServiceId;
+                }
+            }
+            $additionalServiceIds = array_values(array_unique($additionalServiceIds));
+        }
 
         if (!isset($allowedMethods[$method])) {
             $method = 'cash';
