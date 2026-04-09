@@ -125,117 +125,105 @@ try {
         } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $paymentDate)) {
             $paymentError = 'Please provide a valid payment date.';
         } else {
-            try {
-                $pdo->beginTransaction();
+            $bookingSql = "
+                SELECT
+                    a.booking_id,
+                    a.patient_id,
+                    COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
+                    COALESCE(a.service_description, '') AS service_description,
+                    COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0) AS total_paid
+                FROM tbl_appointments a
+                LEFT JOIN tbl_payments py
+                    ON py.tenant_id = a.tenant_id
+                   AND py.booking_id = a.booking_id
+                WHERE a.tenant_id = ?
+                  AND a.booking_id = ?
+                GROUP BY a.booking_id, a.patient_id, a.total_treatment_cost, a.service_description
+                LIMIT 1
+            ";
+            $bookingStmt = $pdo->prepare($bookingSql);
+            $bookingStmt->execute([$tenantId, $selectedBookingId]);
+            $bookingRow = $bookingStmt->fetch(PDO::FETCH_ASSOC);
+            $patientId = trim((string) ($bookingRow['patient_id'] ?? ''));
+            $totalCost = (float) ($bookingRow['total_treatment_cost'] ?? 0);
+            $totalPaid = (float) ($bookingRow['total_paid'] ?? 0);
+            $pendingBalance = max(0, $totalCost - $totalPaid);
 
-                $appointmentStmt = $pdo->prepare("
-                    SELECT booking_id, patient_id, service_description, COALESCE(total_treatment_cost, 0) AS total_treatment_cost
-                    FROM tbl_appointments
-                    WHERE tenant_id = ?
-                      AND booking_id = ?
-                    LIMIT 1
-                    FOR UPDATE
-                ");
-                $appointmentStmt->execute([$tenantId, $selectedBookingId]);
-                $appointmentRow = $appointmentStmt->fetch(PDO::FETCH_ASSOC);
-                $patientId = trim((string) ($appointmentRow['patient_id'] ?? ''));
-                if ($patientId === '') {
-                    throw new RuntimeException('Selected transaction was not found.');
-                }
-
-                if (!empty($additionalServiceIds)) {
-                    $placeholders = implode(',', array_fill(0, count($additionalServiceIds), '?'));
-                    $servicesSql = "
-                        SELECT service_id, service_name, price
-                        FROM tbl_services
-                        WHERE tenant_id = ?
-                          AND status = 'active'
-                          AND service_id IN ($placeholders)
-                    ";
-                    $servicesStmt = $pdo->prepare($servicesSql);
-                    $servicesStmt->execute(array_merge([$tenantId], $additionalServiceIds));
-                    $servicesToAdd = $servicesStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-                    if (count($servicesToAdd) !== count($additionalServiceIds)) {
-                        throw new RuntimeException('One or more selected additional services are unavailable.');
-                    }
-
-                    $existingServicesStmt = $pdo->prepare("
-                        SELECT service_id
-                        FROM tbl_appointment_services
-                        WHERE tenant_id = ?
-                          AND booking_id = ?
-                    ");
-                    $existingServicesStmt->execute([$tenantId, $selectedBookingId]);
-                    $existingServiceIds = array_map('strval', $existingServicesStmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
-                    $existingLookup = array_fill_keys($existingServiceIds, true);
-
-                    $insertServiceStmt = $pdo->prepare("
-                        INSERT INTO tbl_appointment_services (tenant_id, booking_id, service_id, service_name, price, is_original, added_at)
-                        VALUES (?, ?, ?, ?, ?, 0, NOW())
-                    ");
+            if ($patientId === '') {
+                $paymentError = 'Selected transaction was not found.';
+            } elseif ($pendingBalance <= 0) {
+                $paymentError = 'Selected transaction is already fully paid.';
+            } elseif ($amount > $pendingBalance) {
+                $paymentError = 'Payment amount exceeds the pending balance of ₱' . number_format($pendingBalance, 2) . '.';
+            } else {
+                try {
+                    $pdo->beginTransaction();
 
                     $addedCost = 0.0;
                     $addedLabels = [];
-                    foreach ($servicesToAdd as $serviceRow) {
-                        $serviceId = (string) ($serviceRow['service_id'] ?? '');
-                        if ($serviceId === '' || isset($existingLookup[$serviceId])) {
-                            continue;
-                        }
-                        $serviceName = trim((string) ($serviceRow['service_name'] ?? 'Additional Service'));
-                        $servicePrice = (float) ($serviceRow['price'] ?? 0);
-                        $insertServiceStmt->execute([$tenantId, $selectedBookingId, $serviceId, $serviceName, $servicePrice]);
-                        $addedCost += $servicePrice;
-                        $addedLabels[] = $serviceName . ' (P' . number_format($servicePrice, 2) . ')';
-                    }
+                    if (!empty($additionalServiceIds)) {
+                        $placeholders = implode(',', array_fill(0, count($additionalServiceIds), '?'));
+                        $serviceLookupSql = "
+                            SELECT service_id, service_name, price
+                            FROM tbl_services
+                            WHERE tenant_id = ?
+                              AND status = 'active'
+                              AND service_id IN ($placeholders)
+                        ";
+                        $serviceLookupStmt = $pdo->prepare($serviceLookupSql);
+                        $serviceLookupStmt->execute(array_merge([$tenantId], $additionalServiceIds));
+                        $servicesToAdd = $serviceLookupStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-                    if ($addedCost > 0) {
-                        $currentTotalCost = (float) ($appointmentRow['total_treatment_cost'] ?? 0);
-                        $newTotalCost = $currentTotalCost + $addedCost;
-                        $currentDescription = trim((string) ($appointmentRow['service_description'] ?? ''));
-                        $newDescriptionPart = '[ADDED AT PAYMENT] ' . implode('; ', $addedLabels);
-                        $newDescription = $currentDescription !== '' ? ($currentDescription . '; ' . $newDescriptionPart) : $newDescriptionPart;
-
-                        $updateCostStmt = $pdo->prepare("
-                            UPDATE tbl_appointments
-                            SET total_treatment_cost = ?, service_description = ?
+                        $existingStmt = $pdo->prepare("
+                            SELECT service_id
+                            FROM tbl_appointment_services
                             WHERE tenant_id = ?
                               AND booking_id = ?
-                            LIMIT 1
                         ");
-                        $updateCostStmt->execute([$newTotalCost, $newDescription, $tenantId, $selectedBookingId]);
+                        $existingStmt->execute([$tenantId, $selectedBookingId]);
+                        $existingLookup = [];
+                        foreach (($existingStmt->fetchAll(PDO::FETCH_COLUMN) ?: []) as $existingServiceId) {
+                            $existingLookup[(string) $existingServiceId] = true;
+                        }
+
+                        $insertServiceStmt = $pdo->prepare("
+                            INSERT INTO tbl_appointment_services (tenant_id, booking_id, service_id, service_name, price, is_original, added_at)
+                            VALUES (?, ?, ?, ?, ?, 0, NOW())
+                        ");
+                        foreach ($servicesToAdd as $serviceRow) {
+                            $serviceId = trim((string) ($serviceRow['service_id'] ?? ''));
+                            if ($serviceId === '' || isset($existingLookup[$serviceId])) {
+                                continue;
+                            }
+                            $serviceName = trim((string) ($serviceRow['service_name'] ?? 'Additional Service'));
+                            $servicePrice = (float) ($serviceRow['price'] ?? 0);
+                            $insertServiceStmt->execute([$tenantId, $selectedBookingId, $serviceId, $serviceName, $servicePrice]);
+                            $addedCost += $servicePrice;
+                            $addedLabels[] = $serviceName . ' (P' . number_format($servicePrice, 2) . ')';
+                        }
+
+                        if ($addedCost > 0) {
+                            $newTotalCost = $totalCost + $addedCost;
+                            $existingDescription = trim((string) ($bookingRow['service_description'] ?? ''));
+                            $appendDescription = '[ADDED AT PAYMENT] ' . implode('; ', $addedLabels);
+                            $newDescription = $existingDescription !== '' ? ($existingDescription . '; ' . $appendDescription) : $appendDescription;
+                            $costUpdateStmt = $pdo->prepare("
+                                UPDATE tbl_appointments
+                                SET total_treatment_cost = ?, service_description = ?
+                                WHERE tenant_id = ? AND booking_id = ?
+                                LIMIT 1
+                            ");
+                            $costUpdateStmt->execute([$newTotalCost, $newDescription, $tenantId, $selectedBookingId]);
+                            $pendingBalance += $addedCost;
+                            $totalCost = $newTotalCost;
+                        }
                     }
-                }
 
-                $balanceStmt = $pdo->prepare("
-                    SELECT
-                        a.patient_id,
-                        COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
-                        COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0) AS total_paid
-                    FROM tbl_appointments a
-                    LEFT JOIN tbl_payments py
-                        ON py.tenant_id = a.tenant_id
-                       AND py.booking_id = a.booking_id
-                    WHERE a.tenant_id = ?
-                      AND a.booking_id = ?
-                    GROUP BY a.patient_id, a.total_treatment_cost
-                    LIMIT 1
-                ");
-                $balanceStmt->execute([$tenantId, $selectedBookingId]);
-                $balanceRow = $balanceStmt->fetch(PDO::FETCH_ASSOC);
-                $totalCost = (float) ($balanceRow['total_treatment_cost'] ?? 0);
-                $totalPaid = (float) ($balanceRow['total_paid'] ?? 0);
-                $pendingBalance = max(0, $totalCost - $totalPaid);
-
-                if ($pendingBalance <= 0) {
-                    throw new RuntimeException('Selected transaction is already fully paid.');
-                }
-                if ($amount > $pendingBalance) {
-                    throw new RuntimeException('Payment amount exceeds the pending balance of ₱' . number_format($pendingBalance, 2) . '.');
-                }
+                    if ($amount > $pendingBalance) {
+                        throw new RuntimeException('Payment amount exceeds the updated pending balance of ₱' . number_format($pendingBalance, 2) . '.');
+                    }
 
                     $paymentId = 'PAY-' . date('YmdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
-                    // Keep compatibility with deployments where payment_type enum only allows downpayment/fullpayment.
                     $paymentType = ($amount + 0.009 >= $pendingBalance) ? 'fullpayment' : 'downpayment';
 
                     if ($supportsPaymentTypeColumn) {
@@ -310,7 +298,6 @@ try {
 
                     $pdo->commit();
                     $paymentSuccess = 'Payment recorded successfully.';
-                    // Reset the modal form after successful submission.
                     $selectedMethod = 'cash';
                     $formSelectedBookingId = '';
                     $formPatientQuery = '';
