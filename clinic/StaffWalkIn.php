@@ -283,7 +283,7 @@ try {
                         </label>
                         <label class="block md:col-span-2">
                             <span class="block text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/70 mb-2">Notes (Optional)</span>
-                            <textarea rows="4" class="walkin-input w-full py-3 px-4 resize-y" placeholder="Additional notes or special instructions for this appointment."></textarea>
+                            <textarea id="walkInNotesInput" rows="4" class="walkin-input w-full py-3 px-4 resize-y" placeholder="Additional notes or special instructions for this appointment."></textarea>
                         </label>
                     </div>
 
@@ -334,7 +334,7 @@ try {
 
         <section class="pt-1 grid grid-cols-1 xl:grid-cols-12">
             <div class="xl:col-span-8 xl:col-start-5">
-                <button type="button" class="walkin-primary-btn w-full rounded-2xl bg-gradient-to-r from-primary to-blue-500 text-white py-3.5 text-sm font-extrabold uppercase tracking-wide shadow-lg shadow-primary/35 inline-flex items-center justify-center gap-2">
+                <button id="createWalkInAppointmentBtn" type="button" class="walkin-primary-btn w-full rounded-2xl bg-gradient-to-r from-primary to-blue-500 text-white py-3.5 text-sm font-extrabold uppercase tracking-wide shadow-lg shadow-primary/35 inline-flex items-center justify-center gap-2">
                     <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">calendar_add_on</span>
                     Create Walk-In Appointment
                 </button>
@@ -443,9 +443,13 @@ try {
         const serviceSearchInput = document.getElementById('serviceSearchInput');
         const serviceListContainer = document.getElementById('serviceListContainer');
         const serviceListEmptyState = document.getElementById('serviceListEmptyState');
+        const notesInput = document.getElementById('walkInNotesInput');
+        const createWalkInAppointmentBtn = document.getElementById('createWalkInAppointmentBtn');
         const dentistsSeedData = <?php echo json_encode($walkInDentists, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const patientsApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patients.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const servicesApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/services.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const appointmentsApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/appointments.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const clinicSlug = <?php echo json_encode((string) $currentTenantSlug, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const stockDentistImage = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=60';
         let allPatients = [];
         let allServices = [];
@@ -467,6 +471,10 @@ try {
             hours = hours % 12;
             hours = hours ? hours : 12;
             return hours + ':' + minutes + ':' + seconds + ' ' + ampm;
+        }
+
+        function formatTimeForApi(date) {
+            return pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds());
         }
 
         function updateNow() {
@@ -712,6 +720,82 @@ try {
             if (selectedServiceLabel) selectedServiceLabel.textContent = serviceName || 'Select service';
         }
 
+        function buildApiUrl(baseUrl) {
+            if (!clinicSlug) return baseUrl;
+            const separator = baseUrl.indexOf('?') === -1 ? '?' : '&';
+            return baseUrl + separator + 'clinic_slug=' + encodeURIComponent(clinicSlug);
+        }
+
+        async function submitWalkInAppointment() {
+            const patientId = selectedPatientIdInput ? String(selectedPatientIdInput.value || '').trim() : '';
+            const dentistId = selectedDentistIdInput ? String(selectedDentistIdInput.value || '').trim() : '';
+            const notes = notesInput ? String(notesInput.value || '').trim() : '';
+
+            if (!patientId) {
+                alert('Please select a patient first.');
+                return;
+            }
+            if (!dentistId) {
+                alert('Please select an assigned dentist.');
+                return;
+            }
+            if (!selectedServices.length) {
+                alert('Please add at least one service.');
+                return;
+            }
+
+            const now = new Date();
+            const payload = {
+                patient_id: patientId,
+                appointment_date: now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()),
+                appointment_time: formatTimeForApi(now),
+                services: selectedServices.map(function (service) {
+                    return {
+                        id: service.service_id || null,
+                        name: service.service_name || '',
+                        price: Number(service.price || 0),
+                        category: service.category || ''
+                    };
+                }),
+                service_categories: Array.from(new Set(selectedServices.map(function (service) {
+                    return String(service.category || '').trim();
+                }).filter(Boolean))),
+                notes: notes,
+                visit_type: 'walk_in',
+                status: 'pending'
+            };
+
+            if (createWalkInAppointmentBtn) {
+                createWalkInAppointmentBtn.disabled = true;
+                createWalkInAppointmentBtn.classList.add('opacity-70', 'cursor-not-allowed');
+            }
+
+            try {
+                const response = await fetch(buildApiUrl(appointmentsApiUrl), {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error((data && data.message) ? data.message : 'Failed to create walk-in appointment.');
+                }
+
+                alert('Walk-in appointment created successfully. Booking ID: ' + (data.data && data.data.booking_id ? data.data.booking_id : 'N/A'));
+                window.location.href = <?php echo json_encode($backToAppointmentsHref, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+            } catch (error) {
+                alert(error && error.message ? error.message : 'Unable to create walk-in appointment right now.');
+            } finally {
+                if (createWalkInAppointmentBtn) {
+                    createWalkInAppointmentBtn.disabled = false;
+                    createWalkInAppointmentBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+                }
+            }
+        }
+
         if (choosePatientBtn) {
             choosePatientBtn.addEventListener('click', openChoosePatientModal);
         }
@@ -846,6 +930,9 @@ try {
                 });
                 renderSelectedServices();
             });
+        }
+        if (createWalkInAppointmentBtn) {
+            createWalkInAppointmentBtn.addEventListener('click', submitWalkInAppointment);
         }
 
         updateNow();

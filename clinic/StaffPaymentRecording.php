@@ -36,6 +36,7 @@ $summaryTotalRevenue = 0.0;
 $summaryTodayRevenue = 0.0;
 $summaryTotalPayments = 0;
 $recentPayments = [];
+$transactionCandidates = [];
 
 try {
     $pdo = getDBConnection();
@@ -51,6 +52,7 @@ try {
 
     if ($tenantId !== '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $patientQuery = trim((string) ($_POST['patient_query'] ?? ''));
+        $selectedBookingId = trim((string) ($_POST['selected_booking_id'] ?? ''));
         $amount = (float) ($_POST['amount'] ?? 0);
         $paymentDate = trim((string) ($_POST['payment_date'] ?? date('Y-m-d')));
         $notes = trim((string) ($_POST['notes'] ?? ''));
@@ -59,48 +61,43 @@ try {
         if (!isset($allowedMethods[$method])) {
             $method = 'cash';
         }
-        if ($patientQuery === '') {
-            $paymentError = 'Please enter a patient name or patient ID.';
+        if ($selectedBookingId === '') {
+            $paymentError = 'Please select a pending appointment transaction first.';
         } elseif ($amount <= 0) {
             $paymentError = 'Please enter a valid payment amount.';
         } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $paymentDate)) {
             $paymentError = 'Please provide a valid payment date.';
         } else {
-            $patientSql = "
-                SELECT patient_id
-                FROM tbl_patients
-                WHERE tenant_id = ?
-                  AND (
-                    patient_id = ?
-                    OR CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?
-                    OR CONCAT(COALESCE(last_name, ''), ', ', COALESCE(first_name, '')) LIKE ?
-                  )
-                ORDER BY created_at DESC
+            $bookingSql = "
+                SELECT
+                    a.booking_id,
+                    a.patient_id,
+                    COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
+                    COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0) AS total_paid
+                FROM tbl_appointments a
+                LEFT JOIN tbl_payments py
+                    ON py.tenant_id = a.tenant_id
+                   AND py.booking_id = a.booking_id
+                WHERE a.tenant_id = ?
+                  AND a.booking_id = ?
+                GROUP BY a.booking_id, a.patient_id, a.total_treatment_cost
                 LIMIT 1
             ";
-            $searchLike = '%' . $patientQuery . '%';
-            $patientStmt = $pdo->prepare($patientSql);
-            $patientStmt->execute([$tenantId, $patientQuery, $searchLike, $searchLike]);
-            $patientRow = $patientStmt->fetch(PDO::FETCH_ASSOC);
-            $patientId = trim((string) ($patientRow['patient_id'] ?? ''));
+            $bookingStmt = $pdo->prepare($bookingSql);
+            $bookingStmt->execute([$tenantId, $selectedBookingId]);
+            $bookingRow = $bookingStmt->fetch(PDO::FETCH_ASSOC);
+            $patientId = trim((string) ($bookingRow['patient_id'] ?? ''));
+            $totalCost = (float) ($bookingRow['total_treatment_cost'] ?? 0);
+            $totalPaid = (float) ($bookingRow['total_paid'] ?? 0);
+            $pendingBalance = max(0, $totalCost - $totalPaid);
 
             if ($patientId === '') {
-                $paymentError = 'Patient not found. Please use an existing patient ID or full name.';
+                $paymentError = 'Selected transaction was not found.';
+            } elseif ($pendingBalance <= 0) {
+                $paymentError = 'Selected transaction is already fully paid.';
+            } elseif ($amount > $pendingBalance) {
+                $paymentError = 'Payment amount exceeds the pending balance of ₱' . number_format($pendingBalance, 2) . '.';
             } else {
-                $bookingId = null;
-                $bookingStmt = $pdo->prepare("
-                    SELECT booking_id
-                    FROM tbl_appointments
-                    WHERE tenant_id = ? AND patient_id = ?
-                    ORDER BY appointment_date DESC, appointment_time DESC, created_at DESC
-                    LIMIT 1
-                ");
-                $bookingStmt->execute([$tenantId, $patientId]);
-                $bookingRow = $bookingStmt->fetch(PDO::FETCH_ASSOC);
-                if ($bookingRow && !empty($bookingRow['booking_id'])) {
-                    $bookingId = (string) $bookingRow['booking_id'];
-                }
-
                 $paymentId = 'PAY-' . date('YmdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
                 $insertSql = "
                     INSERT INTO tbl_payments (
@@ -121,13 +118,23 @@ try {
                     $tenantId,
                     $paymentId,
                     $patientId,
-                    $bookingId,
+                    $selectedBookingId,
                     $amount,
                     $method,
                     $paymentDate . ' ' . date('H:i:s'),
                     $notes !== '' ? $notes : null,
                     $userId !== '' ? $userId : null,
                 ]);
+
+                $updateAppointmentStmt = $pdo->prepare("
+                    UPDATE tbl_appointments
+                    SET status = 'confirmed',
+                        updated_at = NOW()
+                    WHERE tenant_id = ?
+                      AND booking_id = ?
+                      AND status = 'pending'
+                ");
+                $updateAppointmentStmt->execute([$tenantId, $selectedBookingId]);
 
                 $paymentSuccess = 'Payment recorded successfully.';
                 $selectedMethod = $method;
@@ -171,6 +178,44 @@ try {
         $recentStmt = $pdo->prepare($recentSql);
         $recentStmt->execute([$tenantId]);
         $recentPayments = $recentStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $transactionsSql = "
+            SELECT
+                a.booking_id,
+                a.patient_id,
+                a.appointment_date,
+                a.appointment_time,
+                a.service_type,
+                COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
+                COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0) AS total_paid,
+                p.first_name AS patient_first_name,
+                p.last_name AS patient_last_name
+            FROM tbl_appointments a
+            LEFT JOIN tbl_payments py
+                ON py.tenant_id = a.tenant_id
+               AND py.booking_id = a.booking_id
+            LEFT JOIN tbl_patients p
+                ON p.tenant_id = a.tenant_id
+               AND p.patient_id = a.patient_id
+            WHERE a.tenant_id = ?
+              AND COALESCE(a.total_treatment_cost, 0) > 0
+              AND LOWER(COALESCE(a.status, '')) <> 'cancelled'
+            GROUP BY
+                a.booking_id,
+                a.patient_id,
+                a.appointment_date,
+                a.appointment_time,
+                a.service_type,
+                a.total_treatment_cost,
+                p.first_name,
+                p.last_name
+            HAVING (COALESCE(a.total_treatment_cost, 0) - COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0)) > 0.009
+            ORDER BY a.appointment_date DESC, a.appointment_time DESC, a.created_at DESC
+            LIMIT 300
+        ";
+        $transactionsStmt = $pdo->prepare($transactionsSql);
+        $transactionsStmt->execute([$tenantId]);
+        $transactionCandidates = $transactionsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             header('Content-Type: text/csv; charset=UTF-8');
@@ -524,9 +569,17 @@ try {
 <div class="space-y-3">
 <label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Patient Identification</label>
 <div class="relative group">
-<span class="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">person_search</span>
-<input class="w-full pl-14 pr-6 py-4 form-input-styled rounded-2xl text-base font-medium outline-none" name="patient_query" placeholder="Enter patient name or ID number..." required type="text" value="<?php echo htmlspecialchars((string) ($_POST['patient_query'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"/>
+<input name="selected_booking_id" id="selected_booking_id_input" type="hidden" value="<?php echo htmlspecialchars((string) ($_POST['selected_booking_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"/>
+<input name="patient_query" id="patient_query_input" type="hidden" value="<?php echo htmlspecialchars((string) ($_POST['patient_query'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"/>
+<button id="open-transaction-selector-modal" type="button" class="w-full px-6 py-4 form-input-styled rounded-2xl text-left text-base font-semibold outline-none inline-flex items-center justify-between gap-3">
+<span class="inline-flex items-center gap-3 min-w-0">
+<span class="material-symbols-outlined text-slate-400">person_search</span>
+<span id="selected_transaction_label" class="truncate"><?php echo htmlspecialchars((string) ($_POST['patient_query'] ?? 'Select appointment transaction with pending balance'), ENT_QUOTES, 'UTF-8'); ?></span>
+</span>
+<span class="material-symbols-outlined text-slate-500">keyboard_arrow_down</span>
+</button>
 </div>
+<p class="text-[11px] font-semibold text-slate-500 ml-1">Only appointments with pending balance are listed.</p>
 </div>
 <div class="flex flex-col md:flex-row gap-8 items-center">
 <div class="flex-1 w-full space-y-3">
@@ -581,6 +634,27 @@ try {
 </div>
 </div>
 </div>
+<div class="fixed inset-0 z-[60] hidden items-center justify-center p-6" id="transaction-selector-modal" role="dialog" aria-modal="true" aria-labelledby="transaction-selector-title">
+<div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" id="transaction-selector-overlay"></div>
+<div class="relative z-10 w-full max-w-5xl">
+<div class="bg-white p-6 rounded-3xl shadow-2xl border border-slate-200 max-h-[88vh] overflow-hidden flex flex-col">
+<div class="flex items-center justify-between gap-4 pb-4 border-b border-slate-100">
+<div>
+<h3 class="text-xl font-black text-slate-900" id="transaction-selector-title">Select Pending Transaction</h3>
+<p class="text-[11px] text-slate-500 font-bold uppercase tracking-widest mt-1">Appointments with unpaid balance</p>
+</div>
+<button class="w-9 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 inline-flex items-center justify-center" id="close-transaction-selector-modal" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<div class="py-4 border-b border-slate-100">
+<input id="transaction_selector_search" type="text" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium outline-none focus:border-primary focus:bg-white focus:shadow-[0_0_0_4px_rgba(43,139,235,0.1)]" placeholder="Search patient name, patient ID, booking ID, or service"/>
+</div>
+<div id="transaction_selector_list" class="overflow-y-auto divide-y divide-slate-100 min-h-[14rem]"></div>
+<div id="transaction_selector_empty" class="hidden py-10 text-center text-sm font-semibold text-slate-500">No pending transactions found.</div>
+</div>
+</div>
+</div>
 <script>
     (function () {
         const modal = document.getElementById('transaction-modal');
@@ -588,6 +662,91 @@ try {
         const closeBtn = document.getElementById('close-transaction-modal');
         const overlay = document.getElementById('transaction-modal-overlay');
         const hasServerError = <?php echo $paymentError !== '' ? 'true' : 'false'; ?>;
+        const transactionCandidates = <?php echo json_encode($transactionCandidates, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const openSelectorBtn = document.getElementById('open-transaction-selector-modal');
+        const selectorModal = document.getElementById('transaction-selector-modal');
+        const selectorOverlay = document.getElementById('transaction-selector-overlay');
+        const closeSelectorBtn = document.getElementById('close-transaction-selector-modal');
+        const selectorSearchInput = document.getElementById('transaction_selector_search');
+        const selectorList = document.getElementById('transaction_selector_list');
+        const selectorEmpty = document.getElementById('transaction_selector_empty');
+        const selectedBookingIdInput = document.getElementById('selected_booking_id_input');
+        const patientQueryInput = document.getElementById('patient_query_input');
+        const selectedTransactionLabel = document.getElementById('selected_transaction_label');
+        const amountInput = document.querySelector('input[name="amount"]');
+
+        const normalizeTransactions = transactionCandidates.map((item) => {
+            const totalCost = Number(item.total_treatment_cost || 0);
+            const totalPaid = Number(item.total_paid || 0);
+            const pendingBalance = Math.max(0, totalCost - totalPaid);
+            const firstName = String(item.patient_first_name || '').trim();
+            const lastName = String(item.patient_last_name || '').trim();
+            const patientName = (firstName + ' ' + lastName).trim() || 'Unknown Patient';
+            const label = patientName + ' | Booking ' + (item.booking_id || '-') + ' | Pending ₱' + pendingBalance.toFixed(2);
+            return {
+                booking_id: String(item.booking_id || ''),
+                patient_id: String(item.patient_id || ''),
+                patient_name: patientName,
+                service_type: String(item.service_type || '-'),
+                appointment_date: String(item.appointment_date || ''),
+                appointment_time: String(item.appointment_time || ''),
+                total_cost: totalCost,
+                total_paid: totalPaid,
+                pending_balance: pendingBalance,
+                label: label
+            };
+        }).filter((item) => item.pending_balance > 0);
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function renderTransactionRows(list) {
+            if (!selectorList || !selectorEmpty) return;
+            if (!list.length) {
+                selectorList.innerHTML = '';
+                selectorEmpty.classList.remove('hidden');
+                return;
+            }
+
+            selectorEmpty.classList.add('hidden');
+            selectorList.innerHTML = list.map((item) => {
+                return '' +
+                    '<div class="py-3 px-1 sm:px-2">' +
+                        '<div class="rounded-2xl border border-slate-200 p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">' +
+                            '<div class="min-w-0">' +
+                                '<p class="text-sm font-extrabold text-slate-900 truncate">' + escapeHtml(item.patient_name) + '</p>' +
+                                '<p class="text-xs font-semibold text-slate-500 mt-1">Patient ID: ' + escapeHtml(item.patient_id) + ' | Booking ID: ' + escapeHtml(item.booking_id) + '</p>' +
+                                '<p class="text-xs font-semibold text-slate-500 mt-1">Service: ' + escapeHtml(item.service_type) + '</p>' +
+                                '<p class="text-xs font-semibold text-slate-500 mt-1">Date: ' + escapeHtml(item.appointment_date || '-') + ' ' + escapeHtml(item.appointment_time || '') + '</p>' +
+                                '<p class="text-xs font-semibold text-slate-700 mt-1">Total: ₱' + item.total_cost.toFixed(2) + ' | Paid: ₱' + item.total_paid.toFixed(2) + ' | Pending: ₱' + item.pending_balance.toFixed(2) + '</p>' +
+                            '</div>' +
+                            '<button type="button" data-action="select-transaction" data-booking-id="' + escapeHtml(item.booking_id) + '" class="shrink-0 px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-widest hover:bg-primary/90 transition-colors">Select</button>' +
+                        '</div>' +
+                    '</div>';
+            }).join('');
+        }
+
+        function openSelectorModal() {
+            if (!selectorModal) return;
+            selectorModal.classList.remove('hidden');
+            selectorModal.classList.add('flex');
+            if (selectorSearchInput) {
+                selectorSearchInput.value = '';
+            }
+            renderTransactionRows(normalizeTransactions);
+        }
+
+        function closeSelectorModal() {
+            if (!selectorModal) return;
+            selectorModal.classList.add('hidden');
+            selectorModal.classList.remove('flex');
+        }
 
         const openModal = () => {
             if (!modal) {
@@ -623,6 +782,60 @@ try {
         });
         if (hasServerError) {
             openModal();
+        }
+
+        if (openSelectorBtn) {
+            openSelectorBtn.addEventListener('click', openSelectorModal);
+        }
+        if (closeSelectorBtn) {
+            closeSelectorBtn.addEventListener('click', closeSelectorModal);
+        }
+        if (selectorOverlay) {
+            selectorOverlay.addEventListener('click', closeSelectorModal);
+        }
+        if (selectorSearchInput) {
+            selectorSearchInput.addEventListener('input', () => {
+                const keyword = String(selectorSearchInput.value || '').trim().toLowerCase();
+                if (!keyword) {
+                    renderTransactionRows(normalizeTransactions);
+                    return;
+                }
+                const filtered = normalizeTransactions.filter((item) => {
+                    return [
+                        item.patient_name,
+                        item.patient_id,
+                        item.booking_id,
+                        item.service_type
+                    ].join(' ').toLowerCase().indexOf(keyword) !== -1;
+                });
+                renderTransactionRows(filtered);
+            });
+        }
+        if (selectorList) {
+            selectorList.addEventListener('click', (event) => {
+                const btn = event.target.closest('button[data-action="select-transaction"]');
+                if (!btn) {
+                    return;
+                }
+                const bookingId = String(btn.getAttribute('data-booking-id') || '');
+                const selected = normalizeTransactions.find((item) => item.booking_id === bookingId);
+                if (!selected) {
+                    return;
+                }
+                if (selectedBookingIdInput) {
+                    selectedBookingIdInput.value = selected.booking_id;
+                }
+                if (patientQueryInput) {
+                    patientQueryInput.value = selected.label;
+                }
+                if (selectedTransactionLabel) {
+                    selectedTransactionLabel.textContent = selected.label;
+                }
+                if (amountInput) {
+                    amountInput.value = selected.pending_balance.toFixed(2);
+                }
+                closeSelectorModal();
+            });
         }
 
         const hiddenInput = document.getElementById('payment_method_input');
