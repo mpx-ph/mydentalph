@@ -193,15 +193,16 @@ try {
                     $insertStmt = $pdo->prepare($insertSql);
                     $insertStmt->execute($insertParams);
 
+                    $nextAppointmentStatus = ($amount + 0.009 >= $pendingBalance) ? 'completed' : 'confirmed';
                     $updateAppointmentSql = "
                         UPDATE tbl_appointments
-                        SET status = 'confirmed'" . ($supportsAppointmentUpdatedAtColumn ? ", updated_at = NOW()" : "") . "
+                        SET status = ?" . ($supportsAppointmentUpdatedAtColumn ? ", updated_at = NOW()" : "") . "
                         WHERE tenant_id = ?
                           AND booking_id = ?
                           AND status = 'pending'
                     ";
                     $updateAppointmentStmt = $pdo->prepare($updateAppointmentSql);
-                    $updateAppointmentStmt->execute([$tenantId, $selectedBookingId]);
+                    $updateAppointmentStmt->execute([$nextAppointmentStatus, $tenantId, $selectedBookingId]);
 
                     $paymentSuccess = 'Payment recorded successfully.';
                     // Reset the modal form after successful submission.
