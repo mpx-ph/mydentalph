@@ -40,7 +40,6 @@ $nav = [
     'settings' => ['href' => 'ProviderTenantSettings.php', 'icon' => 'settings', 'label' => 'Settings'],
 ];
 
-$ai = isset($avatar_initials) ? (string) $avatar_initials : 'MD';
 $pn = isset($plan_name) ? (string) $plan_name : 'MyDental';
 $rs = isset($renewal_sidebar) ? (string) $renewal_sidebar : '';
 ?>
@@ -194,14 +193,12 @@ $rs = isset($renewal_sidebar) ? (string) $renewal_sidebar : '';
 </nav>
 <div class="px-4 mt-auto pt-4 shrink-0 border-t border-white/40">
 <div class="bg-white/40 backdrop-blur-md rounded-2xl p-4 border border-white/60 shadow-sm transition-all duration-300 hover:shadow-md hover:border-primary/20">
-<div class="flex items-center gap-3 min-w-0 mb-3">
-<div class="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary text-xs font-bold border-2 border-white shadow-sm shrink-0"><?php echo htmlspecialchars($ai, ENT_QUOTES, 'UTF-8'); ?></div>
-<div class="provider-sidebar-profile-text min-w-0 flex-1">
-<p class="text-on-background text-sm font-bold truncate"><?php echo htmlspecialchars($pn, ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="text-on-surface-variant text-[11px] truncate"><?php echo htmlspecialchars($rs, ENT_QUOTES, 'UTF-8'); ?></p>
+<div class="provider-sidebar-profile-text min-w-0 flex-1 mb-3">
+<p class="text-[10px] font-bold uppercase tracking-[0.18em] text-on-surface-variant/70 mb-1">Your Plan</p>
+<p class="text-on-background text-lg font-extrabold leading-tight truncate"><?php echo htmlspecialchars($pn, ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-on-surface-variant text-[12px] truncate"><?php echo htmlspecialchars($rs, ENT_QUOTES, 'UTF-8'); ?></p>
 </div>
-</div>
-<a class="block w-full text-center py-2.5 bg-white/80 border border-white hover:border-primary/30 text-on-background text-xs font-bold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm" href="<?php echo htmlspecialchars($provider_portal_path_prefix . 'ProviderContact.php', ENT_QUOTES, 'UTF-8'); ?>">Support Portal</a>
+<a class="block w-full text-center py-2.5 bg-primary/10 border border-primary/20 hover:border-primary/35 text-primary text-xs font-bold rounded-xl transition-all duration-200 hover:bg-primary/15 active:scale-[0.98] shadow-sm" href="<?php echo htmlspecialchars($provider_portal_path_prefix . 'ProviderTenantSubs.php', ENT_QUOTES, 'UTF-8'); ?>">Manage Subscription</a>
 </div>
 </div>
 </aside>
