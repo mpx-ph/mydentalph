@@ -76,7 +76,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_superadmin_setti
             }
 
             $providerPlans['yearly']['price'] = '₱' . number_format((float) round($effectiveDiscountedPrice, 0), 0);
-            $providerPlans['yearly']['description'] = '';
         }
 
         $data['provider_plans'] = $providerPlans;
@@ -161,6 +160,9 @@ if ($baseAnnualPrice !== null && $yearlyPriceNumeric !== null && $baseAnnualPric
     $computedDiscountPercent = (($baseAnnualPrice - $yearlyPriceNumeric) / $baseAnnualPrice) * 100;
 }
 $computedDiscountPercent = max(0.0, min(100.0, $computedDiscountPercent));
+$computedSavingsAmount = ($baseAnnualPrice !== null && $yearlyPriceNumeric !== null)
+    ? max(0.0, $baseAnnualPrice - $yearlyPriceNumeric)
+    : 0.0;
 $pageTitle = htmlspecialchars($settings['system_name'], ENT_QUOTES, 'UTF-8');
 ?>
 <!DOCTYPE html>
@@ -368,6 +370,7 @@ foreach ($planLabels as $planKey => $planLabel):
 </div>
 <p class="text-on-surface-variant/80 text-xs">Auto-compute works both ways based on monthly price: update either discount percentage or discounted yearly price.</p>
 <p class="text-on-surface-variant/80 text-xs">Base yearly amount: <span id="yearly_base_display">₱<?php echo number_format((float) ($baseAnnualPrice ?? 0), 0); ?></span> (monthly x 12)</p>
+<p class="text-emerald-700 text-xs font-semibold">Savings preview: <span id="yearly_savings_display">Save ₱<?php echo number_format((float) round($computedSavingsAmount), 0); ?>!</span></p>
 <?php endif; ?>
 <div>
 <label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2" for="provider_plan_<?php echo $planKey; ?>_description">Description</label>
@@ -424,6 +427,7 @@ Download full system backup (.sql)
         var discountedPriceInput = document.getElementById('yearly_discounted_price');
         var editSourceInput = document.getElementById('yearly_pricing_edit_source');
         var baseDisplay = document.getElementById('yearly_base_display');
+        var savingsDisplay = document.getElementById('yearly_savings_display');
 
         if (!monthlyPriceInput || !yearlyPriceLabelInput || !discountPercentInput || !discountedPriceInput || !editSourceInput) {
             return;
@@ -457,6 +461,7 @@ Download full system backup (.sql)
             discountedPriceInput.value = String(discounted);
             yearlyPriceLabelInput.value = formatPesoWhole(discounted);
             if (baseDisplay) baseDisplay.textContent = formatPesoWhole(Math.round(base));
+            if (savingsDisplay) savingsDisplay.textContent = 'Save ' + formatPesoWhole(Math.round(base - discounted)) + '!';
         }
 
         function syncFromDiscountedPrice() {
@@ -470,6 +475,7 @@ Download full system backup (.sql)
             discountedPriceInput.value = String(Math.round(discounted));
             yearlyPriceLabelInput.value = formatPesoWhole(Math.round(discounted));
             if (baseDisplay) baseDisplay.textContent = formatPesoWhole(Math.round(base));
+            if (savingsDisplay) savingsDisplay.textContent = 'Save ' + formatPesoWhole(Math.round(base - discounted)) + '!';
         }
 
         discountPercentInput.addEventListener('input', function () {

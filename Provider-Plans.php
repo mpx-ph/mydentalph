@@ -5,6 +5,23 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/provider_auth.php';
 require_once __DIR__ . '/superadmin/superadmin_settings_lib.php';
 
+function provider_parse_plan_price_amount($raw): ?float
+{
+    if (is_numeric($raw)) {
+        $n = (float) $raw;
+        return $n >= 0 ? $n : null;
+    }
+    if (!is_string($raw)) {
+        return null;
+    }
+    $cleaned = preg_replace('/[^0-9.\-]/', '', $raw);
+    if (!is_string($cleaned) || $cleaned === '' || !is_numeric($cleaned)) {
+        return null;
+    }
+    $n = (float) $cleaned;
+    return $n >= 0 ? $n : null;
+}
+
 $max_sites_reached = false;
 if (provider_has_authenticated_provider_session()) {
     try {
@@ -27,6 +44,12 @@ $providerPlans = isset($settings['provider_plans']) && is_array($settings['provi
     : superadmin_default_provider_plans();
 $monthly = isset($providerPlans['monthly']) && is_array($providerPlans['monthly']) ? $providerPlans['monthly'] : [];
 $yearly = isset($providerPlans['yearly']) && is_array($providerPlans['yearly']) ? $providerPlans['yearly'] : [];
+$monthlyAmount = provider_parse_plan_price_amount($monthly['price'] ?? null);
+$yearlyAmount = provider_parse_plan_price_amount($yearly['price'] ?? null);
+$baseYearlyAmount = ($monthlyAmount !== null) ? ($monthlyAmount * 12) : null;
+$yearlySavingsAmount = ($baseYearlyAmount !== null && $yearlyAmount !== null)
+    ? max(0.0, $baseYearlyAmount - $yearlyAmount)
+    : 11990.0;
 ?>
 <!DOCTYPE html>
 
@@ -212,13 +235,14 @@ $yearly = isset($providerPlans['yearly']) && is_array($providerPlans['yearly']) 
 </div>
 </div>
 <div class="mb-10">
-<p class="text-sm font-extrabold uppercase tracking-[0.18em] text-emerald-700 group-hover:text-white/85 mb-2">Regular ₱59,988/year</p>
+<p class="text-sm font-extrabold uppercase tracking-[0.18em] text-emerald-700 group-hover:text-white/85 mb-2">Regular ₱<?php echo number_format((float) round((float) ($baseYearlyAmount ?? 59988)), 0); ?>/year</p>
 <div class="flex items-baseline gap-2">
 <span class="text-6xl font-headline font-black text-slate-900 dark:text-white group-hover:text-white"><?php echo htmlspecialchars((string) ($yearly['price'] ?? '₱47,998'), ENT_QUOTES, 'UTF-8'); ?></span>
 <span class="text-slate-500 dark:text-slate-400 group-hover:text-white/70 font-bold text-lg">/year</span>
 </div>
-<p class="mt-2 text-sm font-semibold text-emerald-700 group-hover:text-white">Save ₱11,990!</p>
+<p class="mt-2 text-sm font-semibold text-emerald-700 group-hover:text-white">Save ₱<?php echo number_format((float) round($yearlySavingsAmount), 0); ?>!</p>
 </div>
+<p class="text-sm text-slate-600 dark:text-slate-300 group-hover:text-white/80 mb-10"><?php echo htmlspecialchars((string) ($yearly['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
 <ul class="space-y-6 mb-12">
 <?php foreach ((array) ($yearly['features'] ?? []) as $feature): ?>
 <li class="flex items-start gap-4 text-slate-600 dark:text-slate-300 group-hover:text-white/90">
