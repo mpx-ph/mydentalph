@@ -63,6 +63,17 @@
             font-size: 20px;
         }
 
+        .new-badge {
+            color: var(--success);
+            font-weight: 700;
+        }
+
+        .subdesc {
+            margin: -2px 0 10px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
         .link-row {
             margin-bottom: 10px;
             font-size: 14px;
@@ -194,7 +205,8 @@
         </section>
 
         <section class="card">
-            <h2>Hotdog Family <strong>(NEW)</strong></h2>
+            <h2>Hotdog Family <span class="new-badge">(NEW)</span></h2>
+            <div class="subdesc">Uses new subscription rule</div>
             <div class="link-row">
                 Link:
                 <a href="https://mydentalph.ct.ws/hotdog/" target="_blank">
