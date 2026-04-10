@@ -15,7 +15,7 @@ if (!isset($superadmin_header_center)) {
         . '</div>';
 }
 ?>
-<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-20 z-30 bg-white/70 backdrop-blur-xl border-b border-white/50 flex items-center justify-between px-8">
+<header class="sa-top-header fixed top-0 right-0 w-[calc(100%-16rem)] h-20 z-30 bg-white/70 backdrop-blur-xl border-b border-white/50 flex items-center justify-between px-8 transition-[width] duration-200">
 <div class="flex items-center gap-6 flex-1">
 <?php echo $superadmin_header_center; ?>
 </div>
