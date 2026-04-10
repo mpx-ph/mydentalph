@@ -46,13 +46,19 @@ $rs = isset($renewal_sidebar) ? (string) $renewal_sidebar : '';
 ?>
 <style>
 @media (min-width: 1024px) {
+    body.provider-shell {
+        --provider-collapse-duration: 460ms;
+        --provider-collapse-ease: cubic-bezier(0.2, 0.85, 0.24, 1);
+    }
     body.provider-shell main {
         margin-left: 16rem !important;
-        transition: margin-left 340ms cubic-bezier(0.22, 1, 0.36, 1);
+        transition: margin-left var(--provider-collapse-duration) var(--provider-collapse-ease);
+        will-change: margin-left;
     }
     body.provider-shell .provider-top-header {
         left: 16rem;
-        transition: left 340ms cubic-bezier(0.22, 1, 0.36, 1);
+        transition: left var(--provider-collapse-duration) var(--provider-collapse-ease);
+        will-change: left;
     }
     body.provider-shell.provider-sidebar-collapsed main {
         margin-left: 5.5rem !important;
@@ -61,8 +67,9 @@ $rs = isset($renewal_sidebar) ? (string) $renewal_sidebar : '';
         left: 5.5rem;
     }
     body.provider-shell #provider-sidebar {
-        transition: width 340ms cubic-bezier(0.22, 1, 0.36, 1);
+        transition: width var(--provider-collapse-duration) var(--provider-collapse-ease);
         overflow: hidden;
+        will-change: width;
     }
     body.provider-shell .provider-sidebar-divider-toggle {
         position: fixed;
@@ -76,7 +83,7 @@ $rs = isset($renewal_sidebar) ? (string) $renewal_sidebar : '';
         background: rgba(255, 255, 255, 0.95);
         box-shadow: 0 10px 28px -15px rgba(19, 28, 37, 0.5);
         color: #456085;
-        transition: left 340ms cubic-bezier(0.22, 1, 0.36, 1), color 180ms ease, background-color 180ms ease;
+        transition: left var(--provider-collapse-duration) var(--provider-collapse-ease), color 180ms ease, background-color 180ms ease;
     }
     body.provider-shell .provider-sidebar-divider-toggle:hover {
         color: #0066ff;
@@ -93,7 +100,10 @@ $rs = isset($renewal_sidebar) ? (string) $renewal_sidebar : '';
         transform: translateX(0);
         white-space: nowrap;
         overflow: hidden;
-        transition: max-width 300ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease, transform 220ms ease;
+        transition:
+            max-width 360ms var(--provider-collapse-ease),
+            opacity 240ms ease,
+            transform 320ms var(--provider-collapse-ease);
     }
     body.provider-shell.provider-sidebar-collapsed .provider-sidebar-label,
     body.provider-shell.provider-sidebar-collapsed .provider-sidebar-tagline,
@@ -105,8 +115,13 @@ $rs = isset($renewal_sidebar) ? (string) $renewal_sidebar : '';
     }
     body.provider-shell .provider-logo-rect,
     body.provider-shell .provider-logo-square {
-        transition: opacity 220ms ease, transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+        transition:
+            opacity 260ms ease,
+            transform 360ms var(--provider-collapse-ease);
         transform-origin: left center;
+    }
+    body.provider-shell .provider-nav-link {
+        transition: transform 240ms var(--provider-collapse-ease), color 200ms ease, background-color 200ms ease;
     }
     body.provider-shell .provider-logo-square {
         opacity: 0;
@@ -125,6 +140,20 @@ $rs = isset($renewal_sidebar) ? (string) $renewal_sidebar : '';
         opacity: 1;
         transform: scale(1);
         pointer-events: auto;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    body.provider-shell main,
+    body.provider-shell .provider-top-header,
+    body.provider-shell #provider-sidebar,
+    body.provider-shell .provider-sidebar-divider-toggle,
+    body.provider-shell .provider-sidebar-label,
+    body.provider-shell .provider-sidebar-tagline,
+    body.provider-shell .provider-sidebar-profile-text,
+    body.provider-shell .provider-logo-rect,
+    body.provider-shell .provider-logo-square,
+    body.provider-shell .provider-nav-link {
+        transition: none !important;
     }
 }
 </style>
