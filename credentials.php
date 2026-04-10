@@ -194,6 +194,58 @@
         </section>
 
         <section class="card">
+            <h2>Hotdog Family <strong>(NEW)</strong></h2>
+            <div class="link-row">
+                Link:
+                <a href="https://mydentalph.ct.ws/hotdog/" target="_blank">
+                    https://mydentalph.ct.ws/hotdog/
+                </a>
+            </div>
+
+            <div class="credential">
+                <div class="role">TENANT</div>
+                <div class="row">
+                    <div class="label">Email</div>
+                    <div class="value">jamoyi6423@azucore.com</div>
+                    <button class="copy-btn" data-copy="jamoyi6423@azucore.com">Copy</button>
+                </div>
+                <div class="row">
+                    <div class="label">Password</div>
+                    <div class="value">Admin123456_</div>
+                    <button class="copy-btn" data-copy="Admin123456_">Copy</button>
+                </div>
+            </div>
+
+            <div class="credential">
+                <div class="role">STAFF</div>
+                <div class="row">
+                    <div class="label">Email</div>
+                    <div class="value">lafem15214@bpotogo.com</div>
+                    <button class="copy-btn" data-copy="lafem15214@bpotogo.com">Copy</button>
+                </div>
+                <div class="row">
+                    <div class="label">Password</div>
+                    <div class="value">Admin123456_</div>
+                    <button class="copy-btn" data-copy="Admin123456_">Copy</button>
+                </div>
+            </div>
+
+            <div class="credential">
+                <div class="role">DOCTOR</div>
+                <div class="row">
+                    <div class="label">Email</div>
+                    <div class="value">hajikam923@azucore.com</div>
+                    <button class="copy-btn" data-copy="hajikam923@azucore.com">Copy</button>
+                </div>
+                <div class="row">
+                    <div class="label">Password</div>
+                    <div class="value">Admin123456_</div>
+                    <button class="copy-btn" data-copy="Admin123456_">Copy</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
             <h2>Ilocos Empanada Dental Clinic</h2>
             <div class="link-row">
                 Link:
