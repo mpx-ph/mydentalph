@@ -6,6 +6,23 @@ require_once __DIR__ . '/superadmin_settings_lib.php';
 $saveMessage = '';
 $saveError = '';
 
+function superadmin_parse_price_number($raw): ?float
+{
+    if (is_numeric($raw)) {
+        $n = (float) $raw;
+        return $n >= 0 ? $n : null;
+    }
+    if (!is_string($raw)) {
+        return null;
+    }
+    $cleaned = preg_replace('/[^0-9.\-]/', '', $raw);
+    if (!is_string($cleaned) || $cleaned === '' || !is_numeric($cleaned)) {
+        return null;
+    }
+    $n = (float) $cleaned;
+    return $n >= 0 ? $n : null;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_superadmin_settings'])) {
     $settingsSection = isset($_POST['settings_section']) ? (string) $_POST['settings_section'] : '';
     $currentSettings = superadmin_get_settings($pdo);
@@ -33,6 +50,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_superadmin_setti
                 'features' => preg_split('/\r\n|\r|\n/', $featuresText) ?: [],
             ];
         }
+
+        $monthlyAmount = superadmin_parse_price_number($providerPlans['monthly']['price'] ?? null);
+        $baseAnnual = $monthlyAmount !== null ? ($monthlyAmount * 12) : null;
+        if ($baseAnnual !== null && $baseAnnual > 0) {
+            $yearlyEditSource = isset($_POST['yearly_pricing_edit_source'])
+                ? (string) $_POST['yearly_pricing_edit_source']
+                : 'discount_percent';
+            $postedDiscountPercent = superadmin_parse_price_number($_POST['yearly_discount_percent'] ?? null);
+            $postedDiscountedPrice = superadmin_parse_price_number($_POST['yearly_discounted_price'] ?? null);
+            $existingYearlyAmount = superadmin_parse_price_number($providerPlans['yearly']['price'] ?? null);
+
+            $effectiveDiscountPercent = 0.0;
+            $effectiveDiscountedPrice = $baseAnnual;
+
+            if ($yearlyEditSource === 'discount_price' && $postedDiscountedPrice !== null) {
+                $effectiveDiscountedPrice = max(0.0, min($baseAnnual, $postedDiscountedPrice));
+                $effectiveDiscountPercent = (($baseAnnual - $effectiveDiscountedPrice) / $baseAnnual) * 100;
+            } else {
+                if ($postedDiscountPercent === null && $existingYearlyAmount !== null) {
+                    $postedDiscountPercent = (($baseAnnual - $existingYearlyAmount) / $baseAnnual) * 100;
+                }
+                $effectiveDiscountPercent = max(0.0, min(100.0, (float) ($postedDiscountPercent ?? 0.0)));
+                $effectiveDiscountedPrice = $baseAnnual * (1 - ($effectiveDiscountPercent / 100));
+            }
+
+            $providerPlans['yearly']['price'] = '₱' . number_format((float) round($effectiveDiscountedPrice, 0), 0);
+            $providerPlans['yearly']['description'] = '';
+        }
+
         $data['provider_plans'] = $providerPlans;
     } else {
         $data['system_name'] = isset($_POST['system_name']) ? (string) $_POST['system_name'] : $data['system_name'];
@@ -107,6 +153,14 @@ $settings = superadmin_get_settings($pdo);
 $providerPlans = isset($settings['provider_plans']) && is_array($settings['provider_plans'])
     ? $settings['provider_plans']
     : superadmin_default_provider_plans();
+$monthlyPriceNumeric = superadmin_parse_price_number($providerPlans['monthly']['price'] ?? null);
+$yearlyPriceNumeric = superadmin_parse_price_number($providerPlans['yearly']['price'] ?? null);
+$baseAnnualPrice = ($monthlyPriceNumeric !== null && $monthlyPriceNumeric > 0) ? ($monthlyPriceNumeric * 12) : null;
+$computedDiscountPercent = 0.0;
+if ($baseAnnualPrice !== null && $yearlyPriceNumeric !== null && $baseAnnualPrice > 0) {
+    $computedDiscountPercent = (($baseAnnualPrice - $yearlyPriceNumeric) / $baseAnnualPrice) * 100;
+}
+$computedDiscountPercent = max(0.0, min(100.0, $computedDiscountPercent));
 $pageTitle = htmlspecialchars($settings['system_name'], ENT_QUOTES, 'UTF-8');
 ?>
 <!DOCTYPE html>
@@ -275,6 +329,7 @@ Save general settings
 <form method="post" action="" class="space-y-6">
 <input type="hidden" name="save_superadmin_settings" value="1"/>
 <input type="hidden" name="settings_section" value="plans"/>
+<input type="hidden" name="yearly_pricing_edit_source" id="yearly_pricing_edit_source" value="discount_percent"/>
 <?php
 $planLabels = ['monthly' => 'Monthly', 'yearly' => 'Yearly'];
 foreach ($planLabels as $planKey => $planLabel):
@@ -294,9 +349,26 @@ foreach ($planLabels as $planKey => $planLabel):
 </div>
 <div>
 <label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2" for="provider_plan_<?php echo $planKey; ?>_price">Price label</label>
-<input class="w-full bg-white/80 border border-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20" id="provider_plan_<?php echo $planKey; ?>_price" name="provider_plan_<?php echo $planKey; ?>_price" type="text" maxlength="40" value="<?php echo htmlspecialchars($planPrice, ENT_QUOTES, 'UTF-8'); ?>" placeholder="e.g. ₱999"/>
+<input class="w-full bg-white/80 border border-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20" id="provider_plan_<?php echo $planKey; ?>_price" name="provider_plan_<?php echo $planKey; ?>_price" type="text" maxlength="40" value="<?php echo htmlspecialchars($planPrice, ENT_QUOTES, 'UTF-8'); ?>" placeholder="e.g. ₱999" <?php echo $planKey === 'yearly' ? 'readonly' : ''; ?>/>
 </div>
 </div>
+<?php if ($planKey === 'yearly'): ?>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2" for="yearly_discount_percent">Discount percentage</label>
+<div class="relative">
+<input class="w-full bg-white/80 border border-white rounded-2xl px-4 py-3 pr-10 text-sm focus:ring-2 focus:ring-primary/20" id="yearly_discount_percent" name="yearly_discount_percent" type="number" min="0" max="100" step="0.01" value="<?php echo htmlspecialchars(number_format($computedDiscountPercent, 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?>"/>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">%</span>
+</div>
+</div>
+<div>
+<label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2" for="yearly_discounted_price">Discounted yearly price</label>
+<input class="w-full bg-white/80 border border-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20" id="yearly_discounted_price" name="yearly_discounted_price" type="number" min="0" step="1" value="<?php echo htmlspecialchars((string) ((int) round((float) ($yearlyPriceNumeric ?? 0))), ENT_QUOTES, 'UTF-8'); ?>"/>
+</div>
+</div>
+<p class="text-on-surface-variant/80 text-xs">Auto-compute works both ways based on monthly price: update either discount percentage or discounted yearly price.</p>
+<p class="text-on-surface-variant/80 text-xs">Base yearly amount: <span id="yearly_base_display">₱<?php echo number_format((float) ($baseAnnualPrice ?? 0), 0); ?></span> (monthly x 12)</p>
+<?php endif; ?>
 <div>
 <label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2" for="provider_plan_<?php echo $planKey; ?>_description">Description</label>
 <input class="w-full bg-white/80 border border-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20" id="provider_plan_<?php echo $planKey; ?>_description" name="provider_plan_<?php echo $planKey; ?>_description" type="text" maxlength="255" value="<?php echo htmlspecialchars($planDesc, ENT_QUOTES, 'UTF-8'); ?>"/>
@@ -344,5 +416,84 @@ Download full system backup (.sql)
 
 </div>
 </main>
+<script>
+    (function () {
+        var monthlyPriceInput = document.getElementById('provider_plan_monthly_price');
+        var yearlyPriceLabelInput = document.getElementById('provider_plan_yearly_price');
+        var discountPercentInput = document.getElementById('yearly_discount_percent');
+        var discountedPriceInput = document.getElementById('yearly_discounted_price');
+        var editSourceInput = document.getElementById('yearly_pricing_edit_source');
+        var baseDisplay = document.getElementById('yearly_base_display');
+
+        if (!monthlyPriceInput || !yearlyPriceLabelInput || !discountPercentInput || !discountedPriceInput || !editSourceInput) {
+            return;
+        }
+
+        function parseNumeric(value) {
+            var cleaned = String(value || '').replace(/[^0-9.\-]/g, '');
+            if (cleaned === '' || isNaN(Number(cleaned))) return null;
+            return Number(cleaned);
+        }
+
+        function formatPesoWhole(value) {
+            var n = Number(value || 0);
+            return '₱' + n.toLocaleString('en-PH', { maximumFractionDigits: 0, minimumFractionDigits: 0 });
+        }
+
+        function getBaseAnnual() {
+            var monthly = parseNumeric(monthlyPriceInput.value);
+            if (monthly === null || monthly <= 0) return null;
+            return monthly * 12;
+        }
+
+        function syncFromDiscountPercent() {
+            var base = getBaseAnnual();
+            if (base === null) return;
+            var percent = parseNumeric(discountPercentInput.value);
+            if (percent === null) percent = 0;
+            percent = Math.max(0, Math.min(100, percent));
+            var discounted = Math.round(base * (1 - (percent / 100)));
+            discountPercentInput.value = percent.toFixed(2);
+            discountedPriceInput.value = String(discounted);
+            yearlyPriceLabelInput.value = formatPesoWhole(discounted);
+            if (baseDisplay) baseDisplay.textContent = formatPesoWhole(Math.round(base));
+        }
+
+        function syncFromDiscountedPrice() {
+            var base = getBaseAnnual();
+            if (base === null || base <= 0) return;
+            var discounted = parseNumeric(discountedPriceInput.value);
+            if (discounted === null) discounted = Math.round(base);
+            discounted = Math.max(0, Math.min(base, discounted));
+            var percent = ((base - discounted) / base) * 100;
+            discountPercentInput.value = percent.toFixed(2);
+            discountedPriceInput.value = String(Math.round(discounted));
+            yearlyPriceLabelInput.value = formatPesoWhole(Math.round(discounted));
+            if (baseDisplay) baseDisplay.textContent = formatPesoWhole(Math.round(base));
+        }
+
+        discountPercentInput.addEventListener('input', function () {
+            editSourceInput.value = 'discount_percent';
+            syncFromDiscountPercent();
+        });
+        discountedPriceInput.addEventListener('input', function () {
+            editSourceInput.value = 'discount_price';
+            syncFromDiscountedPrice();
+        });
+        monthlyPriceInput.addEventListener('input', function () {
+            if (editSourceInput.value === 'discount_price') {
+                syncFromDiscountedPrice();
+            } else {
+                syncFromDiscountPercent();
+            }
+        });
+
+        if (editSourceInput.value === 'discount_price') {
+            syncFromDiscountedPrice();
+        } else {
+            syncFromDiscountPercent();
+        }
+    })();
+</script>
 </body>
 </html>
