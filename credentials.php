@@ -271,6 +271,18 @@
                 </div>
             </div>
         </section>
+
+        <section class="card">
+            <h2>GIT REPO</h2>
+            <div class="credential">
+                <div class="role">Quick Push Commands</div>
+                <div class="row">
+                    <div class="label">Commands</div>
+                    <div class="value">git add .<br>git commit -m "update"<br>git push</div>
+                    <button class="copy-btn" data-copy="git add .&#10;git commit -m &quot;update&quot;&#10;git push">Copy</button>
+                </div>
+            </div>
+        </section>
     </div>
 
     <script>
