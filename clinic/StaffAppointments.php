@@ -292,6 +292,12 @@ try {
                     WHERE svc.tenant_id = a.tenant_id
                       AND svc.booking_id = a.booking_id
                 ) as service_type,
+                (
+                    SELECT COALESCE(GROUP_CONCAT(svc.service_id ORDER BY svc.service_id SEPARATOR ','), '')
+                    FROM tbl_appointment_services svc
+                    WHERE svc.tenant_id = a.tenant_id
+                      AND svc.booking_id = a.booking_id
+                ) AS booking_service_ids,
                 a.service_description,
                 a.treatment_type,
                 a.status,
@@ -663,6 +669,7 @@ if ($currentTenantSlug !== '') {
                                             data-status="<?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?>"
                                             data-status-raw="<?php echo htmlspecialchars((string) ($appointment['status'] ?? 'pending'), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-treatment-type-raw="<?php echo htmlspecialchars($treatmentType, ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-booking-service-ids="<?php echo htmlspecialchars((string) ($appointment['booking_service_ids'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                                         >
                                             <span class="material-symbols-outlined text-[20px]">visibility</span>
                                         </button>
@@ -905,7 +912,7 @@ if ($currentTenantSlug !== '') {
                 <div class="bg-white rounded-2xl border border-slate-200 p-4">
                     <div class="flex items-center justify-between gap-3 mb-3">
                         <p class="text-[11px] font-black uppercase tracking-widest text-slate-400">Additional Services</p>
-                        <p class="text-xs font-semibold text-slate-500">Select one or more services to append in this booking.</p>
+                        <p class="text-xs font-semibold text-slate-500">Select services to add. Items already on this booking are disabled.</p>
                     </div>
                     <form method="post" class="space-y-3">
                         <input type="hidden" name="modal_action" value="add_services"/>
@@ -1002,6 +1009,31 @@ if ($currentTenantSlug !== '') {
         const warning = document.getElementById('mPaymentWarning');
         document.querySelectorAll('#treatmentModal input[name="service_ids[]"]').forEach((checkbox) => {
             checkbox.checked = false;
+            checkbox.disabled = false;
+            checkbox.removeAttribute('title');
+            const label = checkbox.closest('label');
+            if (label) {
+                label.classList.remove('opacity-50', 'pointer-events-none');
+            }
+        });
+        const existingIdsRaw = button.dataset.bookingServiceIds || '';
+        const existingIds = new Set(
+            String(existingIdsRaw)
+                .split(',')
+                .map((s) => String(s).trim())
+                .filter(Boolean)
+        );
+        document.querySelectorAll('#treatmentModal input[name="service_ids[]"]').forEach((checkbox) => {
+            const val = String(checkbox.value || '').trim();
+            if (!existingIds.has(val)) {
+                return;
+            }
+            checkbox.disabled = true;
+            checkbox.setAttribute('title', 'Already included in this appointment');
+            const label = checkbox.closest('label');
+            if (label) {
+                label.classList.add('opacity-50', 'pointer-events-none');
+            }
         });
         if (addServiceBookingId) addServiceBookingId.value = button.dataset.bookingId || '';
         if (statusBookingId) statusBookingId.value = button.dataset.bookingId || '';
@@ -1032,6 +1064,12 @@ if ($currentTenantSlug !== '') {
     function closeModal() {
         document.querySelectorAll('#treatmentModal input[name="service_ids[]"]').forEach((checkbox) => {
             checkbox.checked = false;
+            checkbox.disabled = false;
+            checkbox.removeAttribute('title');
+            const label = checkbox.closest('label');
+            if (label) {
+                label.classList.remove('opacity-50', 'pointer-events-none');
+            }
         });
         modal.classList.add('hidden');
     }
