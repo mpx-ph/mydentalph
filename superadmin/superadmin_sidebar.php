@@ -93,31 +93,36 @@ $navMain = [
     }
     body.superadmin-shell .sa-logo-rect,
     body.superadmin-shell .sa-logo-square {
-        transition: opacity 220ms ease, transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+        transition: opacity 220ms ease, transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+        transform-origin: left center;
     }
     body.superadmin-shell .sa-logo-square {
         opacity: 0;
         transform: scale(0.92);
         pointer-events: none;
+        position: absolute;
+        left: 0;
+        top: 0;
     }
     body.superadmin-shell.sa-sidebar-collapsed .sa-logo-rect {
         opacity: 0;
-        transform: scale(0.95);
+        transform: scale(0.92);
         pointer-events: none;
     }
     body.superadmin-shell.sa-sidebar-collapsed .sa-logo-square {
         opacity: 1;
         transform: scale(1);
+        pointer-events: auto;
     }
 }
 </style>
 <aside id="superadmin-sidebar" class="fixed left-0 top-0 h-full w-64 z-40 sidebar-glass flex flex-col py-8 min-h-screen transition-all duration-200">
 <div class="px-7 mb-10 shrink-0">
 <a href="dashboard.php" class="block" aria-label="<?php echo $saSystemName; ?>">
-<div class="relative h-11 w-full">
-<img src="<?php echo $saLogoSrc; ?>" alt="<?php echo $saSystemName; ?>" class="sa-logo-rect absolute inset-0 h-11 w-auto max-w-full object-contain object-left"/>
-<img src="<?php echo $saSquareLogoSrc; ?>" alt="<?php echo $saSystemName; ?>" class="sa-logo-square absolute inset-0 h-11 w-11 object-contain object-left"/>
-</div>
+<span class="relative block h-11">
+<img src="<?php echo $saLogoSrc; ?>" alt="<?php echo $saSystemName; ?>" class="sa-logo-rect h-11 w-auto max-w-full object-contain object-left"/>
+<img src="<?php echo $saSquareLogoSrc; ?>" alt="<?php echo $saSystemName; ?>" class="sa-logo-square h-11 w-11 object-contain"/>
+</span>
 </a>
 <p class="sa-sidebar-tagline text-on-surface-variant text-[10px] font-bold tracking-[0.2em] mt-2 opacity-60"><?php echo $saTagline; ?></p>
 </div>
