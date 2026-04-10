@@ -35,42 +35,30 @@ function superadmin_settings_ensure_table(PDO $pdo): void
 function superadmin_default_provider_plans(): array
 {
     return [
-        'starter' => [
-            'name' => 'Starter',
-            'price' => '₱999',
-            'description' => 'Essential tools for independent clinics starting their digital journey.',
-            'cta' => 'Choose Starter',
+        'monthly' => [
+            'name' => 'MONTHLY',
+            'price' => '₱4,999',
+            'description' => 'Full platform access billed monthly with no annual commitment.',
+            'cta' => 'Choose Monthly',
             'features' => [
-                'Unlimited Patient Records',
-                'Basic Calendar Scheduling',
-                'Email Support',
-                'Treatment Charting',
-            ],
-        ],
-        'professional' => [
-            'name' => 'Professional',
-            'price' => '₱2,499',
-            'description' => 'Comprehensive features for busy practices looking to automate.',
-            'cta' => 'Choose Professional',
-            'features' => [
-                'Everything in Starter',
+                'Booking App',
+                'Professional Clinic Management System',
                 'Advanced Analytics Dashboards',
-                'Automated SMS Reminders',
                 '24/7 Priority Support',
                 'Multi-user Access Control',
             ],
         ],
-        'enterprise' => [
-            'name' => 'Enterprise',
-            'price' => '₱4,999',
-            'description' => 'Customized solutions for dental networks and multi-branch clinics.',
-            'cta' => 'Choose Enterprise',
+        'yearly' => [
+            'name' => 'YEARLY',
+            'price' => '₱47,998',
+            'description' => 'Promo: 20% off annual billing. Regular ₱59,988/year, save ₱11,990.',
+            'cta' => 'Choose Yearly',
             'features' => [
-                'Everything in Professional',
-                'Custom API Integrations',
-                'Unlimited Cloud Storage',
-                'Dedicated Account Manager',
-                'White-label Patient Portal',
+                'Booking App',
+                'Professional Clinic Management System',
+                'Advanced Analytics Dashboards',
+                '24/7 Priority Support',
+                'Multi-user Access Control',
             ],
         ],
     ];

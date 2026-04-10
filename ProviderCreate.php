@@ -8,7 +8,7 @@ require_once 'mail_config.php';
 $error = '';
 $success = '';
 $chosen_plan = isset($_GET['plan']) ? strtolower(trim($_GET['plan'])) : '';
-$allowed_plans = ['starter', 'professional', 'enterprise'];
+$allowed_plans = ['monthly', 'yearly'];
 
 function provider_password_strength_score(string $password): int
 {
@@ -38,7 +38,7 @@ function provider_password_strength_score(string $password): int
 }
 
 if (!in_array($chosen_plan, $allowed_plans, true)) {
-    $chosen_plan = 'professional';
+    $chosen_plan = 'monthly';
 }
 
 // Authenticated providers should continue subscription flow, not re-enter account creation.
@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $confirm_password = $_POST['confirm_password'] ?? '';
     $plan = isset($_POST['plan']) ? strtolower(trim($_POST['plan'])) : $chosen_plan;
     if (!in_array($plan, $allowed_plans, true)) {
-        $plan = 'professional';
+        $plan = 'monthly';
     }
 
     if (empty($clinic_name) || empty($country_region) || empty($username) || empty($email) || empty($password) || empty($confirm_password)) {

@@ -55,16 +55,14 @@ require_once __DIR__ . '/superadmin/superadmin_settings_lib.php';
 $tenant_id = null;
 $user_id = null;
 $plan_slug = null;
-$allowed = ['starter', 'professional', 'enterprise'];
+$allowed = ['monthly', 'yearly'];
 $plan_label_map = [
-    'starter' => 'Starter',
-    'professional' => 'Professional',
-    'enterprise' => 'Enterprise',
+    'monthly' => 'MONTHLY',
+    'yearly' => 'YEARLY',
 ];
 $plan_price_fallback_map = [
-    'starter' => 999,
-    'professional' => 2499,
-    'enterprise' => 4999,
+    'monthly' => 4999,
+    'yearly' => 47998,
 ];
 try {
     $settings = superadmin_get_settings($pdo);
@@ -105,11 +103,11 @@ foreach ($allowed as $allowed_slug) {
 $has_explicit_plan_request = ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['selected_plan_slug']))
     || isset($_GET['plan']);
 $requested_plan_source = $_SERVER['REQUEST_METHOD'] === 'POST'
-    ? ($_POST['selected_plan_slug'] ?? ($_GET['plan'] ?? 'professional'))
-    : ($_GET['plan'] ?? 'professional');
+    ? ($_POST['selected_plan_slug'] ?? ($_GET['plan'] ?? 'monthly'))
+    : ($_GET['plan'] ?? 'monthly');
 $requested_plan_slug = strtolower(trim((string) $requested_plan_source));
 if (!in_array($requested_plan_slug, $allowed, true)) {
-    $requested_plan_slug = 'professional';
+    $requested_plan_slug = 'monthly';
 }
 $force_from_clinic_setup_once = !empty($_SESSION['force_purchase_from_clinic_setup_once']);
 $return_source = strtolower(trim((string) ($_GET['source'] ?? '')));
@@ -236,14 +234,18 @@ $resolve_allowed_slug = static function (array $row): string {
     if ($combined === '') {
         return '';
     }
-    if (strpos($combined, 'starter') !== false) {
-        return 'starter';
+    if (strpos($combined, 'yearly') !== false || strpos($combined, 'annual') !== false || strpos($combined, 'year') !== false) {
+        return 'yearly';
     }
-    if (strpos($combined, 'professional') !== false || strpos($combined, 'pro') !== false) {
-        return 'professional';
+    if (strpos($combined, 'monthly') !== false || strpos($combined, 'month') !== false) {
+        return 'monthly';
     }
+    // Legacy compatibility: collapse retired slugs into current plan set.
     if (strpos($combined, 'enterprise') !== false || strpos($combined, 'premium') !== false) {
-        return 'enterprise';
+        return 'yearly';
+    }
+    if (strpos($combined, 'starter') !== false || strpos($combined, 'professional') !== false || strpos($combined, 'pro') !== false) {
+        return 'monthly';
     }
     return '';
 };
@@ -268,16 +270,16 @@ try {
 }
 $selected_plan_data = $available_plans[$plan_slug] ?? null;
 if (!$selected_plan_data) {
-    $plan_slug = 'professional';
+    $plan_slug = 'monthly';
     $selected_plan_data = $available_plans[$plan_slug] ?? [
         'plan_id' => 1,
-        'plan_name' => 'Professional',
-        'plan_price' => 2499.0,
-        'plan_slug' => 'professional',
+        'plan_name' => 'MONTHLY',
+        'plan_price' => 4999.0,
+        'plan_slug' => 'monthly',
     ];
 }
-$plan_name = (string) ($selected_plan_data['plan_name'] ?? ($plan_label_map[$plan_slug] ?? 'Professional'));
-$plan_price = (float) ($selected_plan_data['plan_price'] ?? ($plan_price_fallback_map[$plan_slug] ?? 2499));
+$plan_name = (string) ($selected_plan_data['plan_name'] ?? ($plan_label_map[$plan_slug] ?? 'MONTHLY'));
+$plan_price = (float) ($selected_plan_data['plan_price'] ?? ($plan_price_fallback_map[$plan_slug] ?? 4999));
 $plan_id = (int) ($selected_plan_data['plan_id'] ?? 1);
 $_SESSION['onboarding_plan'] = $plan_slug;
 $available_plans_json = json_encode($available_plans, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
@@ -514,7 +516,7 @@ $back_href = 'ProviderClinicSetup.php';
 <span class="material-symbols-outlined text-lg leading-none">sync_alt</span>
 </button>
 </div>
-<p class="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-white/80">
+<p id="summary-billing-label" class="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-white/80">
 <span class="material-symbols-outlined shrink-0 text-base text-white/90">event_repeat</span>
                                     Billing monthly
                                 </p>
@@ -597,7 +599,7 @@ $simulate_fail_href = 'ProviderPurchase.php?' . http_build_query($simulate_fail_
 <span class="material-symbols-outlined text-lg leading-none">close</span>
 </button>
 </div>
-<div id="plan-modal-options" class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+<div id="plan-modal-options" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
 <?php foreach ($allowed as $plan_option_slug): ?>
 <?php
 $plan_option = $available_plans[$plan_option_slug] ?? [
@@ -611,12 +613,12 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
     data-plan-slug="<?php echo htmlspecialchars($plan_option_slug, ENT_QUOTES, 'UTF-8'); ?>"
     class="plan-option group rounded-xl border bg-surface-container-low p-4 text-left transition-all duration-200 hover:border-primary/40 hover:shadow-md <?php echo $is_modal_selected ? 'is-selected border-primary ring-2 ring-primary/20' : 'border-on-surface/10'; ?>"
 >
-<p class="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant">Monthly Plan</p>
+<p class="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant"><?php echo $plan_option_slug === 'yearly' ? 'Yearly Plan' : 'Monthly Plan'; ?></p>
 <div class="mt-2 flex items-center justify-between gap-2">
 <h4 class="font-headline text-base font-extrabold text-on-surface"><?php echo htmlspecialchars((string) ($plan_option['plan_name'] ?? ucfirst($plan_option_slug)), ENT_QUOTES, 'UTF-8'); ?></h4>
 <span class="material-symbols-outlined text-base text-primary opacity-0 transition-opacity group-[.is-selected]:opacity-100">check_circle</span>
 </div>
-<p class="mt-1.5 text-sm font-semibold text-primary">₱<?php echo number_format((float) ($plan_option['plan_price'] ?? 0), 2); ?>/mo</p>
+<p class="mt-1.5 text-sm font-semibold text-primary">₱<?php echo number_format((float) ($plan_option['plan_price'] ?? 0), 2); ?><?php echo $plan_option_slug === 'yearly' ? '/year' : '/mo'; ?></p>
 </button>
 <?php endforeach; ?>
 </div>
@@ -701,7 +703,7 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
       if (!selectedPlanInput || !selectedPlanInput.value) {
         // Fail-safe default plan if hidden field was unexpectedly cleared client-side.
         if (selectedPlanInput) {
-          selectedPlanInput.value = 'professional';
+          selectedPlanInput.value = 'monthly';
         }
       }
 
@@ -725,6 +727,7 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
   var summaryPriceHead = document.getElementById('summary-plan-price-head');
   var summarySubtotal = document.getElementById('summary-plan-subtotal');
   var summaryTotal = document.getElementById('summary-plan-total');
+  var summaryBillingLabel = document.getElementById('summary-billing-label');
   var modal = document.getElementById('plan-selection-modal');
   var openBtn = document.getElementById('open-plan-modal');
   var closeBtn = document.getElementById('close-plan-modal');
@@ -735,7 +738,7 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
   var stagedPlanSlug = selectedPlanInput ? selectedPlanInput.value : '';
   var currentPlanSlug = stagedPlanSlug;
 
-  if (!selectedPlanInput || !summaryPlanName || !summaryPriceHead || !summarySubtotal || !summaryTotal || !modal || !openBtn || optionButtons.length === 0) {
+  if (!selectedPlanInput || !summaryPlanName || !summaryPriceHead || !summarySubtotal || !summaryTotal || !summaryBillingLabel || !modal || !openBtn || optionButtons.length === 0) {
     return;
   }
 
@@ -751,12 +754,14 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
   function applyPlanToSummary(planSlug) {
     var plan = getPlan(planSlug);
     if (!plan) return;
-    var name = plan.plan_name || 'Professional';
+    var name = plan.plan_name || 'MONTHLY';
     var price = Number(plan.plan_price || 0);
+    var billingLabel = planSlug === 'yearly' ? '/year' : '/mo';
     summaryPlanName.textContent = name;
     summaryPriceHead.textContent = formatMoney(price);
-    summarySubtotal.textContent = formatMoney(price) + '/mo';
+    summarySubtotal.textContent = formatMoney(price) + billingLabel;
     summaryTotal.textContent = formatMoney(price);
+    summaryBillingLabel.innerHTML = '<span class="material-symbols-outlined shrink-0 text-base text-white/90">event_repeat</span>' + (planSlug === 'yearly' ? 'Billing yearly' : 'Billing monthly');
     selectedPlanInput.value = planSlug;
     currentPlanSlug = planSlug;
     syncOptionSelection(planSlug);

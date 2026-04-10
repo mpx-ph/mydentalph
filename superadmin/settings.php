@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_superadmin_setti
 
     if ($settingsSection === 'plans') {
         $providerPlans = [];
-        $planKeys = ['starter', 'professional', 'enterprise'];
+        $planKeys = ['monthly', 'yearly'];
         foreach ($planKeys as $planKey) {
             $featuresText = isset($_POST['provider_plan_' . $planKey . '_features'])
                 ? (string) $_POST['provider_plan_' . $planKey . '_features']
@@ -276,7 +276,7 @@ Save general settings
 <input type="hidden" name="save_superadmin_settings" value="1"/>
 <input type="hidden" name="settings_section" value="plans"/>
 <?php
-$planLabels = ['starter' => 'Starter', 'professional' => 'Professional', 'enterprise' => 'Enterprise'];
+$planLabels = ['monthly' => 'Monthly', 'yearly' => 'Yearly'];
 foreach ($planLabels as $planKey => $planLabel):
     $plan = isset($providerPlans[$planKey]) && is_array($providerPlans[$planKey]) ? $providerPlans[$planKey] : [];
     $planName = isset($plan['name']) ? (string) $plan['name'] : $planLabel;

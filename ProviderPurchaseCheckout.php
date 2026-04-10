@@ -21,7 +21,7 @@ if (!provider_has_authenticated_provider_session()) {
 
 [$tenant_id, $user_id] = provider_get_authenticated_provider_identity_from_session();
 $valid_methods = ['card', 'gcash', 'paymaya'];
-$allowed_plans = ['starter', 'professional', 'enterprise'];
+$allowed_plans = ['monthly', 'yearly'];
 
 $posted_token = (string) ($_POST['purchase_form_token'] ?? '');
 $session_token = (string) ($_SESSION['provider_purchase_form_token'] ?? '');
@@ -42,25 +42,22 @@ if (!in_array($payment_method, $valid_methods, true)) {
     exit;
 }
 
-$plan_slug = strtolower(trim((string) ($_POST['selected_plan_slug'] ?? 'professional')));
+$plan_slug = strtolower(trim((string) ($_POST['selected_plan_slug'] ?? 'monthly')));
 if (!in_array($plan_slug, $allowed_plans, true)) {
-    $plan_slug = 'professional';
+    $plan_slug = 'monthly';
 }
 
 $plan_label_map = [
-    'starter' => 'Starter',
-    'professional' => 'Professional',
-    'enterprise' => 'Enterprise',
+    'monthly' => 'MONTHLY',
+    'yearly' => 'YEARLY',
 ];
 $plan_price_map = [
-    'starter' => 999.0,
-    'professional' => 2499.0,
-    'enterprise' => 4999.0,
+    'monthly' => 4999.0,
+    'yearly' => 47998.0,
 ];
 $plan_id_map = [
-    'starter' => 1,
-    'professional' => 2,
-    'enterprise' => 3,
+    'monthly' => 1,
+    'yearly' => 2,
 ];
 
 $normalize_plan_price = static function ($raw_value): ?float {
@@ -108,14 +105,18 @@ $resolve_allowed_slug = static function (array $row): string {
     if ($combined === '') {
         return '';
     }
-    if (strpos($combined, 'starter') !== false) {
-        return 'starter';
+    if (strpos($combined, 'yearly') !== false || strpos($combined, 'annual') !== false || strpos($combined, 'year') !== false) {
+        return 'yearly';
     }
-    if (strpos($combined, 'professional') !== false || strpos($combined, 'pro') !== false) {
-        return 'professional';
+    if (strpos($combined, 'monthly') !== false || strpos($combined, 'month') !== false) {
+        return 'monthly';
     }
+    // Legacy compatibility with retired plan labels/slugs.
     if (strpos($combined, 'enterprise') !== false || strpos($combined, 'premium') !== false) {
-        return 'enterprise';
+        return 'yearly';
+    }
+    if (strpos($combined, 'starter') !== false || strpos($combined, 'professional') !== false || strpos($combined, 'pro') !== false) {
+        return 'monthly';
     }
     return '';
 };
@@ -144,7 +145,7 @@ try {
 }
 
 $plan_id = (int) ($plan_id_map[$plan_slug] ?? 0);
-$plan_name = (string) ($plan_label_map[$plan_slug] ?? 'Professional');
+$plan_name = (string) ($plan_label_map[$plan_slug] ?? 'MONTHLY');
 $plan_price = (float) ($plan_price_map[$plan_slug] ?? 0);
 if ($plan_id <= 0 || $plan_price <= 0) {
     $_SESSION['provider_purchase_error'] = 'Invalid plan details. Please choose a plan and try again.';

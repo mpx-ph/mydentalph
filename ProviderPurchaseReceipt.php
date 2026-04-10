@@ -46,7 +46,8 @@ if ($status_from_query !== '' && !in_array($status_from_query, $allowed_query_st
 $payment_intent_id = $_SESSION['paymongo_payment_intent_id'] ?? null;
 $checkout_session_id = $_SESSION['paymongo_checkout_session_id'] ?? null;
 $client_key = $_SESSION['paymongo_client_key'] ?? null;
-$plan_name = $_SESSION['paymongo_plan_name'] ?? 'Professional';
+$plan_name = $_SESSION['paymongo_plan_name'] ?? 'MONTHLY';
+$plan_slug = strtolower(trim((string) ($_SESSION['paymongo_plan_slug'] ?? 'monthly')));
 $plan_price = $_SESSION['paymongo_plan_price'] ?? 0;
 $payment_method = $_SESSION['paymongo_payment_method'] ?? 'card'; // card|gcash|paymaya
 $billing_email = $_SESSION['paymongo_billing_email'] ?? '';
@@ -295,7 +296,9 @@ try {
 
     if (!$existingId) {
         $start = date('Y-m-d');
-        $end = date('Y-m-d', strtotime('+1 month'));
+        $end = $plan_slug === 'yearly'
+            ? date('Y-m-d', strtotime('+1 year'))
+            : date('Y-m-d', strtotime('+1 month'));
         $insertStmt = $pdo->prepare("
             INSERT INTO tbl_tenant_subscriptions
             (tenant_id, plan_id, subscription_start, subscription_end, payment_status, payment_method, amount_paid, reference_number)

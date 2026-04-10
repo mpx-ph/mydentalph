@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS tbl_provider_pending_signups (
     username VARCHAR(100) NOT NULL,
     email VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    plan VARCHAR(50) NOT NULL DEFAULT 'professional',
+    plan VARCHAR(50) NOT NULL DEFAULT 'monthly',
     otp_hash VARCHAR(255) NOT NULL,
     otp_expires_at DATETIME NOT NULL,
     attempts INT NOT NULL DEFAULT 0,

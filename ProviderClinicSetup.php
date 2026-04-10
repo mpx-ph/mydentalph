@@ -20,7 +20,7 @@ $approved_request = null;
 $user_id = '';
 $token_attempted = ($setup_token !== '' || $setup_request_id > 0);
 $chosen_plan = isset($_GET['plan']) ? strtolower(trim((string) $_GET['plan'])) : '';
-if (in_array($chosen_plan, ['starter', 'professional', 'enterprise'], true)) {
+if (in_array($chosen_plan, ['monthly', 'yearly'], true)) {
     $_SESSION['onboarding_plan'] = $chosen_plan;
 }
 
@@ -322,7 +322,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $setup_access_granted) {
 
                 $next_plan = strtolower(trim((string) ($_SESSION['onboarding_plan'] ?? '')));
                 $redirect = 'ProviderPurchase.php';
-                if (in_array($next_plan, ['starter', 'professional', 'enterprise'], true)) {
+                if (in_array($next_plan, ['monthly', 'yearly'], true)) {
                     $redirect .= '?plan=' . urlencode($next_plan);
                 }
                 header('Location: ' . $redirect);

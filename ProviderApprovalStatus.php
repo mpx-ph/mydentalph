@@ -61,7 +61,7 @@ if ($verificationStatus === 'approved') {
 
     if ($setupDoneInSession || $clinicSlugSet) {
         $plan = isset($_SESSION['onboarding_plan']) ? strtolower(trim((string) $_SESSION['onboarding_plan'])) : '';
-        $qs = in_array($plan, ['starter', 'professional', 'enterprise'], true)
+        $qs = in_array($plan, ['monthly', 'yearly'], true)
             ? ('?plan=' . urlencode($plan))
             : '';
         // Same flag as ProviderClinicSetup: allow ProviderPurchase to run (skip VerifyBusiness gate once).
