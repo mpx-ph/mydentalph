@@ -249,6 +249,21 @@ try {
 <?php else: ?>
 <p class="text-sm text-on-surface-variant/70">No subscription record yet.</p>
 <?php endif; ?>
+<div class="mt-5 pt-5 border-t border-slate-200/80">
+<?php if ($is_subscription_active): ?>
+<button type="button" class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 text-slate-500 px-4 py-3 text-xs font-extrabold uppercase tracking-wide cursor-not-allowed ring-1 ring-slate-200/80" disabled aria-disabled="true" title="You already have an active subscription.">
+<span class="material-symbols-outlined text-base">block</span>
+<span>Plan purchase unavailable</span>
+</button>
+<p class="mt-2 text-xs text-amber-700 font-semibold">You already have an active subscription. Wait until expiry or contact support to switch plans.</p>
+<?php else: ?>
+<a href="Provider-Plans.php" class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-white hover:bg-primary/90 px-4 py-3 text-xs font-extrabold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+<span class="material-symbols-outlined text-base">shopping_cart</span>
+<span>Buy plan</span>
+</a>
+<p class="mt-2 text-xs text-on-surface-variant/75 font-medium">No active subscription. Choose a plan to continue premium access.</p>
+<?php endif; ?>
+</div>
 </div>
 </div>
 <div class="dash-stat-card dash-stat-card--domain relative overflow-hidden rounded-3xl backdrop-blur-md p-7 provider-card-lift group flex flex-col">
