@@ -47,23 +47,57 @@ $navMain = [
     body.superadmin-shell.sa-sidebar-collapsed .sa-top-header {
         width: calc(100% - 5.5rem);
     }
-}
-.sa-collapse-fade {
-    transition: opacity 220ms ease, transform 280ms cubic-bezier(0.22, 1, 0.36, 1), max-width 320ms ease, margin 320ms ease;
-    will-change: opacity, transform;
+    body.superadmin-shell #superadmin-sidebar {
+        transition: width 340ms cubic-bezier(0.22, 1, 0.36, 1);
+        overflow: hidden;
+    }
+    body.superadmin-shell .sa-sidebar-divider-toggle {
+        position: fixed;
+        top: 44%;
+        left: calc(16rem - 0.8rem);
+        z-index: 55;
+        width: 1.6rem;
+        height: 4.25rem;
+        border-radius: 9999px;
+        border: 1px solid rgba(224, 233, 246, 0.95);
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 10px 28px -15px rgba(19, 28, 37, 0.5);
+        color: #456085;
+        transition: left 340ms cubic-bezier(0.22, 1, 0.36, 1), color 180ms ease, background-color 180ms ease;
+    }
+    body.superadmin-shell .sa-sidebar-divider-toggle:hover {
+        color: #0066ff;
+        background: #ffffff;
+    }
+    body.superadmin-shell.sa-sidebar-collapsed .sa-sidebar-divider-toggle {
+        left: calc(5.5rem - 0.8rem);
+    }
+    body.superadmin-shell .sa-sidebar-label,
+    body.superadmin-shell .sa-sidebar-tagline,
+    body.superadmin-shell .sa-sidebar-profile-text {
+        max-width: 16rem;
+        opacity: 1;
+        transform: translateX(0);
+        white-space: nowrap;
+        overflow: hidden;
+        transition: max-width 300ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease, transform 220ms ease;
+    }
+    body.superadmin-shell.sa-sidebar-collapsed .sa-sidebar-label,
+    body.superadmin-shell.sa-sidebar-collapsed .sa-sidebar-tagline,
+    body.superadmin-shell.sa-sidebar-collapsed .sa-sidebar-profile-text {
+        max-width: 0;
+        opacity: 0;
+        transform: translateX(-6px);
+        pointer-events: none;
+    }
 }
 </style>
-<aside id="superadmin-sidebar" class="fixed left-0 top-0 h-full w-64 z-40 sidebar-glass flex flex-col py-8 min-h-screen transition-[width] duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)]">
-<div class="px-3 mb-5 hidden lg:flex justify-center">
-<button id="superadmin-sidebar-toggle" class="w-9 h-9 rounded-xl bg-white/70 hover:bg-white text-on-surface-variant hover:text-primary border border-white/60 shadow-sm flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-100" type="button" aria-label="Collapse sidebar" aria-expanded="true">
-<span class="material-symbols-outlined text-[20px]">left_panel_close</span>
-</button>
-</div>
+<aside id="superadmin-sidebar" class="fixed left-0 top-0 h-full w-64 z-40 sidebar-glass flex flex-col py-8 min-h-screen transition-all duration-200">
 <div class="px-7 mb-10 shrink-0">
 <a href="dashboard.php" class="block" aria-label="<?php echo $saSystemName; ?>">
 <img src="<?php echo $saLogoSrc; ?>" alt="<?php echo $saSystemName; ?>" class="h-11 w-auto max-w-full object-contain object-left"/>
 </a>
-<p class="sa-sidebar-tagline sa-collapse-fade text-on-surface-variant text-[10px] font-bold tracking-[0.2em] mt-2 opacity-60"><?php echo $saTagline; ?></p>
+<p class="sa-sidebar-tagline text-on-surface-variant text-[10px] font-bold tracking-[0.2em] mt-2 opacity-60"><?php echo $saTagline; ?></p>
 </div>
 <nav class="flex-1 min-h-0 space-y-1 overflow-y-auto no-scrollbar">
 <?php foreach ($navMain as $it):
@@ -76,7 +110,7 @@ $navMain = [
 <div class="relative px-3">
 <a class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl transition-all duration-200 active-glow" href="<?php echo $href; ?>">
 <span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;"><?php echo $icon; ?></span>
-<span class="sa-sidebar-label sa-collapse-fade font-headline text-sm font-bold tracking-tight"><?php echo $label; ?></span>
+<span class="sa-sidebar-label font-headline text-sm font-bold tracking-tight"><?php echo $label; ?></span>
 </a>
 <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full"></div>
 </div>
@@ -84,7 +118,7 @@ $navMain = [
 <div class="px-3">
 <a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface transition-colors duration-200 hover:bg-white/50 rounded-xl" href="<?php echo $href; ?>">
 <span class="material-symbols-outlined text-[22px]"><?php echo $icon; ?></span>
-<span class="sa-sidebar-label sa-collapse-fade font-headline text-sm font-medium tracking-tight"><?php echo $label; ?></span>
+<span class="sa-sidebar-label font-headline text-sm font-medium tracking-tight"><?php echo $label; ?></span>
 </a>
 </div>
 <?php
@@ -94,7 +128,7 @@ endforeach;
 <div class="px-3">
 <a class="flex items-center gap-3 px-4 py-3 text-error hover:text-error transition-colors duration-200 hover:bg-error/10 rounded-xl" href="../ProviderLogout.php">
 <span class="material-symbols-outlined text-[22px]">logout</span>
-<span class="sa-sidebar-label sa-collapse-fade font-headline text-sm font-medium tracking-tight">Logout</span>
+<span class="sa-sidebar-label font-headline text-sm font-medium tracking-tight">Logout</span>
 </a>
 </div>
 </nav>
@@ -106,7 +140,7 @@ endforeach;
 <?php else: ?>
 <div class="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary text-xs font-bold border-2 border-white shadow-sm shrink-0"><?php echo htmlspecialchars($initials, ENT_QUOTES, 'UTF-8'); ?></div>
 <?php endif; ?>
-<div class="sa-sidebar-profile-text sa-collapse-fade min-w-0 flex-1">
+<div class="sa-sidebar-profile-text min-w-0 flex-1">
 <p class="text-on-surface text-sm font-bold truncate"><?php echo htmlspecialchars($u['full_name'], ENT_QUOTES, 'UTF-8'); ?></p>
 <?php if ($emailDisplay !== ''): ?>
 <p class="text-on-surface-variant text-[11px] truncate"><?php echo htmlspecialchars($emailDisplay, ENT_QUOTES, 'UTF-8'); ?></p>
@@ -117,6 +151,9 @@ endforeach;
 </div>
 </div>
 </aside>
+<button id="superadmin-sidebar-toggle" class="sa-sidebar-divider-toggle hidden lg:flex items-center justify-center" type="button" aria-label="Collapse sidebar" aria-expanded="true">
+<span class="material-symbols-outlined text-[20px]">chevron_left</span>
+</button>
 <script>
 (function () {
     var body = document.body;
@@ -138,24 +175,9 @@ endforeach;
         body.classList.toggle('sa-sidebar-collapsed', collapsed);
         sidebar.classList.toggle('w-[5.5rem]', collapsed);
         sidebar.classList.toggle('w-64', !collapsed);
-        sidebar.querySelectorAll('.sa-sidebar-label, .sa-sidebar-tagline, .sa-sidebar-profile-text').forEach(function (el) {
-            el.style.opacity = collapsed ? '0' : '1';
-            el.style.transform = collapsed ? 'translateX(-6px)' : 'translateX(0)';
-            el.style.pointerEvents = collapsed ? 'none' : '';
-            if (collapsed) {
-                el.style.maxWidth = '0px';
-                el.style.marginLeft = '0px';
-                el.style.marginRight = '0px';
-            } else {
-                el.style.maxWidth = '';
-                el.style.marginLeft = '';
-                el.style.marginRight = '';
-            }
-        });
         sidebar.querySelectorAll('nav a').forEach(function (a) {
             a.classList.toggle('justify-center', collapsed);
             a.classList.toggle('gap-3', !collapsed);
-            a.classList.toggle('gap-0', collapsed);
             if (collapsed) {
                 var labelNode = a.querySelector('.sa-sidebar-label');
                 a.setAttribute('title', labelNode ? (labelNode.textContent || '').trim() : '');
@@ -166,7 +188,7 @@ endforeach;
         toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
         toggle.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
         var icon = toggle.querySelector('.material-symbols-outlined');
-        if (icon) icon.textContent = collapsed ? 'left_panel_open' : 'left_panel_close';
+        if (icon) icon.textContent = collapsed ? 'chevron_right' : 'chevron_left';
     }
 
     function restoreState() {
