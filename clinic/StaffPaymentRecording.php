@@ -21,16 +21,26 @@ $tenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']
 $userId = isset($_SESSION['user_id']) ? trim((string) $_SESSION['user_id']) : null;
 $paymentSuccess = '';
 $paymentError = '';
-$selectedMethod = strtolower(trim((string) ($_POST['payment_method'] ?? 'cash')));
+if (isset($_GET['payment_success']) && $_GET['payment_success'] === '1') {
+    $paymentSuccess = 'Payment recorded successfully.';
+}
+if (isset($_GET['paymongo_error']) && $_GET['paymongo_error'] === '1') {
+    $paymentError = 'Could not confirm the online payment. If money was debited, contact support with the booking reference and time of payment.';
+}
 $allowedMethods = [
     'gcash' => 'GCash',
     'cash' => 'Cash',
     'bank_transfer' => 'Bank Transfer',
     'credit_card' => 'Credit Card',
 ];
-if (!isset($allowedMethods[$selectedMethod])) {
-    $selectedMethod = 'cash';
+$selectedMethod = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $selectedMethod = strtolower(trim((string) ($_POST['payment_method'] ?? '')));
+    if ($selectedMethod !== '' && !isset($allowedMethods[$selectedMethod])) {
+        $selectedMethod = '__invalid__';
+    }
 }
+$selectedMethodForUi = ($selectedMethod === '__invalid__') ? '' : $selectedMethod;
 
 $summaryTotalRevenue = 0.0;
 $summaryTodayRevenue = 0.0;
@@ -67,6 +77,20 @@ try {
         $tenantRow = $tenantStmt->fetch(PDO::FETCH_ASSOC);
         if ($tenantRow && isset($tenantRow['tenant_id'])) {
             $tenantId = (string) $tenantRow['tenant_id'];
+        }
+    }
+
+    if ($tenantId !== '' && $_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['paymongo_cancel']) && (string) $_GET['paymongo_cancel'] === '1') {
+        $cxPid = trim((string) ($_GET['pid'] ?? ''));
+        $cxToken = trim((string) ($_GET['token'] ?? ''));
+        if ($cxPid !== '' && $cxToken !== '' && isset($_SESSION['staff_paymongo_checkout']) && is_array($_SESSION['staff_paymongo_checkout'])) {
+            $st = $_SESSION['staff_paymongo_checkout'];
+            if (($st['payment_id'] ?? '') === $cxPid && isset($st['token']) && hash_equals((string) $st['token'], $cxToken) && ($st['tenant_id'] ?? '') === $tenantId) {
+                $cancelStmt = $pdo->prepare("UPDATE tbl_payments SET status = 'cancelled' WHERE tenant_id = ? AND payment_id = ? AND status = 'pending' LIMIT 1");
+                $cancelStmt->execute([$tenantId, $cxPid]);
+                $paymentError = 'Online checkout was cancelled; no payment was recorded.';
+                unset($_SESSION['staff_paymongo_checkout']);
+            }
         }
     }
 
@@ -121,7 +145,7 @@ try {
         $amount = (float) ($_POST['amount'] ?? 0);
         $paymentDate = trim((string) ($_POST['payment_date'] ?? date('Y-m-d')));
         $notes = trim((string) ($_POST['notes'] ?? ''));
-        $method = strtolower(trim((string) ($_POST['payment_method'] ?? 'cash')));
+        $method = strtolower(trim((string) ($_POST['payment_method'] ?? '')));
         $additionalServiceIds = [];
         if (isset($_POST['additional_service_ids']) && is_array($_POST['additional_service_ids'])) {
             foreach ($_POST['additional_service_ids'] as $serviceIdValue) {
@@ -133,10 +157,9 @@ try {
             $additionalServiceIds = array_values(array_unique($additionalServiceIds));
         }
 
-        if (!isset($allowedMethods[$method])) {
-            $method = 'cash';
-        }
-        if ($selectedBookingId === '') {
+        if ($method === '' || !isset($allowedMethods[$method])) {
+            $paymentError = 'Please select a payment method.';
+        } elseif ($selectedBookingId === '') {
             $paymentError = 'Please select a pending appointment transaction first.';
         } elseif ($amount <= 0) {
             $paymentError = 'Please enter a valid payment amount.';
@@ -263,6 +286,9 @@ try {
                         throw new RuntimeException('Payment amount exceeds the pending balance of ₱' . number_format($pendingBalance, 2) . '.');
                     }
 
+                    $usePayMongo = in_array($method, ['gcash', 'bank_transfer', 'credit_card'], true);
+                    $recordStatus = $usePayMongo ? 'pending' : 'completed';
+
                     $paymentId = 'PAY-' . date('YmdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
                     // Keep compatibility with deployments where payment_type enum only allows downpayment/fullpayment.
                     $paymentType = ($amount + 0.009 >= $pendingBalance) ? 'fullpayment' : 'downpayment';
@@ -281,7 +307,7 @@ try {
                                 status,
                                 created_by,
                                 payment_type
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?)
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ";
                         $insertParams = [
                             $tenantId,
@@ -292,6 +318,7 @@ try {
                             $method,
                             $paymentDate . ' ' . date('H:i:s'),
                             $notes !== '' ? $notes : null,
+                            $recordStatus,
                             $userId !== '' ? $userId : null,
                             $paymentType,
                         ];
@@ -308,7 +335,7 @@ try {
                                 notes,
                                 status,
                                 created_by
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?)
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ";
                         $insertParams = [
                             $tenantId,
@@ -319,12 +346,134 @@ try {
                             $method,
                             $paymentDate . ' ' . date('H:i:s'),
                             $notes !== '' ? $notes : null,
+                            $recordStatus,
                             $userId !== '' ? $userId : null,
                         ];
                     }
 
                     $insertStmt = $pdo->prepare($insertSql);
                     $insertStmt->execute($insertParams);
+
+                    if ($usePayMongo) {
+                        require_once dirname(__DIR__) . '/paymongo_config.php';
+                        $secret = defined('PAYMONGO_SECRET_KEY') ? (string) PAYMONGO_SECRET_KEY : '';
+                        if ($secret === '' || strpos($secret, 'YOUR_') !== false) {
+                            $del = $pdo->prepare('DELETE FROM tbl_payments WHERE tenant_id = ? AND payment_id = ? AND status = ?');
+                            $del->execute([$tenantId, $paymentId, 'pending']);
+                            throw new RuntimeException('PayMongo API key is not configured.');
+                        }
+
+                        $paymongoTypeMap = [
+                            'gcash' => 'gcash',
+                            'bank_transfer' => 'paymaya',
+                            'credit_card' => 'card',
+                        ];
+                        $pmType = $paymongoTypeMap[$method] ?? 'gcash';
+                        $amountCentavos = (int) round($amount * 100);
+                        if ($amountCentavos < 100) {
+                            $del = $pdo->prepare('DELETE FROM tbl_payments WHERE tenant_id = ? AND payment_id = ? AND status = ?');
+                            $del->execute([$tenantId, $paymentId, 'pending']);
+                            throw new RuntimeException('Amount is too small for online checkout (minimum ₱1.00).');
+                        }
+
+                        if (session_status() === PHP_SESSION_NONE) {
+                            session_start();
+                        }
+                        $returnToken = bin2hex(random_bytes(24));
+                        $_SESSION['staff_paymongo_checkout'] = [
+                            'token' => $returnToken,
+                            'payment_id' => $paymentId,
+                            'tenant_id' => $tenantId,
+                            'payment_date' => $paymentDate,
+                            'booking_id' => $selectedBookingId,
+                        ];
+
+                        $patStmt = $pdo->prepare("SELECT first_name, last_name FROM tbl_patients WHERE tenant_id = ? AND patient_id = ? LIMIT 1");
+                        $patStmt->execute([$tenantId, $patientId]);
+                        $patRow = $patStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+                        $billingName = trim(trim((string) ($patRow['first_name'] ?? '')) . ' ' . trim((string) ($patRow['last_name'] ?? '')));
+                        if ($billingName === '') {
+                            $billingName = 'Patient';
+                        }
+                        $billingEmail = 'patient+' . preg_replace('/[^a-z0-9]/i', '', $tenantId . $patientId) . '@billing.local';
+
+                        $successUrl = BASE_URL . 'StaffPaymentPayMongoReturn.php?pid=' . rawurlencode($paymentId) . '&token=' . rawurlencode($returnToken);
+                        $cancelUrl = BASE_URL . 'StaffPaymentRecording.php?paymongo_cancel=1&pid=' . rawurlencode($paymentId) . '&token=' . rawurlencode($returnToken);
+                        if ($currentTenantSlug !== '') {
+                            $successUrl .= '&clinic_slug=' . rawurlencode($currentTenantSlug);
+                            $cancelUrl .= '&clinic_slug=' . rawurlencode($currentTenantSlug);
+                        }
+
+                        $payload = [
+                            'data' => [
+                                'attributes' => [
+                                    'billing' => [
+                                        'name' => $billingName,
+                                        'email' => $billingEmail,
+                                    ],
+                                    'send_email_receipt' => false,
+                                    'show_description' => true,
+                                    'show_line_items' => true,
+                                    'description' => 'Clinic payment (booking ' . $selectedBookingId . ')',
+                                    'line_items' => [[
+                                        'currency' => 'PHP',
+                                        'amount' => $amountCentavos,
+                                        'name' => 'Dental payment',
+                                        'quantity' => 1,
+                                    ]],
+                                    'payment_method_types' => [$pmType],
+                                    'success_url' => $successUrl,
+                                    'cancel_url' => $cancelUrl,
+                                    'reference_number' => $paymentId,
+                                    'metadata' => [
+                                        'source' => 'staff_payment_recording',
+                                        'tenant_id' => (string) $tenantId,
+                                        'booking_id' => (string) $selectedBookingId,
+                                        'payment_id' => (string) $paymentId,
+                                    ],
+                                ],
+                            ],
+                        ];
+
+                        $ch = curl_init('https://api.paymongo.com/v1/checkout_sessions');
+                        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                        curl_setopt($ch, CURLOPT_POST, true);
+                        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_SLASHES));
+                        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                            'Content-Type: application/json',
+                            'Accept: application/json',
+                            'Authorization: Basic ' . base64_encode($secret . ':'),
+                        ]);
+                        $response = curl_exec($ch);
+                        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                        $curlError = curl_error($ch);
+                        curl_close($ch);
+
+                        if ($curlError !== '') {
+                            $del = $pdo->prepare('DELETE FROM tbl_payments WHERE tenant_id = ? AND payment_id = ? AND status = ?');
+                            $del->execute([$tenantId, $paymentId, 'pending']);
+                            throw new RuntimeException('Could not reach PayMongo: ' . $curlError);
+                        }
+
+                        $responseData = json_decode((string) $response, true);
+                        $checkoutUrl = is_array($responseData) ? ($responseData['data']['attributes']['checkout_url'] ?? null) : null;
+                        $sessionId = is_array($responseData) ? ($responseData['data']['id'] ?? null) : null;
+
+                        if ($httpCode >= 200 && $httpCode < 300 && $checkoutUrl && $sessionId) {
+                            $refStmt = $pdo->prepare('UPDATE tbl_payments SET reference_number = ? WHERE tenant_id = ? AND payment_id = ? AND status = ?');
+                            $refStmt->execute([(string) $sessionId, $tenantId, $paymentId, 'pending']);
+                            header('Location: ' . $checkoutUrl);
+                            exit;
+                        }
+
+                        $del = $pdo->prepare('DELETE FROM tbl_payments WHERE tenant_id = ? AND payment_id = ? AND status = ?');
+                        $del->execute([$tenantId, $paymentId, 'pending']);
+                        $apiError = '';
+                        if (is_array($responseData) && isset($responseData['errors'][0])) {
+                            $apiError = (string) ($responseData['errors'][0]['detail'] ?? $responseData['errors'][0]['title'] ?? '');
+                        }
+                        throw new RuntimeException($apiError !== '' ? ('PayMongo: ' . $apiError) : 'PayMongo did not return a checkout URL.');
+                    }
 
                     $nextAppointmentStatus = ($amount + 0.009 >= $pendingBalance) ? 'completed' : 'confirmed';
                     $updateAppointmentSql = "
@@ -339,7 +488,8 @@ try {
 
                     $paymentSuccess = 'Payment recorded successfully.';
                     // Reset the modal form after successful submission.
-                    $selectedMethod = 'cash';
+                    $selectedMethod = '';
+                    $selectedMethodForUi = '';
                     $formSelectedBookingId = '';
                     $formPatientQuery = '';
                     $formAmount = '';
@@ -857,21 +1007,21 @@ try {
 </div>
 <div class="space-y-4">
 <label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Payment Method</label>
-<input id="payment_method_input" name="payment_method" type="hidden" value="<?php echo htmlspecialchars($selectedMethod, ENT_QUOTES, 'UTF-8'); ?>"/>
+<input id="payment_method_input" name="payment_method" type="hidden" value="<?php echo htmlspecialchars($selectedMethodForUi, ENT_QUOTES, 'UTF-8'); ?>"/>
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-<button class="payment-card p-4 rounded-2xl border-2 border-slate-100 bg-white/50 flex flex-col items-center justify-center gap-3 group/btn <?php echo $selectedMethod === 'gcash' ? 'active' : ''; ?>" data-method="gcash" type="button">
+<button class="payment-card p-4 rounded-2xl border-2 border-slate-100 bg-white/50 flex flex-col items-center justify-center gap-3 group/btn <?php echo $selectedMethodForUi === 'gcash' ? 'active' : ''; ?>" data-method="gcash" type="button">
 <span class="material-symbols-outlined text-3xl text-slate-400 group-hover/btn:text-primary transition-colors">account_balance_wallet</span>
 <span class="text-[11px] font-black uppercase tracking-widest">GCash</span>
 </button>
-<button class="payment-card p-4 rounded-2xl border-2 border-slate-100 bg-white/50 flex flex-col items-center justify-center gap-3 <?php echo $selectedMethod === 'cash' ? 'active' : ''; ?>" data-method="cash" type="button">
+<button class="payment-card p-4 rounded-2xl border-2 border-slate-100 bg-white/50 flex flex-col items-center justify-center gap-3 <?php echo $selectedMethodForUi === 'cash' ? 'active' : ''; ?>" data-method="cash" type="button">
 <span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">payments</span>
 <span class="text-[11px] font-black uppercase tracking-widest">Cash</span>
 </button>
-<button class="payment-card p-4 rounded-2xl border-2 border-slate-100 bg-white/50 flex flex-col items-center justify-center gap-3 group/btn <?php echo $selectedMethod === 'bank_transfer' ? 'active' : ''; ?>" data-method="bank_transfer" type="button">
+<button class="payment-card p-4 rounded-2xl border-2 border-slate-100 bg-white/50 flex flex-col items-center justify-center gap-3 group/btn <?php echo $selectedMethodForUi === 'bank_transfer' ? 'active' : ''; ?>" data-method="bank_transfer" type="button">
 <span class="material-symbols-outlined text-3xl text-slate-400 group-hover/btn:text-primary transition-colors">account_balance</span>
 <span class="text-[11px] font-black uppercase tracking-widest">Bank</span>
 </button>
-<button class="payment-card p-4 rounded-2xl border-2 border-slate-100 bg-white/50 flex flex-col items-center justify-center gap-3 group/btn <?php echo $selectedMethod === 'credit_card' ? 'active' : ''; ?>" data-method="credit_card" type="button">
+<button class="payment-card p-4 rounded-2xl border-2 border-slate-100 bg-white/50 flex flex-col items-center justify-center gap-3 group/btn <?php echo $selectedMethodForUi === 'credit_card' ? 'active' : ''; ?>" data-method="credit_card" type="button">
 <span class="material-symbols-outlined text-3xl text-slate-400 group-hover/btn:text-primary transition-colors">credit_card</span>
 <span class="text-[11px] font-black uppercase tracking-widest">Card</span>
 </button>
@@ -1136,7 +1286,7 @@ try {
                 cards.forEach((other) => other.classList.remove('active'));
                 card.classList.add('active');
                 if (hiddenInput) {
-                    hiddenInput.value = card.getAttribute('data-method') || 'cash';
+                    hiddenInput.value = card.getAttribute('data-method') || '';
                 }
             });
         });
