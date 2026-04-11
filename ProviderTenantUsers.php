@@ -461,8 +461,9 @@ $team_total = count($team_members);
         : 'bg-slate-100 text-on-surface-variant';
     $statusDotClass = $isActive ? 'bg-green-500 animate-pulse' : ($status === 'suspended' ? 'bg-rose-500' : 'bg-amber-400');
     $statusLabel = $isActive ? 'Active' : ucfirst($status !== '' ? $status : 'Unknown');
+    $canDeleteThis = !empty($is_owner) && $uid !== $user_id && $role !== 'tenant_owner';
     ?>
-<tr class="group hover:bg-slate-50/50 transition-colors duration-200">
+<tr class="group hover:bg-slate-50/50 transition-colors duration-200" data-user-id="<?php echo htmlspecialchars($uid, ENT_QUOTES, 'UTF-8'); ?>">
 <td class="px-10 py-8">
 <div class="flex items-center gap-4">
 <div class="w-12 h-12 rounded-2xl bg-primary/10 overflow-hidden ring-2 ring-primary/5 transition-transform duration-300 group-hover:scale-105 group-hover:ring-primary/20 flex items-center justify-center shrink-0">
@@ -495,9 +496,13 @@ $team_total = count($team_members);
 <button type="button" class="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 hover:border-primary/30 hover:text-primary flex items-center justify-center transition-all duration-200 shadow-sm hover:scale-110 hover:shadow-md" title="Edit (coming soon)" aria-label="Edit">
 <span class="material-symbols-outlined text-xl">edit</span>
 </button>
-<button type="button" class="w-10 h-10 rounded-xl bg-white border border-slate-200 text-rose-500 hover:bg-rose-50 hover:border-rose-200 flex items-center justify-center transition-all duration-200 shadow-sm hover:scale-110" title="Remove (coming soon)" aria-label="Remove">
+<?php if ($canDeleteThis) { ?>
+<button type="button" class="provider-team-delete-btn w-10 h-10 rounded-xl bg-white border border-slate-200 text-rose-500 hover:bg-rose-50 hover:border-rose-200 flex items-center justify-center transition-all duration-200 shadow-sm hover:scale-110 disabled:opacity-50 disabled:pointer-events-none" title="Remove from team" aria-label="Remove from team" data-user-id="<?php echo htmlspecialchars($uid, ENT_QUOTES, 'UTF-8'); ?>">
 <span class="material-symbols-outlined text-xl">delete</span>
 </button>
+<?php } else { ?>
+<span class="inline-flex w-10 h-10" aria-hidden="true"></span>
+<?php } ?>
 </div>
 </td>
 </tr>
@@ -1043,6 +1048,45 @@ Cancel
       return;
     }
     if (!modal.classList.contains('hidden')) closeModal();
+  });
+})();
+</script>
+<script>
+(function () {
+  document.body.addEventListener('click', function (e) {
+    var btn = e.target.closest('.provider-team-delete-btn');
+    if (!btn || btn.disabled) return;
+    var id = btn.getAttribute('data-user-id');
+    if (!id) return;
+    var row = btn.closest('tr');
+    var nameEl = row ? row.querySelector('td .font-headline') : null;
+    var name = nameEl ? nameEl.textContent.trim() : 'this team member';
+    if (!window.confirm('Remove ' + name + ' from the team?')) return;
+    btn.disabled = true;
+    fetch('ProviderTenantTeamMemberApi.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: id }),
+      credentials: 'same-origin'
+    })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, j: j };
+        });
+      })
+      .then(function (res) {
+        if (res.ok && res.j && res.j.ok) {
+          window.location.reload();
+          return;
+        }
+        var err = (res.j && res.j.error) ? res.j.error : 'Could not remove team member.';
+        window.alert(err);
+        btn.disabled = false;
+      })
+      .catch(function () {
+        window.alert('Network error. Please try again.');
+        btn.disabled = false;
+      });
   });
 })();
 </script>
