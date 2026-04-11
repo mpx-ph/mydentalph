@@ -53,6 +53,7 @@ $supportsAppointmentUpdatedAtColumn = false;
 $supportsAppointmentServicesTable = false;
 $appointmentServiceColumns = [];
 $installmentsTableName = null;
+$supportsServiceEnableInstallmentColumn = false;
 $formSelectedBookingId = trim((string) ($_POST['selected_booking_id'] ?? ''));
 $formPatientQuery = trim((string) ($_POST['patient_query'] ?? ''));
 $formAmount = trim((string) ($_POST['amount'] ?? ''));
@@ -153,6 +154,17 @@ try {
                 break;
             }
         }
+
+        $serviceInstallmentColStmt = $pdo->prepare("
+            SELECT 1
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'tbl_services'
+              AND COLUMN_NAME = 'enable_installment'
+            LIMIT 1
+        ");
+        $serviceInstallmentColStmt->execute();
+        $supportsServiceEnableInstallmentColumn = (bool) $serviceInstallmentColStmt->fetchColumn();
     }
 
     if ($tenantId !== '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -558,18 +570,42 @@ try {
         $recentStmt->execute([$tenantId]);
         $recentPayments = $recentStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
+        $installmentPlanSqlParts = [];
         if ($installmentsTableName !== null) {
             $quotedInstallmentsTable = '`' . str_replace('`', '``', $installmentsTableName) . '`';
-            $installmentPlanSelectSql = "
-                (
-                    SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END
+            // Installment rows are often inserted without tenant_id (see clinic/api/appointments.php);
+            // match by booking_id and accept NULL/empty tenant_id on the installment side.
+            $installmentPlanSqlParts[] = "
+                EXISTS (
+                    SELECT 1
                     FROM {$quotedInstallmentsTable} i
-                    WHERE i.tenant_id = a.tenant_id
-                      AND i.booking_id = a.booking_id
-                ) AS is_installment_plan
+                    WHERE i.booking_id = a.booking_id
+                      AND (
+                          i.tenant_id = a.tenant_id
+                          OR i.tenant_id IS NULL
+                          OR TRIM(COALESCE(i.tenant_id, '')) = ''
+                      )
+                )
             ";
-        } else {
+        }
+        if ($supportsAppointmentServicesTable && $supportsServiceEnableInstallmentColumn) {
+            $installmentPlanSqlParts[] = "
+                EXISTS (
+                    SELECT 1
+                    FROM tbl_appointment_services aps
+                    INNER JOIN tbl_services sv
+                        ON sv.tenant_id = aps.tenant_id
+                       AND sv.service_id = aps.service_id
+                    WHERE aps.tenant_id = a.tenant_id
+                      AND aps.booking_id = a.booking_id
+                      AND COALESCE(sv.enable_installment, 0) = 1
+                )
+            ";
+        }
+        if (empty($installmentPlanSqlParts)) {
             $installmentPlanSelectSql = '0 AS is_installment_plan';
+        } else {
+            $installmentPlanSelectSql = '( ' . implode(' OR ', $installmentPlanSqlParts) . ' ) AS is_installment_plan';
         }
 
         $transactionsSql = "
