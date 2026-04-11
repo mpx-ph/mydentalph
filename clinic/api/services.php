@@ -104,14 +104,27 @@ function createService() {
     }
     $enableInstallment = !empty($input['enable_installment']);
 
+    $instDown = null;
+    $instMonths = null;
+    if ($enableInstallment) {
+        if (isset($input['installment_downpayment']) && $input['installment_downpayment'] !== '' && $input['installment_downpayment'] !== null) {
+            $instDown = floatval($input['installment_downpayment']);
+        }
+        if (isset($input['installment_duration_months']) && $input['installment_duration_months'] !== '' && $input['installment_duration_months'] !== null) {
+            $instMonths = intval($input['installment_duration_months']);
+        }
+    }
+
     $data = [
         'service_id' => generateServiceId(),
         'service_name' => sanitize($input['service_name'] ?? ''),
         'service_details' => sanitize($input['service_details'] ?? ''),
         'category' => sanitize($input['category'] ?? ''),
         'price' => isset($input['price']) ? floatval($input['price']) : 0.00,
-        'downpayment_percentage' => $downpaymentPct,
+        'downpayment_percentage' => $enableInstallment ? null : $downpaymentPct,
         'enable_installment' => $enableInstallment ? 1 : 0,
+        'installment_downpayment' => $enableInstallment ? $instDown : null,
+        'installment_duration_months' => $enableInstallment ? $instMonths : null,
         'status' => sanitize($input['status'] ?? 'active')
     ];
     
@@ -144,9 +157,24 @@ function createService() {
         jsonResponse(false, 'Price cannot be negative.');
     }
 
-    if ($data['downpayment_percentage'] !== null) {
+    if (!$enableInstallment && $data['downpayment_percentage'] !== null) {
         if ($data['downpayment_percentage'] < 0 || $data['downpayment_percentage'] > 100) {
             jsonResponse(false, 'Downpayment percentage must be between 0 and 100.');
+        }
+    }
+
+    if ($enableInstallment) {
+        if ($data['installment_downpayment'] === null || $data['installment_duration_months'] === null) {
+            jsonResponse(false, 'Installment downpayment and duration (months) are required when installment plan is enabled.');
+        }
+        if ($data['installment_downpayment'] < 0) {
+            jsonResponse(false, 'Installment downpayment cannot be negative.');
+        }
+        if ($data['installment_downpayment'] > $data['price']) {
+            jsonResponse(false, 'Installment downpayment cannot exceed the service price.');
+        }
+        if ($data['installment_duration_months'] < 1) {
+            jsonResponse(false, 'Duration must be at least 1 month.');
         }
     }
     
@@ -158,8 +186,10 @@ function createService() {
         $stmt = $pdo->prepare("
             INSERT INTO tbl_services (
                 tenant_id, service_id, service_name, service_details, category, price,
-                downpayment_percentage, enable_installment, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                downpayment_percentage, enable_installment,
+                installment_downpayment, installment_duration_months,
+                status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         
         $stmt->execute([
@@ -171,6 +201,8 @@ function createService() {
             $data['price'],
             $data['downpayment_percentage'],
             $data['enable_installment'],
+            $data['installment_downpayment'],
+            $data['installment_duration_months'],
             $data['status']
         ]);
         
@@ -323,14 +355,36 @@ function updateService() {
         ? (!empty($input['enable_installment']))
         : !empty($existing['enable_installment']);
 
+    $instDown = isset($existing['installment_downpayment']) && $existing['installment_downpayment'] !== null && $existing['installment_downpayment'] !== ''
+        ? floatval($existing['installment_downpayment'])
+        : null;
+    $instMonths = isset($existing['installment_duration_months']) && $existing['installment_duration_months'] !== null && $existing['installment_duration_months'] !== ''
+        ? intval($existing['installment_duration_months'])
+        : null;
+    if ($enableInstallment) {
+        if (array_key_exists('installment_downpayment', $input)) {
+            $raw = $input['installment_downpayment'];
+            $instDown = ($raw === null || $raw === '') ? null : floatval($raw);
+        }
+        if (array_key_exists('installment_duration_months', $input)) {
+            $rawM = $input['installment_duration_months'];
+            $instMonths = ($rawM === null || $rawM === '') ? null : intval($rawM);
+        }
+    } else {
+        $instDown = null;
+        $instMonths = null;
+    }
+
     // Extract and sanitize update data
     $data = [
         'service_name' => isset($input['service_name']) ? sanitize($input['service_name']) : $existing['service_name'],
         'service_details' => isset($input['service_details']) ? sanitize($input['service_details']) : $existing['service_details'],
         'category' => isset($input['category']) ? sanitize($input['category']) : $existing['category'],
         'price' => isset($input['price']) ? floatval($input['price']) : floatval($existing['price']),
-        'downpayment_percentage' => $downpaymentPct,
+        'downpayment_percentage' => $enableInstallment ? null : $downpaymentPct,
         'enable_installment' => $enableInstallment ? 1 : 0,
+        'installment_downpayment' => $enableInstallment ? $instDown : null,
+        'installment_duration_months' => $enableInstallment ? $instMonths : null,
         'status' => isset($input['status']) ? sanitize($input['status']) : $existing['status']
     ];
     
@@ -363,9 +417,24 @@ function updateService() {
         jsonResponse(false, 'Price cannot be negative.');
     }
 
-    if ($data['downpayment_percentage'] !== null) {
+    if (!$enableInstallment && $data['downpayment_percentage'] !== null) {
         if ($data['downpayment_percentage'] < 0 || $data['downpayment_percentage'] > 100) {
             jsonResponse(false, 'Downpayment percentage must be between 0 and 100.');
+        }
+    }
+
+    if ($enableInstallment) {
+        if ($data['installment_downpayment'] === null || $data['installment_duration_months'] === null) {
+            jsonResponse(false, 'Installment downpayment and duration (months) are required when installment plan is enabled.');
+        }
+        if ($data['installment_downpayment'] < 0) {
+            jsonResponse(false, 'Installment downpayment cannot be negative.');
+        }
+        if ($data['installment_downpayment'] > $data['price']) {
+            jsonResponse(false, 'Installment downpayment cannot exceed the service price.');
+        }
+        if ($data['installment_duration_months'] < 1) {
+            jsonResponse(false, 'Duration must be at least 1 month.');
         }
     }
     
@@ -384,6 +453,8 @@ function updateService() {
                 price = ?, 
                 downpayment_percentage = ?,
                 enable_installment = ?,
+                installment_downpayment = ?,
+                installment_duration_months = ?,
                 status = ?
             WHERE id = ? AND tenant_id = ?
         ");
@@ -395,6 +466,8 @@ function updateService() {
             $data['price'],
             $data['downpayment_percentage'],
             $data['enable_installment'],
+            $data['installment_downpayment'],
+            $data['installment_duration_months'],
             $data['status'],
             $updateId,
             $tenantId

@@ -293,7 +293,17 @@ Price (₱) <span class="text-red-500 font-bold">*</span>
 <span class="material-symbols-outlined text-primary text-[22px]">credit_card</span>
 <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Payment Configuration</h4>
 </div>
-<div class="rounded-2xl border border-slate-200/90 bg-slate-50/60 p-4 sm:p-5 space-y-2">
+<div class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+<div class="flex items-center gap-3">
+<input type="checkbox" id="newServiceEnableInstallment" class="add-service-switch shrink-0" aria-label="Enable installment plan"/>
+<span id="installmentEnableCheck" class="hidden shrink-0 text-emerald-500" aria-hidden="true"><span class="material-symbols-outlined text-[22px]">check_circle</span></span>
+<div class="min-w-0 flex-1 flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px] text-slate-500 shrink-0">credit_card</span>
+<label for="newServiceEnableInstallment" class="text-sm font-semibold text-slate-800 cursor-pointer">Enable Installment Plan for this Service</label>
+</div>
+</div>
+</div>
+<div id="newServiceRegularDownpaymentBlock" class="mt-4 rounded-2xl border border-slate-200/90 bg-slate-50/60 p-4 sm:p-5 space-y-2">
 <label for="newServiceDownpaymentPct" class="flex flex-wrap items-baseline gap-x-1 text-sm font-semibold text-slate-800">
 <span class="material-symbols-outlined text-[18px] text-slate-500 align-middle mr-0.5">percent</span>
 Downpayment Percentage (%)
@@ -305,14 +315,33 @@ Downpayment Percentage (%)
 <span>Enter the percentage of downpayment required for regular (non-installment) service bookings.</span>
 </p>
 </div>
-<div class="mt-4 rounded-2xl border border-slate-200/90 bg-slate-50/60 p-4 sm:p-5">
-<div class="flex items-center gap-4">
-<input type="checkbox" id="newServiceEnableInstallment" class="add-service-switch" aria-label="Enable installment plan"/>
-<div class="min-w-0 flex-1">
-<div class="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
-<span class="material-symbols-outlined text-[18px] text-slate-500">credit_card</span>
-Enable Installment Plan for this Service
+<div id="newServiceInstallmentConfigBlock" class="hidden mt-4 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.06] to-slate-50/80 p-4 sm:p-5 space-y-5">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[22px]">schedule</span>
+<h5 class="text-sm font-extrabold text-slate-800">Installment Plan Configuration</h5>
 </div>
+<div>
+<label for="newServiceInstallmentDownpayment" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">payments</span>
+Downpayment (₱) <span class="text-red-500 font-bold">*</span>
+</label>
+<input type="number" id="newServiceInstallmentDownpayment" step="0.01" min="0" placeholder="0.00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+<div>
+<label for="newServiceInstallmentDuration" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">calendar_month</span>
+Duration (months) <span class="text-red-500 font-bold">*</span>
+</label>
+<input type="number" id="newServiceInstallmentDuration" step="1" min="1" placeholder="0" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+</div>
+<div>
+<label for="newServiceInstallmentMonthly" class="flex flex-wrap items-baseline gap-x-1 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">calculate</span>
+Monthly Payment (₱)
+<span class="text-slate-500 font-normal text-xs">(Auto-calculated)</span>
+</label>
+<input type="text" id="newServiceInstallmentMonthly" readonly tabindex="-1" placeholder="0.00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 placeholder:text-slate-400 text-[15px] cursor-not-allowed"/>
 </div>
 </div>
 </div>
@@ -446,6 +475,12 @@ function bindEvents() {
         renderCategoryButtons();
         applyFilters();
     });
+
+    document.getElementById('newServiceEnableInstallment').addEventListener('change', syncInstallmentMode);
+    ['newServicePrice', 'newServiceInstallmentDownpayment', 'newServiceInstallmentDuration'].forEach(function (id) {
+        document.getElementById(id).addEventListener('input', recalcInstallmentMonthly);
+    });
+    syncInstallmentMode();
 }
 
 function loadServices() {
@@ -586,6 +621,31 @@ function changePage(page) {
     renderServices();
 }
 
+function recalcInstallmentMonthly() {
+    const price = parseFloat(document.getElementById('newServicePrice').value) || 0;
+    const down = parseFloat(document.getElementById('newServiceInstallmentDownpayment').value) || 0;
+    const months = parseInt(document.getElementById('newServiceInstallmentDuration').value, 10) || 0;
+    const remaining = Math.max(0, price - down);
+    const el = document.getElementById('newServiceInstallmentMonthly');
+    if (months < 1) {
+        el.value = '';
+        return;
+    }
+    const monthly = remaining / months;
+    el.value = monthly >= 0 ? monthly.toFixed(2) : '';
+}
+
+function syncInstallmentMode() {
+    const on = document.getElementById('newServiceEnableInstallment').checked;
+    document.getElementById('newServiceRegularDownpaymentBlock').classList.toggle('hidden', on);
+    document.getElementById('newServiceInstallmentConfigBlock').classList.toggle('hidden', !on);
+    const check = document.getElementById('installmentEnableCheck');
+    if (check) {
+        check.classList.toggle('hidden', !on);
+    }
+    recalcInstallmentMonthly();
+}
+
 function openNewServiceModal() {
     document.getElementById('newServiceName').value = '';
     document.getElementById('newServiceDetails').value = '';
@@ -593,6 +653,10 @@ function openNewServiceModal() {
     document.getElementById('newServicePrice').value = '';
     document.getElementById('newServiceDownpaymentPct').value = '';
     document.getElementById('newServiceEnableInstallment').checked = false;
+    document.getElementById('newServiceInstallmentDownpayment').value = '';
+    document.getElementById('newServiceInstallmentDuration').value = '';
+    document.getElementById('newServiceInstallmentMonthly').value = '';
+    syncInstallmentMode();
     document.getElementById('newServiceModal').classList.remove('hidden');
     document.getElementById('newServiceModal').classList.add('flex');
     document.getElementById('newServiceName').focus();
@@ -625,23 +689,44 @@ function closeEditServiceModal() {
 }
 
 function saveNewService() {
+    const enableInst = document.getElementById('newServiceEnableInstallment').checked;
     const dpRaw = (document.getElementById('newServiceDownpaymentPct').value || '').trim();
     const payload = {
         service_name: (document.getElementById('newServiceName').value || '').trim(),
         service_details: (document.getElementById('newServiceDetails').value || '').trim(),
         category: document.getElementById('newServiceCategory').value,
         price: parseFloat(document.getElementById('newServicePrice').value || '0'),
-        downpayment_percentage: dpRaw === '' ? null : parseFloat(dpRaw),
-        enable_installment: document.getElementById('newServiceEnableInstallment').checked
+        enable_installment: enableInst
     };
+    if (enableInst) {
+        payload.downpayment_percentage = null;
+        payload.installment_downpayment = parseFloat(document.getElementById('newServiceInstallmentDownpayment').value || '');
+        payload.installment_duration_months = parseInt(document.getElementById('newServiceInstallmentDuration').value || '0', 10);
+    } else {
+        payload.downpayment_percentage = dpRaw === '' ? null : parseFloat(dpRaw);
+    }
 
     if (!payload.service_name || !payload.category || Number.isNaN(payload.price) || payload.price < 0) {
         alert('Please complete required fields with a valid price.');
         return;
     }
-    if (payload.downpayment_percentage !== null && (Number.isNaN(payload.downpayment_percentage) || payload.downpayment_percentage < 0 || payload.downpayment_percentage > 100)) {
+    if (!enableInst && payload.downpayment_percentage !== null && (Number.isNaN(payload.downpayment_percentage) || payload.downpayment_percentage < 0 || payload.downpayment_percentage > 100)) {
         alert('Downpayment percentage must be between 0 and 100, or leave empty.');
         return;
+    }
+    if (enableInst) {
+        if (Number.isNaN(payload.installment_downpayment) || payload.installment_downpayment < 0) {
+            alert('Please enter a valid downpayment amount (₱) for the installment plan.');
+            return;
+        }
+        if (payload.installment_downpayment > payload.price) {
+            alert('Installment downpayment cannot exceed the service price.');
+            return;
+        }
+        if (!Number.isInteger(payload.installment_duration_months) || payload.installment_duration_months < 1) {
+            alert('Please enter a valid duration (at least 1 month).');
+            return;
+        }
     }
 
     fetch(apiUrl, {
