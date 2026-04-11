@@ -109,6 +109,41 @@ if (!isset($currentTenantSlug)) {
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
+        /* Toggle switch (add service modal) */
+        .add-service-switch {
+            appearance: none;
+            width: 2.75rem;
+            height: 1.5rem;
+            border-radius: 9999px;
+            background: #e2e8f0;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            flex-shrink: 0;
+            outline: none;
+            box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
+        }
+        .add-service-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 1.125rem;
+            height: 1.125rem;
+            border-radius: 9999px;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+            transition: transform 0.2s ease;
+        }
+        .add-service-switch:checked {
+            background: #2b8beb;
+        }
+        .add-service-switch:checked::after {
+            transform: translateX(1.125rem);
+        }
+        .add-service-switch:focus-visible {
+            box-shadow: 0 0 0 3px rgba(43, 139, 235, 0.35);
+        }
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
@@ -190,24 +225,48 @@ if (!isset($currentTenantSlug)) {
 <div class="h-10"></div>
 </main>
 
-<div id="newServiceModal" class="staff-modal-overlay fixed inset-0 z-50 hidden items-center justify-center bg-black/45 p-4">
-<div class="staff-modal-panel bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-<div class="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-<h3 class="text-2xl font-bold font-headline text-on-background">Add New Service</h3>
-<button id="closeNewServiceBtn" class="p-2 rounded-lg hover:bg-slate-100 transition-colors"><span class="material-symbols-outlined text-slate-500">close</span></button>
+<div id="newServiceModal" class="staff-modal-overlay fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4">
+<div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
+<div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
+<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
+<span class="material-symbols-outlined text-2xl text-primary">add</span>
 </div>
-<div class="p-6 space-y-5">
+<div class="min-w-0 flex-1 pr-2">
+<h3 class="text-xl sm:text-2xl font-extrabold font-headline text-on-background tracking-tight">Add New Service</h3>
+<p class="text-sm text-slate-500 mt-1 leading-relaxed">Create a new service offering for your clinic</p>
+</div>
+<button type="button" id="closeNewServiceBtn" class="shrink-0 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Close">
+<span class="material-symbols-outlined text-[22px]">close</span>
+</button>
+</div>
+<div class="flex-1 overflow-y-auto px-6 sm:px-8 py-6 space-y-8">
+<section>
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary text-[22px]">info</span>
+<h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Basic Information</h4>
+</div>
+<div class="space-y-5">
 <div>
-<label class="block text-sm font-semibold text-slate-700 mb-2">Service Name <span class="text-red-500">*</span></label>
-<input type="text" id="newServiceName" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary/20 transition-all" required/>
+<label for="newServiceName" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">medical_services</span>
+Service Name <span class="text-red-500 font-bold">*</span>
+</label>
+<input type="text" id="newServiceName" placeholder="e.g., Teeth Cleaning" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" required/>
 </div>
 <div>
-<label class="block text-sm font-semibold text-slate-700 mb-2">Service Details</label>
-<textarea id="newServiceDetails" rows="3" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary/20 transition-all"></textarea>
+<label for="newServiceDetails" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">description</span>
+Service Details
+</label>
+<textarea id="newServiceDetails" rows="3" placeholder="Enter a detailed description of the service..." class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all resize-y min-h-[100px]"></textarea>
 </div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
 <div>
-<label class="block text-sm font-semibold text-slate-700 mb-2">Category <span class="text-red-500">*</span></label>
-<select id="newServiceCategory" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary/20 transition-all" required>
+<label for="newServiceCategory" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">category</span>
+Category <span class="text-red-500 font-bold">*</span>
+</label>
+<select id="newServiceCategory" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all cursor-pointer" required>
 <option value="">Select category</option>
 <option value="General Dentistry">General Dentistry</option>
 <option value="Restorative Dentistry">Restorative Dentistry</option>
@@ -220,13 +279,54 @@ if (!isset($currentTenantSlug)) {
 </select>
 </div>
 <div>
-<label class="block text-sm font-semibold text-slate-700 mb-2">Price (P) <span class="text-red-500">*</span></label>
-<input type="number" id="newServicePrice" step="0.01" min="0" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary/20 transition-all" required/>
+<label for="newServicePrice" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">payments</span>
+Price (₱) <span class="text-red-500 font-bold">*</span>
+</label>
+<input type="number" id="newServicePrice" step="0.01" min="0" placeholder="0.00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" required/>
 </div>
 </div>
-<div class="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 flex justify-end gap-3">
-<button id="cancelNewServiceBtn" class="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 transition-all">Cancel</button>
-<button id="saveNewServiceBtn" class="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-semibold shadow-lg shadow-primary/30 transition-all">Add Service</button>
+</div>
+</section>
+<section>
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary text-[22px]">credit_card</span>
+<h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Payment Configuration</h4>
+</div>
+<div class="rounded-2xl border border-slate-200/90 bg-slate-50/60 p-4 sm:p-5 space-y-2">
+<label for="newServiceDownpaymentPct" class="flex flex-wrap items-baseline gap-x-1 text-sm font-semibold text-slate-800">
+<span class="material-symbols-outlined text-[18px] text-slate-500 align-middle mr-0.5">percent</span>
+Downpayment Percentage (%)
+<span class="text-slate-500 font-normal text-xs sm:text-sm">(for regular services)</span>
+</label>
+<input type="number" id="newServiceDownpaymentPct" step="0.01" min="0" max="100" placeholder="0.00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+<p class="flex items-start gap-2 text-xs text-slate-500 leading-relaxed pt-1">
+<span class="material-symbols-outlined text-[16px] text-slate-400 shrink-0 mt-0.5">info</span>
+<span>Enter the percentage of downpayment required for regular (non-installment) service bookings.</span>
+</p>
+</div>
+<div class="mt-4 rounded-2xl border border-slate-200/90 bg-slate-50/60 p-4 sm:p-5">
+<div class="flex items-center gap-4">
+<input type="checkbox" id="newServiceEnableInstallment" class="add-service-switch" aria-label="Enable installment plan"/>
+<div class="min-w-0 flex-1">
+<div class="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+<span class="material-symbols-outlined text-[18px] text-slate-500">credit_card</span>
+Enable Installment Plan for this Service
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+<div class="shrink-0 border-t border-slate-100 bg-slate-50/50 px-6 sm:px-8 py-4 flex flex-wrap items-center justify-end gap-3">
+<button type="button" id="cancelNewServiceBtn" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+<span class="material-symbols-outlined text-[18px]">close</span>
+Cancel
+</button>
+<button type="button" id="saveNewServiceBtn" class="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/92 text-white text-sm font-bold shadow-lg shadow-primary/25 transition-all">
+<span class="material-symbols-outlined text-[18px]">check_circle</span>
+Add Service
+</button>
 </div>
 </div>
 </div>
@@ -487,6 +587,12 @@ function changePage(page) {
 }
 
 function openNewServiceModal() {
+    document.getElementById('newServiceName').value = '';
+    document.getElementById('newServiceDetails').value = '';
+    document.getElementById('newServiceCategory').value = '';
+    document.getElementById('newServicePrice').value = '';
+    document.getElementById('newServiceDownpaymentPct').value = '';
+    document.getElementById('newServiceEnableInstallment').checked = false;
     document.getElementById('newServiceModal').classList.remove('hidden');
     document.getElementById('newServiceModal').classList.add('flex');
     document.getElementById('newServiceName').focus();
@@ -519,15 +625,22 @@ function closeEditServiceModal() {
 }
 
 function saveNewService() {
+    const dpRaw = (document.getElementById('newServiceDownpaymentPct').value || '').trim();
     const payload = {
         service_name: (document.getElementById('newServiceName').value || '').trim(),
         service_details: (document.getElementById('newServiceDetails').value || '').trim(),
         category: document.getElementById('newServiceCategory').value,
-        price: parseFloat(document.getElementById('newServicePrice').value || '0')
+        price: parseFloat(document.getElementById('newServicePrice').value || '0'),
+        downpayment_percentage: dpRaw === '' ? null : parseFloat(dpRaw),
+        enable_installment: document.getElementById('newServiceEnableInstallment').checked
     };
 
     if (!payload.service_name || !payload.category || Number.isNaN(payload.price) || payload.price < 0) {
         alert('Please complete required fields with a valid price.');
+        return;
+    }
+    if (payload.downpayment_percentage !== null && (Number.isNaN(payload.downpayment_percentage) || payload.downpayment_percentage < 0 || payload.downpayment_percentage > 100)) {
+        alert('Downpayment percentage must be between 0 and 100, or leave empty.');
         return;
     }
 

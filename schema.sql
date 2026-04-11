@@ -363,6 +363,8 @@ CREATE TABLE IF NOT EXISTS tbl_services (
     service_details TEXT,
     category VARCHAR(100),
     price DECIMAL(10,2),
+    downpayment_percentage DECIMAL(5,2) DEFAULT NULL COMMENT 'Optional % for regular (non-installment) bookings; NULL uses clinic default',
+    enable_installment TINYINT(1) NOT NULL DEFAULT 0,
     status ENUM('active','inactive') DEFAULT 'active',
     PRIMARY KEY (id),
     UNIQUE KEY unique_tenant_service_id (tenant_id, service_id),

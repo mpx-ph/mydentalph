@@ -97,12 +97,21 @@ function createService() {
     $input = json_decode(file_get_contents('php://input'), true);
     
     // Extract and sanitize data
+    $downPctRaw = $input['downpayment_percentage'] ?? null;
+    $downpaymentPct = null;
+    if ($downPctRaw !== null && $downPctRaw !== '') {
+        $downpaymentPct = floatval($downPctRaw);
+    }
+    $enableInstallment = !empty($input['enable_installment']);
+
     $data = [
         'service_id' => generateServiceId(),
         'service_name' => sanitize($input['service_name'] ?? ''),
         'service_details' => sanitize($input['service_details'] ?? ''),
         'category' => sanitize($input['category'] ?? ''),
         'price' => isset($input['price']) ? floatval($input['price']) : 0.00,
+        'downpayment_percentage' => $downpaymentPct,
+        'enable_installment' => $enableInstallment ? 1 : 0,
         'status' => sanitize($input['status'] ?? 'active')
     ];
     
@@ -134,6 +143,12 @@ function createService() {
     if ($data['price'] < 0) {
         jsonResponse(false, 'Price cannot be negative.');
     }
+
+    if ($data['downpayment_percentage'] !== null) {
+        if ($data['downpayment_percentage'] < 0 || $data['downpayment_percentage'] > 100) {
+            jsonResponse(false, 'Downpayment percentage must be between 0 and 100.');
+        }
+    }
     
     if (!in_array($data['status'], ['active', 'inactive'])) {
         $data['status'] = 'active';
@@ -142,8 +157,9 @@ function createService() {
     try {
         $stmt = $pdo->prepare("
             INSERT INTO tbl_services (
-                tenant_id, service_id, service_name, service_details, category, price, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                tenant_id, service_id, service_name, service_details, category, price,
+                downpayment_percentage, enable_installment, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         
         $stmt->execute([
@@ -153,6 +169,8 @@ function createService() {
             $data['service_details'],
             $data['category'],
             $data['price'],
+            $data['downpayment_percentage'],
+            $data['enable_installment'],
             $data['status']
         ]);
         
@@ -294,12 +312,25 @@ function updateService() {
         jsonResponse(false, 'Service not found.');
     }
     
+    $downpaymentPct = isset($existing['downpayment_percentage']) && $existing['downpayment_percentage'] !== null && $existing['downpayment_percentage'] !== ''
+        ? floatval($existing['downpayment_percentage'])
+        : null;
+    if (array_key_exists('downpayment_percentage', $input)) {
+        $rawDp = $input['downpayment_percentage'];
+        $downpaymentPct = ($rawDp === null || $rawDp === '') ? null : floatval($rawDp);
+    }
+    $enableInstallment = array_key_exists('enable_installment', $input)
+        ? (!empty($input['enable_installment']))
+        : !empty($existing['enable_installment']);
+
     // Extract and sanitize update data
     $data = [
         'service_name' => isset($input['service_name']) ? sanitize($input['service_name']) : $existing['service_name'],
         'service_details' => isset($input['service_details']) ? sanitize($input['service_details']) : $existing['service_details'],
         'category' => isset($input['category']) ? sanitize($input['category']) : $existing['category'],
         'price' => isset($input['price']) ? floatval($input['price']) : floatval($existing['price']),
+        'downpayment_percentage' => $downpaymentPct,
+        'enable_installment' => $enableInstallment ? 1 : 0,
         'status' => isset($input['status']) ? sanitize($input['status']) : $existing['status']
     ];
     
@@ -331,6 +362,12 @@ function updateService() {
     if ($data['price'] < 0) {
         jsonResponse(false, 'Price cannot be negative.');
     }
+
+    if ($data['downpayment_percentage'] !== null) {
+        if ($data['downpayment_percentage'] < 0 || $data['downpayment_percentage'] > 100) {
+            jsonResponse(false, 'Downpayment percentage must be between 0 and 100.');
+        }
+    }
     
     if (!in_array($data['status'], ['active', 'inactive'])) {
         $data['status'] = $existing['status'];
@@ -345,6 +382,8 @@ function updateService() {
                 service_details = ?, 
                 category = ?, 
                 price = ?, 
+                downpayment_percentage = ?,
+                enable_installment = ?,
                 status = ?
             WHERE id = ? AND tenant_id = ?
         ");
@@ -354,6 +393,8 @@ function updateService() {
             $data['service_details'],
             $data['category'],
             $data['price'],
+            $data['downpayment_percentage'],
+            $data['enable_installment'],
             $data['status'],
             $updateId,
             $tenantId
