@@ -251,6 +251,16 @@ Price (₱) <span class="text-red-500 font-bold">*</span>
 <input type="number" id="newServicePrice" step="0.01" min="0" placeholder="0.00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" required/>
 </div>
 </div>
+<div id="newServicePaymentTypeRow" class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-8 pt-1">
+<label class="inline-flex items-center gap-2.5 cursor-pointer group">
+<input type="radio" name="newServiceBillingType" value="regular" id="newServiceBillingRegular" class="h-4 w-4 shrink-0 border-slate-300 text-primary accent-primary focus:ring-primary" checked/>
+<span class="text-sm font-semibold text-slate-800 group-hover:text-slate-900">Regular Service</span>
+</label>
+<label class="inline-flex items-center gap-2.5 cursor-pointer group">
+<input type="radio" name="newServiceBillingType" value="installment" id="newServiceBillingInstallment" class="h-4 w-4 shrink-0 border-slate-300 text-primary accent-primary focus:ring-primary"/>
+<span class="text-sm font-semibold text-slate-800 group-hover:text-slate-900">Installment Plan</span>
+</label>
+</div>
 </div>
 </section>
 <section>
@@ -261,6 +271,7 @@ Price (₱) <span class="text-red-500 font-bold">*</span>
 <div class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
 <div class="flex items-center gap-3">
 <input type="checkbox" id="newServiceUseCustomPayment" class="h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 text-primary focus:ring-2 focus:ring-primary/30 focus:ring-offset-0 accent-primary" aria-label="Use custom payment settings"/>
+<span id="customPaymentEnableCheck" class="hidden shrink-0 text-emerald-500" aria-hidden="true"><span class="material-symbols-outlined text-[22px]">check_circle</span></span>
 <label for="newServiceUseCustomPayment" class="text-sm font-semibold text-slate-800 cursor-pointer">Use Custom Payment Settings</label>
 </div>
 </div>
@@ -615,8 +626,23 @@ function recalcInstallmentMonthly() {
 
 function syncCustomPaymentVisibility() {
     const use = document.getElementById('newServiceUseCustomPayment').checked;
+    const customCheck = document.getElementById('customPaymentEnableCheck');
+    if (customCheck) {
+        customCheck.classList.toggle('hidden', !use);
+    }
     document.getElementById('newServiceCustomPaymentFields').classList.toggle('hidden', !use);
-    if (!use) {
+    const typeRow = document.getElementById('newServicePaymentTypeRow');
+    const billingRadios = document.querySelectorAll('input[name="newServiceBillingType"]');
+    if (use) {
+        typeRow.classList.add('hidden');
+        billingRadios.forEach(function (r) {
+            r.disabled = true;
+        });
+    } else {
+        typeRow.classList.remove('hidden');
+        billingRadios.forEach(function (r) {
+            r.disabled = false;
+        });
         document.getElementById('newServiceDownpaymentPct').value = '';
         document.getElementById('newServiceEnableInstallment').checked = false;
         document.getElementById('newServiceInstallmentDownpayment').value = '';
@@ -648,6 +674,8 @@ function openNewServiceModal() {
     document.getElementById('newServiceDetails').value = '';
     document.getElementById('newServiceCategory').value = '';
     document.getElementById('newServicePrice').value = '';
+    document.getElementById('newServiceBillingRegular').checked = true;
+    document.getElementById('newServiceBillingInstallment').checked = false;
     document.getElementById('newServiceUseCustomPayment').checked = false;
     document.getElementById('newServiceDownpaymentPct').value = '';
     document.getElementById('newServiceEnableInstallment').checked = false;
@@ -688,6 +716,12 @@ function closeEditServiceModal() {
 
 function saveNewService() {
     const useCustom = document.getElementById('newServiceUseCustomPayment').checked;
+    const billingTypeEl = document.querySelector('input[name="newServiceBillingType"]:checked');
+    const billingType = billingTypeEl ? billingTypeEl.value : 'regular';
+    if (!useCustom && billingType === 'installment') {
+        alert('To create a service with an installment plan, enable "Use Custom Payment Settings" and configure the installment details.');
+        return;
+    }
     const enableInst = useCustom && document.getElementById('newServiceEnableInstallment').checked;
     const dpRaw = (document.getElementById('newServiceDownpaymentPct').value || '').trim();
     const payload = {
