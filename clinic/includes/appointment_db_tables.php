@@ -149,6 +149,11 @@ if (!function_exists('clinic_resolve_walkin_tenant_id')) {
 
 if (!function_exists('clinic_table_columns')) {
     /**
+     * Column names for a table (lowercase). Uses information_schema first; if that returns
+     * nothing (common on some shared hosts with restricted metadata), falls back to SHOW COLUMNS.
+     * Walk-in and other dynamic INSERTs need the full column list — an empty list caused inserts
+     * to omit service_type, service_description, dentist_id, etc., so phpMyAdmin looked "empty".
+     *
      * @return list<string>
      */
     function clinic_table_columns(PDO $pdo, string $tableName)
@@ -158,14 +163,35 @@ if (!function_exists('clinic_table_columns')) {
         if (isset($cache[$phys])) {
             return $cache[$phys];
         }
-        $stmt = $pdo->prepare("
-            SELECT COLUMN_NAME
-            FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = ?
-        ");
-        $stmt->execute([$phys]);
-        $cache[$phys] = array_map('strtolower', array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []));
+        $cols = [];
+        try {
+            $stmt = $pdo->prepare("
+                SELECT COLUMN_NAME
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = ?
+            ");
+            $stmt->execute([$phys]);
+            $cols = array_map('strtolower', array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []));
+        } catch (Throwable $e) {
+            $cols = [];
+        }
+        if ($cols === []) {
+            try {
+                $q = clinic_quote_identifier($phys);
+                $show = $pdo->query('SHOW COLUMNS FROM ' . $q);
+                if ($show) {
+                    while ($row = $show->fetch(PDO::FETCH_ASSOC)) {
+                        if (!empty($row['Field'])) {
+                            $cols[] = strtolower((string) $row['Field']);
+                        }
+                    }
+                }
+            } catch (Throwable $e) {
+                $cols = [];
+            }
+        }
+        $cache[$phys] = $cols;
         return $cache[$phys];
     }
 }
