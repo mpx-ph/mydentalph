@@ -206,7 +206,7 @@ try {
             $lv = strtolower($strVal);
             $strVal = $lv === 'default' ? 'default' : 'danger';
         }
-        if ($key === 'footer_social_url' || $key === 'footer_powered_url') {
+        if ($key === 'footer_social_url') {
             if ($strVal !== '' && preg_match('#^https?://#i', $strVal) !== 1) {
                 continue;
             }

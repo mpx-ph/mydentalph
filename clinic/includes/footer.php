@@ -33,9 +33,6 @@ if ($footerCopyrightCustom !== '') {
         . ' ' . htmlspecialchars($clinicNamePlain !== '' ? $clinicNamePlain : 'Dental Clinic', ENT_QUOTES, 'UTF-8')
         . '. All rights reserved.';
 }
-$footerPoweredText = trim((string) ($CLINIC['footer_powered_text'] ?? ''));
-$footerPoweredUrl = trim((string) ($CLINIC['footer_powered_url'] ?? ''));
-$footerPoweredSafe = $footerPoweredUrl !== '' && preg_match('#^https?://#i', $footerPoweredUrl) === 1;
 ?>
 <footer id="clinic-site-footer" class="w-full border-t border-slate-200 bg-slate-50 reveal" data-reveal="section">
     <div class="max-w-7xl mx-auto px-6 md:px-12">
@@ -79,9 +76,7 @@ $footerPoweredSafe = $footerPoweredUrl !== '' && preg_match('#^https?://#i', $fo
         </div>
         <div class="border-t border-slate-200 pb-10 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
             <p class="text-xs text-slate-500"><?php echo $footerCopyrightHtml; ?></p>
-            <?php if ($footerPoweredText !== '' && $footerPoweredSafe): ?>
-            <a href="<?php echo htmlspecialchars($footerPoweredUrl, ENT_QUOTES, 'UTF-8'); ?>" class="text-xs text-slate-500 hover:text-primary transition-colors" target="_blank" rel="noopener noreferrer"><?php echo htmlspecialchars($footerPoweredText, ENT_QUOTES, 'UTF-8'); ?></a>
-            <?php endif; ?>
+            <a href="https://mydentalph.ct.ws/" class="text-xs text-slate-500 hover:text-primary transition-colors" target="_blank" rel="noopener noreferrer">Powered by MyDental Philippines</a>
         </div>
     </div>
 </footer>

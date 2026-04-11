@@ -415,9 +415,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 </div>
 </div>
 <?php sb_text('footer_copyright_line', 'Copyright line (optional; leave blank for © current year + clinic name + “All rights reserved.”)', $site_opts, $is_owner, true); ?>
-<?php sb_text('footer_powered_text', 'Powered-by link text (blank hides link)', $site_opts, $is_owner); ?>
-<?php sb_text('footer_powered_url', 'Powered-by URL (https…)', $site_opts, $is_owner); ?>
-<p class="text-[11px] text-on-surface-variant/80 leading-relaxed">Footer logo uses the <span class="font-bold text-on-background">logo</span> asset (global clinic customization). Navigation logo is separate under Branding.</p>
+<p class="text-[11px] text-on-surface-variant/80 leading-relaxed">Footer logo uses the <span class="font-bold text-on-background">logo</span> asset (global clinic customization). Navigation logo is separate under Branding. “Powered by MyDental Philippines” is fixed for all clinics.</p>
 </div>
 
 <div id="panel-pages" class="builder-panel space-y-8 max-h-[52vh] overflow-y-auto pr-1">

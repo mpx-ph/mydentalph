@@ -175,6 +175,4 @@ return [
     'footer_hours_row3_value' => 'Closed',
     'footer_hours_row3_style' => 'danger',
     'footer_copyright_line' => '',
-    'footer_powered_text' => 'Powered by MyDental Philippines',
-    'footer_powered_url' => 'https://mydentalph.ct.ws/',
 ];
