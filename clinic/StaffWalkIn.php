@@ -557,7 +557,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
                         </div>
                         <span class="inline-flex items-center gap-1 text-xs font-bold text-slate-500">
                             <span class="material-symbols-outlined text-[16px]">payments</span>
-                            Installment Available: No
+                            <span id="walkInInstallmentAvailable">Installment Available: No</span>
                         </span>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-left">
@@ -567,15 +567,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
                         </div>
                         <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
                             <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Down Payment (Min)</p>
-                            <p class="mt-2 text-xl font-extrabold text-slate-900">P0.00</p>
+                            <p id="walkInDownPaymentMin" class="mt-2 text-xl font-extrabold text-slate-900">P0.00</p>
                         </div>
                         <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
                             <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Monthly (Est.)</p>
-                            <p class="mt-2 text-xl font-extrabold text-slate-900">P0.00</p>
+                            <p id="walkInMonthlyEst" class="mt-2 text-xl font-extrabold text-slate-900">P0.00</p>
                         </div>
                         <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
                             <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Duration (Max)</p>
-                            <p class="mt-2 text-xl font-extrabold text-slate-900">0 Months</p>
+                            <p id="walkInDurationMax" class="mt-2 text-xl font-extrabold text-slate-900">0 Months</p>
                         </div>
                     </div>
                     <p class="text-[11px] font-semibold text-slate-500 mt-4">Actual payment terms will be finalized during payment processing.</p>
@@ -697,6 +697,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
         const serviceListEmptyState = document.getElementById('serviceListEmptyState');
         const notesInput = document.getElementById('walkInNotesInput');
         const createWalkInAppointmentBtn = document.getElementById('createWalkInAppointmentBtn');
+        const walkInInstallmentAvailableEl = document.getElementById('walkInInstallmentAvailable');
+        const walkInDownPaymentMinEl = document.getElementById('walkInDownPaymentMin');
+        const walkInMonthlyEstEl = document.getElementById('walkInMonthlyEst');
+        const walkInDurationMaxEl = document.getElementById('walkInDurationMax');
+        const walkInTotalAmountEl = document.getElementById('walkInTotalAmount');
         const dentistsSeedData = <?php echo json_encode($walkInDentists, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const patientsApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patients.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const servicesApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/services.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
@@ -814,16 +819,114 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
             }).join('');
         }
 
+        function serviceInstallmentEnabled(service) {
+            if (!service) return false;
+            const v = service.enable_installment;
+            return v === true || v === 1 || v === '1';
+        }
+
+        /**
+         * Services shown in Cost Preview: added services if any; otherwise the service currently chosen in the modal (before Add).
+         */
+        function getWalkInPreviewServices() {
+            if (selectedServices.length) {
+                return selectedServices;
+            }
+            const sid = selectedServiceIdInput ? String(selectedServiceIdInput.value || '').trim() : '';
+            if (!sid) {
+                return [];
+            }
+            const svc = allServices.find(function (item) {
+                return String(item.service_id || '') === sid;
+            });
+            return svc ? [svc] : [];
+        }
+
+        function computeWalkInCostPreview(services) {
+            let total = 0;
+            let installmentAvailable = false;
+            let downSum = 0;
+            let monthlySum = 0;
+            let durationMax = 0;
+            for (let i = 0; i < services.length; i++) {
+                const s = services[i];
+                const price = Number(s.price || 0);
+                total += price;
+                const inst = serviceInstallmentEnabled(s);
+                if (inst) {
+                    installmentAvailable = true;
+                }
+                let regDown = 0;
+                const rawReg = s.effective_regular_downpayment_amount;
+                if (rawReg !== null && rawReg !== undefined && rawReg !== '') {
+                    const n = Number(rawReg);
+                    if (!Number.isNaN(n)) {
+                        regDown = n;
+                    }
+                }
+                let instDown = null;
+                const rawInst = s.effective_installment_downpayment;
+                if (rawInst !== null && rawInst !== undefined && rawInst !== '') {
+                    const n = Number(rawInst);
+                    if (!Number.isNaN(n)) {
+                        instDown = n;
+                    }
+                }
+                if (inst) {
+                    downSum += instDown !== null ? instDown : 0;
+                } else {
+                    downSum += regDown;
+                }
+                if (inst) {
+                    const rawMon = s.effective_installment_monthly;
+                    if (rawMon !== null && rawMon !== undefined && rawMon !== '') {
+                        const mn = Number(rawMon);
+                        if (!Number.isNaN(mn)) {
+                            monthlySum += mn;
+                        }
+                    }
+                    const dm = parseInt(String(s.installment_duration_months || 0), 10);
+                    if (!Number.isNaN(dm) && dm > durationMax) {
+                        durationMax = dm;
+                    }
+                }
+            }
+            return {
+                total: total,
+                installmentAvailable: installmentAvailable,
+                downMin: downSum,
+                monthlyEst: monthlySum,
+                durationMax: durationMax
+            };
+        }
+
+        function refreshWalkInCostPreview() {
+            const services = getWalkInPreviewServices();
+            if (!services.length) {
+                if (walkInTotalAmountEl) walkInTotalAmountEl.textContent = 'P0.00';
+                if (walkInInstallmentAvailableEl) walkInInstallmentAvailableEl.textContent = 'Installment Available: No';
+                if (walkInDownPaymentMinEl) walkInDownPaymentMinEl.textContent = 'P0.00';
+                if (walkInMonthlyEstEl) walkInMonthlyEstEl.textContent = 'P0.00';
+                if (walkInDurationMaxEl) walkInDurationMaxEl.textContent = '0 Months';
+                return;
+            }
+            const p = computeWalkInCostPreview(services);
+            if (walkInTotalAmountEl) walkInTotalAmountEl.textContent = 'P' + p.total.toFixed(2);
+            if (walkInInstallmentAvailableEl) {
+                walkInInstallmentAvailableEl.textContent = 'Installment Available: ' + (p.installmentAvailable ? 'Yes' : 'No');
+            }
+            if (walkInDownPaymentMinEl) walkInDownPaymentMinEl.textContent = 'P' + p.downMin.toFixed(2);
+            if (walkInMonthlyEstEl) walkInMonthlyEstEl.textContent = 'P' + p.monthlyEst.toFixed(2);
+            if (walkInDurationMaxEl) walkInDurationMaxEl.textContent = p.durationMax + ' Months';
+        }
+
         function renderSelectedServices() {
             if (!selectedServicesContainer) return;
             if (!selectedServices.length) {
                 selectedServicesContainer.innerHTML = '<p class="text-[11px] font-semibold text-slate-500">No services added yet.</p>';
-                document.getElementById('walkInTotalAmount').textContent = 'P0.00';
+                refreshWalkInCostPreview();
                 return;
             }
-            const totalAmount = selectedServices.reduce(function (sum, svc) {
-                return sum + Number(svc.price || 0);
-            }, 0);
             selectedServicesContainer.innerHTML = selectedServices.map(function (service) {
                 const serviceId = escapeHtml(service.service_id || '');
                 const serviceName = escapeHtml(service.service_name || '');
@@ -836,7 +939,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
                         '</button>' +
                     '</div>';
             }).join('');
-            document.getElementById('walkInTotalAmount').textContent = 'P' + totalAmount.toFixed(2);
+            refreshWalkInCostPreview();
         }
 
         function renderDentistsList() {
@@ -977,6 +1080,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
         function setSelectedService(serviceId, serviceName) {
             if (selectedServiceIdInput) selectedServiceIdInput.value = serviceId || '';
             if (selectedServiceLabel) selectedServiceLabel.textContent = serviceName || 'Select service';
+            refreshWalkInCostPreview();
         }
 
         function buildApiUrl(baseUrl) {
