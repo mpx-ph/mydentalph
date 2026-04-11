@@ -64,7 +64,7 @@ define('ALLOWED_IMAGE_TYPES', ['image/jpeg', 'image/png', 'image/gif', 'image/we
 
 // Database: clinictemplate uses the project root db.php only (no separate DB config)
 // Set to true in development to see actual PDO errors from API (e.g. login) instead of generic message
-define('DB_DEBUG', false);
+define('DB_DEBUG', true);
 
 // Load database helper so getDBConnection() is always available to pages that use config
 require_once __DIR__ . '/database.php';
