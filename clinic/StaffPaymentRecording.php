@@ -42,6 +42,247 @@ function staff_payment_recording_installment_is_paid(string $status): bool
     return $s === 'paid' || $s === 'completed';
 }
 
+/**
+ * @return array{regular_downpayment_percentage: float, long_term_min_downpayment: float}
+ */
+function staff_payment_recording_load_payment_settings(PDO $pdo, string $tenantId): array
+{
+    static $cache = [];
+    if (isset($cache[$tenantId])) {
+        return $cache[$tenantId];
+    }
+    try {
+        $stmt = $pdo->prepare('SELECT regular_downpayment_percentage, long_term_min_downpayment FROM tbl_payment_settings WHERE tenant_id = ? LIMIT 1');
+        $stmt->execute([$tenantId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        $row = false;
+    }
+    if (!$row) {
+        $cache[$tenantId] = ['regular_downpayment_percentage' => 20.0, 'long_term_min_downpayment' => 500.0];
+    } else {
+        $cache[$tenantId] = [
+            'regular_downpayment_percentage' => (float) $row['regular_downpayment_percentage'],
+            'long_term_min_downpayment' => (float) $row['long_term_min_downpayment'],
+        ];
+    }
+    return $cache[$tenantId];
+}
+
+function staff_payment_recording_effective_installment_downpayment_amount(array $ps, float $price, $storedDown): float
+{
+    $base = ($storedDown !== null && $storedDown !== '')
+        ? (float) $storedDown
+        : (float) $ps['long_term_min_downpayment'];
+    $base = max(0.0, $base);
+    if ($price > 0 && $base > $price) {
+        return round($price, 2);
+    }
+    return round($base, 2);
+}
+
+/**
+ * @return list<array{number:int, amount:float, status:string}>
+ */
+function staff_payment_recording_build_installments_plan(float $totalCost, int $durationMonths, string $paymentOption, float $downpaymentAmount): array
+{
+    $installments = [];
+    $remainingAmount = $totalCost;
+
+    if ($paymentOption === 'downpayment' && $downpaymentAmount > 0) {
+        $installments[] = [
+            'number' => 1,
+            'amount' => round($downpaymentAmount, 2),
+            'status' => 'pending',
+        ];
+        $remainingAmount -= $downpaymentAmount;
+        $installmentCount = $durationMonths - 1;
+    } else {
+        $installmentCount = $durationMonths;
+    }
+
+    if ($installmentCount > 0) {
+        $monthlyAmount = $remainingAmount / $installmentCount;
+        $startNumber = ($paymentOption === 'downpayment' && $downpaymentAmount > 0) ? 2 : 1;
+        for ($i = 0; $i < $installmentCount; $i++) {
+            $installmentNumber = $startNumber + $i;
+            if ($i === $installmentCount - 1) {
+                $amount = $remainingAmount - ($monthlyAmount * ($installmentCount - 1));
+            } else {
+                $amount = $monthlyAmount;
+            }
+            $status = 'pending';
+            if ($paymentOption === 'downpayment' && $downpaymentAmount > 0 && $installmentNumber === 2) {
+                $status = 'book_visit';
+            }
+            $installments[] = [
+                'number' => $installmentNumber,
+                'amount' => round($amount, 2),
+                'status' => $status,
+            ];
+        }
+    }
+
+    return $installments;
+}
+
+/**
+ * @return list<string>
+ */
+function staff_payment_recording_installments_table_columns(PDO $pdo, string $tableName): array
+{
+    static $cache = [];
+    if (isset($cache[$tableName])) {
+        return $cache[$tableName];
+    }
+    $stmt = $pdo->prepare("
+        SELECT COLUMN_NAME
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = ?
+    ");
+    $stmt->execute([$tableName]);
+    $cache[$tableName] = array_map('strtolower', array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []));
+    return $cache[$tableName];
+}
+
+/**
+ * Create missing installment rows for a booking that is installment-priced via tbl_appointment_services + tbl_services
+ * but has no rows yet (mirrors clinic/api/appointments.php createInstallments).
+ */
+function staff_payment_recording_ensure_installment_schedule(
+    PDO $pdo,
+    ?string $installmentsTableName,
+    string $tenantId,
+    string $bookingId,
+    bool $supportsAppointmentServicesTable,
+    bool $supportsServiceEnableInstallmentColumn
+): bool {
+    if ($installmentsTableName === null || $bookingId === '' || $tenantId === '') {
+        return false;
+    }
+    if (!$supportsAppointmentServicesTable || !$supportsServiceEnableInstallmentColumn) {
+        return false;
+    }
+
+    $quoted = '`' . str_replace('`', '``', $installmentsTableName) . '`';
+    $pdo->beginTransaction();
+    try {
+        $cntStmt = $pdo->prepare("
+            SELECT COUNT(*) FROM {$quoted} i
+            WHERE i.booking_id = ?
+              AND (
+                  i.tenant_id = ?
+                  OR i.tenant_id IS NULL
+                  OR TRIM(COALESCE(i.tenant_id, '')) = ''
+              )
+        ");
+        $cntStmt->execute([$bookingId, $tenantId]);
+        if ((int) $cntStmt->fetchColumn() > 0) {
+            $pdo->commit();
+            return true;
+        }
+
+        $svcStmt = $pdo->prepare("
+            SELECT
+                sv.installment_downpayment,
+                sv.installment_duration_months,
+                sv.price
+            FROM tbl_appointment_services aps
+            INNER JOIN tbl_services sv
+                ON sv.tenant_id = aps.tenant_id
+               AND sv.service_id = aps.service_id
+            WHERE aps.tenant_id = ?
+              AND aps.booking_id = ?
+              AND COALESCE(sv.enable_installment, 0) = 1
+            ORDER BY sv.price DESC
+            LIMIT 1
+        ");
+        $svcStmt->execute([$tenantId, $bookingId]);
+        $svcRow = $svcStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$svcRow) {
+            $pdo->commit();
+            return false;
+        }
+
+        $apptStmt = $pdo->prepare('
+            SELECT COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost
+            FROM tbl_appointments a
+            WHERE a.tenant_id = ?
+              AND a.booking_id = ?
+            LIMIT 1
+        ');
+        $apptStmt->execute([$tenantId, $bookingId]);
+        $apptRow = $apptStmt->fetch(PDO::FETCH_ASSOC);
+        $totalCost = $apptRow ? (float) ($apptRow['total_treatment_cost'] ?? 0) : 0.0;
+        if ($totalCost <= 0.009) {
+            $pdo->commit();
+            return false;
+        }
+
+        $ps = staff_payment_recording_load_payment_settings($pdo, $tenantId);
+        $storedDown = $svcRow['installment_downpayment'] ?? null;
+        $storedDownFloat = ($storedDown !== null && $storedDown !== '') ? (float) $storedDown : null;
+        $effDown = staff_payment_recording_effective_installment_downpayment_amount($ps, $totalCost, $storedDownFloat);
+
+        $rawDur = $svcRow['installment_duration_months'] ?? null;
+        $durationMonths = ($rawDur === null || $rawDur === '') ? 12 : (int) $rawDur;
+        $durationMonths = max(1, $durationMonths);
+
+        $paymentOption = ($durationMonths > 1 && $effDown > 0.009) ? 'downpayment' : 'installment';
+        $downForPlan = ($paymentOption === 'downpayment') ? $effDown : 0.0;
+
+        $plan = staff_payment_recording_build_installments_plan($totalCost, $durationMonths, $paymentOption, $downForPlan);
+        if ($plan === []) {
+            $pdo->commit();
+            return false;
+        }
+
+        $cols = staff_payment_recording_installments_table_columns($pdo, $installmentsTableName);
+        $hasTenant = in_array('tenant_id', $cols, true);
+        $hasCreatedAt = in_array('created_at', $cols, true);
+
+        foreach ($plan as $inst) {
+            $fields = [];
+            $placeholders = [];
+            $params = [];
+            if ($hasTenant) {
+                $fields[] = 'tenant_id';
+                $placeholders[] = '?';
+                $params[] = $tenantId;
+            }
+            $fields[] = 'booking_id';
+            $placeholders[] = '?';
+            $params[] = $bookingId;
+            $fields[] = 'installment_number';
+            $placeholders[] = '?';
+            $params[] = (int) $inst['number'];
+            $fields[] = 'amount_due';
+            $placeholders[] = '?';
+            $params[] = (float) $inst['amount'];
+            $fields[] = 'status';
+            $placeholders[] = '?';
+            $params[] = (string) $inst['status'];
+            if ($hasCreatedAt) {
+                $fields[] = 'created_at';
+                $placeholders[] = 'NOW()';
+            }
+            $sql = 'INSERT INTO ' . $quoted . ' (' . implode(', ', $fields) . ') VALUES (' . implode(', ', $placeholders) . ')';
+            $ins = $pdo->prepare($sql);
+            $ins->execute($params);
+        }
+
+        $pdo->commit();
+        return true;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log('staff_payment_recording_ensure_installment_schedule: ' . $e->getMessage());
+        return false;
+    }
+}
+
 // Dentist role restriction: redirect to dashboard
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
 if (isset($_SESSION['user_role']) && strtolower(trim((string) $_SESSION['user_role'])) === 'dentist') {
@@ -283,6 +524,14 @@ try {
                 $paymentError = 'Selected transaction is already fully paid.';
             } else {
                 try {
+                    staff_payment_recording_ensure_installment_schedule(
+                        $pdo,
+                        $installmentsTableName,
+                        $tenantId,
+                        $selectedBookingId,
+                        $supportsAppointmentServicesTable,
+                        $supportsServiceEnableInstallmentColumn
+                    );
                     $scheduleRows = staff_payment_recording_fetch_installments($pdo, $installmentsTableName, $tenantId, $selectedBookingId);
                     $postedInstallFlow = trim((string) ($_POST['installment_flow'] ?? 'regular'));
                     $postedPayMode = trim((string) ($_POST['installment_pay_mode'] ?? 'full'));
@@ -1130,6 +1379,27 @@ try {
                         'status' => trim((string) ($ir['status'] ?? '')),
                     ];
                 }
+            }
+        }
+        if ($installmentsTableName !== null && $transactionCandidates !== []) {
+            foreach ($transactionCandidates as $candRow) {
+                $bid = trim((string) ($candRow['booking_id'] ?? ''));
+                if ($bid === '' || empty($candRow['is_installment_plan'])) {
+                    continue;
+                }
+                $sched = $scheduleByBooking[$bid] ?? [];
+                if ($sched !== []) {
+                    continue;
+                }
+                staff_payment_recording_ensure_installment_schedule(
+                    $pdo,
+                    $installmentsTableName,
+                    $tenantId,
+                    $bid,
+                    $supportsAppointmentServicesTable,
+                    $supportsServiceEnableInstallmentColumn
+                );
+                $scheduleByBooking[$bid] = staff_payment_recording_fetch_installments($pdo, $installmentsTableName, $tenantId, $bid);
             }
         }
         foreach ($transactionCandidates as $ic => $candRow) {
