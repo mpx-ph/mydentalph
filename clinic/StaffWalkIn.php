@@ -3,69 +3,7 @@ $pageTitle = 'Walk-In Booking';
 $staff_nav_active = 'appointments';
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/includes/tenant.php';
-
-/**
- * Resolve real table names: deployments may use tbl_* (schema.sql) or legacy unprefixed names.
- *
- * @return array{appointments: ?string, appointment_services: ?string, services: ?string, patients: ?string, dentists: ?string, users: ?string}
- */
-function staff_walkin_resolve_db_tables(PDO $pdo): array
-{
-    $exists = static function (PDO $pdo, string $name): bool {
-        static $cache = [];
-        if (isset($cache[$name])) {
-            return $cache[$name];
-        }
-        $stmt = $pdo->prepare("
-            SELECT 1
-            FROM information_schema.TABLES
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$name]);
-        $cache[$name] = (bool) $stmt->fetchColumn();
-        return $cache[$name];
-    };
-
-    $pick = static function (PDO $pdo, array $candidates) use ($exists): ?string {
-        foreach ($candidates as $t) {
-            if ($exists($pdo, $t)) {
-                return $t;
-            }
-        }
-        return null;
-    };
-
-    return [
-        'appointments' => $pick($pdo, ['tbl_appointments', 'appointments']),
-        'appointment_services' => $pick($pdo, ['tbl_appointment_services', 'appointment_services']),
-        'services' => $pick($pdo, ['tbl_services', 'services']),
-        'patients' => $pick($pdo, ['tbl_patients', 'patients']),
-        'dentists' => $pick($pdo, ['tbl_dentists', 'dentists']),
-        'users' => $pick($pdo, ['tbl_users', 'users']),
-    ];
-}
-
-/**
- * @return list<string>
- */
-function staff_walkin_table_columns(PDO $pdo, string $tableName): array
-{
-    static $cache = [];
-    if (isset($cache[$tableName])) {
-        return $cache[$tableName];
-    }
-    $stmt = $pdo->prepare("
-        SELECT COLUMN_NAME
-        FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = ?
-    ");
-    $stmt->execute([$tableName]);
-    $cache[$tableName] = array_map('strtolower', array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []));
-    return $cache[$tableName];
-}
+require_once __DIR__ . '/includes/appointment_db_tables.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -130,7 +68,7 @@ try {
             $tenantId = (string) $_SESSION['public_tenant_id'];
         }
         if ($pdo && $tenantId) {
-            $wiTables = staff_walkin_resolve_db_tables($pdo);
+            $wiTables = clinic_resolve_appointment_db_tables($pdo);
             $wiDentists = $wiTables['dentists'];
             if ($wiDentists !== null) {
                 $wiQDent = '`' . str_replace('`', '``', $wiDentists) . '`';
@@ -220,7 +158,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
         }
 
         $pdo = getDBConnection();
-        $dbTables = staff_walkin_resolve_db_tables($pdo);
+        $dbTables = clinic_resolve_appointment_db_tables($pdo);
         $appointmentsTable = $dbTables['appointments'];
         $appointmentServicesTable = $dbTables['appointment_services'];
         $servicesCatalogTable = $dbTables['services'];
@@ -362,7 +300,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
             }
         }
 
-        $apptCols = staff_walkin_table_columns($pdo, $appointmentsTable);
+        $apptCols = clinic_table_columns($pdo, $appointmentsTable);
         $apptData = [
             'tenant_id' => $tenantId,
             'booking_id' => $bookingId,
@@ -417,7 +355,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
 
         $appointmentId = (int) $pdo->lastInsertId();
 
-        $apsCols = staff_walkin_table_columns($pdo, $appointmentServicesTable);
+        $apsCols = clinic_table_columns($pdo, $appointmentServicesTable);
         $quotedAps = '`' . str_replace('`', '``', $appointmentServicesTable) . '`';
         foreach ($normalizedServices as $serviceRow) {
             $rowData = [

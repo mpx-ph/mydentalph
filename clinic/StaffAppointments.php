@@ -2,6 +2,7 @@
 $pageTitle = 'Appointments';
 $staff_nav_active = 'appointments';
 require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/includes/appointment_db_tables.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -110,6 +111,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tenantId !== '') {
 
     try {
         $pdo = getDBConnection();
+        $dbTables = clinic_resolve_appointment_db_tables($pdo);
+        $tAppt = $dbTables['appointments'];
+        $tAps = $dbTables['appointment_services'];
+        $tSvc = $dbTables['services'];
+        if ($tAppt === null) {
+            throw new RuntimeException('Appointments table is not available.');
+        }
+        $qAppt = clinic_quote_identifier($tAppt);
+        $qAps = $tAps !== null ? clinic_quote_identifier($tAps) : null;
+        $qSvc = $tSvc !== null ? clinic_quote_identifier($tSvc) : null;
+
         if ($postAction === 'update_status') {
             $allowedUpdateStatuses = ['confirmed', 'completed', 'no_show'];
             $newStatus = strtolower(trim((string) ($_POST['update_status'] ?? '')));
@@ -118,7 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tenantId !== '') {
             }
 
             $statusStmt = $pdo->prepare("
-                UPDATE tbl_appointments
+                UPDATE {$qAppt}
                 SET status = ?
                 WHERE tenant_id = ? AND booking_id = ?
                 LIMIT 1
@@ -133,12 +145,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tenantId !== '') {
             if ($bookingId === '' || empty($serviceIds)) {
                 throw new RuntimeException('Please select at least one service to add.');
             }
+            if ($qAps === null || $qSvc === null) {
+                throw new RuntimeException('Appointment services or catalog table is not available.');
+            }
 
             $pdo->beginTransaction();
 
             $aptStmt = $pdo->prepare("
                 SELECT booking_id, status, total_treatment_cost, service_description
-                FROM tbl_appointments
+                FROM {$qAppt}
                 WHERE tenant_id = ? AND booking_id = ?
                 LIMIT 1
             ");
@@ -156,7 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tenantId !== '') {
             $placeholders = implode(',', array_fill(0, count($serviceIds), '?'));
             $serviceSql = "
                 SELECT service_id, service_name, price
-                FROM tbl_services
+                FROM {$qSvc}
                 WHERE tenant_id = ? AND status = 'active' AND service_id IN ($placeholders)
             ";
             $serviceStmt = $pdo->prepare($serviceSql);
@@ -168,7 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tenantId !== '') {
 
             $existingStmt = $pdo->prepare("
                 SELECT service_id
-                FROM tbl_appointment_services
+                FROM {$qAps}
                 WHERE tenant_id = ? AND booking_id = ?
             ");
             $existingStmt->execute([$tenantId, $bookingId]);
@@ -176,7 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tenantId !== '') {
             $existingLookup = array_fill_keys($existingServiceIds, true);
 
             $insertStmt = $pdo->prepare("
-                INSERT INTO tbl_appointment_services (tenant_id, booking_id, service_id, service_name, price, is_original, added_at)
+                INSERT INTO {$qAps} (tenant_id, booking_id, service_id, service_name, price, is_original, added_at)
                 VALUES (?, ?, ?, ?, ?, 0, NOW())
             ");
 
@@ -205,7 +220,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tenantId !== '') {
             $newDescription = $desc !== '' ? ($desc . '; ' . $appendText) : $appendText;
 
             $updateAptStmt = $pdo->prepare("
-                UPDATE tbl_appointments
+                UPDATE {$qAppt}
                 SET total_treatment_cost = ?, service_description = ?
                 WHERE tenant_id = ? AND booking_id = ?
                 LIMIT 1
@@ -230,9 +245,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tenantId !== '') {
 
 try {
     $pdo = getDBConnection();
+    $dbTables = clinic_resolve_appointment_db_tables($pdo);
+    $tTenants = $dbTables['tenants'];
 
-    if ($tenantId === '' && $currentTenantSlug !== '') {
-        $tenantStmt = $pdo->prepare('SELECT tenant_id FROM tbl_tenants WHERE clinic_slug = ? LIMIT 1');
+    if ($tenantId === '' && $currentTenantSlug !== '' && $tTenants !== null) {
+        $qTen = clinic_quote_identifier($tTenants);
+        $tenantStmt = $pdo->prepare("SELECT tenant_id FROM {$qTen} WHERE clinic_slug = ? LIMIT 1");
         $tenantStmt->execute([$currentTenantSlug]);
         $tenantRow = $tenantStmt->fetch(PDO::FETCH_ASSOC);
         if ($tenantRow && isset($tenantRow['tenant_id'])) {
@@ -241,63 +259,111 @@ try {
     }
 
     if ($tenantId !== '') {
-        $summaryStmt = $pdo->prepare("
-            SELECT
-                SUM(CASE WHEN status IN ('confirmed', 'scheduled') THEN 1 ELSE 0 END) AS scheduled_count,
-                SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_count,
-                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_count
-            FROM tbl_appointments
-            WHERE tenant_id = ? AND appointment_date = ?
-        ");
-        $summaryStmt->execute([$tenantId, $selectedDate]);
-        $summaryRow = $summaryStmt->fetch(PDO::FETCH_ASSOC) ?: [];
-        $summary['scheduled'] = (int) ($summaryRow['scheduled_count'] ?? 0);
-        $summary['cancelled'] = (int) ($summaryRow['cancelled_count'] ?? 0);
-        $summary['pending'] = (int) ($summaryRow['pending_count'] ?? 0);
+        $tAppt = $dbTables['appointments'];
+        $tAps = $dbTables['appointment_services'];
+        $tPat = $dbTables['patients'];
+        $tUsr = $dbTables['users'];
+        $tPay = $dbTables['payments'];
+        $tSvc = $dbTables['services'];
 
-        $monthStmt = $pdo->prepare("
-            SELECT appointment_date, COUNT(*) AS day_count
-            FROM tbl_appointments
-            WHERE tenant_id = ?
-              AND appointment_date BETWEEN ? AND ?
-            GROUP BY appointment_date
-        ");
-        $monthStmt->execute([$tenantId, $monthStart, $monthEnd]);
-        foreach ($monthStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $day = (string) ($row['appointment_date'] ?? '');
-            if ($day !== '') {
-                $monthCounts[$day] = (int) ($row['day_count'] ?? 0);
+        if ($tAppt === null) {
+            error_log('Staff appointments: appointments table not found.');
+        } else {
+            $qAppt = clinic_quote_identifier($tAppt);
+            $qAps = $tAps !== null ? clinic_quote_identifier($tAps) : null;
+            $qPat = $tPat !== null ? clinic_quote_identifier($tPat) : null;
+            $qUsr = $tUsr !== null ? clinic_quote_identifier($tUsr) : null;
+            $qPay = $tPay !== null ? clinic_quote_identifier($tPay) : null;
+            $qSvc = $tSvc !== null ? clinic_quote_identifier($tSvc) : null;
+
+            $summaryStmt = $pdo->prepare("
+                SELECT
+                    SUM(CASE WHEN status IN ('confirmed', 'scheduled') THEN 1 ELSE 0 END) AS scheduled_count,
+                    SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_count,
+                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_count
+                FROM {$qAppt}
+                WHERE tenant_id = ? AND appointment_date = ?
+            ");
+            $summaryStmt->execute([$tenantId, $selectedDate]);
+            $summaryRow = $summaryStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+            $summary['scheduled'] = (int) ($summaryRow['scheduled_count'] ?? 0);
+            $summary['cancelled'] = (int) ($summaryRow['cancelled_count'] ?? 0);
+            $summary['pending'] = (int) ($summaryRow['pending_count'] ?? 0);
+
+            $monthStmt = $pdo->prepare("
+                SELECT appointment_date, COUNT(*) AS day_count
+                FROM {$qAppt}
+                WHERE tenant_id = ?
+                  AND appointment_date BETWEEN ? AND ?
+                GROUP BY appointment_date
+            ");
+            $monthStmt->execute([$tenantId, $monthStart, $monthEnd]);
+            foreach ($monthStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $day = (string) ($row['appointment_date'] ?? '');
+                if ($day !== '') {
+                    $monthCounts[$day] = (int) ($row['day_count'] ?? 0);
+                }
             }
-        }
 
-        $totalPaidSelectSql = "
-            (
-                SELECT COALESCE(SUM(py.amount), 0)
-                FROM tbl_payments py
-                WHERE py.tenant_id = a.tenant_id
-                  AND py.booking_id = a.booking_id
-                  AND py.status = 'completed'
-            ) AS total_paid
-        ";
+            $serviceTypeExpr = $qAps !== null
+                ? "(
+                    SELECT COALESCE(GROUP_CONCAT(svc.service_name SEPARATOR ', '), a.service_type)
+                    FROM {$qAps} svc
+                    WHERE svc.tenant_id = a.tenant_id
+                      AND svc.booking_id = a.booking_id
+                )"
+                : 'a.service_type';
+            $serviceIdsExpr = $qAps !== null
+                ? "(
+                    SELECT COALESCE(GROUP_CONCAT(DISTINCT svc.service_id ORDER BY svc.service_id SEPARATOR ','), '')
+                    FROM {$qAps} svc
+                    WHERE svc.tenant_id = a.tenant_id
+                      AND svc.booking_id = a.booking_id
+                )"
+                : "''";
 
-        $dailySql = "
+            $totalPaidSelectSql = $qPay !== null
+                ? "(
+                    SELECT COALESCE(SUM(py.amount), 0)
+                    FROM {$qPay} py
+                    WHERE py.tenant_id = a.tenant_id
+                      AND py.booking_id = a.booking_id
+                      AND py.status = 'completed'
+                ) AS total_paid"
+                : '0 AS total_paid';
+
+            $patientSelectSql = $qPat !== null
+                ? 'p.first_name AS patient_first_name,
+                p.last_name AS patient_last_name,
+                p.contact_number AS patient_contact_number,
+                p.patient_id AS patient_display_id'
+                : 'NULL AS patient_first_name,
+                NULL AS patient_last_name,
+                NULL AS patient_contact_number,
+                a.patient_id AS patient_display_id';
+
+            $createdBySelectSql = $qUsr !== null
+                ? 'u.email AS created_by_email'
+                : 'NULL AS created_by_email';
+
+            $patientJoinSql = $qPat !== null
+                ? "LEFT JOIN {$qPat} p
+              ON p.tenant_id = a.tenant_id
+             AND p.patient_id = a.patient_id"
+                : '';
+            $userJoinSql = $qUsr !== null
+                ? "LEFT JOIN {$qUsr} u
+              ON u.user_id = a.created_by"
+                : '';
+
+            $dailySql = "
             SELECT
                 a.booking_id,
                 a.patient_id,
                 a.appointment_date,
                 a.appointment_time,
-                (
-                    SELECT COALESCE(GROUP_CONCAT(svc.service_name SEPARATOR ', '), a.service_type)
-                    FROM tbl_appointment_services svc
-                    WHERE svc.tenant_id = a.tenant_id
-                      AND svc.booking_id = a.booking_id
-                ) as service_type,
-                (
-                    SELECT COALESCE(GROUP_CONCAT(DISTINCT svc.service_id ORDER BY svc.service_id SEPARATOR ','), '')
-                    FROM tbl_appointment_services svc
-                    WHERE svc.tenant_id = a.tenant_id
-                      AND svc.booking_id = a.booking_id
-                ) AS appointment_service_ids,
+                {$serviceTypeExpr} as service_type,
+                {$serviceIdsExpr} AS appointment_service_ids,
                 a.service_description,
                 a.treatment_type,
                 a.status,
@@ -305,58 +371,69 @@ try {
                 a.total_treatment_cost,
                 {$totalPaidSelectSql},
                 a.created_by,
-                p.first_name AS patient_first_name,
-                p.last_name AS patient_last_name,
-                p.contact_number AS patient_contact_number,
-                p.patient_id AS patient_display_id,
-                u.email AS created_by_email
-            FROM tbl_appointments a
-            LEFT JOIN tbl_patients p
-              ON p.tenant_id = a.tenant_id
-             AND p.patient_id = a.patient_id
-            LEFT JOIN tbl_users u
-              ON u.user_id = a.created_by
+                {$patientSelectSql},
+                {$createdBySelectSql}
+            FROM {$qAppt} a
+            {$patientJoinSql}
+            {$userJoinSql}
             WHERE a.tenant_id = ?
               AND a.appointment_date = ?
         ";
-        $params = [$tenantId, $selectedDate];
+            $params = [$tenantId, $selectedDate];
 
-        if ($selectedStatus === 'scheduled') {
-            $dailySql .= " AND a.status IN ('confirmed', 'scheduled')";
-        } elseif ($selectedStatus !== 'all') {
-            $dailySql .= " AND a.status = ?";
-            $params[] = $selectedStatus;
-        }
+            if ($selectedStatus === 'scheduled') {
+                $dailySql .= " AND a.status IN ('confirmed', 'scheduled')";
+            } elseif ($selectedStatus !== 'all') {
+                $dailySql .= " AND a.status = ?";
+                $params[] = $selectedStatus;
+            }
 
-        if ($searchTerm !== '') {
-            $dailySql .= " AND (
+            if ($searchTerm !== '') {
+                if ($qPat !== null) {
+                    $dailySql .= " AND (
                 a.booking_id LIKE ?
                 OR a.service_type LIKE ?
                 OR a.service_description LIKE ?
                 OR a.patient_id LIKE ?
                 OR CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(p.last_name, '')) LIKE ?
             )";
-            $like = '%' . $searchTerm . '%';
-            $params[] = $like;
-            $params[] = $like;
-            $params[] = $like;
-            $params[] = $like;
-            $params[] = $like;
+                    $like = '%' . $searchTerm . '%';
+                    $params[] = $like;
+                    $params[] = $like;
+                    $params[] = $like;
+                    $params[] = $like;
+                    $params[] = $like;
+                } else {
+                    $dailySql .= " AND (
+                a.booking_id LIKE ?
+                OR a.service_type LIKE ?
+                OR a.service_description LIKE ?
+                OR a.patient_id LIKE ?
+            )";
+                    $like = '%' . $searchTerm . '%';
+                    $params[] = $like;
+                    $params[] = $like;
+                    $params[] = $like;
+                    $params[] = $like;
+                }
+            }
+
+            $dailySql .= ' ORDER BY a.appointment_time DESC, a.created_at DESC';
+            $dailyStmt = $pdo->prepare($dailySql);
+            $dailyStmt->execute($params);
+            $dailyAppointments = $dailyStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+            if ($qSvc !== null) {
+                $servicesStmt = $pdo->prepare("
+                    SELECT service_id, service_name, category, price
+                    FROM {$qSvc}
+                    WHERE tenant_id = ? AND status = 'active'
+                    ORDER BY service_name ASC
+                ");
+                $servicesStmt->execute([$tenantId]);
+                $availableServices = $servicesStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            }
         }
-
-        $dailySql .= " ORDER BY a.appointment_time DESC, a.created_at DESC";
-        $dailyStmt = $pdo->prepare($dailySql);
-        $dailyStmt->execute($params);
-        $dailyAppointments = $dailyStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-        $servicesStmt = $pdo->prepare("
-            SELECT service_id, service_name, category, price
-            FROM tbl_services
-            WHERE tenant_id = ? AND status = 'active'
-            ORDER BY service_name ASC
-        ");
-        $servicesStmt->execute([$tenantId]);
-        $availableServices = $servicesStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 } catch (Throwable $e) {
     error_log('Staff appointments load error: ' . $e->getMessage());
