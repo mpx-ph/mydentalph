@@ -308,7 +308,7 @@ Price (₱) <span class="text-red-500 font-bold">*</span>
 </div>
 <div id="newServiceGlobalInstallmentSection" class="hidden rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:p-5 space-y-4 mt-2">
 <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Installment schedule</p>
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 sm:items-end">
 <div>
 <label for="newServiceGlobalInstallmentDuration" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
 <span class="material-symbols-outlined text-[18px] text-slate-500">calendar_month</span>
@@ -317,19 +317,13 @@ Duration (months) <span class="text-red-500 font-bold">*</span>
 <input type="number" id="newServiceGlobalInstallmentDuration" step="1" min="1" placeholder="0" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
 </div>
 <div>
-<label for="newServiceGlobalInstallmentDownDisplay" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
-<span class="material-symbols-outlined text-[18px] text-slate-500">payments</span>
-Downpayment (₱) <span class="text-xs font-normal text-slate-500">(from Payment Settings)</span>
-</label>
-<input type="text" id="newServiceGlobalInstallmentDownDisplay" readonly tabindex="-1" value="" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 text-[15px] font-semibold tabular-nums cursor-default"/>
-</div>
-</div>
-<div>
 <label for="newServiceGlobalInstallmentMonthly" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
 <span class="material-symbols-outlined text-[18px] text-slate-500">calculate</span>
-Monthly payment (₱) <span class="text-xs font-normal text-slate-500">(estimated)</span>
+Monthly Payment (₱)
 </label>
-<input type="text" id="newServiceGlobalInstallmentMonthly" readonly tabindex="-1" placeholder="0.00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 placeholder:text-slate-400 text-[15px] cursor-not-allowed"/>
+<input type="text" id="newServiceGlobalInstallmentMonthly" readonly tabindex="-1" placeholder="—" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 text-[15px] font-semibold tabular-nums cursor-default placeholder:text-slate-400"/>
+<p class="text-[11px] text-slate-500 mt-1.5 leading-snug">After the down payment from Payment Settings (shown above).</p>
+</div>
 </div>
 </div>
 </div>
@@ -495,19 +489,22 @@ Add Service
 </div>
 <div id="editServiceGlobalInstallmentSection" class="hidden rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-4">
 <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Installment schedule</p>
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:items-end">
 <div>
-<label for="editServiceGlobalInstallmentDuration" class="block text-sm font-semibold text-slate-700 mb-2">Duration (months) <span class="text-red-500">*</span></label>
+<label for="editServiceGlobalInstallmentDuration" class="flex items-center gap-1.5 text-sm font-semibold text-slate-700 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">calendar_month</span>
+Duration (months) <span class="text-red-500">*</span>
+</label>
 <input type="number" id="editServiceGlobalInstallmentDuration" step="1" min="1" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900"/>
 </div>
 <div>
-<label for="editServiceGlobalInstallmentDownDisplay" class="block text-sm font-semibold text-slate-700 mb-2">Downpayment (₱) <span class="text-xs font-normal text-slate-500">(from Payment Settings)</span></label>
-<input type="text" id="editServiceGlobalInstallmentDownDisplay" readonly tabindex="-1" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 font-semibold tabular-nums"/>
+<label for="editServiceGlobalInstallmentMonthly" class="flex items-center gap-1.5 text-sm font-semibold text-slate-700 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">calculate</span>
+Monthly Payment (₱)
+</label>
+<input type="text" id="editServiceGlobalInstallmentMonthly" readonly tabindex="-1" placeholder="—" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 text-[15px] font-semibold tabular-nums placeholder:text-slate-400"/>
+<p class="text-[11px] text-slate-500 mt-1.5 leading-snug">After the down payment from Payment Settings (shown above).</p>
 </div>
-</div>
-<div>
-<label for="editServiceGlobalInstallmentMonthly" class="block text-sm font-semibold text-slate-700 mb-2">Monthly payment (₱) <span class="text-xs font-normal text-slate-500">(estimated)</span></label>
-<input type="text" id="editServiceGlobalInstallmentMonthly" readonly tabindex="-1" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-700"/>
 </div>
 </div>
 <div class="rounded-2xl border border-slate-200 bg-white p-4">
@@ -818,10 +815,6 @@ function updatePaymentPreview(scope) {
 
     if (!raw || Number.isNaN(price) || price <= 0) {
         out.value = '';
-        const gd = document.getElementById(p + 'GlobalInstallmentDownDisplay');
-        if (gd) {
-            gd.value = '';
-        }
         recalcGlobalInstallmentMonthly(scope);
         return;
     }
@@ -835,12 +828,7 @@ function updatePaymentPreview(scope) {
 
     if (isInst) {
         const eff = Math.min(minDown, price);
-        const formatted = eff.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        out.value = formatted;
-        const gd = document.getElementById(p + 'GlobalInstallmentDownDisplay');
-        if (gd) {
-            gd.value = formatted;
-        }
+        out.value = eff.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     } else {
         const amount = price * (pct / 100);
         out.value = amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
