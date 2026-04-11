@@ -284,6 +284,7 @@ Price (₱) <span class="text-red-500 font-bold">*</span>
 <input type="number" id="newServicePrice" step="0.01" min="0" placeholder="0.00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" required/>
 </div>
 </div>
+<div id="newServiceDefaultPaymentShell" class="space-y-3">
 <div id="newServicePaymentTypeRow" class="flex flex-col gap-4 pt-1 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between lg:gap-6">
 <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-8 shrink-0">
 <label class="inline-flex items-center gap-2.5 cursor-pointer group">
@@ -306,24 +307,25 @@ Price (₱) <span class="text-red-500 font-bold">*</span>
 <p id="newServiceAutoDownpaymentHint" class="sr-only">Read-only default from Payment Settings; applied automatically when custom payment is off.</p>
 </div>
 </div>
-<div id="newServiceGlobalInstallmentSection" class="hidden rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:p-5 space-y-4 mt-2">
-<p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Installment schedule</p>
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 sm:items-end">
-<div>
-<label for="newServiceGlobalInstallmentDuration" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
-<span class="material-symbols-outlined text-[18px] text-slate-500">calendar_month</span>
-Duration (months) <span class="text-red-500 font-bold">*</span>
+<div id="newServiceGlobalInstallmentSection" class="hidden rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:p-5 mt-2">
+<p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">Installment schedule</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-x-5">
+<div class="flex flex-col gap-2">
+<label for="newServiceGlobalInstallmentDuration" class="flex items-center gap-1.5 min-h-[2.5rem] text-sm font-semibold text-slate-800">
+<span class="material-symbols-outlined text-[18px] text-slate-500 shrink-0">calendar_month</span>
+<span>Duration (months) <span class="text-red-500 font-bold">*</span></span>
 </label>
-<input type="number" id="newServiceGlobalInstallmentDuration" step="1" min="1" placeholder="0" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+<input type="number" id="newServiceGlobalInstallmentDuration" step="1" min="1" placeholder="0" class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
 </div>
-<div>
-<label for="newServiceGlobalInstallmentMonthly" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
-<span class="material-symbols-outlined text-[18px] text-slate-500">calculate</span>
-Monthly Payment (₱)
+<div class="flex flex-col gap-2">
+<label for="newServiceGlobalInstallmentMonthly" class="flex items-center gap-1.5 min-h-[2.5rem] text-sm font-semibold text-slate-800">
+<span class="material-symbols-outlined text-[18px] text-slate-500 shrink-0">calculate</span>
+<span>Monthly Payment (₱)</span>
 </label>
-<input type="text" id="newServiceGlobalInstallmentMonthly" readonly tabindex="-1" placeholder="—" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 text-[15px] font-semibold tabular-nums cursor-default placeholder:text-slate-400"/>
-<p class="text-[11px] text-slate-500 mt-1.5 leading-snug">After the down payment from Payment Settings (shown above).</p>
+<input type="text" id="newServiceGlobalInstallmentMonthly" readonly tabindex="-1" placeholder="—" class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 text-[15px] font-semibold tabular-nums cursor-default placeholder:text-slate-400"/>
 </div>
+</div>
+<p class="text-[11px] text-slate-500 mt-3 leading-snug">Monthly payment is estimated after the default down payment from Payment Settings (shown above).</p>
 </div>
 </div>
 </div>
@@ -466,6 +468,7 @@ Add Service
 </div>
 <div class="border-t border-slate-100 pt-5 space-y-5">
 <p class="text-xs font-extrabold text-slate-800 uppercase tracking-wide">Payment</p>
+<div id="editServiceDefaultPaymentShell" class="space-y-3">
 <div id="editServicePaymentTypeRow" class="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between lg:gap-6">
 <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-8 shrink-0">
 <label class="inline-flex items-center gap-2.5 cursor-pointer group">
@@ -487,24 +490,25 @@ Add Service
 <input type="text" id="editServiceAutoDownpaymentDisplay" readonly tabindex="-1" value="" placeholder="—" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 text-[15px] font-semibold tabular-nums cursor-default"/>
 </div>
 </div>
-<div id="editServiceGlobalInstallmentSection" class="hidden rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-4">
-<p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Installment schedule</p>
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:items-end">
-<div>
-<label for="editServiceGlobalInstallmentDuration" class="flex items-center gap-1.5 text-sm font-semibold text-slate-700 mb-2">
-<span class="material-symbols-outlined text-[18px] text-slate-500">calendar_month</span>
-Duration (months) <span class="text-red-500">*</span>
+<div id="editServiceGlobalInstallmentSection" class="hidden rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
+<p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">Installment schedule</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-x-5">
+<div class="flex flex-col gap-2">
+<label for="editServiceGlobalInstallmentDuration" class="flex items-center gap-1.5 min-h-[2.5rem] text-sm font-semibold text-slate-700">
+<span class="material-symbols-outlined text-[18px] text-slate-500 shrink-0">calendar_month</span>
+<span>Duration (months) <span class="text-red-500">*</span></span>
 </label>
-<input type="number" id="editServiceGlobalInstallmentDuration" step="1" min="1" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900"/>
+<input type="number" id="editServiceGlobalInstallmentDuration" step="1" min="1" class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-slate-900"/>
 </div>
-<div>
-<label for="editServiceGlobalInstallmentMonthly" class="flex items-center gap-1.5 text-sm font-semibold text-slate-700 mb-2">
-<span class="material-symbols-outlined text-[18px] text-slate-500">calculate</span>
-Monthly Payment (₱)
+<div class="flex flex-col gap-2">
+<label for="editServiceGlobalInstallmentMonthly" class="flex items-center gap-1.5 min-h-[2.5rem] text-sm font-semibold text-slate-700">
+<span class="material-symbols-outlined text-[18px] text-slate-500 shrink-0">calculate</span>
+<span>Monthly Payment (₱)</span>
 </label>
-<input type="text" id="editServiceGlobalInstallmentMonthly" readonly tabindex="-1" placeholder="—" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 text-[15px] font-semibold tabular-nums placeholder:text-slate-400"/>
-<p class="text-[11px] text-slate-500 mt-1.5 leading-snug">After the down payment from Payment Settings (shown above).</p>
+<input type="text" id="editServiceGlobalInstallmentMonthly" readonly tabindex="-1" placeholder="—" class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 text-[15px] font-semibold tabular-nums placeholder:text-slate-400"/>
 </div>
+</div>
+<p class="text-[11px] text-slate-500 mt-3 leading-snug">Monthly payment is estimated after the default down payment from Payment Settings (shown above).</p>
 </div>
 </div>
 <div class="rounded-2xl border border-slate-200 bg-white p-4">
@@ -881,18 +885,21 @@ function syncCustomPaymentVisibility(scope) {
         customCheck.classList.toggle('hidden', !use);
     }
     document.getElementById(p + 'CustomPaymentFields').classList.toggle('hidden', !use);
-    const typeRow = document.getElementById(p + 'PaymentTypeRow');
+
+    const shell = document.getElementById(p + 'DefaultPaymentShell');
     const billingRadios = document.querySelectorAll('input[name="' + billingName(scope) + '"]');
+
     if (use) {
-        if (typeRow) {
-            typeRow.classList.add('hidden');
+        if (shell) {
+            shell.classList.add('hidden');
         }
         billingRadios.forEach(function (r) {
             r.disabled = true;
         });
+        updatePaymentPreview(scope);
     } else {
-        if (typeRow) {
-            typeRow.classList.remove('hidden');
+        if (shell) {
+            shell.classList.remove('hidden');
         }
         billingRadios.forEach(function (r) {
             r.disabled = false;
