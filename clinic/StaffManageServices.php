@@ -109,41 +109,6 @@ if (!isset($currentTenantSlug)) {
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
-        /* Toggle switch (add service modal) */
-        .add-service-switch {
-            appearance: none;
-            width: 2.75rem;
-            height: 1.5rem;
-            border-radius: 9999px;
-            background: #e2e8f0;
-            position: relative;
-            cursor: pointer;
-            transition: background 0.2s ease;
-            flex-shrink: 0;
-            outline: none;
-            box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
-        }
-        .add-service-switch::after {
-            content: '';
-            position: absolute;
-            top: 3px;
-            left: 3px;
-            width: 1.125rem;
-            height: 1.125rem;
-            border-radius: 9999px;
-            background: #fff;
-            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
-            transition: transform 0.2s ease;
-        }
-        .add-service-switch:checked {
-            background: #2b8beb;
-        }
-        .add-service-switch:checked::after {
-            transform: translateX(1.125rem);
-        }
-        .add-service-switch:focus-visible {
-            box-shadow: 0 0 0 3px rgba(43, 139, 235, 0.35);
-        }
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
@@ -293,17 +258,7 @@ Price (₱) <span class="text-red-500 font-bold">*</span>
 <span class="material-symbols-outlined text-primary text-[22px]">credit_card</span>
 <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Payment Configuration</h4>
 </div>
-<div class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
-<div class="flex items-center gap-3">
-<input type="checkbox" id="newServiceEnableInstallment" class="add-service-switch shrink-0" aria-label="Enable installment plan"/>
-<span id="installmentEnableCheck" class="hidden shrink-0 text-emerald-500" aria-hidden="true"><span class="material-symbols-outlined text-[22px]">check_circle</span></span>
-<div class="min-w-0 flex-1 flex items-center gap-2">
-<span class="material-symbols-outlined text-[20px] text-slate-500 shrink-0">credit_card</span>
-<label for="newServiceEnableInstallment" class="text-sm font-semibold text-slate-800 cursor-pointer">Enable Installment Plan for this Service</label>
-</div>
-</div>
-</div>
-<div id="newServiceRegularDownpaymentBlock" class="mt-4 rounded-2xl border border-slate-200/90 bg-slate-50/60 p-4 sm:p-5 space-y-2">
+<div id="newServiceRegularDownpaymentBlock" class="rounded-2xl border border-slate-200/90 bg-slate-50/60 p-4 sm:p-5 space-y-2">
 <label for="newServiceDownpaymentPct" class="flex flex-wrap items-baseline gap-x-1 text-sm font-semibold text-slate-800">
 <span class="material-symbols-outlined text-[18px] text-slate-500 align-middle mr-0.5">percent</span>
 Downpayment Percentage (%)
@@ -314,6 +269,16 @@ Downpayment Percentage (%)
 <span class="material-symbols-outlined text-[16px] text-slate-400 shrink-0 mt-0.5">info</span>
 <span>Enter the percentage of downpayment required for regular (non-installment) service bookings.</span>
 </p>
+</div>
+<div class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+<div class="flex items-center gap-3">
+<input type="checkbox" id="newServiceEnableInstallment" class="h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 text-primary focus:ring-2 focus:ring-primary/30 focus:ring-offset-0 accent-primary" aria-label="Enable installment plan"/>
+<span id="installmentEnableCheck" class="hidden shrink-0 text-emerald-500" aria-hidden="true"><span class="material-symbols-outlined text-[22px]">check_circle</span></span>
+<div class="min-w-0 flex-1 flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px] text-slate-500 shrink-0">credit_card</span>
+<label for="newServiceEnableInstallment" class="text-sm font-semibold text-slate-800 cursor-pointer">Enable Installment Plan for this Service</label>
+</div>
+</div>
 </div>
 <div id="newServiceInstallmentConfigBlock" class="hidden mt-4 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.06] to-slate-50/80 p-4 sm:p-5 space-y-5">
 <div class="flex items-center gap-2">
