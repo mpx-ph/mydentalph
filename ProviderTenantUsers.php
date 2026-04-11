@@ -621,14 +621,11 @@ $team_total = count($team_members);
 </div>
 </div>
 <div>
-<label class="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80 mb-2">Clinic role</label>
-<div class="relative">
-<select id="add-user-role" class="appearance-none w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 pr-12 text-sm font-semibold text-on-background focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer">
-<option>Manager</option>
-<option>Staff</option>
-<option>Doctor</option>
-</select>
-<span class="material-symbols-outlined pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-primary text-xl">expand_more</span>
+<label id="add-user-role-label" class="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80 mb-2">Clinic role</label>
+<div id="add-user-role-group" class="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="add-user-role-label">
+<button type="button" class="add-user-role-btn flex-1 min-w-[6.5rem] rounded-2xl border-2 border-slate-200 bg-white px-3 py-3.5 text-[11px] font-black uppercase tracking-widest text-on-background transition-all hover:border-primary/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" data-role="Doctor" aria-pressed="false">Dentist</button>
+<button type="button" class="add-user-role-btn flex-1 min-w-[6.5rem] rounded-2xl border-2 border-slate-200 bg-white px-3 py-3.5 text-[11px] font-black uppercase tracking-widest text-on-background transition-all hover:border-primary/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" data-role="Staff" aria-pressed="false">Staff</button>
+<button type="button" class="add-user-role-btn flex-1 min-w-[6.5rem] rounded-2xl border-2 border-slate-200 bg-white px-3 py-3.5 text-[11px] font-black uppercase tracking-widest text-on-background transition-all hover:border-primary/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" data-role="Manager" aria-pressed="false">Manager</button>
 </div>
 </div>
 </div>
@@ -699,7 +696,8 @@ Cancel
   var firstInput = document.getElementById('add-user-first');
   var lastInput = document.getElementById('add-user-last');
   var emailInput = document.getElementById('add-user-email');
-  var roleSelect = document.getElementById('add-user-role');
+  var roleGroup = document.getElementById('add-user-role-group');
+  var selectedRole = '';
   var submitBtn = document.getElementById('add-user-submit');
   var verifyModal = document.getElementById('add-user-verify-modal');
   var otpInput = document.getElementById('add-user-otp');
@@ -713,6 +711,39 @@ Cancel
   var draftFirst = '';
   var draftLast = '';
   var draftEmail = '';
+
+  function syncRoleButtons() {
+    if (!roleGroup) return;
+    roleGroup.querySelectorAll('.add-user-role-btn').forEach(function (btn) {
+      var v = btn.getAttribute('data-role') || '';
+      var on = selectedRole !== '' && v === selectedRole;
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btn.classList.toggle('border-primary', on);
+      btn.classList.toggle('bg-primary/10', on);
+      btn.classList.toggle('text-primary', on);
+      btn.classList.toggle('ring-2', on);
+      btn.classList.toggle('ring-primary/20', on);
+      btn.classList.toggle('border-slate-200', !on);
+      btn.classList.toggle('bg-white', !on);
+      btn.classList.toggle('text-on-background', !on);
+    });
+  }
+
+  function clearRoleSelection() {
+    selectedRole = '';
+    syncRoleButtons();
+  }
+
+  if (roleGroup) {
+    roleGroup.addEventListener('click', function (e) {
+      var btn = e.target.closest('.add-user-role-btn');
+      if (!btn) return;
+      var val = btn.getAttribute('data-role');
+      if (!val) return;
+      selectedRole = val;
+      syncRoleButtons();
+    });
+  }
 
   function abandonInvite() {
     fetch('ProviderTenantStaffInviteApi.php', {
@@ -827,6 +858,7 @@ Cancel
       strengthBar.style.width = '0%';
       strengthBar.className = 'h-full rounded-full bg-primary/30 w-0 transition-all duration-300 ease-out';
     }
+    clearRoleSelection();
   }
 
   function applyOwnerIdentityFields() {
@@ -940,9 +972,13 @@ Cancel
       var fn = firstInput ? firstInput.value.trim() : '';
       var ln = lastInput ? lastInput.value.trim() : '';
       var em = emailInput ? emailInput.value.trim() : '';
-      var role = roleSelect ? roleSelect.value : 'Staff';
+      var role = selectedRole;
       if (!fn || !ln || !em) {
         alert('Please enter first name, last name, and professional email.');
+        return;
+      }
+      if (!role) {
+        alert('Please select a clinic role (Dentist, Staff, or Manager) before continuing.');
         return;
       }
       var pw = pwInput ? pwInput.value : '';
