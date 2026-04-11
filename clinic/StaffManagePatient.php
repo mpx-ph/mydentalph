@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/config/config.php';
 $staff_nav_active = 'patients';
 if (!isset($currentTenantSlug)) {
     $currentTenantSlug = '';
@@ -336,6 +337,7 @@ body { font-family: "Manrope", sans-serif; }
     </div>
 </div>
 
+<script src="<?php echo htmlspecialchars(BASE_URL, ENT_QUOTES, 'UTF-8'); ?>js/staff-ui-dialogs.js"></script>
 <script>
 const STAFF_OWNER_USER_ID = <?php echo json_encode($currentStaffUserId, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 const API_PATIENTS_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patients.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
@@ -885,7 +887,7 @@ async function savePatient(event) {
         closeAddModal();
         await loadPatients();
     } catch (error) {
-        alert(error.message || 'Failed to save patient.');
+        await staffUiAlert({ message: error.message || 'Failed to save patient.', variant: 'error', title: 'Could not save patient' });
     } finally {
         saveBtn.disabled = false;
         saveBtn.innerHTML = oldHtml;
@@ -893,7 +895,14 @@ async function savePatient(event) {
 }
 
 async function deletePatient(patientId) {
-    if (!confirm('Delete this patient record?')) return;
+    const ok = await staffUiConfirm({
+        title: 'Delete patient record?',
+        message: 'This action cannot be undone.',
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel',
+        variant: 'danger'
+    });
+    if (!ok) return;
     try {
         const response = await fetch(API_PATIENTS_URL, {
             method: 'DELETE',
@@ -907,7 +916,7 @@ async function deletePatient(patientId) {
         }
         await loadPatients();
     } catch (error) {
-        alert(error.message || 'Failed to delete patient.');
+        await staffUiAlert({ message: error.message || 'Failed to delete patient.', variant: 'error', title: 'Could not delete patient' });
     }
 }
 
@@ -972,7 +981,11 @@ tableBody.addEventListener('click', function (event) {
 });
 
 document.getElementById('schedulePatientBtn').addEventListener('click', () => {
-    alert('Schedule workflow will be wired to appointments module.');
+    staffUiAlert({
+        title: 'Coming soon',
+        message: 'Schedule workflow will be wired to appointments module.',
+        variant: 'info'
+    });
 });
 
 applyDobConstraints();

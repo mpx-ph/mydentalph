@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/config/config.php';
 $staff_nav_active = 'users';
 // Dentist role restriction: redirect to dashboard
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
@@ -259,6 +260,7 @@ if (!isset($currentTenantSlug)) {
 <button class="fixed bottom-8 right-8 w-14 h-14 bg-primary text-white rounded-2xl shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50">
 <span class="material-symbols-outlined text-2xl">add</span>
 </button>
+<script src="<?php echo htmlspecialchars(BASE_URL, ENT_QUOTES, 'UTF-8'); ?>js/staff-ui-dialogs.js"></script>
 <script>
 const API_USERS_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/users.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 const usersTableBody = document.getElementById('usersTableBody');
@@ -393,7 +395,7 @@ async function handleStatusToggle(event) {
         if (label) label.textContent = isActive ? 'Active' : 'Suspended';
     } catch (error) {
         toggle.checked = !isActive;
-        alert(error.message || 'Failed to update user status.');
+        void staffUiAlert({ message: error.message || 'Failed to update user status.', variant: 'error', title: 'Status update failed' });
     }
 }
 
@@ -458,7 +460,7 @@ editUserForm.addEventListener('submit', async function (event) {
         closeEditModal();
         await loadUsers();
     } catch (error) {
-        alert(error.message || 'Failed to update user.');
+        void staffUiAlert({ message: error.message || 'Failed to update user.', variant: 'error', title: 'Could not update user' });
     }
 });
 

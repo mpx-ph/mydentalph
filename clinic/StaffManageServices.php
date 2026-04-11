@@ -552,6 +552,7 @@ Add Service
 </div>
 </div>
 
+<script src="<?php echo htmlspecialchars(BASE_URL, ENT_QUOTES, 'UTF-8'); ?>js/staff-ui-dialogs.js"></script>
 <script>
 let allServices = [];
 let filteredServices = [];
@@ -1044,33 +1045,33 @@ function validatePaymentPayload(payload, price) {
     const useCustom = payload.use_custom_payment;
     if (!useCustom && payload.enable_installment) {
         if (!Number.isInteger(payload.installment_duration_months) || payload.installment_duration_months < 1) {
-            alert('Enter the installment duration (months) for this service.');
+            void staffUiAlert({ message: 'Enter the installment duration (months) for this service.', variant: 'warning', title: 'Installment' });
             return false;
         }
         return true;
     }
     if (useCustom && !payload.enable_installment) {
         if (payload.downpayment_percentage === null || Number.isNaN(payload.downpayment_percentage)) {
-            alert('Enter a custom down payment percentage, or turn off custom payment settings.');
+            void staffUiAlert({ message: 'Enter a custom down payment percentage, or turn off custom payment settings.', variant: 'warning', title: 'Payment settings' });
             return false;
         }
         if (payload.downpayment_percentage < 0 || payload.downpayment_percentage > 100) {
-            alert('Custom down payment must be between 0 and 100.');
+            void staffUiAlert({ message: 'Custom down payment must be between 0 and 100.', variant: 'warning', title: 'Payment settings' });
             return false;
         }
         return true;
     }
     if (useCustom && payload.enable_installment) {
         if (Number.isNaN(payload.installment_downpayment) || payload.installment_downpayment < 0) {
-            alert('Please enter a valid downpayment amount (₱) for the installment plan.');
+            void staffUiAlert({ message: 'Please enter a valid downpayment amount (₱) for the installment plan.', variant: 'warning', title: 'Installment' });
             return false;
         }
         if (payload.installment_downpayment > price) {
-            alert('Installment downpayment cannot exceed the service price.');
+            void staffUiAlert({ message: 'Installment downpayment cannot exceed the service price.', variant: 'warning', title: 'Installment' });
             return false;
         }
         if (!Number.isInteger(payload.installment_duration_months) || payload.installment_duration_months < 1) {
-            alert('Please enter a valid duration (at least 1 month).');
+            void staffUiAlert({ message: 'Please enter a valid duration (at least 1 month).', variant: 'warning', title: 'Installment' });
             return false;
         }
     }
@@ -1093,7 +1094,7 @@ function saveNewService() {
     };
 
     if (!payload.service_name || !payload.category || Number.isNaN(payload.price) || payload.price < 0) {
-        alert('Please complete required fields with a valid price.');
+        void staffUiAlert({ message: 'Please complete required fields with a valid price.', variant: 'warning', title: 'Required fields' });
         return;
     }
     if (!validatePaymentPayload(pay, payload.price)) {
@@ -1112,7 +1113,7 @@ function saveNewService() {
         closeNewServiceModal();
         loadServices();
     }).catch(function (err) {
-        alert(err.message || 'Failed to create service.');
+        void staffUiAlert({ message: err.message || 'Failed to create service.', variant: 'error', title: 'Could not create service' });
     });
 }
 
@@ -1135,7 +1136,7 @@ function saveServiceChanges() {
     };
 
     if (!payload.id || !payload.service_name || !payload.category || Number.isNaN(payload.price) || payload.price < 0) {
-        alert('Please complete required fields with a valid price.');
+        void staffUiAlert({ message: 'Please complete required fields with a valid price.', variant: 'warning', title: 'Required fields' });
         return;
     }
     if (!validatePaymentPayload(pay, payload.price)) {
@@ -1154,7 +1155,7 @@ function saveServiceChanges() {
         closeEditServiceModal();
         loadServices();
     }).catch(function (err) {
-        alert(err.message || 'Failed to update service.');
+        void staffUiAlert({ message: err.message || 'Failed to update service.', variant: 'error', title: 'Could not update service' });
     });
 }
 

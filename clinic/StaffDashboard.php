@@ -413,4 +413,5 @@ try {
 </section>
 </div>
 </main>
+<script src="<?php echo htmlspecialchars(BASE_URL, ENT_QUOTES, 'UTF-8'); ?>js/staff-ui-dialogs.js"></script>
 </body></html>

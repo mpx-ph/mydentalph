@@ -665,6 +665,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
     </div>
 </div>
 
+<script src="<?php echo htmlspecialchars(BASE_URL, ENT_QUOTES, 'UTF-8'); ?>js/staff-ui-dialogs.js"></script>
 <script>
     (function () {
         const dateInput = document.getElementById('walkInDateInput');
@@ -1009,15 +1010,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
             const notes = notesInput ? String(notesInput.value || '').trim() : '';
 
             if (!patientId) {
-                alert('Please select a patient first.');
+                void staffUiAlert({ message: 'Please select a patient first.', variant: 'warning', title: 'Patient required' });
                 return;
             }
             if (!dentistId) {
-                alert('Please select an assigned dentist.');
+                void staffUiAlert({ message: 'Please select an assigned dentist.', variant: 'warning', title: 'Dentist required' });
                 return;
             }
             if (!selectedServices.length) {
-                alert('Please add at least one service.');
+                void staffUiAlert({ message: 'Please add at least one service.', variant: 'warning', title: 'Services required' });
                 return;
             }
 
@@ -1064,10 +1065,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
                     throw new Error(message);
                 }
 
-                alert('Walk-in appointment created successfully. Booking ID: ' + (data.data && data.data.booking_id ? data.data.booking_id : 'N/A'));
+                await staffUiAlert({
+                    title: 'Walk-in booked',
+                    message: 'Walk-in appointment created successfully. Booking ID: ' + (data.data && data.data.booking_id ? data.data.booking_id : 'N/A'),
+                    variant: 'success'
+                });
                 window.location.href = <?php echo json_encode($backToAppointmentsHref, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
             } catch (error) {
-                alert(error && error.message ? error.message : 'Unable to create walk-in appointment right now.');
+                await staffUiAlert({
+                    title: 'Could not create walk-in',
+                    message: error && error.message ? error.message : 'Unable to create walk-in appointment right now.',
+                    variant: 'error'
+                });
             } finally {
                 if (createWalkInAppointmentBtn) {
                     createWalkInAppointmentBtn.disabled = false;
