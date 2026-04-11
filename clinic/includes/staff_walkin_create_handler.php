@@ -1,12 +1,26 @@
 <?php
 /**
- * POST action=create_walkin — included from StaffWalkIn.php BEFORE tenant_bootstrap.php
- * so JSON responses are never blocked by bootstrap exit(404).
+ * Walk-in create: included from StaffWalkIn.php (action=create_walkin) or clinic/api/walkin_create.php.
  */
 
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store, no-cache, must-revalidate');
 
 try {
+    $rawBody = file_get_contents('php://input');
+    $input = json_decode((string) $rawBody, true);
+    if (!is_array($input)) {
+        $input = [];
+    }
+
+    // Slug may be only in JSON (POST query strings are sometimes dropped by hosts / proxies).
+    if (!empty($input['clinic_slug']) && is_string($input['clinic_slug'])) {
+        $cs = strtolower(trim($input['clinic_slug']));
+        if ($cs !== '' && preg_match('/^[a-z0-9\-]+$/', $cs)) {
+            $_GET['clinic_slug'] = $cs;
+        }
+    }
+
     $pdo = getDBConnection();
     $tenantId = clinic_resolve_walkin_tenant_id($pdo);
 
@@ -14,12 +28,6 @@ try {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'Tenant context missing. Please log in again or open this page with your clinic link.']);
         exit;
-    }
-
-    $rawBody = file_get_contents('php://input');
-    $input = json_decode((string) $rawBody, true);
-    if (!is_array($input)) {
-        $input = [];
     }
 
     $patientId = trim((string) ($input['patient_id'] ?? ''));

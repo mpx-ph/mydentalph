@@ -465,12 +465,8 @@ try {
         const patientsApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patients.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const servicesApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/services.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const appointmentsApiUrl = <?php
-            $selfPath = (string) ($_SERVER['SCRIPT_NAME'] ?? '');
-            $query = ['action' => 'create_walkin'];
-            if ($currentTenantSlug !== '') {
-                $query['clinic_slug'] = $currentTenantSlug;
-            }
-            echo json_encode($selfPath . '?' . http_build_query($query), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            $apiWalkIn = rtrim((string) dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\') . '/api/walkin_create.php';
+            echo json_encode($apiWalkIn, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         ?>;
         const clinicSlug = <?php echo json_encode((string) $currentTenantSlug, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const stockDentistImage = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=60';
@@ -888,6 +884,7 @@ try {
             const now = new Date();
             const payload = {
                 patient_id: patientId,
+                clinic_slug: clinicSlug || '',
                 appointment_date: now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()),
                 appointment_time: formatTimeForApi(now),
                 services: selectedServices.map(function (service) {
@@ -913,7 +910,7 @@ try {
             }
 
             try {
-                const response = await fetch(buildApiUrl(appointmentsApiUrl), {
+                const response = await fetch(appointmentsApiUrl, {
                     method: 'POST',
                     credentials: 'include',
                     headers: {
