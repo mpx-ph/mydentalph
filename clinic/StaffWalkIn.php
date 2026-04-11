@@ -55,7 +55,10 @@ if ($currentTenantSlug !== '') {
 $manilaToday = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d');
 $baseParams['date'] = $manilaToday;
 $baseParams['month'] = substr($manilaToday, 0, 7);
-$backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('?' . http_build_query($baseParams)) : '');
+// Same-origin paths from this script (do not use BASE_URL here — on some hosts it differs from SCRIPT_NAME and breaks API/redirects).
+$clinicWebRoot = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
+$backToAppointmentsHref = $clinicWebRoot . '/StaffAppointments.php' . ($baseParams ? ('?' . http_build_query($baseParams)) : '');
+$walkinCreateApiPath = $clinicWebRoot . '/api/walkin_create.php';
 
 $walkInDentists = [];
 try {
@@ -467,9 +470,7 @@ try {
         const dentistsSeedData = <?php echo json_encode($walkInDentists, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const patientsApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patients.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const servicesApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/services.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
-        const appointmentsApiUrl = <?php
-            echo json_encode(BASE_URL . 'api/walkin_create.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
-        ?>;
+        const appointmentsApiUrl = <?php echo json_encode($walkinCreateApiPath, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const clinicSlug = <?php echo json_encode((string) $currentTenantSlug, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const stockDentistImage = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=60';
         let allPatients = [];
@@ -912,7 +913,7 @@ try {
             }
 
             try {
-                const response = await fetch(appointmentsApiUrl, {
+                const response = await fetch(buildApiUrl(appointmentsApiUrl), {
                     method: 'POST',
                     credentials: 'include',
                     headers: {
@@ -936,7 +937,10 @@ try {
                     message: successMsg,
                     variant: 'success'
                 });
-                window.location.href = <?php echo json_encode($backToAppointmentsHref, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+                var _back = <?php echo json_encode($backToAppointmentsHref, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+                var _bk = (data.data && data.data.booking_id) ? String(data.data.booking_id) : '';
+                var _join = _back.indexOf('?') === -1 ? '?' : '&';
+                window.location.href = _back + (_bk !== '' ? (_join + 'saved_booking=' + encodeURIComponent(_bk)) : '');
             } catch (error) {
                 await staffUiAlert({
                     title: 'Could not create walk-in',

@@ -104,6 +104,16 @@ if (isset($_SESSION['staff_appointments_notice']) && is_array($_SESSION['staff_a
     unset($_SESSION['staff_appointments_notice']);
 }
 
+if ($pageNotice === null && isset($_GET['saved_booking'])) {
+    $savedBk = trim((string) $_GET['saved_booking']);
+    if ($savedBk !== '' && preg_match('/^BK-\d{4}-\d{6,}$/', $savedBk)) {
+        $pageNotice = [
+            'type' => 'success',
+            'message' => 'Walk-in booking ' . $savedBk . ' was saved to the database. It shows in this list when the date filter matches the appointment date (Philippine time). In phpMyAdmin, open your clinic database and filter tbl_appointments by booking_id.',
+        ];
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tenantId !== '') {
     $postAction = strtolower(trim((string) ($_POST['modal_action'] ?? '')));
     $bookingId = trim((string) ($_POST['modal_booking_id'] ?? ''));
