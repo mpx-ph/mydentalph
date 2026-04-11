@@ -36,6 +36,8 @@ $preview_urls = [
     'about' => $preview_base !== '' ? ($preview_base . '/about') : '',
     'contact' => $preview_base !== '' ? ($preview_base . '/contact') : '',
     'login' => $preview_base !== '' ? ($preview_base . '/login') : '',
+    // Same document as home; preview UI scrolls to the shared footer.
+    'footer' => $preview_base !== '' ? ($preview_base . '/') : '',
 ];
 
 $preview_urls_json = json_encode($preview_urls, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS);
@@ -283,7 +285,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <div>
 <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]"><span class="w-12 h-[1.5px] bg-primary"></span> Patient website</div>
 <h1 class="font-headline text-3xl sm:text-4xl font-extrabold tracking-tighter text-on-background mt-3">Customize <span class="font-editorial italic font-normal text-primary">your clinic site</span></h1>
-<p class="text-on-surface-variant font-medium mt-3 max-w-xl text-sm sm:text-base">Adjust branding, colors, typography, and page copy. Changes apply to your public home, services, about, contact, and patient login pages for this clinic only.</p>
+<p class="text-on-surface-variant font-medium mt-3 max-w-xl text-sm sm:text-base">Adjust branding, colors, typography, the shared site footer, and page copy. Changes apply to your public home, services, about, contact, and patient login pages for this clinic only.</p>
 </div>
 <div class="flex flex-wrap items-center gap-3">
 <?php if ($tenant_public_site_url !== ''): ?>
@@ -328,8 +330,8 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <button type="button" class="builder-tab px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent text-on-surface-variant" data-tab="colors">Colors</button>
 <button type="button" class="builder-tab px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent text-on-surface-variant" data-tab="type">Type</button>
 <button type="button" class="builder-tab px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent text-on-surface-variant" data-tab="layout">Layout</button>
-<button type="button" class="builder-tab px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent text-on-surface-variant" data-tab="pages">Pages</button>
 <button type="button" class="builder-tab px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent text-on-surface-variant" data-tab="footer">Footer</button>
+<button type="button" class="builder-tab px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent text-on-surface-variant" data-tab="pages">Pages</button>
 </div>
 
 <div class="mb-6 pb-6 border-b border-slate-100">
@@ -340,6 +342,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <option value="about">About</option>
 <option value="contact">Contact</option>
 <option value="login">Login</option>
+<option value="footer">Footer (site-wide)</option>
 </select>
 </div>
 
@@ -348,7 +351,6 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <div class="sb-preview-scope space-y-6" data-sb-preview-pages="all">
 <?php sb_text('clinic_name', 'Clinic display name', $site_opts, $is_owner); ?>
 <?php sb_file('logo_nav', 'Navigation logo (PNG / JPG / WebP)', $site_opts, $is_owner); ?>
-<?php sb_file('logo', 'Footer logo (PNG / JPG / WebP)', $site_opts, $is_owner); ?>
 <?php sb_file('site_favicon', 'Favicon', $site_opts, $is_owner); ?>
 </div>
 <div class="sb-preview-scope space-y-2" data-sb-preview-pages="home">
@@ -384,6 +386,38 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <div id="panel-layout" class="builder-panel space-y-6 max-h-[52vh] overflow-y-auto pr-1">
 <p class="text-xs text-on-surface-variant leading-relaxed">Controls corner rounding for Tailwind radius tokens on patient pages (buttons, cards).</p>
 <?php sb_range('theme_radius_lg_px', 'Component rounding (px)', $site_opts, $is_owner, 6, 28, 1); ?>
+</div>
+
+<div id="panel-footer" class="builder-panel space-y-6 max-h-[52vh] overflow-y-auto pr-1">
+<p class="text-xs text-on-surface-variant leading-relaxed">One footer is shared across every public page. Pick <span class="font-bold text-on-background">Footer (site-wide)</span> in Preview page to jump the canvas to it after load.</p>
+<?php sb_text('footer_blurb', 'Clinic blurb (left column)', $site_opts, $is_owner, true); ?>
+<?php sb_text('footer_follow_label', '“Follow us” label', $site_opts, $is_owner); ?>
+<?php sb_text('footer_social_url', 'Social profile URL (https…; leave blank to hide icon)', $site_opts, $is_owner); ?>
+<?php sb_text('footer_hours_heading', 'Hours block heading', $site_opts, $is_owner); ?>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80">Hours rows</p>
+<?php sb_text('footer_hours_row1_label', 'Row 1 label', $site_opts, $is_owner); ?>
+<?php sb_text('footer_hours_row1_value', 'Row 1 hours', $site_opts, $is_owner); ?>
+<?php sb_text('footer_hours_row2_label', 'Row 2 label', $site_opts, $is_owner); ?>
+<?php sb_text('footer_hours_row2_value', 'Row 2 hours', $site_opts, $is_owner); ?>
+<?php sb_text('footer_hours_row3_label', 'Row 3 label', $site_opts, $is_owner); ?>
+<?php sb_text('footer_hours_row3_value', 'Row 3 hours', $site_opts, $is_owner); ?>
+<?php
+$fhR3 = strtolower(trim((string) ($site_opts['footer_hours_row3_style'] ?? 'danger')));
+$fhR3Dis = $is_owner ? '' : 'disabled';
+?>
+<div class="space-y-2">
+<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1" for="footer_hours_row3_style">Row 3 value style</label>
+<select class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary <?php echo $is_owner ? '' : 'opacity-70 cursor-not-allowed'; ?>" id="footer_hours_row3_style" data-opt-key="footer_hours_row3_style" <?php echo $fhR3Dis; ?>>
+<option value="danger"<?php echo $fhR3 === 'danger' ? ' selected' : ''; ?>>Emphasized (e.g. red for “Closed”)</option>
+<option value="default"<?php echo $fhR3 === 'default' ? ' selected' : ''; ?>>Same as other rows</option>
+</select>
+</div>
+</div>
+<?php sb_text('footer_copyright_line', 'Copyright line (optional; leave blank for © current year + clinic name + “All rights reserved.”)', $site_opts, $is_owner, true); ?>
+<?php sb_text('footer_powered_text', 'Powered-by link text (blank hides link)', $site_opts, $is_owner); ?>
+<?php sb_text('footer_powered_url', 'Powered-by URL (https…)', $site_opts, $is_owner); ?>
+<p class="text-[11px] text-on-surface-variant/80 leading-relaxed">Footer logo uses the <span class="font-bold text-on-background">logo</span> asset (global clinic customization). Navigation logo is separate under Branding.</p>
 </div>
 
 <div id="panel-pages" class="builder-panel space-y-8 max-h-[52vh] overflow-y-auto pr-1">
@@ -576,35 +610,6 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </div>
 </div>
 
-<div id="panel-footer" class="builder-panel space-y-6 max-h-[52vh] overflow-y-auto pr-1">
-<p class="text-xs text-on-surface-variant leading-relaxed sb-preview-scope" data-sb-preview-pages="all">Shown on every public patient page. The footer image uses the <span class="font-bold text-on-background">logo</span> customization key (defaults apply if you have not set it).</p>
-<p class="text-[11px] text-on-surface-variant/90 leading-relaxed sb-preview-scope" data-sb-preview-pages="all">Copyright supports <code class="text-[11px] bg-slate-100 px-1 rounded">{year}</code> and <code class="text-[11px] bg-slate-100 px-1 rounded">{clinic_name}</code>. Clear the Facebook URL to hide the social button.</p>
-<div class="space-y-6 sb-preview-scope" data-sb-preview-pages="all">
-<h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Footer — Intro</h3>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
-<?php sb_text('footer_tagline', 'Tagline (under logo)', $site_opts, $is_owner, true); ?>
-<?php sb_text('footer_social_label', 'Social row label', $site_opts, $is_owner); ?>
-<?php sb_text('footer_facebook_url', 'Facebook profile URL (https…)', $site_opts, $is_owner); ?>
-</div>
-<h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Footer — Hours column</h3>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
-<?php sb_text('footer_hours_heading', 'Column heading', $site_opts, $is_owner); ?>
-<?php sb_text('footer_hours_mon_fri_label', 'Weekdays row label', $site_opts, $is_owner); ?>
-<?php sb_text('footer_hours_mon_fri', 'Weekdays hours', $site_opts, $is_owner); ?>
-<?php sb_text('footer_hours_sat_label', 'Saturday row label', $site_opts, $is_owner); ?>
-<?php sb_text('footer_hours_sat', 'Saturday hours', $site_opts, $is_owner); ?>
-<?php sb_text('footer_hours_sun_label', 'Sunday row label', $site_opts, $is_owner); ?>
-<?php sb_text('footer_hours_sun', 'Sunday hours (contains &ldquo;closed&rdquo; → red styling)', $site_opts, $is_owner); ?>
-</div>
-<h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Footer — Bottom bar</h3>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
-<?php sb_text('footer_copyright_line', 'Copyright line', $site_opts, $is_owner); ?>
-<?php sb_text('footer_powered_text', 'Powered-by link text', $site_opts, $is_owner); ?>
-<?php sb_text('footer_powered_url', 'Powered-by URL (https…, optional)', $site_opts, $is_owner); ?>
-</div>
-</div>
-</div>
-
 <div class="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between gap-4">
 <div class="flex items-center gap-2 text-xs font-bold text-on-surface-variant" id="saveStatus" data-state="idle">
 <span class="material-symbols-outlined text-base text-emerald-600 hidden" id="saveIconOk">check_circle</span>
@@ -668,6 +673,20 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
         if (urlBar) urlBar.textContent = u || '—';
         if (!frame || !u) return;
         frame.src = u + (u.indexOf('?') >= 0 ? '&' : '?') + 'cb=' + Date.now();
+    }
+
+    function tryScrollPreviewToFooter() {
+        if (!frame || !previewSelect || previewSelect.value !== 'footer') return;
+        try {
+            var doc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
+            if (!doc) return;
+            var el = doc.getElementById('clinic-site-footer') || doc.querySelector('footer');
+            if (el && typeof el.scrollIntoView === 'function') {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        } catch (e) {
+            /* cross-origin preview */
+        }
     }
 
     function setSaveState(state) {
@@ -854,7 +873,12 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
         new ResizeObserver(schedulePreviewFit).observe(previewCanvasScroll);
     }
     window.addEventListener('resize', schedulePreviewFit);
-    if (frame) frame.addEventListener('load', function () { syncDesktopPreviewFit(); });
+    if (frame) frame.addEventListener('load', function () {
+        syncDesktopPreviewFit();
+        tryScrollPreviewToFooter();
+        setTimeout(tryScrollPreviewToFooter, 400);
+        setTimeout(tryScrollPreviewToFooter, 1200);
+    });
     requestAnimationFrame(function () {
         syncDesktopPreviewFit();
         requestAnimationFrame(syncDesktopPreviewFit);

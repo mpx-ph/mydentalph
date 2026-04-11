@@ -202,7 +202,11 @@ try {
             $n = (int) $strVal;
             $strVal = (string) max(6, min(28, $n));
         }
-        if ($key === 'footer_facebook_url' || $key === 'footer_powered_url') {
+        if ($key === 'footer_hours_row3_style') {
+            $lv = strtolower($strVal);
+            $strVal = $lv === 'default' ? 'default' : 'danger';
+        }
+        if ($key === 'footer_social_url' || $key === 'footer_powered_url') {
             if ($strVal !== '' && preg_match('#^https?://#i', $strVal) !== 1) {
                 continue;
             }
