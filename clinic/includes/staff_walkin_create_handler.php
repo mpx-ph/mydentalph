@@ -22,8 +22,8 @@ try {
     }
 
     $pdo = getDBConnection();
-    if (defined('CLINIC_WALKIN_RESOLVED_TENANT_ID') && (string) CLINIC_WALKIN_RESOLVED_TENANT_ID !== '') {
-        $tenantId = (string) CLINIC_WALKIN_RESOLVED_TENANT_ID;
+    if (!empty($GLOBALS['CLINIC_WALKIN_RESOLVED_TENANT_ID'])) {
+        $tenantId = (string) $GLOBALS['CLINIC_WALKIN_RESOLVED_TENANT_ID'];
     } else {
         $tenantId = clinic_resolve_walkin_tenant_id($pdo);
     }
@@ -101,8 +101,6 @@ try {
         $mirrorAppointmentServicesTable = ($appointmentServicesTable === $tblApsPhys) ? $legacyApsPhys : $tblApsPhys;
     }
 
-    $pdo->beginTransaction();
-
     $quotedPatients = clinic_quote_identifier($patientsTable);
     $patientCheckStmt = $pdo->prepare("
         SELECT patient_id
@@ -112,8 +110,7 @@ try {
     ");
     $patientCheckStmt->execute([$tenantId, $patientId]);
     if (!$patientCheckStmt->fetch(PDO::FETCH_ASSOC)) {
-        $pdo->rollBack();
-        echo json_encode(['success' => false, 'message' => 'Selected patient was not found.']);
+        echo json_encode(['success' => false, 'message' => 'Selected patient was not found for this clinic.']);
         exit;
     }
 
@@ -126,10 +123,28 @@ try {
     ");
     $dentistCheckStmt->execute([$tenantId, $dentistId]);
     if (!$dentistCheckStmt->fetch(PDO::FETCH_ASSOC)) {
-        $pdo->rollBack();
-        echo json_encode(['success' => false, 'message' => 'Selected dentist was not found.']);
+        echo json_encode(['success' => false, 'message' => 'Selected dentist was not found for this clinic.']);
         exit;
     }
+
+    // Walk-in uses server clock (avoids bad client times). Pick a free second for unique_dentist_schedule.
+    $appointmentDate = date('Y-m-d');
+    $dentistIdInt = (int) $dentistId;
+    $slotProbe = $pdo->prepare('
+        SELECT COUNT(*) FROM ' . clinic_quote_identifier($appointmentsTable) . '
+        WHERE tenant_id = ? AND dentist_id = ? AND appointment_date = ? AND appointment_time = ?
+    ');
+    $appointmentTime = date('H:i:s');
+    for ($sec = 0; $sec < 300; $sec++) {
+        $tryTime = date('H:i:s', time() + $sec);
+        $slotProbe->execute([$tenantId, $dentistIdInt, $appointmentDate, $tryTime]);
+        if ((int) $slotProbe->fetchColumn() === 0) {
+            $appointmentTime = $tryTime;
+            break;
+        }
+    }
+
+    $pdo->beginTransaction();
 
     $bookingPrefix = 'BK-' . date('Y') . '-';
     $sequence = 0;
@@ -405,6 +420,15 @@ try {
     error_log('Staff walk-in create error: ' . $e->getMessage());
     http_response_code(500);
     $msg = 'Unable to create walk-in appointment right now.';
+    if ($e instanceof PDOException) {
+        $sqlState = (string) ($e->errorInfo[0] ?? '');
+        $driverCode = (int) ($e->errorInfo[1] ?? 0);
+        if ($driverCode === 1062 || $sqlState === '23000') {
+            $msg = 'Schedule conflict (duplicate booking or time slot). Please try again.';
+        } elseif ($driverCode === 1452) {
+            $msg = 'Database rejected a link (patient, dentist, or user). Re-select patient and dentist, then try again.';
+        }
+    }
     if (defined('DB_DEBUG') && DB_DEBUG) {
         $msg = $e->getMessage();
     }

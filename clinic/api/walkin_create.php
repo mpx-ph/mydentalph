@@ -19,12 +19,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 // Same tenant source as other staff APIs (session), not a guessed slug.
 $tenantId = requireClinicTenantId();
 
-if (!isLoggedIn(['manager', 'doctor', 'staff', 'admin'])) {
+$staffOk = isLoggedIn(['manager', 'doctor', 'staff', 'admin']);
+if (!$staffOk && !empty($_SESSION['user_id'])) {
+    $role = strtolower(trim((string) ($_SESSION['user_type'] ?? '')));
+    $staffOk = ($role !== '' && $role !== 'client');
+}
+if (!$staffOk) {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Staff login required to create walk-in appointments.']);
     exit;
 }
 
-define('CLINIC_WALKIN_RESOLVED_TENANT_ID', $tenantId);
+$GLOBALS['CLINIC_WALKIN_RESOLVED_TENANT_ID'] = $tenantId;
 
 require __DIR__ . '/../includes/staff_walkin_create_handler.php';
