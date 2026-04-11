@@ -58,8 +58,15 @@ try {
     }
 
     $dbTables = clinic_resolve_appointment_db_tables($pdo);
-    $appointmentsTable = $dbTables['appointments'];
-    $appointmentServicesTable = $dbTables['appointment_services'];
+    $tblApptPhys = clinic_get_physical_table_name($pdo, 'tbl_appointments');
+    $legacyApptPhys = clinic_get_physical_table_name($pdo, 'appointments');
+    $tblApsPhys = clinic_get_physical_table_name($pdo, 'tbl_appointment_services');
+    $legacyApsPhys = clinic_get_physical_table_name($pdo, 'appointment_services');
+
+    // Prefer tbl_* (what phpMyAdmin / StaffAppointments use) when both legacy and tbl exist.
+    $appointmentsTable = $tblApptPhys ?? $legacyApptPhys;
+    $appointmentServicesTable = $tblApsPhys ?? $legacyApsPhys;
+
     $servicesCatalogTable = $dbTables['services'];
     if ($appointmentsTable === null || $appointmentServicesTable === null || $servicesCatalogTable === null) {
         echo json_encode(['success' => false, 'message' => 'Database is missing appointment or service tables. Ensure schema/migrations are applied.']);
@@ -75,11 +82,11 @@ try {
 
     $mirrorAppointmentsTable = null;
     $mirrorAppointmentServicesTable = null;
-    if (clinic_table_exists($pdo, 'tbl_appointments') && clinic_table_exists($pdo, 'appointments') && $appointmentsTable !== null) {
-        $mirrorAppointmentsTable = ($appointmentsTable === 'tbl_appointments') ? 'appointments' : 'tbl_appointments';
+    if ($tblApptPhys !== null && $legacyApptPhys !== null && $tblApptPhys !== $legacyApptPhys) {
+        $mirrorAppointmentsTable = ($appointmentsTable === $tblApptPhys) ? $legacyApptPhys : $tblApptPhys;
     }
-    if (clinic_table_exists($pdo, 'tbl_appointment_services') && clinic_table_exists($pdo, 'appointment_services') && $appointmentServicesTable !== null) {
-        $mirrorAppointmentServicesTable = ($appointmentServicesTable === 'tbl_appointment_services') ? 'appointment_services' : 'tbl_appointment_services';
+    if ($tblApsPhys !== null && $legacyApsPhys !== null && $tblApsPhys !== $legacyApsPhys) {
+        $mirrorAppointmentServicesTable = ($appointmentServicesTable === $tblApsPhys) ? $legacyApsPhys : $tblApsPhys;
     }
 
     $pdo->beginTransaction();
@@ -114,7 +121,9 @@ try {
 
     $bookingPrefix = 'BK-' . date('Y') . '-';
     $sequence = 0;
-    foreach (array_unique(array_filter([$appointmentsTable, $mirrorAppointmentsTable])) as $tName) {
+    foreach (array_unique(array_filter([$appointmentsTable, $mirrorAppointmentsTable], static function ($v) {
+        return $v !== null && $v !== '';
+    })) as $tName) {
         $q = clinic_quote_identifier($tName);
         $bookingStmt = $pdo->prepare("
             SELECT booking_id
@@ -227,7 +236,7 @@ try {
         $quotedAppt = clinic_quote_identifier($apptTbl);
 
         $localStatus = $statusForDb;
-        if ($apptTbl === 'tbl_appointments') {
+        if (strtolower($apptTbl) === 'tbl_appointments') {
             $tblStatusOk = ['pending', 'confirmed', 'completed', 'cancelled', 'no_show'];
             if (!in_array($localStatus, $tblStatusOk, true)) {
                 $localStatus = 'pending';
@@ -340,6 +349,28 @@ try {
             'appointment_services_table' => $apsTbl,
             'appointment_row_id' => $appointmentId,
         ];
+    }
+
+    $verifyAppt = $pdo->prepare('SELECT COUNT(*) FROM ' . clinic_quote_identifier($appointmentsTable) . ' WHERE tenant_id = ? AND booking_id = ?');
+    $verifyAppt->execute([$tenantId, $bookingId]);
+    if ((int) $verifyAppt->fetchColumn() < 1) {
+        $pdo->rollBack();
+        echo json_encode([
+            'success' => false,
+            'message' => 'Could not save walk-in: booking was not stored in ' . $appointmentsTable . '. Check DB permissions and table name casing.',
+        ]);
+        exit;
+    }
+    $verifySvc = $pdo->prepare('SELECT COUNT(*) FROM ' . clinic_quote_identifier($appointmentServicesTable) . ' WHERE tenant_id = ? AND booking_id = ?');
+    $verifySvc->execute([$tenantId, $bookingId]);
+    $svcCount = (int) $verifySvc->fetchColumn();
+    if ($svcCount < count($normalizedServices)) {
+        $pdo->rollBack();
+        echo json_encode([
+            'success' => false,
+            'message' => 'Could not save walk-in: service lines were not stored in ' . $appointmentServicesTable . ' (expected ' . count($normalizedServices) . ', saw ' . $svcCount . ').',
+        ]);
+        exit;
     }
 
     $pdo->commit();

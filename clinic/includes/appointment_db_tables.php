@@ -6,26 +6,59 @@
  * Staff UI and walk-in booking must resolve the same names so reads and writes hit one store.
  */
 
+if (!function_exists('clinic_get_physical_table_name')) {
+    /**
+     * Return the exact table name as stored in MySQL (handles case / hosting quirks).
+     *
+     * @return string|null
+     */
+    function clinic_get_physical_table_name(PDO $pdo, string $preferredName)
+    {
+        static $cache = [];
+        $key = strtolower($preferredName);
+        if (array_key_exists($key, $cache)) {
+            return $cache[$key];
+        }
+        $stmt = $pdo->prepare("
+            SELECT TABLE_NAME
+            FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND LOWER(TABLE_NAME) = LOWER(?)
+            LIMIT 1
+        ");
+        $stmt->execute([$preferredName]);
+        $found = $stmt->fetchColumn();
+        if ($found) {
+            $cache[$key] = (string) $found;
+            return $cache[$key];
+        }
+        // Shared hosts sometimes restrict information_schema; fall back to SHOW TABLES.
+        try {
+            $tables = $pdo->query('SHOW TABLES');
+            if ($tables) {
+                while ($row = $tables->fetch(PDO::FETCH_NUM)) {
+                    $name = isset($row[0]) ? (string) $row[0] : '';
+                    if ($name !== '' && strcasecmp($name, $preferredName) === 0) {
+                        $cache[$key] = $name;
+                        return $cache[$key];
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            // ignore
+        }
+        $cache[$key] = null;
+        return null;
+    }
+}
+
 if (!function_exists('clinic_table_exists')) {
     /**
      * @return bool
      */
     function clinic_table_exists(PDO $pdo, string $tableName)
     {
-        static $cache = [];
-        if (isset($cache[$tableName])) {
-            return $cache[$tableName];
-        }
-        $stmt = $pdo->prepare("
-            SELECT 1
-            FROM information_schema.TABLES
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$tableName]);
-        $cache[$tableName] = (bool) $stmt->fetchColumn();
-        return $cache[$tableName];
+        return clinic_get_physical_table_name($pdo, $tableName) !== null;
     }
 }
 
@@ -46,8 +79,9 @@ if (!function_exists('clinic_resolve_appointment_db_tables')) {
     {
         $pick = static function (PDO $pdo, array $candidates) {
             foreach ($candidates as $t) {
-                if (clinic_table_exists($pdo, $t)) {
-                    return $t;
+                $phys = clinic_get_physical_table_name($pdo, $t);
+                if ($phys !== null) {
+                    return $phys;
                 }
             }
             return null;
@@ -97,12 +131,8 @@ if (!function_exists('clinic_resolve_walkin_tenant_id')) {
         if ($slug === '' || !preg_match('/^[a-z0-9\-]+$/', $slug)) {
             return null;
         }
-        $tenantsTable = null;
-        if (clinic_table_exists($pdo, 'tbl_tenants')) {
-            $tenantsTable = 'tbl_tenants';
-        } elseif (clinic_table_exists($pdo, 'tenants')) {
-            $tenantsTable = 'tenants';
-        }
+        $tenantsTable = clinic_get_physical_table_name($pdo, 'tbl_tenants')
+            ?? clinic_get_physical_table_name($pdo, 'tenants');
         if ($tenantsTable === null) {
             return null;
         }
@@ -123,9 +153,10 @@ if (!function_exists('clinic_table_columns')) {
      */
     function clinic_table_columns(PDO $pdo, string $tableName)
     {
+        $phys = clinic_get_physical_table_name($pdo, $tableName) ?? $tableName;
         static $cache = [];
-        if (isset($cache[$tableName])) {
-            return $cache[$tableName];
+        if (isset($cache[$phys])) {
+            return $cache[$phys];
         }
         $stmt = $pdo->prepare("
             SELECT COLUMN_NAME
@@ -133,8 +164,8 @@ if (!function_exists('clinic_table_columns')) {
             WHERE TABLE_SCHEMA = DATABASE()
               AND TABLE_NAME = ?
         ");
-        $stmt->execute([$tableName]);
-        $cache[$tableName] = array_map('strtolower', array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []));
-        return $cache[$tableName];
+        $stmt->execute([$phys]);
+        $cache[$phys] = array_map('strtolower', array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []));
+        return $cache[$phys];
     }
 }
