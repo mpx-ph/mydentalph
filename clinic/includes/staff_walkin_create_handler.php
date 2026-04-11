@@ -22,7 +22,11 @@ try {
     }
 
     $pdo = getDBConnection();
-    $tenantId = clinic_resolve_walkin_tenant_id($pdo);
+    if (defined('CLINIC_WALKIN_RESOLVED_TENANT_ID') && (string) CLINIC_WALKIN_RESOLVED_TENANT_ID !== '') {
+        $tenantId = (string) CLINIC_WALKIN_RESOLVED_TENANT_ID;
+    } else {
+        $tenantId = clinic_resolve_walkin_tenant_id($pdo);
+    }
 
     if (empty($tenantId)) {
         http_response_code(401);
