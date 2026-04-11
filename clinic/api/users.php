@@ -634,8 +634,8 @@ function deleteUser() {
     } else {
         // Hard delete if no related records
         try {
-            $stmt = $pdo->prepare("DELETE FROM tbl_users WHERE user_id = ?");
-            $stmt->execute([$userId]);
+            $stmt = $pdo->prepare("DELETE FROM tbl_users WHERE user_id = ? AND tenant_id = ?");
+            $stmt->execute([$userId, $tenantId]);
             
             jsonResponse(true, 'User deleted successfully.');
         } catch (Exception $e) {

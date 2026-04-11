@@ -6,6 +6,7 @@ require_once __DIR__ . '/provider_tenant_lite_bootstrap.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
+header('Vary: Cookie');
 
 $provider_nav_active = 'users';
 
@@ -53,6 +54,8 @@ function provider_tenant_fetch_team_members(PDO $pdo, string $tenant_id): array
     try {
         // Dentist profile is resolved via scalar subqueries (ORDER BY dentist_id LIMIT 1) so multiple
         // tbl_dentists rows for the same email cannot multiply tbl_users rows (which looked like stale rows).
+        // Exclude inactive: clinic/admin "delete" is usually soft-delete (status=inactive); those rows must not
+        // appear as current team members (same expectation as a hard-deleted account).
         $st = $pdo->prepare(
             'SELECT u.user_id, u.email, u.full_name, u.role, u.status, u.last_active, u.last_login, u.updated_at,
                     s.profile_image,
@@ -82,6 +85,7 @@ function provider_tenant_fetch_team_members(PDO $pdo, string $tenant_id): array
              LEFT JOIN tbl_staffs s ON s.tenant_id = u.tenant_id AND s.user_id = u.user_id
              WHERE u.tenant_id = ?
                AND u.role NOT IN (\'client\', \'superadmin\')
+               AND u.status <> \'inactive\'
              ORDER BY u.full_name ASC'
         );
         $st->execute([$tenant_id]);
@@ -184,7 +188,7 @@ $allowed_filter_roles = ['all', 'tenant_owner', 'manager', 'staff', 'dentist'];
 if (!in_array($filter_role, $allowed_filter_roles, true)) {
     $filter_role = 'all';
 }
-$allowed_filter_status = ['all', 'active', 'inactive', 'suspended'];
+$allowed_filter_status = ['all', 'active', 'suspended'];
 if (!in_array($filter_status, $allowed_filter_status, true)) {
     $filter_status = 'all';
 }
@@ -212,6 +216,7 @@ $team_total = count($team_members);
 <html class="light" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta http-equiv="Cache-Control" content="no-store"/>
 <title>MyDental | Users</title>
 <!-- Google Fonts -->
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
@@ -397,7 +402,6 @@ $team_total = count($team_members);
 <select id="filter-status" name="status" class="appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-8 py-3.5 pr-12 text-on-background text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all" onchange="this.form.submit()">
 <option value="all"<?php echo $filter_status === 'all' ? ' selected' : ''; ?>>All statuses</option>
 <option value="active"<?php echo $filter_status === 'active' ? ' selected' : ''; ?>>Active</option>
-<option value="inactive"<?php echo $filter_status === 'inactive' ? ' selected' : ''; ?>>Inactive</option>
 <option value="suspended"<?php echo $filter_status === 'suspended' ? ' selected' : ''; ?>>Suspended</option>
 </select>
 <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-primary text-lg">filter_list</span>
