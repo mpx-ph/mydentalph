@@ -287,22 +287,41 @@ $services_initial = tenant_public_services_fetch_for_tenant($pdo, (string) $tena
         var btn = e.target.closest('.btn-delete-service');
         if (!btn) return;
         var id = btn.getAttribute('data-id');
-        if (!id || !confirm('Remove this service from your public page?')) return;
-        fetch(apiUrl, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: parseInt(id, 10) }),
-            credentials: 'same-origin'
-        }).then(function (r) { return r.json(); }).then(function (j) {
-            if (!j.success) {
-                alert(j.message || 'Could not remove.');
-                return;
-            }
-            var row = listEl.querySelector('.service-row[data-id="' + id + '"]');
-            if (row) row.remove();
-            refreshVisibility();
-        }).catch(function () {
-            alert('Network error.');
+        if (!id) return;
+        var ask = window.providerNotify
+            ? window.providerNotify.confirm('This removes the service from your public clinic page. Patients will no longer see it.', {
+                title: 'Remove service',
+                variant: 'danger',
+                confirmText: 'Remove',
+                cancelText: 'Cancel'
+            })
+            : Promise.resolve(window.confirm('Remove this service from your public page?'));
+        ask.then(function (ok) {
+            if (!ok) return;
+            fetch(apiUrl, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: parseInt(id, 10) }),
+                credentials: 'same-origin'
+            }).then(function (r) { return r.json(); }).then(function (j) {
+                if (!j.success) {
+                    if (window.providerNotify) {
+                        window.providerNotify.alert(j.message || 'Could not remove.', { variant: 'error' });
+                    } else {
+                        window.alert(j.message || 'Could not remove.');
+                    }
+                    return;
+                }
+                var row = listEl.querySelector('.service-row[data-id="' + id + '"]');
+                if (row) row.remove();
+                refreshVisibility();
+            }).catch(function () {
+                if (window.providerNotify) {
+                    window.providerNotify.alert('Network error.', { variant: 'error', title: 'Connection problem' });
+                } else {
+                    window.alert('Network error.');
+                }
+            });
         });
     });
 })();

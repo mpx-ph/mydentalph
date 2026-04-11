@@ -974,17 +974,23 @@ Cancel
       var em = emailInput ? emailInput.value.trim() : '';
       var role = selectedRole;
       if (!fn || !ln || !em) {
-        alert('Please enter first name, last name, and professional email.');
+        if (window.providerNotify) {
+          window.providerNotify.alert('Please enter first name, last name, and professional email.', { variant: 'warning', title: 'Missing information' });
+        }
         return;
       }
       if (!role) {
-        alert('Please select a clinic role (Dentist, Staff, or Manager) before continuing.');
+        if (window.providerNotify) {
+          window.providerNotify.alert('Please select a clinic role (Dentist, Staff, or Manager) before continuing.', { variant: 'warning', title: 'Role required' });
+        }
         return;
       }
       var pw = pwInput ? pwInput.value : '';
       if (!owner) {
         if (!pwConfirm || pw !== pwConfirm.value) {
-          alert('Passwords do not match.');
+          if (window.providerNotify) {
+            window.providerNotify.alert('Passwords do not match.', { variant: 'warning', title: 'Password mismatch' });
+          }
           return;
         }
       }
@@ -1003,11 +1009,15 @@ Cancel
             openVerifyLayer(res.j.email || em);
           } else {
             var err = (res.j && res.j.error) ? res.j.error : 'Could not send code.';
-            alert(err);
+            if (window.providerNotify) {
+              window.providerNotify.alert(err, { variant: 'error' });
+            }
           }
         })
         .catch(function () {
-          alert('Network error. Please try again.');
+          if (window.providerNotify) {
+            window.providerNotify.alert('Network error. Please try again.', { variant: 'error', title: 'Connection problem' });
+          }
         })
         .then(function () {
           submitBtn.disabled = false;
@@ -1097,32 +1107,46 @@ Cancel
     var row = btn.closest('tr');
     var nameEl = row ? row.querySelector('td .font-headline') : null;
     var name = nameEl ? nameEl.textContent.trim() : 'this team member';
-    if (!window.confirm('Remove ' + name + ' from the team?')) return;
-    btn.disabled = true;
-    fetch('ProviderTenantTeamMemberApi.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: id }),
-      credentials: 'same-origin'
-    })
-      .then(function (r) {
-        return r.json().then(function (j) {
-          return { ok: r.ok, j: j };
+    var ask = window.providerNotify
+      ? window.providerNotify.confirm('Remove ' + name + ' from the team? This revokes their access to the clinic portal.', {
+          title: 'Remove team member',
+          variant: 'danger',
+          confirmText: 'Remove',
+          cancelText: 'Cancel'
+        })
+      : Promise.resolve(window.confirm('Remove ' + name + ' from the team?'));
+    ask.then(function (ok) {
+      if (!ok) return;
+      btn.disabled = true;
+      fetch('ProviderTenantTeamMemberApi.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: id }),
+        credentials: 'same-origin'
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            return { ok: r.ok, j: j };
+          });
+        })
+        .then(function (res) {
+          if (res.ok && res.j && res.j.ok) {
+            window.location.reload();
+            return;
+          }
+          var err = (res.j && res.j.error) ? res.j.error : 'Could not remove team member.';
+          if (window.providerNotify) {
+            window.providerNotify.alert(err, { variant: 'error' });
+          }
+          btn.disabled = false;
+        })
+        .catch(function () {
+          if (window.providerNotify) {
+            window.providerNotify.alert('Network error. Please try again.', { variant: 'error', title: 'Connection problem' });
+          }
+          btn.disabled = false;
         });
-      })
-      .then(function (res) {
-        if (res.ok && res.j && res.j.ok) {
-          window.location.reload();
-          return;
-        }
-        var err = (res.j && res.j.error) ? res.j.error : 'Could not remove team member.';
-        window.alert(err);
-        btn.disabled = false;
-      })
-      .catch(function () {
-        window.alert('Network error. Please try again.');
-        btn.disabled = false;
-      });
+    });
   });
 })();
 </script>

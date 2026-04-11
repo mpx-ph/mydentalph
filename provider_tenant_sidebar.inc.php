@@ -267,3 +267,4 @@ $rs = isset($renewal_sidebar) ? (string) $renewal_sidebar : '';
     restoreState();
 })();
 </script>
+<?php include __DIR__ . '/provider_tenant_notify.inc.php'; ?>
