@@ -127,16 +127,20 @@ try {
         exit;
     }
 
-    // Walk-in uses server clock (avoids bad client times). Pick a free second for unique_dentist_schedule.
-    $appointmentDate = date('Y-m-d');
+    // Same calendar day as StaffAppointments.php (Asia/Manila). Using only server date() breaks
+    // walk-ins when PHP default timezone is UTC — booking lands on "yesterday" vs clinic schedule.
+    $clinicTz = new DateTimeZone('Asia/Manila');
+    $nowClinic = new DateTimeImmutable('now', $clinicTz);
+    $appointmentDate = $nowClinic->format('Y-m-d');
     $dentistIdInt = (int) $dentistId;
     $slotProbe = $pdo->prepare('
         SELECT COUNT(*) FROM ' . clinic_quote_identifier($appointmentsTable) . '
         WHERE tenant_id = ? AND dentist_id = ? AND appointment_date = ? AND appointment_time = ?
     ');
-    $appointmentTime = date('H:i:s');
+    $appointmentTime = $nowClinic->format('H:i:s');
     for ($sec = 0; $sec < 300; $sec++) {
-        $tryTime = date('H:i:s', time() + $sec);
+        $try = $nowClinic->modify('+' . $sec . ' seconds');
+        $tryTime = $try->format('H:i:s');
         $slotProbe->execute([$tenantId, $dentistIdInt, $appointmentDate, $tryTime]);
         if ((int) $slotProbe->fetchColumn() === 0) {
             $appointmentTime = $tryTime;
@@ -146,7 +150,7 @@ try {
 
     $pdo->beginTransaction();
 
-    $bookingPrefix = 'BK-' . date('Y') . '-';
+    $bookingPrefix = 'BK-' . $nowClinic->format('Y') . '-';
     $sequence = 0;
     foreach (array_unique(array_filter([$appointmentsTable, $mirrorAppointmentsTable], static function ($v) {
         return $v !== null && $v !== '';

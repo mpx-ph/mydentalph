@@ -52,6 +52,9 @@ $baseParams = [];
 if ($currentTenantSlug !== '') {
     $baseParams['clinic_slug'] = $currentTenantSlug;
 }
+$manilaToday = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d');
+$baseParams['date'] = $manilaToday;
+$baseParams['month'] = substr($manilaToday, 0, 7);
 $backToAppointmentsHref = BASE_URL . 'StaffAppointments.php' . ($baseParams ? ('?' . http_build_query($baseParams)) : '');
 
 $walkInDentists = [];
