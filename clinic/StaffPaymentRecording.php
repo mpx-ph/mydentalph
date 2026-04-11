@@ -52,6 +52,7 @@ $supportsPaymentTypeColumn = false;
 $supportsAppointmentUpdatedAtColumn = false;
 $supportsAppointmentServicesTable = false;
 $appointmentServiceColumns = [];
+$installmentsTableName = null;
 $formSelectedBookingId = trim((string) ($_POST['selected_booking_id'] ?? ''));
 $formPatientQuery = trim((string) ($_POST['patient_query'] ?? ''));
 $formAmount = trim((string) ($_POST['amount'] ?? ''));
@@ -136,6 +137,21 @@ try {
             ");
             $appointmentServicesColumnsStmt->execute();
             $appointmentServiceColumns = array_map('strval', $appointmentServicesColumnsStmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
+        }
+
+        foreach (['tbl_installments', 'installments'] as $installmentsCandidate) {
+            $instTableStmt = $pdo->prepare("
+                SELECT 1
+                FROM information_schema.TABLES
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = ?
+                LIMIT 1
+            ");
+            $instTableStmt->execute([$installmentsCandidate]);
+            if ((bool) $instTableStmt->fetchColumn()) {
+                $installmentsTableName = $installmentsCandidate;
+                break;
+            }
         }
     }
 
@@ -542,6 +558,20 @@ try {
         $recentStmt->execute([$tenantId]);
         $recentPayments = $recentStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
+        if ($installmentsTableName !== null) {
+            $quotedInstallmentsTable = '`' . str_replace('`', '``', $installmentsTableName) . '`';
+            $installmentPlanSelectSql = "
+                (
+                    SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END
+                    FROM {$quotedInstallmentsTable} i
+                    WHERE i.tenant_id = a.tenant_id
+                      AND i.booking_id = a.booking_id
+                ) AS is_installment_plan
+            ";
+        } else {
+            $installmentPlanSelectSql = '0 AS is_installment_plan';
+        }
+
         $transactionsSql = "
             SELECT
                 a.booking_id,
@@ -549,6 +579,7 @@ try {
                 a.appointment_date,
                 a.appointment_time,
                 a.service_type,
+                {$installmentPlanSelectSql},
                 COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
                 COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0) AS total_paid,
                 p.first_name AS patient_first_name,
@@ -722,6 +753,51 @@ try {
             color: white;
             border-color: #2b8beb;
             box-shadow: 0 8px 16px -4px rgba(43, 139, 235, 0.4);
+        }
+        .txn-type-toggle-track {
+            position: relative;
+            display: flex;
+            width: 100%;
+            max-width: 28rem;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 0.35rem;
+            border-radius: 1rem;
+            background: rgba(241, 245, 249, 0.95);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.06);
+        }
+        .txn-type-toggle-pill {
+            position: absolute;
+            top: 0.35rem;
+            bottom: 0.35rem;
+            left: 0.35rem;
+            width: calc(50% - 0.4375rem);
+            border-radius: 0.75rem;
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.06);
+            transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+            pointer-events: none;
+        }
+        .txn-type-toggle-track[data-active="installment"] .txn-type-toggle-pill {
+            transform: translateX(calc(100% + 0.35rem));
+        }
+        .txn-type-toggle-btn {
+            position: relative;
+            z-index: 1;
+            flex: 1;
+            padding: 0.65rem 0.5rem;
+            border-radius: 0.75rem;
+            font-size: 0.65rem;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #64748b;
+            transition: color 0.2s ease;
+        }
+        .txn-type-toggle-track[data-active="regular"] .txn-type-toggle-btn[data-txn-type="regular"],
+        .txn-type-toggle-track[data-active="installment"] .txn-type-toggle-btn[data-txn-type="installment"] {
+            color: #0f172a;
         }
     </style>
 </head>
@@ -1055,8 +1131,15 @@ try {
 <span class="material-symbols-outlined text-[18px]">close</span>
 </button>
 </div>
-<div class="py-4 border-b border-slate-100">
+<div class="pb-4 border-b border-slate-100">
+<div class="txn-type-toggle-track mb-4" data-active="regular" id="transaction-type-toggle" role="group" aria-label="Filter by payment type">
+<span class="txn-type-toggle-pill" aria-hidden="true"></span>
+<button type="button" class="txn-type-toggle-btn" data-txn-type="regular" id="transaction-type-regular-btn" aria-pressed="true">Regular Services</button>
+<button type="button" class="txn-type-toggle-btn" data-txn-type="installment" id="transaction-type-installment-btn" aria-pressed="false">Installment Plans</button>
+</div>
+<div class="py-1">
 <input id="transaction_selector_search" type="text" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium outline-none focus:border-primary focus:bg-white focus:shadow-[0_0_0_4px_rgba(43,139,235,0.1)]" placeholder="Search patient name, patient ID, booking ID, or service"/>
+</div>
 </div>
 <div id="transaction_selector_list" class="overflow-y-auto divide-y divide-slate-100 min-h-[14rem]"></div>
 <div id="transaction_selector_empty" class="hidden py-10 text-center text-sm font-semibold text-slate-500">No pending transactions found.</div>
@@ -1078,6 +1161,10 @@ try {
         const selectorSearchInput = document.getElementById('transaction_selector_search');
         const selectorList = document.getElementById('transaction_selector_list');
         const selectorEmpty = document.getElementById('transaction_selector_empty');
+        const transactionTypeToggle = document.getElementById('transaction-type-toggle');
+        const transactionTypeRegularBtn = document.getElementById('transaction-type-regular-btn');
+        const transactionTypeInstallmentBtn = document.getElementById('transaction-type-installment-btn');
+        let transactionTypeFilter = 'regular';
         const selectedBookingIdInput = document.getElementById('selected_booking_id_input');
         const patientQueryInput = document.getElementById('patient_query_input');
         const selectedTransactionLabel = document.getElementById('selected_transaction_label');
@@ -1094,6 +1181,8 @@ try {
             const lastName = String(item.patient_last_name || '').trim();
             const patientName = (firstName + ' ' + lastName).trim() || 'Unknown Patient';
             const label = patientName + ' | Booking ' + (item.booking_id || '-') + ' | Pending ₱' + pendingBalance.toFixed(2);
+            const rawPlan = item.is_installment_plan;
+            const isInstallmentPlan = rawPlan === true || rawPlan === 1 || rawPlan === '1';
             return {
                 booking_id: String(item.booking_id || ''),
                 patient_id: String(item.patient_id || ''),
@@ -1104,9 +1193,61 @@ try {
                 total_cost: totalCost,
                 total_paid: totalPaid,
                 pending_balance: pendingBalance,
+                is_installment_plan: isInstallmentPlan,
                 label: label
             };
         }).filter((item) => item.pending_balance > 0);
+
+        function filterTransactionsByType(list) {
+            if (transactionTypeFilter === 'installment') {
+                return list.filter((item) => item.is_installment_plan);
+            }
+            return list.filter((item) => !item.is_installment_plan);
+        }
+
+        function filterTransactionsByKeyword(list, keyword) {
+            if (!keyword) {
+                return list;
+            }
+            return list.filter((item) => {
+                return [
+                    item.patient_name,
+                    item.patient_id,
+                    item.booking_id,
+                    item.service_type
+                ].join(' ').toLowerCase().indexOf(keyword) !== -1;
+            });
+        }
+
+        function refreshTransactionSelectorList() {
+            const keyword = String(selectorSearchInput ? selectorSearchInput.value : '').trim().toLowerCase();
+            const typeFiltered = filterTransactionsByType(normalizeTransactions);
+            const finalList = filterTransactionsByKeyword(typeFiltered, keyword);
+            if (!finalList.length && selectorEmpty) {
+                if (!keyword) {
+                    selectorEmpty.textContent = transactionTypeFilter === 'installment'
+                        ? 'No installment plans with a pending balance.'
+                        : 'No regular service appointments with a pending balance.';
+                } else {
+                    selectorEmpty.textContent = 'No transactions match your search.';
+                }
+            }
+            renderTransactionRows(finalList);
+        }
+
+        function setTransactionTypeFilter(mode) {
+            transactionTypeFilter = mode === 'installment' ? 'installment' : 'regular';
+            if (transactionTypeToggle) {
+                transactionTypeToggle.setAttribute('data-active', transactionTypeFilter);
+            }
+            if (transactionTypeRegularBtn) {
+                transactionTypeRegularBtn.setAttribute('aria-pressed', transactionTypeFilter === 'regular' ? 'true' : 'false');
+            }
+            if (transactionTypeInstallmentBtn) {
+                transactionTypeInstallmentBtn.setAttribute('aria-pressed', transactionTypeFilter === 'installment' ? 'true' : 'false');
+            }
+            refreshTransactionSelectorList();
+        }
 
         function escapeHtml(value) {
             return String(value || '')
@@ -1175,7 +1316,7 @@ try {
             if (selectorSearchInput) {
                 selectorSearchInput.value = '';
             }
-            renderTransactionRows(normalizeTransactions);
+            refreshTransactionSelectorList();
         }
 
         function closeSelectorModal() {
@@ -1231,21 +1372,14 @@ try {
         }
         if (selectorSearchInput) {
             selectorSearchInput.addEventListener('input', () => {
-                const keyword = String(selectorSearchInput.value || '').trim().toLowerCase();
-                if (!keyword) {
-                    renderTransactionRows(normalizeTransactions);
-                    return;
-                }
-                const filtered = normalizeTransactions.filter((item) => {
-                    return [
-                        item.patient_name,
-                        item.patient_id,
-                        item.booking_id,
-                        item.service_type
-                    ].join(' ').toLowerCase().indexOf(keyword) !== -1;
-                });
-                renderTransactionRows(filtered);
+                refreshTransactionSelectorList();
             });
+        }
+        if (transactionTypeRegularBtn) {
+            transactionTypeRegularBtn.addEventListener('click', () => setTransactionTypeFilter('regular'));
+        }
+        if (transactionTypeInstallmentBtn) {
+            transactionTypeInstallmentBtn.addEventListener('click', () => setTransactionTypeFilter('installment'));
         }
         if (selectorList) {
             selectorList.addEventListener('click', (event) => {
