@@ -1,6 +1,12 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/provider_tenant_lite_bootstrap.php';
+
+// Dynamic roster must always reflect the database; avoid cached HTML after adds/removals.
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
+
 $provider_nav_active = 'users';
 
 $owner_prefill_full = trim($display_name !== '' ? $display_name : (string) ($_SESSION['full_name'] ?? $_SESSION['name'] ?? ''));
@@ -45,23 +51,58 @@ require_once __DIR__ . '/provider_tenant_header_context.inc.php';
 function provider_tenant_fetch_team_members(PDO $pdo, string $tenant_id): array
 {
     try {
+        // Dentist profile is resolved via scalar subqueries (ORDER BY dentist_id LIMIT 1) so multiple
+        // tbl_dentists rows for the same email cannot multiply tbl_users rows (which looked like stale rows).
         $st = $pdo->prepare(
             'SELECT u.user_id, u.email, u.full_name, u.role, u.status, u.last_active, u.last_login, u.updated_at,
                     s.profile_image,
-                    COALESCE(NULLIF(TRIM(s.first_name), \'\'), NULLIF(TRIM(d.first_name), \'\')) AS staff_first,
-                    COALESCE(NULLIF(TRIM(s.last_name), \'\'), NULLIF(TRIM(d.last_name), \'\')) AS staff_last
+                    COALESCE(
+                        NULLIF(TRIM(s.first_name), \'\'),
+                        NULLIF(TRIM((
+                            SELECT d.first_name FROM tbl_dentists d
+                            WHERE d.tenant_id = u.tenant_id
+                              AND u.role = \'dentist\'
+                              AND LOWER(TRIM(COALESCE(d.email, \'\'))) = LOWER(TRIM(COALESCE(u.email, \'\')))
+                            ORDER BY d.dentist_id ASC
+                            LIMIT 1
+                        )), \'\')
+                    ) AS staff_first,
+                    COALESCE(
+                        NULLIF(TRIM(s.last_name), \'\'),
+                        NULLIF(TRIM((
+                            SELECT d.last_name FROM tbl_dentists d
+                            WHERE d.tenant_id = u.tenant_id
+                              AND u.role = \'dentist\'
+                              AND LOWER(TRIM(COALESCE(d.email, \'\'))) = LOWER(TRIM(COALESCE(u.email, \'\')))
+                            ORDER BY d.dentist_id ASC
+                            LIMIT 1
+                        )), \'\')
+                    ) AS staff_last
              FROM tbl_users u
              LEFT JOIN tbl_staffs s ON s.tenant_id = u.tenant_id AND s.user_id = u.user_id
-             LEFT JOIN tbl_dentists d ON u.role = \'dentist\'
-               AND d.tenant_id = u.tenant_id
-               AND LOWER(TRIM(COALESCE(d.email, \'\'))) = LOWER(TRIM(COALESCE(u.email, \'\')))
              WHERE u.tenant_id = ?
                AND u.role NOT IN (\'client\', \'superadmin\')
              ORDER BY u.full_name ASC'
         );
         $st->execute([$tenant_id]);
         $rows = $st->fetchAll(PDO::FETCH_ASSOC);
-        return is_array($rows) ? $rows : [];
+        if (!is_array($rows) || $rows === []) {
+            return [];
+        }
+        $byUserId = [];
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $uid = trim((string) ($row['user_id'] ?? ''));
+            if ($uid === '') {
+                continue;
+            }
+            if (!isset($byUserId[$uid])) {
+                $byUserId[$uid] = $row;
+            }
+        }
+        return array_values($byUserId);
     } catch (Throwable $e) {
         return [];
     }
