@@ -1541,6 +1541,15 @@ try {
 </button>
 </div>
 <form class="space-y-10" method="post">
+<div class="pb-2 border-b border-slate-100/80">
+<p class="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-3 ml-1">List filter (when choosing appointment)</p>
+<div class="txn-type-toggle-track mb-0 max-w-lg" data-active="regular" id="main-record-type-toggle" role="group" aria-label="Filter booking list by type">
+<span class="txn-type-toggle-pill" aria-hidden="true"></span>
+<button type="button" class="txn-type-toggle-btn" data-txn-type="regular" id="main-type-regular-btn" aria-pressed="true">Regular Services</button>
+<button type="button" class="txn-type-toggle-btn" data-txn-type="installment" id="main-type-installment-btn" aria-pressed="false">Installment Plans</button>
+</div>
+<p class="text-[11px] font-semibold text-slate-500 mt-2 ml-1">Opens the picker showing only that category. You can switch anytime.</p>
+</div>
 <div class="space-y-3">
 <label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Patient Identification</label>
 <div class="relative group">
@@ -1559,11 +1568,11 @@ try {
 <input name="installment_flow" id="installment_flow_input" type="hidden" value="<?php echo htmlspecialchars($formInstallmentFlow !== '' ? $formInstallmentFlow : 'regular', ENT_QUOTES, 'UTF-8'); ?>"/>
 <input name="installment_pay_mode" id="installment_pay_mode_input" type="hidden" value="<?php echo htmlspecialchars($formInstallmentPayMode !== '' ? $formInstallmentPayMode : 'full', ENT_QUOTES, 'UTF-8'); ?>"/>
 <input name="installment_slot_count" id="installment_slot_count_input" type="hidden" value="<?php echo (int) max(1, $formInstallmentSlotCount); ?>"/>
-<div class="hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/[0.06] to-slate-50/80 p-6 space-y-4" id="installment-plan-panel">
+<div class="hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/[0.06] to-slate-50/80 p-6 space-y-4" id="record-payment-status-panel">
 <div class="flex items-center justify-between gap-3 flex-wrap">
 <div>
-<p class="text-[11px] font-black uppercase tracking-widest text-primary">Installment plan</p>
-<h4 class="text-lg font-black text-slate-900 mt-1">Payment progress</h4>
+<p class="text-[11px] font-black uppercase tracking-widest text-primary">Payment status</p>
+<h4 class="text-lg font-black text-slate-900 mt-1">Progress</h4>
 </div>
 <span class="text-xs font-bold text-slate-500" id="installment_progress_pct_label"></span>
 </div>
@@ -1577,7 +1586,10 @@ try {
 </div>
 <p class="text-[11px] font-semibold text-slate-500" id="installment_progress_hint"></p>
 </div>
-<div class="border-t border-slate-200/80 pt-4 space-y-3">
+<p class="hidden rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-xs font-semibold text-amber-900 leading-relaxed" id="installment-flag-only-note">
+This booking is installment-priced, but no installment schedule rows exist in the database yet. Record payments against the treatment balance below (same as a standard balance payment). When schedule lines are added, detailed down/monthly options will appear here.
+</p>
+<div class="hidden border-t border-slate-200/80 pt-4 space-y-3" id="installment-advanced-options">
 <p class="text-[11px] font-black uppercase tracking-widest text-slate-500">Payment option</p>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 <label class="installment-option-card flex items-start gap-3 p-4 rounded-2xl border-2 border-slate-100 bg-white/80 cursor-pointer hover:border-primary/40 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
@@ -1747,7 +1759,12 @@ try {
         const amountInput = document.querySelector('input[name="amount"]');
         const additionalServiceCheckboxes = document.querySelectorAll('.additional-service-checkbox');
         const additionalServicesTotalHint = document.getElementById('additional_services_total_hint');
-        const installmentPlanPanel = document.getElementById('installment-plan-panel');
+        const recordPaymentStatusPanel = document.getElementById('record-payment-status-panel');
+        const installmentAdvancedOptions = document.getElementById('installment-advanced-options');
+        const installmentFlagOnlyNote = document.getElementById('installment-flag-only-note');
+        const mainRecordTypeToggle = document.getElementById('main-record-type-toggle');
+        const mainTypeRegularBtn = document.getElementById('main-type-regular-btn');
+        const mainTypeInstallmentBtn = document.getElementById('main-type-installment-btn');
         const installmentFlowInput = document.getElementById('installment_flow_input');
         const installmentPayModeInput = document.getElementById('installment_pay_mode_input');
         const installmentSlotCountInput = document.getElementById('installment_slot_count_input');
@@ -1782,10 +1799,47 @@ try {
             return raw;
         }
 
+        function isInstallmentPlanBooking(tx) {
+            if (!tx) {
+                return false;
+            }
+            const v = tx.is_installment_plan;
+            return v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true';
+        }
+
+        function syncMainAndSelectorFilter(mode) {
+            const m = mode === 'installment' ? 'installment' : 'regular';
+            transactionTypeFilter = m;
+            if (transactionTypeToggle) {
+                transactionTypeToggle.setAttribute('data-active', m);
+            }
+            if (transactionTypeRegularBtn) {
+                transactionTypeRegularBtn.setAttribute('aria-pressed', m === 'regular' ? 'true' : 'false');
+            }
+            if (transactionTypeInstallmentBtn) {
+                transactionTypeInstallmentBtn.setAttribute('aria-pressed', m === 'installment' ? 'true' : 'false');
+            }
+            if (mainRecordTypeToggle) {
+                mainRecordTypeToggle.setAttribute('data-active', m);
+            }
+            if (mainTypeRegularBtn) {
+                mainTypeRegularBtn.setAttribute('aria-pressed', m === 'regular' ? 'true' : 'false');
+            }
+            if (mainTypeInstallmentBtn) {
+                mainTypeInstallmentBtn.setAttribute('aria-pressed', m === 'installment' ? 'true' : 'false');
+            }
+        }
+
         function refreshInstallmentPaymentUi() {
             if (!selectedTransaction) {
-                if (installmentPlanPanel) {
-                    installmentPlanPanel.classList.add('hidden');
+                if (recordPaymentStatusPanel) {
+                    recordPaymentStatusPanel.classList.add('hidden');
+                }
+                if (installmentAdvancedOptions) {
+                    installmentAdvancedOptions.classList.add('hidden');
+                }
+                if (installmentFlagOnlyNote) {
+                    installmentFlagOnlyNote.classList.add('hidden');
                 }
                 if (installmentFlowInput) {
                     installmentFlowInput.value = 'regular';
@@ -1800,32 +1854,14 @@ try {
             }
             const sched = getScheduleList(selectedTransaction);
             const hasSchedule = sched.length > 0;
-            if (installmentFlowInput) {
-                installmentFlowInput.value = hasSchedule ? 'schedule' : 'regular';
-            }
-            if (!installmentPlanPanel) {
-                return;
-            }
-            if (!hasSchedule) {
-                installmentPlanPanel.classList.add('hidden');
-                if (amountInput) {
-                    amountInput.removeAttribute('readonly');
-                }
-                if (additionalServicesSection) {
-                    additionalServicesSection.classList.remove('opacity-50', 'pointer-events-none');
-                }
-                return;
+            const planFlag = isInstallmentPlanBooking(selectedTransaction);
+
+            if (recordPaymentStatusPanel) {
+                recordPaymentStatusPanel.classList.remove('hidden');
             }
 
-            installmentPlanPanel.classList.remove('hidden');
-            if (instOptFull && !document.querySelector('input[name="installment_pay_mode_ui"]:checked')) {
-                instOptFull.checked = true;
-            }
-            if (additionalServicesSection) {
-                additionalServicesSection.classList.add('opacity-50', 'pointer-events-none');
-            }
-            if (amountInput) {
-                amountInput.setAttribute('readonly', 'readonly');
+            if (installmentFlowInput) {
+                installmentFlowInput.value = hasSchedule ? 'schedule' : 'regular';
             }
 
             const totalCost = Number(selectedTransaction.total_cost || 0);
@@ -1844,22 +1880,68 @@ try {
             if (installmentProgressRemainLine) {
                 installmentProgressRemainLine.textContent = 'Remaining ₱' + pending.toFixed(2);
             }
-
-            let downLabel = '';
-            const inst1 = sched.find((r) => Number(r.installment_number) === 1);
-            if (inst1 && !installmentStatusPaid(inst1.status)) {
-                downLabel = 'Down payment (installment 1) is pending.';
-            } else if (inst1 && installmentStatusPaid(inst1.status)) {
-                downLabel = 'Down payment (installment 1) is paid.';
-            }
-            const unpaidSched = sched.filter((r) => !installmentStatusPaid(r.status));
-            const settled = sched.length - unpaidSched.length;
             if (installmentProgressHint) {
-                installmentProgressHint.textContent = downLabel
-                    ? (downLabel + ' ' + settled + ' of ' + sched.length + ' installment line(s) settled.')
-                    : (settled + ' of ' + sched.length + ' installment line(s) settled.');
+                if (hasSchedule) {
+                    const inst1 = sched.find((r) => Number(r.installment_number) === 1);
+                    let downLabel = '';
+                    if (inst1 && !installmentStatusPaid(inst1.status)) {
+                        downLabel = 'Down payment (installment 1) is pending.';
+                    } else if (inst1 && installmentStatusPaid(inst1.status)) {
+                        downLabel = 'Down payment (installment 1) is paid.';
+                    }
+                    const unpaidSched = sched.filter((r) => !installmentStatusPaid(r.status));
+                    const settled = sched.length - unpaidSched.length;
+                    installmentProgressHint.textContent = downLabel
+                        ? (downLabel + ' ' + settled + ' of ' + sched.length + ' installment line(s) settled.')
+                        : (settled + ' of ' + sched.length + ' installment line(s) settled.');
+                } else if (planFlag) {
+                    installmentProgressHint.textContent = 'Installment-priced treatment — pay toward the balance below.';
+                } else {
+                    installmentProgressHint.textContent = 'Amount collected toward this appointment\'s treatment cost.';
+                }
             }
 
+            if (hasSchedule) {
+                if (installmentAdvancedOptions) {
+                    installmentAdvancedOptions.classList.remove('hidden');
+                }
+                if (installmentFlagOnlyNote) {
+                    installmentFlagOnlyNote.classList.add('hidden');
+                }
+                if (additionalServicesSection) {
+                    additionalServicesSection.classList.add('opacity-50', 'pointer-events-none');
+                }
+                if (amountInput) {
+                    amountInput.setAttribute('readonly', 'readonly');
+                }
+            } else {
+                if (installmentAdvancedOptions) {
+                    installmentAdvancedOptions.classList.add('hidden');
+                }
+                if (installmentFlagOnlyNote) {
+                    if (planFlag) {
+                        installmentFlagOnlyNote.classList.remove('hidden');
+                    } else {
+                        installmentFlagOnlyNote.classList.add('hidden');
+                    }
+                }
+                if (additionalServicesSection) {
+                    additionalServicesSection.classList.remove('opacity-50', 'pointer-events-none');
+                }
+                if (amountInput) {
+                    amountInput.removeAttribute('readonly');
+                }
+            }
+
+            if (!hasSchedule) {
+                return;
+            }
+
+            if (instOptFull && !document.querySelector('input[name="installment_pay_mode_ui"]:checked')) {
+                instOptFull.checked = true;
+            }
+
+            const unpaidSched = sched.filter((r) => !installmentStatusPaid(r.status));
             const firstUnpaid = unpaidSched.length ? unpaidSched[0] : null;
             const fn = firstUnpaid ? Number(firstUnpaid.installment_number) : 0;
 
@@ -1975,7 +2057,7 @@ try {
             const patientName = (firstName + ' ' + lastName).trim() || 'Unknown Patient';
             const label = patientName + ' | Booking ' + (item.booking_id || '-') + ' | Pending ₱' + pendingBalance.toFixed(2);
             const rawPlan = item.is_installment_plan;
-            const isInstallmentPlan = rawPlan === true || rawPlan === 1 || rawPlan === '1';
+            const isInstallmentPlan = rawPlan === true || rawPlan === 1 || rawPlan === '1' || String(rawPlan) === '1';
             return {
                 booking_id: String(item.booking_id || ''),
                 patient_id: String(item.patient_id || ''),
@@ -2030,16 +2112,7 @@ try {
         }
 
         function setTransactionTypeFilter(mode) {
-            transactionTypeFilter = mode === 'installment' ? 'installment' : 'regular';
-            if (transactionTypeToggle) {
-                transactionTypeToggle.setAttribute('data-active', transactionTypeFilter);
-            }
-            if (transactionTypeRegularBtn) {
-                transactionTypeRegularBtn.setAttribute('aria-pressed', transactionTypeFilter === 'regular' ? 'true' : 'false');
-            }
-            if (transactionTypeInstallmentBtn) {
-                transactionTypeInstallmentBtn.setAttribute('aria-pressed', transactionTypeFilter === 'installment' ? 'true' : 'false');
-            }
+            syncMainAndSelectorFilter(mode === 'installment' ? 'installment' : 'regular');
             refreshTransactionSelectorList();
         }
 
@@ -2130,6 +2203,7 @@ try {
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             document.body.classList.add('overflow-hidden');
+            syncMainAndSelectorFilter(transactionTypeFilter);
         };
 
         const closeModal = () => {
@@ -2179,6 +2253,12 @@ try {
         if (transactionTypeInstallmentBtn) {
             transactionTypeInstallmentBtn.addEventListener('click', () => setTransactionTypeFilter('installment'));
         }
+        if (mainTypeRegularBtn) {
+            mainTypeRegularBtn.addEventListener('click', () => setTransactionTypeFilter('regular'));
+        }
+        if (mainTypeInstallmentBtn) {
+            mainTypeInstallmentBtn.addEventListener('click', () => setTransactionTypeFilter('installment'));
+        }
         if (selectorList) {
             selectorList.addEventListener('click', (event) => {
                 const btn = event.target.closest('button[data-action="select-transaction"]');
@@ -2201,6 +2281,11 @@ try {
                 }
                 if (amountInput) {
                     selectedTransaction = selected;
+                    if (selected.is_installment_plan) {
+                        syncMainAndSelectorFilter('installment');
+                    } else {
+                        syncMainAndSelectorFilter('regular');
+                    }
                     syncAmountWithAdditionalServices();
                     refreshInstallmentPaymentUi();
                 }
@@ -2222,6 +2307,24 @@ try {
         }
         syncAmountWithAdditionalServices();
         refreshInstallmentPaymentUi();
+
+        (function restoreSelectionAfterPost() {
+            const bid = String(selectedBookingIdInput ? selectedBookingIdInput.value : '').trim();
+            if (!bid) {
+                return;
+            }
+            const pre = normalizeTransactions.find((x) => x.booking_id === bid);
+            if (pre) {
+                selectedTransaction = pre;
+                if (pre.is_installment_plan) {
+                    syncMainAndSelectorFilter('installment');
+                } else {
+                    syncMainAndSelectorFilter('regular');
+                }
+                syncAmountWithAdditionalServices();
+                refreshInstallmentPaymentUi();
+            }
+        })();
 
         const hiddenInput = document.getElementById('payment_method_input');
         const cards = document.querySelectorAll('.payment-card[data-method]');
