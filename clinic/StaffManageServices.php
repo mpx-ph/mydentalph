@@ -19,6 +19,7 @@ if (!isset($currentTenantSlug)) {
 }
 
 $defaultRegularDownpaymentPercent = 20.0;
+$defaultLongTermMinDownpayment = 500.0;
 try {
     require_once __DIR__ . '/config/database.php';
     $tenantIdPayment = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
@@ -33,15 +34,21 @@ try {
     }
     if ($tenantIdPayment !== '') {
         $pdoPay = getDBConnection();
-        $psStmt = $pdoPay->prepare('SELECT regular_downpayment_percentage FROM tbl_payment_settings WHERE tenant_id = ? LIMIT 1');
+        $psStmt = $pdoPay->prepare('SELECT regular_downpayment_percentage, long_term_min_downpayment FROM tbl_payment_settings WHERE tenant_id = ? LIMIT 1');
         $psStmt->execute([$tenantIdPayment]);
         $psRow = $psStmt->fetch(PDO::FETCH_ASSOC);
-        if ($psRow && isset($psRow['regular_downpayment_percentage'])) {
-            $defaultRegularDownpaymentPercent = (float) $psRow['regular_downpayment_percentage'];
+        if ($psRow) {
+            if (isset($psRow['regular_downpayment_percentage'])) {
+                $defaultRegularDownpaymentPercent = (float) $psRow['regular_downpayment_percentage'];
+            }
+            if (isset($psRow['long_term_min_downpayment'])) {
+                $defaultLongTermMinDownpayment = (float) $psRow['long_term_min_downpayment'];
+            }
         }
     }
 } catch (Throwable $e) {
     $defaultRegularDownpaymentPercent = 20.0;
+    $defaultLongTermMinDownpayment = 500.0;
 }
 ?>
 <!DOCTYPE html>
@@ -293,9 +300,36 @@ Price (₱) <span class="text-red-500 font-bold">*</span>
 <span class="material-symbols-outlined text-[16px] text-slate-500 shrink-0 mt-0.5">calculate</span>
 <span class="leading-snug">Auto-calculated Downpayment (₱)</span>
 </label>
-<p class="text-[11px] text-slate-500 leading-relaxed mb-2 pl-[1.375rem]">Preview using the <strong class="font-semibold text-slate-600">regular down payment percentage</strong> from <span class="whitespace-nowrap">Payment Settings</span> (currently <span id="newServiceDefaultDpPctLabel"><?php echo htmlspecialchars(number_format($defaultRegularDownpaymentPercent, 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?></span>%).</p>
+<p id="newServiceDpHelpRegular" class="text-[11px] text-slate-500 leading-relaxed mb-2 pl-[1.375rem]">Default down payment uses the <strong class="font-semibold text-slate-600">regular services</strong> percentage from Payment Settings (<span id="newServiceDefaultDpPctLabel"><?php echo htmlspecialchars(number_format($defaultRegularDownpaymentPercent, 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?></span>% of price).</p>
+<p id="newServiceDpHelpInstallment" class="hidden text-[11px] text-slate-500 leading-relaxed mb-2 pl-[1.375rem]">Default down payment uses the <strong class="font-semibold text-slate-600">long-term minimum</strong> from Payment Settings (₱<span id="newServiceDefaultLongTermLabel"><?php echo htmlspecialchars(number_format($defaultLongTermMinDownpayment, 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?></span>).</p>
 <input type="text" id="newServiceAutoDownpaymentDisplay" readonly tabindex="-1" value="" placeholder="—" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 text-[15px] font-semibold tabular-nums cursor-default shadow-inner" aria-describedby="newServiceAutoDownpaymentHint"/>
-<p id="newServiceAutoDownpaymentHint" class="sr-only">Read-only estimate from clinic Payment Settings; not saved with this form.</p>
+<p id="newServiceAutoDownpaymentHint" class="sr-only">Read-only default from Payment Settings; applied automatically when custom payment is off.</p>
+</div>
+</div>
+<div id="newServiceGlobalInstallmentSection" class="hidden rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:p-5 space-y-4 mt-2">
+<p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Installment schedule</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+<div>
+<label for="newServiceGlobalInstallmentDuration" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">calendar_month</span>
+Duration (months) <span class="text-red-500 font-bold">*</span>
+</label>
+<input type="number" id="newServiceGlobalInstallmentDuration" step="1" min="1" placeholder="0" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+</div>
+<div>
+<label for="newServiceGlobalInstallmentDownDisplay" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">payments</span>
+Downpayment (₱) <span class="text-xs font-normal text-slate-500">(from Payment Settings)</span>
+</label>
+<input type="text" id="newServiceGlobalInstallmentDownDisplay" readonly tabindex="-1" value="" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 text-[15px] font-semibold tabular-nums cursor-default"/>
+</div>
+</div>
+<div>
+<label for="newServiceGlobalInstallmentMonthly" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">calculate</span>
+Monthly payment (₱) <span class="text-xs font-normal text-slate-500">(estimated)</span>
+</label>
+<input type="text" id="newServiceGlobalInstallmentMonthly" readonly tabindex="-1" placeholder="0.00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 placeholder:text-slate-400 text-[15px] cursor-not-allowed"/>
 </div>
 </div>
 </div>
@@ -436,6 +470,79 @@ Add Service
 </label>
 </div>
 </div>
+<div class="border-t border-slate-100 pt-5 space-y-5">
+<p class="text-xs font-extrabold text-slate-800 uppercase tracking-wide">Payment</p>
+<div id="editServicePaymentTypeRow" class="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between lg:gap-6">
+<div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-8 shrink-0">
+<label class="inline-flex items-center gap-2.5 cursor-pointer group">
+<input type="radio" name="editServiceBillingType" value="regular" id="editServiceBillingRegular" class="h-4 w-4 shrink-0 border-slate-300 text-primary accent-primary focus:ring-primary"/>
+<span class="text-sm font-semibold text-slate-800">Regular Service</span>
+</label>
+<label class="inline-flex items-center gap-2.5 cursor-pointer group">
+<input type="radio" name="editServiceBillingType" value="installment" id="editServiceBillingInstallment" class="h-4 w-4 shrink-0 border-slate-300 text-primary accent-primary focus:ring-primary"/>
+<span class="text-sm font-semibold text-slate-800">Installment Plan</span>
+</label>
+</div>
+<div class="w-full min-w-0 lg:max-w-[17rem] lg:flex-shrink-0">
+<label for="editServiceAutoDownpaymentDisplay" class="flex items-start gap-1.5 text-xs font-semibold text-slate-700 mb-1.5">
+<span class="material-symbols-outlined text-[16px] text-slate-500 shrink-0 mt-0.5">calculate</span>
+<span class="leading-snug">Default Downpayment (₱)</span>
+</label>
+<p id="editServiceDpHelpRegular" class="text-[11px] text-slate-500 leading-relaxed mb-2 pl-[1.375rem]">Uses Payment Settings: regular services at <span id="editServiceDefaultDpPctLabel"><?php echo htmlspecialchars(number_format($defaultRegularDownpaymentPercent, 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?></span>%.</p>
+<p id="editServiceDpHelpInstallment" class="hidden text-[11px] text-slate-500 leading-relaxed mb-2 pl-[1.375rem]">Uses Payment Settings: long-term minimum ₱<span id="editServiceDefaultLongTermLabel"><?php echo htmlspecialchars(number_format($defaultLongTermMinDownpayment, 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?></span>.</p>
+<input type="text" id="editServiceAutoDownpaymentDisplay" readonly tabindex="-1" value="" placeholder="—" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 text-[15px] font-semibold tabular-nums cursor-default"/>
+</div>
+</div>
+<div id="editServiceGlobalInstallmentSection" class="hidden rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-4">
+<p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Installment schedule</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<div>
+<label for="editServiceGlobalInstallmentDuration" class="block text-sm font-semibold text-slate-700 mb-2">Duration (months) <span class="text-red-500">*</span></label>
+<input type="number" id="editServiceGlobalInstallmentDuration" step="1" min="1" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900"/>
+</div>
+<div>
+<label for="editServiceGlobalInstallmentDownDisplay" class="block text-sm font-semibold text-slate-700 mb-2">Downpayment (₱) <span class="text-xs font-normal text-slate-500">(from Payment Settings)</span></label>
+<input type="text" id="editServiceGlobalInstallmentDownDisplay" readonly tabindex="-1" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 font-semibold tabular-nums"/>
+</div>
+</div>
+<div>
+<label for="editServiceGlobalInstallmentMonthly" class="block text-sm font-semibold text-slate-700 mb-2">Monthly payment (₱) <span class="text-xs font-normal text-slate-500">(estimated)</span></label>
+<input type="text" id="editServiceGlobalInstallmentMonthly" readonly tabindex="-1" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-700"/>
+</div>
+</div>
+<div class="rounded-2xl border border-slate-200 bg-white p-4">
+<div class="flex items-center gap-3">
+<input type="checkbox" id="editServiceUseCustomPayment" class="h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 text-primary accent-primary"/>
+<label for="editServiceUseCustomPayment" class="text-sm font-semibold text-slate-800 cursor-pointer">Use Custom Payment Settings</label>
+</div>
+</div>
+<div id="editServiceCustomPaymentFields" class="hidden space-y-4">
+<div id="editServiceRegularDownpaymentBlock" class="rounded-2xl border border-slate-200/90 bg-slate-50/60 p-4 space-y-2">
+<label for="editServiceDownpaymentPct" class="block text-sm font-semibold text-slate-700">Custom Down Payment (%)</label>
+<input type="number" id="editServiceDownpaymentPct" step="0.01" min="0" max="100" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900"/>
+</div>
+<div id="editServiceInstallmentToggleBlock" class="rounded-2xl border border-slate-200 p-4">
+<div class="flex items-center gap-3">
+<input type="checkbox" id="editServiceEnableInstallment" class="h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 text-primary accent-primary"/>
+<label for="editServiceEnableInstallment" class="text-sm font-semibold text-slate-800 cursor-pointer">Enable Installment Plan for this Service</label>
+</div>
+</div>
+<div id="editServiceInstallmentConfigBlock" class="hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.06] to-slate-50/80 p-4 space-y-4">
+<label for="editServiceInstallmentDownpayment" class="block text-sm font-semibold text-slate-700">Downpayment (₱) <span class="text-red-500">*</span></label>
+<input type="number" id="editServiceInstallmentDownpayment" step="0.01" min="0" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900"/>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<div>
+<label for="editServiceInstallmentDuration" class="block text-sm font-semibold text-slate-700">Duration (months) <span class="text-red-500">*</span></label>
+<input type="number" id="editServiceInstallmentDuration" step="1" min="1" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900"/>
+</div>
+<div>
+<label for="editServiceInstallmentMonthly" class="block text-sm font-semibold text-slate-700">Monthly Payment (₱)</label>
+<input type="text" id="editServiceInstallmentMonthly" readonly tabindex="-1" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-700"/>
+</div>
+</div>
+</div>
+</div>
+</div>
 </div>
 <div class="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 flex justify-end gap-3">
 <button id="cancelEditServiceBtn" class="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 transition-all">Cancel</button>
@@ -454,6 +561,7 @@ let currentSearchTerm = '';
 
 const apiUrl = <?php echo json_encode(PROVIDER_BASE_URL . 'clinic/api/services.php', JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS); ?>;
 const clinicDefaultRegularDownpaymentPct = <?php echo json_encode(round($defaultRegularDownpaymentPercent, 4)); ?>;
+const clinicDefaultLongTermMinDown = <?php echo json_encode(round($defaultLongTermMinDownpayment, 4)); ?>;
 const categoryColors = {
     'General Dentistry': 'bg-blue-100 text-blue-700',
     'Restorative Dentistry': 'bg-green-100 text-green-700',
@@ -502,17 +610,34 @@ function bindEvents() {
         applyFilters();
     });
 
-    document.getElementById('newServiceUseCustomPayment').addEventListener('change', syncCustomPaymentVisibility);
-    document.getElementById('newServiceEnableInstallment').addEventListener('change', syncInstallmentMode);
+    document.getElementById('newServiceUseCustomPayment').addEventListener('change', function () { syncCustomPaymentVisibility('new'); });
+    document.getElementById('newServiceEnableInstallment').addEventListener('change', function () { syncInstallmentMode('new'); });
+    document.getElementById('editServiceUseCustomPayment').addEventListener('change', function () { syncCustomPaymentVisibility('edit'); });
+    document.getElementById('editServiceEnableInstallment').addEventListener('change', function () { syncInstallmentMode('edit'); });
     document.getElementById('newServicePrice').addEventListener('input', function () {
-        updateAutoDownpaymentDisplay();
-        recalcInstallmentMonthly();
+        updatePaymentPreview('new');
+        recalcInstallmentMonthly('new');
+    });
+    document.getElementById('editServicePrice').addEventListener('input', function () {
+        updatePaymentPreview('edit');
+        recalcInstallmentMonthly('edit');
     });
     ['newServiceInstallmentDownpayment', 'newServiceInstallmentDuration'].forEach(function (id) {
-        document.getElementById(id).addEventListener('input', recalcInstallmentMonthly);
+        document.getElementById(id).addEventListener('input', function () { recalcInstallmentMonthly('new'); });
     });
-    syncCustomPaymentVisibility();
-    updateAutoDownpaymentDisplay();
+    ['editServiceInstallmentDownpayment', 'editServiceInstallmentDuration'].forEach(function (id) {
+        document.getElementById(id).addEventListener('input', function () { recalcInstallmentMonthly('edit'); });
+    });
+    document.getElementById('newServiceGlobalInstallmentDuration').addEventListener('input', function () { recalcGlobalInstallmentMonthly('new'); });
+    document.getElementById('editServiceGlobalInstallmentDuration').addEventListener('input', function () { recalcGlobalInstallmentMonthly('edit'); });
+    document.querySelectorAll('input[name="newServiceBillingType"]').forEach(function (r) {
+        r.addEventListener('change', function () { updatePaymentPreview('new'); });
+    });
+    document.querySelectorAll('input[name="editServiceBillingType"]').forEach(function (r) {
+        r.addEventListener('change', function () { updatePaymentPreview('edit'); });
+    });
+    syncCustomPaymentVisibility('new');
+    updatePaymentPreview('new');
 }
 
 function loadServices() {
@@ -653,83 +778,171 @@ function changePage(page) {
     renderServices();
 }
 
-function updateAutoDownpaymentDisplay() {
-    const out = document.getElementById('newServiceAutoDownpaymentDisplay');
+function payPrefix(scope) {
+    return scope === 'edit' ? 'editService' : 'newService';
+}
+
+function billingName(scope) {
+    return scope === 'edit' ? 'editServiceBillingType' : 'newServiceBillingType';
+}
+
+function updatePaymentPreview(scope) {
+    const p = payPrefix(scope);
+    const out = document.getElementById(p + 'AutoDownpaymentDisplay');
     if (!out) {
         return;
     }
-    const priceEl = document.getElementById('newServicePrice');
+    const useCustom = document.getElementById(p + 'UseCustomPayment').checked;
+    const regHelp = document.getElementById(p + 'DpHelpRegular');
+    const instHelp = document.getElementById(p + 'DpHelpInstallment');
+    const globalInst = document.getElementById(p + 'GlobalInstallmentSection');
+    const priceEl = document.getElementById(p + 'Price');
     const raw = priceEl && priceEl.value !== undefined && priceEl.value !== null ? String(priceEl.value).trim() : '';
     const price = parseFloat(raw);
-    if (!raw || Number.isNaN(price) || price <= 0) {
+    const billingEl = document.querySelector('input[name="' + billingName(scope) + '"]:checked');
+    const isInst = !useCustom && billingEl && billingEl.value === 'installment';
+
+    if (regHelp && instHelp) {
+        regHelp.classList.toggle('hidden', isInst);
+        instHelp.classList.toggle('hidden', !isInst);
+    }
+    if (globalInst) {
+        globalInst.classList.toggle('hidden', useCustom || !isInst);
+    }
+
+    if (useCustom) {
         out.value = '';
+        recalcGlobalInstallmentMonthly(scope);
         return;
     }
+
+    if (!raw || Number.isNaN(price) || price <= 0) {
+        out.value = '';
+        const gd = document.getElementById(p + 'GlobalInstallmentDownDisplay');
+        if (gd) {
+            gd.value = '';
+        }
+        recalcGlobalInstallmentMonthly(scope);
+        return;
+    }
+
     const pct = typeof clinicDefaultRegularDownpaymentPct === 'number' && !Number.isNaN(clinicDefaultRegularDownpaymentPct)
         ? clinicDefaultRegularDownpaymentPct
         : 20;
-    const amount = price * (pct / 100);
-    out.value = amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const minDown = typeof clinicDefaultLongTermMinDown === 'number' && !Number.isNaN(clinicDefaultLongTermMinDown)
+        ? clinicDefaultLongTermMinDown
+        : 500;
+
+    if (isInst) {
+        const eff = Math.min(minDown, price);
+        const formatted = eff.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        out.value = formatted;
+        const gd = document.getElementById(p + 'GlobalInstallmentDownDisplay');
+        if (gd) {
+            gd.value = formatted;
+        }
+    } else {
+        const amount = price * (pct / 100);
+        out.value = amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    recalcGlobalInstallmentMonthly(scope);
 }
 
-function recalcInstallmentMonthly() {
-    const price = parseFloat(document.getElementById('newServicePrice').value) || 0;
-    const down = parseFloat(document.getElementById('newServiceInstallmentDownpayment').value) || 0;
-    const months = parseInt(document.getElementById('newServiceInstallmentDuration').value, 10) || 0;
+function recalcGlobalInstallmentMonthly(scope) {
+    const p = payPrefix(scope);
+    const price = parseFloat(document.getElementById(p + 'Price').value) || 0;
+    const months = parseInt(document.getElementById(p + 'GlobalInstallmentDuration').value, 10) || 0;
+    const el = document.getElementById(p + 'GlobalInstallmentMonthly');
+    if (!el) {
+        return;
+    }
+    const minDown = typeof clinicDefaultLongTermMinDown === 'number' && !Number.isNaN(clinicDefaultLongTermMinDown)
+        ? clinicDefaultLongTermMinDown
+        : 500;
+    const down = price > 0 ? Math.min(minDown, price) : 0;
+    if (months < 1 || price <= 0) {
+        el.value = '';
+        return;
+    }
     const remaining = Math.max(0, price - down);
-    const el = document.getElementById('newServiceInstallmentMonthly');
+    el.value = (remaining / months).toFixed(2);
+}
+
+function recalcInstallmentMonthly(scope) {
+    const p = payPrefix(scope);
+    const price = parseFloat(document.getElementById(p + 'Price').value) || 0;
+    const down = parseFloat(document.getElementById(p + 'InstallmentDownpayment').value) || 0;
+    const months = parseInt(document.getElementById(p + 'InstallmentDuration').value, 10) || 0;
+    const remaining = Math.max(0, price - down);
+    const el = document.getElementById(p + 'InstallmentMonthly');
+    if (!el) {
+        return;
+    }
     if (months < 1) {
         el.value = '';
         return;
     }
-    const monthly = remaining / months;
-    el.value = monthly >= 0 ? monthly.toFixed(2) : '';
+    el.value = (remaining / months).toFixed(2);
 }
 
-function syncCustomPaymentVisibility() {
-    const use = document.getElementById('newServiceUseCustomPayment').checked;
-    const customCheck = document.getElementById('customPaymentEnableCheck');
+function syncCustomPaymentVisibility(scope) {
+    const p = payPrefix(scope);
+    const use = document.getElementById(p + 'UseCustomPayment').checked;
+    const customCheck = scope === 'new' ? document.getElementById('customPaymentEnableCheck') : null;
     if (customCheck) {
         customCheck.classList.toggle('hidden', !use);
     }
-    document.getElementById('newServiceCustomPaymentFields').classList.toggle('hidden', !use);
-    const typeRow = document.getElementById('newServicePaymentTypeRow');
-    const billingRadios = document.querySelectorAll('input[name="newServiceBillingType"]');
+    document.getElementById(p + 'CustomPaymentFields').classList.toggle('hidden', !use);
+    const typeRow = document.getElementById(p + 'PaymentTypeRow');
+    const billingRadios = document.querySelectorAll('input[name="' + billingName(scope) + '"]');
     if (use) {
-        typeRow.classList.add('hidden');
+        if (typeRow) {
+            typeRow.classList.add('hidden');
+        }
         billingRadios.forEach(function (r) {
             r.disabled = true;
         });
     } else {
-        typeRow.classList.remove('hidden');
+        if (typeRow) {
+            typeRow.classList.remove('hidden');
+        }
         billingRadios.forEach(function (r) {
             r.disabled = false;
         });
-        document.getElementById('newServiceDownpaymentPct').value = '';
-        document.getElementById('newServiceEnableInstallment').checked = false;
-        document.getElementById('newServiceInstallmentDownpayment').value = '';
-        document.getElementById('newServiceInstallmentDuration').value = '';
-        document.getElementById('newServiceInstallmentMonthly').value = '';
-        const check = document.getElementById('installmentEnableCheck');
-        if (check) {
-            check.classList.add('hidden');
+        document.getElementById(p + 'DownpaymentPct').value = '';
+        document.getElementById(p + 'EnableInstallment').checked = false;
+        document.getElementById(p + 'InstallmentDownpayment').value = '';
+        document.getElementById(p + 'InstallmentDuration').value = '';
+        document.getElementById(p + 'InstallmentMonthly').value = '';
+        if (scope === 'new') {
+            const check = document.getElementById('installmentEnableCheck');
+            if (check) {
+                check.classList.add('hidden');
+            }
         }
-        document.getElementById('newServiceInstallmentConfigBlock').classList.add('hidden');
-        document.getElementById('newServiceRegularDownpaymentBlock').classList.remove('hidden');
-        updateAutoDownpaymentDisplay();
+        document.getElementById(p + 'InstallmentConfigBlock').classList.add('hidden');
+        document.getElementById(p + 'RegularDownpaymentBlock').classList.remove('hidden');
+        const gDur = document.getElementById(p + 'GlobalInstallmentDuration');
+        if (gDur) {
+            gDur.value = '';
+        }
+        updatePaymentPreview(scope);
     }
-    syncInstallmentMode();
+    syncInstallmentMode(scope);
 }
 
-function syncInstallmentMode() {
-    const on = document.getElementById('newServiceEnableInstallment').checked;
-    document.getElementById('newServiceRegularDownpaymentBlock').classList.toggle('hidden', on);
-    document.getElementById('newServiceInstallmentConfigBlock').classList.toggle('hidden', !on);
-    const check = document.getElementById('installmentEnableCheck');
-    if (check) {
-        check.classList.toggle('hidden', !on);
+function syncInstallmentMode(scope) {
+    const p = payPrefix(scope);
+    const on = document.getElementById(p + 'EnableInstallment').checked;
+    document.getElementById(p + 'RegularDownpaymentBlock').classList.toggle('hidden', on);
+    document.getElementById(p + 'InstallmentConfigBlock').classList.toggle('hidden', !on);
+    if (scope === 'new') {
+        const check = document.getElementById('installmentEnableCheck');
+        if (check) {
+            check.classList.toggle('hidden', !on);
+        }
     }
-    recalcInstallmentMonthly();
+    recalcInstallmentMonthly(scope);
 }
 
 function openNewServiceModal() {
@@ -745,8 +958,9 @@ function openNewServiceModal() {
     document.getElementById('newServiceInstallmentDownpayment').value = '';
     document.getElementById('newServiceInstallmentDuration').value = '';
     document.getElementById('newServiceInstallmentMonthly').value = '';
-    syncCustomPaymentVisibility();
-    updateAutoDownpaymentDisplay();
+    document.getElementById('newServiceGlobalInstallmentDuration').value = '';
+    syncCustomPaymentVisibility('new');
+    updatePaymentPreview('new');
     document.getElementById('newServiceModal').classList.remove('hidden');
     document.getElementById('newServiceModal').classList.add('flex');
     document.getElementById('newServiceName').focus();
@@ -769,6 +983,27 @@ function openEditServiceModal(serviceId) {
     document.getElementById('editServiceCategory').value = service.category || '';
     document.getElementById('editServicePrice').value = service.price || '';
     document.getElementById((service.status || '').toLowerCase() === 'active' ? 'editServiceStatusActive' : 'editServiceStatusInactive').checked = true;
+
+    const hasInst = Number(service.enable_installment) === 1;
+    const rawDp = service.downpayment_percentage;
+    const hasCustomPct = rawDp !== null && rawDp !== undefined && String(rawDp).trim() !== '';
+    const rawInst = service.installment_downpayment;
+    const hasCustomInstAmt = hasInst && rawInst !== null && rawInst !== undefined && String(rawInst).trim() !== '';
+    const useCustom = hasCustomPct || hasCustomInstAmt;
+
+    document.getElementById('editServiceUseCustomPayment').checked = useCustom;
+    document.getElementById('editServiceDownpaymentPct').value = hasCustomPct ? String(rawDp) : '';
+    document.getElementById('editServiceEnableInstallment').checked = useCustom ? hasInst : false;
+    document.getElementById('editServiceInstallmentDownpayment').value = hasCustomInstAmt ? String(rawInst) : '';
+    document.getElementById('editServiceInstallmentDuration').value = (useCustom && hasInst && service.installment_duration_months) ? String(service.installment_duration_months) : '';
+    document.getElementById('editServiceBillingRegular').checked = !hasInst;
+    document.getElementById('editServiceBillingInstallment').checked = hasInst;
+
+    syncCustomPaymentVisibility('edit');
+    if (!useCustom && hasInst && service.installment_duration_months) {
+        document.getElementById('editServiceGlobalInstallmentDuration').value = String(service.installment_duration_months);
+    }
+    updatePaymentPreview('edit');
     document.getElementById('editServiceModal').classList.remove('hidden');
     document.getElementById('editServiceModal').classList.add('flex');
 }
@@ -778,55 +1013,96 @@ function closeEditServiceModal() {
     document.getElementById('editServiceModal').classList.remove('flex');
 }
 
-function saveNewService() {
-    const useCustom = document.getElementById('newServiceUseCustomPayment').checked;
-    const billingTypeEl = document.querySelector('input[name="newServiceBillingType"]:checked');
+function buildPaymentPayload(scope) {
+    const p = payPrefix(scope);
+    const useCustom = document.getElementById(p + 'UseCustomPayment').checked;
+    const billingTypeEl = document.querySelector('input[name="' + billingName(scope) + '"]:checked');
     const billingType = billingTypeEl ? billingTypeEl.value : 'regular';
-    if (!useCustom && billingType === 'installment') {
-        alert('To create a service with an installment plan, enable "Use Custom Payment Settings" and configure the installment details.');
-        return;
+    const out = {
+        use_custom_payment: useCustom,
+        enable_installment: false,
+        downpayment_percentage: null,
+        installment_downpayment: null,
+        installment_duration_months: null
+    };
+    if (!useCustom) {
+        out.enable_installment = billingType === 'installment';
+        if (billingType === 'installment') {
+            out.installment_duration_months = parseInt(document.getElementById(p + 'GlobalInstallmentDuration').value || '0', 10);
+        }
+        return out;
     }
-    const enableInst = useCustom && document.getElementById('newServiceEnableInstallment').checked;
-    const dpRaw = (document.getElementById('newServiceDownpaymentPct').value || '').trim();
+    out.enable_installment = document.getElementById(p + 'EnableInstallment').checked;
+    if (out.enable_installment) {
+        const idVal = parseFloat(document.getElementById(p + 'InstallmentDownpayment').value || '');
+        out.installment_downpayment = Number.isNaN(idVal) ? null : idVal;
+        out.installment_duration_months = parseInt(document.getElementById(p + 'InstallmentDuration').value || '0', 10);
+    } else {
+        const dpRaw = (document.getElementById(p + 'DownpaymentPct').value || '').trim();
+        const dp = dpRaw === '' ? null : parseFloat(dpRaw);
+        out.downpayment_percentage = dp !== null && Number.isNaN(dp) ? null : dp;
+    }
+    return out;
+}
+
+function validatePaymentPayload(payload, price) {
+    const useCustom = payload.use_custom_payment;
+    if (!useCustom && payload.enable_installment) {
+        if (!Number.isInteger(payload.installment_duration_months) || payload.installment_duration_months < 1) {
+            alert('Enter the installment duration (months) for this service.');
+            return false;
+        }
+        return true;
+    }
+    if (useCustom && !payload.enable_installment) {
+        if (payload.downpayment_percentage === null || Number.isNaN(payload.downpayment_percentage)) {
+            alert('Enter a custom down payment percentage, or turn off custom payment settings.');
+            return false;
+        }
+        if (payload.downpayment_percentage < 0 || payload.downpayment_percentage > 100) {
+            alert('Custom down payment must be between 0 and 100.');
+            return false;
+        }
+        return true;
+    }
+    if (useCustom && payload.enable_installment) {
+        if (Number.isNaN(payload.installment_downpayment) || payload.installment_downpayment < 0) {
+            alert('Please enter a valid downpayment amount (₱) for the installment plan.');
+            return false;
+        }
+        if (payload.installment_downpayment > price) {
+            alert('Installment downpayment cannot exceed the service price.');
+            return false;
+        }
+        if (!Number.isInteger(payload.installment_duration_months) || payload.installment_duration_months < 1) {
+            alert('Please enter a valid duration (at least 1 month).');
+            return false;
+        }
+    }
+    return true;
+}
+
+function saveNewService() {
+    const price = parseFloat(document.getElementById('newServicePrice').value || '0');
+    const pay = buildPaymentPayload('new');
     const payload = {
         service_name: (document.getElementById('newServiceName').value || '').trim(),
         service_details: (document.getElementById('newServiceDetails').value || '').trim(),
         category: document.getElementById('newServiceCategory').value,
-        price: parseFloat(document.getElementById('newServicePrice').value || '0'),
-        enable_installment: enableInst
+        price: price,
+        use_custom_payment: pay.use_custom_payment,
+        enable_installment: pay.enable_installment,
+        downpayment_percentage: pay.downpayment_percentage,
+        installment_downpayment: pay.installment_downpayment,
+        installment_duration_months: pay.installment_duration_months
     };
-    if (!useCustom) {
-        payload.downpayment_percentage = null;
-        payload.enable_installment = false;
-    } else if (enableInst) {
-        payload.downpayment_percentage = null;
-        payload.installment_downpayment = parseFloat(document.getElementById('newServiceInstallmentDownpayment').value || '');
-        payload.installment_duration_months = parseInt(document.getElementById('newServiceInstallmentDuration').value || '0', 10);
-    } else {
-        payload.downpayment_percentage = dpRaw === '' ? null : parseFloat(dpRaw);
-    }
 
     if (!payload.service_name || !payload.category || Number.isNaN(payload.price) || payload.price < 0) {
         alert('Please complete required fields with a valid price.');
         return;
     }
-    if (useCustom && !enableInst && payload.downpayment_percentage !== null && (Number.isNaN(payload.downpayment_percentage) || payload.downpayment_percentage < 0 || payload.downpayment_percentage > 100)) {
-        alert('Custom down payment must be between 0 and 100, or leave empty.');
+    if (!validatePaymentPayload(pay, payload.price)) {
         return;
-    }
-    if (enableInst) {
-        if (Number.isNaN(payload.installment_downpayment) || payload.installment_downpayment < 0) {
-            alert('Please enter a valid downpayment amount (₱) for the installment plan.');
-            return;
-        }
-        if (payload.installment_downpayment > payload.price) {
-            alert('Installment downpayment cannot exceed the service price.');
-            return;
-        }
-        if (!Number.isInteger(payload.installment_duration_months) || payload.installment_duration_months < 1) {
-            alert('Please enter a valid duration (at least 1 month).');
-            return;
-        }
     }
 
     fetch(apiUrl, {
@@ -847,17 +1123,27 @@ function saveNewService() {
 
 function saveServiceChanges() {
     const selectedStatus = document.querySelector('input[name="editServiceStatus"]:checked');
+    const price = parseFloat(document.getElementById('editServicePrice').value || '0');
+    const pay = buildPaymentPayload('edit');
     const payload = {
         id: parseInt(document.getElementById('editServiceId').value, 10),
         service_name: (document.getElementById('editServiceName').value || '').trim(),
         service_details: (document.getElementById('editServiceDetails').value || '').trim(),
         category: document.getElementById('editServiceCategory').value,
-        price: parseFloat(document.getElementById('editServicePrice').value || '0'),
-        status: selectedStatus ? selectedStatus.value : 'active'
+        price: price,
+        status: selectedStatus ? selectedStatus.value : 'active',
+        use_custom_payment: pay.use_custom_payment,
+        enable_installment: pay.enable_installment,
+        downpayment_percentage: pay.downpayment_percentage,
+        installment_downpayment: pay.installment_downpayment,
+        installment_duration_months: pay.installment_duration_months
     };
 
     if (!payload.id || !payload.service_name || !payload.category || Number.isNaN(payload.price) || payload.price < 0) {
         alert('Please complete required fields with a valid price.');
+        return;
+    }
+    if (!validatePaymentPayload(pay, payload.price)) {
         return;
     }
 

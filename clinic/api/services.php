@@ -16,6 +16,85 @@ $method = $_SERVER['REQUEST_METHOD'];
 $pdo = getDBConnection();
 $tenantId = requireClinicTenantId();
 
+/**
+ * @return array{regular_downpayment_percentage: float, long_term_min_downpayment: float}
+ */
+function loadTenantPaymentSettings(PDO $pdo, string $tenantId): array {
+    static $cache = [];
+    if (isset($cache[$tenantId])) {
+        return $cache[$tenantId];
+    }
+    $stmt = $pdo->prepare('SELECT regular_downpayment_percentage, long_term_min_downpayment FROM tbl_payment_settings WHERE tenant_id = ? LIMIT 1');
+    $stmt->execute([$tenantId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        $cache[$tenantId] = ['regular_downpayment_percentage' => 20.0, 'long_term_min_downpayment' => 500.0];
+    } else {
+        $cache[$tenantId] = [
+            'regular_downpayment_percentage' => (float) $row['regular_downpayment_percentage'],
+            'long_term_min_downpayment' => (float) $row['long_term_min_downpayment'],
+        ];
+    }
+    return $cache[$tenantId];
+}
+
+function effectiveRegularDownpaymentPercent(array $ps, ?float $stored): float {
+    if ($stored !== null) {
+        return round(max(0.0, min(100.0, $stored)), 4);
+    }
+    return round(max(0.0, min(100.0, $ps['regular_downpayment_percentage'])), 4);
+}
+
+/**
+ * Stored installment downpayment null => clinic long-term minimum from Payment Settings.
+ */
+function effectiveInstallmentDownpaymentAmount(array $ps, float $price, $storedDown): float {
+    $base = ($storedDown !== null && $storedDown !== '')
+        ? (float) $storedDown
+        : (float) $ps['long_term_min_downpayment'];
+    $base = max(0.0, $base);
+    if ($price > 0 && $base > $price) {
+        return round($price, 2);
+    }
+    return round($base, 2);
+}
+
+/**
+ * Adds effective_* and uses_global_* keys for API consumers (staff UI, billing).
+ *
+ * @param array<string,mixed>|false $service
+ * @return array<string,mixed>|false
+ */
+function enrichServiceRow(PDO $pdo, string $tenantId, $service) {
+    if (!$service || !is_array($service)) {
+        return $service;
+    }
+    $ps = loadTenantPaymentSettings($pdo, $tenantId);
+    $price = isset($service['price']) ? (float) $service['price'] : 0.0;
+    $storedPct = $service['downpayment_percentage'] ?? null;
+    $storedPctFloat = ($storedPct !== null && $storedPct !== '') ? (float) $storedPct : null;
+    $enableInst = !empty($service['enable_installment']);
+    $storedInst = $service['installment_downpayment'] ?? null;
+    $storedInstFloat = ($storedInst !== null && $storedInst !== '') ? (float) $storedInst : null;
+
+    $effectivePct = effectiveRegularDownpaymentPercent($ps, $storedPctFloat);
+    $service['uses_global_regular_downpayment'] = !$enableInst && $storedPctFloat === null;
+    $service['uses_global_installment_downpayment'] = $enableInst && $storedInstFloat === null;
+    $service['effective_downpayment_percentage'] = $effectivePct;
+    $service['effective_regular_downpayment_amount'] = round($price * ($effectivePct / 100.0), 2);
+    if ($enableInst) {
+        $effInst = effectiveInstallmentDownpaymentAmount($ps, $price, $storedInstFloat !== null ? $storedInstFloat : null);
+        $service['effective_installment_downpayment'] = $effInst;
+        $months = isset($service['installment_duration_months']) ? (int) $service['installment_duration_months'] : 0;
+        $remaining = max(0.0, $price - $effInst);
+        $service['effective_installment_monthly'] = ($months >= 1) ? round($remaining / $months, 2) : null;
+    } else {
+        $service['effective_installment_downpayment'] = null;
+        $service['effective_installment_monthly'] = null;
+    }
+    return $service;
+}
+
 // Route based on method
 switch ($method) {
     case 'POST':
@@ -95,23 +174,40 @@ function createService() {
     }
     
     $input = json_decode(file_get_contents('php://input'), true);
-    
-    // Extract and sanitize data
+
+    $useCustom = !empty($input['use_custom_payment']);
     $downPctRaw = $input['downpayment_percentage'] ?? null;
     $downpaymentPct = null;
     if ($downPctRaw !== null && $downPctRaw !== '') {
         $downpaymentPct = floatval($downPctRaw);
     }
-    $enableInstallment = !empty($input['enable_installment']);
 
+    $enableInstallment = false;
     $instDown = null;
     $instMonths = null;
-    if ($enableInstallment) {
-        if (isset($input['installment_downpayment']) && $input['installment_downpayment'] !== '' && $input['installment_downpayment'] !== null) {
-            $instDown = floatval($input['installment_downpayment']);
+
+    if ($useCustom) {
+        $enableInstallment = !empty($input['enable_installment']);
+        if ($enableInstallment) {
+            if (isset($input['installment_downpayment']) && $input['installment_downpayment'] !== '' && $input['installment_downpayment'] !== null) {
+                $instDown = floatval($input['installment_downpayment']);
+            }
+            if (isset($input['installment_duration_months']) && $input['installment_duration_months'] !== '' && $input['installment_duration_months'] !== null) {
+                $instMonths = intval($input['installment_duration_months']);
+            }
         }
-        if (isset($input['installment_duration_months']) && $input['installment_duration_months'] !== '' && $input['installment_duration_months'] !== null) {
-            $instMonths = intval($input['installment_duration_months']);
+    } else {
+        $enableInstallment = !empty($input['enable_installment']);
+        if ($enableInstallment) {
+            if (isset($input['installment_duration_months']) && $input['installment_duration_months'] !== '' && $input['installment_duration_months'] !== null) {
+                $instMonths = intval($input['installment_duration_months']);
+            }
+            $instDown = null;
+            if (isset($input['installment_downpayment']) && $input['installment_downpayment'] !== '' && $input['installment_downpayment'] !== null) {
+                $instDown = floatval($input['installment_downpayment']);
+            }
+        } else {
+            $downpaymentPct = null;
         }
     }
 
@@ -157,24 +253,46 @@ function createService() {
         jsonResponse(false, 'Price cannot be negative.');
     }
 
+    if ($useCustom && !$enableInstallment && $downpaymentPct === null) {
+        jsonResponse(false, 'Enter a custom down payment percentage, or disable custom payment settings to use the clinic default.');
+    }
+
     if (!$enableInstallment && $data['downpayment_percentage'] !== null) {
         if ($data['downpayment_percentage'] < 0 || $data['downpayment_percentage'] > 100) {
             jsonResponse(false, 'Downpayment percentage must be between 0 and 100.');
         }
     }
 
+    $ps = loadTenantPaymentSettings($pdo, $tenantId);
+
     if ($enableInstallment) {
-        if ($data['installment_downpayment'] === null || $data['installment_duration_months'] === null) {
-            jsonResponse(false, 'Installment downpayment and duration (months) are required when installment plan is enabled.');
+        if ($data['installment_duration_months'] === null || $data['installment_duration_months'] < 1) {
+            jsonResponse(false, 'Duration must be at least 1 month when installment plan is enabled.');
         }
-        if ($data['installment_downpayment'] < 0) {
-            jsonResponse(false, 'Installment downpayment cannot be negative.');
-        }
-        if ($data['installment_downpayment'] > $data['price']) {
-            jsonResponse(false, 'Installment downpayment cannot exceed the service price.');
-        }
-        if ($data['installment_duration_months'] < 1) {
-            jsonResponse(false, 'Duration must be at least 1 month.');
+        if ($useCustom) {
+            if ($data['installment_downpayment'] === null) {
+                jsonResponse(false, 'Installment downpayment is required when using custom payment settings for an installment plan.');
+            }
+            if ($data['installment_downpayment'] < 0) {
+                jsonResponse(false, 'Installment downpayment cannot be negative.');
+            }
+            if ($data['installment_downpayment'] > $data['price']) {
+                jsonResponse(false, 'Installment downpayment cannot exceed the service price.');
+            }
+        } else {
+            if ($data['installment_downpayment'] !== null) {
+                if ($data['installment_downpayment'] < 0) {
+                    jsonResponse(false, 'Installment downpayment cannot be negative.');
+                }
+                if ($data['installment_downpayment'] > $data['price']) {
+                    jsonResponse(false, 'Installment downpayment cannot exceed the service price.');
+                }
+            } else {
+                $minRequired = (float) $ps['long_term_min_downpayment'];
+                if ($data['price'] > 0 && $minRequired > $data['price']) {
+                    jsonResponse(false, 'Service price is lower than the long-term minimum down payment in Payment Settings. Increase the price or lower that minimum.');
+                }
+            }
         }
     }
     
@@ -211,7 +329,7 @@ function createService() {
         // Get the created service
         $stmt = $pdo->prepare("SELECT * FROM tbl_services WHERE id = ? AND tenant_id = ?");
         $stmt->execute([$serviceDbId, $tenantId]);
-        $service = $stmt->fetch();
+        $service = enrichServiceRow($pdo, $tenantId, $stmt->fetch());
         
         jsonResponse(true, 'Service created successfully.', ['service' => $service]);
         
@@ -248,7 +366,7 @@ function getServices() {
                 $stmt->execute([$serviceIdCode, $tenantId]);
             }
             
-            $service = $stmt->fetch();
+            $service = enrichServiceRow($pdo, $tenantId, $stmt->fetch());
             
             if (!$service) {
                 jsonResponse(false, 'Service not found.');
@@ -293,7 +411,9 @@ function getServices() {
             $sql = "SELECT * FROM tbl_services $whereClause ORDER BY id DESC LIMIT $safeLimit OFFSET $safeOffset";
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
-            $services = $stmt->fetchAll();
+            $services = array_map(function ($row) use ($pdo, $tenantId) {
+                return enrichServiceRow($pdo, $tenantId, $row);
+            }, $stmt->fetchAll());
             
             jsonResponse(true, 'Services retrieved successfully.', [
                 'services' => $services,
@@ -343,36 +463,85 @@ function updateService() {
     if (!$existing) {
         jsonResponse(false, 'Service not found.');
     }
-    
-    $downpaymentPct = isset($existing['downpayment_percentage']) && $existing['downpayment_percentage'] !== null && $existing['downpayment_percentage'] !== ''
-        ? floatval($existing['downpayment_percentage'])
-        : null;
-    if (array_key_exists('downpayment_percentage', $input)) {
-        $rawDp = $input['downpayment_percentage'];
-        $downpaymentPct = ($rawDp === null || $rawDp === '') ? null : floatval($rawDp);
-    }
-    $enableInstallment = array_key_exists('enable_installment', $input)
-        ? (!empty($input['enable_installment']))
-        : !empty($existing['enable_installment']);
 
-    $instDown = isset($existing['installment_downpayment']) && $existing['installment_downpayment'] !== null && $existing['installment_downpayment'] !== ''
-        ? floatval($existing['installment_downpayment'])
-        : null;
-    $instMonths = isset($existing['installment_duration_months']) && $existing['installment_duration_months'] !== null && $existing['installment_duration_months'] !== ''
-        ? intval($existing['installment_duration_months'])
-        : null;
-    if ($enableInstallment) {
-        if (array_key_exists('installment_downpayment', $input)) {
-            $raw = $input['installment_downpayment'];
-            $instDown = ($raw === null || $raw === '') ? null : floatval($raw);
+    $paymentInputPresent = is_array($input) && (
+        array_key_exists('use_custom_payment', $input)
+        || array_key_exists('enable_installment', $input)
+        || array_key_exists('downpayment_percentage', $input)
+        || array_key_exists('installment_downpayment', $input)
+        || array_key_exists('installment_duration_months', $input)
+    );
+
+    $downpaymentPct = null;
+    $enableInstallment = false;
+    $instDown = null;
+    $instMonths = null;
+    $useCustom = false;
+
+    if ($paymentInputPresent) {
+        $useCustom = !empty($input['use_custom_payment']);
+        $downPctRaw = $input['downpayment_percentage'] ?? null;
+        if ($downPctRaw !== null && $downPctRaw !== '') {
+            $downpaymentPct = floatval($downPctRaw);
+        } else {
+            $downpaymentPct = null;
         }
-        if (array_key_exists('installment_duration_months', $input)) {
-            $rawM = $input['installment_duration_months'];
-            $instMonths = ($rawM === null || $rawM === '') ? null : intval($rawM);
+
+        if ($useCustom) {
+            $enableInstallment = !empty($input['enable_installment']);
+            if ($enableInstallment) {
+                if (isset($input['installment_downpayment']) && $input['installment_downpayment'] !== '' && $input['installment_downpayment'] !== null) {
+                    $instDown = floatval($input['installment_downpayment']);
+                }
+                if (isset($input['installment_duration_months']) && $input['installment_duration_months'] !== '' && $input['installment_duration_months'] !== null) {
+                    $instMonths = intval($input['installment_duration_months']);
+                }
+            }
+        } else {
+            $enableInstallment = !empty($input['enable_installment']);
+            if ($enableInstallment) {
+                if (isset($input['installment_duration_months']) && $input['installment_duration_months'] !== '' && $input['installment_duration_months'] !== null) {
+                    $instMonths = intval($input['installment_duration_months']);
+                }
+                $instDown = null;
+                if (isset($input['installment_downpayment']) && $input['installment_downpayment'] !== '' && $input['installment_downpayment'] !== null) {
+                    $instDown = floatval($input['installment_downpayment']);
+                }
+            } else {
+                $downpaymentPct = null;
+            }
         }
     } else {
-        $instDown = null;
-        $instMonths = null;
+        $downpaymentPct = isset($existing['downpayment_percentage']) && $existing['downpayment_percentage'] !== null && $existing['downpayment_percentage'] !== ''
+            ? floatval($existing['downpayment_percentage'])
+            : null;
+        if (array_key_exists('downpayment_percentage', $input)) {
+            $rawDp = $input['downpayment_percentage'];
+            $downpaymentPct = ($rawDp === null || $rawDp === '') ? null : floatval($rawDp);
+        }
+        $enableInstallment = array_key_exists('enable_installment', $input)
+            ? (!empty($input['enable_installment']))
+            : !empty($existing['enable_installment']);
+
+        $instDown = isset($existing['installment_downpayment']) && $existing['installment_downpayment'] !== null && $existing['installment_downpayment'] !== ''
+            ? floatval($existing['installment_downpayment'])
+            : null;
+        $instMonths = isset($existing['installment_duration_months']) && $existing['installment_duration_months'] !== null && $existing['installment_duration_months'] !== ''
+            ? intval($existing['installment_duration_months'])
+            : null;
+        if ($enableInstallment) {
+            if (array_key_exists('installment_downpayment', $input)) {
+                $raw = $input['installment_downpayment'];
+                $instDown = ($raw === null || $raw === '') ? null : floatval($raw);
+            }
+            if (array_key_exists('installment_duration_months', $input)) {
+                $rawM = $input['installment_duration_months'];
+                $instMonths = ($rawM === null || $rawM === '') ? null : intval($rawM);
+            }
+        } else {
+            $instDown = null;
+            $instMonths = null;
+        }
     }
 
     // Extract and sanitize update data
@@ -417,24 +586,63 @@ function updateService() {
         jsonResponse(false, 'Price cannot be negative.');
     }
 
+    if ($paymentInputPresent && $useCustom && !$enableInstallment && $downpaymentPct === null) {
+        jsonResponse(false, 'Enter a custom down payment percentage, or disable custom payment settings to use the clinic default.');
+    }
+
     if (!$enableInstallment && $data['downpayment_percentage'] !== null) {
         if ($data['downpayment_percentage'] < 0 || $data['downpayment_percentage'] > 100) {
             jsonResponse(false, 'Downpayment percentage must be between 0 and 100.');
         }
     }
 
+    $ps = loadTenantPaymentSettings($pdo, $tenantId);
+
     if ($enableInstallment) {
-        if ($data['installment_downpayment'] === null || $data['installment_duration_months'] === null) {
-            jsonResponse(false, 'Installment downpayment and duration (months) are required when installment plan is enabled.');
+        if ($data['installment_duration_months'] === null || $data['installment_duration_months'] < 1) {
+            jsonResponse(false, 'Duration must be at least 1 month when installment plan is enabled.');
         }
-        if ($data['installment_downpayment'] < 0) {
-            jsonResponse(false, 'Installment downpayment cannot be negative.');
-        }
-        if ($data['installment_downpayment'] > $data['price']) {
-            jsonResponse(false, 'Installment downpayment cannot exceed the service price.');
-        }
-        if ($data['installment_duration_months'] < 1) {
-            jsonResponse(false, 'Duration must be at least 1 month.');
+        if ($paymentInputPresent && $useCustom) {
+            if ($data['installment_downpayment'] === null) {
+                jsonResponse(false, 'Installment downpayment is required when using custom payment settings for an installment plan.');
+            }
+            if ($data['installment_downpayment'] < 0) {
+                jsonResponse(false, 'Installment downpayment cannot be negative.');
+            }
+            if ($data['installment_downpayment'] > $data['price']) {
+                jsonResponse(false, 'Installment downpayment cannot exceed the service price.');
+            }
+        } elseif ($paymentInputPresent && !$useCustom) {
+            if ($data['installment_downpayment'] !== null) {
+                if ($data['installment_downpayment'] < 0) {
+                    jsonResponse(false, 'Installment downpayment cannot be negative.');
+                }
+                if ($data['installment_downpayment'] > $data['price']) {
+                    jsonResponse(false, 'Installment downpayment cannot exceed the service price.');
+                }
+            } else {
+                $minRequired = (float) $ps['long_term_min_downpayment'];
+                if ($data['price'] > 0 && $minRequired > $data['price']) {
+                    jsonResponse(false, 'Service price is lower than the long-term minimum down payment in Payment Settings. Increase the price or lower that minimum.');
+                }
+            }
+        } else {
+            if ($data['installment_duration_months'] === null || $data['installment_duration_months'] < 1) {
+                jsonResponse(false, 'Duration must be at least 1 month when installment plan is enabled.');
+            }
+            if ($data['installment_downpayment'] === null) {
+                $minRequired = (float) $ps['long_term_min_downpayment'];
+                if ($data['price'] > 0 && $minRequired > $data['price']) {
+                    jsonResponse(false, 'Service price is lower than the long-term minimum down payment in Payment Settings. Increase the price or lower that minimum.');
+                }
+            } else {
+                if ($data['installment_downpayment'] < 0) {
+                    jsonResponse(false, 'Installment downpayment cannot be negative.');
+                }
+                if ($data['installment_downpayment'] > $data['price']) {
+                    jsonResponse(false, 'Installment downpayment cannot exceed the service price.');
+                }
+            }
         }
     }
     
@@ -476,7 +684,7 @@ function updateService() {
         // Get updated service
         $stmt = $pdo->prepare("SELECT * FROM tbl_services WHERE id = ? AND tenant_id = ?");
         $stmt->execute([$updateId, $tenantId]);
-        $service = $stmt->fetch();
+        $service = enrichServiceRow($pdo, $tenantId, $stmt->fetch());
         
         jsonResponse(true, 'Service updated successfully.', ['service' => $service]);
         
