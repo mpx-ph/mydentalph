@@ -927,9 +927,13 @@ try {
                     throw new Error(message);
                 }
 
+                var successMsg = 'Walk-in appointment created successfully. Booking ID: ' + (data.data && data.data.booking_id ? data.data.booking_id : 'N/A');
+                if (data.data && data.data.database) {
+                    successMsg += ' — MySQL database: ' + data.data.database + '. In phpMyAdmin, select this exact database, then browse tbl_appointments / tbl_appointment_services.';
+                }
                 await staffUiAlert({
                     title: 'Walk-in booked',
-                    message: 'Walk-in appointment created successfully. Booking ID: ' + (data.data && data.data.booking_id ? data.data.booking_id : 'N/A'),
+                    message: successMsg,
                     variant: 'success'
                 });
                 window.location.href = <?php echo json_encode($backToAppointmentsHref, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;

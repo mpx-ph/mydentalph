@@ -257,6 +257,9 @@ try {
     } catch (Throwable $e) {
         $dbName = '';
     }
+    if ($dbName === '' && defined('MYDENTALPH_DB_NAME')) {
+        $dbName = (string) MYDENTALPH_DB_NAME;
+    }
 
     $firstAppointmentId = 0;
     $written = [];

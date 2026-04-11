@@ -1,5 +1,6 @@
 <?php
 // db.php - InfinityFree MySQL Connection
+// When checking rows in phpMyAdmin, open THIS same database name (see MYDENTALPH_DB_NAME after connect).
 $host = 'sql102.infinityfree.com';
 $db = 'if0_41436542_mydentalph';
 $user = 'if0_41436542';
@@ -8,6 +9,9 @@ $pass = 'dIdY2azmN95';
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8mb4", $user, $pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    if (!defined('MYDENTALPH_DB_NAME')) {
+        define('MYDENTALPH_DB_NAME', $db);
+    }
     try {
         // Force MySQL session clock to Philippine time for NOW()/CURRENT_TIMESTAMP behavior.
         $pdo->exec("SET time_zone = '+08:00'");
