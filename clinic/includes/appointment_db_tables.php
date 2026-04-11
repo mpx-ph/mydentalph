@@ -73,6 +73,50 @@ if (!function_exists('clinic_quote_identifier')) {
     }
 }
 
+if (!function_exists('clinic_resolve_walkin_tenant_id')) {
+    /**
+     * Tenant for walk-in API: SSO session, public session, or clinic_slug lookup (no tenant_bootstrap required).
+     *
+     * @return string|null
+     */
+    function clinic_resolve_walkin_tenant_id(PDO $pdo)
+    {
+        if (function_exists('getClinicTenantId')) {
+            $id = getClinicTenantId();
+            if (!empty($id)) {
+                return (string) $id;
+            }
+        }
+        if (!empty($_SESSION['tenant_id'])) {
+            return (string) $_SESSION['tenant_id'];
+        }
+        if (!empty($_SESSION['public_tenant_id'])) {
+            return (string) $_SESSION['public_tenant_id'];
+        }
+        $slug = isset($_GET['clinic_slug']) ? strtolower(trim((string) $_GET['clinic_slug'])) : '';
+        if ($slug === '' || !preg_match('/^[a-z0-9\-]+$/', $slug)) {
+            return null;
+        }
+        $tenantsTable = null;
+        if (clinic_table_exists($pdo, 'tbl_tenants')) {
+            $tenantsTable = 'tbl_tenants';
+        } elseif (clinic_table_exists($pdo, 'tenants')) {
+            $tenantsTable = 'tenants';
+        }
+        if ($tenantsTable === null) {
+            return null;
+        }
+        $q = clinic_quote_identifier($tenantsTable);
+        $stmt = $pdo->prepare("SELECT tenant_id FROM {$q} WHERE clinic_slug = ? LIMIT 1");
+        $stmt->execute([$slug]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row && isset($row['tenant_id']) && (string) $row['tenant_id'] !== '') {
+            return (string) $row['tenant_id'];
+        }
+        return null;
+    }
+}
+
 if (!function_exists('clinic_table_columns')) {
     /**
      * @return list<string>
