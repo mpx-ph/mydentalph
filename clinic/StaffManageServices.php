@@ -17,6 +17,32 @@ if (!isset($currentTenantSlug)) {
         }
     }
 }
+
+$defaultRegularDownpaymentPercent = 20.0;
+try {
+    require_once __DIR__ . '/config/database.php';
+    $tenantIdPayment = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
+    if ($tenantIdPayment === '' && $currentTenantSlug !== '') {
+        $pdoTenant = getDBConnection();
+        $tenantStmt = $pdoTenant->prepare('SELECT tenant_id FROM tbl_tenants WHERE clinic_slug = ? LIMIT 1');
+        $tenantStmt->execute([$currentTenantSlug]);
+        $tenantRow = $tenantStmt->fetch(PDO::FETCH_ASSOC);
+        if ($tenantRow && isset($tenantRow['tenant_id'])) {
+            $tenantIdPayment = (string) $tenantRow['tenant_id'];
+        }
+    }
+    if ($tenantIdPayment !== '') {
+        $pdoPay = getDBConnection();
+        $psStmt = $pdoPay->prepare('SELECT regular_downpayment_percentage FROM tbl_payment_settings WHERE tenant_id = ? LIMIT 1');
+        $psStmt->execute([$tenantIdPayment]);
+        $psRow = $psStmt->fetch(PDO::FETCH_ASSOC);
+        if ($psRow && isset($psRow['regular_downpayment_percentage'])) {
+            $defaultRegularDownpaymentPercent = (float) $psRow['regular_downpayment_percentage'];
+        }
+    }
+} catch (Throwable $e) {
+    $defaultRegularDownpaymentPercent = 20.0;
+}
 ?>
 <!DOCTYPE html>
 
@@ -251,7 +277,8 @@ Price (₱) <span class="text-red-500 font-bold">*</span>
 <input type="number" id="newServicePrice" step="0.01" min="0" placeholder="0.00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" required/>
 </div>
 </div>
-<div id="newServicePaymentTypeRow" class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-8 pt-1">
+<div id="newServicePaymentTypeRow" class="flex flex-col gap-4 pt-1 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between lg:gap-6">
+<div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-8 shrink-0">
 <label class="inline-flex items-center gap-2.5 cursor-pointer group">
 <input type="radio" name="newServiceBillingType" value="regular" id="newServiceBillingRegular" class="h-4 w-4 shrink-0 border-slate-300 text-primary accent-primary focus:ring-primary" checked/>
 <span class="text-sm font-semibold text-slate-800 group-hover:text-slate-900">Regular Service</span>
@@ -260,6 +287,16 @@ Price (₱) <span class="text-red-500 font-bold">*</span>
 <input type="radio" name="newServiceBillingType" value="installment" id="newServiceBillingInstallment" class="h-4 w-4 shrink-0 border-slate-300 text-primary accent-primary focus:ring-primary"/>
 <span class="text-sm font-semibold text-slate-800 group-hover:text-slate-900">Installment Plan</span>
 </label>
+</div>
+<div class="w-full min-w-0 lg:max-w-[17rem] lg:flex-shrink-0">
+<label for="newServiceAutoDownpaymentDisplay" class="flex items-start gap-1.5 text-xs font-semibold text-slate-700 mb-1.5">
+<span class="material-symbols-outlined text-[16px] text-slate-500 shrink-0 mt-0.5">calculate</span>
+<span class="leading-snug">Auto-calculated Downpayment (₱)</span>
+</label>
+<p class="text-[11px] text-slate-500 leading-relaxed mb-2 pl-[1.375rem]">Preview using the <strong class="font-semibold text-slate-600">regular down payment percentage</strong> from <span class="whitespace-nowrap">Payment Settings</span> (currently <span id="newServiceDefaultDpPctLabel"><?php echo htmlspecialchars(number_format($defaultRegularDownpaymentPercent, 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?></span>%).</p>
+<input type="text" id="newServiceAutoDownpaymentDisplay" readonly tabindex="-1" value="" placeholder="—" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 text-[15px] font-semibold tabular-nums cursor-default shadow-inner" aria-describedby="newServiceAutoDownpaymentHint"/>
+<p id="newServiceAutoDownpaymentHint" class="sr-only">Read-only estimate from clinic Payment Settings; not saved with this form.</p>
+</div>
 </div>
 </div>
 </section>
@@ -416,6 +453,7 @@ let currentCategory = '';
 let currentSearchTerm = '';
 
 const apiUrl = <?php echo json_encode(PROVIDER_BASE_URL . 'clinic/api/services.php', JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS); ?>;
+const clinicDefaultRegularDownpaymentPct = <?php echo json_encode(round($defaultRegularDownpaymentPercent, 4)); ?>;
 const categoryColors = {
     'General Dentistry': 'bg-blue-100 text-blue-700',
     'Restorative Dentistry': 'bg-green-100 text-green-700',
@@ -466,10 +504,15 @@ function bindEvents() {
 
     document.getElementById('newServiceUseCustomPayment').addEventListener('change', syncCustomPaymentVisibility);
     document.getElementById('newServiceEnableInstallment').addEventListener('change', syncInstallmentMode);
-    ['newServicePrice', 'newServiceInstallmentDownpayment', 'newServiceInstallmentDuration'].forEach(function (id) {
+    document.getElementById('newServicePrice').addEventListener('input', function () {
+        updateAutoDownpaymentDisplay();
+        recalcInstallmentMonthly();
+    });
+    ['newServiceInstallmentDownpayment', 'newServiceInstallmentDuration'].forEach(function (id) {
         document.getElementById(id).addEventListener('input', recalcInstallmentMonthly);
     });
     syncCustomPaymentVisibility();
+    updateAutoDownpaymentDisplay();
 }
 
 function loadServices() {
@@ -610,6 +653,25 @@ function changePage(page) {
     renderServices();
 }
 
+function updateAutoDownpaymentDisplay() {
+    const out = document.getElementById('newServiceAutoDownpaymentDisplay');
+    if (!out) {
+        return;
+    }
+    const priceEl = document.getElementById('newServicePrice');
+    const raw = priceEl && priceEl.value !== undefined && priceEl.value !== null ? String(priceEl.value).trim() : '';
+    const price = parseFloat(raw);
+    if (!raw || Number.isNaN(price) || price <= 0) {
+        out.value = '';
+        return;
+    }
+    const pct = typeof clinicDefaultRegularDownpaymentPct === 'number' && !Number.isNaN(clinicDefaultRegularDownpaymentPct)
+        ? clinicDefaultRegularDownpaymentPct
+        : 20;
+    const amount = price * (pct / 100);
+    out.value = amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function recalcInstallmentMonthly() {
     const price = parseFloat(document.getElementById('newServicePrice').value) || 0;
     const down = parseFloat(document.getElementById('newServiceInstallmentDownpayment').value) || 0;
@@ -654,6 +716,7 @@ function syncCustomPaymentVisibility() {
         }
         document.getElementById('newServiceInstallmentConfigBlock').classList.add('hidden');
         document.getElementById('newServiceRegularDownpaymentBlock').classList.remove('hidden');
+        updateAutoDownpaymentDisplay();
     }
     syncInstallmentMode();
 }
@@ -683,6 +746,7 @@ function openNewServiceModal() {
     document.getElementById('newServiceInstallmentDuration').value = '';
     document.getElementById('newServiceInstallmentMonthly').value = '';
     syncCustomPaymentVisibility();
+    updateAutoDownpaymentDisplay();
     document.getElementById('newServiceModal').classList.remove('hidden');
     document.getElementById('newServiceModal').classList.add('flex');
     document.getElementById('newServiceName').focus();
