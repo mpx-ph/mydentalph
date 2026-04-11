@@ -4,6 +4,69 @@ $staff_nav_active = 'appointments';
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/includes/tenant.php';
 
+/**
+ * Resolve real table names: deployments may use tbl_* (schema.sql) or legacy unprefixed names.
+ *
+ * @return array{appointments: ?string, appointment_services: ?string, services: ?string, patients: ?string, dentists: ?string, users: ?string}
+ */
+function staff_walkin_resolve_db_tables(PDO $pdo): array
+{
+    $exists = static function (PDO $pdo, string $name): bool {
+        static $cache = [];
+        if (isset($cache[$name])) {
+            return $cache[$name];
+        }
+        $stmt = $pdo->prepare("
+            SELECT 1
+            FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$name]);
+        $cache[$name] = (bool) $stmt->fetchColumn();
+        return $cache[$name];
+    };
+
+    $pick = static function (PDO $pdo, array $candidates) use ($exists): ?string {
+        foreach ($candidates as $t) {
+            if ($exists($pdo, $t)) {
+                return $t;
+            }
+        }
+        return null;
+    };
+
+    return [
+        'appointments' => $pick($pdo, ['tbl_appointments', 'appointments']),
+        'appointment_services' => $pick($pdo, ['tbl_appointment_services', 'appointment_services']),
+        'services' => $pick($pdo, ['tbl_services', 'services']),
+        'patients' => $pick($pdo, ['tbl_patients', 'patients']),
+        'dentists' => $pick($pdo, ['tbl_dentists', 'dentists']),
+        'users' => $pick($pdo, ['tbl_users', 'users']),
+    ];
+}
+
+/**
+ * @return list<string>
+ */
+function staff_walkin_table_columns(PDO $pdo, string $tableName): array
+{
+    static $cache = [];
+    if (isset($cache[$tableName])) {
+        return $cache[$tableName];
+    }
+    $stmt = $pdo->prepare("
+        SELECT COLUMN_NAME
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = ?
+    ");
+    $stmt->execute([$tableName]);
+    $cache[$tableName] = array_map('strtolower', array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []));
+    return $cache[$tableName];
+}
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -67,19 +130,24 @@ try {
             $tenantId = (string) $_SESSION['public_tenant_id'];
         }
         if ($pdo && $tenantId) {
-            $stmt = $pdo->prepare("
-                SELECT
-                    d.dentist_id,
-                    COALESCE(d.first_name, '') AS first_name,
-                    COALESCE(d.last_name, '') AS last_name,
-                    '' AS profile_image,
-                    COALESCE(d.status, 'active') AS status
-                FROM tbl_dentists d
-                WHERE d.tenant_id = ?
-                ORDER BY d.first_name ASC, d.last_name ASC
-            ");
-            $stmt->execute([$tenantId]);
-            $walkInDentists = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $wiTables = staff_walkin_resolve_db_tables($pdo);
+            $wiDentists = $wiTables['dentists'];
+            if ($wiDentists !== null) {
+                $wiQDent = '`' . str_replace('`', '``', $wiDentists) . '`';
+                $stmt = $pdo->prepare("
+                    SELECT
+                        d.dentist_id,
+                        COALESCE(d.first_name, '') AS first_name,
+                        COALESCE(d.last_name, '') AS last_name,
+                        '' AS profile_image,
+                        COALESCE(d.status, 'active') AS status
+                    FROM {$wiQDent} d
+                    WHERE d.tenant_id = ?
+                    ORDER BY d.first_name ASC, d.last_name ASC
+                ");
+                $stmt->execute([$tenantId]);
+                $walkInDentists = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            }
         }
     }
 } catch (Throwable $e) {
@@ -152,11 +220,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
         }
 
         $pdo = getDBConnection();
+        $dbTables = staff_walkin_resolve_db_tables($pdo);
+        $appointmentsTable = $dbTables['appointments'];
+        $appointmentServicesTable = $dbTables['appointment_services'];
+        $servicesCatalogTable = $dbTables['services'];
+        if ($appointmentsTable === null || $appointmentServicesTable === null || $servicesCatalogTable === null) {
+            echo json_encode(['success' => false, 'message' => 'Database is missing appointment or service tables. Ensure schema/migrations are applied.']);
+            exit;
+        }
+        $patientsTable = $dbTables['patients'];
+        $dentistsTable = $dbTables['dentists'];
+        $usersTable = $dbTables['users'];
+        if ($patientsTable === null || $dentistsTable === null) {
+            echo json_encode(['success' => false, 'message' => 'Database is missing patient or dentist tables.']);
+            exit;
+        }
+
         $pdo->beginTransaction();
 
+        $quotedPatients = '`' . str_replace('`', '``', $patientsTable) . '`';
         $patientCheckStmt = $pdo->prepare("
             SELECT patient_id
-            FROM tbl_patients
+            FROM {$quotedPatients}
             WHERE tenant_id = ? AND patient_id = ?
             LIMIT 1
         ");
@@ -167,9 +252,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
             exit;
         }
 
+        $quotedDentists = '`' . str_replace('`', '``', $dentistsTable) . '`';
         $dentistCheckStmt = $pdo->prepare("
             SELECT dentist_id
-            FROM tbl_dentists
+            FROM {$quotedDentists}
             WHERE tenant_id = ? AND dentist_id = ?
             LIMIT 1
         ");
@@ -181,9 +267,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
         }
 
         $bookingPrefix = 'BK-' . date('Y') . '-';
+        $quotedAppt = '`' . str_replace('`', '``', $appointmentsTable) . '`';
         $bookingStmt = $pdo->prepare("
             SELECT booking_id
-            FROM tbl_appointments
+            FROM {$quotedAppt}
             WHERE tenant_id = ?
               AND booking_id LIKE ?
             ORDER BY booking_id DESC
@@ -205,17 +292,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
         $totalCost = 0.0;
         $normalizedServices = [];
 
+        $quotedSvc = '`' . str_replace('`', '``', $servicesCatalogTable) . '`';
+        $serviceStmt = $pdo->prepare("
+            SELECT service_id, service_name, category, price
+            FROM {$quotedSvc}
+            WHERE tenant_id = ? AND service_id = ? AND status = 'active'
+            LIMIT 1
+        ");
+
         foreach ($services as $service) {
             $serviceId = trim((string) ($service['id'] ?? $service['service_id'] ?? ''));
             if ($serviceId === '') {
                 continue;
             }
-            $serviceStmt = $pdo->prepare("
-                SELECT service_id, service_name, category, price
-                FROM tbl_services
-                WHERE tenant_id = ? AND service_id = ? AND status = 'active'
-                LIMIT 1
-            ");
             $serviceStmt->execute([$tenantId, $serviceId]);
             $serviceRow = $serviceStmt->fetch(PDO::FETCH_ASSOC);
             if (!$serviceRow) {
@@ -245,71 +334,126 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
         if (count($serviceNames) > 3) {
             $serviceType .= ' (+' . (count($serviceNames) - 3) . ' more)';
         }
+        $serviceType = function_exists('mb_substr')
+            ? mb_substr($serviceType, 0, 100, 'UTF-8')
+            : substr($serviceType, 0, 100);
         $serviceDescription = implode('; ', $serviceDescriptions) . ' | Total: ₱' . number_format($totalCost, 2);
         $createdBy = isset($_SESSION['user_id']) ? trim((string) $_SESSION['user_id']) : null;
         if ($createdBy === '') {
             $createdBy = null;
         }
+        if ($createdBy !== null && $usersTable !== null) {
+            $quotedUsers = '`' . str_replace('`', '``', $usersTable) . '`';
+            $userOk = $pdo->prepare("SELECT 1 FROM {$quotedUsers} WHERE user_id = ? LIMIT 1");
+            $userOk->execute([$createdBy]);
+            if (!$userOk->fetchColumn()) {
+                $createdBy = null;
+            }
+        }
 
-        $insertAppointmentStmt = $pdo->prepare("
-            INSERT INTO tbl_appointments (
-                tenant_id,
-                dentist_id,
-                booking_id,
-                patient_id,
-                appointment_date,
-                appointment_time,
-                service_type,
-                service_description,
-                treatment_type,
-                visit_type,
-                status,
-                notes,
-                total_treatment_cost,
-                created_by,
-                created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'short_term', ?, ?, ?, ?, ?, NOW())
-        ");
-        $insertAppointmentStmt->execute([
-            $tenantId,
-            $dentistId,
-            $bookingId,
-            $patientId,
-            $appointmentDate,
-            $appointmentTime,
-            $serviceType,
-            $serviceDescription,
-            $visitType,
-            $status,
-            $notes !== '' ? $notes : null,
-            $totalCost,
-            $createdBy,
-        ]);
+        $statusForDb = strtolower((string) $status);
+        if ($statusForDb === 'scheduled') {
+            $statusForDb = 'confirmed';
+        }
+        if ($appointmentsTable === 'tbl_appointments') {
+            $tblStatusOk = ['pending', 'confirmed', 'completed', 'cancelled', 'no_show'];
+            if (!in_array($statusForDb, $tblStatusOk, true)) {
+                $statusForDb = 'pending';
+            }
+        }
+
+        $apptCols = staff_walkin_table_columns($pdo, $appointmentsTable);
+        $apptData = [
+            'tenant_id' => $tenantId,
+            'booking_id' => $bookingId,
+            'patient_id' => $patientId,
+            'appointment_date' => $appointmentDate,
+            'appointment_time' => $appointmentTime,
+            'service_type' => $serviceType,
+            'service_description' => $serviceDescription,
+            'treatment_type' => 'short_term',
+            'visit_type' => $visitType,
+            'status' => $statusForDb,
+            'notes' => $notes !== '' ? $notes : null,
+            'total_treatment_cost' => $totalCost,
+            'duration_months' => null,
+            'target_completion_date' => null,
+            'start_date' => null,
+            'created_by' => $createdBy,
+        ];
+        if (in_array('dentist_id', $apptCols, true)) {
+            $apptData['dentist_id'] = (int) $dentistId;
+        }
+
+        $insertCols = [];
+        $insertPlaceholders = [];
+        $insertParams = [];
+        $columnOrder = [
+            'tenant_id', 'dentist_id', 'booking_id', 'patient_id', 'appointment_date', 'appointment_time',
+            'service_type', 'service_description', 'treatment_type', 'visit_type', 'status', 'notes',
+            'total_treatment_cost', 'duration_months', 'target_completion_date', 'start_date', 'created_by',
+        ];
+        foreach ($columnOrder as $col) {
+            if (!in_array($col, $apptCols, true) || !array_key_exists($col, $apptData)) {
+                continue;
+            }
+            $insertCols[] = '`' . str_replace('`', '``', $col) . '`';
+            $insertPlaceholders[] = '?';
+            $insertParams[] = $apptData[$col];
+        }
+        if (in_array('created_at', $apptCols, true)) {
+            $insertCols[] = '`created_at`';
+            $insertPlaceholders[] = 'NOW()';
+        }
+        if ($insertCols === []) {
+            $pdo->rollBack();
+            echo json_encode(['success' => false, 'message' => 'Appointment table structure is not compatible with walk-in booking.']);
+            exit;
+        }
+
+        $insertSql = 'INSERT INTO ' . $quotedAppt . ' (' . implode(', ', $insertCols) . ') VALUES (' . implode(', ', $insertPlaceholders) . ')';
+        $insertAppointmentStmt = $pdo->prepare($insertSql);
+        $insertAppointmentStmt->execute($insertParams);
 
         $appointmentId = (int) $pdo->lastInsertId();
-        $serviceInsertStmt = $pdo->prepare("
-            INSERT INTO tbl_appointment_services (
-                tenant_id,
-                booking_id,
-                appointment_id,
-                service_id,
-                service_name,
-                price,
-                is_original,
-                added_by,
-                added_at
-            ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, NOW())
-        ");
+
+        $apsCols = staff_walkin_table_columns($pdo, $appointmentServicesTable);
+        $quotedAps = '`' . str_replace('`', '``', $appointmentServicesTable) . '`';
         foreach ($normalizedServices as $serviceRow) {
-            $serviceInsertStmt->execute([
-                $tenantId,
-                $bookingId,
-                $appointmentId > 0 ? $appointmentId : null,
-                $serviceRow['service_id'],
-                $serviceRow['service_name'],
-                $serviceRow['price'],
-                $createdBy,
-            ]);
+            $rowData = [
+                'tenant_id' => $tenantId,
+                'booking_id' => $bookingId,
+                'service_id' => $serviceRow['service_id'],
+                'service_name' => $serviceRow['service_name'],
+                'price' => $serviceRow['price'],
+                'is_original' => 1,
+                'added_by' => $createdBy,
+            ];
+            if (in_array('appointment_id', $apsCols, true)) {
+                $rowData['appointment_id'] = $appointmentId > 0 ? $appointmentId : null;
+            }
+            $svcInsertCols = [];
+            $svcPlaceholders = [];
+            $svcParams = [];
+            $apsOrder = ['tenant_id', 'booking_id', 'appointment_id', 'service_id', 'service_name', 'price', 'is_original', 'added_by'];
+            foreach ($apsOrder as $col) {
+                if (!in_array($col, $apsCols, true) || !array_key_exists($col, $rowData)) {
+                    continue;
+                }
+                $svcInsertCols[] = '`' . str_replace('`', '``', $col) . '`';
+                $svcPlaceholders[] = '?';
+                $svcParams[] = $rowData[$col];
+            }
+            if (in_array('added_at', $apsCols, true)) {
+                $svcInsertCols[] = '`added_at`';
+                $svcPlaceholders[] = 'NOW()';
+            }
+            if ($svcInsertCols === []) {
+                throw new RuntimeException('Appointment services table has no compatible columns for walk-in lines.');
+            }
+            $svcSql = 'INSERT INTO ' . $quotedAps . ' (' . implode(', ', $svcInsertCols) . ') VALUES (' . implode(', ', $svcPlaceholders) . ')';
+            $svcStmt = $pdo->prepare($svcSql);
+            $svcStmt->execute($svcParams);
         }
 
         $pdo->commit();
