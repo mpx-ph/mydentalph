@@ -129,27 +129,108 @@ if ($currentUserRole === 'dentist') {
         text-shadow: 0 0 12px rgba(43, 139, 235, 0.1);
         letter-spacing: -0.02em;
     }
+@media (min-width: 1024px) {
+    body.staff-shell {
+        --staff-collapse-duration: 460ms;
+        --staff-collapse-ease: cubic-bezier(0.2, 0.85, 0.24, 1);
+    }
+    body.staff-shell main {
+        margin-left: 16rem !important;
+        transition: margin-left var(--staff-collapse-duration) var(--staff-collapse-ease);
+        will-change: margin-left;
+    }
+    body.staff-shell.staff-sidebar-collapsed main {
+        margin-left: 5.5rem !important;
+    }
+    body.staff-shell #staff-sidebar {
+        transition: width var(--staff-collapse-duration) var(--staff-collapse-ease);
+        overflow: hidden;
+        will-change: width;
+    }
+    body.staff-shell .staff-sidebar-divider-toggle {
+        position: fixed;
+        top: 44%;
+        left: calc(16rem - 0.8rem);
+        z-index: 55;
+        width: 1.6rem;
+        height: 4.25rem;
+        border-radius: 9999px;
+        border: 1px solid rgba(224, 233, 246, 0.95);
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 10px 28px -15px rgba(19, 28, 37, 0.5);
+        color: #456085;
+        transition: left var(--staff-collapse-duration) var(--staff-collapse-ease), color 180ms ease, background-color 180ms ease;
+    }
+    body.staff-shell .staff-sidebar-divider-toggle:hover {
+        color: #0066ff;
+        background: #ffffff;
+    }
+    body.staff-shell.staff-sidebar-collapsed .staff-sidebar-divider-toggle {
+        left: calc(5.5rem - 0.8rem);
+    }
+    body.staff-shell .staff-sidebar-label,
+    body.staff-shell .staff-sidebar-tagline,
+    body.staff-shell .staff-sidebar-clinic-name {
+        max-width: 16rem;
+        opacity: 1;
+        transform: translateX(0);
+        white-space: nowrap;
+        overflow: hidden;
+        transition:
+            max-width 360ms var(--staff-collapse-ease),
+            opacity 240ms ease,
+            transform 320ms var(--staff-collapse-ease);
+    }
+    body.staff-shell.staff-sidebar-collapsed .staff-sidebar-label,
+    body.staff-shell.staff-sidebar-collapsed .staff-sidebar-tagline,
+    body.staff-shell.staff-sidebar-collapsed .staff-sidebar-clinic-name {
+        max-width: 0;
+        opacity: 0;
+        transform: translateX(-6px);
+        pointer-events: none;
+    }
+    body.staff-shell.staff-sidebar-collapsed .staff-sidebar-brand-row {
+        justify-content: center;
+    }
+    body.staff-shell .staff-nav-link {
+        transition: transform 240ms var(--staff-collapse-ease), color 200ms ease, background-color 200ms ease;
+    }
+    body.staff-shell.staff-sidebar-collapsed .staff-sidebar-brand nav a:hover {
+        transform: none;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    body.staff-shell main,
+    body.staff-shell #staff-sidebar,
+    body.staff-shell .staff-sidebar-divider-toggle,
+    body.staff-shell .staff-sidebar-label,
+    body.staff-shell .staff-sidebar-tagline,
+    body.staff-shell .staff-sidebar-clinic-name,
+    body.staff-shell .staff-nav-link {
+        transition: none !important;
+    }
+}
 </style>
-<aside class="staff-sidebar-brand fixed left-0 top-0 h-full w-64 z-40 bg-white flex flex-col py-8 border-r border-slate-200/60">
-    <div class="px-7 mb-8">
-        <h1 class="flex items-center gap-2 min-w-0 font-headline tracking-tight">
+<aside id="staff-sidebar" class="staff-sidebar-brand fixed left-0 top-0 h-full w-64 z-40 bg-white flex flex-col py-8 border-r border-slate-200/60 min-h-screen">
+    <div class="px-7 mb-8 shrink-0">
+        <h1 class="staff-sidebar-brand-row flex items-center gap-2 min-w-0 font-headline tracking-tight">
             <img
                 src="<?php echo htmlspecialchars($clinicLogoUrl, ENT_QUOTES, 'UTF-8'); ?>"
                 alt="<?php echo htmlspecialchars($clinicName, ENT_QUOTES, 'UTF-8'); ?>"
                 class="h-9 w-auto shrink-0 object-contain"
             />
-            <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block text-lg leading-snug min-w-0 break-words"><?php echo htmlspecialchars($clinicName, ENT_QUOTES, 'UTF-8'); ?></span>
+            <span class="staff-sidebar-clinic-name font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block text-lg leading-snug min-w-0 break-words"><?php echo htmlspecialchars($clinicName, ENT_QUOTES, 'UTF-8'); ?></span>
         </h1>
-        <p class="text-primary font-bold text-[10px] tracking-[0.2em] uppercase mt-2 opacity-80"><?php echo htmlspecialchars($portalLabel, ENT_QUOTES, 'UTF-8'); ?></p>
+        <p class="staff-sidebar-tagline text-primary font-bold text-[10px] tracking-[0.2em] uppercase mt-2 opacity-80"><?php echo htmlspecialchars($portalLabel, ENT_QUOTES, 'UTF-8'); ?></p>
     </div>
 
     <nav class="flex-1 min-h-0 space-y-1 overflow-y-auto no-scrollbar">
         <?php foreach ($navItems as $item) { ?>
             <?php $isActive = $staff_nav_active === $item['key']; ?>
             <div class="<?php echo $isActive ? 'relative ' : ''; ?>px-3">
-                <a href="<?php echo htmlspecialchars($item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?php echo $isActive ? 'bg-primary/10 text-primary active-glow' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'; ?>">
-                    <span class="material-symbols-outlined text-[22px]" <?php echo $isActive ? 'style="font-variation-settings: \'FILL\' 1;"' : ''; ?>><?php echo htmlspecialchars($item['icon'], ENT_QUOTES, 'UTF-8'); ?></span>
-                    <span class="font-headline text-sm <?php echo $isActive ? 'font-bold' : 'font-medium'; ?> tracking-tight"><?php echo htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+                <a href="<?php echo htmlspecialchars($item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="staff-nav-link flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?php echo $isActive ? 'bg-primary/10 text-primary active-glow' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'; ?>">
+                    <span class="material-symbols-outlined text-[22px] shrink-0" <?php echo $isActive ? 'style="font-variation-settings: \'FILL\' 1;"' : ''; ?>><?php echo htmlspecialchars($item['icon'], ENT_QUOTES, 'UTF-8'); ?></span>
+                    <span class="staff-sidebar-label font-headline text-sm <?php echo $isActive ? 'font-bold' : 'font-medium'; ?> tracking-tight"><?php echo htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
                 </a>
                 <?php if ($isActive) { ?>
                     <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full"></div>
@@ -158,3 +239,73 @@ if ($currentUserRole === 'dentist') {
         <?php } ?>
     </nav>
 </aside>
+<button id="staff-sidebar-toggle" class="staff-sidebar-divider-toggle hidden lg:flex items-center justify-center" type="button" aria-label="Collapse sidebar" aria-expanded="true">
+    <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+</button>
+<script>
+(function () {
+    var body = document.body;
+    var sidebar = document.getElementById('staff-sidebar');
+    var toggle = document.getElementById('staff-sidebar-toggle');
+    if (!body || !sidebar || !toggle) return;
+    body.classList.add('staff-shell');
+
+    var mqDesktop = window.matchMedia('(min-width: 1024px)');
+    var storageKey = 'staff.sidebarCollapsed.desktop';
+
+    function setCollapsed(collapsed) {
+        if (!mqDesktop.matches) {
+            body.classList.remove('staff-sidebar-collapsed');
+            sidebar.classList.remove('w-[5.5rem]');
+            sidebar.classList.add('w-64');
+            sidebar.querySelectorAll('nav a.staff-nav-link').forEach(function (a) {
+                a.classList.remove('justify-center');
+                a.classList.add('gap-3');
+                a.removeAttribute('title');
+            });
+            return;
+        }
+        body.classList.toggle('staff-sidebar-collapsed', collapsed);
+        sidebar.classList.toggle('w-[5.5rem]', collapsed);
+        sidebar.classList.toggle('w-64', !collapsed);
+        sidebar.querySelectorAll('nav a.staff-nav-link').forEach(function (a) {
+            a.classList.toggle('justify-center', collapsed);
+            a.classList.toggle('gap-3', !collapsed);
+            if (collapsed) {
+                var labelNode = a.querySelector('.staff-sidebar-label');
+                a.setAttribute('title', labelNode ? (labelNode.textContent || '').trim() : '');
+            } else {
+                a.removeAttribute('title');
+            }
+        });
+        toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        toggle.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+        var icon = toggle.querySelector('.material-symbols-outlined');
+        if (icon) icon.textContent = collapsed ? 'chevron_right' : 'chevron_left';
+    }
+
+    function restoreState() {
+        var collapsed = false;
+        try {
+            collapsed = localStorage.getItem(storageKey) === '1';
+        } catch (e) {}
+        setCollapsed(collapsed);
+    }
+
+    toggle.addEventListener('click', function () {
+        var collapsed = !body.classList.contains('staff-sidebar-collapsed');
+        setCollapsed(collapsed);
+        try {
+            localStorage.setItem(storageKey, collapsed ? '1' : '0');
+        } catch (e) {}
+    });
+
+    if (typeof mqDesktop.addEventListener === 'function') {
+        mqDesktop.addEventListener('change', restoreState);
+    } else if (typeof mqDesktop.addListener === 'function') {
+        mqDesktop.addListener(restoreState);
+    }
+
+    restoreState();
+})();
+</script>
