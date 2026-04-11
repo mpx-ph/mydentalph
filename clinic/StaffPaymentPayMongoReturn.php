@@ -7,6 +7,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/includes/staff_installment_helpers.php';
 
 if (isset($_SESSION['user_role']) && strtolower(trim((string) $_SESSION['user_role'])) === 'dentist') {
     header('Location: StaffDashboard.php');
@@ -120,7 +121,27 @@ try {
             throw new RuntimeException('Payment was already updated.');
         }
 
-        $nextAppointmentStatus = ($amount + 0.009 >= $pendingBalance) ? 'completed' : 'confirmed';
+        $bookingStmt->execute([$tenantId, $bookingId]);
+        $bookingRow = $bookingStmt->fetch(PDO::FETCH_ASSOC);
+        if ($bookingRow) {
+            $totalCost = (float) ($bookingRow['total_treatment_cost'] ?? 0);
+            $totalPaid = (float) ($bookingRow['total_paid'] ?? 0);
+            $pendingBalance = max(0, $totalCost - $totalPaid);
+        }
+
+        $finalize = $stash['installment_finalize'] ?? null;
+        if (is_array($finalize) && !empty($finalize['installments_table']) && !empty($finalize['paid_items']) && is_array($finalize['paid_items'])) {
+            staff_installments_apply_paid_with_unlocks(
+                $pdo,
+                $tenantId,
+                $bookingId,
+                $paymentId,
+                (string) $finalize['installments_table'],
+                $finalize['paid_items']
+            );
+        }
+
+        $nextAppointmentStatus = ($pendingBalance <= 0.009) ? 'completed' : 'confirmed';
 
         $appointmentUpdatedAtColumnStmt = $pdo->prepare("
             SELECT 1

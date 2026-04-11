@@ -1,6 +1,47 @@
 <?php
 $staff_nav_active = 'payments';
 require_once __DIR__ . '/config/config.php';
+
+/**
+ * @return list<array{id:int, installment_number:int, amount_due:float, status:string}>
+ */
+function staff_payment_recording_fetch_installments(PDO $pdo, ?string $installmentsTableName, string $tenantId, string $bookingId): array
+{
+    if ($installmentsTableName === null || $bookingId === '') {
+        return [];
+    }
+    $quoted = '`' . str_replace('`', '``', $installmentsTableName) . '`';
+    $sql = "
+        SELECT id, installment_number, amount_due, status
+        FROM {$quoted} i
+        WHERE i.booking_id = ?
+          AND (
+              i.tenant_id = ?
+              OR i.tenant_id IS NULL
+              OR TRIM(COALESCE(i.tenant_id, '')) = ''
+          )
+        ORDER BY i.installment_number ASC
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$bookingId, $tenantId]);
+    $out = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+        $out[] = [
+            'id' => (int) ($row['id'] ?? 0),
+            'installment_number' => (int) ($row['installment_number'] ?? 0),
+            'amount_due' => round((float) ($row['amount_due'] ?? 0), 2),
+            'status' => trim((string) ($row['status'] ?? '')),
+        ];
+    }
+    return $out;
+}
+
+function staff_payment_recording_installment_is_paid(string $status): bool
+{
+    $s = strtolower(trim($status));
+    return $s === 'paid' || $s === 'completed';
+}
+
 // Dentist role restriction: redirect to dashboard
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
 if (isset($_SESSION['user_role']) && strtolower(trim((string) $_SESSION['user_role'])) === 'dentist') {
@@ -54,7 +95,14 @@ $supportsAppointmentServicesTable = false;
 $appointmentServiceColumns = [];
 $installmentsTableName = null;
 $supportsServiceEnableInstallmentColumn = false;
+$supportsPaymentsInstallmentNumberColumn = false;
 $formSelectedBookingId = trim((string) ($_POST['selected_booking_id'] ?? ''));
+$formInstallmentFlow = trim((string) ($_POST['installment_flow'] ?? 'regular'));
+$formInstallmentPayMode = trim((string) ($_POST['installment_pay_mode'] ?? 'full'));
+$formInstallmentSlotCount = (int) ($_POST['installment_slot_count'] ?? 1);
+if ($formInstallmentSlotCount < 1) {
+    $formInstallmentSlotCount = 1;
+}
 $formPatientQuery = trim((string) ($_POST['patient_query'] ?? ''));
 $formAmount = trim((string) ($_POST['amount'] ?? ''));
 $formPaymentDate = trim((string) ($_POST['payment_date'] ?? date('Y-m-d')));
@@ -165,6 +213,17 @@ try {
         ");
         $serviceInstallmentColStmt->execute();
         $supportsServiceEnableInstallmentColumn = (bool) $serviceInstallmentColStmt->fetchColumn();
+
+        $paymentsInstColStmt = $pdo->prepare("
+            SELECT 1
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'tbl_payments'
+              AND COLUMN_NAME = 'installment_number'
+            LIMIT 1
+        ");
+        $paymentsInstColStmt->execute();
+        $supportsPaymentsInstallmentNumberColumn = (bool) $paymentsInstColStmt->fetchColumn();
     }
 
     if ($tenantId !== '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -224,7 +283,17 @@ try {
                 $paymentError = 'Selected transaction is already fully paid.';
             } else {
                 try {
-                    if (!empty($additionalServiceIds)) {
+                    $scheduleRows = staff_payment_recording_fetch_installments($pdo, $installmentsTableName, $tenantId, $selectedBookingId);
+                    $postedInstallFlow = trim((string) ($_POST['installment_flow'] ?? 'regular'));
+                    $postedPayMode = trim((string) ($_POST['installment_pay_mode'] ?? 'full'));
+                    $postedSlotCount = max(1, (int) ($_POST['installment_slot_count'] ?? 1));
+                    $runSchedulePayment = ($postedInstallFlow === 'schedule' && $scheduleRows !== []);
+
+                    if ($runSchedulePayment && !empty($additionalServiceIds)) {
+                        throw new RuntimeException('Additional services cannot be combined with installment schedule payments. Uncheck extra services or use a non-schedule payment.');
+                    }
+
+                    if (!$runSchedulePayment && !empty($additionalServiceIds)) {
                         if (!$supportsAppointmentServicesTable) {
                             throw new RuntimeException('Additional services are not available in this deployment yet.');
                         }
@@ -309,6 +378,375 @@ try {
                             $updateAppointmentCostStmt->execute([$totalCost, $newServiceDescription, $tenantId, $selectedBookingId]);
                         }
                     }
+
+                    if ($runSchedulePayment) {
+                        require_once __DIR__ . '/includes/staff_installment_helpers.php';
+
+                        $unpaid = [];
+                        foreach ($scheduleRows as $sr) {
+                            if (!staff_payment_recording_installment_is_paid($sr['status'])) {
+                                $unpaid[] = $sr;
+                            }
+                        }
+                        if ($unpaid === []) {
+                            throw new RuntimeException('All installments for this booking are already paid.');
+                        }
+                        $firstUnpaid = $unpaid[0];
+                        $fn = (int) $firstUnpaid['installment_number'];
+                        $mode = $postedPayMode;
+                        $allowedModes = ['full', 'down', 'monthly', 'combined'];
+                        if (!in_array($mode, $allowedModes, true)) {
+                            $mode = 'full';
+                        }
+
+                        $slotCount = 0;
+                        if ($mode === 'full') {
+                            $slotCount = count($unpaid);
+                        } elseif ($mode === 'down') {
+                            if ($fn !== 1) {
+                                throw new RuntimeException('Down payment is already completed. Choose Monthly payment or Pay in full.');
+                            }
+                            $slotCount = 1;
+                        } elseif ($mode === 'monthly') {
+                            if ($fn < 2) {
+                                throw new RuntimeException('Pay the down payment before monthly installments.');
+                            }
+                            $slotCount = min(count($unpaid), max(1, $postedSlotCount));
+                        } else {
+                            if ($fn !== 1) {
+                                throw new RuntimeException('Combined down + monthly is only available when installment 1 (down payment) is still due.');
+                            }
+                            $slotCount = min(count($unpaid), max(2, $postedSlotCount));
+                        }
+
+                        $toPay = array_slice($unpaid, 0, $slotCount);
+                        if (count($toPay) !== $slotCount) {
+                            throw new RuntimeException('Not enough pending installments for this payment selection.');
+                        }
+
+                        $expected = 0.0;
+                        foreach ($toPay as $tp) {
+                            $expected += (float) $tp['amount_due'];
+                        }
+                        $expected = round($expected, 2);
+                        if (abs($amount - $expected) > 0.05) {
+                            throw new RuntimeException('Payment amount must be ₱' . number_format($expected, 2) . ' for the selected installment option.');
+                        }
+
+                        $instLabels = [];
+                        foreach ($toPay as $tp) {
+                            $instLabels[] = '#' . (int) $tp['installment_number'];
+                        }
+                        $noteExtra = '[Installments: ' . implode(', ', $instLabels) . ']';
+                        $composedNotes = trim(($notes !== '' ? ($notes . ' ') : '') . $noteExtra);
+
+                        $usePayMongo = in_array($method, ['gcash', 'bank_transfer', 'credit_card'], true);
+                        $recordStatus = $usePayMongo ? 'pending' : 'completed';
+
+                        if ($mode === 'full') {
+                            $paymentType = 'fullpayment';
+                        } elseif ($mode === 'down') {
+                            $paymentType = 'downpayment';
+                        } else {
+                            $paymentType = 'balancepayment';
+                        }
+
+                        $paymentId = 'PAY-' . date('YmdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
+                        $firstInstNum = (int) ($toPay[0]['installment_number'] ?? 0);
+
+                        if ($supportsPaymentsInstallmentNumberColumn && $supportsPaymentTypeColumn) {
+                            $insertSql = "
+                                INSERT INTO tbl_payments (
+                                    tenant_id,
+                                    payment_id,
+                                    patient_id,
+                                    booking_id,
+                                    installment_number,
+                                    amount,
+                                    payment_method,
+                                    payment_date,
+                                    notes,
+                                    status,
+                                    created_by,
+                                    payment_type
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ";
+                            $insertParams = [
+                                $tenantId,
+                                $paymentId,
+                                $patientId,
+                                $selectedBookingId,
+                                $firstInstNum > 0 ? $firstInstNum : null,
+                                $amount,
+                                $method,
+                                $paymentDate . ' ' . date('H:i:s'),
+                                $composedNotes !== '' ? $composedNotes : null,
+                                $recordStatus,
+                                $userId !== '' ? $userId : null,
+                                $paymentType,
+                            ];
+                        } elseif ($supportsPaymentsInstallmentNumberColumn) {
+                            $insertSql = "
+                                INSERT INTO tbl_payments (
+                                    tenant_id,
+                                    payment_id,
+                                    patient_id,
+                                    booking_id,
+                                    installment_number,
+                                    amount,
+                                    payment_method,
+                                    payment_date,
+                                    notes,
+                                    status,
+                                    created_by
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ";
+                            $insertParams = [
+                                $tenantId,
+                                $paymentId,
+                                $patientId,
+                                $selectedBookingId,
+                                $firstInstNum > 0 ? $firstInstNum : null,
+                                $amount,
+                                $method,
+                                $paymentDate . ' ' . date('H:i:s'),
+                                $composedNotes !== '' ? $composedNotes : null,
+                                $recordStatus,
+                                $userId !== '' ? $userId : null,
+                            ];
+                        } elseif ($supportsPaymentTypeColumn) {
+                            $insertSql = "
+                                INSERT INTO tbl_payments (
+                                    tenant_id,
+                                    payment_id,
+                                    patient_id,
+                                    booking_id,
+                                    amount,
+                                    payment_method,
+                                    payment_date,
+                                    notes,
+                                    status,
+                                    created_by,
+                                    payment_type
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ";
+                            $insertParams = [
+                                $tenantId,
+                                $paymentId,
+                                $patientId,
+                                $selectedBookingId,
+                                $amount,
+                                $method,
+                                $paymentDate . ' ' . date('H:i:s'),
+                                $composedNotes !== '' ? $composedNotes : null,
+                                $recordStatus,
+                                $userId !== '' ? $userId : null,
+                                $mode === 'full' ? 'fullpayment' : 'downpayment',
+                            ];
+                        } else {
+                            $insertSql = "
+                                INSERT INTO tbl_payments (
+                                    tenant_id,
+                                    payment_id,
+                                    patient_id,
+                                    booking_id,
+                                    amount,
+                                    payment_method,
+                                    payment_date,
+                                    notes,
+                                    status,
+                                    created_by
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ";
+                            $insertParams = [
+                                $tenantId,
+                                $paymentId,
+                                $patientId,
+                                $selectedBookingId,
+                                $amount,
+                                $method,
+                                $paymentDate . ' ' . date('H:i:s'),
+                                $composedNotes !== '' ? $composedNotes : null,
+                                $recordStatus,
+                                $userId !== '' ? $userId : null,
+                            ];
+                        }
+
+                        $insertStmt = $pdo->prepare($insertSql);
+                        $insertStmt->execute($insertParams);
+
+                        $finalizeItems = [];
+                        foreach ($toPay as $tp) {
+                            $finalizeItems[] = [
+                                'id' => (int) $tp['id'],
+                                'installment_number' => (int) $tp['installment_number'],
+                            ];
+                        }
+
+                        if ($usePayMongo) {
+                            require_once dirname(__DIR__) . '/paymongo_config.php';
+                            $secret = defined('PAYMONGO_SECRET_KEY') ? (string) PAYMONGO_SECRET_KEY : '';
+                            if ($secret === '' || strpos($secret, 'YOUR_') !== false) {
+                                $del = $pdo->prepare('DELETE FROM tbl_payments WHERE tenant_id = ? AND payment_id = ? AND status = ?');
+                                $del->execute([$tenantId, $paymentId, 'pending']);
+                                throw new RuntimeException('PayMongo API key is not configured.');
+                            }
+
+                            $paymongoTypeMap = [
+                                'gcash' => 'gcash',
+                                'bank_transfer' => 'paymaya',
+                                'credit_card' => 'card',
+                            ];
+                            $pmType = $paymongoTypeMap[$method] ?? 'gcash';
+                            $amountCentavos = (int) round($amount * 100);
+                            if ($amountCentavos < 100) {
+                                $del = $pdo->prepare('DELETE FROM tbl_payments WHERE tenant_id = ? AND payment_id = ? AND status = ?');
+                                $del->execute([$tenantId, $paymentId, 'pending']);
+                                throw new RuntimeException('Amount is too small for online checkout (minimum ₱1.00).');
+                            }
+
+                            if (session_status() === PHP_SESSION_NONE) {
+                                session_start();
+                            }
+                            $returnToken = bin2hex(random_bytes(24));
+                            $_SESSION['staff_paymongo_checkout'] = [
+                                'token' => $returnToken,
+                                'payment_id' => $paymentId,
+                                'tenant_id' => $tenantId,
+                                'payment_date' => $paymentDate,
+                                'booking_id' => $selectedBookingId,
+                                'installment_finalize' => [
+                                    'installments_table' => $installmentsTableName,
+                                    'paid_items' => $finalizeItems,
+                                ],
+                            ];
+
+                            $patStmt = $pdo->prepare("SELECT first_name, last_name FROM tbl_patients WHERE tenant_id = ? AND patient_id = ? LIMIT 1");
+                            $patStmt->execute([$tenantId, $patientId]);
+                            $patRow = $patStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+                            $billingName = trim(trim((string) ($patRow['first_name'] ?? '')) . ' ' . trim((string) ($patRow['last_name'] ?? '')));
+                            if ($billingName === '') {
+                                $billingName = 'Patient';
+                            }
+                            $billingEmail = 'patient+' . preg_replace('/[^a-z0-9]/i', '', $tenantId . $patientId) . '@billing.local';
+
+                            $successUrl = BASE_URL . 'StaffPaymentPayMongoReturn.php?pid=' . rawurlencode($paymentId) . '&token=' . rawurlencode($returnToken);
+                            $cancelUrl = BASE_URL . 'StaffPaymentRecording.php?paymongo_cancel=1&pid=' . rawurlencode($paymentId) . '&token=' . rawurlencode($returnToken);
+                            if ($currentTenantSlug !== '') {
+                                $successUrl .= '&clinic_slug=' . rawurlencode($currentTenantSlug);
+                                $cancelUrl .= '&clinic_slug=' . rawurlencode($currentTenantSlug);
+                            }
+
+                            $payload = [
+                                'data' => [
+                                    'attributes' => [
+                                        'billing' => [
+                                            'name' => $billingName,
+                                            'email' => $billingEmail,
+                                        ],
+                                        'send_email_receipt' => false,
+                                        'show_description' => true,
+                                        'show_line_items' => true,
+                                        'description' => 'Installment payment (booking ' . $selectedBookingId . ')',
+                                        'line_items' => [[
+                                            'currency' => 'PHP',
+                                            'amount' => $amountCentavos,
+                                            'name' => 'Dental installment payment',
+                                            'quantity' => 1,
+                                        ]],
+                                        'payment_method_types' => [$pmType],
+                                        'success_url' => $successUrl,
+                                        'cancel_url' => $cancelUrl,
+                                        'reference_number' => $paymentId,
+                                        'metadata' => [
+                                            'source' => 'staff_payment_recording',
+                                            'tenant_id' => (string) $tenantId,
+                                            'booking_id' => (string) $selectedBookingId,
+                                            'payment_id' => (string) $paymentId,
+                                        ],
+                                    ],
+                                ],
+                            ];
+
+                            $ch = curl_init('https://api.paymongo.com/v1/checkout_sessions');
+                            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                            curl_setopt($ch, CURLOPT_POST, true);
+                            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_SLASHES));
+                            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                                'Content-Type: application/json',
+                                'Accept: application/json',
+                                'Authorization: Basic ' . base64_encode($secret . ':'),
+                            ]);
+                            $response = curl_exec($ch);
+                            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                            $curlError = curl_error($ch);
+                            curl_close($ch);
+
+                            if ($curlError !== '') {
+                                $del = $pdo->prepare('DELETE FROM tbl_payments WHERE tenant_id = ? AND payment_id = ? AND status = ?');
+                                $del->execute([$tenantId, $paymentId, 'pending']);
+                                throw new RuntimeException('Could not reach PayMongo: ' . $curlError);
+                            }
+
+                            $responseData = json_decode((string) $response, true);
+                            $checkoutUrl = is_array($responseData) ? ($responseData['data']['attributes']['checkout_url'] ?? null) : null;
+                            $sessionId = is_array($responseData) ? ($responseData['data']['id'] ?? null) : null;
+
+                            if ($httpCode >= 200 && $httpCode < 300 && $checkoutUrl && $sessionId) {
+                                $refStmt = $pdo->prepare('UPDATE tbl_payments SET reference_number = ? WHERE tenant_id = ? AND payment_id = ? AND status = ?');
+                                $refStmt->execute([(string) $sessionId, $tenantId, $paymentId, 'pending']);
+                                header('Location: ' . $checkoutUrl);
+                                exit;
+                            }
+
+                            $del = $pdo->prepare('DELETE FROM tbl_payments WHERE tenant_id = ? AND payment_id = ? AND status = ?');
+                            $del->execute([$tenantId, $paymentId, 'pending']);
+                            $apiError = '';
+                            if (is_array($responseData) && isset($responseData['errors'][0])) {
+                                $apiError = (string) ($responseData['errors'][0]['detail'] ?? $responseData['errors'][0]['title'] ?? '');
+                            }
+                            throw new RuntimeException($apiError !== '' ? ('PayMongo: ' . $apiError) : 'PayMongo did not return a checkout URL.');
+                        }
+
+                        staff_installments_apply_paid_with_unlocks(
+                            $pdo,
+                            $tenantId,
+                            $selectedBookingId,
+                            $paymentId,
+                            (string) $installmentsTableName,
+                            $finalizeItems
+                        );
+
+                        $bookingStmt->execute([$tenantId, $selectedBookingId]);
+                        $bookingRow = $bookingStmt->fetch(PDO::FETCH_ASSOC);
+                        $totalCostAfter = (float) ($bookingRow['total_treatment_cost'] ?? 0);
+                        $totalPaidAfter = (float) ($bookingRow['total_paid'] ?? 0);
+                        $pendingAfter = max(0, $totalCostAfter - $totalPaidAfter);
+
+                        $nextAppointmentStatus = ($pendingAfter <= 0.009) ? 'completed' : 'confirmed';
+                        $updateAppointmentSql = "
+                            UPDATE tbl_appointments
+                            SET status = ?" . ($supportsAppointmentUpdatedAtColumn ? ", updated_at = NOW()" : "") . "
+                            WHERE tenant_id = ?
+                              AND booking_id = ?
+                              AND status = 'pending'
+                        ";
+                        $updateAppointmentStmt = $pdo->prepare($updateAppointmentSql);
+                        $updateAppointmentStmt->execute([$nextAppointmentStatus, $tenantId, $selectedBookingId]);
+
+                        $paymentSuccess = 'Payment recorded successfully.';
+                        $selectedMethod = '';
+                        $selectedMethodForUi = '';
+                        $formSelectedBookingId = '';
+                        $formPatientQuery = '';
+                        $formAmount = '';
+                        $formPaymentDate = date('Y-m-d');
+                        $formNotes = '';
+                        $formServiceIds = [];
+                        $formInstallmentFlow = 'regular';
+                        $formInstallmentPayMode = 'full';
+                        $formInstallmentSlotCount = 1;
+                    } else {
 
                     if ($amount > $pendingBalance) {
                         throw new RuntimeException('Payment amount exceeds the pending balance of ₱' . number_format($pendingBalance, 2) . '.');
@@ -524,6 +962,10 @@ try {
                     $formPaymentDate = date('Y-m-d');
                     $formNotes = '';
                     $formServiceIds = [];
+                    $formInstallmentFlow = 'regular';
+                    $formInstallmentPayMode = 'full';
+                    $formInstallmentSlotCount = 1;
+                    }
                 } catch (Throwable $postError) {
                     error_log('Staff payment record submit error: ' . $postError->getMessage());
                     $postMessage = trim((string) $postError->getMessage());
@@ -646,6 +1088,54 @@ try {
         $transactionsStmt = $pdo->prepare($transactionsSql);
         $transactionsStmt->execute([$tenantId]);
         $transactionCandidates = $transactionsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $scheduleByBooking = [];
+        if ($installmentsTableName !== null && $transactionCandidates !== []) {
+            $allBookingIds = [];
+            foreach ($transactionCandidates as $candRow) {
+                $bid = trim((string) ($candRow['booking_id'] ?? ''));
+                if ($bid !== '') {
+                    $allBookingIds[$bid] = true;
+                }
+            }
+            $idList = array_keys($allBookingIds);
+            if ($idList !== []) {
+                $quotedInstTable = '`' . str_replace('`', '``', $installmentsTableName) . '`';
+                $placeholders = implode(',', array_fill(0, count($idList), '?'));
+                $instFetchSql = "
+                    SELECT booking_id, id, installment_number, amount_due, status
+                    FROM {$quotedInstTable} i
+                    WHERE i.booking_id IN ($placeholders)
+                      AND (
+                          i.tenant_id = ?
+                          OR i.tenant_id IS NULL
+                          OR TRIM(COALESCE(i.tenant_id, '')) = ''
+                      )
+                    ORDER BY i.booking_id ASC, i.installment_number ASC
+                ";
+                $instFetchStmt = $pdo->prepare($instFetchSql);
+                $instFetchStmt->execute(array_merge($idList, [$tenantId]));
+                foreach ($instFetchStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $ir) {
+                    $b = trim((string) ($ir['booking_id'] ?? ''));
+                    if ($b === '') {
+                        continue;
+                    }
+                    if (!isset($scheduleByBooking[$b])) {
+                        $scheduleByBooking[$b] = [];
+                    }
+                    $scheduleByBooking[$b][] = [
+                        'id' => (int) ($ir['id'] ?? 0),
+                        'installment_number' => (int) ($ir['installment_number'] ?? 0),
+                        'amount_due' => round((float) ($ir['amount_due'] ?? 0), 2),
+                        'status' => trim((string) ($ir['status'] ?? '')),
+                    ];
+                }
+            }
+        }
+        foreach ($transactionCandidates as $ic => $candRow) {
+            $b = trim((string) ($candRow['booking_id'] ?? ''));
+            $transactionCandidates[$ic]['installment_schedule'] = $scheduleByBooking[$b] ?? [];
+        }
 
         $servicesStmt = $pdo->prepare("
             SELECT service_id, service_name, category, price
@@ -1066,6 +1556,56 @@ try {
 </div>
 <p class="text-[11px] font-semibold text-slate-500 ml-1">Only appointments with pending balance are listed.</p>
 </div>
+<input name="installment_flow" id="installment_flow_input" type="hidden" value="<?php echo htmlspecialchars($formInstallmentFlow !== '' ? $formInstallmentFlow : 'regular', ENT_QUOTES, 'UTF-8'); ?>"/>
+<input name="installment_pay_mode" id="installment_pay_mode_input" type="hidden" value="<?php echo htmlspecialchars($formInstallmentPayMode !== '' ? $formInstallmentPayMode : 'full', ENT_QUOTES, 'UTF-8'); ?>"/>
+<input name="installment_slot_count" id="installment_slot_count_input" type="hidden" value="<?php echo (int) max(1, $formInstallmentSlotCount); ?>"/>
+<div class="hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/[0.06] to-slate-50/80 p-6 space-y-4" id="installment-plan-panel">
+<div class="flex items-center justify-between gap-3 flex-wrap">
+<div>
+<p class="text-[11px] font-black uppercase tracking-widest text-primary">Installment plan</p>
+<h4 class="text-lg font-black text-slate-900 mt-1">Payment progress</h4>
+</div>
+<span class="text-xs font-bold text-slate-500" id="installment_progress_pct_label"></span>
+</div>
+<div class="space-y-2">
+<div class="h-3 rounded-full bg-slate-200/90 overflow-hidden shadow-inner">
+<div class="h-full rounded-full bg-gradient-to-r from-primary to-sky-400 transition-all duration-500 ease-out" id="installment_progress_bar" style="width:0%"></div>
+</div>
+<div class="flex justify-between text-[11px] font-bold text-slate-600">
+<span id="installment_progress_paid_line"></span>
+<span id="installment_progress_remain_line"></span>
+</div>
+<p class="text-[11px] font-semibold text-slate-500" id="installment_progress_hint"></p>
+</div>
+<div class="border-t border-slate-200/80 pt-4 space-y-3">
+<p class="text-[11px] font-black uppercase tracking-widest text-slate-500">Payment option</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+<label class="installment-option-card flex items-start gap-3 p-4 rounded-2xl border-2 border-slate-100 bg-white/80 cursor-pointer hover:border-primary/40 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+<input type="radio" name="installment_pay_mode_ui" value="full" class="mt-1 text-primary focus:ring-primary/30" id="inst_opt_full"/>
+<span class="min-w-0"><span class="block text-sm font-extrabold text-slate-900">Full payment</span><span class="block text-xs text-slate-500 mt-0.5">Pay all remaining installments now.</span></span>
+</label>
+<label class="installment-option-card flex items-start gap-3 p-4 rounded-2xl border-2 border-slate-100 bg-white/80 cursor-pointer hover:border-primary/40 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5" id="inst_opt_down_wrap">
+<input type="radio" name="installment_pay_mode_ui" value="down" class="mt-1 text-primary focus:ring-primary/30" id="inst_opt_down"/>
+<span class="min-w-0"><span class="block text-sm font-extrabold text-slate-900">Down payment</span><span class="block text-xs text-slate-500 mt-0.5">Pay only the required down (installment 1).</span></span>
+</label>
+<label class="installment-option-card flex items-start gap-3 p-4 rounded-2xl border-2 border-slate-100 bg-white/80 cursor-pointer hover:border-primary/40 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5" id="inst_opt_combined_wrap">
+<input type="radio" name="installment_pay_mode_ui" value="combined" class="mt-1 text-primary focus:ring-primary/30" id="inst_opt_combined"/>
+<span class="min-w-0"><span class="block text-sm font-extrabold text-slate-900">Down + months ahead</span><span class="block text-xs text-slate-500 mt-0.5">Pay down payment plus one or more monthly installments.</span></span>
+</label>
+<label class="installment-option-card flex items-start gap-3 p-4 rounded-2xl border-2 border-slate-100 bg-white/80 cursor-pointer hover:border-primary/40 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5" id="inst_opt_monthly_wrap">
+<input type="radio" name="installment_pay_mode_ui" value="monthly" class="mt-1 text-primary focus:ring-primary/30" id="inst_opt_monthly"/>
+<span class="min-w-0"><span class="block text-sm font-extrabold text-slate-900">Monthly payment</span><span class="block text-xs text-slate-500 mt-0.5">Pay one or more upcoming monthly installments (after down is paid).</span></span>
+</label>
+</div>
+<div class="flex flex-col sm:flex-row sm:items-center gap-3 pt-1" id="installment_slot_row">
+<label class="text-[11px] font-black uppercase tracking-widest text-slate-500 sm:min-w-[10rem]">Installments to pay</label>
+<div class="flex items-center gap-2">
+<input type="number" min="1" step="1" id="installment_slot_stepper" class="w-24 px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 bg-white"/>
+<span class="text-xs font-semibold text-slate-500" id="installment_slot_range_hint"></span>
+</div>
+</div>
+</div>
+</div>
 <div class="flex flex-col md:flex-row gap-8 items-center">
 <div class="flex-1 w-full space-y-3">
 <label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Payment Amount</label>
@@ -1082,7 +1622,7 @@ try {
 </div>
 </div>
 </div>
-<div class="space-y-4">
+<div class="space-y-4" id="additional-services-section">
 <label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Additional Services</label>
 <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 space-y-3">
 <p class="text-[11px] font-semibold text-slate-500">Optional: add on-the-spot services. Selected services are added to treatment cost and reflected in schedule services.</p>
@@ -1207,7 +1747,224 @@ try {
         const amountInput = document.querySelector('input[name="amount"]');
         const additionalServiceCheckboxes = document.querySelectorAll('.additional-service-checkbox');
         const additionalServicesTotalHint = document.getElementById('additional_services_total_hint');
+        const installmentPlanPanel = document.getElementById('installment-plan-panel');
+        const installmentFlowInput = document.getElementById('installment_flow_input');
+        const installmentPayModeInput = document.getElementById('installment_pay_mode_input');
+        const installmentSlotCountInput = document.getElementById('installment_slot_count_input');
+        const installmentProgressBar = document.getElementById('installment_progress_bar');
+        const installmentProgressPctLabel = document.getElementById('installment_progress_pct_label');
+        const installmentProgressPaidLine = document.getElementById('installment_progress_paid_line');
+        const installmentProgressRemainLine = document.getElementById('installment_progress_remain_line');
+        const installmentProgressHint = document.getElementById('installment_progress_hint');
+        const installmentSlotRow = document.getElementById('installment_slot_row');
+        const installmentSlotStepper = document.getElementById('installment_slot_stepper');
+        const installmentSlotRangeHint = document.getElementById('installment_slot_range_hint');
+        const instOptFull = document.getElementById('inst_opt_full');
+        const instOptDown = document.getElementById('inst_opt_down');
+        const instOptCombined = document.getElementById('inst_opt_combined');
+        const instOptMonthly = document.getElementById('inst_opt_monthly');
+        const instOptDownWrap = document.getElementById('inst_opt_down_wrap');
+        const instOptCombinedWrap = document.getElementById('inst_opt_combined_wrap');
+        const instOptMonthlyWrap = document.getElementById('inst_opt_monthly_wrap');
+        const additionalServicesSection = document.getElementById('additional-services-section');
         let selectedTransaction = null;
+
+        function installmentStatusPaid(status) {
+            const s = String(status || '').toLowerCase();
+            return s === 'paid' || s === 'completed';
+        }
+
+        function getScheduleList(tx) {
+            const raw = tx && tx.installment_schedule;
+            if (!raw || !Array.isArray(raw)) {
+                return [];
+            }
+            return raw;
+        }
+
+        function refreshInstallmentPaymentUi() {
+            if (!selectedTransaction) {
+                if (installmentPlanPanel) {
+                    installmentPlanPanel.classList.add('hidden');
+                }
+                if (installmentFlowInput) {
+                    installmentFlowInput.value = 'regular';
+                }
+                if (amountInput) {
+                    amountInput.removeAttribute('readonly');
+                }
+                if (additionalServicesSection) {
+                    additionalServicesSection.classList.remove('opacity-50', 'pointer-events-none');
+                }
+                return;
+            }
+            const sched = getScheduleList(selectedTransaction);
+            const hasSchedule = sched.length > 0;
+            if (installmentFlowInput) {
+                installmentFlowInput.value = hasSchedule ? 'schedule' : 'regular';
+            }
+            if (!installmentPlanPanel) {
+                return;
+            }
+            if (!hasSchedule) {
+                installmentPlanPanel.classList.add('hidden');
+                if (amountInput) {
+                    amountInput.removeAttribute('readonly');
+                }
+                if (additionalServicesSection) {
+                    additionalServicesSection.classList.remove('opacity-50', 'pointer-events-none');
+                }
+                return;
+            }
+
+            installmentPlanPanel.classList.remove('hidden');
+            if (instOptFull && !document.querySelector('input[name="installment_pay_mode_ui"]:checked')) {
+                instOptFull.checked = true;
+            }
+            if (additionalServicesSection) {
+                additionalServicesSection.classList.add('opacity-50', 'pointer-events-none');
+            }
+            if (amountInput) {
+                amountInput.setAttribute('readonly', 'readonly');
+            }
+
+            const totalCost = Number(selectedTransaction.total_cost || 0);
+            const totalPaid = Number(selectedTransaction.total_paid || 0);
+            const pending = Math.max(0, totalCost - totalPaid);
+            const pct = totalCost > 0 ? Math.min(100, Math.round((totalPaid / totalCost) * 1000) / 10) : 0;
+            if (installmentProgressBar) {
+                installmentProgressBar.style.width = pct + '%';
+            }
+            if (installmentProgressPctLabel) {
+                installmentProgressPctLabel.textContent = pct + '% paid';
+            }
+            if (installmentProgressPaidLine) {
+                installmentProgressPaidLine.textContent = 'Paid ₱' + totalPaid.toFixed(2);
+            }
+            if (installmentProgressRemainLine) {
+                installmentProgressRemainLine.textContent = 'Remaining ₱' + pending.toFixed(2);
+            }
+
+            let downLabel = '';
+            const inst1 = sched.find((r) => Number(r.installment_number) === 1);
+            if (inst1 && !installmentStatusPaid(inst1.status)) {
+                downLabel = 'Down payment (installment 1) is pending.';
+            } else if (inst1 && installmentStatusPaid(inst1.status)) {
+                downLabel = 'Down payment (installment 1) is paid.';
+            }
+            const unpaidSched = sched.filter((r) => !installmentStatusPaid(r.status));
+            const settled = sched.length - unpaidSched.length;
+            if (installmentProgressHint) {
+                installmentProgressHint.textContent = downLabel
+                    ? (downLabel + ' ' + settled + ' of ' + sched.length + ' installment line(s) settled.')
+                    : (settled + ' of ' + sched.length + ' installment line(s) settled.');
+            }
+
+            const firstUnpaid = unpaidSched.length ? unpaidSched[0] : null;
+            const fn = firstUnpaid ? Number(firstUnpaid.installment_number) : 0;
+
+            if (instOptDownWrap) {
+                instOptDownWrap.classList.toggle('opacity-40', fn !== 1);
+                instOptDownWrap.classList.toggle('pointer-events-none', fn !== 1);
+            }
+            if (instOptCombinedWrap) {
+                instOptCombinedWrap.classList.toggle('opacity-40', fn !== 1 || unpaidSched.length < 2);
+                instOptCombinedWrap.classList.toggle('pointer-events-none', fn !== 1 || unpaidSched.length < 2);
+            }
+            if (instOptMonthlyWrap) {
+                instOptMonthlyWrap.classList.toggle('opacity-40', fn < 2);
+                instOptMonthlyWrap.classList.toggle('pointer-events-none', fn < 2);
+            }
+
+            const modeUi = document.querySelector('input[name="installment_pay_mode_ui"]:checked');
+            let mode = modeUi ? modeUi.value : 'full';
+            if (fn === 1 && mode === 'monthly') {
+                mode = 'full';
+                if (instOptFull) {
+                    instOptFull.checked = true;
+                }
+            }
+            if (fn !== 1 && mode === 'down') {
+                mode = unpaidSched.length > 1 ? 'monthly' : 'full';
+                if (mode === 'full' && instOptFull) {
+                    instOptFull.checked = true;
+                }
+                if (mode === 'monthly' && instOptMonthly) {
+                    instOptMonthly.checked = true;
+                }
+            }
+            if (fn !== 1 && mode === 'combined') {
+                mode = 'monthly';
+                if (instOptMonthly) {
+                    instOptMonthly.checked = true;
+                }
+            }
+            if ((fn !== 1 || unpaidSched.length < 2) && mode === 'combined') {
+                mode = 'full';
+                if (instOptFull) {
+                    instOptFull.checked = true;
+                }
+            }
+
+            if (installmentPayModeInput) {
+                installmentPayModeInput.value = mode;
+            }
+
+            let slotCount = 1;
+            const maxSlots = unpaidSched.length;
+            if (mode === 'full') {
+                slotCount = maxSlots;
+            } else if (mode === 'down') {
+                slotCount = 1;
+            } else if (mode === 'combined') {
+                slotCount = Math.max(2, parseInt(String(installmentSlotStepper ? installmentSlotStepper.value : '2'), 10) || 2);
+                slotCount = Math.min(maxSlots, Math.max(2, slotCount));
+            } else if (mode === 'monthly') {
+                slotCount = Math.max(1, parseInt(String(installmentSlotStepper ? installmentSlotStepper.value : '1'), 10) || 1);
+                slotCount = Math.min(maxSlots, Math.max(1, slotCount));
+            }
+
+            if (installmentSlotCountInput) {
+                installmentSlotCountInput.value = String(slotCount);
+            }
+            if (installmentSlotStepper) {
+                if (mode === 'full' || mode === 'down') {
+                    installmentSlotStepper.classList.add('hidden');
+                    if (installmentSlotRow) {
+                        installmentSlotRow.classList.add('hidden');
+                    }
+                } else {
+                    installmentSlotStepper.classList.remove('hidden');
+                    if (installmentSlotRow) {
+                        installmentSlotRow.classList.remove('hidden');
+                    }
+                    if (mode === 'combined') {
+                        installmentSlotStepper.min = '2';
+                        installmentSlotStepper.max = String(Math.max(2, maxSlots));
+                        if (installmentSlotRangeHint) {
+                            installmentSlotRangeHint.textContent = '(2 – ' + maxSlots + ' installments)';
+                        }
+                        installmentSlotStepper.value = String(Math.min(maxSlots, Math.max(2, slotCount)));
+                    } else {
+                        installmentSlotStepper.min = '1';
+                        installmentSlotStepper.max = String(maxSlots);
+                        if (installmentSlotRangeHint) {
+                            installmentSlotRangeHint.textContent = '(1 – ' + maxSlots + ' installments)';
+                        }
+                        installmentSlotStepper.value = String(Math.min(maxSlots, Math.max(1, slotCount)));
+                    }
+                }
+            }
+
+            let sum = 0;
+            for (let i = 0; i < Math.min(slotCount, unpaidSched.length); i += 1) {
+                sum += Number(unpaidSched[i].amount_due || 0);
+            }
+            sum = Math.round(sum * 100) / 100;
+            if (amountInput) {
+                amountInput.value = sum.toFixed(2);
+            }
+        }
 
         const normalizeTransactions = transactionCandidates.map((item) => {
             const totalCost = Number(item.total_treatment_cost || 0);
@@ -1230,6 +1987,7 @@ try {
                 total_paid: totalPaid,
                 pending_balance: pendingBalance,
                 is_installment_plan: isInstallmentPlan,
+                installment_schedule: Array.isArray(item.installment_schedule) ? item.installment_schedule : [],
                 label: label
             };
         }).filter((item) => item.pending_balance > 0);
@@ -1340,6 +2098,10 @@ try {
                 additionalServicesTotalHint.textContent = 'Added services total: ₱' + servicesTotal.toFixed(2);
             }
             if (selectedTransaction && amountInput) {
+                if (getScheduleList(selectedTransaction).length > 0) {
+                    refreshInstallmentPaymentUi();
+                    return;
+                }
                 const basePending = Number(selectedTransaction.pending_balance || 0);
                 amountInput.value = Math.max(0, basePending + servicesTotal).toFixed(2);
             }
@@ -1440,6 +2202,7 @@ try {
                 if (amountInput) {
                     selectedTransaction = selected;
                     syncAmountWithAdditionalServices();
+                    refreshInstallmentPaymentUi();
                 }
                 closeSelectorModal();
             });
@@ -1447,7 +2210,18 @@ try {
         additionalServiceCheckboxes.forEach((checkbox) => {
             checkbox.addEventListener('change', syncAmountWithAdditionalServices);
         });
+        document.querySelectorAll('input[name="installment_pay_mode_ui"]').forEach((radio) => {
+            radio.addEventListener('change', () => {
+                refreshInstallmentPaymentUi();
+            });
+        });
+        if (installmentSlotStepper) {
+            installmentSlotStepper.addEventListener('input', () => {
+                refreshInstallmentPaymentUi();
+            });
+        }
         syncAmountWithAdditionalServices();
+        refreshInstallmentPaymentUi();
 
         const hiddenInput = document.getElementById('payment_method_input');
         const cards = document.querySelectorAll('.payment-card[data-method]');
