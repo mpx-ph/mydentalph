@@ -202,6 +202,11 @@ try {
             $n = (int) $strVal;
             $strVal = (string) max(6, min(28, $n));
         }
+        if ($key === 'footer_facebook_url' || $key === 'footer_powered_url') {
+            if ($strVal !== '' && preg_match('#^https?://#i', $strVal) !== 1) {
+                continue;
+            }
+        }
         $stmt->execute([$tenant_id, $key, $strVal]);
     }
 

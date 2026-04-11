@@ -329,6 +329,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <button type="button" class="builder-tab px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent text-on-surface-variant" data-tab="type">Type</button>
 <button type="button" class="builder-tab px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent text-on-surface-variant" data-tab="layout">Layout</button>
 <button type="button" class="builder-tab px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent text-on-surface-variant" data-tab="pages">Pages</button>
+<button type="button" class="builder-tab px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent text-on-surface-variant" data-tab="footer">Footer</button>
 </div>
 
 <div class="mb-6 pb-6 border-b border-slate-100">
@@ -347,6 +348,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <div class="sb-preview-scope space-y-6" data-sb-preview-pages="all">
 <?php sb_text('clinic_name', 'Clinic display name', $site_opts, $is_owner); ?>
 <?php sb_file('logo_nav', 'Navigation logo (PNG / JPG / WebP)', $site_opts, $is_owner); ?>
+<?php sb_file('logo', 'Footer logo (PNG / JPG / WebP)', $site_opts, $is_owner); ?>
 <?php sb_file('site_favicon', 'Favicon', $site_opts, $is_owner); ?>
 </div>
 <div class="sb-preview-scope space-y-2" data-sb-preview-pages="home">
@@ -570,6 +572,35 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <?php sb_text('contact_hours_sat', 'Saturday hours', $site_opts, $is_owner); ?>
 <?php sb_text('contact_hours_sun_label', 'Sunday line label', $site_opts, $is_owner); ?>
 <?php sb_text('contact_hours_sun', 'Sunday hours', $site_opts, $is_owner); ?>
+</div>
+</div>
+</div>
+
+<div id="panel-footer" class="builder-panel space-y-6 max-h-[52vh] overflow-y-auto pr-1">
+<p class="text-xs text-on-surface-variant leading-relaxed sb-preview-scope" data-sb-preview-pages="all">Shown on every public patient page. The footer image uses the <span class="font-bold text-on-background">logo</span> customization key (defaults apply if you have not set it).</p>
+<p class="text-[11px] text-on-surface-variant/90 leading-relaxed sb-preview-scope" data-sb-preview-pages="all">Copyright supports <code class="text-[11px] bg-slate-100 px-1 rounded">{year}</code> and <code class="text-[11px] bg-slate-100 px-1 rounded">{clinic_name}</code>. Clear the Facebook URL to hide the social button.</p>
+<div class="space-y-6 sb-preview-scope" data-sb-preview-pages="all">
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Footer — Intro</h3>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_text('footer_tagline', 'Tagline (under logo)', $site_opts, $is_owner, true); ?>
+<?php sb_text('footer_social_label', 'Social row label', $site_opts, $is_owner); ?>
+<?php sb_text('footer_facebook_url', 'Facebook profile URL (https…)', $site_opts, $is_owner); ?>
+</div>
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Footer — Hours column</h3>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_text('footer_hours_heading', 'Column heading', $site_opts, $is_owner); ?>
+<?php sb_text('footer_hours_mon_fri_label', 'Weekdays row label', $site_opts, $is_owner); ?>
+<?php sb_text('footer_hours_mon_fri', 'Weekdays hours', $site_opts, $is_owner); ?>
+<?php sb_text('footer_hours_sat_label', 'Saturday row label', $site_opts, $is_owner); ?>
+<?php sb_text('footer_hours_sat', 'Saturday hours', $site_opts, $is_owner); ?>
+<?php sb_text('footer_hours_sun_label', 'Sunday row label', $site_opts, $is_owner); ?>
+<?php sb_text('footer_hours_sun', 'Sunday hours (contains &ldquo;closed&rdquo; → red styling)', $site_opts, $is_owner); ?>
+</div>
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Footer — Bottom bar</h3>
+<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_text('footer_copyright_line', 'Copyright line', $site_opts, $is_owner); ?>
+<?php sb_text('footer_powered_text', 'Powered-by link text', $site_opts, $is_owner); ?>
+<?php sb_text('footer_powered_url', 'Powered-by URL (https…, optional)', $site_opts, $is_owner); ?>
 </div>
 </div>
 </div>
