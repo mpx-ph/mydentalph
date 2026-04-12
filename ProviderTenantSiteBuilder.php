@@ -266,31 +266,43 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             box-shadow: 0 0 24px -4px rgba(43, 139, 235, 0.55);
             border-radius: 9999px;
         }
-        /* Desktop: fixed 1280px artboard so the iframe matches real desktop breakpoints (not tablet). Narrow panels scroll horizontally. */
-        .preview-canvas-scroll { max-width: 100%; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+        /* Desktop: 1280px logical width (iframe breakpoints) + JS scale-to-fit inside the panel (no horizontal scroll). */
+        .preview-canvas-scroll { max-width: 100%; overflow: hidden; -webkit-overflow-scrolling: touch; }
         .preview-scale-host {
             width: 100%;
             min-width: 0;
-            overflow-x: visible;
-            overflow-y: hidden;
+            overflow: hidden;
             display: flex;
             justify-content: center;
-            align-items: stretch;
+            align-items: center;
             flex: 1 1 0;
             min-height: 0;
             align-self: stretch;
         }
+        .preview-desktop-stretch-wrap {
+            overflow: hidden;
+            flex-shrink: 0;
+            max-width: 100%;
+            max-height: 100%;
+        }
+        .preview-desktop-scale-inner {
+            width: 1280px;
+            will-change: transform;
+        }
+        .preview-scale-host--mobile .preview-desktop-stretch-wrap,
+        .preview-scale-host--mobile .preview-desktop-scale-inner {
+            display: contents;
+        }
         .preview-canvas-shell { transition: transform 0.2s ease; }
         .preview-canvas-shell--desktop {
-            width: 1280px;
-            max-width: 1280px;
-            min-width: 1280px;
-            flex: 0 0 auto;
+            width: 100%;
+            max-width: none;
+            min-width: 0;
+            height: 100%;
             min-height: 0;
             display: flex;
             flex-direction: column;
             box-sizing: border-box;
-            align-self: stretch;
         }
         .preview-canvas-shell--desktop #sitePreviewFrame {
             flex: 1 1 auto;
@@ -749,12 +761,16 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 </div>
 <div class="preview-canvas-scroll rounded-xl sm:rounded-2xl flex-1 flex flex-col min-h-0" id="previewCanvasScroll">
 <div class="preview-scale-host" id="previewScaleHost">
+<div class="preview-desktop-stretch-wrap" id="previewDesktopStretchWrap">
+<div class="preview-desktop-scale-inner" id="previewDesktopScaleInner">
 <div class="overflow-hidden bg-white rounded-xl sm:rounded-2xl preview-canvas-shell preview-canvas-shell--desktop" id="previewCanvasShell">
 <?php if ($preview_urls['home'] !== ''): ?>
 <iframe title="Site preview" id="sitePreviewFrame" src="<?php echo htmlspecialchars($preview_urls['home'], ENT_QUOTES, 'UTF-8'); ?>"></iframe>
 <?php else: ?>
 <div class="w-full h-full min-h-[380px] flex items-center justify-center text-slate-500 text-sm font-medium p-8 text-center">Preview unavailable until your clinic slug is active.</div>
 <?php endif; ?>
+</div>
+</div>
 </div>
 </div>
 </div>
@@ -1018,17 +1034,40 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 
     var previewShell = document.getElementById('previewCanvasShell');
     var previewScaleHost = document.getElementById('previewScaleHost');
+    var previewDesktopStretchWrap = document.getElementById('previewDesktopStretchWrap');
+    var previewDesktopScaleInner = document.getElementById('previewDesktopScaleInner');
     var modeMobile = document.getElementById('previewModeMobile');
     var modeDesktop = document.getElementById('previewModeDesktop');
+    var DESKTOP_PREVIEW_WIDTH = 1280;
 
     /*
-     * Desktop preview uses a fixed 1280px-wide shell (CSS); height comes from flex
-     * in #previewFrameWrap. Clear any legacy inline height/transform so page /
-     * footer switches never resize the slot. Mobile mode uses aspect-ratio CSS.
+     * Desktop: 1280px-wide iframe (correct breakpoints) scaled down with transform
+     * so the artboard fits the preview panel without horizontal scroll. Mobile uses
+     * aspect-ratio CSS only; clear legacy inline sizing on the shell when switching.
      */
+    function updateDesktopPreviewFit() {
+        if (!previewShell || !previewScaleHost || !previewDesktopStretchWrap || !previewDesktopScaleInner) return;
+        if (previewShell.classList.contains('preview-canvas-shell--mobile')) return;
+
+        previewScaleHost.classList.remove('preview-scale-host--mobile');
+
+        var hw = previewScaleHost.clientWidth;
+        var hh = previewScaleHost.clientHeight;
+        if (hw < 1 || hh < 1) return;
+
+        var s = Math.min(1, hw / DESKTOP_PREVIEW_WIDTH);
+        previewDesktopScaleInner.style.width = DESKTOP_PREVIEW_WIDTH + 'px';
+        previewDesktopScaleInner.style.height = hh + 'px';
+        previewDesktopScaleInner.style.transform = 'scale(' + s + ')';
+        previewDesktopScaleInner.style.transformOrigin = 'top left';
+        previewDesktopStretchWrap.style.width = (DESKTOP_PREVIEW_WIDTH * s) + 'px';
+        previewDesktopStretchWrap.style.height = (hh * s) + 'px';
+    }
+
     function syncPreviewLayout() {
         if (!previewShell || !previewScaleHost) return;
         if (previewShell.classList.contains('preview-canvas-shell--mobile')) {
+            previewScaleHost.classList.add('preview-scale-host--mobile');
             previewShell.style.removeProperty('transform');
             previewShell.style.removeProperty('transform-origin');
             previewShell.style.removeProperty('height');
@@ -1036,8 +1075,19 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             previewScaleHost.style.removeProperty('height');
             previewScaleHost.style.removeProperty('max-height');
             previewScaleHost.style.removeProperty('overflow');
+            if (previewDesktopStretchWrap) {
+                previewDesktopStretchWrap.style.removeProperty('width');
+                previewDesktopStretchWrap.style.removeProperty('height');
+            }
+            if (previewDesktopScaleInner) {
+                previewDesktopScaleInner.style.removeProperty('width');
+                previewDesktopScaleInner.style.removeProperty('height');
+                previewDesktopScaleInner.style.removeProperty('transform');
+                previewDesktopScaleInner.style.removeProperty('transform-origin');
+            }
             return;
         }
+        previewScaleHost.classList.remove('preview-scale-host--mobile');
         previewShell.style.removeProperty('height');
         previewShell.style.removeProperty('transform');
         previewShell.style.removeProperty('transform-origin');
@@ -1045,6 +1095,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         previewScaleHost.style.removeProperty('height');
         previewScaleHost.style.removeProperty('max-height');
         previewScaleHost.style.removeProperty('overflow');
+        updateDesktopPreviewFit();
     }
 
     function setPreviewDeviceMode(mode) {
@@ -1073,8 +1124,19 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             setTimeout(tryPreviewScrollToFooter, 650);
         }
     });
-    /* One-time strip of legacy inline preview sizing (no measurement). */
-    requestAnimationFrame(syncPreviewLayout);
+    /* Initial layout + refit when the preview pane is resized. */
+    requestAnimationFrame(function () {
+        syncPreviewLayout();
+        requestAnimationFrame(syncPreviewLayout);
+    });
+    if (previewScaleHost && typeof ResizeObserver !== 'undefined') {
+        var previewHostRo = new ResizeObserver(function () {
+            if (previewShell && previewShell.classList.contains('preview-canvas-shell--desktop')) {
+                updateDesktopPreviewFit();
+            }
+        });
+        previewHostRo.observe(previewScaleHost);
+    }
 
     (function teamMembersEditor() {
         var teamRoot = document.getElementById('teamMembersEditor');
