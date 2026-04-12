@@ -64,10 +64,10 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </style>
 <?php include __DIR__ . '/includes/nav_client.php'; ?>
 
-<main class="mesh-gradient dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+<main class="mesh-gradient dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-x-hidden min-w-0">
 <!-- Centered Hero Section -->
 <section class="relative min-h-screen flex items-center justify-center pt-24 md:pt-28 overflow-hidden reveal" data-reveal="section" style="background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.8)), url('<?php echo $heroBgEsc; ?>'); background-size: cover; background-position: center 78%; background-repeat: no-repeat;">
-<div class="max-w-7xl mx-auto w-full px-10 relative z-10 flex flex-col items-center text-center justify-center">
+<div class="max-w-7xl mx-auto w-full min-w-0 px-4 sm:px-6 md:px-10 relative z-10 flex flex-col items-center text-center justify-center">
 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8 font-headline">
                 <?php
                 $heroBadge = trim((string) ($CLINIC['main_hero_badge'] ?? ''));
@@ -77,12 +77,12 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
                 echo htmlspecialchars($heroBadge !== '' ? $heroBadge : 'Premium Patient Care', ENT_QUOTES, 'UTF-8');
                 ?>
             </div>
-<h1 class="font-headline text-[clamp(3.5rem,8vw,8rem)] font-extrabold tracking-[-0.05em] mb-10 leading-[0.85] flex flex-col items-center justify-center text-slate-900 dark:text-white"><span class="block">Welcome to</span><span class="relative block text-center mt-2"><span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $cu('clinic_name'); ?></span></span></h1>
-<p class="font-body text-xl max-w-2xl mb-12 leading-relaxed text-slate-600 dark:text-slate-400 font-medium">
+<h1 class="font-headline text-[clamp(2rem,11vw,4.5rem)] sm:text-[clamp(2.5rem,8vw,8rem)] font-extrabold tracking-[-0.05em] mb-10 leading-[0.85] flex flex-col items-center justify-center max-w-full text-slate-900 dark:text-white"><span class="block break-words px-1">Welcome to</span><span class="relative block text-center mt-2 max-w-full min-w-0"><span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block max-w-full break-words"><?php echo $cu('clinic_name'); ?></span></span></h1>
+<p class="font-body text-base sm:text-lg md:text-xl max-w-2xl w-full min-w-0 mb-12 leading-relaxed text-slate-600 dark:text-slate-400 font-medium px-1">
                 <?php echo $cuMultiline('main_hero_subtext', 'Experience modern dentistry in a sterile, calming environment. We combine clinical excellence with a gentle touch to ensure your long-term oral health.'); ?>
             </p>
 <div class="flex flex-col items-center justify-center">
-<a href="<?php echo htmlspecialchars($setAppointmentHref, ENT_QUOTES, 'UTF-8'); ?>" class="group relative px-12 py-5 bg-primary text-white font-bold rounded-full overflow-hidden transition-all hover:pr-16 hover:shadow-xl hover:shadow-primary/35 active:scale-95 font-headline inline-flex items-center pop-up">
+<a href="<?php echo htmlspecialchars($setAppointmentHref, ENT_QUOTES, 'UTF-8'); ?>" class="group relative px-6 sm:px-10 md:px-12 py-4 sm:py-5 max-w-[calc(100vw-2rem)] bg-primary text-white text-sm sm:text-base font-bold rounded-full overflow-hidden transition-all hover:pr-16 hover:shadow-xl hover:shadow-primary/35 active:scale-95 font-headline inline-flex items-center justify-center text-center pop-up">
 <span class="relative z-10"><?php echo isLoggedIn('client') ? $cu('main_hero_cta_logged_in', 'Download Our App') : $cu('main_hero_cta_guest', 'Set Appointment'); ?></span>
 <span class="material-symbols-outlined absolute right-6 opacity-0 group-hover:opacity-100 transition-all">arrow_right_alt</span>
 </a>
@@ -94,20 +94,20 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </div>
 </section>
 <!-- Our Specialized Care Section -->
-<section class="py-24 px-10 bg-white/90 dark:bg-slate-900 relative overflow-hidden reveal" data-reveal="section" id="services">
-<div class="max-w-[1800px] mx-auto">
-<div class="flex flex-col justify-between items-start mb-20 gap-12 items-center text-center">
-<div class="max-w-3xl">
-<div class="text-primary font-bold text-xs uppercase mb-6 flex gap-4 tracking-[0.3em] justify-center items-center font-headline">
-<span class="w-12 h-[1.5px] bg-primary"></span> <?php echo $cu('main_services_heading', 'Our Expertise'); ?>
+<section class="py-16 sm:py-24 px-4 sm:px-6 md:px-10 bg-white/90 dark:bg-slate-900 relative overflow-hidden reveal" data-reveal="section" id="services">
+<div class="max-w-[1800px] mx-auto w-full min-w-0">
+<div class="flex flex-col justify-between mb-20 gap-12 items-center text-center w-full min-w-0">
+<div class="max-w-3xl w-full min-w-0 px-0">
+<div class="text-primary font-bold text-xs uppercase mb-6 flex flex-wrap gap-2 sm:gap-4 tracking-[0.2em] sm:tracking-[0.3em] justify-center items-center font-headline">
+<span class="hidden sm:inline-block w-8 sm:w-12 shrink-0 h-[1.5px] bg-primary"></span> <?php echo $cu('main_services_heading', 'Our Expertise'); ?>
                     </div>
-<h2 class="font-headline text-6xl md:text-8xl font-extrabold tracking-tighter leading-[0.9] mb-8 text-slate-900 dark:text-white">
+<h2 class="font-headline text-[clamp(1.875rem,8.5vw,3.75rem)] sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-extrabold tracking-tighter leading-[1.05] sm:leading-[0.95] mb-8 text-slate-900 dark:text-white break-words hyphens-auto">
                         <?php echo $cu('main_services_title_before', 'Comprehensive Dental'); ?>
-                        <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">
+                        <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block max-w-full break-words align-baseline">
                             <?php echo $cu('main_services_title_accent', 'Solutions'); ?>
                         </span>
                     </h2>
-<p class="text-slate-600 dark:text-slate-400 text-2xl leading-relaxed max-w-2xl mx-auto text-center font-medium font-body">
+<p class="text-slate-600 dark:text-slate-400 text-base sm:text-lg md:text-xl lg:text-2xl leading-relaxed max-w-2xl w-full min-w-0 mx-auto text-center font-medium font-body px-1">
                         <?php echo $cuMultiline('main_services_description', 'From routine hygiene to complex restoration, our treatments are tailored to your specific oral health needs.'); ?>
                     </p>
 </div>
@@ -117,7 +117,7 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </div>
 <div class="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10">
 <div class="md:col-span-5 lg:col-span-4 md:mt-24">
-<div class="group h-full bg-white dark:bg-slate-800 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 hover:border-primary/20 transition-all duration-700 hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.08)] hover:bg-primary relative overflow-hidden">
+<div class="group h-full bg-white dark:bg-slate-800 p-6 sm:p-8 md:p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 hover:border-primary/20 transition-all duration-700 hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.08)] hover:bg-primary relative overflow-hidden min-w-0">
 <div class="absolute -right-8 -top-8 w-32 h-32 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors"></div>
 <div class="w-14 h-14 bg-primary/10 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:scale-110 group-hover:bg-white/20 group-hover:text-white">
 <span class="material-symbols-outlined text-3xl font-light">align_items_stretch</span>
@@ -130,7 +130,7 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </div>
 </div>
 <div class="md:col-span-7 lg:col-span-4">
-<div class="group h-full bg-white dark:bg-slate-800 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 hover:border-primary/20 shadow-[0_50px_100px_-20px_rgba(43,139,235,0.08)] transition-all duration-700 hover:bg-primary hover:shadow-[0_50px_100px_-20px_rgba(43,139,235,0.3)] relative overflow-hidden flex flex-col justify-between">
+<div class="group h-full bg-white dark:bg-slate-800 p-6 sm:p-8 md:p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 hover:border-primary/20 shadow-[0_50px_100px_-20px_rgba(43,139,235,0.08)] transition-all duration-700 hover:bg-primary hover:shadow-[0_50px_100px_-20px_rgba(43,139,235,0.3)] relative overflow-hidden flex flex-col justify-between min-w-0">
 <div class="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none">
 <svg class="w-full h-full stroke-white fill-none" viewBox="0 0 100 100">
 <circle cx="100" cy="0" r="80" stroke-width="0.5"></circle>
@@ -151,7 +151,7 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </div>
 </div>
 <div class="md:col-span-12 lg:col-span-4 lg:mt-36">
-<div class="group h-full glass-card dark:bg-slate-800/80 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 hover:border-primary/30 transition-all duration-700 hover:shadow-xl hover:bg-primary relative overflow-hidden">
+<div class="group h-full glass-card dark:bg-slate-800/80 p-6 sm:p-8 md:p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 hover:border-primary/30 transition-all duration-700 hover:shadow-xl hover:bg-primary relative overflow-hidden min-w-0">
 <div class="w-14 h-14 bg-primary/10 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-10 text-primary transition-all duration-500 group-hover:scale-110 group-hover:bg-white/20 group-hover:text-white">
 <span class="material-symbols-outlined text-3xl font-light">health_and_safety</span>
 </div>
@@ -166,21 +166,21 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </div>
 </section>
 <!-- The Patient Journey Section -->
-<section class="py-32 bg-slate-50/90 dark:bg-slate-900/50 relative border-y border-slate-200/80 dark:border-slate-800 reveal" data-reveal="section" id="journey">
-<div class="max-w-[1800px] mx-auto px-10">
-<div class="flex flex-col items-center text-center mb-24">
-<div class="inline-flex items-center gap-4 px-4 py-2 rounded-full bg-primary/5 text-primary text-[10px] font-black uppercase tracking-[0.4em] mb-6 font-headline">
-<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span> <?php echo $cu('main_journey_badge', 'Your Experience'); ?>
+<section class="py-20 sm:py-32 bg-slate-50/90 dark:bg-slate-900/50 relative border-y border-slate-200/80 dark:border-slate-800 reveal overflow-x-hidden" data-reveal="section" id="journey">
+<div class="max-w-[1800px] mx-auto px-4 sm:px-6 md:px-10 w-full min-w-0">
+<div class="flex flex-col items-center text-center mb-24 w-full min-w-0">
+<div class="inline-flex flex-wrap items-center justify-center gap-2 sm:gap-4 px-3 sm:px-4 py-2 rounded-full bg-primary/5 text-primary text-[10px] font-black uppercase tracking-[0.25em] sm:tracking-[0.4em] mb-6 font-headline max-w-full">
+<span class="w-2 h-2 shrink-0 rounded-full bg-primary animate-pulse"></span> <?php echo $cu('main_journey_badge', 'Your Experience'); ?>
                 </div>
-<h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white mb-6 leading-[1.1]"><?php echo $cu('main_journey_title_before', 'The Patient'); ?> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $cu('main_journey_title_accent', 'Journey'); ?></span></h2>
-<p class="text-slate-600 dark:text-slate-400 text-xl font-medium max-w-2xl font-body"><?php echo $cuMultiline('main_journey_subtitle', 'A personalized pathway to your dream smile, from initial meeting to final reveal.'); ?></p>
+<h2 class="font-headline text-[clamp(1.75rem,7vw,3rem)] sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white mb-6 leading-[1.15] break-words px-1"><?php echo $cu('main_journey_title_before', 'The Patient'); ?> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block max-w-full break-words"><?php echo $cu('main_journey_title_accent', 'Journey'); ?></span></h2>
+<p class="text-slate-600 dark:text-slate-400 text-base sm:text-lg md:text-xl font-medium max-w-2xl w-full min-w-0 font-body px-1"><?php echo $cuMultiline('main_journey_subtitle', 'A personalized pathway to your dream smile, from initial meeting to final reveal.'); ?></p>
 </div>
 <div class="relative">
 <div class="hidden lg:block absolute top-1/2 left-0 w-full h-px step-connector -translate-y-1/2 z-0"></div>
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-24 relative z-10">
 <div class="relative group">
-<div class="bg-white dark:bg-slate-800 rounded-[2rem] p-12 border border-slate-200/80 dark:border-slate-700 transition-all duration-500 group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5 hover:bg-primary">
-<div class="absolute -top-6 left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30">01</div>
+<div class="bg-white dark:bg-slate-800 rounded-[2rem] p-6 sm:p-8 md:p-12 border border-slate-200/80 dark:border-slate-700 transition-all duration-500 group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5 hover:bg-primary min-w-0">
+<div class="absolute -top-6 left-6 sm:left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30">01</div>
 <div class="mb-10 text-primary opacity-40 group-hover:opacity-100 transition-all group-hover:text-white">
 <span class="material-symbols-outlined text-5xl font-light">chat_bubble</span>
 </div>
@@ -193,8 +193,8 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </div>
 </div>
 <div class="relative group">
-<div class="bg-white dark:bg-slate-800 rounded-[2rem] p-12 border border-slate-200/80 dark:border-slate-700 transition-all duration-500 group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5 hover:bg-primary">
-<div class="absolute -top-6 left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30">02</div>
+<div class="bg-white dark:bg-slate-800 rounded-[2rem] p-6 sm:p-8 md:p-12 border border-slate-200/80 dark:border-slate-700 transition-all duration-500 group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5 hover:bg-primary min-w-0">
+<div class="absolute -top-6 left-6 sm:left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30">02</div>
 <div class="mb-10 text-primary opacity-40 group-hover:opacity-100 transition-all group-hover:text-white">
 <span class="material-symbols-outlined text-5xl font-light">biotech</span>
 </div>
@@ -207,8 +207,8 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </div>
 </div>
 <div class="relative group">
-<div class="bg-white dark:bg-slate-800 rounded-[2rem] p-12 border border-slate-200/80 dark:border-slate-700 transition-all duration-500 group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5 hover:bg-primary">
-<div class="absolute -top-6 left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30">03</div>
+<div class="bg-white dark:bg-slate-800 rounded-[2rem] p-6 sm:p-8 md:p-12 border border-slate-200/80 dark:border-slate-700 transition-all duration-500 group-hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/5 hover:bg-primary min-w-0">
+<div class="absolute -top-6 left-6 sm:left-12 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-headline font-black shadow-lg shadow-primary/30">03</div>
 <div class="mb-10 text-primary opacity-40 group-hover:opacity-100 transition-all group-hover:text-white">
 <span class="material-symbols-outlined text-5xl font-light">face_6</span>
 </div>
@@ -225,15 +225,15 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </div>
 </section>
 <!-- Final CTA Section -->
-<section class="py-24 px-10 reveal" data-reveal="section">
-<div class="mx-auto rounded-[4rem] bg-primary relative overflow-hidden flex flex-col items-center text-center shadow-[0_40px_100px_-20px_rgba(43,139,235,0.4)] max-w-6xl py-24 px-10 md:px-20">
-<div class="relative z-10 max-w-3xl">
-<div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-10 font-headline">
+<section class="py-16 sm:py-24 px-4 sm:px-6 md:px-10 reveal overflow-x-hidden" data-reveal="section">
+<div class="mx-auto rounded-[2rem] sm:rounded-[3rem] md:rounded-[4rem] bg-primary relative overflow-hidden flex flex-col items-center text-center shadow-[0_40px_100px_-20px_rgba(43,139,235,0.4)] max-w-6xl w-full min-w-0 py-16 sm:py-24 px-5 sm:px-10 md:px-20">
+<div class="relative z-10 max-w-3xl w-full min-w-0 px-1">
+<div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] mb-10 font-headline">
                     <?php echo $cu('main_cta_badge', 'Your Smile Awaits'); ?>
                 </div>
-<h2 class="font-headline text-5xl font-extrabold text-white tracking-tighter leading-[0.85] md:text-6xl mb-8"><?php echo $cu('main_cta_title', 'Ready to rediscover your smile?'); ?></h2>
-<p class="text-white/70 text-xl md:text-2xl max-w-xl mx-auto leading-relaxed mb-10 font-body"><?php echo $cuMultiline('main_cta_subtext', 'Join thousands of happy patients who trust us with their oral health and aesthetic transformations.'); ?></p>
-<a href="<?php echo htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 'UTF-8'); ?>" class="inline-block bg-white text-primary px-16 py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-2xl active:scale-95 font-headline">
+<h2 class="font-headline text-[clamp(1.75rem,6vw,3.75rem)] sm:text-5xl font-extrabold text-white tracking-tighter leading-[1.05] md:text-6xl mb-8 break-words"><?php echo $cu('main_cta_title', 'Ready to rediscover your smile?'); ?></h2>
+<p class="text-white/70 text-base sm:text-lg md:text-xl lg:text-2xl max-w-xl w-full min-w-0 mx-auto leading-relaxed mb-10 font-body"><?php echo $cuMultiline('main_cta_subtext', 'Join thousands of happy patients who trust us with their oral health and aesthetic transformations.'); ?></p>
+<a href="<?php echo htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 'UTF-8'); ?>" class="inline-block bg-white text-primary px-8 sm:px-12 md:px-16 py-5 sm:py-6 rounded-full font-black text-xs sm:text-sm uppercase tracking-[0.15em] sm:tracking-[0.2em] hover:scale-105 transition-all shadow-2xl active:scale-95 font-headline max-w-full">
                     <?php echo $cu('main_cta_button', 'Book a Consultation'); ?>
                 </a>
 </div>
