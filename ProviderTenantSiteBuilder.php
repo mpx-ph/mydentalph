@@ -324,12 +324,10 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             flex: 0 0 auto;
             min-height: 0;
             box-sizing: border-box;
-            margin-left: auto;
-            margin-right: auto;
+            /* No margin:auto here — wider-than-parent + auto margins skews flex centering (preview drifted right). */
+            align-self: center;
             display: flex;
             flex-direction: column;
-            /* Horizontal first, then vertical — `top center` is invalid and broke centering while scaling. */
-            transform-origin: center top;
         }
         .preview-canvas-shell--desktop #sitePreviewFrame {
             flex: 1 1 auto;
@@ -1074,7 +1072,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         var H = previewCanvasScroll.clientHeight;
         if (W < 2 || H < 2) return;
         var scale = Math.min(1, W / 1280);
-        previewShell.style.transformOrigin = 'center top';
+        previewShell.style.transformOrigin = 'top center';
         if (scale >= 0.999) {
             previewShell.style.removeProperty('transform');
             previewShell.style.height = H + 'px';
