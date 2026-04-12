@@ -266,7 +266,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             box-shadow: 0 0 24px -4px rgba(43, 139, 235, 0.55);
             border-radius: 9999px;
         }
-        /* Desktop: 1280px logical width (iframe breakpoints) + JS scale-to-fit inside the panel (no horizontal scroll). */
+        /* Desktop: 1280px iframe width for real breakpoints; JS scales down to fit the panel (no sideways scroll). */
         .preview-canvas-scroll { max-width: 100%; overflow: hidden; -webkit-overflow-scrolling: touch; }
         .preview-scale-host {
             width: 100%;
@@ -279,26 +279,22 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             min-height: 0;
             align-self: stretch;
         }
-        .preview-desktop-stretch-wrap {
+        .preview-desktop-fit {
             overflow: hidden;
-            flex-shrink: 0;
-            max-width: 100%;
-            max-height: 100%;
-        }
-        .preview-desktop-scale-inner {
-            width: 1280px;
-            will-change: transform;
-        }
-        .preview-scale-host--mobile .preview-desktop-stretch-wrap,
-        .preview-scale-host--mobile .preview-desktop-scale-inner {
-            display: contents;
+            flex: 1 1 0;
+            min-width: 0;
+            min-height: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         .preview-canvas-shell { transition: transform 0.2s ease; }
         .preview-canvas-shell--desktop {
-            width: 100%;
-            max-width: none;
-            min-width: 0;
-            height: 100%;
+            width: 1280px;
+            max-width: 1280px;
+            min-width: 1280px;
+            flex: 1 1 0;
             min-height: 0;
             display: flex;
             flex-direction: column;
@@ -761,15 +757,13 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 </div>
 <div class="preview-canvas-scroll rounded-xl sm:rounded-2xl flex-1 flex flex-col min-h-0" id="previewCanvasScroll">
 <div class="preview-scale-host" id="previewScaleHost">
-<div class="preview-desktop-stretch-wrap" id="previewDesktopStretchWrap">
-<div class="preview-desktop-scale-inner" id="previewDesktopScaleInner">
+<div class="preview-desktop-fit" id="previewDesktopFit">
 <div class="overflow-hidden bg-white rounded-xl sm:rounded-2xl preview-canvas-shell preview-canvas-shell--desktop" id="previewCanvasShell">
 <?php if ($preview_urls['home'] !== ''): ?>
 <iframe title="Site preview" id="sitePreviewFrame" src="<?php echo htmlspecialchars($preview_urls['home'], ENT_QUOTES, 'UTF-8'); ?>"></iframe>
 <?php else: ?>
 <div class="w-full h-full min-h-[380px] flex items-center justify-center text-slate-500 text-sm font-medium p-8 text-center">Preview unavailable until your clinic slug is active.</div>
 <?php endif; ?>
-</div>
 </div>
 </div>
 </div>
@@ -1034,69 +1028,71 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 
     var previewShell = document.getElementById('previewCanvasShell');
     var previewScaleHost = document.getElementById('previewScaleHost');
-    var previewDesktopStretchWrap = document.getElementById('previewDesktopStretchWrap');
-    var previewDesktopScaleInner = document.getElementById('previewDesktopScaleInner');
+    var previewDesktopFit = document.getElementById('previewDesktopFit');
     var modeMobile = document.getElementById('previewModeMobile');
     var modeDesktop = document.getElementById('previewModeDesktop');
-    var DESKTOP_PREVIEW_WIDTH = 1280;
 
     /*
-     * Desktop: 1280px-wide iframe (correct breakpoints) scaled down with transform
-     * so the artboard fits the preview panel without horizontal scroll. Mobile uses
-     * aspect-ratio CSS only; clear legacy inline sizing on the shell when switching.
+     * Desktop: shell stays 1280px wide for correct breakpoints; when the preview
+     * column is narrower, scale down so the artboard fits on screen (centered).
+     * Mobile uses aspect-ratio CSS only — clear transforms / fit sizing.
      */
-    function updateDesktopPreviewFit() {
-        if (!previewShell || !previewScaleHost || !previewDesktopStretchWrap || !previewDesktopScaleInner) return;
+    function syncDesktopPreviewFit() {
+        if (!previewShell || !previewScaleHost || !previewDesktopFit) return;
         if (previewShell.classList.contains('preview-canvas-shell--mobile')) return;
-
-        previewScaleHost.classList.remove('preview-scale-host--mobile');
-
-        var hw = previewScaleHost.clientWidth;
-        var hh = previewScaleHost.clientHeight;
-        if (hw < 1 || hh < 1) return;
-
-        var s = Math.min(1, hw / DESKTOP_PREVIEW_WIDTH);
-        previewDesktopScaleInner.style.width = DESKTOP_PREVIEW_WIDTH + 'px';
-        previewDesktopScaleInner.style.height = hh + 'px';
-        previewDesktopScaleInner.style.transform = 'scale(' + s + ')';
-        previewDesktopScaleInner.style.transformOrigin = 'top left';
-        previewDesktopStretchWrap.style.width = (DESKTOP_PREVIEW_WIDTH * s) + 'px';
-        previewDesktopStretchWrap.style.height = (hh * s) + 'px';
+        var W = previewScaleHost.clientWidth;
+        var H = previewScaleHost.clientHeight;
+        if (W < 2 || H < 2) return;
+        var scale = Math.min(1, W / 1280);
+        previewShell.style.transformOrigin = 'top center';
+        if (scale >= 0.999) {
+            previewShell.style.removeProperty('transform');
+            previewShell.style.removeProperty('height');
+            previewDesktopFit.style.removeProperty('width');
+            previewDesktopFit.style.removeProperty('height');
+            previewDesktopFit.style.removeProperty('flex');
+        } else {
+            previewShell.style.transform = 'scale(' + scale + ')';
+            previewShell.style.height = H + 'px';
+            previewDesktopFit.style.flex = '0 0 auto';
+            previewDesktopFit.style.width = (1280 * scale) + 'px';
+            previewDesktopFit.style.height = (H * scale) + 'px';
+        }
     }
 
     function syncPreviewLayout() {
         if (!previewShell || !previewScaleHost) return;
         if (previewShell.classList.contains('preview-canvas-shell--mobile')) {
-            previewScaleHost.classList.add('preview-scale-host--mobile');
             previewShell.style.removeProperty('transform');
             previewShell.style.removeProperty('transform-origin');
             previewShell.style.removeProperty('height');
+            if (previewDesktopFit) {
+                previewDesktopFit.style.removeProperty('width');
+                previewDesktopFit.style.removeProperty('height');
+                previewDesktopFit.style.removeProperty('flex');
+            }
             previewScaleHost.style.removeProperty('min-height');
             previewScaleHost.style.removeProperty('height');
             previewScaleHost.style.removeProperty('max-height');
             previewScaleHost.style.removeProperty('overflow');
-            if (previewDesktopStretchWrap) {
-                previewDesktopStretchWrap.style.removeProperty('width');
-                previewDesktopStretchWrap.style.removeProperty('height');
-            }
-            if (previewDesktopScaleInner) {
-                previewDesktopScaleInner.style.removeProperty('width');
-                previewDesktopScaleInner.style.removeProperty('height');
-                previewDesktopScaleInner.style.removeProperty('transform');
-                previewDesktopScaleInner.style.removeProperty('transform-origin');
-            }
             return;
         }
-        previewScaleHost.classList.remove('preview-scale-host--mobile');
-        previewShell.style.removeProperty('height');
-        previewShell.style.removeProperty('transform');
-        previewShell.style.removeProperty('transform-origin');
         previewScaleHost.style.removeProperty('min-height');
         previewScaleHost.style.removeProperty('height');
         previewScaleHost.style.removeProperty('max-height');
         previewScaleHost.style.removeProperty('overflow');
-        updateDesktopPreviewFit();
+        syncDesktopPreviewFit();
     }
+
+    if (previewScaleHost && typeof ResizeObserver !== 'undefined') {
+        var previewLayoutRo = new ResizeObserver(function () {
+            syncPreviewLayout();
+        });
+        previewLayoutRo.observe(previewScaleHost);
+    }
+    window.addEventListener('resize', function () {
+        syncPreviewLayout();
+    });
 
     function setPreviewDeviceMode(mode) {
         if (!previewShell) return;
@@ -1118,25 +1114,15 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     if (modeDesktop) modeDesktop.addEventListener('click', function () { setPreviewDeviceMode('desktop'); });
 
     if (frame) frame.addEventListener('load', function () {
+        syncPreviewLayout();
         if (previewSelect && previewSelect.value === 'footer') {
             tryPreviewScrollToFooter();
             setTimeout(tryPreviewScrollToFooter, 200);
             setTimeout(tryPreviewScrollToFooter, 650);
         }
     });
-    /* Initial layout + refit when the preview pane is resized. */
-    requestAnimationFrame(function () {
-        syncPreviewLayout();
-        requestAnimationFrame(syncPreviewLayout);
-    });
-    if (previewScaleHost && typeof ResizeObserver !== 'undefined') {
-        var previewHostRo = new ResizeObserver(function () {
-            if (previewShell && previewShell.classList.contains('preview-canvas-shell--desktop')) {
-                updateDesktopPreviewFit();
-            }
-        });
-        previewHostRo.observe(previewScaleHost);
-    }
+    /* One-time strip of legacy inline preview sizing (no measurement). */
+    requestAnimationFrame(syncPreviewLayout);
 
     (function teamMembersEditor() {
         var teamRoot = document.getElementById('teamMembersEditor');
