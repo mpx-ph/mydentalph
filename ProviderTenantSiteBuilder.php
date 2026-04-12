@@ -267,7 +267,13 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             border-radius: 9999px;
         }
         /* Desktop: 1280px iframe width for real breakpoints; JS scales down to fit the panel (no sideways scroll). */
-        .preview-canvas-scroll { max-width: 100%; overflow: hidden; -webkit-overflow-scrolling: touch; }
+        .preview-canvas-scroll {
+            max-width: 100%;
+            overflow: hidden;
+            -webkit-overflow-scrolling: touch;
+            min-height: 0;
+            height: 100%;
+        }
         .preview-scale-host {
             width: 100%;
             min-width: 0;
@@ -740,8 +746,8 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 </div>
 </div>
 
-<div class="xl:col-span-7 flex flex-col min-h-0 w-full min-h-[60vh] xl:min-h-[calc(100dvh-6rem)] xl:h-[calc(100dvh-6rem)] xl:max-h-[calc(100dvh-6rem)] xl:shrink-0">
-<div class="preview-frame-wrap rounded-[2rem] bg-slate-900/90 p-3 sm:p-4 border border-slate-800 flex flex-col flex-1 min-h-0 h-full" id="previewFrameWrap">
+<div class="xl:col-span-7 flex flex-col min-h-0 w-full self-stretch min-h-[60vh] xl:min-h-[calc(100dvh-6rem)] xl:h-[calc(100dvh-6rem)] xl:max-h-[calc(100dvh-6rem)] xl:shrink-0">
+<div class="preview-frame-wrap rounded-[2rem] bg-slate-900/90 p-3 sm:p-4 border border-slate-800 grid flex-1 min-h-0 h-full grid-rows-[auto_auto_minmax(0,1fr)]" id="previewFrameWrap">
 <div class="flex items-center gap-2 px-3 py-2 mb-2">
 <span class="h-3 w-3 rounded-full bg-red-400/90"></span>
 <span class="h-3 w-3 rounded-full bg-amber-400/90"></span>
@@ -758,7 +764,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 </button>
 </div>
 </div>
-<div class="preview-canvas-scroll rounded-xl sm:rounded-2xl flex-1 flex flex-col min-h-0" id="previewCanvasScroll">
+<div class="preview-canvas-scroll rounded-xl sm:rounded-2xl min-h-0 h-full w-full flex flex-col" id="previewCanvasScroll">
 <div class="preview-scale-host" id="previewScaleHost">
 <div class="preview-desktop-fit" id="previewDesktopFit">
 <div class="overflow-hidden bg-white rounded-xl sm:rounded-2xl preview-canvas-shell preview-canvas-shell--desktop" id="previewCanvasShell">
@@ -1096,6 +1102,9 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         if (previewCanvasScroll) previewLayoutRo.observe(previewCanvasScroll);
     }
     window.addEventListener('resize', function () {
+        syncPreviewLayout();
+    });
+    window.addEventListener('load', function () {
         syncPreviewLayout();
     });
 
