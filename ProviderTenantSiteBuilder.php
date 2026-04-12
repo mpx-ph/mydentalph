@@ -757,15 +757,40 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     var saveIconBusy = document.getElementById('saveIconBusy');
     var debounceTimer = null;
 
-    function setPreviewUrl(page) {
-        var u = previewUrls[page] || '';
-        if (urlBar) urlBar.textContent = u || '—';
-        if (!frame || !u) return;
-        frame.src = u + (u.indexOf('?') >= 0 ? '&' : '?') + 'cb=' + Date.now();
+    function previewKeyFromUrl(u) {
+        if (!u) return '';
+        try {
+            var x = new URL(u, window.location.href);
+            x.searchParams.delete('cb');
+            x.hash = '';
+            var path = x.pathname.replace(/\/+$/, '') || '/';
+            return x.origin + path + x.search;
+        } catch (e) {
+            return '';
+        }
     }
 
-    function tryScrollPreviewToFooter() {
-        if (!frame || !previewSelect || previewSelect.value !== 'footer') return;
+    function targetUrlForPreviewPage(page) {
+        if (page === 'footer') {
+            return previewUrls.home || previewUrls.footer || '';
+        }
+        return previewUrls[page] || '';
+    }
+
+    function withCacheBust(u) {
+        return u + (u.indexOf('?') >= 0 ? '&' : '?') + 'cb=' + Date.now();
+    }
+
+    function canAccessPreviewFrameDoc() {
+        try {
+            return !!(frame && frame.contentDocument);
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function tryPreviewScrollToFooter() {
+        if (!frame) return;
         try {
             var doc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
             if (!doc) return;
@@ -776,6 +801,71 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         } catch (e) {
             /* cross-origin preview */
         }
+    }
+
+    function tryPreviewScrollToTop() {
+        if (!frame) return;
+        try {
+            var w = frame.contentWindow;
+            var d = frame.contentDocument;
+            if (w) {
+                w.scrollTo(0, 0);
+            }
+            if (d) {
+                if (d.documentElement) d.documentElement.scrollTop = 0;
+                if (d.body) d.body.scrollTop = 0;
+            }
+        } catch (e) {
+            /* cross-origin preview */
+        }
+    }
+
+    /**
+     * @param {string} page
+     * @param {boolean} forceReload bust cache / full navigation (e.g. after save or Refresh)
+     */
+    function applyPreviewNavigation(page, forceReload) {
+        forceReload = !!forceReload;
+        var target = targetUrlForPreviewPage(page);
+        var bar = previewUrls[page] || target;
+        if (urlBar) urlBar.textContent = bar || '—';
+        if (!frame || !target) return;
+
+        var curKey = previewKeyFromUrl(frame.src || '');
+        var nextKey = previewKeyFromUrl(target);
+        var sameDoc = !forceReload && curKey !== '' && curKey === nextKey;
+
+        /* Footer uses the same document as Home — scroll instead of reloading so the preview slot stays stable. */
+        if (page === 'footer' && sameDoc) {
+            if (canAccessPreviewFrameDoc()) {
+                tryPreviewScrollToFooter();
+                setTimeout(tryPreviewScrollToFooter, 150);
+                setTimeout(tryPreviewScrollToFooter, 500);
+                schedulePreviewFit();
+                return;
+            }
+            frame.src = withCacheBust(target) + '#clinic-site-footer';
+            schedulePreviewFit();
+            return;
+        }
+
+        if (page === 'home' && sameDoc) {
+            if (canAccessPreviewFrameDoc()) {
+                tryPreviewScrollToTop();
+                schedulePreviewFit();
+                return;
+            }
+            frame.src = withCacheBust(target);
+            schedulePreviewFit();
+            return;
+        }
+
+        var url = withCacheBust(target);
+        if (page === 'footer') {
+            url += '#clinic-site-footer';
+        }
+        frame.src = url;
+        schedulePreviewFit();
     }
 
     function setSaveState(state) {
@@ -847,7 +937,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
                             if (typeof window.sbRenderTeamMembers === 'function') window.sbRenderTeamMembers();
                         }
                     }
-                    if (frame && previewSelect) setPreviewUrl(previewSelect.value);
+                    if (frame && previewSelect) applyPreviewNavigation(previewSelect.value, true);
                 } else {
                     setSaveState('error');
                 }
@@ -897,34 +987,18 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 
     if (previewSelect) {
         previewSelect.addEventListener('change', function () {
-            /* Reflow sidebar (footer block) before measuring preview slot. */
             applyPreviewPageFieldScope(previewSelect.value);
-            if (previewScaleHost) {
-                previewScaleHost.style.removeProperty('height');
-                previewScaleHost.style.removeProperty('max-height');
-                previewScaleHost.style.removeProperty('overflow');
-            }
-            if (previewShell && previewShell.classList.contains('preview-canvas-shell--desktop')) {
-                previewShell.style.transition = 'none';
-            }
-            setPreviewUrl(previewSelect.value);
-            schedulePreviewFit();
+            applyPreviewNavigation(previewSelect.value, false);
             requestAnimationFrame(function () {
-                requestAnimationFrame(function () {
-                    syncDesktopPreviewFit();
-                    if (previewShell && previewShell.classList.contains('preview-canvas-shell--desktop')) {
-                        previewShell.style.removeProperty('transition');
-                    }
-                });
+                requestAnimationFrame(syncDesktopPreviewFit);
             });
-            setTimeout(syncDesktopPreviewFit, 200);
         });
-        setPreviewUrl(previewSelect.value);
         applyPreviewPageFieldScope(previewSelect.value);
+        applyPreviewNavigation(previewSelect.value, false);
     }
 
     function refreshPreview() {
-        if (previewSelect) setPreviewUrl(previewSelect.value);
+        if (previewSelect) applyPreviewNavigation(previewSelect.value, true);
     }
 
     var btnRef = document.getElementById('btnRefreshPreview');
@@ -1000,11 +1074,12 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     window.addEventListener('resize', schedulePreviewFit);
     if (frame) frame.addEventListener('load', function () {
         syncDesktopPreviewFit();
-        setTimeout(syncDesktopPreviewFit, 50);
-        setTimeout(syncDesktopPreviewFit, 280);
-        tryScrollPreviewToFooter();
-        setTimeout(tryScrollPreviewToFooter, 400);
-        setTimeout(tryScrollPreviewToFooter, 1200);
+        setTimeout(syncDesktopPreviewFit, 80);
+        if (previewSelect && previewSelect.value === 'footer') {
+            tryPreviewScrollToFooter();
+            setTimeout(tryPreviewScrollToFooter, 200);
+            setTimeout(tryPreviewScrollToFooter, 650);
+        }
     });
     requestAnimationFrame(function () {
         syncDesktopPreviewFit();
