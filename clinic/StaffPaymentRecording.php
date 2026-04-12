@@ -1811,15 +1811,6 @@ try {
 </button>
 </div>
 <form class="space-y-10" method="post">
-<div class="pb-2 border-b border-slate-100/80">
-<p class="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-3 ml-1">List filter (when choosing appointment)</p>
-<div class="txn-type-toggle-track mb-0 max-w-lg" data-active="regular" id="main-record-type-toggle" role="group" aria-label="Filter booking list by type">
-<span class="txn-type-toggle-pill" aria-hidden="true"></span>
-<button type="button" class="txn-type-toggle-btn" data-txn-type="regular" id="main-type-regular-btn" aria-pressed="true">Regular Services</button>
-<button type="button" class="txn-type-toggle-btn" data-txn-type="installment" id="main-type-installment-btn" aria-pressed="false">Installment Plans</button>
-</div>
-<p class="text-[11px] font-semibold text-slate-500 mt-2 ml-1">Opens the picker showing only that category. You can switch anytime.</p>
-</div>
 <div class="space-y-3">
 <label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Patient Identification</label>
 <div class="relative group">
@@ -2032,9 +2023,6 @@ This booking is installment-priced, but no installment schedule rows exist in th
         const recordPaymentStatusPanel = document.getElementById('record-payment-status-panel');
         const installmentAdvancedOptions = document.getElementById('installment-advanced-options');
         const installmentFlagOnlyNote = document.getElementById('installment-flag-only-note');
-        const mainRecordTypeToggle = document.getElementById('main-record-type-toggle');
-        const mainTypeRegularBtn = document.getElementById('main-type-regular-btn');
-        const mainTypeInstallmentBtn = document.getElementById('main-type-installment-btn');
         const installmentFlowInput = document.getElementById('installment_flow_input');
         const installmentPayModeInput = document.getElementById('installment_pay_mode_input');
         const installmentSlotCountInput = document.getElementById('installment_slot_count_input');
@@ -2088,15 +2076,6 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
             if (transactionTypeInstallmentBtn) {
                 transactionTypeInstallmentBtn.setAttribute('aria-pressed', m === 'installment' ? 'true' : 'false');
-            }
-            if (mainRecordTypeToggle) {
-                mainRecordTypeToggle.setAttribute('data-active', m);
-            }
-            if (mainTypeRegularBtn) {
-                mainTypeRegularBtn.setAttribute('aria-pressed', m === 'regular' ? 'true' : 'false');
-            }
-            if (mainTypeInstallmentBtn) {
-                mainTypeInstallmentBtn.setAttribute('aria-pressed', m === 'installment' ? 'true' : 'false');
             }
         }
 
@@ -2522,12 +2501,6 @@ This booking is installment-priced, but no installment schedule rows exist in th
         }
         if (transactionTypeInstallmentBtn) {
             transactionTypeInstallmentBtn.addEventListener('click', () => setTransactionTypeFilter('installment'));
-        }
-        if (mainTypeRegularBtn) {
-            mainTypeRegularBtn.addEventListener('click', () => setTransactionTypeFilter('regular'));
-        }
-        if (mainTypeInstallmentBtn) {
-            mainTypeInstallmentBtn.addEventListener('click', () => setTransactionTypeFilter('installment'));
         }
         if (selectorList) {
             selectorList.addEventListener('click', (event) => {
