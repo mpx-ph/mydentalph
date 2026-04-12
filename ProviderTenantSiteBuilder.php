@@ -857,7 +857,6 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
                 tryPreviewScrollToFooter();
                 setTimeout(tryPreviewScrollToFooter, 150);
                 setTimeout(tryPreviewScrollToFooter, 500);
-                schedulePreviewFit();
                 return;
             }
             frame.src = withCacheBust(target) + '#clinic-site-footer';
@@ -1020,6 +1019,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 
     var previewShell = document.getElementById('previewCanvasShell');
     var previewScaleHost = document.getElementById('previewScaleHost');
+    var previewCanvasScroll = document.getElementById('previewCanvasScroll');
     var previewFrameWrap = document.getElementById('previewFrameWrap');
     var modeMobile = document.getElementById('previewModeMobile');
     var modeDesktop = document.getElementById('previewModeDesktop');
@@ -1038,7 +1038,18 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             previewScaleHost.style.removeProperty('overflow');
             return;
         }
-        var cw = previewScaleHost.clientWidth;
+        /*
+         * Footer (site-wide): same document as Home — only scroll inside the iframe. Do not re-run
+         * scale math while footer is selected (avoids narrow strip / wrong s from a shrunk scale host).
+         */
+        if (previewSelect && previewSelect.value === 'footer') {
+            if (previewShell.style.height && previewShell.style.transform) {
+                return;
+            }
+        }
+        var cwHost = previewScaleHost.clientWidth;
+        var cwScroll = previewCanvasScroll ? previewCanvasScroll.clientWidth : 0;
+        var cw = Math.max(cwHost, cwScroll);
         if (cw <= 0) return;
         var ch = Math.round(previewScaleHost.getBoundingClientRect().height);
         if (ch < 120 && previewFrameWrap) {
@@ -1079,8 +1090,8 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     if (modeMobile) modeMobile.addEventListener('click', function () { setPreviewDeviceMode('mobile'); });
     if (modeDesktop) modeDesktop.addEventListener('click', function () { setPreviewDeviceMode('desktop'); });
 
-    if (previewScaleHost && typeof ResizeObserver !== 'undefined') {
-        new ResizeObserver(schedulePreviewFit).observe(previewScaleHost);
+    if (previewCanvasScroll && typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(schedulePreviewFit).observe(previewCanvasScroll);
     }
     window.addEventListener('resize', schedulePreviewFit);
 
