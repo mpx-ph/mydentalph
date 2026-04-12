@@ -8,11 +8,36 @@ require_once __DIR__ . '/tenant_bootstrap.php';
 require_once __DIR__ . '/includes/clinic_customization.php';
 require_once __DIR__ . '/includes/header.php';
 $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars($CLINIC[$k], ENT_QUOTES, 'UTF-8') : ''; };
-$clinicNamePlain = trim((string) ($CLINIC['clinic_name'] ?? ''));
-$cuClinic = function (string $k) use ($CLINIC, $clinicNamePlain): string {
-    $raw = isset($CLINIC[$k]) ? (string) $CLINIC[$k] : '';
-    $out = str_replace('{clinic_name}', $clinicNamePlain, $raw);
-    return htmlspecialchars($out, ENT_QUOTES, 'UTF-8');
+if (!function_exists('clinic_about_interpolate')) {
+    /**
+     * Replace {{clinic_name}}, {{lead_dentist}}, {{associate_dentist}} in About Us copy.
+     * Uses tenant customization; falls back to neutral phrases when names are unset.
+     */
+    function clinic_about_interpolate(string $text, array $clinic): string
+    {
+        $cn = trim((string) ($clinic['clinic_name'] ?? ''));
+        if ($cn === '') {
+            $cn = 'our clinic';
+        }
+        $lead = trim((string) ($clinic['about_team_doctor1_name'] ?? ''));
+        if ($lead === '') {
+            $lead = 'our lead dentist';
+        }
+        $assoc = trim((string) ($clinic['about_team_doctor2_name'] ?? ''));
+        if ($assoc === '') {
+            $assoc = 'our associate dentist';
+        }
+        return str_replace(
+            ['{{clinic_name}}', '{{lead_dentist}}', '{{associate_dentist}}'],
+            [$cn, $lead, $assoc],
+            $text
+        );
+    }
+}
+/** @var callable(string): string */
+$aboutTxt = function (string $key) use ($CLINIC): string {
+    $raw = isset($CLINIC[$key]) ? (string) $CLINIC[$key] : '';
+    return htmlspecialchars(clinic_about_interpolate($raw, $CLINIC), ENT_QUOTES, 'UTF-8');
 };
 $cuImg = function($k) use ($CLINIC) {
     $v = isset($CLINIC[$k]) ? trim($CLINIC[$k]) : '';
@@ -70,7 +95,7 @@ $aboutIntroHeadingBefore = trim(implode(' ', $aboutIntroHeadingParts));
                     </span>
 </h1>
 <p class="font-body text-xl max-w-2xl mx-auto mb-12 leading-relaxed text-slate-600 dark:text-slate-400 font-medium">
-                    <?php echo $cuClinic('about_intro_text'); ?>
+                    <?php echo $aboutTxt('about_intro_text'); ?>
                 </p>
 </div>
 <div class="absolute inset-0 z-0 opacity-20 pointer-events-none">
@@ -92,27 +117,27 @@ $aboutIntroHeadingBefore = trim(implode(' ', $aboutIntroHeadingParts));
 <?php endif; ?>
 </div>
 <div class="absolute -bottom-10 -right-10 bg-white dark:bg-slate-800 p-10 rounded-3xl max-w-sm shadow-2xl border border-slate-200/50 dark:border-slate-700 hidden md:block">
-<p class="font-headline font-extrabold text-primary text-2xl mb-3"><?php echo $cu('about_trusted_title'); ?></p>
-<p class="text-slate-600 dark:text-slate-400 font-medium italic font-body"><?php echo $cu('about_trusted_text'); ?></p>
+<p class="font-headline font-extrabold text-primary text-2xl mb-3"><?php echo $aboutTxt('about_trusted_title'); ?></p>
+<p class="text-slate-600 dark:text-slate-400 font-medium italic font-body"><?php echo $aboutTxt('about_trusted_text'); ?></p>
 </div>
 </div>
 <div class="space-y-10">
 <div>
 <div class="text-primary font-bold text-xs uppercase mb-6 flex gap-4 tracking-[0.3em] items-center font-headline">
-<span class="w-12 h-[1.5px] bg-primary"></span> <?php echo $cuClinic('about_why_heading'); ?>
+<span class="w-12 h-[1.5px] bg-primary"></span> <?php echo $aboutTxt('about_why_heading'); ?>
                             </div>
-<h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter leading-[0.9] text-slate-900 dark:text-white mb-8"><?php echo $cu('about_philosophy_title_before'); ?> <br/> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $cu('about_philosophy_title_accent'); ?></span></h2>
+<h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter leading-[0.9] text-slate-900 dark:text-white mb-8"><?php echo $aboutTxt('about_philosophy_title_before'); ?> <br/> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $aboutTxt('about_philosophy_title_accent'); ?></span></h2>
 </div>
 <p class="text-slate-600 dark:text-slate-400 text-xl leading-relaxed font-medium font-body">
-                            <?php echo $cu('about_philosophy_para1'); ?>
+                            <?php echo $aboutTxt('about_philosophy_para1'); ?>
                         </p>
 <p class="text-slate-600 dark:text-slate-400 text-xl leading-relaxed font-medium font-body">
-                            <?php echo $cu('about_philosophy_para2'); ?>
+                            <?php echo $aboutTxt('about_philosophy_para2'); ?>
                         </p>
 <div class="pt-6">
 <a href="<?php echo $servicesHref; ?>" class="group relative px-10 py-5 bg-primary/10 dark:bg-slate-800 text-primary font-bold rounded-full overflow-hidden transition-all hover:bg-primary hover:text-white active:scale-95 inline-flex items-center font-headline">
 <span class="relative z-10 flex items-center gap-3">
-                                    <?php echo $cu('about_philosophy_services_cta'); ?>
+                                    <?php echo $aboutTxt('about_philosophy_services_cta'); ?>
                                     <span class="material-symbols-outlined text-xl">arrow_right_alt</span>
 </span>
 </a>
@@ -125,30 +150,30 @@ $aboutIntroHeadingBefore = trim(implode(' ', $aboutIntroHeadingParts));
 <section class="py-32 bg-slate-50/80 dark:bg-slate-900/50 reveal" data-reveal="section">
 <div class="max-w-[1800px] mx-auto px-10">
 <div class="flex flex-col items-center text-center mb-20">
-<h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white mb-6"><?php echo $cu('about_clinical_title_before'); ?> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $cu('about_clinical_title_accent'); ?></span></h2>
-<p class="text-slate-600 dark:text-slate-400 text-xl font-medium max-w-2xl font-body"><?php echo $cu('about_clinical_standards_subtext'); ?></p>
+<h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white mb-6"><?php echo $aboutTxt('about_clinical_title_before'); ?> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $aboutTxt('about_clinical_title_accent'); ?></span></h2>
+<p class="text-slate-600 dark:text-slate-400 text-xl font-medium max-w-2xl font-body"><?php echo $aboutTxt('about_clinical_standards_subtext'); ?></p>
 </div>
 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
 <div class="group relative overflow-hidden bg-white dark:bg-slate-800 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 transition-all duration-700 hover:bg-primary hover:border-primary/20 hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.3)]">
 <div class="w-16 h-16 bg-primary/10 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-10 text-primary border border-transparent transition-all duration-500 group-hover:scale-110 group-hover:bg-white/10 group-hover:backdrop-blur-md group-hover:text-white group-hover:border-white/20">
 <span class="material-symbols-outlined text-3xl">biotech</span>
 </div>
-<h4 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white transition-colors duration-500 group-hover:text-white"><?php echo $cu('about_why_1_title'); ?></h4>
-<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium font-body transition-colors duration-500 group-hover:text-white/80"><?php echo $cu('about_why_1_text'); ?></p>
+<h4 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white transition-colors duration-500 group-hover:text-white"><?php echo $aboutTxt('about_why_1_title'); ?></h4>
+<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium font-body transition-colors duration-500 group-hover:text-white/80"><?php echo $aboutTxt('about_why_1_text'); ?></p>
 </div>
 <div class="group relative overflow-hidden bg-white dark:bg-slate-800 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 transition-all duration-700 hover:bg-primary hover:border-primary/20 hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.3)]">
 <div class="w-16 h-16 bg-primary/10 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-10 text-primary border border-transparent transition-all duration-500 group-hover:scale-110 group-hover:bg-white/10 group-hover:backdrop-blur-md group-hover:text-white group-hover:border-white/20">
 <span class="material-symbols-outlined text-3xl">precision_manufacturing</span>
 </div>
-<h4 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white transition-colors duration-500 group-hover:text-white"><?php echo $cu('about_why_2_title'); ?></h4>
-<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium font-body transition-colors duration-500 group-hover:text-white/80"><?php echo $cu('about_why_2_text'); ?></p>
+<h4 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white transition-colors duration-500 group-hover:text-white"><?php echo $aboutTxt('about_why_2_title'); ?></h4>
+<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium font-body transition-colors duration-500 group-hover:text-white/80"><?php echo $aboutTxt('about_why_2_text'); ?></p>
 </div>
 <div class="group relative overflow-hidden bg-white dark:bg-slate-800 p-12 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 transition-all duration-700 hover:bg-primary hover:border-primary/20 hover:shadow-[0_40px_80px_-20px_rgba(43,139,235,0.3)]">
 <div class="w-16 h-16 bg-primary/10 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-10 text-primary border border-transparent transition-all duration-500 group-hover:scale-110 group-hover:bg-white/10 group-hover:backdrop-blur-md group-hover:text-white group-hover:border-white/20">
 <span class="material-symbols-outlined text-3xl">verified_user</span>
 </div>
-<h4 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white transition-colors duration-500 group-hover:text-white"><?php echo $cu('about_why_3_title'); ?></h4>
-<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium font-body transition-colors duration-500 group-hover:text-white/80"><?php echo $cu('about_why_3_text'); ?></p>
+<h4 class="font-headline text-3xl font-extrabold mb-6 tracking-tight text-slate-900 dark:text-white transition-colors duration-500 group-hover:text-white"><?php echo $aboutTxt('about_why_3_title'); ?></h4>
+<p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium font-body transition-colors duration-500 group-hover:text-white/80"><?php echo $aboutTxt('about_why_3_text'); ?></p>
 </div>
 </div>
 </div>
@@ -157,8 +182,8 @@ $aboutIntroHeadingBefore = trim(implode(' ', $aboutIntroHeadingParts));
 <section class="py-32 bg-white/90 dark:bg-slate-950 reveal" data-reveal="section">
 <div class="max-w-[1800px] mx-auto px-10">
 <div class="flex flex-col items-center text-center mb-20 gap-8">
-<h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white mb-6"><?php echo $cu('about_team_title_before'); ?> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $cu('about_team_title_accent'); ?></span></h2>
-<p class="text-slate-600 dark:text-slate-400 text-2xl font-medium font-body"><?php echo $cu('about_team_subtitle'); ?></p>
+<h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white mb-6"><?php echo $aboutTxt('about_team_title_before'); ?> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $aboutTxt('about_team_title_accent'); ?></span></h2>
+<p class="text-slate-600 dark:text-slate-400 text-2xl font-medium font-body"><?php echo $aboutTxt('about_team_subtitle'); ?></p>
 </div>
 <div class="grid grid-cols-1 md:grid-cols-2 <?php echo trim($CLINIC['about_team_doctor3_name'] ?? '') !== '' ? 'lg:grid-cols-3' : 'lg:grid-cols-2'; ?> gap-10">
 <?php
@@ -173,19 +198,30 @@ foreach ($teamCards as $keys) {
     list($tk, $nk, $bk, $ik, $tagk) = $keys;
     $imgUrl = $cuImg($ik);
     $tags = array_filter(array_map('trim', explode(',', $CLINIC[$tagk] ?? '')));
+    $nameRaw = trim((string) ($CLINIC[$nk] ?? ''));
+    if ($nameRaw === '') {
+        if ($nk === 'about_team_doctor1_name') {
+            $nameRaw = 'Lead dentist';
+        } elseif ($nk === 'about_team_doctor2_name') {
+            $nameRaw = 'Associate dentist';
+        } else {
+            $nameRaw = 'Team member';
+        }
+    }
+    $nameHtml = htmlspecialchars($nameRaw, ENT_QUOTES, 'UTF-8');
     ?>
 <div class="group bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 transition-all duration-500 hover:shadow-2xl">
 <div class="rounded-3xl overflow-hidden h-[450px] mb-8 bg-slate-100 dark:bg-slate-700">
 <?php if ($imgUrl !== ''): ?>
-<img alt="<?php echo $cu($nk); ?>" class="w-full h-full object-cover grayscale transition-all duration-700 group-hover:grayscale-0 group-hover:scale-105" src="<?php echo htmlspecialchars($imgUrl, ENT_QUOTES, 'UTF-8'); ?>"/>
+<img alt="<?php echo $nameHtml; ?>" class="w-full h-full object-cover grayscale transition-all duration-700 group-hover:grayscale-0 group-hover:scale-105" src="<?php echo htmlspecialchars($imgUrl, ENT_QUOTES, 'UTF-8'); ?>"/>
 <?php else: ?>
 <div class="w-full h-full flex items-center justify-center text-slate-400"><span class="material-symbols-outlined text-6xl">person</span></div>
 <?php endif; ?>
 </div>
 <div class="px-4 pb-4">
 <p class="text-primary font-bold text-xs uppercase tracking-[0.3em] mb-4 font-headline"><?php echo $cu($tk); ?></p>
-<h4 class="font-headline text-3xl font-extrabold mb-4 text-slate-900 dark:text-white"><?php echo $cu($nk); ?></h4>
-<p class="text-slate-600 dark:text-slate-400 text-lg font-medium mb-8 font-body"><?php echo $cu($bk); ?></p>
+<h4 class="font-headline text-3xl font-extrabold mb-4 text-slate-900 dark:text-white"><?php echo $nameHtml; ?></h4>
+<p class="text-slate-600 dark:text-slate-400 text-lg font-medium mb-8 font-body"><?php echo $aboutTxt($bk); ?></p>
 <?php if ($tags): ?>
 <div class="flex flex-wrap gap-2">
 <?php foreach ($tags as $tag): ?>
@@ -204,16 +240,16 @@ foreach ($teamCards as $keys) {
 <div class="mx-auto rounded-[4rem] bg-primary relative overflow-hidden flex flex-col items-center text-center shadow-[0_40px_100px_-20px_rgba(43,139,235,0.4)] max-w-6xl py-24 px-10 md:px-20">
 <div class="relative z-10 max-w-3xl">
 <div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-10 font-headline">
-                        <?php echo $cu('about_cta_badge'); ?>
+                        <?php echo $aboutTxt('about_cta_badge'); ?>
                     </div>
-<h2 class="font-headline text-5xl font-extrabold text-white tracking-tighter leading-[0.85] md:text-6xl mb-8"><?php echo $cu('about_cta_heading'); ?></h2>
-<p class="text-white/70 text-xl md:text-2xl max-w-xl mx-auto leading-relaxed mb-10 font-body"><?php echo $cu('about_cta_subtext'); ?></p>
+<h2 class="font-headline text-5xl font-extrabold text-white tracking-tighter leading-[0.85] md:text-6xl mb-8"><?php echo $aboutTxt('about_cta_heading'); ?></h2>
+<p class="text-white/70 text-xl md:text-2xl max-w-xl mx-auto leading-relaxed mb-10 font-body"><?php echo $aboutTxt('about_cta_subtext'); ?></p>
 <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
 <a href="<?php echo htmlspecialchars(BASE_URL . 'BookAppointmentClient.php', ENT_QUOTES, 'UTF-8'); ?>" class="inline-block bg-white text-primary px-16 py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-2xl active:scale-95 font-headline">
-                        <?php echo $cu('about_cta_book_text'); ?>
+                        <?php echo $aboutTxt('about_cta_book_text'); ?>
                     </a>
 <a href="<?php echo $contactHref; ?>" class="inline-block border-2 border-white/40 text-white px-16 py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:bg-white/10 transition-all font-headline">
-                        <?php echo $cu('about_cta_contact_text'); ?>
+                        <?php echo $aboutTxt('about_cta_contact_text'); ?>
                     </a>
 </div>
 </div>

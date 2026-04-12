@@ -5,7 +5,7 @@
  */
 return [
     // General / Logos
-    'clinic_name' => 'Dr. Romarico C. Gonzales Dental Clinic',
+    'clinic_name' => 'Dental Clinic',
     'logo' => 'DRCGLogo.png',           // Footer, admin login, admin create account
     'logo_nav' => 'DRCGLogo2.png',     // Client nav, admin sidebar & header
     'logo_register' => 'DRCGLogo.png', // Register page only
@@ -65,7 +65,7 @@ return [
     'main_facility_images' => '', // JSON array of {url, caption}
     // About Us
     'about_intro_heading' => 'About Us',
-    'about_intro_text' => 'At {clinic_name}, we blend advanced technology with compassionate care. Our mission is to create healthy, confident smiles in a clean, professional, and relaxing environment.',
+    'about_intro_text' => 'At {{clinic_name}}, we blend advanced technology with compassionate care. Our mission is to create healthy, confident smiles in a clean, professional, and relaxing environment.',
     'about_hero_image' => 'Clinic2.jpg',
     'about_hero_caption_title' => 'State-of-the-art Facility',
     'about_hero_caption_text' => 'Designed for your comfort and safety with the latest dental technology.',
@@ -73,12 +73,12 @@ return [
     'about_trusted_text' => 'Over 2,000 happy smiles created with personalized treatment plans.',
     'about_years_number' => '45+',
     'about_years_text' => 'Years of Experience serving the community',
-    'about_why_heading' => 'Why Choose {clinic_name}?',
+    'about_why_heading' => 'Why Choose {{clinic_name}}?',
     'about_why_subtext' => 'Our patient-centered philosophy sets the standard for dental care.',
     'about_philosophy_title_before' => 'Our',
     'about_philosophy_title_accent' => 'Philosophy',
-    'about_philosophy_para1' => 'With over 20 years of clinical excellence, Dr. Gonzales specializes in complex restorative procedures. He combines artistic vision with medical precision to restore function and aesthetics.',
-    'about_philosophy_para2' => 'Dr. Anna is renowned for her gentle approach with children and anxious patients. Her expertise in orthodontics helps patients of all ages achieve perfectly aligned, confident smiles.',
+    'about_philosophy_para1' => 'With years of clinical excellence, {{lead_dentist}} specializes in complex restorative procedures. They combine artistic vision with medical precision to restore function and aesthetics.',
+    'about_philosophy_para2' => '{{associate_dentist}} is renowned for their gentle approach with children and anxious patients. Their expertise in orthodontics helps patients of all ages achieve perfectly aligned, confident smiles.',
     'about_philosophy_services_cta' => 'Explore our services',
     'about_why_1_title' => 'Gentle & Painless',
     'about_why_1_text' => 'We prioritize your comfort using advanced anesthetics and minimally invasive techniques to ensure a stress-free experience.',
@@ -89,15 +89,15 @@ return [
     'about_clinical_title_before' => 'Clinical',
     'about_clinical_title_accent' => 'Standards',
     'about_clinical_standards_subtext' => 'Our patient-centered philosophy sets the standard for dental care.',
-    'about_team_doctor1_name' => 'Dr. Romarico C. Gonzales',
+    'about_team_doctor1_name' => '',
     'about_team_doctor1_title' => 'Chief Dentist / Prosthodontist',
     'about_team_doctor1_image' => 'https://lh3.googleusercontent.com/aida-public/AB6AXuC61FPKmLLjdEd-JGu-FaDrDBqIu4jx862TB5XORXp_-jQcdzvFoZKD5ZacTgEFghcnhuHLwF4izE6cRYn2sv27PDTe8vKgLjqRwlHe3XcpvSLx7RCB-K46kXjUAAQ-NFgvDtrVeGZDhKXMj02YYolC5lxkJty40sVD8eCM1abdFFnn-OMDNE6mJBbd0OaUVj_9ozkSSxQg4z1yqRv_B-GOxYZvyKAdihO7pgMEOAyDR015Mc9fMj53j6lNT4FKM1_SWI5dXYDuIik',
-    'about_team_doctor1_bio' => 'With over 20 years of clinical excellence, Dr. Gonzales specializes in complex restorative procedures. He combines artistic vision with medical precision to restore function and aesthetics.',
+    'about_team_doctor1_bio' => 'With years of clinical excellence, {{lead_dentist}} specializes in complex restorative procedures. They combine artistic vision with medical precision to restore function and aesthetics.',
     'about_team_doctor1_tags' => 'Prosthodontics, Implants',
-    'about_team_doctor2_name' => 'Dr. Anna Isabel Gonzales',
+    'about_team_doctor2_name' => '',
     'about_team_doctor2_title' => 'Pediatric & Orthodontic Specialist',
     'about_team_doctor2_image' => 'https://lh3.googleusercontent.com/aida-public/AB6AXuAkpcSt3k-gpDeQrVe8UhKoH12sxTHvt8_bkraA_SXKe67CDTOfmegW9wjavtwM7afTuYuKcZK_IUzW0ip8Nt3Dx5g-cTTfIxf-RCowrPNulusuyRhKVd-pAslccj1M4krg9pvzehkDSheGN0klw1EvdTSGK1syAWN5TXpw6-dDLF5NIS7-QXk9-nLEpVKv2cL4wNPWEwFzCPp6FE8yI5RVeGxu8KEHJPrhkCDS9bL3su3JL_5owIPRYdm-GGIv5nzG_SOBJ0tmLJc',
-    'about_team_doctor2_bio' => 'Dr. Anna is renowned for her gentle approach with children and anxious patients. Her expertise in orthodontics helps patients of all ages achieve perfectly aligned, confident smiles.',
+    'about_team_doctor2_bio' => '{{associate_dentist}} is renowned for their gentle approach with children and anxious patients. Their expertise in orthodontics helps patients of all ages achieve perfectly aligned, confident smiles.',
     'about_team_doctor2_tags' => 'Orthodontics, Pediatric',
     'about_team_title_before' => 'Our',
     'about_team_title_accent' => 'Elite Team',
