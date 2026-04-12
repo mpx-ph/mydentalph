@@ -65,7 +65,7 @@ return [
     'main_facility_images' => '', // JSON array of {url, caption}
     // About Us
     'about_intro_heading' => 'About Us',
-    'about_intro_text' => 'At Dr. Romarico C. Gonzales Dental Clinic, we blend advanced technology with compassionate care. Our mission is to create healthy, confident smiles in a clean, professional, and relaxing environment.',
+    'about_intro_text' => 'At {clinic_name}, we blend advanced technology with compassionate care. Our mission is to create healthy, confident smiles in a clean, professional, and relaxing environment.',
     'about_hero_image' => 'Clinic2.jpg',
     'about_hero_caption_title' => 'State-of-the-art Facility',
     'about_hero_caption_text' => 'Designed for your comfort and safety with the latest dental technology.',
@@ -73,7 +73,7 @@ return [
     'about_trusted_text' => 'Over 2,000 happy smiles created with personalized treatment plans.',
     'about_years_number' => '45+',
     'about_years_text' => 'Years of Experience serving the community',
-    'about_why_heading' => 'Why Choose Dr. Romarico C. Gonzales Dental Clinic?',
+    'about_why_heading' => 'Why Choose {clinic_name}?',
     'about_why_subtext' => 'Our patient-centered philosophy sets the standard for dental care.',
     'about_philosophy_title_before' => 'Our',
     'about_philosophy_title_accent' => 'Philosophy',

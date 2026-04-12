@@ -110,6 +110,14 @@
             margin-top: 6px;
         }
 
+        .row.row--top {
+            align-items: start;
+        }
+
+        .row.row--top .copy-btn {
+            margin-top: 2px;
+        }
+
         .row .label {
             font-size: 13px;
             color: var(--muted);
@@ -125,6 +133,14 @@
             border-radius: 6px;
             padding: 8px 10px;
             word-break: break-all;
+        }
+
+        textarea.value {
+            width: 100%;
+            min-height: 92px;
+            resize: vertical;
+            line-height: 1.45;
+            margin: 0;
         }
 
         button.copy-btn {
@@ -167,10 +183,13 @@
             <h2>GIT REPO</h2>
             <div class="credential">
                 <div class="role">Quick Commands</div>
-                <div class="row">
+                <p class="subdesc" style="margin-top: 0;">Push script is editable; reloading the page restores the default.</p>
+                <div class="row row--top">
                     <div class="label">Push</div>
-                    <div class="value">git add .<br>git commit -m "update"<br>git push</div>
-                    <button class="copy-btn" data-copy="git add .&#10;git commit -m &quot;update&quot;&#10;git push">Copy</button>
+                    <textarea id="git-push-cmd" class="value" spellcheck="false" rows="4" aria-label="Git push commands">git add .
+git commit -m "update"
+git push</textarea>
+                    <button type="button" class="copy-btn" data-copy-from="#git-push-cmd">Copy</button>
                 </div>
                 <div class="row">
                     <div class="label">Pull</div>
@@ -393,7 +412,14 @@
 
         document.querySelectorAll(".copy-btn").forEach(function (button) {
             button.addEventListener("click", function () {
-                copyText(button.getAttribute("data-copy"), button);
+                var fromSel = button.getAttribute("data-copy-from");
+                var value = fromSel
+                    ? (document.querySelector(fromSel) || {}).value
+                    : button.getAttribute("data-copy");
+                if (value == null) {
+                    value = "";
+                }
+                copyText(value, button);
             });
         });
     </script>

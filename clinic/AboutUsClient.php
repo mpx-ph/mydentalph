@@ -8,6 +8,12 @@ require_once __DIR__ . '/tenant_bootstrap.php';
 require_once __DIR__ . '/includes/clinic_customization.php';
 require_once __DIR__ . '/includes/header.php';
 $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars($CLINIC[$k], ENT_QUOTES, 'UTF-8') : ''; };
+$clinicNamePlain = trim((string) ($CLINIC['clinic_name'] ?? ''));
+$cuClinic = function (string $k) use ($CLINIC, $clinicNamePlain): string {
+    $raw = isset($CLINIC[$k]) ? (string) $CLINIC[$k] : '';
+    $out = str_replace('{clinic_name}', $clinicNamePlain, $raw);
+    return htmlspecialchars($out, ENT_QUOTES, 'UTF-8');
+};
 $cuImg = function($k) use ($CLINIC) {
     $v = isset($CLINIC[$k]) ? trim($CLINIC[$k]) : '';
     if ($v === '') return '';
@@ -64,7 +70,7 @@ $aboutIntroHeadingBefore = trim(implode(' ', $aboutIntroHeadingParts));
                     </span>
 </h1>
 <p class="font-body text-xl max-w-2xl mx-auto mb-12 leading-relaxed text-slate-600 dark:text-slate-400 font-medium">
-                    <?php echo $cu('about_intro_text'); ?>
+                    <?php echo $cuClinic('about_intro_text'); ?>
                 </p>
 </div>
 <div class="absolute inset-0 z-0 opacity-20 pointer-events-none">
@@ -93,7 +99,7 @@ $aboutIntroHeadingBefore = trim(implode(' ', $aboutIntroHeadingParts));
 <div class="space-y-10">
 <div>
 <div class="text-primary font-bold text-xs uppercase mb-6 flex gap-4 tracking-[0.3em] items-center font-headline">
-<span class="w-12 h-[1.5px] bg-primary"></span> <?php echo $cu('about_why_heading'); ?>
+<span class="w-12 h-[1.5px] bg-primary"></span> <?php echo $cuClinic('about_why_heading'); ?>
                             </div>
 <h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter leading-[0.9] text-slate-900 dark:text-white mb-8"><?php echo $cu('about_philosophy_title_before'); ?> <br/> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $cu('about_philosophy_title_accent'); ?></span></h2>
 </div>
