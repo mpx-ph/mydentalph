@@ -266,39 +266,32 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             box-shadow: 0 0 24px -4px rgba(43, 139, 235, 0.55);
             border-radius: 9999px;
         }
-        /* Desktop preview: fixed flex slot — no JS height/scale (iframe scrolls, including for Footer). */
+        /* Desktop: 1280px logical width (patient lg: breakpoint), scaled to fit slot. Measure #previewScaleHost only — not inner scroll (avoids footer-preview shrink). */
         .preview-canvas-scroll { max-width: 100%; overflow: hidden; -webkit-overflow-scrolling: touch; }
         .preview-scale-host {
             width: 100%;
-            overflow: auto;
+            overflow: hidden;
             display: flex;
             justify-content: center;
-            align-items: stretch;
+            align-items: flex-start;
             flex: 1 1 0;
             min-height: 0;
             align-self: stretch;
         }
-        .preview-canvas-shell { transition: transform 0.2s ease; }
-        /*
-         * Match patient pages (nav_client.php): desktop nav uses Tailwind lg: (min-width 1024px).
-         * Iframe layout width must be ≥1024px or the site stays in hamburger / tablet mode.
-         */
+        .preview-canvas-shell { transition: transform 0.2s ease, height 0.15s ease; }
         .preview-canvas-shell--desktop {
             width: 1280px;
             min-width: 1280px;
             max-width: 1280px;
             flex-shrink: 0;
-            flex: 0 0 auto;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
+            min-height: 400px;
             box-sizing: border-box;
         }
         .preview-canvas-shell--desktop #sitePreviewFrame {
-            flex: 1 1 auto;
-            width: 1280px;
-            min-width: 1280px;
-            min-height: max(65vh, 420px);
+            display: block;
+            width: 100%;
+            height: 100%;
+            min-height: 400px;
             border: 0;
         }
         .preview-canvas-shell--mobile {
@@ -864,18 +857,22 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
                 tryPreviewScrollToFooter();
                 setTimeout(tryPreviewScrollToFooter, 150);
                 setTimeout(tryPreviewScrollToFooter, 500);
+                schedulePreviewFit();
                 return;
             }
             frame.src = withCacheBust(target) + '#clinic-site-footer';
+            schedulePreviewFit();
             return;
         }
 
         if (page === 'home' && sameDoc) {
             if (canAccessPreviewFrameDoc()) {
                 tryPreviewScrollToTop();
+                schedulePreviewFit();
                 return;
             }
             frame.src = withCacheBust(target);
+            schedulePreviewFit();
             return;
         }
 
@@ -884,6 +881,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             url += '#clinic-site-footer';
         }
         frame.src = url;
+        schedulePreviewFit();
     }
 
     function setSaveState(state) {
@@ -1007,6 +1005,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         previewSelect.addEventListener('change', function () {
             applyPreviewPageFieldScope(previewSelect.value);
             applyPreviewNavigation(previewSelect.value, false);
+            schedulePreviewFit();
         });
         applyPreviewPageFieldScope(previewSelect.value);
         applyPreviewNavigation(previewSelect.value, false);
@@ -1021,24 +1020,13 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 
     var previewShell = document.getElementById('previewCanvasShell');
     var previewScaleHost = document.getElementById('previewScaleHost');
+    var previewFrameWrap = document.getElementById('previewFrameWrap');
     var modeMobile = document.getElementById('previewModeMobile');
     var modeDesktop = document.getElementById('previewModeDesktop');
+    var DESKTOP_LOGIC_PX = 1280;
+    var PREVIEW_WRAP_CHROME_PX = 108;
 
-    /** Desktop layout is CSS-only; clear legacy inline height/scale from older versions of this page. */
-    function clearLegacyDesktopPreviewStyles() {
-        if (!previewShell) return;
-        previewShell.style.removeProperty('height');
-        previewShell.style.removeProperty('transform');
-        previewShell.style.removeProperty('transform-origin');
-        if (previewScaleHost) {
-            previewScaleHost.style.removeProperty('min-height');
-            previewScaleHost.style.removeProperty('height');
-            previewScaleHost.style.removeProperty('max-height');
-            previewScaleHost.style.removeProperty('overflow');
-        }
-    }
-
-    function applyPreviewChromeLayout() {
+    function syncPreviewLayout() {
         if (!previewShell || !previewScaleHost) return;
         if (previewShell.classList.contains('preview-canvas-shell--mobile')) {
             previewShell.style.removeProperty('transform');
@@ -1050,7 +1038,26 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             previewScaleHost.style.removeProperty('overflow');
             return;
         }
-        clearLegacyDesktopPreviewStyles();
+        var cw = previewScaleHost.clientWidth;
+        if (cw <= 0) return;
+        var ch = Math.round(previewScaleHost.getBoundingClientRect().height);
+        if (ch < 120 && previewFrameWrap) {
+            ch = Math.max(280, Math.round(previewFrameWrap.getBoundingClientRect().height - PREVIEW_WRAP_CHROME_PX));
+        }
+        if (ch < 120) {
+            ch = Math.max(320, Math.round(window.innerHeight * 0.58));
+        }
+        var s = Math.min(1, cw / DESKTOP_LOGIC_PX);
+        var hLog = Math.max(400, Math.ceil(ch / s));
+        previewShell.style.height = hLog + 'px';
+        previewShell.style.transform = 'scale(' + s + ')';
+        previewShell.style.transformOrigin = 'top center';
+    }
+
+    var previewFitResizeTimer = null;
+    function schedulePreviewFit() {
+        clearTimeout(previewFitResizeTimer);
+        previewFitResizeTimer = setTimeout(syncPreviewLayout, 80);
     }
 
     function setPreviewDeviceMode(mode) {
@@ -1066,14 +1073,20 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             modeDesktop.classList.toggle('preview-device-btn--active', !isMobile);
             modeDesktop.setAttribute('aria-selected', !isMobile ? 'true' : 'false');
         }
-        applyPreviewChromeLayout();
+        syncPreviewLayout();
     }
 
     if (modeMobile) modeMobile.addEventListener('click', function () { setPreviewDeviceMode('mobile'); });
     if (modeDesktop) modeDesktop.addEventListener('click', function () { setPreviewDeviceMode('desktop'); });
 
+    if (previewScaleHost && typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(schedulePreviewFit).observe(previewScaleHost);
+    }
+    window.addEventListener('resize', schedulePreviewFit);
+
     if (frame) frame.addEventListener('load', function () {
-        applyPreviewChromeLayout();
+        syncPreviewLayout();
+        setTimeout(syncPreviewLayout, 120);
         if (previewSelect && previewSelect.value === 'footer') {
             tryPreviewScrollToFooter();
             setTimeout(tryPreviewScrollToFooter, 200);
@@ -1081,8 +1094,8 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         }
     });
     requestAnimationFrame(function () {
-        clearLegacyDesktopPreviewStyles();
-        applyPreviewChromeLayout();
+        syncPreviewLayout();
+        requestAnimationFrame(syncPreviewLayout);
     });
 
     (function teamMembersEditor() {
