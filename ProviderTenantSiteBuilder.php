@@ -63,9 +63,9 @@ function sb_font_select(string $key, string $label, array $allowed_fonts, array 
         array_unshift($fontsForSelect, $cur);
     }
     $dis = $is_owner ? '' : 'disabled';
-    echo '<div class="space-y-2">';
+    echo '<div class="space-y-1.5 min-w-0">';
     echo '<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1" for="f_' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</label>';
-    echo '<select class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary ' . ($is_owner ? '' : 'opacity-70 cursor-not-allowed') . '" id="f_' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '" data-opt-key="' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '" ' . $dis . '>';
+    echo '<select class="w-full min-w-0 bg-slate-50 border border-slate-200 rounded-full px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary ' . ($is_owner ? '' : 'opacity-70 cursor-not-allowed') . '" id="f_' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '" data-opt-key="' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '" ' . $dis . '>';
     foreach ($fontsForSelect as $f) {
         $sel = strcasecmp($cur, $f) === 0 ? ' selected' : '';
         echo '<option value="' . htmlspecialchars($f, ENT_QUOTES, 'UTF-8') . '"' . $sel . '>' . htmlspecialchars($f, ENT_QUOTES, 'UTF-8') . '</option>';
@@ -74,17 +74,32 @@ function sb_font_select(string $key, string $label, array $allowed_fonts, array 
 }
 
 /**
+ * Two-column grid for compact single-line fields (stacks on small screens).
+ */
+function sb_field_row_open(): void
+{
+    echo '<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4 items-start">';
+}
+
+function sb_field_row_close(): void
+{
+    echo '</div>';
+}
+
+/**
  * @param array<string, string> $site_opts
  */
-function sb_text(string $key, string $label, array $site_opts, bool $is_owner, bool $textarea = false): void
+function sb_text(string $key, string $label, array $site_opts, bool $is_owner, bool $textarea = false, bool $full_width_in_grid = false): void
 {
     $dis = $is_owner ? '' : 'disabled readonly';
-    echo '<div class="space-y-2">';
+    $wide = $textarea || $full_width_in_grid;
+    $wrap = 'space-y-1.5 min-w-0' . ($wide ? ' sm:col-span-2' : '');
+    echo '<div class="' . $wrap . '">';
     echo '<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1" for="t_' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</label>';
     if ($textarea) {
-        echo '<textarea class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary min-h-[5rem] ' . ($is_owner ? '' : 'opacity-70') . '" id="t_' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '" data-opt-key="' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '" rows="3" ' . $dis . '>' . sb_val($site_opts, $key) . '</textarea>';
+        echo '<textarea class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary min-h-[5rem] ' . ($is_owner ? '' : 'opacity-70') . '" id="t_' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '" data-opt-key="' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '" rows="3" ' . $dis . '>' . sb_val($site_opts, $key) . '</textarea>';
     } else {
-        echo '<input type="text" class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary ' . ($is_owner ? '' : 'opacity-70') . '" id="t_' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '" data-opt-key="' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '" value="' . sb_val($site_opts, $key) . '" ' . $dis . '/>';
+        echo '<input type="text" class="w-full bg-slate-50 border border-slate-200 rounded-full px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary ' . ($is_owner ? '' : 'opacity-70') . '" id="t_' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '" data-opt-key="' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '" value="' . sb_val($site_opts, $key) . '" ' . $dis . '/>';
     }
     echo '</div>';
 }
@@ -92,18 +107,19 @@ function sb_text(string $key, string $label, array $site_opts, bool $is_owner, b
 /**
  * @param array<string, string> $site_opts
  */
-function sb_color(string $key, string $label, array $site_opts, bool $is_owner): void
+function sb_color(string $key, string $label, array $site_opts, bool $is_owner, bool $full_width_in_grid = false): void
 {
     $raw = preg_replace('/^#/', '', trim((string) ($site_opts[$key] ?? '')));
     if (strlen($raw) !== 6 || !ctype_xdigit($raw)) {
         $raw = '2b8cee';
     }
     $dis = $is_owner ? '' : 'disabled';
-    echo '<div class="space-y-2">';
+    $wrap = 'space-y-1.5 min-w-0' . ($full_width_in_grid ? ' sm:col-span-2' : '');
+    echo '<div class="' . $wrap . '">';
     echo '<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1" for="c_' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</label>';
     echo '<div class="flex items-center gap-3">';
     echo '<input type="color" class="h-12 w-14 rounded-xl border border-slate-200 cursor-pointer shrink-0" id="c_' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '" data-opt-key="' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '" value="#' . htmlspecialchars($raw, ENT_QUOTES, 'UTF-8') . '" ' . $dis . '/>';
-    echo '<input type="text" class="flex-1 bg-slate-50 border border-slate-300 rounded-2xl px-4 py-3 text-sm font-mono uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary ' . ($is_owner ? '' : 'opacity-70') . '" data-opt-hex="' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '" value="' . htmlspecialchars($raw, ENT_QUOTES, 'UTF-8') . '" maxlength="6" ' . $dis . '/>';
+    echo '<input type="text" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-full px-4 py-2.5 text-sm font-mono uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary ' . ($is_owner ? '' : 'opacity-70') . '" data-opt-hex="' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '" value="' . htmlspecialchars($raw, ENT_QUOTES, 'UTF-8') . '" maxlength="6" ' . $dis . '/>';
     echo '</div></div>';
 }
 
@@ -115,7 +131,7 @@ function sb_range(string $key, string $label, array $site_opts, bool $is_owner, 
     $v = (int) ($site_opts[$key] ?? $min);
     $v = max($min, min($max, $v));
     $dis = $is_owner ? '' : 'disabled';
-    echo '<div class="space-y-2">';
+    echo '<div class="space-y-1.5 min-w-0">';
     echo '<div class="flex justify-between items-baseline">';
     echo '<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1" for="r_' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</label>';
     echo '<span class="text-xs font-bold text-primary tabular-nums" data-range-show="' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '">' . $v . '</span>';
@@ -131,7 +147,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 {
     $hint = trim((string) ($site_opts[$key] ?? ''));
     $dis = $is_owner ? '' : 'disabled';
-    echo '<div class="space-y-2">';
+    echo '<div class="space-y-1.5 min-w-0 self-start w-full">';
     echo '<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</label>';
     if ($hint !== '') {
         echo '<p class="text-[11px] text-on-surface-variant/80 truncate font-mono" title="' . htmlspecialchars($hint, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($hint, ENT_QUOTES, 'UTF-8') . '</p>';
@@ -211,6 +227,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
         .builder-tab--active { background: rgba(43, 139, 235, 0.1); color: #2b8beb; border-color: rgba(43, 139, 235, 0.25); }
         .builder-panel { display: none; }
         .builder-panel--active { display: block; }
+        .sb-group { border-left: 2px solid rgba(43, 139, 235, 0.15); padding-left: 1rem; }
         .preview-frame-wrap { box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.12); }
         .preview-device-bar {
             display: inline-flex;
@@ -334,7 +351,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 
 <div class="mb-6 pb-6 border-b border-slate-100">
 <label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1 block mb-2">Preview page</label>
-<select id="previewPageSelect" class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary">
+<select id="previewPageSelect" class="w-full bg-slate-50 border border-slate-200 rounded-full px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary">
 <option value="home">Home</option>
 <option value="services">Services</option>
 <option value="about">About</option>
@@ -346,10 +363,12 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 
 <div id="panel-branding" class="builder-panel builder-panel--active space-y-6 max-h-[52vh] overflow-y-auto pr-1">
 <p class="text-xs text-on-surface-variant leading-relaxed sb-preview-scope" data-sb-preview-pages="all">Logo and images are stored under your tenant in <code class="text-[11px] bg-slate-100 px-1 rounded">clinic_customization_tenant</code>. Clinic name also updates your tenant profile.</p>
-<div class="sb-preview-scope space-y-6" data-sb-preview-pages="all">
+<div class="sb-preview-scope space-y-5" data-sb-preview-pages="all">
 <?php sb_text('clinic_name', 'Clinic display name', $site_opts, $is_owner); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_file('logo_nav', 'Navigation logo (PNG / JPG / WebP)', $site_opts, $is_owner); ?>
 <?php sb_file('site_favicon', 'Favicon', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 </div>
 <div class="sb-preview-scope space-y-2" data-sb-preview-pages="home">
 <?php sb_file('main_hero_image', 'Home hero background image', $site_opts, $is_owner); ?>
@@ -359,26 +378,32 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </div>
 </div>
 
-<div id="panel-colors" class="builder-panel space-y-6 max-h-[52vh] overflow-y-auto pr-1">
+<div id="panel-colors" class="builder-panel space-y-5 max-h-[52vh] overflow-y-auto pr-1">
 <p class="text-xs text-on-surface-variant leading-relaxed">These colors also apply to the patient login screen. Preview it by choosing <span class="font-bold text-on-background">Login</span> in the page picker above.</p>
+<?php sb_field_row_open(); ?>
 <?php sb_color('color_primary', 'Primary', $site_opts, $is_owner); ?>
 <?php sb_color('color_primary_dark', 'Primary dark', $site_opts, $is_owner); ?>
-<?php sb_color('color_primary_light', 'Primary light', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_color('color_primary_light', 'Primary light', $site_opts, $is_owner, true); ?>
 </div>
 
-<div id="panel-type" class="builder-panel space-y-6 max-h-[52vh] overflow-y-auto pr-1">
+<div id="panel-type" class="builder-panel space-y-5 max-h-[52vh] overflow-y-auto pr-1">
+<?php sb_field_row_open(); ?>
 <?php sb_font_select('theme_font_headline', 'Headline font', $allowed_fonts, $site_opts, $is_owner); ?>
-<div class="sb-preview-scope space-y-2" data-sb-preview-pages="services">
+<?php sb_font_select('theme_font_body', 'Body font', $allowed_fonts, $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<div class="sb-preview-scope min-w-0" data-sb-preview-pages="services">
 <?php sb_font_select('theme_font_display', 'Display font (services hero)', $allowed_fonts, $site_opts, $is_owner); ?>
 </div>
-<?php sb_font_select('theme_font_body', 'Body font', $allowed_fonts, $site_opts, $is_owner); ?>
 <?php sb_font_select('theme_font_editorial', 'Editorial / accent font', $allowed_fonts, $site_opts, $is_owner); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_range('theme_base_font_px', 'Base font size (px)', $site_opts, $is_owner, 14, 22, 1); ?>
-<div class="space-y-2">
-<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1" for="lh">Line height</label>
-<input type="number" step="0.05" min="1.2" max="2" class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary <?php echo $is_owner ? '' : 'opacity-70'; ?>" id="lh" data-opt-key="theme_line_height" value="<?php echo sb_val($site_opts, 'theme_line_height'); ?>" <?php echo $is_owner ? '' : 'disabled'; ?>/>
-</div>
 <?php sb_range('theme_heading_weight', 'Heading weight', $site_opts, $is_owner, 500, 900, 50); ?>
+<?php sb_field_row_close(); ?>
+<div class="space-y-1.5 min-w-0">
+<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1" for="lh">Line height</label>
+<input type="number" step="0.05" min="1.2" max="2" class="w-full bg-slate-50 border border-slate-200 rounded-full px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary <?php echo $is_owner ? '' : 'opacity-70'; ?>" id="lh" data-opt-key="theme_line_height" value="<?php echo sb_val($site_opts, 'theme_line_height'); ?>" <?php echo $is_owner ? '' : 'disabled'; ?>/>
+</div>
 </div>
 
 <div id="panel-layout" class="builder-panel space-y-8 max-h-[52vh] overflow-y-auto pr-1">
@@ -388,27 +413,35 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </div>
 <div class="space-y-6 pt-6 border-t border-slate-100">
 <p class="text-xs text-on-surface-variant leading-relaxed">Page copy matches the <span class="font-bold text-on-background">Preview page</span> choice above. Pick <span class="font-bold text-on-background">Footer (site-wide)</span> to edit the shared footer and scroll the canvas to it after load.</p>
-<div class="sb-preview-scope space-y-6" data-sb-preview-pages="footer">
+<div class="sb-preview-scope space-y-5" data-sb-preview-pages="footer">
 <p class="text-xs text-on-surface-variant leading-relaxed">One footer is shared across every public page.</p>
 <?php sb_text('footer_blurb', 'Clinic blurb (left column)', $site_opts, $is_owner, true); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_text('footer_follow_label', '“Follow us” label', $site_opts, $is_owner); ?>
-<?php sb_text('footer_social_url', 'Social profile URL (https…; leave blank to hide icon)', $site_opts, $is_owner); ?>
 <?php sb_text('footer_hours_heading', 'Hours block heading', $site_opts, $is_owner); ?>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<?php sb_field_row_close(); ?>
+<?php sb_text('footer_social_url', 'Social profile URL (https…; leave blank to hide icon)', $site_opts, $is_owner, false, true); ?>
+<div class="sb-group space-y-4">
 <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80">Hours rows</p>
+<?php sb_field_row_open(); ?>
 <?php sb_text('footer_hours_row1_label', 'Row 1 label', $site_opts, $is_owner); ?>
 <?php sb_text('footer_hours_row1_value', 'Row 1 hours', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_text('footer_hours_row2_label', 'Row 2 label', $site_opts, $is_owner); ?>
 <?php sb_text('footer_hours_row2_value', 'Row 2 hours', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_text('footer_hours_row3_label', 'Row 3 label', $site_opts, $is_owner); ?>
 <?php sb_text('footer_hours_row3_value', 'Row 3 hours', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php
 $fhR3 = strtolower(trim((string) ($site_opts['footer_hours_row3_style'] ?? 'danger')));
 $fhR3Dis = $is_owner ? '' : 'disabled';
 ?>
-<div class="space-y-2">
+<div class="space-y-1.5 min-w-0">
 <label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1" for="footer_hours_row3_style">Row 3 value style</label>
-<select class="w-full bg-slate-50 border border-slate-300 rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary <?php echo $is_owner ? '' : 'opacity-70 cursor-not-allowed'; ?>" id="footer_hours_row3_style" data-opt-key="footer_hours_row3_style" <?php echo $fhR3Dis; ?>>
+<select class="w-full min-w-0 bg-slate-50 border border-slate-200 rounded-full px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary <?php echo $is_owner ? '' : 'opacity-70 cursor-not-allowed'; ?>" id="footer_hours_row3_style" data-opt-key="footer_hours_row3_style" <?php echo $fhR3Dis; ?>>
 <option value="danger"<?php echo $fhR3 === 'danger' ? ' selected' : ''; ?>>Emphasized (e.g. red for “Closed”)</option>
 <option value="default"<?php echo $fhR3 === 'default' ? ' selected' : ''; ?>>Same as other rows</option>
 </select>
@@ -417,109 +450,143 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 <?php sb_text('footer_copyright_line', 'Copyright line (optional; leave blank for © current year + clinic name + “All rights reserved.”)', $site_opts, $is_owner, true); ?>
 <p class="text-[11px] text-on-surface-variant/80 leading-relaxed">Footer logo uses the <span class="font-bold text-on-background">logo</span> asset (global clinic customization). Navigation logo is separate under Branding. “Powered by MyDental Philippines” is fixed for all clinics.</p>
 </div>
-<div class="space-y-6 sb-preview-scope" data-sb-preview-pages="home">
+<div class="space-y-5 sb-preview-scope" data-sb-preview-pages="home">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Home — Hero</h3>
 <p class="text-[11px] text-on-surface-variant/90 leading-relaxed">The main headline uses your clinic name (&ldquo;Welcome to&rdquo; is fixed). Subtext is editable. Leave the hero badge blank to reuse the services section label (eyebrow); otherwise set a custom pill.</p>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<div class="sb-group space-y-4">
+<?php sb_field_row_open(); ?>
 <?php sb_text('main_hero_badge', 'Hero badge (top pill, optional)', $site_opts, $is_owner); ?>
-<?php sb_text('main_hero_subtext', 'Hero subtext', $site_opts, $is_owner, true); ?>
 <?php sb_text('main_hero_cta_guest', 'Primary button (guests)', $site_opts, $is_owner); ?>
-<?php sb_text('main_hero_cta_logged_in', 'Primary button (logged-in patients)', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_text('main_hero_subtext', 'Hero subtext', $site_opts, $is_owner, true); ?>
+<?php sb_text('main_hero_cta_logged_in', 'Primary button (logged-in patients)', $site_opts, $is_owner, false, true); ?>
 </div>
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Home — Services section</h3>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<div class="sb-group space-y-4">
+<?php sb_field_row_open(); ?>
 <?php sb_text('main_services_heading', 'Section label (eyebrow)', $site_opts, $is_owner); ?>
 <?php sb_text('main_services_title', 'Section title', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php sb_text('main_services_description', 'Section description', $site_opts, $is_owner, true); ?>
-<?php sb_text('main_services_watermark_word', 'Large background word (desktop)', $site_opts, $is_owner); ?>
+<?php sb_text('main_services_watermark_word', 'Large background word (desktop)', $site_opts, $is_owner, false, true); ?>
 </div>
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Home — Service cards</h3>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<div class="sb-group space-y-4">
 <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80">Card 1</p>
+<?php sb_field_row_open(); ?>
 <?php sb_text('main_service_card1_title', 'Title', $site_opts, $is_owner); ?>
-<?php sb_text('main_service_card1_body', 'Body', $site_opts, $is_owner, true); ?>
 <?php sb_text('main_service_card1_cta', 'Link label', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_text('main_service_card1_body', 'Body', $site_opts, $is_owner, true); ?>
 <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Card 2 (featured)</p>
 <?php sb_text('main_service_card2_title', 'Title (line break = second line)', $site_opts, $is_owner, true); ?>
 <?php sb_text('main_service_card2_body', 'Body', $site_opts, $is_owner, true); ?>
-<?php sb_text('main_service_card2_cta', 'Button label', $site_opts, $is_owner); ?>
+<?php sb_text('main_service_card2_cta', 'Button label', $site_opts, $is_owner, false, true); ?>
 <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Card 3</p>
+<?php sb_field_row_open(); ?>
 <?php sb_text('main_service_card3_title', 'Title', $site_opts, $is_owner); ?>
-<?php sb_text('main_service_card3_body', 'Body', $site_opts, $is_owner, true); ?>
 <?php sb_text('main_service_card3_cta', 'Link label', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_text('main_service_card3_body', 'Body', $site_opts, $is_owner, true); ?>
 </div>
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Home — Patient journey</h3>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<div class="sb-group space-y-4">
+<?php sb_field_row_open(); ?>
 <?php sb_text('main_journey_badge', 'Badge', $site_opts, $is_owner); ?>
 <?php sb_text('main_journey_title_before', 'Title (before accent)', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_text('main_journey_title_accent', 'Accent word', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php sb_text('main_journey_subtitle', 'Subtitle', $site_opts, $is_owner, true); ?>
 <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Step 1</p>
+<?php sb_field_row_open(); ?>
 <?php sb_text('main_journey_step1_title', 'Title', $site_opts, $is_owner); ?>
-<?php sb_text('main_journey_step1_body', 'Body', $site_opts, $is_owner, true); ?>
 <?php sb_text('main_journey_step1_tag', 'Footer tag', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_text('main_journey_step1_body', 'Body', $site_opts, $is_owner, true); ?>
 <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Step 2</p>
+<?php sb_field_row_open(); ?>
 <?php sb_text('main_journey_step2_title', 'Title', $site_opts, $is_owner); ?>
-<?php sb_text('main_journey_step2_body', 'Body', $site_opts, $is_owner, true); ?>
 <?php sb_text('main_journey_step2_tag', 'Footer tag', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_text('main_journey_step2_body', 'Body', $site_opts, $is_owner, true); ?>
 <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Step 3</p>
+<?php sb_field_row_open(); ?>
 <?php sb_text('main_journey_step3_title', 'Title', $site_opts, $is_owner); ?>
-<?php sb_text('main_journey_step3_body', 'Body', $site_opts, $is_owner, true); ?>
 <?php sb_text('main_journey_step3_tag', 'Footer tag', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_text('main_journey_step3_body', 'Body', $site_opts, $is_owner, true); ?>
 </div>
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Home — Bottom call to action</h3>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<div class="sb-group space-y-4">
+<?php sb_field_row_open(); ?>
 <?php sb_text('main_cta_badge', 'Badge', $site_opts, $is_owner); ?>
 <?php sb_text('main_cta_title', 'Title', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php sb_text('main_cta_subtext', 'Subtext', $site_opts, $is_owner, true); ?>
-<?php sb_text('main_cta_button', 'Button label', $site_opts, $is_owner); ?>
+<?php sb_text('main_cta_button', 'Button label', $site_opts, $is_owner, false, true); ?>
 </div>
 </div>
-<div class="space-y-6 sb-preview-scope" data-sb-preview-pages="services">
+<div class="space-y-5 sb-preview-scope" data-sb-preview-pages="services">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Services — Page &amp; hero</h3>
 <p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Browser tab title plus the top section. Treatment names, descriptions, and price ranges are managed under <a class="font-bold text-primary hover:underline" href="clinic/TenantListofServices.php">Clinical services</a>; hero copy is edited below.</p>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<div class="sb-group space-y-4">
+<?php sb_field_row_open(); ?>
 <?php sb_text('services_page_title', 'Browser tab title', $site_opts, $is_owner); ?>
 <?php sb_text('services_hero_badge', 'Hero badge (top pill)', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_text('services_hero_title_before', 'Title (before accent)', $site_opts, $is_owner); ?>
 <?php sb_text('services_hero_title_accent', 'Accent word', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php sb_text('services_hero_subtitle', 'Hero subtitle', $site_opts, $is_owner, true); ?>
 </div>
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Services — Card buttons</h3>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<div class="sb-group space-y-4">
 <p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Same label on each preview card&rsquo;s book button (card copy itself is not edited here).</p>
-<?php sb_text('services_card_book_label', 'Book button label', $site_opts, $is_owner); ?>
+<?php sb_text('services_card_book_label', 'Book button label', $site_opts, $is_owner, false, true); ?>
 </div>
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Services — Bottom call to action</h3>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<div class="sb-group space-y-4">
+<?php sb_field_row_open(); ?>
 <?php sb_text('services_cta_title', 'Title', $site_opts, $is_owner); ?>
-<?php sb_text('services_cta_subtext', 'Subtext', $site_opts, $is_owner, true); ?>
 <?php sb_text('services_cta_button', 'Button label', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_text('services_cta_subtext', 'Subtext', $site_opts, $is_owner, true); ?>
 </div>
 </div>
-<div class="space-y-6 sb-preview-scope" data-sb-preview-pages="about">
+<div class="space-y-5 sb-preview-scope" data-sb-preview-pages="about">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">About — Hero</h3>
 <p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Top pill, headline, and intro. Upload the large side image under <span class="font-bold">Branding</span> (visible when preview is About).</p>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<div class="sb-group space-y-4">
+<?php sb_field_row_open(); ?>
 <?php sb_text('about_hero_caption_title', 'Hero badge (top pill, optional)', $site_opts, $is_owner); ?>
 <?php sb_text('about_intro_heading', 'Intro heading', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php sb_text('about_intro_text', 'Intro text', $site_opts, $is_owner, true); ?>
 </div>
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">About — Philosophy</h3>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<div class="sb-group space-y-4">
+<?php sb_field_row_open(); ?>
 <?php sb_text('about_trusted_title', 'Trusted card title', $site_opts, $is_owner); ?>
-<?php sb_text('about_trusted_text', 'Trusted card text', $site_opts, $is_owner, true); ?>
 <?php sb_text('about_why_heading', 'Section label (eyebrow)', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_text('about_trusted_text', 'Trusted card text', $site_opts, $is_owner, true); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_text('about_philosophy_title_before', 'Title (before accent)', $site_opts, $is_owner); ?>
 <?php sb_text('about_philosophy_title_accent', 'Accent word', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php sb_text('about_philosophy_para1', 'Paragraph 1', $site_opts, $is_owner, true); ?>
 <?php sb_text('about_philosophy_para2', 'Paragraph 2', $site_opts, $is_owner, true); ?>
-<?php sb_text('about_philosophy_services_cta', 'Services link label', $site_opts, $is_owner); ?>
+<?php sb_text('about_philosophy_services_cta', 'Services link label', $site_opts, $is_owner, false, true); ?>
 </div>
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">About — Clinical standards</h3>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<div class="sb-group space-y-4">
+<?php sb_field_row_open(); ?>
 <?php sb_text('about_clinical_title_before', 'Title (before accent)', $site_opts, $is_owner); ?>
 <?php sb_text('about_clinical_title_accent', 'Accent word', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php sb_text('about_clinical_standards_subtext', 'Section subtext', $site_opts, $is_owner, true); ?>
 <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Card 1</p>
 <?php sb_text('about_why_1_title', 'Title', $site_opts, $is_owner); ?>
@@ -532,76 +599,112 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 <?php sb_text('about_why_3_text', 'Body', $site_opts, $is_owner, true); ?>
 </div>
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">About — Team</h3>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<div class="sb-group space-y-4">
+<?php sb_field_row_open(); ?>
 <?php sb_text('about_team_title_before', 'Section title (before accent)', $site_opts, $is_owner); ?>
 <?php sb_text('about_team_title_accent', 'Accent word', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php sb_text('about_team_subtitle', 'Section subtitle', $site_opts, $is_owner, true); ?>
 <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Team member 1</p>
+<?php sb_field_row_open(); ?>
 <?php sb_text('about_team_doctor1_title', 'Role / title', $site_opts, $is_owner); ?>
 <?php sb_text('about_team_doctor1_name', 'Name', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php sb_text('about_team_doctor1_bio', 'Bio (card)', $site_opts, $is_owner, true); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_text('about_team_doctor1_tags', 'Tags (comma-separated)', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php sb_file('about_team_doctor1_image', 'Photo', $site_opts, $is_owner); ?>
 <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Team member 2</p>
+<?php sb_field_row_open(); ?>
 <?php sb_text('about_team_doctor2_title', 'Role / title', $site_opts, $is_owner); ?>
 <?php sb_text('about_team_doctor2_name', 'Name', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php sb_text('about_team_doctor2_bio', 'Bio (card)', $site_opts, $is_owner, true); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_text('about_team_doctor2_tags', 'Tags (comma-separated)', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php sb_file('about_team_doctor2_image', 'Photo', $site_opts, $is_owner); ?>
 <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Team member 3 (optional)</p>
 <p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Leave <span class="font-bold">Name</span> empty to hide the third card.</p>
+<?php sb_field_row_open(); ?>
 <?php sb_text('about_team_doctor3_title', 'Role / title', $site_opts, $is_owner); ?>
 <?php sb_text('about_team_doctor3_name', 'Name', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php sb_text('about_team_doctor3_bio', 'Bio (card)', $site_opts, $is_owner, true); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_text('about_team_doctor3_tags', 'Tags (comma-separated)', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php sb_file('about_team_doctor3_image', 'Photo', $site_opts, $is_owner); ?>
 </div>
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">About — Bottom call to action</h3>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<div class="sb-group space-y-4">
+<?php sb_field_row_open(); ?>
 <?php sb_text('about_cta_badge', 'Badge', $site_opts, $is_owner); ?>
 <?php sb_text('about_cta_heading', 'Title', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php sb_text('about_cta_subtext', 'Subtext', $site_opts, $is_owner, true); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_text('about_cta_book_text', 'Primary button', $site_opts, $is_owner); ?>
 <?php sb_text('about_cta_contact_text', 'Secondary button', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 </div>
 </div>
-<div class="space-y-6 sb-preview-scope" data-sb-preview-pages="contact">
+<div class="space-y-5 sb-preview-scope" data-sb-preview-pages="contact">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Contact — Hero</h3>
 <p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Top pill, headline, and intro. Matches the style of the home page hero.</p>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<div class="sb-group space-y-4">
+<?php sb_field_row_open(); ?>
 <?php sb_text('contact_page_title', 'Browser tab title', $site_opts, $is_owner); ?>
 <?php sb_text('contact_hero_badge', 'Hero badge (top pill)', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_text('contact_hero_title_before', 'Title (before accent)', $site_opts, $is_owner); ?>
 <?php sb_text('contact_hero_title_accent', 'Accent word', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php sb_text('contact_hero_subtext', 'Hero subtext', $site_opts, $is_owner, true); ?>
 </div>
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Contact — Information card</h3>
 <p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Address, map link, and the embedded map. Use a Google Maps share link for directions; use an embed URL (or maps link that supports embedding) for the iframe.</p>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<div class="sb-group space-y-4">
+<?php sb_field_row_open(); ?>
 <?php sb_text('contact_info_section_label', 'Section label (eyebrow)', $site_opts, $is_owner); ?>
 <?php sb_text('contact_address_label', 'Address block title', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php sb_text('contact_address', 'Address', $site_opts, $is_owner, true); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_text('contact_map_link', 'Google Maps link (directions)', $site_opts, $is_owner); ?>
 <?php sb_text('contact_directions_link_text', 'Directions link label', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 <?php sb_text('contact_map_embed', 'Map embed URL (iframe src)', $site_opts, $is_owner, true); ?>
-<?php sb_text('contact_map_iframe_title', 'Map iframe title (accessibility)', $site_opts, $is_owner); ?>
+<?php sb_text('contact_map_iframe_title', 'Map iframe title (accessibility)', $site_opts, $is_owner, false, true); ?>
 </div>
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Contact — Phone &amp; email</h3>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
+<div class="sb-group space-y-4">
+<?php sb_field_row_open(); ?>
 <?php sb_text('contact_phone_label', 'Phone label', $site_opts, $is_owner); ?>
 <?php sb_text('contact_phone', 'Phone number', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_text('contact_email_label', 'Email label', $site_opts, $is_owner); ?>
 <?php sb_text('contact_email', 'Email address', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 </div>
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">Contact — Hours</h3>
-<div class="space-y-4 pl-0 border-l-2 border-primary/15 pl-4">
-<?php sb_text('contact_hours_heading_label', 'Hours block title', $site_opts, $is_owner); ?>
+<div class="sb-group space-y-4">
+<?php sb_text('contact_hours_heading_label', 'Hours block title', $site_opts, $is_owner, false, true); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_text('contact_hours_mon_fri_label', 'Weekdays line label', $site_opts, $is_owner); ?>
 <?php sb_text('contact_hours_mon_fri', 'Weekdays hours', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_text('contact_hours_sat_label', 'Saturday line label', $site_opts, $is_owner); ?>
 <?php sb_text('contact_hours_sat', 'Saturday hours', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_text('contact_hours_sun_label', 'Sunday line label', $site_opts, $is_owner); ?>
 <?php sb_text('contact_hours_sun', 'Sunday hours', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
 </div>
 </div>
 </div>
