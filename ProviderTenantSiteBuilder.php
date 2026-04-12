@@ -266,11 +266,13 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             box-shadow: 0 0 24px -4px rgba(43, 139, 235, 0.55);
             border-radius: 9999px;
         }
-        /* Desktop: fill the preview slot via flex (no JS height/transform — avoids reflow bugs when switching pages). */
-        .preview-canvas-scroll { max-width: 100%; overflow: hidden; -webkit-overflow-scrolling: touch; }
+        /* Desktop: fixed 1280px artboard so the iframe matches real desktop breakpoints (not tablet). Narrow panels scroll horizontally. */
+        .preview-canvas-scroll { max-width: 100%; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
         .preview-scale-host {
             width: 100%;
-            overflow: hidden;
+            min-width: 0;
+            overflow-x: visible;
+            overflow-y: hidden;
             display: flex;
             justify-content: center;
             align-items: stretch;
@@ -280,10 +282,10 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
         }
         .preview-canvas-shell { transition: transform 0.2s ease; }
         .preview-canvas-shell--desktop {
-            width: 100%;
+            width: 1280px;
             max-width: 1280px;
-            min-width: 0;
-            flex: 1 1 auto;
+            min-width: 1280px;
+            flex: 0 0 auto;
             min-height: 0;
             display: flex;
             flex-direction: column;
@@ -1020,9 +1022,9 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     var modeDesktop = document.getElementById('previewModeDesktop');
 
     /*
-     * Desktop preview height/width come from CSS only (flex in #previewFrameWrap).
-     * Clear any legacy inline height/transform so page / footer switches never
-     * resize the slot. Mobile mode still uses aspect-ratio CSS on the shell.
+     * Desktop preview uses a fixed 1280px-wide shell (CSS); height comes from flex
+     * in #previewFrameWrap. Clear any legacy inline height/transform so page /
+     * footer switches never resize the slot. Mobile mode uses aspect-ratio CSS.
      */
     function syncPreviewLayout() {
         if (!previewShell || !previewScaleHost) return;
