@@ -1027,6 +1027,23 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     /* Fake browser bar + device toggles + gaps inside #previewFrameWrap (not the iframe). */
     var PREVIEW_WRAP_CHROME_PX = 112;
 
+    /*
+     * Locked desktop shell dimensions. Once measured from the real layout,
+     * these are re-applied on every syncPreviewLayout call without
+     * re-measuring the DOM. This prevents page-selection changes (e.g.
+     * switching to "Footer (site-wide)") from ever resizing the canvas,
+     * because sidebar reflows cannot corrupt a cached measurement.
+     * The lock is cleared only when a genuine window resize occurs.
+     */
+    var _lockedDesktopH = 0;
+    var _lockedDesktopS = 1;
+
+    function applyLockedDesktop() {
+        previewShell.style.height = _lockedDesktopH + 'px';
+        previewShell.style.transform = 'scale(' + _lockedDesktopS + ')';
+        previewShell.style.transformOrigin = 'top center';
+    }
+
     function syncPreviewLayout() {
         if (!previewShell || !previewScaleHost) return;
         if (previewShell.classList.contains('preview-canvas-shell--mobile')) {
@@ -1037,12 +1054,19 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             previewScaleHost.style.removeProperty('height');
             previewScaleHost.style.removeProperty('max-height');
             previewScaleHost.style.removeProperty('overflow');
+            /* Clear lock so desktop dimensions are re-measured on next switch. */
+            _lockedDesktopH = 0;
+            return;
+        }
+        /* Re-apply the lock if we already have valid measurements. */
+        if (_lockedDesktopH > 0) {
+            applyLockedDesktop();
             return;
         }
         /*
-         * Drive scale from #previewFrameWrap (outer dark chrome) only. Inner nodes (#previewScaleHost,
-         * scroll area) can shrink when the sidebar reflows (e.g. Footer logo row) and produced a tiny cw
-         * — that is what caused the “postage stamp” preview. Keep using the wrap so the slot stays the same for every preview page.
+         * Fresh measurement — use #previewFrameWrap (outer dark chrome) so
+         * inner nodes that can collapse during sidebar reflows (e.g. the
+         * Footer logo row appearing) do not corrupt cw / ch.
          */
         var cw = 0;
         var ch = 0;
@@ -1065,15 +1089,20 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         }
         var s = Math.min(1, cw / DESKTOP_LOGIC_PX);
         var hLog = Math.max(400, Math.ceil(ch / s));
-        previewShell.style.height = hLog + 'px';
-        previewShell.style.transform = 'scale(' + s + ')';
-        previewShell.style.transformOrigin = 'top center';
+        _lockedDesktopH = hLog;
+        _lockedDesktopS = s;
+        applyLockedDesktop();
     }
 
     var previewFitResizeTimer = null;
     function schedulePreviewFit() {
         clearTimeout(previewFitResizeTimer);
         previewFitResizeTimer = setTimeout(syncPreviewLayout, 80);
+    }
+
+    function invalidateDesktopLock() {
+        _lockedDesktopH = 0;
+        schedulePreviewFit();
     }
 
     function setPreviewDeviceMode(mode) {
@@ -1096,9 +1125,9 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     if (modeDesktop) modeDesktop.addEventListener('click', function () { setPreviewDeviceMode('desktop'); });
 
     if (previewFrameWrap && typeof ResizeObserver !== 'undefined') {
-        new ResizeObserver(schedulePreviewFit).observe(previewFrameWrap);
+        new ResizeObserver(invalidateDesktopLock).observe(previewFrameWrap);
     }
-    window.addEventListener('resize', schedulePreviewFit);
+    window.addEventListener('resize', invalidateDesktopLock);
 
     if (frame) frame.addEventListener('load', function () {
         syncPreviewLayout();
