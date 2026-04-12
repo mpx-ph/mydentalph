@@ -97,7 +97,7 @@ $ffDispJs = json_encode($ffDispArr, $jsonFfFlags);
 $ffEdJs = json_encode($ffEdArr, $jsonFfFlags);
 ?>
 <!DOCTYPE html>
-<html class="light clinic-patient-theme" lang="en" style="font-size: <?php echo $basePx; ?>px;">
+<html class="light clinic-patient-theme overflow-x-clip" lang="en" style="font-size: <?php echo $basePx; ?>px;">
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
@@ -251,5 +251,5 @@ $ffEdJs = json_encode($ffEdArr, $jsonFfFlags);
         }
     </style>
 </head>
-<body class="font-body bg-white dark:bg-background-dark text-slate-900 dark:text-slate-100 overflow-x-hidden antialiased selection:bg-primary/20">
+<body class="font-body bg-white dark:bg-background-dark text-slate-900 dark:text-slate-100 overflow-x-clip antialiased selection:bg-primary/20">
 

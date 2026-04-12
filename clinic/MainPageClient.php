@@ -64,7 +64,7 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </style>
 <?php include __DIR__ . '/includes/nav_client.php'; ?>
 
-<main class="mesh-gradient dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-x-hidden min-w-0">
+<main class="mesh-gradient dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-x-clip min-w-0">
 <!-- Centered Hero Section -->
 <section class="relative min-h-screen flex items-center justify-center pt-24 md:pt-28 overflow-hidden reveal" data-reveal="section" style="background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.8)), url('<?php echo $heroBgEsc; ?>'); background-size: cover; background-position: center 78%; background-repeat: no-repeat;">
 <div class="max-w-7xl mx-auto w-full min-w-0 px-4 sm:px-6 md:px-10 relative z-10 flex flex-col items-center text-center justify-center">
@@ -166,7 +166,7 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </div>
 </section>
 <!-- The Patient Journey Section -->
-<section class="py-20 sm:py-32 bg-slate-50/90 dark:bg-slate-900/50 relative border-y border-slate-200/80 dark:border-slate-800 reveal overflow-x-hidden" data-reveal="section" id="journey">
+<section class="py-20 sm:py-32 bg-slate-50/90 dark:bg-slate-900/50 relative border-y border-slate-200/80 dark:border-slate-800 reveal overflow-x-clip" data-reveal="section" id="journey">
 <div class="max-w-[1800px] mx-auto px-4 sm:px-6 md:px-10 w-full min-w-0">
 <div class="flex flex-col items-center text-center mb-24 w-full min-w-0">
 <div class="inline-flex flex-wrap items-center justify-center gap-2 sm:gap-4 px-3 sm:px-4 py-2 rounded-full bg-primary/5 text-primary text-[10px] font-black uppercase tracking-[0.25em] sm:tracking-[0.4em] mb-6 font-headline max-w-full">
@@ -225,7 +225,7 @@ $heroBgEsc = htmlspecialchars($heroBg, ENT_QUOTES, 'UTF-8');
 </div>
 </section>
 <!-- Final CTA Section -->
-<section class="py-16 sm:py-24 px-4 sm:px-6 md:px-10 reveal overflow-x-hidden" data-reveal="section">
+<section class="py-16 sm:py-24 px-4 sm:px-6 md:px-10 reveal overflow-x-clip" data-reveal="section">
 <div class="mx-auto rounded-[2rem] sm:rounded-[3rem] md:rounded-[4rem] bg-primary relative overflow-hidden flex flex-col items-center text-center shadow-[0_40px_100px_-20px_rgba(43,139,235,0.4)] max-w-6xl w-full min-w-0 py-16 sm:py-24 px-5 sm:px-10 md:px-20">
 <div class="relative z-10 max-w-3xl w-full min-w-0 px-1">
 <div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] mb-10 font-headline">
