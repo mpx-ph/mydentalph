@@ -315,6 +315,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: flex-start;
         }
         .preview-canvas-shell { transition: transform 0.2s ease; }
         .preview-canvas-shell--desktop {
@@ -326,6 +327,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             box-sizing: border-box;
             margin-left: auto;
             margin-right: auto;
+            align-self: center;
             display: flex;
             flex-direction: column;
         }
@@ -1062,15 +1064,53 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     var previewScaleHost = document.getElementById('previewScaleHost');
     var previewCanvasScroll = document.getElementById('previewCanvasScroll');
     var previewDesktopFit = document.getElementById('previewDesktopFit');
+    var previewFrameWrap = document.getElementById('previewFrameWrap');
     var modeMobile = document.getElementById('previewModeMobile');
     var modeDesktop = document.getElementById('previewModeDesktop');
+    var previewSlotMeasureFails = 0;
+
+    function measureDesktopPreviewSlot() {
+        var W = 0;
+        var H = 0;
+        if (previewCanvasScroll) {
+            W = previewCanvasScroll.clientWidth;
+            H = previewCanvasScroll.clientHeight;
+        }
+        if (H > 80 && W > 80) {
+            return { W: W, H: H, ok: true };
+        }
+        if (previewFrameWrap && previewFrameWrap.children.length >= 3) {
+            var kids = previewFrameWrap.children;
+            var chromeH = kids[0].offsetHeight + kids[1].offsetHeight;
+            var pad = 16;
+            var innerH = previewFrameWrap.clientHeight - chromeH - pad;
+            var innerW = previewFrameWrap.clientWidth - pad * 2;
+            if (innerH > 80 && innerW > 80) {
+                return { W: innerW, H: innerH, ok: true };
+            }
+        }
+        if (previewScaleHost && previewScaleHost.clientHeight > 80) {
+            H = previewScaleHost.clientHeight;
+            W = previewScaleHost.clientWidth;
+            if (W > 80 && H > 80) return { W: W, H: H, ok: true };
+        }
+        return { W: W, H: H, ok: false };
+    }
 
     function syncDesktopArtboard() {
         if (!previewShell || !previewScaleHost || !previewCanvasScroll || !previewDesktopFit) return;
         if (previewShell.classList.contains('preview-canvas-shell--mobile')) return;
-        var W = previewCanvasScroll.clientWidth;
-        var H = previewCanvasScroll.clientHeight;
-        if (W < 2 || H < 2) return;
+        var m = measureDesktopPreviewSlot();
+        if (!m.ok) {
+            previewSlotMeasureFails++;
+            if (previewSlotMeasureFails < 80) {
+                requestAnimationFrame(syncPreviewLayout);
+            }
+            return;
+        }
+        previewSlotMeasureFails = 0;
+        var W = m.W;
+        var H = m.H;
         var scale = Math.min(1, W / 1280);
         previewShell.style.transformOrigin = 'top center';
         if (scale >= 0.999) {
@@ -1085,6 +1125,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     function syncPreviewLayout() {
         if (!previewShell || !previewScaleHost) return;
         if (previewShell.classList.contains('preview-canvas-shell--mobile')) {
+            previewSlotMeasureFails = 0;
             previewShell.style.removeProperty('transform');
             previewShell.style.removeProperty('transform-origin');
             previewShell.style.removeProperty('height');
@@ -1113,10 +1154,12 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         syncDesktopArtboard();
     }
 
-    if (typeof ResizeObserver !== 'undefined' && previewCanvasScroll) {
-        new ResizeObserver(function () {
+    if (typeof ResizeObserver !== 'undefined') {
+        var previewSlotRo = new ResizeObserver(function () {
             syncPreviewLayout();
-        }).observe(previewCanvasScroll);
+        });
+        if (previewCanvasScroll) previewSlotRo.observe(previewCanvasScroll);
+        if (previewFrameWrap) previewSlotRo.observe(previewFrameWrap);
     }
     window.addEventListener('resize', function () {
         syncPreviewLayout();
