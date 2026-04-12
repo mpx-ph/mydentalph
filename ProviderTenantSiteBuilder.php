@@ -370,11 +370,14 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </div>
 
 <div id="panel-branding" class="builder-panel builder-panel--active space-y-6 max-h-[52vh] overflow-y-auto pr-1">
-<p class="text-xs text-on-surface-variant leading-relaxed sb-preview-scope" data-sb-preview-pages="all">Logo and images are stored under your tenant in <code class="text-[11px] bg-slate-100 px-1 rounded">clinic_customization_tenant</code>. Clinic name also updates your tenant profile.</p>
+<p class="text-xs text-on-surface-variant leading-relaxed sb-preview-scope" data-sb-preview-pages="all">Navigation, footer, and other images are stored under your tenant in <code class="text-[11px] bg-slate-100 px-1 rounded">clinic_customization_tenant</code>. Clinic name also updates your tenant profile.</p>
 <div class="sb-preview-scope space-y-5" data-sb-preview-pages="all">
 <?php sb_text('clinic_name', 'Clinic display name', $site_opts, $is_owner); ?>
 <?php sb_field_row_open(); ?>
 <?php sb_file('logo_nav', 'Navigation logo (PNG / JPG / WebP)', $site_opts, $is_owner); ?>
+<?php sb_file('logo', 'Footer logo (PNG / JPG / WebP)', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_field_row_open(); ?>
 <?php sb_file('site_favicon', 'Favicon', $site_opts, $is_owner); ?>
 <?php sb_field_row_close(); ?>
 </div>
@@ -453,7 +456,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 </div>
 </div>
 <?php sb_text('footer_copyright_line', 'Copyright line (optional; leave blank for © current year + clinic name + “All rights reserved.”)', $site_opts, $is_owner, true); ?>
-<p class="text-[11px] text-on-surface-variant/80 leading-relaxed">Footer logo uses the <span class="font-bold text-on-background">logo</span> asset (global clinic customization). Navigation logo is separate under Branding. “Powered by MyDental Philippines” is fixed for all clinics.</p>
+<p class="text-[11px] text-on-surface-variant/80 leading-relaxed">The footer image is the <span class="font-bold text-on-background">Footer logo</span> under Branding (same asset may appear on staff login screens). Navigation logo is separate. “Powered by MyDental Philippines” is fixed for all clinics.</p>
 </div>
 <div class="space-y-5 sb-preview-scope" data-sb-preview-pages="home">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Home — Hero</h3>
