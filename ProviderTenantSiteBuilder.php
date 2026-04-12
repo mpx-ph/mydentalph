@@ -430,12 +430,12 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </select>
 </div>
 
-<div class="sb-preview-scope mb-6 pb-6 border-b border-slate-100" data-sb-preview-pages="footer">
+<div class="sb-preview-scope mb-6 pb-6 border-b border-slate-100" data-sb-preview-pages="home,footer">
 <?php sb_file('logo', 'Footer logo (PNG / JPG / WebP)', $site_opts, $is_owner); ?>
 </div>
 
 <div id="panel-branding" class="builder-panel builder-panel--active space-y-6 max-h-[52vh] overflow-y-auto pr-1">
-<p class="text-xs text-on-surface-variant leading-relaxed sb-preview-scope" data-sb-preview-pages="all">Navigation and other images are stored under your tenant in <code class="text-[11px] bg-slate-100 px-1 rounded">clinic_customization_tenant</code>. Clinic name also updates your tenant profile. The <span class="font-bold text-on-background">footer logo</span> upload appears above when <span class="font-bold text-on-background">Footer (site-wide)</span> is selected.</p>
+<p class="text-xs text-on-surface-variant leading-relaxed sb-preview-scope" data-sb-preview-pages="all">Navigation and other images are stored under your tenant in <code class="text-[11px] bg-slate-100 px-1 rounded">clinic_customization_tenant</code>. Clinic name also updates your tenant profile. The <span class="font-bold text-on-background">footer logo</span> upload appears above when <span class="font-bold text-on-background">Home</span> or <span class="font-bold text-on-background">Footer (site-wide)</span> is selected in the preview page picker.</p>
 <div class="sb-preview-scope space-y-5" data-sb-preview-pages="all">
 <?php sb_text('clinic_name', 'Clinic display name', $site_opts, $is_owner); ?>
 <?php sb_field_row_open(); ?>
@@ -482,44 +482,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <?php sb_range('theme_radius_lg_px', 'Component rounding (px)', $site_opts, $is_owner, 6, 28, 1); ?>
 </div>
 <div class="space-y-6 pt-6 border-t border-slate-100">
-<p class="text-xs text-on-surface-variant leading-relaxed">Page copy matches the <span class="font-bold text-on-background">Preview page</span> choice above. Pick <span class="font-bold text-on-background">Footer (site-wide)</span> to edit the shared footer and scroll the canvas to it after load.</p>
-<div class="sb-preview-scope space-y-5" data-sb-preview-pages="footer">
-<p class="text-xs text-on-surface-variant leading-relaxed">One footer is shared across every public page.</p>
-<?php sb_text('footer_blurb', 'Clinic blurb (left column)', $site_opts, $is_owner, true); ?>
-<?php sb_field_row_open(); ?>
-<?php sb_text('footer_follow_label', '“Follow us” label', $site_opts, $is_owner); ?>
-<?php sb_text('footer_hours_heading', 'Hours block heading', $site_opts, $is_owner); ?>
-<?php sb_field_row_close(); ?>
-<?php sb_text('footer_social_url', 'Social profile URL (https…; leave blank to hide icon)', $site_opts, $is_owner, false, true); ?>
-<div class="sb-group space-y-4">
-<p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80">Hours rows</p>
-<?php sb_field_row_open(); ?>
-<?php sb_text('footer_hours_row1_label', 'Row 1 label', $site_opts, $is_owner); ?>
-<?php sb_text('footer_hours_row1_value', 'Row 1 hours', $site_opts, $is_owner); ?>
-<?php sb_field_row_close(); ?>
-<?php sb_field_row_open(); ?>
-<?php sb_text('footer_hours_row2_label', 'Row 2 label', $site_opts, $is_owner); ?>
-<?php sb_text('footer_hours_row2_value', 'Row 2 hours', $site_opts, $is_owner); ?>
-<?php sb_field_row_close(); ?>
-<?php sb_field_row_open(); ?>
-<?php sb_text('footer_hours_row3_label', 'Row 3 label', $site_opts, $is_owner); ?>
-<?php sb_text('footer_hours_row3_value', 'Row 3 hours', $site_opts, $is_owner); ?>
-<?php sb_field_row_close(); ?>
-<?php
-$fhR3 = strtolower(trim((string) ($site_opts['footer_hours_row3_style'] ?? 'danger')));
-$fhR3Dis = $is_owner ? '' : 'disabled';
-?>
-<div class="space-y-1.5 min-w-0">
-<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1" for="footer_hours_row3_style">Row 3 value style</label>
-<select class="w-full min-w-0 bg-slate-50 border border-slate-200 rounded-full px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary <?php echo $is_owner ? '' : 'opacity-70 cursor-not-allowed'; ?>" id="footer_hours_row3_style" data-opt-key="footer_hours_row3_style" <?php echo $fhR3Dis; ?>>
-<option value="danger"<?php echo $fhR3 === 'danger' ? ' selected' : ''; ?>>Emphasized (e.g. red for “Closed”)</option>
-<option value="default"<?php echo $fhR3 === 'default' ? ' selected' : ''; ?>>Same as other rows</option>
-</select>
-</div>
-</div>
-<?php sb_text('footer_copyright_line', 'Copyright line (optional; leave blank for © current year + clinic name + “All rights reserved.”)', $site_opts, $is_owner, true); ?>
-<p class="text-[11px] text-on-surface-variant/80 leading-relaxed">The same footer logo may appear on staff login screens. Navigation logo is under Branding. “Powered by MyDental Philippines” is fixed for all clinics.</p>
-</div>
+<p class="text-xs text-on-surface-variant leading-relaxed">Page copy matches the <span class="font-bold text-on-background">Preview page</span> choice above. With <span class="font-bold text-on-background">Home</span> selected, you can edit home sections and the shared footer below. Pick <span class="font-bold text-on-background">Footer (site-wide)</span> to scroll the canvas to the footer after load.</p>
 <div class="space-y-5 sb-preview-scope" data-sb-preview-pages="home">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Home — Hero</h3>
 <p class="text-[11px] text-on-surface-variant/90 leading-relaxed">The main headline uses your clinic name (&ldquo;Welcome to&rdquo; is fixed). Subtext is editable. Leave the hero badge blank to reuse the services section label (eyebrow); otherwise set a custom pill.</p>
@@ -597,6 +560,44 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 <?php sb_text('main_cta_subtext', 'Subtext', $site_opts, $is_owner, true); ?>
 <?php sb_text('main_cta_button', 'Button label', $site_opts, $is_owner, false, true); ?>
 </div>
+</div>
+<div class="sb-preview-scope space-y-5 pt-6 border-t border-slate-100" data-sb-preview-pages="home,footer">
+<h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Footer (site-wide)</h3>
+<p class="text-xs text-on-surface-variant leading-relaxed">One footer is shared across every public page.</p>
+<?php sb_text('footer_blurb', 'Clinic blurb (left column)', $site_opts, $is_owner, true); ?>
+<?php sb_field_row_open(); ?>
+<?php sb_text('footer_follow_label', '“Follow us” label', $site_opts, $is_owner); ?>
+<?php sb_text('footer_hours_heading', 'Hours block heading', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_text('footer_social_url', 'Social profile URL (https…; leave blank to hide icon)', $site_opts, $is_owner, false, true); ?>
+<div class="sb-group space-y-4">
+<p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80">Hours rows</p>
+<?php sb_field_row_open(); ?>
+<?php sb_text('footer_hours_row1_label', 'Row 1 label', $site_opts, $is_owner); ?>
+<?php sb_text('footer_hours_row1_value', 'Row 1 hours', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_field_row_open(); ?>
+<?php sb_text('footer_hours_row2_label', 'Row 2 label', $site_opts, $is_owner); ?>
+<?php sb_text('footer_hours_row2_value', 'Row 2 hours', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php sb_field_row_open(); ?>
+<?php sb_text('footer_hours_row3_label', 'Row 3 label', $site_opts, $is_owner); ?>
+<?php sb_text('footer_hours_row3_value', 'Row 3 hours', $site_opts, $is_owner); ?>
+<?php sb_field_row_close(); ?>
+<?php
+$fhR3 = strtolower(trim((string) ($site_opts['footer_hours_row3_style'] ?? 'danger')));
+$fhR3Dis = $is_owner ? '' : 'disabled';
+?>
+<div class="space-y-1.5 min-w-0">
+<label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1" for="footer_hours_row3_style">Row 3 value style</label>
+<select class="w-full min-w-0 bg-slate-50 border border-slate-200 rounded-full px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary <?php echo $is_owner ? '' : 'opacity-70 cursor-not-allowed'; ?>" id="footer_hours_row3_style" data-opt-key="footer_hours_row3_style" <?php echo $fhR3Dis; ?>>
+<option value="danger"<?php echo $fhR3 === 'danger' ? ' selected' : ''; ?>>Emphasized (e.g. red for “Closed”)</option>
+<option value="default"<?php echo $fhR3 === 'default' ? ' selected' : ''; ?>>Same as other rows</option>
+</select>
+</div>
+</div>
+<?php sb_text('footer_copyright_line', 'Copyright line (optional; leave blank for © current year + clinic name + “All rights reserved.”)', $site_opts, $is_owner, true); ?>
+<p class="text-[11px] text-on-surface-variant/80 leading-relaxed">The same footer logo may appear on staff login screens. Navigation logo is under Branding. “Powered by MyDental Philippines” is fixed for all clinics.</p>
 </div>
 <div class="space-y-5 sb-preview-scope" data-sb-preview-pages="services">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Services — Page &amp; hero</h3>
