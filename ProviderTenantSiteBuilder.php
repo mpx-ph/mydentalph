@@ -330,8 +330,6 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <button type="button" class="builder-tab px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent text-on-surface-variant" data-tab="colors">Colors</button>
 <button type="button" class="builder-tab px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent text-on-surface-variant" data-tab="type">Type</button>
 <button type="button" class="builder-tab px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent text-on-surface-variant" data-tab="layout">Layout</button>
-<button type="button" class="builder-tab px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent text-on-surface-variant" data-tab="footer">Footer</button>
-<button type="button" class="builder-tab px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent text-on-surface-variant" data-tab="pages">Pages</button>
 </div>
 
 <div class="mb-6 pb-6 border-b border-slate-100">
@@ -383,13 +381,15 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <?php sb_range('theme_heading_weight', 'Heading weight', $site_opts, $is_owner, 500, 900, 50); ?>
 </div>
 
-<div id="panel-layout" class="builder-panel space-y-6 max-h-[52vh] overflow-y-auto pr-1">
+<div id="panel-layout" class="builder-panel space-y-8 max-h-[52vh] overflow-y-auto pr-1">
+<div class="space-y-6">
 <p class="text-xs text-on-surface-variant leading-relaxed">Controls corner rounding for Tailwind radius tokens on patient pages (buttons, cards).</p>
 <?php sb_range('theme_radius_lg_px', 'Component rounding (px)', $site_opts, $is_owner, 6, 28, 1); ?>
 </div>
-
-<div id="panel-footer" class="builder-panel space-y-6 max-h-[52vh] overflow-y-auto pr-1">
-<p class="text-xs text-on-surface-variant leading-relaxed">One footer is shared across every public page. Pick <span class="font-bold text-on-background">Footer (site-wide)</span> in Preview page to jump the canvas to it after load.</p>
+<div class="space-y-6 pt-6 border-t border-slate-100">
+<p class="text-xs text-on-surface-variant leading-relaxed">Page copy matches the <span class="font-bold text-on-background">Preview page</span> choice above. Pick <span class="font-bold text-on-background">Footer (site-wide)</span> to edit the shared footer and scroll the canvas to it after load.</p>
+<div class="sb-preview-scope space-y-6" data-sb-preview-pages="footer">
+<p class="text-xs text-on-surface-variant leading-relaxed">One footer is shared across every public page.</p>
 <?php sb_text('footer_blurb', 'Clinic blurb (left column)', $site_opts, $is_owner, true); ?>
 <?php sb_text('footer_follow_label', '“Follow us” label', $site_opts, $is_owner); ?>
 <?php sb_text('footer_social_url', 'Social profile URL (https…; leave blank to hide icon)', $site_opts, $is_owner); ?>
@@ -417,8 +417,6 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 <?php sb_text('footer_copyright_line', 'Copyright line (optional; leave blank for © current year + clinic name + “All rights reserved.”)', $site_opts, $is_owner, true); ?>
 <p class="text-[11px] text-on-surface-variant/80 leading-relaxed">Footer logo uses the <span class="font-bold text-on-background">logo</span> asset (global clinic customization). Navigation logo is separate under Branding. “Powered by MyDental Philippines” is fixed for all clinics.</p>
 </div>
-
-<div id="panel-pages" class="builder-panel space-y-8 max-h-[52vh] overflow-y-auto pr-1">
 <div class="space-y-6 sb-preview-scope" data-sb-preview-pages="home">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Home — Hero</h3>
 <p class="text-[11px] text-on-surface-variant/90 leading-relaxed">The main headline uses your clinic name (&ldquo;Welcome to&rdquo; is fixed). Subtext is editable. Leave the hero badge blank to reuse the services section label (eyebrow); otherwise set a custom pill.</p>
@@ -604,6 +602,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 <?php sb_text('contact_hours_sat', 'Saturday hours', $site_opts, $is_owner); ?>
 <?php sb_text('contact_hours_sun_label', 'Sunday line label', $site_opts, $is_owner); ?>
 <?php sb_text('contact_hours_sun', 'Sunday hours', $site_opts, $is_owner); ?>
+</div>
 </div>
 </div>
 </div>
