@@ -280,8 +280,9 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             min-height: 0;
             align-self: stretch;
         }
+        /* overflow visible: a tall pre-scale shell + transform must not be clipped here (was cutting the preview short). */
         .preview-desktop-fit {
-            overflow: hidden;
+            overflow: visible;
             flex: 1 1 0;
             min-width: 0;
             min-height: 0;
@@ -1030,20 +1031,24 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 
     var previewShell = document.getElementById('previewCanvasShell');
     var previewScaleHost = document.getElementById('previewScaleHost');
+    var previewCanvasScroll = document.getElementById('previewCanvasScroll');
     var previewDesktopFit = document.getElementById('previewDesktopFit');
     var modeMobile = document.getElementById('previewModeMobile');
     var modeDesktop = document.getElementById('previewModeDesktop');
 
     /*
-     * Desktop: 1280px-wide shell for breakpoints; scale down for width only.
-     * Uniform scale(s) shrinks visual height by s — use layout height H/s so
-     * (H/s)*s === H and the white preview fills the dark canvas vertically.
+     * Desktop: 1280px-wide shell for breakpoints; scale down when slot < 1280.
+     * Slot size from #previewCanvasScroll (the dark inner viewport). Always set
+     * an explicit shell height: with transform scale(s), layout height H/s keeps
+     * visual height (H/s)*s === H. When scale≈1, still set height H — flex alone
+     * often left the shell short vs the dark frame.
      */
     function syncDesktopPreviewFit() {
         if (!previewShell || !previewScaleHost || !previewDesktopFit) return;
         if (previewShell.classList.contains('preview-canvas-shell--mobile')) return;
-        var W = previewScaleHost.clientWidth;
-        var H = previewScaleHost.clientHeight;
+        var slot = previewCanvasScroll || previewScaleHost;
+        var W = slot.clientWidth;
+        var H = slot.clientHeight;
         if (W < 2 || H < 2) return;
         var scale = Math.min(1, W / 1280);
         previewShell.style.transformOrigin = 'top center';
@@ -1052,7 +1057,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         previewDesktopFit.style.removeProperty('flex');
         if (scale >= 0.999) {
             previewShell.style.removeProperty('transform');
-            previewShell.style.removeProperty('height');
+            previewShell.style.height = H + 'px';
         } else {
             previewShell.style.transform = 'scale(' + scale + ')';
             previewShell.style.height = (H / scale) + 'px';
@@ -1083,11 +1088,12 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         syncDesktopPreviewFit();
     }
 
-    if (previewScaleHost && typeof ResizeObserver !== 'undefined') {
+    if (typeof ResizeObserver !== 'undefined') {
         var previewLayoutRo = new ResizeObserver(function () {
             syncPreviewLayout();
         });
-        previewLayoutRo.observe(previewScaleHost);
+        if (previewScaleHost) previewLayoutRo.observe(previewScaleHost);
+        if (previewCanvasScroll) previewLayoutRo.observe(previewCanvasScroll);
     }
     window.addEventListener('resize', function () {
         syncPreviewLayout();
@@ -1120,8 +1126,9 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             setTimeout(tryPreviewScrollToFooter, 650);
         }
     });
-    /* One-time strip of legacy inline preview sizing (no measurement). */
-    requestAnimationFrame(syncPreviewLayout);
+    requestAnimationFrame(function () {
+        requestAnimationFrame(syncPreviewLayout);
+    });
 
     (function teamMembersEditor() {
         var teamRoot = document.getElementById('teamMembersEditor');
