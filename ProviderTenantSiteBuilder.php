@@ -709,8 +709,8 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 </div>
 </div>
 
-<div class="xl:col-span-7 flex flex-col min-h-0 w-full min-h-[52vh] xl:min-h-0 xl:h-[calc(100dvh-8rem)] xl:max-h-[calc(100dvh-8rem)] xl:shrink-0">
-<div class="preview-frame-wrap rounded-[2rem] bg-slate-900/90 p-3 sm:p-4 border border-slate-800 flex flex-col flex-1 min-h-0 h-full">
+<div class="xl:col-span-7 flex flex-col min-h-0 w-full min-h-[52vh] xl:min-h-[calc(100dvh-8rem)] xl:h-[calc(100dvh-8rem)] xl:max-h-[calc(100dvh-8rem)] xl:shrink-0">
+<div class="preview-frame-wrap rounded-[2rem] bg-slate-900/90 p-3 sm:p-4 border border-slate-800 flex flex-col flex-1 min-h-0 h-full" id="previewFrameWrap">
 <div class="flex items-center gap-2 px-3 py-2 mb-2">
 <span class="h-3 w-3 rounded-full bg-red-400/90"></span>
 <span class="h-3 w-3 rounded-full bg-amber-400/90"></span>
@@ -841,7 +841,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
                 tryPreviewScrollToFooter();
                 setTimeout(tryPreviewScrollToFooter, 150);
                 setTimeout(tryPreviewScrollToFooter, 500);
-                /* Do not remeasure canvas — sidebar toggles must not touch preview slot height. */
+                schedulePreviewFit();
                 return;
             }
             frame.src = withCacheBust(target) + '#clinic-site-footer';
@@ -852,6 +852,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         if (page === 'home' && sameDoc) {
             if (canAccessPreviewFrameDoc()) {
                 tryPreviewScrollToTop();
+                schedulePreviewFit();
                 return;
             }
             frame.src = withCacheBust(target);
@@ -988,6 +989,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         previewSelect.addEventListener('change', function () {
             applyPreviewPageFieldScope(previewSelect.value);
             applyPreviewNavigation(previewSelect.value, false);
+            schedulePreviewFit();
         });
         applyPreviewPageFieldScope(previewSelect.value);
         applyPreviewNavigation(previewSelect.value, false);
@@ -1003,9 +1005,22 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     var previewShell = document.getElementById('previewCanvasShell');
     var previewCanvasScroll = document.getElementById('previewCanvasScroll');
     var previewScaleHost = document.getElementById('previewScaleHost');
+    var previewFrameWrap = document.getElementById('previewFrameWrap');
     var modeMobile = document.getElementById('previewModeMobile');
     var modeDesktop = document.getElementById('previewModeDesktop');
     var DESKTOP_LOGIC_PX = 1280;
+    /* Chrome inside previewFrameWrap above the white canvas (fake browser bar + device toggles + padding). */
+    var PREVIEW_WRAP_CHROME_PX = 108;
+
+    function desktopPreviewSlotHeightPx() {
+        if (previewFrameWrap) {
+            var h = Math.round(previewFrameWrap.getBoundingClientRect().height);
+            if (h > PREVIEW_WRAP_CHROME_PX + 80) {
+                return Math.max(280, h - PREVIEW_WRAP_CHROME_PX);
+            }
+        }
+        return Math.max(320, Math.round(window.innerHeight * 0.62));
+    }
 
     function syncDesktopPreviewFit() {
         if (!previewShell || !previewScaleHost || !previewCanvasScroll) return;
@@ -1020,20 +1035,14 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             return;
         }
         var cw = previewCanvasScroll.clientWidth;
-        var ch = Math.round(previewCanvasScroll.getBoundingClientRect().height);
-        if (ch <= 0) {
-            ch = previewCanvasScroll.clientHeight;
-        }
         if (cw <= 0) return;
-        if (ch < 120) {
-            ch = Math.max(320, Math.round(window.innerHeight * 0.5));
-        }
+        /* Never derive height from previewCanvasScroll — flex + iframe paint can collapse it; outer wrap is stable. */
+        var ch = desktopPreviewSlotHeightPx();
         var s = Math.min(1, cw / DESKTOP_LOGIC_PX);
         var hLog = Math.max(400, Math.ceil(ch / s));
         previewShell.style.height = hLog + 'px';
         previewShell.style.transform = 'scale(' + s + ')';
         previewShell.style.transformOrigin = 'top center';
-        /* Host fills flex parent (CSS height:100%); overflow clips unscaled shell — avoid inline height on host (stale after sidebar toggles). */
         previewScaleHost.style.removeProperty('min-height');
         previewScaleHost.style.removeProperty('height');
         previewScaleHost.style.removeProperty('max-height');
@@ -1064,8 +1073,8 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         clearTimeout(previewFitResizeTimer);
         previewFitResizeTimer = setTimeout(syncDesktopPreviewFit, 80);
     }
-    if (previewCanvasScroll && typeof ResizeObserver !== 'undefined') {
-        new ResizeObserver(schedulePreviewFit).observe(previewCanvasScroll);
+    if (previewFrameWrap && typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(schedulePreviewFit).observe(previewFrameWrap);
     }
     window.addEventListener('resize', schedulePreviewFit);
     if (frame) frame.addEventListener('load', function () {
