@@ -267,7 +267,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             border-radius: 9999px;
         }
         /* Patient nav (nav_client.php) uses Tailwind lg: (1024px). Desktop canvas is 1280px wide logically, then scaled down to fit (JS). */
-        .preview-canvas-scroll { max-width: 100%; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+        .preview-canvas-scroll { max-width: 100%; overflow-x: hidden; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
         .preview-scale-host {
             width: 100%;
             overflow: hidden;
@@ -276,6 +276,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             align-items: flex-start;
             flex: 1 1 0;
             min-height: 0;
+            align-self: stretch;
         }
         .preview-canvas-shell { transition: transform 0.2s ease, min-height 0.35s ease, height 0.15s ease; }
         .preview-canvas-shell--desktop {
@@ -369,15 +370,16 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </select>
 </div>
 
+<div class="sb-preview-scope mb-6 pb-6 border-b border-slate-100" data-sb-preview-pages="footer">
+<?php sb_file('logo', 'Footer logo (PNG / JPG / WebP)', $site_opts, $is_owner); ?>
+</div>
+
 <div id="panel-branding" class="builder-panel builder-panel--active space-y-6 max-h-[52vh] overflow-y-auto pr-1">
-<p class="text-xs text-on-surface-variant leading-relaxed sb-preview-scope" data-sb-preview-pages="all">Navigation, footer, and other images are stored under your tenant in <code class="text-[11px] bg-slate-100 px-1 rounded">clinic_customization_tenant</code>. Clinic name also updates your tenant profile.</p>
+<p class="text-xs text-on-surface-variant leading-relaxed sb-preview-scope" data-sb-preview-pages="all">Navigation and other images are stored under your tenant in <code class="text-[11px] bg-slate-100 px-1 rounded">clinic_customization_tenant</code>. Clinic name also updates your tenant profile. The <span class="font-bold text-on-background">footer logo</span> upload appears above when <span class="font-bold text-on-background">Footer (site-wide)</span> is selected.</p>
 <div class="sb-preview-scope space-y-5" data-sb-preview-pages="all">
 <?php sb_text('clinic_name', 'Clinic display name', $site_opts, $is_owner); ?>
 <?php sb_field_row_open(); ?>
 <?php sb_file('logo_nav', 'Navigation logo (PNG / JPG / WebP)', $site_opts, $is_owner); ?>
-<?php sb_file('logo', 'Footer logo (PNG / JPG / WebP)', $site_opts, $is_owner); ?>
-<?php sb_field_row_close(); ?>
-<?php sb_field_row_open(); ?>
 <?php sb_file('site_favicon', 'Favicon', $site_opts, $is_owner); ?>
 <?php sb_field_row_close(); ?>
 </div>
@@ -456,7 +458,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 </div>
 </div>
 <?php sb_text('footer_copyright_line', 'Copyright line (optional; leave blank for © current year + clinic name + “All rights reserved.”)', $site_opts, $is_owner, true); ?>
-<p class="text-[11px] text-on-surface-variant/80 leading-relaxed">The footer image is the <span class="font-bold text-on-background">Footer logo</span> under Branding (same asset may appear on staff login screens). Navigation logo is separate. “Powered by MyDental Philippines” is fixed for all clinics.</p>
+<p class="text-[11px] text-on-surface-variant/80 leading-relaxed">The same footer logo may appear on staff login screens. Navigation logo is under Branding. “Powered by MyDental Philippines” is fixed for all clinics.</p>
 </div>
 <div class="space-y-5 sb-preview-scope" data-sb-preview-pages="home">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Home — Hero</h3>
@@ -897,6 +899,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         previewSelect.addEventListener('change', function () {
             setPreviewUrl(previewSelect.value);
             applyPreviewPageFieldScope(previewSelect.value);
+            schedulePreviewFit();
         });
         setPreviewUrl(previewSelect.value);
         applyPreviewPageFieldScope(previewSelect.value);
@@ -923,6 +926,9 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             previewShell.style.removeProperty('transform-origin');
             previewShell.style.removeProperty('height');
             previewScaleHost.style.removeProperty('min-height');
+            previewScaleHost.style.removeProperty('height');
+            previewScaleHost.style.removeProperty('max-height');
+            previewScaleHost.style.removeProperty('overflow');
             return;
         }
         var cw = previewCanvasScroll.clientWidth;
@@ -936,7 +942,11 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         previewShell.style.height = hLog + 'px';
         previewShell.style.transform = 'scale(' + s + ')';
         previewShell.style.transformOrigin = 'top center';
-        previewScaleHost.style.minHeight = ch + 'px';
+        /* Scale does not shrink layout box; clip the host so flex height cannot grow in a feedback loop with ResizeObserver. */
+        previewScaleHost.style.removeProperty('min-height');
+        previewScaleHost.style.height = ch + 'px';
+        previewScaleHost.style.maxHeight = ch + 'px';
+        previewScaleHost.style.overflow = 'hidden';
     }
 
     function setPreviewDeviceMode(mode) {
