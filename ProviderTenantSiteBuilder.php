@@ -237,6 +237,19 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
         .builder-panel--active { display: block; }
         .sb-group { border-left: 2px solid rgba(43, 139, 235, 0.15); padding-left: 1rem; }
         .preview-frame-wrap { box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.12); }
+        /* Do not rely on Tailwind for this — CDN JIT can miss arbitrary utilities; grid must work for preview height. */
+        #previewColumn {
+            align-self: stretch;
+            min-height: 0;
+        }
+        #previewFrameWrap {
+            display: grid;
+            grid-template-rows: auto auto minmax(0, 1fr);
+            flex: 1 1 0%;
+            min-height: 0;
+            height: 100%;
+            max-height: 100%;
+        }
         .preview-device-bar {
             display: inline-flex;
             align-items: stretch;
@@ -746,8 +759,8 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 </div>
 </div>
 
-<div class="xl:col-span-7 flex flex-col min-h-0 w-full self-stretch min-h-[60vh] xl:min-h-[calc(100dvh-6rem)] xl:h-[calc(100dvh-6rem)] xl:max-h-[calc(100dvh-6rem)] xl:shrink-0">
-<div class="preview-frame-wrap rounded-[2rem] bg-slate-900/90 p-3 sm:p-4 border border-slate-800 grid flex-1 min-h-0 h-full grid-rows-[auto_auto_minmax(0,1fr)]" id="previewFrameWrap">
+<div class="xl:col-span-7 flex flex-col min-h-0 w-full self-stretch min-h-[60vh] xl:min-h-[calc(100dvh-6rem)] xl:h-[calc(100dvh-6rem)] xl:max-h-[calc(100dvh-6rem)] xl:shrink-0" id="previewColumn">
+<div class="preview-frame-wrap rounded-[2rem] bg-slate-900/90 p-3 sm:p-4 border border-slate-800 flex-1 min-h-0 h-full" id="previewFrameWrap">
 <div class="flex items-center gap-2 px-3 py-2 mb-2">
 <span class="h-3 w-3 rounded-full bg-red-400/90"></span>
 <span class="h-3 w-3 rounded-full bg-amber-400/90"></span>
@@ -1039,23 +1052,57 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     var previewScaleHost = document.getElementById('previewScaleHost');
     var previewCanvasScroll = document.getElementById('previewCanvasScroll');
     var previewDesktopFit = document.getElementById('previewDesktopFit');
+    var previewFrameWrap = document.getElementById('previewFrameWrap');
     var modeMobile = document.getElementById('previewModeMobile');
     var modeDesktop = document.getElementById('previewModeDesktop');
+    var previewSlotMeasureAttempts = 0;
+
+    function derivePreviewSlotSize() {
+        var slot = previewCanvasScroll || previewScaleHost;
+        var W = slot ? slot.clientWidth : 0;
+        var H = slot ? slot.clientHeight : 0;
+        if ((W > 1 && H > 1) || !previewFrameWrap || !previewCanvasScroll) {
+            return { W: W, H: H, ok: W > 1 && H > 1 };
+        }
+        var kids = previewFrameWrap.children;
+        if (kids.length < 3) return { W: W, H: H, ok: false };
+        var chromeH = kids[0].offsetHeight + kids[1].offsetHeight;
+        var pad = 12;
+        var innerH = previewFrameWrap.clientHeight - chromeH - pad;
+        var innerW = previewFrameWrap.clientWidth - pad * 2;
+        if (innerH > 80 && innerW > 80) {
+            return { W: innerW, H: innerH, ok: true };
+        }
+        return { W: W, H: H, ok: false };
+    }
 
     /*
      * Desktop: 1280px-wide shell for breakpoints; scale down when slot < 1280.
-     * Slot size from #previewCanvasScroll (the dark inner viewport). Always set
-     * an explicit shell height: with transform scale(s), layout height H/s keeps
-     * visual height (H/s)*s === H. When scale≈1, still set height H — flex alone
-     * often left the shell short vs the dark frame.
+     * Slot height often reads 0 before layout — derive from #previewFrameWrap or retry.
      */
     function syncDesktopPreviewFit() {
         if (!previewShell || !previewScaleHost || !previewDesktopFit) return;
-        if (previewShell.classList.contains('preview-canvas-shell--mobile')) return;
-        var slot = previewCanvasScroll || previewScaleHost;
-        var W = slot.clientWidth;
-        var H = slot.clientHeight;
-        if (W < 2 || H < 2) return;
+        if (previewShell.classList.contains('preview-canvas-shell--mobile')) {
+            previewSlotMeasureAttempts = 0;
+            if (previewCanvasScroll) previewCanvasScroll.style.removeProperty('min-height');
+            return;
+        }
+        var m = derivePreviewSlotSize();
+        var W = m.W;
+        var H = m.H;
+        if (!m.ok) {
+            previewSlotMeasureAttempts++;
+            if (previewSlotMeasureAttempts < 60) {
+                requestAnimationFrame(function () {
+                    syncPreviewLayout();
+                });
+            }
+            return;
+        }
+        previewSlotMeasureAttempts = 0;
+        if (previewCanvasScroll && previewCanvasScroll.clientHeight < 80 && H > 80) {
+            previewCanvasScroll.style.minHeight = Math.round(H) + 'px';
+        }
         var scale = Math.min(1, W / 1280);
         previewShell.style.transformOrigin = 'top center';
         previewDesktopFit.style.removeProperty('width');
@@ -1073,9 +1120,11 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     function syncPreviewLayout() {
         if (!previewShell || !previewScaleHost) return;
         if (previewShell.classList.contains('preview-canvas-shell--mobile')) {
+            previewSlotMeasureAttempts = 0;
             previewShell.style.removeProperty('transform');
             previewShell.style.removeProperty('transform-origin');
             previewShell.style.removeProperty('height');
+            if (previewCanvasScroll) previewCanvasScroll.style.removeProperty('min-height');
             if (previewDesktopFit) {
                 previewDesktopFit.style.removeProperty('width');
                 previewDesktopFit.style.removeProperty('height');
