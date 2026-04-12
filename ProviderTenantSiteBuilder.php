@@ -266,7 +266,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             box-shadow: 0 0 24px -4px rgba(43, 139, 235, 0.55);
             border-radius: 9999px;
         }
-        /* Desktop: 1280px logical width (patient lg: breakpoint), scaled to fit slot. Measure #previewScaleHost only — not inner scroll (avoids footer-preview shrink). */
+        /* Desktop: 1280px logical width (patient lg: breakpoint), scaled to fit #previewFrameWrap — not inner scroll hosts (avoids wrong cw when the sidebar reflows). */
         .preview-canvas-scroll { max-width: 100%; overflow: hidden; -webkit-overflow-scrolling: touch; }
         .preview-scale-host {
             width: 100%;
@@ -1039,14 +1039,10 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             previewScaleHost.style.removeProperty('overflow');
             return;
         }
-        /* Preview page Footer (site-wide): do not change shell height or scale — iframe scroll only. */
-        if (previewSelect && previewSelect.value === 'footer') {
-            return;
-        }
         /*
          * Drive scale from #previewFrameWrap (outer dark chrome) only. Inner nodes (#previewScaleHost,
          * scroll area) can shrink when the sidebar reflows (e.g. Footer logo row) and produced a tiny cw
-         * — that is what caused the “postage stamp” preview. Wrap size matches Home vs Footer.
+         * — that is what caused the “postage stamp” preview. Keep using the wrap so the slot stays the same for every preview page.
          */
         var cw = 0;
         var ch = 0;
