@@ -280,8 +280,9 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             border-radius: 9999px;
         }
         /*
-         * Preview fills the dark frame with plain flex + grid (no transform / no height JS).
-         * Shell is up to 1280px wide, 100% tall; iframe fills the shell (viewport inside iframe = slot width).
+         * Canvas fills the dark frame (flex + #previewFrameWrap grid).
+         * Desktop: fixed 1280px-wide shell so the iframe sees desktop CSS breakpoints;
+         * JS scales the shell down when the slot is narrower so it still fits visually.
          */
         .preview-canvas-scroll {
             max-width: 100%;
@@ -315,18 +316,18 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             flex-direction: column;
             align-items: center;
         }
+        .preview-canvas-shell { transition: transform 0.2s ease; }
         .preview-canvas-shell--desktop {
-            width: 100%;
+            width: 1280px;
+            min-width: 1280px;
             max-width: 1280px;
-            min-width: 0;
-            flex: 1 1 0;
+            flex: 0 0 auto;
             min-height: 0;
-            height: 100%;
+            box-sizing: border-box;
             margin-left: auto;
             margin-right: auto;
             display: flex;
             flex-direction: column;
-            box-sizing: border-box;
         }
         .preview-canvas-shell--desktop #sitePreviewFrame {
             flex: 1 1 auto;
@@ -769,7 +770,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 </div>
 
 <div class="xl:col-span-7 flex flex-col min-h-0 w-full self-stretch min-h-[60vh] xl:min-h-[calc(100dvh-6rem)] xl:h-[calc(100dvh-6rem)] xl:max-h-[calc(100dvh-6rem)] xl:shrink-0" id="previewColumn">
-<div class="preview-frame-wrap rounded-[2rem] bg-slate-900/90 p-3 sm:p-4 border border-slate-800 flex-1 min-h-0 h-full" id="previewFrameWrap">
+<div class="preview-frame-wrap rounded-[2rem] bg-slate-900/90 p-2 sm:p-3 border border-slate-800 flex-1 min-h-0 h-full" id="previewFrameWrap">
 <div class="flex items-center gap-2 px-3 py-2 mb-2">
 <span class="h-3 w-3 rounded-full bg-red-400/90"></span>
 <span class="h-3 w-3 rounded-full bg-amber-400/90"></span>
@@ -1064,7 +1065,23 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     var modeMobile = document.getElementById('previewModeMobile');
     var modeDesktop = document.getElementById('previewModeDesktop');
 
-    /* Strip legacy inline preview styles (layout is CSS-only for desktop). */
+    function syncDesktopArtboard() {
+        if (!previewShell || !previewScaleHost || !previewCanvasScroll || !previewDesktopFit) return;
+        if (previewShell.classList.contains('preview-canvas-shell--mobile')) return;
+        var W = previewCanvasScroll.clientWidth;
+        var H = previewCanvasScroll.clientHeight;
+        if (W < 2 || H < 2) return;
+        var scale = Math.min(1, W / 1280);
+        previewShell.style.transformOrigin = 'top center';
+        if (scale >= 0.999) {
+            previewShell.style.removeProperty('transform');
+            previewShell.style.height = H + 'px';
+        } else {
+            previewShell.style.transform = 'scale(' + scale + ')';
+            previewShell.style.height = (H / scale) + 'px';
+        }
+    }
+
     function syncPreviewLayout() {
         if (!previewShell || !previewScaleHost) return;
         if (previewShell.classList.contains('preview-canvas-shell--mobile')) {
@@ -1083,20 +1100,27 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             previewScaleHost.style.removeProperty('overflow');
             return;
         }
-        previewShell.style.removeProperty('transform');
-        previewShell.style.removeProperty('transform-origin');
-        previewShell.style.removeProperty('height');
+        previewScaleHost.style.removeProperty('min-height');
+        previewScaleHost.style.removeProperty('height');
+        previewScaleHost.style.removeProperty('max-height');
+        previewScaleHost.style.removeProperty('overflow');
         if (previewCanvasScroll) previewCanvasScroll.style.removeProperty('min-height');
         if (previewDesktopFit) {
             previewDesktopFit.style.removeProperty('width');
             previewDesktopFit.style.removeProperty('height');
             previewDesktopFit.style.removeProperty('flex');
         }
-        previewScaleHost.style.removeProperty('min-height');
-        previewScaleHost.style.removeProperty('height');
-        previewScaleHost.style.removeProperty('max-height');
-        previewScaleHost.style.removeProperty('overflow');
+        syncDesktopArtboard();
     }
+
+    if (typeof ResizeObserver !== 'undefined' && previewCanvasScroll) {
+        new ResizeObserver(function () {
+            syncPreviewLayout();
+        }).observe(previewCanvasScroll);
+    }
+    window.addEventListener('resize', function () {
+        syncPreviewLayout();
+    });
 
     function setPreviewDeviceMode(mode) {
         if (!previewShell) return;
