@@ -109,6 +109,54 @@ foreach ($imageKeys as $key) {
     }
 }
 
+if (array_key_exists('about_team_members_json', $patch)) {
+    $rawTeam = (string) $patch['about_team_members_json'];
+    $team = json_decode($rawTeam, true);
+    if (is_array($team)) {
+        $team = array_slice($team, 0, 30);
+        $trimField = static function (string $v, int $max): string {
+            $v = trim($v);
+            if (strlen($v) <= $max) {
+                return $v;
+            }
+            return substr($v, 0, $max);
+        };
+        $clean = [];
+        foreach ($team as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $clean[] = [
+                'title' => $trimField((string) ($row['title'] ?? ''), 200),
+                'name' => $trimField((string) ($row['name'] ?? ''), 200),
+                'bio' => $trimField((string) ($row['bio'] ?? ''), 8000),
+                'tags' => $trimField((string) ($row['tags'] ?? ''), 500),
+                'image' => $trimField((string) ($row['image'] ?? ''), 800),
+            ];
+        }
+        foreach ($_FILES as $fieldName => $fileSlot) {
+            if (!is_array($fileSlot) || !preg_match('/^file_about_team_m_(\d+)_img$/', (string) $fieldName, $mm)) {
+                continue;
+            }
+            $idx = (int) $mm[1];
+            if ($idx < 0 || $idx >= count($clean)) {
+                continue;
+            }
+            $tmp = (string) ($fileSlot['tmp_name'] ?? '');
+            if ($tmp === '' || !is_uploaded_file($tmp)) {
+                continue;
+            }
+            $result = uploadFile($fileSlot, $uploadDir);
+            if (!empty($result['success']) && !empty($result['filename'])) {
+                $clean[$idx]['image'] = $uploadDir . $result['filename'];
+            }
+        }
+        $patch['about_team_members_json'] = json_encode($clean, JSON_UNESCAPED_UNICODE);
+    } else {
+        unset($patch['about_team_members_json']);
+    }
+}
+
 $sanitizeHex = static function (string $v): string {
     $v = strtolower(trim($v));
     $v = preg_replace('/^#/', '', $v);

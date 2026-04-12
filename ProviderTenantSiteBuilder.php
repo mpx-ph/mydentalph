@@ -6,6 +6,7 @@ require_once __DIR__ . '/provider_tenant_canonical_context.inc.php';
 require_once __DIR__ . '/provider_tenant_plan_and_site_context.inc.php';
 require_once __DIR__ . '/provider_tenant_header_context.inc.php';
 require_once __DIR__ . '/provider_tenant_site_customization_lib.php';
+require_once __DIR__ . '/clinic/includes/about_team_members_lib.php';
 
 $provider_nav_active = 'customize';
 
@@ -14,6 +15,13 @@ $cnTenant = trim((string) ($tenant['clinic_name'] ?? ''));
 if ($cnTenant !== '') {
     $site_opts['clinic_name'] = $cnTenant;
 }
+
+$team_editor_rows = clinic_about_team_members_bootstrap_rows($site_opts);
+$team_editor_json_attr = htmlspecialchars(
+    json_encode($team_editor_rows, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP),
+    ENT_QUOTES,
+    'UTF-8'
+);
 
 $allowed_fonts = [
     'Manrope', 'Inter', 'Plus Jakarta Sans', 'DM Sans', 'Outfit', 'Source Sans 3',
@@ -604,37 +612,14 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 <?php sb_text('about_team_title_accent', 'Accent word', $site_opts, $is_owner); ?>
 <?php sb_field_row_close(); ?>
 <?php sb_text('about_team_subtitle', 'Section subtitle', $site_opts, $is_owner, true); ?>
-<p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Team member 1</p>
-<?php sb_field_row_open(); ?>
-<?php sb_text('about_team_doctor1_title', 'Role / title', $site_opts, $is_owner); ?>
-<?php sb_text('about_team_doctor1_name', 'Name', $site_opts, $is_owner); ?>
-<?php sb_field_row_close(); ?>
-<?php sb_text('about_team_doctor1_bio', 'Bio (card)', $site_opts, $is_owner, true); ?>
-<?php sb_field_row_open(); ?>
-<?php sb_text('about_team_doctor1_tags', 'Tags (comma-separated)', $site_opts, $is_owner); ?>
-<?php sb_field_row_close(); ?>
-<?php sb_file('about_team_doctor1_image', 'Photo', $site_opts, $is_owner); ?>
-<p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Team member 2</p>
-<?php sb_field_row_open(); ?>
-<?php sb_text('about_team_doctor2_title', 'Role / title', $site_opts, $is_owner); ?>
-<?php sb_text('about_team_doctor2_name', 'Name', $site_opts, $is_owner); ?>
-<?php sb_field_row_close(); ?>
-<?php sb_text('about_team_doctor2_bio', 'Bio (card)', $site_opts, $is_owner, true); ?>
-<?php sb_field_row_open(); ?>
-<?php sb_text('about_team_doctor2_tags', 'Tags (comma-separated)', $site_opts, $is_owner); ?>
-<?php sb_field_row_close(); ?>
-<?php sb_file('about_team_doctor2_image', 'Photo', $site_opts, $is_owner); ?>
-<p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/80 pt-2">Team member 3 (optional)</p>
-<p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Leave <span class="font-bold">Name</span> empty to hide the third card.</p>
-<?php sb_field_row_open(); ?>
-<?php sb_text('about_team_doctor3_title', 'Role / title', $site_opts, $is_owner); ?>
-<?php sb_text('about_team_doctor3_name', 'Name', $site_opts, $is_owner); ?>
-<?php sb_field_row_close(); ?>
-<?php sb_text('about_team_doctor3_bio', 'Bio (card)', $site_opts, $is_owner, true); ?>
-<?php sb_field_row_open(); ?>
-<?php sb_text('about_team_doctor3_tags', 'Tags (comma-separated)', $site_opts, $is_owner); ?>
-<?php sb_field_row_close(); ?>
-<?php sb_file('about_team_doctor3_image', 'Photo', $site_opts, $is_owner); ?>
+<p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Add as many dentists as you like (up to 30). Each appears on your public About page like the current team cards. Photos upload with each member.</p>
+<input type="hidden" id="aboutTeamMembersJson" data-opt-key="about_team_members_json" value="<?php echo $team_editor_json_attr; ?>"/>
+<div id="teamMembersEditor" class="space-y-4" data-sb-team-editor="1"></div>
+<?php if ($is_owner): ?>
+<button type="button" id="btnAddTeamMember" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-primary/30 bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-base">person_add</span> Add dentist
+</button>
+<?php endif; ?>
 </div>
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">About — Bottom call to action</h3>
 <div class="sb-group space-y-4">
@@ -850,6 +835,13 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             .then(function (data) {
                 if (data && data.ok) {
                     setSaveState('saved');
+                    if (data.options && typeof data.options.about_team_members_json === 'string') {
+                        var hj = document.getElementById('aboutTeamMembersJson');
+                        if (hj) {
+                            hj.value = data.options.about_team_members_json;
+                            if (typeof window.sbRenderTeamMembers === 'function') window.sbRenderTeamMembers();
+                        }
+                    }
                     if (frame && previewSelect) setPreviewUrl(previewSelect.value);
                 } else {
                     setSaveState('error');
@@ -982,6 +974,128 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         syncDesktopPreviewFit();
         requestAnimationFrame(syncDesktopPreviewFit);
     });
+
+    (function teamMembersEditor() {
+        var teamRoot = document.getElementById('teamMembersEditor');
+        var teamHidden = document.getElementById('aboutTeamMembersJson');
+        var btnAdd = document.getElementById('btnAddTeamMember');
+        var MAX_TEAM = 30;
+
+        function escAttr(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        }
+
+        function escTextarea(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+        }
+
+        function parseTeam() {
+            if (!teamHidden) return [];
+            try {
+                var d = JSON.parse(teamHidden.value || '[]');
+                return Array.isArray(d) ? d : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function writeTeam(arr) {
+            if (!teamHidden) return;
+            teamHidden.value = JSON.stringify(arr);
+        }
+
+        function syncTeamFromDom() {
+            if (!teamRoot || !teamHidden) return;
+            var cards = teamRoot.querySelectorAll('.team-member-card');
+            var arr = [];
+            cards.forEach(function (card) {
+                function gv(sel) {
+                    var el = card.querySelector(sel);
+                    return el ? el.value : '';
+                }
+                arr.push({
+                    title: gv('[data-tf="title"]'),
+                    name: gv('[data-tf="name"]'),
+                    bio: gv('[data-tf="bio"]'),
+                    tags: gv('[data-tf="tags"]'),
+                    image: gv('[data-tf="image"]')
+                });
+            });
+            writeTeam(arr);
+        }
+
+        function renderTeam() {
+            if (!teamRoot || !teamHidden) return;
+            var arr = parseTeam();
+            var dis = canEdit ? '' : 'disabled readonly';
+            var html = '';
+            arr.forEach(function (m, idx) {
+                var imgPath = (m.image || '').trim();
+                var hint = imgPath ? '<p class="text-[11px] text-on-surface-variant/80 truncate font-mono" title="' + escAttr(imgPath) + '">' + escAttr(imgPath) + '</p>' : '';
+                var removeBtn = canEdit ? '<button type="button" class="team-remove text-[10px] font-black uppercase tracking-widest text-error hover:underline ml-auto">Remove</button>' : '';
+                html += '<div class="team-member-card rounded-2xl border border-slate-200 bg-slate-50/80 p-4 space-y-3" data-team-idx="' + idx + '">';
+                html += '<div class="flex flex-wrap items-center justify-between gap-2"><span class="text-[10px] font-black uppercase tracking-widest text-primary">Dentist ' + (idx + 1) + '</span>' + removeBtn + '</div>';
+                html += '<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">';
+                html += '<div class="space-y-1.5 min-w-0"><label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1">Role / title</label><input type="text" data-tf="title" class="w-full bg-white border border-slate-200 rounded-full px-4 py-2.5 text-sm font-bold ' + (canEdit ? '' : 'opacity-70') + '" value="' + escAttr(m.title || '') + '" ' + dis + '/></div>';
+                html += '<div class="space-y-1.5 min-w-0"><label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1">Name</label><input type="text" data-tf="name" class="w-full bg-white border border-slate-200 rounded-full px-4 py-2.5 text-sm font-bold ' + (canEdit ? '' : 'opacity-70') + '" value="' + escAttr(m.name || '') + '" ' + dis + '/></div>';
+                html += '</div>';
+                html += '<div class="space-y-1.5 min-w-0"><label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1">Bio</label><textarea data-tf="bio" rows="3" class="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium min-h-[5rem] ' + (canEdit ? '' : 'opacity-70') + '" ' + dis + '>' + escTextarea(m.bio || '') + '</textarea></div>';
+                html += '<div class="space-y-1.5 min-w-0"><label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1">Tags (comma-separated)</label><input type="text" data-tf="tags" class="w-full bg-white border border-slate-200 rounded-full px-4 py-2.5 text-sm font-bold ' + (canEdit ? '' : 'opacity-70') + '" value="' + escAttr(m.tags || '') + '" ' + dis + '/></div>';
+                html += '<input type="hidden" data-tf="image" value="' + escAttr(m.image || '') + '"/>';
+                html += '<div class="space-y-1.5 min-w-0"><label class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 ml-1">Photo</label>' + hint;
+                if (canEdit) {
+                    html += '<input type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml,.ico" class="block w-full text-xs text-on-surface-variant file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-primary/10 file:text-primary file:font-bold" data-file-key="about_team_m_' + idx + '_img"/>';
+                }
+                html += '</div></div>';
+            });
+            teamRoot.innerHTML = html;
+            teamRoot.querySelectorAll('.team-remove').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var card = btn.closest('.team-member-card');
+                    if (!card || !teamRoot) return;
+                    var i = parseInt(card.getAttribute('data-team-idx') || '-1', 10);
+                    var a = parseTeam();
+                    if (i >= 0 && i < a.length) {
+                        a.splice(i, 1);
+                        writeTeam(a);
+                        renderTeam();
+                        scheduleSave();
+                    }
+                });
+            });
+        }
+
+        window.sbRenderTeamMembers = renderTeam;
+
+        document.addEventListener('input', function (e) {
+            if (!canEdit || !teamRoot || !e.target.closest || !e.target.closest('#teamMembersEditor')) return;
+            if (e.target.matches('[data-tf]')) {
+                syncTeamFromDom();
+                scheduleSave();
+            }
+        });
+
+        document.addEventListener('change', function (e) {
+            var t = e.target;
+            if (!t || !t.matches || !t.matches('input[type="file"][data-file-key]') || !t.closest('#teamMembersEditor')) return;
+            if (!canEdit) return;
+            syncTeamFromDom();
+            savePatch(collectPatch());
+        });
+
+        if (btnAdd) {
+            btnAdd.addEventListener('click', function () {
+                var a = parseTeam();
+                if (a.length >= MAX_TEAM) return;
+                a.push({ title: '', name: '', bio: '', tags: '', image: '' });
+                writeTeam(a);
+                renderTeam();
+                scheduleSave();
+            });
+        }
+
+        renderTeam();
+    })();
 
     document.querySelectorAll('[data-opt-hex]').forEach(function (hexInp) {
         var k = hexInp.getAttribute('data-opt-hex');

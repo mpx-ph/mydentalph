@@ -6,11 +6,19 @@ $pageTitle = 'About Us';
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/tenant_bootstrap.php';
 require_once __DIR__ . '/includes/clinic_customization.php';
+require_once __DIR__ . '/includes/about_team_members_lib.php';
 require_once __DIR__ . '/includes/header.php';
 $cu = function($k) use ($CLINIC) { return isset($CLINIC[$k]) ? htmlspecialchars($CLINIC[$k], ENT_QUOTES, 'UTF-8') : ''; };
 $cuImg = function($k) use ($CLINIC) {
     $v = isset($CLINIC[$k]) ? trim($CLINIC[$k]) : '';
     if ($v === '') return '';
+    return (strpos($v, 'http') === 0) ? $v : (BASE_URL . ltrim($v, '/'));
+};
+$cuImgRaw = static function (string $v): string {
+    $v = trim($v);
+    if ($v === '') {
+        return '';
+    }
     return (strpos($v, 'http') === 0) ? $v : (BASE_URL . ltrim($v, '/'));
 };
 $slug = $currentTenantSlug ?? ($_SESSION['public_tenant_slug'] ?? null);
@@ -157,32 +165,37 @@ $aboutIntroHeadingBefore = trim(implode(' ', $aboutIntroHeadingParts));
 <h2 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white mb-6"><?php echo $cu('about_team_title_before'); ?> <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block"><?php echo $cu('about_team_title_accent'); ?></span></h2>
 <p class="text-slate-600 dark:text-slate-400 text-2xl font-medium font-body"><?php echo $cu('about_team_subtitle'); ?></p>
 </div>
-<div class="grid grid-cols-1 md:grid-cols-2 <?php echo trim($CLINIC['about_team_doctor3_name'] ?? '') !== '' ? 'lg:grid-cols-3' : 'lg:grid-cols-2'; ?> gap-10">
 <?php
-$teamCards = [
-    ['about_team_doctor1_title', 'about_team_doctor1_name', 'about_team_doctor1_bio', 'about_team_doctor1_image', 'about_team_doctor1_tags'],
-    ['about_team_doctor2_title', 'about_team_doctor2_name', 'about_team_doctor2_bio', 'about_team_doctor2_image', 'about_team_doctor2_tags'],
-];
-if (trim($CLINIC['about_team_doctor3_name'] ?? '') !== '') {
-    $teamCards[] = ['about_team_doctor3_title', 'about_team_doctor3_name', 'about_team_doctor3_bio', 'about_team_doctor3_image', 'about_team_doctor3_tags'];
+$teamMembers = clinic_about_team_members_for_display($CLINIC);
+$teamCount = count($teamMembers);
+$teamGridClass = 'grid grid-cols-1 gap-10';
+if ($teamCount >= 2) {
+    $teamGridClass .= ' md:grid-cols-2';
 }
-foreach ($teamCards as $keys) {
-    list($tk, $nk, $bk, $ik, $tagk) = $keys;
-    $imgUrl = $cuImg($ik);
-    $tags = array_filter(array_map('trim', explode(',', $CLINIC[$tagk] ?? '')));
+if ($teamCount >= 3) {
+    $teamGridClass .= ' lg:grid-cols-3';
+}
+?>
+<div class="<?php echo htmlspecialchars($teamGridClass, ENT_QUOTES, 'UTF-8'); ?>">
+<?php foreach ($teamMembers as $member) {
+    $imgUrl = $cuImgRaw((string) ($member['image'] ?? ''));
+    $tags = array_filter(array_map('trim', explode(',', (string) ($member['tags'] ?? ''))));
+    $nameEsc = htmlspecialchars((string) ($member['name'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $titleEsc = htmlspecialchars((string) ($member['title'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $bioEsc = nl2br(htmlspecialchars((string) ($member['bio'] ?? ''), ENT_QUOTES, 'UTF-8'));
     ?>
 <div class="group bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700 transition-all duration-500 hover:shadow-2xl">
 <div class="rounded-3xl overflow-hidden h-[450px] mb-8 bg-slate-100 dark:bg-slate-700">
 <?php if ($imgUrl !== ''): ?>
-<img alt="<?php echo $cu($nk); ?>" class="w-full h-full object-cover grayscale transition-all duration-700 group-hover:grayscale-0 group-hover:scale-105" src="<?php echo htmlspecialchars($imgUrl, ENT_QUOTES, 'UTF-8'); ?>"/>
+<img alt="<?php echo $nameEsc; ?>" class="w-full h-full object-cover grayscale transition-all duration-700 group-hover:grayscale-0 group-hover:scale-105" src="<?php echo htmlspecialchars($imgUrl, ENT_QUOTES, 'UTF-8'); ?>"/>
 <?php else: ?>
 <div class="w-full h-full flex items-center justify-center text-slate-400"><span class="material-symbols-outlined text-6xl">person</span></div>
 <?php endif; ?>
 </div>
 <div class="px-4 pb-4">
-<p class="text-primary font-bold text-xs uppercase tracking-[0.3em] mb-4 font-headline"><?php echo $cu($tk); ?></p>
-<h4 class="font-headline text-3xl font-extrabold mb-4 text-slate-900 dark:text-white"><?php echo $cu($nk); ?></h4>
-<p class="text-slate-600 dark:text-slate-400 text-lg font-medium mb-8 font-body"><?php echo $cu($bk); ?></p>
+<p class="text-primary font-bold text-xs uppercase tracking-[0.3em] mb-4 font-headline"><?php echo $titleEsc; ?></p>
+<h4 class="font-headline text-3xl font-extrabold mb-4 text-slate-900 dark:text-white"><?php echo $nameEsc; ?></h4>
+<p class="text-slate-600 dark:text-slate-400 text-lg font-medium mb-8 font-body"><?php echo $bioEsc; ?></p>
 <?php if ($tags): ?>
 <div class="flex flex-wrap gap-2">
 <?php foreach ($tags as $tag): ?>

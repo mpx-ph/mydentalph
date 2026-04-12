@@ -104,6 +104,7 @@ return [
     'about_team_title_before' => 'Our',
     'about_team_title_accent' => 'Elite Team',
     'about_team_subtitle' => 'Meet the experienced professionals dedicated to your smile.',
+    'about_team_members_json' => '',
     'about_team_doctor3_name' => '',
     'about_team_doctor3_title' => '',
     'about_team_doctor3_bio' => '',
