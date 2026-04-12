@@ -739,7 +739,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 </div>
 </div>
 
-<div class="xl:col-span-7 flex flex-col min-h-0 w-full min-h-[52vh] xl:min-h-[calc(100dvh-8rem)] xl:h-[calc(100dvh-8rem)] xl:max-h-[calc(100dvh-8rem)] xl:shrink-0">
+<div class="xl:col-span-7 flex flex-col min-h-0 w-full min-h-[60vh] xl:min-h-[calc(100dvh-6rem)] xl:h-[calc(100dvh-6rem)] xl:max-h-[calc(100dvh-6rem)] xl:shrink-0">
 <div class="preview-frame-wrap rounded-[2rem] bg-slate-900/90 p-3 sm:p-4 border border-slate-800 flex flex-col flex-1 min-h-0 h-full" id="previewFrameWrap">
 <div class="flex items-center gap-2 px-3 py-2 mb-2">
 <span class="h-3 w-3 rounded-full bg-red-400/90"></span>
@@ -1035,9 +1035,9 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     var modeDesktop = document.getElementById('previewModeDesktop');
 
     /*
-     * Desktop: 1280px-wide shell for breakpoints; scale down only for width.
-     * #previewDesktopFit always fills the dark preview area vertically — do not
-     * set its height to H*scale (that produced a short horizontal strip).
+     * Desktop: 1280px-wide shell for breakpoints; scale down for width only.
+     * Uniform scale(s) shrinks visual height by s — use layout height H/s so
+     * (H/s)*s === H and the white preview fills the dark canvas vertically.
      */
     function syncDesktopPreviewFit() {
         if (!previewShell || !previewScaleHost || !previewDesktopFit) return;
@@ -1055,7 +1055,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             previewShell.style.removeProperty('height');
         } else {
             previewShell.style.transform = 'scale(' + scale + ')';
-            previewShell.style.height = H + 'px';
+            previewShell.style.height = (H / scale) + 'px';
         }
     }
 
