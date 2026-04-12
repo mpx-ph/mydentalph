@@ -1713,13 +1713,6 @@ try {
 </div>
 </div>
 </section>
-<?php if ($paymentSuccess !== ''): ?>
-<section>
-<div class="rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 px-5 py-3 text-sm font-semibold">
-<?php echo htmlspecialchars($paymentSuccess, ENT_QUOTES, 'UTF-8'); ?>
-</div>
-</section>
-<?php endif; ?>
 <!-- Recent Transactions Section -->
 <section class="elevated-card rounded-3xl overflow-hidden">
 <div class="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
@@ -2781,5 +2774,64 @@ This booking is installment-priced, but no installment schedule rows exist in th
             });
         });
     })();
+</script>
+<div id="payment-success-toast" class="fixed top-24 right-6 md:right-10 z-[200] max-w-md w-[min(100%-3rem,28rem)] flex justify-end transition-all duration-300 ease-out opacity-0 translate-y-3 scale-[0.98] pointer-events-none" aria-hidden="true" role="status" aria-live="polite">
+<div class="pointer-events-auto rounded-2xl border border-emerald-200/90 bg-white/95 backdrop-blur-md shadow-2xl shadow-slate-900/10 px-4 py-3.5 flex items-start gap-3">
+<span class="material-symbols-outlined text-emerald-600 shrink-0 text-2xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<p class="text-sm font-semibold text-slate-800 leading-snug flex-1 pt-0.5" id="payment-success-toast-msg"></p>
+<button type="button" class="shrink-0 rounded-lg p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" id="payment-success-toast-close" aria-label="Dismiss notification">
+<span class="material-symbols-outlined text-lg">close</span>
+</button>
+</div>
+</div>
+<script>
+(function () {
+    function stripSuccessQuery() {
+        try {
+            const u = new URL(window.location.href);
+            if (u.searchParams.get('payment_success') === '1') {
+                u.searchParams.delete('payment_success');
+                window.history.replaceState({}, '', u.pathname + u.search + u.hash);
+            }
+        } catch (e) {
+        }
+    }
+    const toast = document.getElementById('payment-success-toast');
+    const msgEl = document.getElementById('payment-success-toast-msg');
+    const closeBtn = document.getElementById('payment-success-toast-close');
+    const message = <?php echo json_encode($paymentSuccess !== '' ? $paymentSuccess : '', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+    if (!toast || !msgEl) {
+        stripSuccessQuery();
+        return;
+    }
+    if (!message) {
+        stripSuccessQuery();
+        return;
+    }
+    let hideTimer = null;
+    function hideToast() {
+        if (hideTimer) {
+            clearTimeout(hideTimer);
+            hideTimer = null;
+        }
+        toast.setAttribute('aria-hidden', 'true');
+        toast.classList.remove('opacity-100', 'translate-y-0', 'scale-100');
+        toast.classList.add('opacity-0', 'translate-y-3', 'scale-[0.98]', 'pointer-events-none');
+    }
+    function showToast() {
+        msgEl.textContent = message;
+        toast.setAttribute('aria-hidden', 'false');
+        toast.classList.remove('opacity-0', 'translate-y-3', 'scale-[0.98]', 'pointer-events-none');
+        toast.classList.add('opacity-100', 'translate-y-0', 'scale-100');
+        stripSuccessQuery();
+        hideTimer = window.setTimeout(hideToast, 4800);
+    }
+    if (closeBtn) {
+        closeBtn.addEventListener('click', hideToast);
+    }
+    window.requestAnimationFrame(function () {
+        window.requestAnimationFrame(showToast);
+    });
+})();
 </script>
 </body></html>
