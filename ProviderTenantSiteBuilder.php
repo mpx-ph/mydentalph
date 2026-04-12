@@ -44,8 +44,6 @@ $preview_urls = [
     'about' => $preview_base !== '' ? ($preview_base . '/about') : '',
     'contact' => $preview_base !== '' ? ($preview_base . '/contact') : '',
     'login' => $preview_base !== '' ? ($preview_base . '/login') : '',
-    // Same document as home; preview UI scrolls to the shared footer.
-    'footer' => $preview_base !== '' ? ($preview_base . '/') : '',
 ];
 
 $preview_urls_json = json_encode($preview_urls, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS);
@@ -426,16 +424,15 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <option value="about">About</option>
 <option value="contact">Contact</option>
 <option value="login">Login</option>
-<option value="footer">Footer (site-wide)</option>
 </select>
 </div>
 
-<div class="sb-preview-scope mb-6 pb-6 border-b border-slate-100" data-sb-preview-pages="home,footer">
+<div class="sb-preview-scope mb-6 pb-6 border-b border-slate-100" data-sb-preview-pages="home">
 <?php sb_file('logo', 'Footer logo (PNG / JPG / WebP)', $site_opts, $is_owner); ?>
 </div>
 
 <div id="panel-branding" class="builder-panel builder-panel--active space-y-6 max-h-[52vh] overflow-y-auto pr-1">
-<p class="text-xs text-on-surface-variant leading-relaxed sb-preview-scope" data-sb-preview-pages="all">Navigation and other images are stored under your tenant in <code class="text-[11px] bg-slate-100 px-1 rounded">clinic_customization_tenant</code>. Clinic name also updates your tenant profile. The <span class="font-bold text-on-background">footer logo</span> upload appears above when <span class="font-bold text-on-background">Home</span> or <span class="font-bold text-on-background">Footer (site-wide)</span> is selected in the preview page picker.</p>
+<p class="text-xs text-on-surface-variant leading-relaxed sb-preview-scope" data-sb-preview-pages="all">Navigation and other images are stored under your tenant in <code class="text-[11px] bg-slate-100 px-1 rounded">clinic_customization_tenant</code>. Clinic name also updates your tenant profile. The <span class="font-bold text-on-background">footer logo</span> upload appears above when <span class="font-bold text-on-background">Home</span> is selected in the preview page picker.</p>
 <div class="sb-preview-scope space-y-5" data-sb-preview-pages="all">
 <?php sb_text('clinic_name', 'Clinic display name', $site_opts, $is_owner); ?>
 <?php sb_field_row_open(); ?>
@@ -482,7 +479,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <?php sb_range('theme_radius_lg_px', 'Component rounding (px)', $site_opts, $is_owner, 6, 28, 1); ?>
 </div>
 <div class="space-y-6 pt-6 border-t border-slate-100">
-<p class="text-xs text-on-surface-variant leading-relaxed">Page copy matches the <span class="font-bold text-on-background">Preview page</span> choice above. With <span class="font-bold text-on-background">Home</span> selected, you can edit home sections and the shared footer below. Pick <span class="font-bold text-on-background">Footer (site-wide)</span> to scroll the canvas to the footer after load.</p>
+<p class="text-xs text-on-surface-variant leading-relaxed">Page copy matches the <span class="font-bold text-on-background">Preview page</span> choice above. With <span class="font-bold text-on-background">Home</span> selected, you can edit home sections and the shared footer at the bottom of this tab; scroll the preview canvas to check the footer in context.</p>
 <div class="space-y-5 sb-preview-scope" data-sb-preview-pages="home">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Home — Hero</h3>
 <p class="text-[11px] text-on-surface-variant/90 leading-relaxed">The main headline uses your clinic name (&ldquo;Welcome to&rdquo; is fixed). Subtext is editable. Leave the hero badge blank to reuse the services section label (eyebrow); otherwise set a custom pill.</p>
@@ -561,7 +558,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <?php sb_text('main_cta_button', 'Button label', $site_opts, $is_owner, false, true); ?>
 </div>
 </div>
-<div class="sb-preview-scope space-y-5 pt-6 border-t border-slate-100" data-sb-preview-pages="home,footer">
+<div class="sb-preview-scope space-y-5 pt-6 border-t border-slate-100" data-sb-preview-pages="home">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">Footer (site-wide)</h3>
 <p class="text-xs text-on-surface-variant leading-relaxed">One footer is shared across every public page.</p>
 <?php sb_text('footer_blurb', 'Clinic blurb (left column)', $site_opts, $is_owner, true); ?>
@@ -834,9 +831,6 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     }
 
     function targetUrlForPreviewPage(page) {
-        if (page === 'footer') {
-            return previewUrls.home || previewUrls.footer || '';
-        }
         return previewUrls[page] || '';
     }
 
@@ -849,20 +843,6 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             return !!(frame && frame.contentDocument);
         } catch (e) {
             return false;
-        }
-    }
-
-    function tryPreviewScrollToFooter() {
-        if (!frame) return;
-        try {
-            var doc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
-            if (!doc) return;
-            var el = doc.getElementById('clinic-site-footer') || doc.querySelector('footer');
-            if (el && typeof el.scrollIntoView === 'function') {
-                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        } catch (e) {
-            /* cross-origin preview */
         }
     }
 
@@ -898,18 +878,6 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         var nextKey = previewKeyFromUrl(target);
         var sameDoc = !forceReload && curKey !== '' && curKey === nextKey;
 
-        /* Footer uses the same document as Home — scroll instead of reloading so the preview slot stays stable. */
-        if (page === 'footer' && sameDoc) {
-            if (canAccessPreviewFrameDoc()) {
-                tryPreviewScrollToFooter();
-                setTimeout(tryPreviewScrollToFooter, 150);
-                setTimeout(tryPreviewScrollToFooter, 500);
-                return;
-            }
-            frame.src = withCacheBust(target) + '#clinic-site-footer';
-            return;
-        }
-
         if (page === 'home' && sameDoc) {
             if (canAccessPreviewFrameDoc()) {
                 tryPreviewScrollToTop();
@@ -919,11 +887,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             return;
         }
 
-        var url = withCacheBust(target);
-        if (page === 'footer') {
-            url += '#clinic-site-footer';
-        }
-        frame.src = url;
+        frame.src = withCacheBust(target);
     }
 
     function setSaveState(state) {
@@ -1144,11 +1108,6 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 
     if (frame) frame.addEventListener('load', function () {
         syncPreviewLayout();
-        if (previewSelect && previewSelect.value === 'footer') {
-            tryPreviewScrollToFooter();
-            setTimeout(tryPreviewScrollToFooter, 200);
-            setTimeout(tryPreviewScrollToFooter, 650);
-        }
     });
     requestAnimationFrame(function () {
         requestAnimationFrame(syncPreviewLayout);
