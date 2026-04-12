@@ -79,6 +79,8 @@ return [
     'about_philosophy_title_accent' => 'Philosophy',
     'about_philosophy_para1' => 'With over 20 years of clinical excellence, Doctor 1 specializes in complex restorative procedures. They combine artistic vision with medical precision to restore function and aesthetics.',
     'about_philosophy_para2' => 'Doctor 2 is renowned for a gentle approach with children and anxious patients. Their expertise in orthodontics helps patients of all ages achieve perfectly aligned, confident smiles.',
+    /** Large portrait image in the Philosophy section (left column). If empty, `about_hero_image` is used when set (legacy). */
+    'about_philosophy_image' => '',
     'about_philosophy_services_cta' => 'Explore our services',
     'about_why_1_title' => 'Gentle & Painless',
     'about_why_1_text' => 'We prioritize your comfort using advanced anesthetics and minimally invasive techniques to ensure a stress-free experience.',

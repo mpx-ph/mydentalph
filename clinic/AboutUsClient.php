@@ -26,7 +26,10 @@ if (!function_exists('clinic_link')) {
 }
 $servicesHref = htmlspecialchars(clinic_link('services', $slug, BASE_URL . 'PatientServices.php'), ENT_QUOTES, 'UTF-8');
 $contactHref = htmlspecialchars(clinic_link('contact', $slug, BASE_URL . 'ContactUsClient.php'), ENT_QUOTES, 'UTF-8');
-$aboutHeroImg = $cuImg('about_hero_image');
+$aboutPhilosophyImg = $cuImg('about_philosophy_image');
+if ($aboutPhilosophyImg === '') {
+    $aboutPhilosophyImg = $cuImg('about_hero_image');
+}
 $aboutHeroCaption = trim((string) ($CLINIC['about_hero_caption_title'] ?? ''));
 $aboutIntroHeadingRaw = trim((string) ($CLINIC['about_intro_heading'] ?? 'About Us'));
 if ($aboutIntroHeadingRaw === '') {
@@ -78,8 +81,8 @@ $aboutIntroHeadingBefore = trim(implode(' ', $aboutIntroHeadingParts));
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
 <div class="relative">
 <div class="rounded-[2.5rem] overflow-hidden aspect-[4/5] shadow-2xl relative group bg-slate-200 dark:bg-slate-800">
-<?php if ($aboutHeroImg !== ''): ?>
-<img alt="" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" src="<?php echo htmlspecialchars($aboutHeroImg, ENT_QUOTES, 'UTF-8'); ?>"/>
+<?php if ($aboutPhilosophyImg !== ''): ?>
+<img alt="" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" src="<?php echo htmlspecialchars($aboutPhilosophyImg, ENT_QUOTES, 'UTF-8'); ?>"/>
 <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
 <?php else: ?>
 <div class="w-full h-full flex items-center justify-center text-slate-400 dark:text-slate-500"><span class="material-symbols-outlined text-7xl">image</span></div>

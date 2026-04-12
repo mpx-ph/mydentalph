@@ -100,7 +100,7 @@ function saveCustomization(string $tenantId) {
     global $pdo;
     $defaults = require __DIR__ . '/../config/clinic_customization_schema.php';
     $imageKeys = [
-        'main_hero_image', 'main_doctor_image', 'about_hero_image',
+        'main_hero_image', 'main_doctor_image', 'about_hero_image', 'about_philosophy_image',
         'about_team_doctor1_image', 'about_team_doctor2_image', 'about_team_doctor3_image',
         'logo', 'logo_nav', 'logo_register', 'site_favicon',
     ];

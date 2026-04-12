@@ -373,9 +373,6 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <div class="sb-preview-scope space-y-2" data-sb-preview-pages="home">
 <?php sb_file('main_hero_image', 'Home hero background image', $site_opts, $is_owner); ?>
 </div>
-<div class="sb-preview-scope space-y-2" data-sb-preview-pages="about">
-<?php sb_file('about_hero_image', 'About page hero image', $site_opts, $is_owner); ?>
-</div>
 </div>
 
 <div id="panel-colors" class="builder-panel space-y-5 max-h-[52vh] overflow-y-auto pr-1">
@@ -558,7 +555,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 </div>
 <div class="space-y-5 sb-preview-scope" data-sb-preview-pages="about">
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary">About — Hero</h3>
-<p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Top pill, headline, and intro. Upload the large side image under <span class="font-bold">Branding</span> (visible when preview is About).</p>
+<p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Top pill, headline, and intro text. The large photo beside the Philosophy block is uploaded in <span class="font-bold text-on-background">About — Philosophy</span> below.</p>
 <div class="sb-group space-y-4">
 <?php sb_field_row_open(); ?>
 <?php sb_text('about_hero_caption_title', 'Hero badge (top pill, optional)', $site_opts, $is_owner); ?>
@@ -567,6 +564,8 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 <?php sb_text('about_intro_text', 'Intro text', $site_opts, $is_owner, true); ?>
 </div>
 <h3 class="text-[10px] font-black uppercase tracking-widest text-primary pt-2">About — Philosophy</h3>
+<p class="text-[11px] text-on-surface-variant/90 leading-relaxed">Large portrait in the left column (about 4:5). If this is empty, your previously saved About large image is still used when present.</p>
+<?php sb_file('about_philosophy_image', 'Philosophy section side photo (PNG / JPG / WebP)', $site_opts, $is_owner); ?>
 <div class="sb-group space-y-4">
 <?php sb_field_row_open(); ?>
 <?php sb_text('about_trusted_title', 'Trusted card title', $site_opts, $is_owner); ?>
