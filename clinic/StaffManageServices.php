@@ -124,6 +124,7 @@ try {
         }
         .staff-modal-overlay:not(.hidden) {
             animation: staff-modal-fade-in 0.25s ease forwards;
+            overscroll-behavior: contain;
         }
         .staff-modal-panel {
             animation: staff-modal-panel-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
@@ -564,6 +565,35 @@ let currentSearchTerm = '';
 const apiUrl = <?php echo json_encode(PROVIDER_BASE_URL . 'clinic/api/services.php', JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS); ?>;
 const clinicDefaultRegularDownpaymentPct = <?php echo json_encode(round($defaultRegularDownpaymentPercent, 4)); ?>;
 const clinicDefaultLongTermMinDown = <?php echo json_encode(round($defaultLongTermMinDownpayment, 4)); ?>;
+let staffModalScrollLockDepth = 0;
+let staffModalPrevHtmlOverflow = '';
+let staffModalPrevBodyOverflow = '';
+let staffModalPrevBodyPaddingRight = '';
+
+function lockStaffPortalScroll() {
+    if (staffModalScrollLockDepth === 0) {
+        staffModalPrevHtmlOverflow = document.documentElement.style.overflow;
+        staffModalPrevBodyOverflow = document.body.style.overflow;
+        staffModalPrevBodyPaddingRight = document.body.style.paddingRight;
+        const sbw = window.innerWidth - document.documentElement.clientWidth;
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+        if (sbw > 0) {
+            document.body.style.paddingRight = sbw + 'px';
+        }
+    }
+    staffModalScrollLockDepth += 1;
+}
+
+function unlockStaffPortalScroll() {
+    staffModalScrollLockDepth = Math.max(0, staffModalScrollLockDepth - 1);
+    if (staffModalScrollLockDepth === 0) {
+        document.documentElement.style.overflow = staffModalPrevHtmlOverflow;
+        document.body.style.overflow = staffModalPrevBodyOverflow;
+        document.body.style.paddingRight = staffModalPrevBodyPaddingRight;
+    }
+}
+
 const categoryColors = {
     'General Dentistry': 'bg-blue-100 text-blue-700',
     'Restorative Dentistry': 'bg-green-100 text-green-700',
@@ -959,12 +989,14 @@ function openNewServiceModal() {
     updatePaymentPreview('new');
     document.getElementById('newServiceModal').classList.remove('hidden');
     document.getElementById('newServiceModal').classList.add('flex');
+    lockStaffPortalScroll();
     document.getElementById('newServiceName').focus();
 }
 
 function closeNewServiceModal() {
     document.getElementById('newServiceModal').classList.add('hidden');
     document.getElementById('newServiceModal').classList.remove('flex');
+    unlockStaffPortalScroll();
 }
 
 function openEditServiceModal(serviceId) {
@@ -1002,11 +1034,13 @@ function openEditServiceModal(serviceId) {
     updatePaymentPreview('edit');
     document.getElementById('editServiceModal').classList.remove('hidden');
     document.getElementById('editServiceModal').classList.add('flex');
+    lockStaffPortalScroll();
 }
 
 function closeEditServiceModal() {
     document.getElementById('editServiceModal').classList.add('hidden');
     document.getElementById('editServiceModal').classList.remove('flex');
+    unlockStaffPortalScroll();
 }
 
 function buildPaymentPayload(scope) {
