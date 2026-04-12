@@ -279,45 +279,51 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             box-shadow: 0 0 24px -4px rgba(43, 139, 235, 0.55);
             border-radius: 9999px;
         }
-        /* Desktop: 1280px iframe width for real breakpoints; JS scales down to fit the panel (no sideways scroll). */
+        /*
+         * Preview fills the dark frame with plain flex + grid (no transform / no height JS).
+         * Shell is up to 1280px wide, 100% tall; iframe fills the shell (viewport inside iframe = slot width).
+         */
         .preview-canvas-scroll {
             max-width: 100%;
             overflow: hidden;
             -webkit-overflow-scrolling: touch;
             min-height: 0;
             height: 100%;
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 0;
         }
         .preview-scale-host {
             width: 100%;
             min-width: 0;
+            min-height: 0;
+            flex: 1 1 0;
             overflow: hidden;
             display: flex;
             justify-content: center;
-            /* Stretch so #previewDesktopFit fills the dark canvas vertically (center was shrinking the slot). */
             align-items: stretch;
-            flex: 1 1 0;
-            min-height: 0;
             align-self: stretch;
         }
-        /* overflow visible: a tall pre-scale shell + transform must not be clipped here (was cutting the preview short). */
         .preview-desktop-fit {
-            overflow: visible;
+            overflow: hidden;
             flex: 1 1 0;
             min-width: 0;
             min-height: 0;
             width: 100%;
+            height: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start;
         }
-        .preview-canvas-shell { transition: transform 0.2s ease; }
         .preview-canvas-shell--desktop {
-            width: 1280px;
+            width: 100%;
             max-width: 1280px;
-            min-width: 1280px;
+            min-width: 0;
             flex: 1 1 0;
             min-height: 0;
+            height: 100%;
+            margin-left: auto;
+            margin-right: auto;
             display: flex;
             flex-direction: column;
             box-sizing: border-box;
@@ -325,8 +331,11 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
         .preview-canvas-shell--desktop #sitePreviewFrame {
             flex: 1 1 auto;
             width: 100%;
+            min-width: 0;
             min-height: 0;
+            height: 100%;
             border: 0;
+            display: block;
         }
         .preview-canvas-shell--mobile {
             width: 100%;
@@ -375,8 +384,8 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </div>
 </section>
 
-<div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
-<div class="xl:col-span-5 space-y-4">
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start xl:items-stretch">
+<div class="xl:col-span-5 space-y-4 xl:self-start">
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
 <div class="section-card rounded-2xl bg-white/90 p-4 border border-white/80">
 <p class="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2"><span class="material-symbols-outlined text-base">sync</span> Autosave</p>
@@ -1052,75 +1061,13 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     var previewScaleHost = document.getElementById('previewScaleHost');
     var previewCanvasScroll = document.getElementById('previewCanvasScroll');
     var previewDesktopFit = document.getElementById('previewDesktopFit');
-    var previewFrameWrap = document.getElementById('previewFrameWrap');
     var modeMobile = document.getElementById('previewModeMobile');
     var modeDesktop = document.getElementById('previewModeDesktop');
-    var previewSlotMeasureAttempts = 0;
 
-    function derivePreviewSlotSize() {
-        var slot = previewCanvasScroll || previewScaleHost;
-        var W = slot ? slot.clientWidth : 0;
-        var H = slot ? slot.clientHeight : 0;
-        if ((W > 1 && H > 1) || !previewFrameWrap || !previewCanvasScroll) {
-            return { W: W, H: H, ok: W > 1 && H > 1 };
-        }
-        var kids = previewFrameWrap.children;
-        if (kids.length < 3) return { W: W, H: H, ok: false };
-        var chromeH = kids[0].offsetHeight + kids[1].offsetHeight;
-        var pad = 12;
-        var innerH = previewFrameWrap.clientHeight - chromeH - pad;
-        var innerW = previewFrameWrap.clientWidth - pad * 2;
-        if (innerH > 80 && innerW > 80) {
-            return { W: innerW, H: innerH, ok: true };
-        }
-        return { W: W, H: H, ok: false };
-    }
-
-    /*
-     * Desktop: 1280px-wide shell for breakpoints; scale down when slot < 1280.
-     * Slot height often reads 0 before layout — derive from #previewFrameWrap or retry.
-     */
-    function syncDesktopPreviewFit() {
-        if (!previewShell || !previewScaleHost || !previewDesktopFit) return;
-        if (previewShell.classList.contains('preview-canvas-shell--mobile')) {
-            previewSlotMeasureAttempts = 0;
-            if (previewCanvasScroll) previewCanvasScroll.style.removeProperty('min-height');
-            return;
-        }
-        var m = derivePreviewSlotSize();
-        var W = m.W;
-        var H = m.H;
-        if (!m.ok) {
-            previewSlotMeasureAttempts++;
-            if (previewSlotMeasureAttempts < 60) {
-                requestAnimationFrame(function () {
-                    syncPreviewLayout();
-                });
-            }
-            return;
-        }
-        previewSlotMeasureAttempts = 0;
-        if (previewCanvasScroll && previewCanvasScroll.clientHeight < 80 && H > 80) {
-            previewCanvasScroll.style.minHeight = Math.round(H) + 'px';
-        }
-        var scale = Math.min(1, W / 1280);
-        previewShell.style.transformOrigin = 'top center';
-        previewDesktopFit.style.removeProperty('width');
-        previewDesktopFit.style.removeProperty('height');
-        previewDesktopFit.style.removeProperty('flex');
-        if (scale >= 0.999) {
-            previewShell.style.removeProperty('transform');
-            previewShell.style.height = H + 'px';
-        } else {
-            previewShell.style.transform = 'scale(' + scale + ')';
-            previewShell.style.height = (H / scale) + 'px';
-        }
-    }
-
+    /* Strip legacy inline preview styles (layout is CSS-only for desktop). */
     function syncPreviewLayout() {
         if (!previewShell || !previewScaleHost) return;
         if (previewShell.classList.contains('preview-canvas-shell--mobile')) {
-            previewSlotMeasureAttempts = 0;
             previewShell.style.removeProperty('transform');
             previewShell.style.removeProperty('transform-origin');
             previewShell.style.removeProperty('height');
@@ -1136,26 +1083,20 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             previewScaleHost.style.removeProperty('overflow');
             return;
         }
+        previewShell.style.removeProperty('transform');
+        previewShell.style.removeProperty('transform-origin');
+        previewShell.style.removeProperty('height');
+        if (previewCanvasScroll) previewCanvasScroll.style.removeProperty('min-height');
+        if (previewDesktopFit) {
+            previewDesktopFit.style.removeProperty('width');
+            previewDesktopFit.style.removeProperty('height');
+            previewDesktopFit.style.removeProperty('flex');
+        }
         previewScaleHost.style.removeProperty('min-height');
         previewScaleHost.style.removeProperty('height');
         previewScaleHost.style.removeProperty('max-height');
         previewScaleHost.style.removeProperty('overflow');
-        syncDesktopPreviewFit();
     }
-
-    if (typeof ResizeObserver !== 'undefined') {
-        var previewLayoutRo = new ResizeObserver(function () {
-            syncPreviewLayout();
-        });
-        if (previewScaleHost) previewLayoutRo.observe(previewScaleHost);
-        if (previewCanvasScroll) previewLayoutRo.observe(previewCanvasScroll);
-    }
-    window.addEventListener('resize', function () {
-        syncPreviewLayout();
-    });
-    window.addEventListener('load', function () {
-        syncPreviewLayout();
-    });
 
     function setPreviewDeviceMode(mode) {
         if (!previewShell) return;
