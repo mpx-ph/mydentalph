@@ -279,11 +279,16 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             align-self: stretch;
         }
         .preview-canvas-shell { transition: transform 0.2s ease; }
+        /*
+         * Match patient pages (nav_client.php): desktop nav uses Tailwind lg: (min-width 1024px).
+         * Iframe layout width must be ≥1024px or the site stays in hamburger / tablet mode.
+         */
         .preview-canvas-shell--desktop {
-            width: 100%;
+            width: 1280px;
+            min-width: 1280px;
             max-width: 1280px;
-            min-width: 0;
-            flex: 1 1 0;
+            flex-shrink: 0;
+            flex: 0 0 auto;
             min-height: 0;
             display: flex;
             flex-direction: column;
@@ -291,7 +296,8 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
         }
         .preview-canvas-shell--desktop #sitePreviewFrame {
             flex: 1 1 auto;
-            width: 100%;
+            width: 1280px;
+            min-width: 1280px;
             min-height: max(65vh, 420px);
             border: 0;
         }
