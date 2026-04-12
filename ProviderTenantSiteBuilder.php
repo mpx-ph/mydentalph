@@ -1024,7 +1024,8 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     var modeMobile = document.getElementById('previewModeMobile');
     var modeDesktop = document.getElementById('previewModeDesktop');
     var DESKTOP_LOGIC_PX = 1280;
-    var PREVIEW_WRAP_CHROME_PX = 108;
+    /* Fake browser bar + device toggles + gaps inside #previewFrameWrap (not the iframe). */
+    var PREVIEW_WRAP_CHROME_PX = 112;
 
     function syncPreviewLayout() {
         if (!previewShell || !previewScaleHost) return;
@@ -1038,22 +1039,30 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             previewScaleHost.style.removeProperty('overflow');
             return;
         }
-        /*
-         * Footer (site-wide): same document as Home — only scroll inside the iframe. Do not re-run
-         * scale math while footer is selected (avoids narrow strip / wrong s from a shrunk scale host).
-         */
+        /* Preview page Footer (site-wide): do not change shell height or scale — iframe scroll only. */
         if (previewSelect && previewSelect.value === 'footer') {
-            if (previewShell.style.height && previewShell.style.transform) {
-                return;
-            }
+            return;
         }
-        var cwHost = previewScaleHost.clientWidth;
-        var cwScroll = previewCanvasScroll ? previewCanvasScroll.clientWidth : 0;
-        var cw = Math.max(cwHost, cwScroll);
+        /*
+         * Drive scale from #previewFrameWrap (outer dark chrome) only. Inner nodes (#previewScaleHost,
+         * scroll area) can shrink when the sidebar reflows (e.g. Footer logo row) and produced a tiny cw
+         * — that is what caused the “postage stamp” preview. Wrap size matches Home vs Footer.
+         */
+        var cw = 0;
+        var ch = 0;
+        if (previewFrameWrap) {
+            cw = previewFrameWrap.clientWidth;
+            ch = Math.max(260, previewFrameWrap.clientHeight - PREVIEW_WRAP_CHROME_PX);
+        }
+        if (cw <= 0 && previewCanvasScroll) {
+            cw = previewCanvasScroll.clientWidth;
+        }
+        if (cw <= 0) {
+            cw = previewScaleHost.clientWidth;
+        }
         if (cw <= 0) return;
-        var ch = Math.round(previewScaleHost.getBoundingClientRect().height);
-        if (ch < 120 && previewFrameWrap) {
-            ch = Math.max(280, Math.round(previewFrameWrap.getBoundingClientRect().height - PREVIEW_WRAP_CHROME_PX));
+        if (ch < 120 && previewCanvasScroll) {
+            ch = Math.max(260, previewCanvasScroll.clientHeight);
         }
         if (ch < 120) {
             ch = Math.max(320, Math.round(window.innerHeight * 0.58));
@@ -1090,8 +1099,8 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     if (modeMobile) modeMobile.addEventListener('click', function () { setPreviewDeviceMode('mobile'); });
     if (modeDesktop) modeDesktop.addEventListener('click', function () { setPreviewDeviceMode('desktop'); });
 
-    if (previewCanvasScroll && typeof ResizeObserver !== 'undefined') {
-        new ResizeObserver(schedulePreviewFit).observe(previewCanvasScroll);
+    if (previewFrameWrap && typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(schedulePreviewFit).observe(previewFrameWrap);
     }
     window.addEventListener('resize', schedulePreviewFit);
 
