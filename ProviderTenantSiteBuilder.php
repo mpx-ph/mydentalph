@@ -325,7 +325,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </div>
 </section>
 
-<div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start xl:items-stretch">
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
 <div class="xl:col-span-5 space-y-4">
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
 <div class="section-card rounded-2xl bg-white/90 p-4 border border-white/80">
@@ -709,7 +709,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 </div>
 </div>
 
-<div class="xl:col-span-7 flex flex-col min-h-0 xl:min-h-[calc(100dvh-8rem)]">
+<div class="xl:col-span-7 flex flex-col min-h-0 w-full min-h-[52vh] xl:min-h-0 xl:h-[calc(100dvh-8rem)] xl:max-h-[calc(100dvh-8rem)] xl:shrink-0">
 <div class="preview-frame-wrap rounded-[2rem] bg-slate-900/90 p-3 sm:p-4 border border-slate-800 flex flex-col flex-1 min-h-0 h-full">
 <div class="flex items-center gap-2 px-3 py-2 mb-2">
 <span class="h-3 w-3 rounded-full bg-red-400/90"></span>
@@ -841,7 +841,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
                 tryPreviewScrollToFooter();
                 setTimeout(tryPreviewScrollToFooter, 150);
                 setTimeout(tryPreviewScrollToFooter, 500);
-                schedulePreviewFit();
+                /* Do not remeasure canvas — sidebar toggles must not touch preview slot height. */
                 return;
             }
             frame.src = withCacheBust(target) + '#clinic-site-footer';
@@ -852,7 +852,6 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         if (page === 'home' && sameDoc) {
             if (canAccessPreviewFrameDoc()) {
                 tryPreviewScrollToTop();
-                schedulePreviewFit();
                 return;
             }
             frame.src = withCacheBust(target);
@@ -989,9 +988,6 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         previewSelect.addEventListener('change', function () {
             applyPreviewPageFieldScope(previewSelect.value);
             applyPreviewNavigation(previewSelect.value, false);
-            requestAnimationFrame(function () {
-                requestAnimationFrame(syncDesktopPreviewFit);
-            });
         });
         applyPreviewPageFieldScope(previewSelect.value);
         applyPreviewNavigation(previewSelect.value, false);
