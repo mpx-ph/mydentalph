@@ -196,7 +196,7 @@ $adminLoginUrl = clinicPageUrl('AdminLoginPage.php');
 </div>
 </div>
 <footer class="mt-8 text-center text-white/60 text-[10px] uppercase tracking-[0.2em] leading-loose">
-            © 2026 Dr. Romarico C. Gonzales Dental Clinic Management System.<br/>
+            © 2026 <?php echo htmlspecialchars(trim((string) ($CLINIC['clinic_name'] ?? '')) !== '' ? $CLINIC['clinic_name'] : '(Business Name) Dental Clinic', ENT_QUOTES, 'UTF-8'); ?> Management System.<br/>
             All rights reserved. Internal Use Only.
         </footer>
 </div>

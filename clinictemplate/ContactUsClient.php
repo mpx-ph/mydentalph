@@ -48,10 +48,10 @@ require_once __DIR__ . '/includes/header.php';
 <div>
 <h3 class="text-slate-900 dark:text-white font-bold text-lg mb-2">Visit Us</h3>
 <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
-                                        Dr. Gonzales St., <br/>
-                                        Tibag, Baliwag City, Bulacan
+                                        Your Street Address, <br/>
+                                        City, Province
                                     </p>
-<a class="inline-flex items-center gap-1 text-primary text-sm font-bold mt-3 hover:gap-2 transition-all" href="https://maps.app.goo.gl/6hEegE4yZtBpxeWC6" target="_blank" rel="noopener noreferrer">
+<a class="inline-flex items-center gap-1 text-primary text-sm font-bold mt-3 hover:gap-2 transition-all" href="https://www.google.com/maps" target="_blank" rel="noopener noreferrer">
                                         Get Directions <span class="material-symbols-outlined text-base">arrow_forward</span>
 </a>
 </div>
@@ -71,7 +71,7 @@ require_once __DIR__ . '/includes/header.php';
 </div>
 <div class="flex flex-col">
 <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Email</span>
-<a class="text-slate-900 dark:text-slate-200 font-medium hover:text-primary transition-colors" href="mailto:hello@dentalcareplus.com">hello@drcgdental.com</a>
+<a class="text-slate-900 dark:text-slate-200 font-medium hover:text-primary transition-colors" href="mailto:contact@yourclinic.com">contact@yourclinic.com</a>
 </div>
 </div>
 </div>
@@ -105,7 +105,7 @@ require_once __DIR__ . '/includes/header.php';
 <div class="relative w-full h-[350px] sm:h-[380px] md:h-[400px] lg:h-[420px] rounded-2xl overflow-hidden shadow-md border border-slate-200 dark:border-slate-800 group">
 <iframe 
     class="w-full h-full border-0 rounded-2xl" 
-    src="https://www.google.com/maps?q=Dr.+Gonzales+St.,+Tibag,+Baliwag+City,+Bulacan&output=embed"
+    src="https://www.google.com/maps?q=Your+Street+Address,+City,+Province&output=embed"
     allowfullscreen="" 
     loading="lazy" 
     referrerpolicy="no-referrer-when-downgrade"
@@ -114,7 +114,7 @@ require_once __DIR__ . '/includes/header.php';
 <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900/60 to-transparent p-3 sm:p-4 md:p-5 pointer-events-none">
 <div class="text-white">
 <p class="text-xs sm:text-sm font-medium opacity-90">Locate us on map</p>
-<a class="font-bold text-base sm:text-lg hover:text-primary transition-colors pointer-events-auto inline-flex items-center gap-1" href="https://maps.app.goo.gl/6hEegE4yZtBpxeWC6" target="_blank" rel="noopener noreferrer">
+<a class="font-bold text-base sm:text-lg hover:text-primary transition-colors pointer-events-auto inline-flex items-center gap-1" href="https://www.google.com/maps" target="_blank" rel="noopener noreferrer">
 Open in Google Maps <span class="material-symbols-outlined text-sm sm:text-base">open_in_new</span>
 </a>
 </div>
@@ -316,7 +316,7 @@ Open in Google Maps <span class="material-symbols-outlined text-sm sm:text-base"
                 
             } catch (error) {
                 console.error('EmailJS Error:', error);
-                showMessage('Sorry, there was an error sending your message. Please try again or contact us directly at hello@drcgdental.com', 'error');
+                showMessage('Sorry, there was an error sending your message. Please try again or contact us directly at contact@yourclinic.com', 'error');
             } finally {
                 // Re-enable submit button
                 submitButton.disabled = false;

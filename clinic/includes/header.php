@@ -86,6 +86,14 @@ if ($favExt === 'png') {
 }
 $favHref = $favUrl !== '' ? $favUrl : (BASE_URL . 'favicon.jpg');
 
+$clinicBrandName = trim((string) ($CLINIC['clinic_name'] ?? ''));
+if ($clinicBrandName === '') {
+    $clinicBrandName = '(Business Name) Dental Clinic';
+}
+$metaDescription = $clinicBrandName . ' — Professional dentistry services including general, cosmetic, orthodontics, and pediatric care.';
+$metaOgDescription = $clinicBrandName . ' — Professional dentistry services for your healthy smile.';
+$metaKeywords = 'dental clinic, dentistry, dental care, dental services, ' . $clinicBrandName;
+
 $ffHeadlineArr = [$tfHeadline, 'ui-sans-serif', 'system-ui', 'sans-serif'];
 $ffBodyArr = [$tfBody, 'ui-sans-serif', 'system-ui', 'sans-serif'];
 $ffDispArr = [$tfDisplay, 'ui-sans-serif', 'system-ui', 'sans-serif'];
@@ -109,21 +117,21 @@ $ffEdJs = json_encode($ffEdArr, $jsonFfFlags);
     <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($favHref, ENT_QUOTES, 'UTF-8'); ?>"/>
     
     <!-- Meta Tags for SEO and Social Sharing -->
-    <meta name="description" content="Dr. Romarico C. Gonzales Dental Clinic - Advanced dental care in Baliwag. Professional dentistry services including general, cosmetic, orthodontics, and pediatric care."/>
-    <meta name="keywords" content="dental clinic, dentistry, Baliwag, Dr. Romarico Gonzales, dental care, dental services"/>
+    <meta name="description" content="<?php echo htmlspecialchars($metaDescription, ENT_QUOTES, 'UTF-8'); ?>"/>
+    <meta name="keywords" content="<?php echo htmlspecialchars($metaKeywords, ENT_QUOTES, 'UTF-8'); ?>"/>
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website"/>
     <meta property="og:url" content="<?php echo BASE_URL; ?>"/>
     <meta property="og:title" content="<?php echo htmlspecialchars($pageTitle); ?> - <?php echo SITE_NAME; ?>"/>
-    <meta property="og:description" content="Dr. Romarico C. Gonzales Dental Clinic - Advanced dental care in Baliwag. Professional dentistry services for your healthy smile."/>
+    <meta property="og:description" content="<?php echo htmlspecialchars($metaOgDescription, ENT_QUOTES, 'UTF-8'); ?>"/>
     <meta property="og:image" content="<?php echo BASE_URL; ?>favicon.jpg"/>
     
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image"/>
     <meta property="twitter:url" content="<?php echo BASE_URL; ?>"/>
     <meta property="twitter:title" content="<?php echo htmlspecialchars($pageTitle); ?> - <?php echo SITE_NAME; ?>"/>
-    <meta property="twitter:description" content="Dr. Romarico C. Gonzales Dental Clinic - Advanced dental care in Baliwag. Professional dentistry services for your healthy smile."/>
+    <meta property="twitter:description" content="<?php echo htmlspecialchars($metaOgDescription, ENT_QUOTES, 'UTF-8'); ?>"/>
     <meta property="twitter:image" content="<?php echo BASE_URL; ?>favicon.jpg"/>
     <link href="https://fonts.googleapis.com" rel="preconnect"/>
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>

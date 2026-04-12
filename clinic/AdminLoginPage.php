@@ -256,7 +256,7 @@ require_once __DIR__ . '/includes/header.php';
 </a>
 </div>
 <div class="text-center pt-6 mt-2">
-<p class="text-xs text-slate-400 dark:text-slate-600">© 2026 Dr. Romarico C. Gonzales Dental Clinic Management System. <br>All rights reserved.</p>
+<p class="text-xs text-slate-400 dark:text-slate-600">© 2026 <?php echo htmlspecialchars(trim((string) ($CLINIC['clinic_name'] ?? '')) !== '' ? $CLINIC['clinic_name'] : '(Business Name) Dental Clinic', ENT_QUOTES, 'UTF-8'); ?> Management System. <br>All rights reserved.</p>
 </div>
 </div>
 </div>

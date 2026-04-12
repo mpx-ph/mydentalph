@@ -33,6 +33,7 @@ if (!in_array($userType, ['manager', 'doctor', 'staff'])) {
 
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/clinic_customization.php';
 
 // Get payment ID from query parameter
 $paymentId = isset($_GET['id']) ? intval($_GET['id']) : null;
@@ -76,6 +77,13 @@ try {
     header('Location: ' . clinicPageUrl('AdminPaymentRecording.php'));
     exit;
 }
+
+$invoiceClinicName = trim((string) ($CLINIC['clinic_name'] ?? ''));
+if ($invoiceClinicName === '') {
+    $invoiceClinicName = '(Business Name) Dental Clinic';
+}
+$invoiceThankYouMessage = 'Thank you for choosing ' . $invoiceClinicName . '!';
+$invoiceThankYouJs = json_encode($invoiceThankYouMessage, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 
 // Format dates
 $paymentDate = $payment['payment_date'] ? date('F d, Y', strtotime($payment['payment_date'])) : 'N/A';
@@ -523,7 +531,7 @@ function formatStatus($status) {
         
         <!-- Footer -->
         <div class="invoice-footer">
-            <div class="footer-message">Thank you for choosing Dr. Romarico C. Gonzales Dental Clinic!</div>
+            <div class="footer-message"><?php echo htmlspecialchars($invoiceThankYouMessage, ENT_QUOTES, 'UTF-8'); ?></div>
             <div class="footer-note">This is a computer-generated receipt. No signature required.</div>
             <div class="footer-timestamp">Generated on <?php echo date('F d, Y') . ' at ' . date('h:i A'); ?></div>
         </div>
@@ -738,7 +746,7 @@ function formatStatus($status) {
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(0, 0, 0);
-            doc.text('Thank you for choosing Dr. Romarico C. Gonzales Dental Clinic!', pageWidth / 2, yPos, { align: 'center' });
+            doc.text(<?php echo $invoiceThankYouJs; ?>, pageWidth / 2, yPos, { align: 'center' });
             yPos += 6;
             doc.setFontSize(8);
             doc.setTextColor(100, 116, 139);
