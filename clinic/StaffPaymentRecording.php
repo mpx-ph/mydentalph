@@ -1857,12 +1857,19 @@ try {
 <div class="relative group flex-1 min-w-0">
 <input name="selected_booking_id" id="selected_booking_id_input" type="hidden" value="<?php echo htmlspecialchars($formSelectedBookingId, ENT_QUOTES, 'UTF-8'); ?>"/>
 <input name="patient_query" id="patient_query_input" type="hidden" value="<?php echo htmlspecialchars($formPatientQuery, ENT_QUOTES, 'UTF-8'); ?>"/>
-<button id="open-transaction-selector-modal" type="button" class="w-full px-6 py-4 form-input-styled rounded-2xl text-left text-base font-semibold outline-none inline-flex items-center justify-between gap-3">
+<button id="open-transaction-selector-modal" type="button" class="group w-full min-h-[3.25rem] px-5 py-3.5 rounded-2xl text-left text-base font-bold outline-none inline-flex items-center justify-between gap-3 border-2 border-primary/35 bg-gradient-to-br from-primary/[0.12] via-white to-sky-500/[0.08] text-slate-800 shadow-md shadow-primary/10 hover:border-primary hover:from-primary/[0.18] hover:shadow-lg hover:shadow-primary/15 focus-visible:ring-4 focus-visible:ring-primary/25 focus-visible:border-primary transition-all active:scale-[0.99]" aria-label="Select patient appointment">
 <span class="inline-flex items-center gap-3 min-w-0">
-<span class="material-symbols-outlined text-slate-400 shrink-0">person_search</span>
-<span id="selected_transaction_label" class="truncate"><?php echo htmlspecialchars($formPatientQuery !== '' ? $formPatientQuery : 'Select appointment transaction with pending balance', ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-inner shadow-black/10 group-hover:bg-primary/95">
+<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">person_search</span>
 </span>
-<span class="material-symbols-outlined text-slate-500 shrink-0">keyboard_arrow_down</span>
+<span class="min-w-0 flex flex-col gap-0.5">
+<span class="text-[10px] font-black uppercase tracking-widest text-primary">Select patient</span>
+<span id="selected_transaction_label" class="truncate text-[15px] font-extrabold text-slate-900"><?php echo htmlspecialchars($formPatientQuery !== '' ? $formPatientQuery : 'Tap to choose appointment with pending balance', ENT_QUOTES, 'UTF-8'); ?></span>
+</span>
+</span>
+<span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/80 border border-primary/20 text-primary group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-colors">
+<span class="material-symbols-outlined text-xl">keyboard_arrow_down</span>
+</span>
 </button>
 </div>
 <button class="hidden shrink-0 w-12 rounded-2xl border-2 border-slate-200 bg-slate-50 text-slate-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors inline-flex items-center justify-center" id="clear-selected-booking-btn" type="button" title="Clear appointment selection" aria-label="Clear appointment selection">
@@ -1934,7 +1941,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
 <label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Payment Amount</label>
 <div class="relative group">
 <span class="absolute left-5 top-1/2 -translate-y-1/2 text-lg font-extrabold text-slate-500 group-focus-within:text-primary transition-colors">₱</span>
-<input class="w-full pl-12 pr-6 py-4 form-input-styled rounded-2xl text-xl font-black outline-none" min="0.01" name="amount" placeholder="0.00" required step="0.01" type="number" value="<?php echo htmlspecialchars($formAmount, ENT_QUOTES, 'UTF-8'); ?>"/>
+<input class="w-full pl-12 pr-6 py-4 rounded-2xl text-xl font-black outline-none border-2 border-transparent bg-slate-100/90 text-slate-800 cursor-default tabular-nums" min="0.01" name="amount" placeholder="0.00" readonly="readonly" required step="0.01" type="number" value="<?php echo htmlspecialchars($formAmount, ENT_QUOTES, 'UTF-8'); ?>" title="Amount is set from the appointment and installment rules" aria-readonly="true"/>
 </div>
 </div>
 <div class="hidden md:block h-12 w-px bg-slate-200 mt-6"></div>
@@ -2098,8 +2105,102 @@ This booking is installment-priced, but no installment schedule rows exist in th
         const selectedAppointmentDetailPanel = document.getElementById('selected-appointment-detail-panel');
         const selectedAppointmentServicesList = document.getElementById('selected-appointment-services-list');
         const selectedAppointmentServiceSummary = document.getElementById('selected-appointment-service-summary');
-        const defaultPickerLabel = 'Select appointment transaction with pending balance';
+        const defaultPickerLabel = 'Tap to choose appointment with pending balance';
         let selectedTransaction = null;
+
+        function getTodayYmd() {
+            const d = new Date();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return String(d.getFullYear()) + '-' + m + '-' + day;
+        }
+
+        function resetRecordPaymentForm() {
+            closeSelectorModal();
+            selectedTransaction = null;
+            if (selectedBookingIdInput) {
+                selectedBookingIdInput.value = '';
+            }
+            if (patientQueryInput) {
+                patientQueryInput.value = '';
+            }
+            if (selectedTransactionLabel) {
+                selectedTransactionLabel.textContent = defaultPickerLabel;
+            }
+            additionalServiceCheckboxes.forEach((checkbox) => {
+                checkbox.checked = false;
+                checkbox.disabled = false;
+                checkbox.removeAttribute('aria-disabled');
+                const label = checkbox.closest('label');
+                if (label) {
+                    label.classList.remove('opacity-50', 'cursor-not-allowed');
+                    label.removeAttribute('title');
+                }
+            });
+            if (modal) {
+                const payDate = modal.querySelector('input[name="payment_date"]');
+                if (payDate) {
+                    payDate.value = getTodayYmd();
+                }
+                const notesEl = modal.querySelector('textarea[name="notes"]');
+                if (notesEl) {
+                    notesEl.value = '';
+                }
+            }
+            if (amountInput) {
+                amountInput.value = '0.00';
+                amountInput.setAttribute('readonly', 'readonly');
+            }
+            if (installmentFlowInput) {
+                installmentFlowInput.value = 'regular';
+            }
+            if (installmentPayModeInput) {
+                installmentPayModeInput.value = 'full';
+            }
+            if (installmentSlotCountInput) {
+                installmentSlotCountInput.value = '1';
+            }
+            if (instOptFull) {
+                instOptFull.checked = true;
+            }
+            if (instOptDown) {
+                instOptDown.checked = false;
+                instOptDown.disabled = false;
+            }
+            if (instOptCombined) {
+                instOptCombined.checked = false;
+                instOptCombined.disabled = false;
+            }
+            if (instOptMonthly) {
+                instOptMonthly.checked = false;
+                instOptMonthly.disabled = false;
+            }
+            if (instOptDownWrap) {
+                instOptDownWrap.classList.remove('opacity-40');
+            }
+            if (instOptCombinedWrap) {
+                instOptCombinedWrap.classList.remove('opacity-40');
+            }
+            if (instOptMonthlyWrap) {
+                instOptMonthlyWrap.classList.remove('opacity-40');
+            }
+            if (installmentSlotStepper) {
+                installmentSlotStepper.value = '';
+            }
+            transactionTypeFilter = 'regular';
+            syncMainAndSelectorFilter('regular');
+            const methodHidden = document.getElementById('payment_method_input');
+            if (methodHidden) {
+                methodHidden.value = 'cash';
+            }
+            document.querySelectorAll('#transaction-modal .payment-card[data-method]').forEach((card) => {
+                card.classList.toggle('active', card.getAttribute('data-method') === 'cash');
+            });
+            renderSelectedAppointmentServices(null);
+            updateClearBookingButtonVisibility();
+            syncAmountWithAdditionalServices();
+            refreshInstallmentPaymentUi();
+        }
 
         function installmentStatusPaid(status) {
             const s = String(status || '').toLowerCase();
@@ -2186,30 +2287,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
         }
 
         function clearSelectedBooking() {
-            selectedTransaction = null;
-            if (selectedBookingIdInput) {
-                selectedBookingIdInput.value = '';
-            }
-            if (patientQueryInput) {
-                patientQueryInput.value = '';
-            }
-            if (selectedTransactionLabel) {
-                selectedTransactionLabel.textContent = defaultPickerLabel;
-            }
-            additionalServiceCheckboxes.forEach((checkbox) => {
-                checkbox.checked = false;
-                checkbox.disabled = false;
-                checkbox.removeAttribute('aria-disabled');
-                const label = checkbox.closest('label');
-                if (label) {
-                    label.classList.remove('opacity-50', 'cursor-not-allowed');
-                    label.removeAttribute('title');
-                }
-            });
-            renderSelectedAppointmentServices(null);
-            updateClearBookingButtonVisibility();
-            syncAmountWithAdditionalServices();
-            refreshInstallmentPaymentUi();
+            resetRecordPaymentForm();
         }
 
         function syncMainAndSelectorFilter(mode) {
@@ -2241,7 +2319,25 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     installmentFlowInput.value = 'regular';
                 }
                 if (amountInput) {
-                    amountInput.removeAttribute('readonly');
+                    amountInput.setAttribute('readonly', 'readonly');
+                }
+                if (instOptDown) {
+                    instOptDown.disabled = false;
+                }
+                if (instOptCombined) {
+                    instOptCombined.disabled = false;
+                }
+                if (instOptMonthly) {
+                    instOptMonthly.disabled = false;
+                }
+                if (instOptDownWrap) {
+                    instOptDownWrap.classList.remove('opacity-40');
+                }
+                if (instOptCombinedWrap) {
+                    instOptCombinedWrap.classList.remove('opacity-40');
+                }
+                if (instOptMonthlyWrap) {
+                    instOptMonthlyWrap.classList.remove('opacity-40');
                 }
                 if (additionalServicesSection) {
                     additionalServicesSection.classList.remove('opacity-50', 'pointer-events-none');
@@ -2313,9 +2409,6 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 if (additionalServicesInstallmentNote) {
                     additionalServicesInstallmentNote.classList.remove('hidden');
                 }
-                if (amountInput) {
-                    amountInput.setAttribute('readonly', 'readonly');
-                }
             } else {
                 if (installmentAdvancedOptions) {
                     installmentAdvancedOptions.classList.add('hidden');
@@ -2332,9 +2425,6 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 }
                 if (additionalServicesInstallmentNote) {
                     additionalServicesInstallmentNote.classList.add('hidden');
-                }
-                if (amountInput) {
-                    amountInput.removeAttribute('readonly');
                 }
             }
 
@@ -2645,6 +2735,11 @@ This booking is installment-priced, but no installment schedule rows exist in th
             modal.classList.add('hidden');
             modal.classList.remove('flex');
             document.body.classList.remove('overflow-hidden');
+            if (!hasServerError) {
+                resetRecordPaymentForm();
+            } else {
+                closeSelectorModal();
+            }
         };
 
         if (openBtn) {
@@ -2658,7 +2753,16 @@ This booking is installment-priced, but no installment schedule rows exist in th
         }
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
+                if (selectorModal && !selectorModal.classList.contains('hidden')) {
+                    closeSelectorModal();
+                    return;
+                }
                 closeModal();
+            }
+        });
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted) {
+                resetRecordPaymentForm();
             }
         });
         if (hasServerError) {
