@@ -538,13 +538,32 @@ try {
                     $postedSlotCount = max(1, (int) ($_POST['installment_slot_count'] ?? 1));
                     $runSchedulePayment = ($postedInstallFlow === 'schedule' && $scheduleRows !== []);
 
-                    if ($runSchedulePayment && !empty($additionalServiceIds)) {
-                        throw new RuntimeException('Additional services cannot be combined with installment schedule payments. Uncheck extra services or use a non-schedule payment.');
-                    }
-
-                    if (!$runSchedulePayment && !empty($additionalServiceIds)) {
+                    if (!empty($additionalServiceIds)) {
                         if (!$supportsAppointmentServicesTable) {
                             throw new RuntimeException('Additional services are not available in this deployment yet.');
+                        }
+
+                        $existingServicesStmt = $pdo->prepare("
+                            SELECT service_id
+                            FROM tbl_appointment_services
+                            WHERE tenant_id = ?
+                              AND booking_id = ?
+                        ");
+                        $existingServicesStmt->execute([$tenantId, $selectedBookingId]);
+                        $existingLookup = [];
+                        foreach (($existingServicesStmt->fetchAll(PDO::FETCH_COLUMN) ?: []) as $existingServiceId) {
+                            $existingLookup[(string) $existingServiceId] = true;
+                        }
+
+                        $duplicateChosen = [];
+                        foreach ($additionalServiceIds as $chosenId) {
+                            $chosenId = (string) $chosenId;
+                            if ($chosenId !== '' && isset($existingLookup[$chosenId])) {
+                                $duplicateChosen[] = $chosenId;
+                            }
+                        }
+                        if ($duplicateChosen !== []) {
+                            throw new RuntimeException('One or more selected services are already on this appointment. Remove duplicates before posting: ' . implode(', ', array_unique($duplicateChosen)) . '.');
                         }
 
                         $placeholders = implode(',', array_fill(0, count($additionalServiceIds), '?'));
@@ -560,18 +579,6 @@ try {
                         $servicesToAdd = $servicesStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
                         if (empty($servicesToAdd)) {
                             throw new RuntimeException('No valid additional services were selected.');
-                        }
-
-                        $existingServicesStmt = $pdo->prepare("
-                            SELECT service_id
-                            FROM tbl_appointment_services
-                            WHERE tenant_id = ?
-                              AND booking_id = ?
-                        ");
-                        $existingServicesStmt->execute([$tenantId, $selectedBookingId]);
-                        $existingLookup = [];
-                        foreach (($existingServicesStmt->fetchAll(PDO::FETCH_COLUMN) ?: []) as $existingServiceId) {
-                            $existingLookup[(string) $existingServiceId] = true;
                         }
 
                         $insertColumns = ['tenant_id', 'booking_id', 'service_id', 'service_name', 'price'];
@@ -594,7 +601,7 @@ try {
                         $addedCost = 0.0;
                         foreach ($servicesToAdd as $service) {
                             $serviceId = trim((string) ($service['service_id'] ?? ''));
-                            if ($serviceId === '' || isset($existingLookup[$serviceId])) {
+                            if ($serviceId === '') {
                                 continue;
                             }
                             $serviceName = trim((string) ($service['service_name'] ?? 'Additional Service'));
@@ -606,6 +613,7 @@ try {
                                 $serviceName,
                                 $servicePrice,
                             ]);
+                            $existingLookup[$serviceId] = true;
                             $addedCost += $servicePrice;
                             $addedServiceLabels[] = $serviceName . ' (P' . number_format($servicePrice, 2) . ')';
                         }
@@ -1402,9 +1410,48 @@ try {
                 $scheduleByBooking[$bid] = staff_payment_recording_fetch_installments($pdo, $installmentsTableName, $tenantId, $bid);
             }
         }
+        $bookedServicesByBooking = [];
+        if ($supportsAppointmentServicesTable && $transactionCandidates !== []) {
+            $bookedBidKeys = [];
+            foreach ($transactionCandidates as $candRow) {
+                $bb = trim((string) ($candRow['booking_id'] ?? ''));
+                if ($bb !== '') {
+                    $bookedBidKeys[$bb] = true;
+                }
+            }
+            $bookedIdList = array_keys($bookedBidKeys);
+            if ($bookedIdList !== []) {
+                $bookedPh = implode(',', array_fill(0, count($bookedIdList), '?'));
+                $bookedSql = "
+                    SELECT booking_id, service_id, service_name, price
+                    FROM tbl_appointment_services
+                    WHERE tenant_id = ?
+                      AND booking_id IN ({$bookedPh})
+                    ORDER BY booking_id ASC, service_name ASC
+                ";
+                $bookedStmt = $pdo->prepare($bookedSql);
+                $bookedStmt->execute(array_merge([$tenantId], $bookedIdList));
+                foreach ($bookedStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $brow) {
+                    $bb = trim((string) ($brow['booking_id'] ?? ''));
+                    if ($bb === '') {
+                        continue;
+                    }
+                    if (!isset($bookedServicesByBooking[$bb])) {
+                        $bookedServicesByBooking[$bb] = [];
+                    }
+                    $bookedServicesByBooking[$bb][] = [
+                        'service_id' => trim((string) ($brow['service_id'] ?? '')),
+                        'service_name' => trim((string) ($brow['service_name'] ?? '')),
+                        'price' => round((float) ($brow['price'] ?? 0), 2),
+                    ];
+                }
+            }
+        }
+
         foreach ($transactionCandidates as $ic => $candRow) {
             $b = trim((string) ($candRow['booking_id'] ?? ''));
             $transactionCandidates[$ic]['installment_schedule'] = $scheduleByBooking[$b] ?? [];
+            $transactionCandidates[$ic]['booked_services'] = $bookedServicesByBooking[$b] ?? [];
         }
 
         $servicesStmt = $pdo->prepare("
@@ -1795,13 +1842,13 @@ try {
 <div class="fixed inset-0 z-50 hidden items-center justify-center p-6" id="transaction-modal" role="dialog" aria-modal="true" aria-labelledby="transaction-modal-title">
 <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" id="transaction-modal-overlay"></div>
 <div class="relative z-10 w-full max-w-4xl">
-<div class="glass-form bg-white p-10 rounded-[2.5rem] shadow-2xl shadow-primary/20 max-h-[88vh] overflow-y-auto no-scrollbar">
+<div class="glass-form bg-white p-8 rounded-[2.5rem] shadow-2xl shadow-primary/20 max-h-[88vh] overflow-y-auto no-scrollbar">
 <?php if ($paymentError !== ''): ?>
 <div class="mb-6 rounded-2xl border border-red-200 bg-red-50 text-red-700 px-5 py-3 text-sm font-semibold">
 <?php echo htmlspecialchars($paymentError, ENT_QUOTES, 'UTF-8'); ?>
 </div>
 <?php endif; ?>
-<div class="flex justify-between items-start mb-10 border-b border-primary/10 pb-6">
+<div class="flex justify-between items-start mb-5 border-b border-primary/10 pb-4">
 <div>
 <h3 class="text-3xl font-black font-headline text-slate-900" id="transaction-modal-title">Record New Payment</h3>
 <p class="text-xs text-primary font-bold uppercase tracking-[0.2em] mt-1">Submit digital transaction receipt</p>
@@ -1810,19 +1857,29 @@ try {
 <span class="material-symbols-outlined">close</span>
 </button>
 </div>
-<form class="space-y-10" method="post">
+<form class="space-y-6" method="post">
 <div class="space-y-3">
 <label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Patient Identification</label>
-<div class="relative group">
+<div class="flex gap-2 items-stretch">
+<div class="relative group flex-1 min-w-0">
 <input name="selected_booking_id" id="selected_booking_id_input" type="hidden" value="<?php echo htmlspecialchars($formSelectedBookingId, ENT_QUOTES, 'UTF-8'); ?>"/>
 <input name="patient_query" id="patient_query_input" type="hidden" value="<?php echo htmlspecialchars($formPatientQuery, ENT_QUOTES, 'UTF-8'); ?>"/>
 <button id="open-transaction-selector-modal" type="button" class="w-full px-6 py-4 form-input-styled rounded-2xl text-left text-base font-semibold outline-none inline-flex items-center justify-between gap-3">
 <span class="inline-flex items-center gap-3 min-w-0">
-<span class="material-symbols-outlined text-slate-400">person_search</span>
+<span class="material-symbols-outlined text-slate-400 shrink-0">person_search</span>
 <span id="selected_transaction_label" class="truncate"><?php echo htmlspecialchars($formPatientQuery !== '' ? $formPatientQuery : 'Select appointment transaction with pending balance', ENT_QUOTES, 'UTF-8'); ?></span>
 </span>
-<span class="material-symbols-outlined text-slate-500">keyboard_arrow_down</span>
+<span class="material-symbols-outlined text-slate-500 shrink-0">keyboard_arrow_down</span>
 </button>
+</div>
+<button class="hidden shrink-0 w-12 rounded-2xl border-2 border-slate-200 bg-slate-50 text-slate-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors inline-flex items-center justify-center" id="clear-selected-booking-btn" type="button" title="Clear appointment selection" aria-label="Clear appointment selection">
+<span class="material-symbols-outlined text-[22px]">close</span>
+</button>
+</div>
+<div class="hidden rounded-2xl border border-slate-200 bg-slate-50/90 p-4 space-y-2" id="selected-appointment-detail-panel">
+<p class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-0.5">Booked services (this appointment)</p>
+<ul class="text-sm font-semibold text-slate-800 space-y-1.5 list-none pl-0" id="selected-appointment-services-list"></ul>
+<p class="text-xs font-semibold text-slate-600 leading-relaxed hidden" id="selected-appointment-service-summary"></p>
 </div>
 <p class="text-[11px] font-semibold text-slate-500 ml-1">Only appointments with pending balance are listed.</p>
 </div>
@@ -1898,7 +1955,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
 <div class="space-y-4" id="additional-services-section">
 <label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Additional Services</label>
 <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 space-y-3">
-<p class="text-[11px] font-semibold text-slate-500">Optional: add on-the-spot services. Selected services are added to treatment cost and reflected in schedule services.</p>
+<p class="text-[11px] font-semibold text-slate-500">Optional: add on-the-spot services. Selected services are added to treatment cost and reflected in schedule services. Services already on this appointment cannot be selected again.</p>
+<p class="text-[11px] font-semibold text-slate-500 hidden" id="additional_services_installment_note">For installment schedules, the amount below matches the installment option; add-ons still update the appointment when you post.</p>
 <div class="max-h-52 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/40 p-2 space-y-1.5">
 <?php if (empty($availableServices)): ?>
 <p class="px-2 py-2 text-sm font-semibold text-slate-500">No active services available.</p>
@@ -2042,6 +2100,12 @@ This booking is installment-priced, but no installment schedule rows exist in th
         const instOptCombinedWrap = document.getElementById('inst_opt_combined_wrap');
         const instOptMonthlyWrap = document.getElementById('inst_opt_monthly_wrap');
         const additionalServicesSection = document.getElementById('additional-services-section');
+        const additionalServicesInstallmentNote = document.getElementById('additional_services_installment_note');
+        const clearBookingBtn = document.getElementById('clear-selected-booking-btn');
+        const selectedAppointmentDetailPanel = document.getElementById('selected-appointment-detail-panel');
+        const selectedAppointmentServicesList = document.getElementById('selected-appointment-services-list');
+        const selectedAppointmentServiceSummary = document.getElementById('selected-appointment-service-summary');
+        const defaultPickerLabel = 'Select appointment transaction with pending balance';
         let selectedTransaction = null;
 
         function installmentStatusPaid(status) {
@@ -2063,6 +2127,96 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
             const v = tx.is_installment_plan;
             return v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true';
+        }
+
+        function updateClearBookingButtonVisibility() {
+            const hasBooking = !!(selectedBookingIdInput && String(selectedBookingIdInput.value || '').trim() !== '');
+            if (clearBookingBtn) {
+                clearBookingBtn.classList.toggle('hidden', !hasBooking);
+            }
+        }
+
+        function renderSelectedAppointmentServices(tx) {
+            if (!selectedAppointmentDetailPanel || !selectedAppointmentServicesList || !selectedAppointmentServiceSummary) {
+                return;
+            }
+            if (!tx) {
+                selectedAppointmentDetailPanel.classList.add('hidden');
+                selectedAppointmentServicesList.innerHTML = '';
+                selectedAppointmentServiceSummary.textContent = '';
+                selectedAppointmentServiceSummary.classList.add('hidden');
+                return;
+            }
+            const booked = Array.isArray(tx.booked_services) ? tx.booked_services : [];
+            if (booked.length) {
+                selectedAppointmentServicesList.innerHTML = booked.map((s) => {
+                    const name = escapeHtml(s.service_name || 'Service');
+                    const pr = Number(s.price || 0).toFixed(2);
+                    return '<li class="flex justify-between gap-3 border-b border-slate-200/80 pb-1.5 last:border-0 last:pb-0"><span class="min-w-0">' + name + '</span><span class="shrink-0 text-primary font-black">₱' + pr + '</span></li>';
+                }).join('');
+                selectedAppointmentServiceSummary.textContent = '';
+                selectedAppointmentServiceSummary.classList.add('hidden');
+            } else {
+                selectedAppointmentServicesList.innerHTML = '';
+                const st = escapeHtml(tx.service_type || '-');
+                selectedAppointmentServiceSummary.innerHTML = 'Appointment line: <span class="font-bold text-slate-800">' + st + '</span>';
+                selectedAppointmentServiceSummary.classList.remove('hidden');
+            }
+            selectedAppointmentDetailPanel.classList.remove('hidden');
+        }
+
+        function updateAdditionalServiceEligibility() {
+            const ids = selectedTransaction && Array.isArray(selectedTransaction.booked_service_ids)
+                ? selectedTransaction.booked_service_ids
+                : [];
+            const bookedSet = new Set(ids.map((x) => String(x)));
+            additionalServiceCheckboxes.forEach((checkbox) => {
+                const label = checkbox.closest('label');
+                const id = String(checkbox.value || '');
+                if (bookedSet.has(id)) {
+                    checkbox.checked = false;
+                    checkbox.disabled = true;
+                    checkbox.setAttribute('aria-disabled', 'true');
+                    if (label) {
+                        label.classList.add('opacity-50', 'cursor-not-allowed');
+                        label.setAttribute('title', 'Already on this appointment');
+                    }
+                } else {
+                    checkbox.disabled = false;
+                    checkbox.removeAttribute('aria-disabled');
+                    if (label) {
+                        label.classList.remove('opacity-50', 'cursor-not-allowed');
+                        label.removeAttribute('title');
+                    }
+                }
+            });
+        }
+
+        function clearSelectedBooking() {
+            selectedTransaction = null;
+            if (selectedBookingIdInput) {
+                selectedBookingIdInput.value = '';
+            }
+            if (patientQueryInput) {
+                patientQueryInput.value = '';
+            }
+            if (selectedTransactionLabel) {
+                selectedTransactionLabel.textContent = defaultPickerLabel;
+            }
+            additionalServiceCheckboxes.forEach((checkbox) => {
+                checkbox.checked = false;
+                checkbox.disabled = false;
+                checkbox.removeAttribute('aria-disabled');
+                const label = checkbox.closest('label');
+                if (label) {
+                    label.classList.remove('opacity-50', 'cursor-not-allowed');
+                    label.removeAttribute('title');
+                }
+            });
+            renderSelectedAppointmentServices(null);
+            updateClearBookingButtonVisibility();
+            syncAmountWithAdditionalServices();
+            refreshInstallmentPaymentUi();
         }
 
         function syncMainAndSelectorFilter(mode) {
@@ -2098,6 +2252,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 }
                 if (additionalServicesSection) {
                     additionalServicesSection.classList.remove('opacity-50', 'pointer-events-none');
+                }
+                if (additionalServicesInstallmentNote) {
+                    additionalServicesInstallmentNote.classList.add('hidden');
                 }
                 return;
             }
@@ -2158,7 +2315,10 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     installmentFlagOnlyNote.classList.add('hidden');
                 }
                 if (additionalServicesSection) {
-                    additionalServicesSection.classList.add('opacity-50', 'pointer-events-none');
+                    additionalServicesSection.classList.remove('opacity-50', 'pointer-events-none');
+                }
+                if (additionalServicesInstallmentNote) {
+                    additionalServicesInstallmentNote.classList.remove('hidden');
                 }
                 if (amountInput) {
                     amountInput.setAttribute('readonly', 'readonly');
@@ -2177,12 +2337,18 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 if (additionalServicesSection) {
                     additionalServicesSection.classList.remove('opacity-50', 'pointer-events-none');
                 }
+                if (additionalServicesInstallmentNote) {
+                    additionalServicesInstallmentNote.classList.add('hidden');
+                }
                 if (amountInput) {
                     amountInput.removeAttribute('readonly');
                 }
             }
 
             if (!hasSchedule) {
+                if (additionalServicesInstallmentNote) {
+                    additionalServicesInstallmentNote.classList.add('hidden');
+                }
                 return;
             }
 
@@ -2194,17 +2360,26 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const firstUnpaid = unpaidSched.length ? unpaidSched[0] : null;
             const fn = firstUnpaid ? Number(firstUnpaid.installment_number) : 0;
 
+            const downOk = fn === 1;
+            const combinedOk = fn === 1 && unpaidSched.length >= 2;
+            const monthlyOk = fn >= 2;
+            if (instOptDown) {
+                instOptDown.disabled = !downOk;
+            }
+            if (instOptCombined) {
+                instOptCombined.disabled = !combinedOk;
+            }
+            if (instOptMonthly) {
+                instOptMonthly.disabled = !monthlyOk;
+            }
             if (instOptDownWrap) {
-                instOptDownWrap.classList.toggle('opacity-40', fn !== 1);
-                instOptDownWrap.classList.toggle('pointer-events-none', fn !== 1);
+                instOptDownWrap.classList.toggle('opacity-40', !downOk);
             }
             if (instOptCombinedWrap) {
-                instOptCombinedWrap.classList.toggle('opacity-40', fn !== 1 || unpaidSched.length < 2);
-                instOptCombinedWrap.classList.toggle('pointer-events-none', fn !== 1 || unpaidSched.length < 2);
+                instOptCombinedWrap.classList.toggle('opacity-40', !combinedOk);
             }
             if (instOptMonthlyWrap) {
-                instOptMonthlyWrap.classList.toggle('opacity-40', fn < 2);
-                instOptMonthlyWrap.classList.toggle('pointer-events-none', fn < 2);
+                instOptMonthlyWrap.classList.toggle('opacity-40', !monthlyOk);
             }
 
             const modeUi = document.querySelector('input[name="installment_pay_mode_ui"]:checked');
@@ -2307,6 +2482,10 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const label = patientName + ' | Booking ' + (item.booking_id || '-') + ' | Pending ₱' + pendingBalance.toFixed(2);
             const rawPlan = item.is_installment_plan;
             const isInstallmentPlan = rawPlan === true || rawPlan === 1 || rawPlan === '1' || String(rawPlan) === '1';
+            const bookedServicesRaw = Array.isArray(item.booked_services) ? item.booked_services : [];
+            const booked_service_ids = bookedServicesRaw
+                .map((s) => String((s && s.service_id) || '').trim())
+                .filter((id) => id !== '');
             return {
                 booking_id: String(item.booking_id || ''),
                 patient_id: String(item.patient_id || ''),
@@ -2319,6 +2498,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 pending_balance: pendingBalance,
                 is_installment_plan: isInstallmentPlan,
                 installment_schedule: Array.isArray(item.installment_schedule) ? item.installment_schedule : [],
+                booked_services: bookedServicesRaw,
+                booked_service_ids: booked_service_ids,
                 label: label
             };
         }).filter((item) => item.pending_balance > 0);
@@ -2335,11 +2516,13 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 return list;
             }
             return list.filter((item) => {
+                const bookedNames = (item.booked_services || []).map((s) => (s && s.service_name) ? String(s.service_name) : '').join(' ');
                 return [
                     item.patient_name,
                     item.patient_id,
                     item.booking_id,
-                    item.service_type
+                    item.service_type,
+                    bookedNames
                 ].join(' ').toLowerCase().indexOf(keyword) !== -1;
             });
         }
@@ -2384,13 +2567,16 @@ This booking is installment-priced, but no installment schedule rows exist in th
 
             selectorEmpty.classList.add('hidden');
             selectorList.innerHTML = list.map((item) => {
+                const svcLine = (item.booked_services && item.booked_services.length)
+                    ? item.booked_services.map((s) => escapeHtml(s.service_name || 'Service')).join(', ')
+                    : escapeHtml(item.service_type);
                 return '' +
                     '<div class="py-3 px-1 sm:px-2">' +
                         '<div class="rounded-2xl border border-slate-200 p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">' +
                             '<div class="min-w-0">' +
                                 '<p class="text-sm font-extrabold text-slate-900 truncate">' + escapeHtml(item.patient_name) + '</p>' +
                                 '<p class="text-xs font-semibold text-slate-500 mt-1">Patient ID: ' + escapeHtml(item.patient_id) + ' | Booking ID: ' + escapeHtml(item.booking_id) + '</p>' +
-                                '<p class="text-xs font-semibold text-slate-500 mt-1">Service: ' + escapeHtml(item.service_type) + '</p>' +
+                                '<p class="text-xs font-semibold text-slate-500 mt-1">Services: ' + svcLine + '</p>' +
                                 '<p class="text-xs font-semibold text-slate-500 mt-1">Date: ' + escapeHtml(item.appointment_date || '-') + ' ' + escapeHtml(item.appointment_time || '') + '</p>' +
                                 '<p class="text-xs font-semibold text-slate-700 mt-1">Total: ₱' + item.total_cost.toFixed(2) + ' | Paid: ₱' + item.total_paid.toFixed(2) + ' | Pending: ₱' + item.pending_balance.toFixed(2) + '</p>' +
                             '</div>' +
@@ -2417,7 +2603,11 @@ This booking is installment-priced, but no installment schedule rows exist in th
         function syncAmountWithAdditionalServices() {
             const servicesTotal = getAdditionalServicesTotal();
             if (additionalServicesTotalHint) {
-                additionalServicesTotalHint.textContent = 'Added services total: ₱' + servicesTotal.toFixed(2);
+                if (selectedTransaction && getScheduleList(selectedTransaction).length > 0) {
+                    additionalServicesTotalHint.textContent = 'Add-on services total: ₱' + servicesTotal.toFixed(2) + ' (posted separately from the installment amount below).';
+                } else {
+                    additionalServicesTotalHint.textContent = 'Added services total: ₱' + servicesTotal.toFixed(2);
+                }
             }
             if (selectedTransaction && amountInput) {
                 if (getScheduleList(selectedTransaction).length > 0) {
@@ -2522,8 +2712,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 if (selectedTransactionLabel) {
                     selectedTransactionLabel.textContent = selected.label;
                 }
+                selectedTransaction = selected;
                 if (amountInput) {
-                    selectedTransaction = selected;
                     if (selected.is_installment_plan) {
                         syncMainAndSelectorFilter('installment');
                     } else {
@@ -2532,6 +2722,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     syncAmountWithAdditionalServices();
                     refreshInstallmentPaymentUi();
                 }
+                updateAdditionalServiceEligibility();
+                renderSelectedAppointmentServices(selected);
+                updateClearBookingButtonVisibility();
                 closeSelectorModal();
             });
         }
@@ -2548,12 +2741,16 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 refreshInstallmentPaymentUi();
             });
         }
+        if (clearBookingBtn) {
+            clearBookingBtn.addEventListener('click', clearSelectedBooking);
+        }
         syncAmountWithAdditionalServices();
         refreshInstallmentPaymentUi();
 
         (function restoreSelectionAfterPost() {
             const bid = String(selectedBookingIdInput ? selectedBookingIdInput.value : '').trim();
             if (!bid) {
+                updateClearBookingButtonVisibility();
                 return;
             }
             const pre = normalizeTransactions.find((x) => x.booking_id === bid);
@@ -2566,7 +2763,10 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 }
                 syncAmountWithAdditionalServices();
                 refreshInstallmentPaymentUi();
+                updateAdditionalServiceEligibility();
+                renderSelectedAppointmentServices(pre);
             }
+            updateClearBookingButtonVisibility();
         })();
 
         const hiddenInput = document.getElementById('payment_method_input');
