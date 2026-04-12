@@ -841,7 +841,6 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
                 tryPreviewScrollToFooter();
                 setTimeout(tryPreviewScrollToFooter, 150);
                 setTimeout(tryPreviewScrollToFooter, 500);
-                schedulePreviewFit();
                 return;
             }
             frame.src = withCacheBust(target) + '#clinic-site-footer';
@@ -1033,6 +1032,17 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             previewScaleHost.style.removeProperty('max-height');
             previewScaleHost.style.removeProperty('overflow');
             return;
+        }
+        /*
+         * Footer (site-wide) = same document as Home: only scroll the iframe. Never rewrite shell
+         * height/scale while footer is selected (avoids the “shrunk to footer strip” bug).
+         * After mobile→desktop with footer selected, height was cleared — run a normal fit below.
+         */
+        if (previewSelect && previewSelect.value === 'footer') {
+            var hasDesktopFit = !!(previewShell.style.height && previewShell.style.transform);
+            if (hasDesktopFit) {
+                return;
+            }
         }
         var cw = previewCanvasScroll.clientWidth;
         if (cw <= 0) return;
