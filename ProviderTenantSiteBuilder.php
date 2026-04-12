@@ -266,26 +266,34 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             box-shadow: 0 0 24px -4px rgba(43, 139, 235, 0.55);
             border-radius: 9999px;
         }
-        /* Patient nav (nav_client.php) uses Tailwind lg: (1024px). Desktop canvas is 1280px wide logically, then scaled down to fit (JS). */
-        .preview-canvas-scroll { max-width: 100%; overflow-x: hidden; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+        /* Desktop preview: fixed flex slot — no JS height/scale (iframe scrolls, including for Footer). */
+        .preview-canvas-scroll { max-width: 100%; overflow: hidden; -webkit-overflow-scrolling: touch; }
         .preview-scale-host {
             width: 100%;
-            overflow: hidden;
+            overflow: auto;
             display: flex;
             justify-content: center;
-            align-items: flex-start;
+            align-items: stretch;
             flex: 1 1 0;
             min-height: 0;
             align-self: stretch;
         }
-        .preview-canvas-shell { transition: transform 0.2s ease, min-height 0.35s ease, height 0.15s ease; }
+        .preview-canvas-shell { transition: transform 0.2s ease; }
         .preview-canvas-shell--desktop {
-            width: 1280px;
-            min-width: 1280px;
+            width: 100%;
             max-width: 1280px;
-            flex-shrink: 0;
-            min-height: 400px;
+            min-width: 0;
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
             box-sizing: border-box;
+        }
+        .preview-canvas-shell--desktop #sitePreviewFrame {
+            flex: 1 1 auto;
+            width: 100%;
+            min-height: max(65vh, 420px);
+            border: 0;
         }
         .preview-canvas-shell--mobile {
             width: 100%;
@@ -296,6 +304,15 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             aspect-ratio: 9 / 16;
             min-height: 420px;
             max-height: min(75vh, 820px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .preview-canvas-shell--mobile #sitePreviewFrame {
+            flex: 1 1 auto;
+            width: 100%;
+            min-height: 0;
+            border: 0;
         }
         @supports not (aspect-ratio: 1) {
             .preview-canvas-shell--mobile { min-height: 560px; }
@@ -731,7 +748,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 <div class="preview-scale-host" id="previewScaleHost">
 <div class="overflow-hidden bg-white rounded-xl sm:rounded-2xl preview-canvas-shell preview-canvas-shell--desktop" id="previewCanvasShell">
 <?php if ($preview_urls['home'] !== ''): ?>
-<iframe title="Site preview" class="w-full h-full min-h-[320px] border-0" id="sitePreviewFrame" src="<?php echo htmlspecialchars($preview_urls['home'], ENT_QUOTES, 'UTF-8'); ?>"></iframe>
+<iframe title="Site preview" id="sitePreviewFrame" src="<?php echo htmlspecialchars($preview_urls['home'], ENT_QUOTES, 'UTF-8'); ?>"></iframe>
 <?php else: ?>
 <div class="w-full h-full min-h-[380px] flex items-center justify-center text-slate-500 text-sm font-medium p-8 text-center">Preview unavailable until your clinic slug is active.</div>
 <?php endif; ?>
@@ -844,18 +861,15 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
                 return;
             }
             frame.src = withCacheBust(target) + '#clinic-site-footer';
-            schedulePreviewFit();
             return;
         }
 
         if (page === 'home' && sameDoc) {
             if (canAccessPreviewFrameDoc()) {
                 tryPreviewScrollToTop();
-                schedulePreviewFit();
                 return;
             }
             frame.src = withCacheBust(target);
-            schedulePreviewFit();
             return;
         }
 
@@ -864,7 +878,6 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             url += '#clinic-site-footer';
         }
         frame.src = url;
-        schedulePreviewFit();
     }
 
     function setSaveState(state) {
@@ -988,7 +1001,6 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         previewSelect.addEventListener('change', function () {
             applyPreviewPageFieldScope(previewSelect.value);
             applyPreviewNavigation(previewSelect.value, false);
-            schedulePreviewFit();
         });
         applyPreviewPageFieldScope(previewSelect.value);
         applyPreviewNavigation(previewSelect.value, false);
@@ -1002,27 +1014,26 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     if (btnRef) btnRef.addEventListener('click', refreshPreview);
 
     var previewShell = document.getElementById('previewCanvasShell');
-    var previewCanvasScroll = document.getElementById('previewCanvasScroll');
     var previewScaleHost = document.getElementById('previewScaleHost');
-    var previewFrameWrap = document.getElementById('previewFrameWrap');
     var modeMobile = document.getElementById('previewModeMobile');
     var modeDesktop = document.getElementById('previewModeDesktop');
-    var DESKTOP_LOGIC_PX = 1280;
-    /* Chrome inside previewFrameWrap above the white canvas (fake browser bar + device toggles + padding). */
-    var PREVIEW_WRAP_CHROME_PX = 108;
 
-    function desktopPreviewSlotHeightPx() {
-        if (previewFrameWrap) {
-            var h = Math.round(previewFrameWrap.getBoundingClientRect().height);
-            if (h > PREVIEW_WRAP_CHROME_PX + 80) {
-                return Math.max(280, h - PREVIEW_WRAP_CHROME_PX);
-            }
+    /** Desktop layout is CSS-only; clear legacy inline height/scale from older versions of this page. */
+    function clearLegacyDesktopPreviewStyles() {
+        if (!previewShell) return;
+        previewShell.style.removeProperty('height');
+        previewShell.style.removeProperty('transform');
+        previewShell.style.removeProperty('transform-origin');
+        if (previewScaleHost) {
+            previewScaleHost.style.removeProperty('min-height');
+            previewScaleHost.style.removeProperty('height');
+            previewScaleHost.style.removeProperty('max-height');
+            previewScaleHost.style.removeProperty('overflow');
         }
-        return Math.max(320, Math.round(window.innerHeight * 0.62));
     }
 
-    function syncDesktopPreviewFit() {
-        if (!previewShell || !previewScaleHost || !previewCanvasScroll) return;
+    function applyPreviewChromeLayout() {
+        if (!previewShell || !previewScaleHost) return;
         if (previewShell.classList.contains('preview-canvas-shell--mobile')) {
             previewShell.style.removeProperty('transform');
             previewShell.style.removeProperty('transform-origin');
@@ -1033,30 +1044,7 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             previewScaleHost.style.removeProperty('overflow');
             return;
         }
-        /*
-         * Footer (site-wide) = same document as Home: only scroll the iframe. Never rewrite shell
-         * height/scale while footer is selected (avoids the “shrunk to footer strip” bug).
-         * After mobile→desktop with footer selected, height was cleared — run a normal fit below.
-         */
-        if (previewSelect && previewSelect.value === 'footer') {
-            var hasDesktopFit = !!(previewShell.style.height && previewShell.style.transform);
-            if (hasDesktopFit) {
-                return;
-            }
-        }
-        var cw = previewCanvasScroll.clientWidth;
-        if (cw <= 0) return;
-        /* Never derive height from previewCanvasScroll — flex + iframe paint can collapse it; outer wrap is stable. */
-        var ch = desktopPreviewSlotHeightPx();
-        var s = Math.min(1, cw / DESKTOP_LOGIC_PX);
-        var hLog = Math.max(400, Math.ceil(ch / s));
-        previewShell.style.height = hLog + 'px';
-        previewShell.style.transform = 'scale(' + s + ')';
-        previewShell.style.transformOrigin = 'top center';
-        previewScaleHost.style.removeProperty('min-height');
-        previewScaleHost.style.removeProperty('height');
-        previewScaleHost.style.removeProperty('max-height');
-        previewScaleHost.style.removeProperty('overflow');
+        clearLegacyDesktopPreviewStyles();
     }
 
     function setPreviewDeviceMode(mode) {
@@ -1072,24 +1060,14 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
             modeDesktop.classList.toggle('preview-device-btn--active', !isMobile);
             modeDesktop.setAttribute('aria-selected', !isMobile ? 'true' : 'false');
         }
-        syncDesktopPreviewFit();
+        applyPreviewChromeLayout();
     }
 
     if (modeMobile) modeMobile.addEventListener('click', function () { setPreviewDeviceMode('mobile'); });
     if (modeDesktop) modeDesktop.addEventListener('click', function () { setPreviewDeviceMode('desktop'); });
 
-    var previewFitResizeTimer = null;
-    function schedulePreviewFit() {
-        clearTimeout(previewFitResizeTimer);
-        previewFitResizeTimer = setTimeout(syncDesktopPreviewFit, 80);
-    }
-    if (previewFrameWrap && typeof ResizeObserver !== 'undefined') {
-        new ResizeObserver(schedulePreviewFit).observe(previewFrameWrap);
-    }
-    window.addEventListener('resize', schedulePreviewFit);
     if (frame) frame.addEventListener('load', function () {
-        syncDesktopPreviewFit();
-        setTimeout(syncDesktopPreviewFit, 80);
+        applyPreviewChromeLayout();
         if (previewSelect && previewSelect.value === 'footer') {
             tryPreviewScrollToFooter();
             setTimeout(tryPreviewScrollToFooter, 200);
@@ -1097,8 +1075,8 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         }
     });
     requestAnimationFrame(function () {
-        syncDesktopPreviewFit();
-        requestAnimationFrame(syncDesktopPreviewFit);
+        clearLegacyDesktopPreviewStyles();
+        applyPreviewChromeLayout();
     });
 
     (function teamMembersEditor() {
