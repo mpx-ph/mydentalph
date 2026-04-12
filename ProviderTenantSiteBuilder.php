@@ -274,7 +274,8 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             overflow: hidden;
             display: flex;
             justify-content: center;
-            align-items: center;
+            /* Stretch so #previewDesktopFit fills the dark canvas vertically (center was shrinking the slot). */
+            align-items: stretch;
             flex: 1 1 0;
             min-height: 0;
             align-self: stretch;
@@ -288,6 +289,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: flex-start;
         }
         .preview-canvas-shell { transition: transform 0.2s ease; }
         .preview-canvas-shell--desktop {
@@ -1033,9 +1035,9 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
     var modeDesktop = document.getElementById('previewModeDesktop');
 
     /*
-     * Desktop: shell stays 1280px wide for correct breakpoints; when the preview
-     * column is narrower, scale down so the artboard fits on screen (centered).
-     * Mobile uses aspect-ratio CSS only — clear transforms / fit sizing.
+     * Desktop: 1280px-wide shell for breakpoints; scale down only for width.
+     * #previewDesktopFit always fills the dark preview area vertically — do not
+     * set its height to H*scale (that produced a short horizontal strip).
      */
     function syncDesktopPreviewFit() {
         if (!previewShell || !previewScaleHost || !previewDesktopFit) return;
@@ -1045,18 +1047,15 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
         if (W < 2 || H < 2) return;
         var scale = Math.min(1, W / 1280);
         previewShell.style.transformOrigin = 'top center';
+        previewDesktopFit.style.removeProperty('width');
+        previewDesktopFit.style.removeProperty('height');
+        previewDesktopFit.style.removeProperty('flex');
         if (scale >= 0.999) {
             previewShell.style.removeProperty('transform');
             previewShell.style.removeProperty('height');
-            previewDesktopFit.style.removeProperty('width');
-            previewDesktopFit.style.removeProperty('height');
-            previewDesktopFit.style.removeProperty('flex');
         } else {
             previewShell.style.transform = 'scale(' + scale + ')';
             previewShell.style.height = H + 'px';
-            previewDesktopFit.style.flex = '0 0 auto';
-            previewDesktopFit.style.width = (1280 * scale) + 'px';
-            previewDesktopFit.style.height = (H * scale) + 'px';
         }
     }
 
