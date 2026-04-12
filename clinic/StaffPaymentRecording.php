@@ -2191,10 +2191,10 @@ This booking is installment-priced, but no installment schedule rows exist in th
             syncMainAndSelectorFilter('regular');
             const methodHidden = document.getElementById('payment_method_input');
             if (methodHidden) {
-                methodHidden.value = 'cash';
+                methodHidden.value = '';
             }
             document.querySelectorAll('#transaction-modal .payment-card[data-method]').forEach((card) => {
-                card.classList.toggle('active', card.getAttribute('data-method') === 'cash');
+                card.classList.remove('active');
             });
             renderSelectedAppointmentServices(null);
             updateClearBookingButtonVisibility();
