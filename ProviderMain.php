@@ -195,17 +195,12 @@ require_once __DIR__ . '/provider_auth.php';
                         The My Dental OS: a unified dental management suite designed for efficiency, architectural
                         precision, and multi-tenant clinic scaling.
                     </p>
-                    <div class="flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-10">
+                    <div>
                         <a href="Provider-Plans.php"
-                            class="group relative px-9 sm:px-10 py-4 sm:py-5 bg-primary text-white font-bold rounded-full overflow-hidden transition-all hover:pr-14 active:scale-95 text-center sm:text-left transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:w-auto w-full max-w-xs sm:max-w-none">
+                            class="group relative inline-flex px-9 sm:px-10 py-4 sm:py-5 bg-primary text-white font-bold rounded-full overflow-hidden transition-all hover:pr-14 active:scale-95 text-center transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 w-full max-w-xs sm:w-auto sm:max-w-none">
                             <span class="relative z-10">View Your Plans</span>
                             <span
                                 class="material-symbols-outlined absolute right-4 opacity-0 group-hover:opacity-100 transition-all">arrow_right_alt</span>
-                        </a>
-                        <a class="font-bold text-sm uppercase tracking-widest flex items-center gap-3 hover:text-primary transition-colors transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded sm:justify-start justify-center"
-                            href="ProviderContact.php">
-                            <span class="w-10 h-[1px] bg-on-surface/25 shrink-0"></span>
-                            Request Demo
                         </a>
                     </div>
                 </div>
