@@ -432,28 +432,31 @@ require_once __DIR__ . '/provider_auth.php';
             </div>
         </section>
         <!-- Final CTA Section -->
-        <section class="py-20 px-6 sm:px-8 lg:px-10 reveal" data-reveal="section">
-            <div
-                class="mx-auto rounded-[4rem] bg-primary relative overflow-hidden flex flex-col items-center text-center shadow-[0_40px_100px_-20px_rgba(43,139,235,0.4)] max-w-6xl py-20 px-6 sm:px-8 md:px-14 lg:px-20">
-                <div class="relative z-10 max-w-3xl">
-                    <div
-                        class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-10">
-                        Institutional Boarding
+        <section class="bg-primary py-16 sm:py-20 lg:py-24 reveal overflow-hidden" data-reveal="section">
+            <div class="max-w-[1800px] mx-auto px-6 sm:px-8 lg:px-10 xl:px-14">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 xl:gap-20 items-center">
+                    <div class="relative z-10 max-w-xl mx-auto lg:mx-0 text-center lg:text-left">
+                        <div
+                            class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-8 lg:mb-10">
+                            Institutional Boarding
+                        </div>
+                        <h2
+                            class="font-headline text-4xl font-extrabold text-white tracking-tighter leading-[0.95] md:text-5xl mb-6 lg:mb-7">
+                            Ready to evolve your practice?</h2>
+                        <p class="text-white/75 text-lg md:text-xl leading-relaxed mb-8 lg:mb-10">Join hundreds of
+                            dental clinics streamlining their clinical operations through the My Dental ecosystem.</p>
+                        <a href="Provider-Plans.php"
+                            class="bg-white text-primary px-10 sm:px-16 py-5 sm:py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:scale-[1.03] transition-transform duration-200 shadow-2xl active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 inline-block">
+                            Start Your Subscription
+                        </a>
                     </div>
-                    <h2
-                        class="font-headline text-4xl font-extrabold text-white tracking-tighter leading-[0.85] md:text-5xl mb-7">
-                        Ready to evolve your practice?</h2>
-                    <p class="text-white/70 text-lg md:text-xl max-w-xl mx-auto leading-relaxed mb-10">Join hundreds of
-                        dental clinics streamlining their clinical operations through the My Dental ecosystem.</p>
-                    <a href="Provider-Plans.php"
-                        class="bg-white text-primary px-16 py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:scale-[1.03] transition-transform duration-200 shadow-2xl active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 inline-block">
-                        Start Your Subscription
-                    </a>
+                    <div
+                        class="relative w-full max-w-xl mx-auto lg:max-w-none lg:mx-0 rounded-3xl overflow-hidden shadow-[0_40px_100px_-20px_rgba(0,0,0,0.25)] ring-1 ring-white/20">
+                        <img src="Banner2.webp"
+                            alt="Dental professionals collaborating with modern clinic software"
+                            class="w-full h-auto object-cover object-center block" loading="lazy" decoding="async" />
+                    </div>
                 </div>
-                <!-- Abstract Architectural Accents -->
-                <div class="absolute top-0 right-0 w-1/3 h-full border-l border-white/10 pointer-events-none"></div>
-                <div class="absolute bottom-0 left-0 w-full h-1/4 border-t border-white/10 pointer-events-none"></div>
-                <div class="absolute -right-20 -bottom-20 w-80 h-80 bg-white/5 rounded-full blur-3xl"></div>
             </div>
         </section>
     </main>
