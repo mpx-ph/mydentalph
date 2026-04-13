@@ -162,7 +162,8 @@ require_once __DIR__ . '/provider_auth.php';
             }
 
             .provider-hero__bg {
-                background-position: 50% top;
+                /* Pan crop toward the subject so they sit left of the right edge (was too centered / empty left) */
+                background-position: 72% top;
                 background-size: cover;
             }
 
@@ -197,27 +198,27 @@ require_once __DIR__ . '/provider_auth.php';
                 class="relative z-10 w-full max-w-[1800px] mx-auto px-5 sm:px-8 lg:px-14 xl:px-20 pt-8 pb-10 sm:py-16 lg:py-24">
                 <div class="w-full max-w-none sm:max-w-xl lg:max-w-2xl xl:max-w-[40rem]">
                     <h1
-                        class="font-headline text-[clamp(2.1rem,7vw,4.75rem)] font-extrabold tracking-[-0.045em] text-on-surface mb-5 sm:mb-8 leading-[0.92]">
+                        class="font-headline text-[clamp(2.45rem,10vw,3.15rem)] sm:text-[clamp(2.1rem,7vw,4.75rem)] font-extrabold tracking-[-0.045em] text-on-surface mb-5 sm:mb-8 leading-[0.92]">
                         <span class="block">Modernize Your</span>
                         <span class="relative block">
                             <span
                                 class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Practice.</span>
                         </span>
                         <span
-                            class="block text-[clamp(1.05rem,2.4vw,1.85rem)] font-headline font-semibold tracking-tight text-on-surface/85 mt-2 sm:mt-3">
+                            class="block text-[clamp(1.2rem,4.6vw,1.55rem)] sm:text-[clamp(1.05rem,2.4vw,1.85rem)] font-headline font-semibold tracking-tight text-on-surface/85 mt-2.5 sm:mt-3">
                             with <span
                                 class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">My
                                 Dental</span>
                         </span>
                     </h1>
                     <p
-                        class="font-body text-[0.9375rem] sm:text-lg w-full max-w-none sm:max-w-xl mb-8 sm:mb-10 leading-relaxed text-on-surface-variant font-medium">
+                        class="font-body text-lg w-full max-w-none sm:max-w-xl mb-8 sm:mb-10 leading-relaxed text-on-surface-variant font-medium">
                         The My Dental OS: a unified dental management suite designed for efficiency, architectural
                         precision, and multi-tenant clinic scaling.
                     </p>
                     <div>
                         <a href="Provider-Plans.php"
-                            class="group relative inline-flex px-9 sm:px-10 py-4 sm:py-5 bg-primary text-white font-bold rounded-full overflow-hidden transition-all hover:pr-14 active:scale-95 text-center transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 w-full max-w-xs sm:w-auto sm:max-w-none">
+                            class="group relative inline-flex items-center justify-center w-full min-h-[3.5rem] px-10 py-4 text-lg sm:min-h-0 sm:px-10 sm:py-5 sm:text-base bg-primary text-white font-bold rounded-full overflow-hidden transition-all hover:pr-14 active:scale-95 text-center transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:w-auto sm:inline-flex">
                             <span class="relative z-10">View Your Plans</span>
                             <span
                                 class="material-symbols-outlined absolute right-4 opacity-0 group-hover:opacity-100 transition-all">arrow_right_alt</span>
