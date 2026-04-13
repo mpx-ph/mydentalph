@@ -2153,12 +2153,49 @@ try {
         $referenceLabel = trim((string) ($payment['payment_id'] ?? ''));
     }
     $patientEmail = trim((string) ($payment['patient_email'] ?? ''));
+    $receiptServiceItems = [];
+    $receiptServicesTotal = 0.0;
+    if (isset($pdo) && $pdo instanceof PDO) {
+        static $receiptServicesByBookingStmt = null;
+        if (!($receiptServicesByBookingStmt instanceof PDOStatement)) {
+            $receiptServicesByBookingStmt = $pdo->prepare("
+                SELECT service_name, price
+                FROM tbl_appointment_services
+                WHERE tenant_id = ?
+                  AND booking_id = ?
+                ORDER BY id ASC
+            ");
+        }
+        if ($receiptServicesByBookingStmt) {
+            $receiptServicesByBookingStmt->execute([$tenantId, (string) ($payment['booking_id'] ?? '')]);
+            $receiptServiceRows = $receiptServicesByBookingStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            foreach ($receiptServiceRows as $receiptServiceRow) {
+                $itemName = trim((string) ($receiptServiceRow['service_name'] ?? ''));
+                $itemName = preg_replace('/\[[^\]]*\]/', '', $itemName);
+                $itemName = trim((string) preg_replace('/\s+/', ' ', (string) $itemName));
+                if ($itemName === '') {
+                    continue;
+                }
+                $itemAmount = (float) ($receiptServiceRow['price'] ?? 0);
+                $receiptServicesTotal += $itemAmount;
+                $receiptServiceItems[] = [
+                    'name' => $itemName,
+                    'amount' => round($itemAmount, 2),
+                ];
+            }
+        }
+    }
+    if ($receiptServiceItems === []) {
+        $receiptServicesTotal = (float) ($payment['total_treatment_cost'] ?? 0);
+    }
     $receiptPayload = [
         'payment_id' => (string) ($payment['payment_id'] ?? ''),
         'patient_name' => $patientName,
         'patient_id' => $patientIdLabel,
         'patient_email' => $patientEmail,
         'service' => $serviceLabel,
+        'service_items' => $receiptServiceItems,
+        'services_total' => round($receiptServicesTotal, 2),
         'amount_paid' => round((float) ($payment['amount'] ?? 0), 2),
         'remaining_balance' => round($remainingBalance, 2),
         'payment_date' => $paymentDateRaw,
@@ -2292,7 +2329,10 @@ try {
 <p class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-600">Payment Breakdown</p>
 </div>
 <div class="px-4 py-4 space-y-3">
-<div class="flex items-start justify-between gap-4 text-sm"><span class="font-semibold text-slate-600">Service(s)</span><span class="font-bold text-slate-900 text-right max-w-[60%]" id="receipt-services">-</span></div>
+<div id="receipt-services-breakdown" class="space-y-2">
+<div class="flex items-start justify-between gap-4 text-sm"><span class="font-semibold text-slate-600">Service</span><span class="font-bold text-slate-900 text-right max-w-[60%]">-</span></div>
+</div>
+<div class="flex items-center justify-between text-sm border-t border-slate-200 pt-2"><span class="font-extrabold text-primary">Total</span><span class="font-extrabold text-primary text-right" id="receipt-services-total">₱0.00</span></div>
 <div class="flex items-center justify-between text-sm"><span class="font-semibold text-slate-600">Payment Date</span><span class="font-bold text-slate-900 text-right" id="receipt-payment-date">-</span></div>
 <div class="flex items-center justify-between text-sm"><span class="font-semibold text-slate-600">Payment Method</span><span class="font-bold text-slate-900 text-right" id="receipt-payment-method">-</span></div>
 </div>
@@ -3293,6 +3333,18 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const paymentMethod = escapeHtml(receipt.payment_method || '-');
             const amountPaid = escapeHtml(formatPeso(receipt.amount_paid));
             const remainingBalance = escapeHtml(formatPeso(receipt.remaining_balance));
+            const serviceItems = Array.isArray(receipt.service_items) ? receipt.service_items : [];
+            const servicesTotal = escapeHtml(formatPeso(receipt.services_total || 0));
+            let serviceRowsMarkup = '';
+            if (serviceItems.length) {
+                serviceRowsMarkup = serviceItems.map((item) => {
+                    const itemName = escapeHtml((item && item.name) ? String(item.name) : 'Service');
+                    const itemAmount = escapeHtml(formatPeso(item && item.amount ? item.amount : 0));
+                    return '<tr><td style="font-size:15px;line-height:21px;font-weight:600;color:#41547a;padding:0 0 8px;">' + itemName + '</td><td align="right" style="font-size:15px;line-height:21px;font-weight:800;color:#0f172a;padding:0 0 8px;">' + itemAmount + '</td></tr>';
+                }).join('');
+            } else {
+                serviceRowsMarkup = '<tr><td style="font-size:15px;line-height:21px;font-weight:600;color:#41547a;padding:0 0 8px;">Service</td><td align="right" style="font-size:15px;line-height:21px;font-weight:800;color:#0f172a;padding:0 0 8px;">' + service + '</td></tr>';
+            }
 
             return '' +
                 '<div style="max-width:760px;margin:0 auto;background:#fff;border:1px solid #dbeafe;border-radius:18px;overflow:hidden;font-family:Arial,sans-serif;color:#0f172a;">' +
@@ -3324,13 +3376,14 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     '<div style="padding:18px 24px 0;">' +
                         '<div style="border:1px solid #dbeafe;border-radius:14px;overflow:hidden;">' +
                             '<div style="padding:12px 14px;background:#f9fcff;border-bottom:1px solid #dbeafe;font-size:13px;line-height:18px;letter-spacing:4px;font-weight:800;color:#4f668f;text-transform:uppercase;">Payment Breakdown</div>' +
-                            '<div style="padding:12px 14px;font-size:16px;line-height:22px;">' +
-                                '<div style="display:flex;justify-content:space-between;gap:14px;"><span style="font-weight:600;color:#41547a;">Service(s)</span><span style="font-weight:800;text-align:right;max-width:70%;word-break:break-word;overflow-wrap:anywhere;">' + service + '</span></div>' +
-                                '<div style="height:12px;"></div>' +
-                                '<div style="display:flex;justify-content:space-between;gap:14px;"><span style="font-weight:600;color:#41547a;">Payment Date</span><span style="font-weight:800;text-align:right;">' + paymentDate + '</span></div>' +
-                                '<div style="height:12px;"></div>' +
-                                '<div style="display:flex;justify-content:space-between;gap:14px;"><span style="font-weight:600;color:#41547a;">Payment Method</span><span style="font-weight:800;text-align:right;">' + paymentMethod + '</span></div>' +
-                            '</div>' +
+                            '<div style="padding:12px 14px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">' +
+                                serviceRowsMarkup +
+                                '<tr><td style="font-size:16px;line-height:22px;font-weight:800;color:#1e3a8a;padding:2px 0 0;">Total</td><td align="right" style="font-size:16px;line-height:22px;font-weight:900;color:#1e3a8a;padding:2px 0 0;">' + servicesTotal + '</td></tr>' +
+                                '<tr><td height="12"></td><td></td></tr>' +
+                                '<tr><td style="font-size:16px;line-height:22px;font-weight:600;color:#41547a;">Payment Date</td><td align="right" style="font-size:16px;line-height:22px;font-weight:800;color:#0f172a;">' + paymentDate + '</td></tr>' +
+                                '<tr><td height="12"></td><td></td></tr>' +
+                                '<tr><td style="font-size:16px;line-height:22px;font-weight:600;color:#41547a;">Payment Method</td><td align="right" style="font-size:16px;line-height:22px;font-weight:800;color:#0f172a;">' + paymentMethod + '</td></tr>' +
+                            '</table></div>' +
                         '</div>' +
                     '</div>' +
                     '<div style="padding:18px 24px 24px;">' +
@@ -3356,6 +3409,27 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
         }
 
+        function renderReceiptServiceBreakdown(receipt) {
+            const container = document.getElementById('receipt-services-breakdown');
+            const totalEl = document.getElementById('receipt-services-total');
+            if (!container || !totalEl) {
+                return;
+            }
+            const serviceItems = Array.isArray(receipt && receipt.service_items) ? receipt.service_items : [];
+            if (!serviceItems.length) {
+                const fallbackService = escapeHtml((receipt && receipt.service) ? receipt.service : 'Dental treatment');
+                container.innerHTML = '<div class="flex items-start justify-between gap-4 text-sm"><span class="font-semibold text-slate-600">Service</span><span class="font-bold text-slate-900 text-right max-w-[60%] break-words">' + fallbackService + '</span></div>';
+                totalEl.textContent = formatPeso((receipt && receipt.services_total) ? receipt.services_total : 0);
+                return;
+            }
+            container.innerHTML = serviceItems.map((item) => {
+                const itemName = escapeHtml((item && item.name) ? String(item.name) : 'Service');
+                const itemAmount = escapeHtml(formatPeso(item && item.amount ? item.amount : 0));
+                return '<div class="flex items-start justify-between gap-4 text-sm"><span class="font-semibold text-slate-600">' + itemName + '</span><span class="font-bold text-slate-900 text-right">' + itemAmount + '</span></div>';
+            }).join('');
+            totalEl.textContent = formatPeso((receipt && receipt.services_total) ? receipt.services_total : 0);
+        }
+
         function openReceiptModal(receipt) {
             if (!receiptModal || !receipt) {
                 return;
@@ -3366,7 +3440,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
             setReceiptText('receipt-patient-meta', 'ID: ' + (receipt.patient_id || 'N/A'));
             setReceiptText('receipt-reference', receipt.reference_number || '-');
             setReceiptText('receipt-payment-id', 'Payment ID: ' + (receipt.payment_id || '-'));
-            setReceiptText('receipt-services', receipt.service || 'Dental treatment');
+            renderReceiptServiceBreakdown(receipt);
             setReceiptText('receipt-amount-paid', formatPeso(receipt.amount_paid));
             setReceiptText('receipt-remaining-balance', formatPeso(receipt.remaining_balance));
             setReceiptText('receipt-payment-date', formatReceiptDate(receipt.payment_date));
