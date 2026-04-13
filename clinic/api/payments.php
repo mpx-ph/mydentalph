@@ -172,17 +172,50 @@ function createPayment() {
         // Check if booking has installments (for long-term treatments with downpayment)
         $installmentNumber = null;
         $installmentId = null;
+        $bookingTreatmentId = '';
+        $treatmentRemainingBalance = null;
         if (!empty($data['booking_id'])) {
+            $bookingStmt = $pdo->prepare("
+                SELECT booking_id, COALESCE(treatment_id, '') AS treatment_id
+                FROM appointments
+                WHERE booking_id = ?
+                  AND tenant_id = ?
+                LIMIT 1
+            ");
+            $bookingStmt->execute([$data['booking_id'], $tenantId]);
+            $bookingRow = $bookingStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+            if (!$bookingRow) {
+                $pdo->rollBack();
+                jsonResponse(false, 'Booking not found.');
+            }
+            $bookingTreatmentId = trim((string) ($bookingRow['treatment_id'] ?? ''));
+
+            if ($bookingTreatmentId !== '') {
+                $treatStmt = $pdo->prepare("
+                    SELECT COALESCE(remaining_balance, 0) AS remaining_balance
+                    FROM tbl_treatments
+                    WHERE tenant_id = ?
+                      AND treatment_id = ?
+                    LIMIT 1
+                ");
+                $treatStmt->execute([$tenantId, $bookingTreatmentId]);
+                $treatRow = $treatStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+                if ($treatRow) {
+                    $treatmentRemainingBalance = max(0.0, (float) ($treatRow['remaining_balance'] ?? 0));
+                }
+            }
+
             // Check if there are installments for this booking
             $stmt = $pdo->prepare("
                 SELECT id, installment_number, amount_due, status 
                 FROM installments 
                 WHERE booking_id = ? 
+                AND tenant_id = ?
                 AND status IN ('pending', 'book_visit')
                 ORDER BY installment_number ASC 
                 LIMIT 1
             ");
-            $stmt->execute([$data['booking_id']]);
+            $stmt->execute([$data['booking_id'], $tenantId]);
             $installment = $stmt->fetch();
             
             if ($installment) {
@@ -198,6 +231,14 @@ function createPayment() {
                 if (abs($paymentAmount - $installmentAmount) > $tolerance) {
                     $pdo->rollBack();
                     jsonResponse(false, 'Payment amount does not match the installment amount due (₱' . number_format($installmentAmount, 2) . ').');
+                }
+            }
+
+            if ($treatmentRemainingBalance !== null) {
+                $paymentAmount = (float) $data['amount'];
+                if ($paymentAmount - $treatmentRemainingBalance > 0.01) {
+                    $pdo->rollBack();
+                    jsonResponse(false, 'Payment amount exceeds the remaining balance for this treatment (₱' . number_format($treatmentRemainingBalance, 2) . ').');
                 }
             }
         }

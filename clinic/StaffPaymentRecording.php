@@ -145,6 +145,49 @@ function staff_payment_recording_effective_installment_downpayment_amount(array 
     return round($base, 2);
 }
 
+/**
+ * Build a deterministic fallback installment plan from the stored treatment snapshot.
+ * This never uses mutable payment settings, so existing treatment math stays stable.
+ *
+ * @return array{duration_months:int, months_paid:int, total_cost:float, remaining_balance:float, downpayment_amount:float, monthly_amount:float}
+ */
+function staff_payment_recording_plan_from_treatment_snapshot(array $treatment): array
+{
+    $durationMonths = max(1, (int) ($treatment['duration_months'] ?? 0));
+    $monthsPaidRaw = (int) ($treatment['months_paid'] ?? 0);
+    $monthsPaid = max(0, min($durationMonths, $monthsPaidRaw));
+    $totalCost = max(0.0, round((float) ($treatment['total_cost'] ?? 0), 2));
+    $remainingBalanceRaw = round((float) ($treatment['remaining_balance'] ?? 0), 2);
+    $remainingBalance = max(0.0, min($totalCost, $remainingBalanceRaw));
+    $amountPaid = max(0.0, round($totalCost - $remainingBalance, 2));
+
+    $monthlyAmount = 0.0;
+    if ($durationMonths > 1) {
+        $monthlyAmount = round($totalCost / $durationMonths, 2);
+    } elseif ($durationMonths === 1) {
+        $monthlyAmount = $totalCost;
+    }
+
+    $downpaymentAmount = 0.0;
+    if ($monthsPaid > 0 && $durationMonths > 1) {
+        $monthlyPortion = round($remainingBalance / max(1, $durationMonths - $monthsPaid), 2);
+        $derivedDown = round($amountPaid - ($monthlyPortion * max(0, $monthsPaid - 1)), 2);
+        if ($derivedDown > 0.009) {
+            $downpaymentAmount = min($totalCost, max(0.0, $derivedDown));
+            $monthlyAmount = round(($totalCost - $downpaymentAmount) / max(1, $durationMonths - 1), 2);
+        }
+    }
+
+    return [
+        'duration_months' => $durationMonths,
+        'months_paid' => $monthsPaid,
+        'total_cost' => $totalCost,
+        'remaining_balance' => $remainingBalance,
+        'downpayment_amount' => round($downpaymentAmount, 2),
+        'monthly_amount' => round(max(0.0, $monthlyAmount), 2),
+    ];
+}
+
 function staff_payment_recording_send_receipt_email(string $toEmail, string $subject, string $bodyText, string $bodyHtml): bool
 {
     if (!function_exists('send_smtp_gmail')) {
@@ -363,7 +406,75 @@ function staff_payment_recording_ensure_installment_schedule(
             return true;
         }
 
-        $svcStmt = $pdo->prepare("
+        $appointmentTreatmentId = '';
+        $apptTreatmentStmt = $pdo->prepare("
+            SELECT COALESCE(a.treatment_id, '') AS treatment_id
+            FROM tbl_appointments a
+            WHERE a.tenant_id = ?
+              AND a.booking_id = ?
+            LIMIT 1
+        ");
+        $apptTreatmentStmt->execute([$tenantId, $bookingId]);
+        $apptTreatmentRow = $apptTreatmentStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $appointmentTreatmentId = trim((string) ($apptTreatmentRow['treatment_id'] ?? ''));
+
+        $plan = [];
+        $planTreatmentId = '';
+
+        if ($appointmentTreatmentId !== '') {
+            $treatStmt = $pdo->prepare("
+                SELECT treatment_id, total_cost, remaining_balance, duration_months, months_paid
+                FROM tbl_treatments
+                WHERE tenant_id = ?
+                  AND treatment_id = ?
+                LIMIT 1
+            ");
+            $treatStmt->execute([$tenantId, $appointmentTreatmentId]);
+            $treatmentRow = $treatStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+            if ($treatmentRow) {
+                $snapshot = staff_payment_recording_plan_from_treatment_snapshot($treatmentRow);
+                $durationMonths = (int) $snapshot['duration_months'];
+                $monthsPaid = (int) $snapshot['months_paid'];
+                $totalCost = (float) $snapshot['total_cost'];
+                $downpaymentAmount = (float) $snapshot['downpayment_amount'];
+                $monthlyAmount = (float) $snapshot['monthly_amount'];
+
+                if ($durationMonths > 0 && $totalCost > 0.009) {
+                    $remainingAllocator = $totalCost;
+                    for ($n = 1; $n <= $durationMonths; $n++) {
+                        if ($downpaymentAmount > 0.009 && $durationMonths > 1) {
+                            if ($n === 1) {
+                                $slotAmount = $downpaymentAmount;
+                            } elseif ($n === $durationMonths) {
+                                $slotAmount = $remainingAllocator;
+                            } else {
+                                $slotAmount = $monthlyAmount;
+                            }
+                        } else {
+                            if ($n === $durationMonths) {
+                                $slotAmount = $remainingAllocator;
+                            } else {
+                                $slotAmount = $monthlyAmount;
+                            }
+                        }
+                        $slotAmount = round(max(0.0, $slotAmount), 2);
+                        $remainingAllocator = round(max(0.0, $remainingAllocator - $slotAmount), 2);
+                        $plan[] = [
+                            'number' => $n,
+                            'amount' => $slotAmount,
+                            'status' => ($n <= $monthsPaid) ? 'paid' : 'pending',
+                        ];
+                    }
+                    if ($monthsPaid > 0 && $monthsPaid < count($plan)) {
+                        $plan[$monthsPaid]['status'] = 'book_visit';
+                    }
+                    $planTreatmentId = $appointmentTreatmentId;
+                }
+            }
+        }
+
+        if ($plan === []) {
+            $svcStmt = $pdo->prepare("
             SELECT
                 sv.installment_downpayment,
                 sv.installment_duration_months,
@@ -378,49 +489,53 @@ function staff_payment_recording_ensure_installment_schedule(
             ORDER BY sv.price DESC
             LIMIT 1
         ");
-        $svcStmt->execute([$tenantId, $bookingId]);
-        $svcRow = $svcStmt->fetch(PDO::FETCH_ASSOC);
-        if (!$svcRow) {
-            $pdo->commit();
-            return false;
-        }
+            $svcStmt->execute([$tenantId, $bookingId]);
+            $svcRow = $svcStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$svcRow) {
+                $pdo->commit();
+                return false;
+            }
 
-        $apptStmt = $pdo->prepare('
-            SELECT COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost
-            FROM tbl_appointments a
-            WHERE a.tenant_id = ?
-              AND a.booking_id = ?
-            LIMIT 1
-        ');
-        $apptStmt->execute([$tenantId, $bookingId]);
-        $apptRow = $apptStmt->fetch(PDO::FETCH_ASSOC);
-        $totalCost = $apptRow ? (float) ($apptRow['total_treatment_cost'] ?? 0) : 0.0;
-        if ($totalCost <= 0.009) {
-            $pdo->commit();
-            return false;
-        }
+            $apptStmt = $pdo->prepare('
+                SELECT COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost
+                FROM tbl_appointments a
+                WHERE a.tenant_id = ?
+                  AND a.booking_id = ?
+                LIMIT 1
+            ');
+            $apptStmt->execute([$tenantId, $bookingId]);
+            $apptRow = $apptStmt->fetch(PDO::FETCH_ASSOC);
+            $totalCost = $apptRow ? (float) ($apptRow['total_treatment_cost'] ?? 0) : 0.0;
+            if ($totalCost <= 0.009) {
+                $pdo->commit();
+                return false;
+            }
 
-        $ps = staff_payment_recording_load_payment_settings($pdo, $tenantId);
-        $storedDown = $svcRow['installment_downpayment'] ?? null;
-        $storedDownFloat = ($storedDown !== null && $storedDown !== '') ? (float) $storedDown : null;
-        $effDown = staff_payment_recording_effective_installment_downpayment_amount($ps, $totalCost, $storedDownFloat);
+            $storedDown = $svcRow['installment_downpayment'] ?? null;
+            $storedDownFloat = ($storedDown !== null && $storedDown !== '') ? (float) $storedDown : null;
+            $effDown = max(0.0, $storedDownFloat ?? 0.0);
+            if ($totalCost > 0 && $effDown > $totalCost) {
+                $effDown = $totalCost;
+            }
 
-        $rawDur = $svcRow['installment_duration_months'] ?? null;
-        $durationMonths = ($rawDur === null || $rawDur === '') ? 12 : (int) $rawDur;
-        $durationMonths = max(1, $durationMonths);
+            $rawDur = $svcRow['installment_duration_months'] ?? null;
+            $durationMonths = ($rawDur === null || $rawDur === '') ? 12 : (int) $rawDur;
+            $durationMonths = max(1, $durationMonths);
 
-        $paymentOption = ($durationMonths > 1 && $effDown > 0.009) ? 'downpayment' : 'installment';
-        $downForPlan = ($paymentOption === 'downpayment') ? $effDown : 0.0;
+            $paymentOption = ($durationMonths > 1 && $effDown > 0.009) ? 'downpayment' : 'installment';
+            $downForPlan = ($paymentOption === 'downpayment') ? $effDown : 0.0;
 
-        $plan = staff_payment_recording_build_installments_plan($totalCost, $durationMonths, $paymentOption, $downForPlan);
-        if ($plan === []) {
-            $pdo->commit();
-            return false;
+            $plan = staff_payment_recording_build_installments_plan($totalCost, $durationMonths, $paymentOption, $downForPlan);
+            if ($plan === []) {
+                $pdo->commit();
+                return false;
+            }
         }
 
         $cols = staff_payment_recording_installments_table_columns($pdo, $installmentsTableName);
         $hasTenant = in_array('tenant_id', $cols, true);
         $hasCreatedAt = in_array('created_at', $cols, true);
+        $hasTreatmentId = in_array('treatment_id', $cols, true);
 
         foreach ($plan as $inst) {
             $fields = [];
@@ -434,6 +549,11 @@ function staff_payment_recording_ensure_installment_schedule(
             $fields[] = 'booking_id';
             $placeholders[] = '?';
             $params[] = $bookingId;
+            if ($hasTreatmentId) {
+                $fields[] = 'treatment_id';
+                $placeholders[] = '?';
+                $params[] = ($planTreatmentId !== '') ? $planTreatmentId : null;
+            }
             $fields[] = 'installment_number';
             $placeholders[] = '?';
             $params[] = (int) $inst['number'];
