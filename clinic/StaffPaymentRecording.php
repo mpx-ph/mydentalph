@@ -128,6 +128,29 @@ function staff_payment_recording_build_receipt_email_html(array $receipt): strin
     $paymentMethod = htmlspecialchars((string) ($receipt['payment_method'] ?? '-'), ENT_QUOTES, 'UTF-8');
     $amountPaid = htmlspecialchars((string) ($receipt['amount_paid'] ?? '₱0.00'), ENT_QUOTES, 'UTF-8');
     $remainingBalance = htmlspecialchars((string) ($receipt['remaining_balance'] ?? '₱0.00'), ENT_QUOTES, 'UTF-8');
+    $servicesTotal = htmlspecialchars((string) ($receipt['services_total'] ?? '₱0.00'), ENT_QUOTES, 'UTF-8');
+    $serviceItems = isset($receipt['service_items']) && is_array($receipt['service_items']) ? $receipt['service_items'] : [];
+    $serviceRowsHtml = '';
+    foreach ($serviceItems as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $itemName = htmlspecialchars(trim((string) ($item['name'] ?? '')), ENT_QUOTES, 'UTF-8');
+        $itemAmount = htmlspecialchars(trim((string) ($item['amount'] ?? '')), ENT_QUOTES, 'UTF-8');
+        if ($itemName === '' && $itemAmount === '') {
+            continue;
+        }
+        if ($itemName === '') {
+            $itemName = 'Service';
+        }
+        if ($itemAmount === '') {
+            $itemAmount = '₱0.00';
+        }
+        $serviceRowsHtml .= '<tr><td style="font-size:15px;line-height:21px;font-weight:600;color:#41547a;padding:0 0 8px;">' . $itemName . '</td><td align="right" style="font-size:15px;line-height:21px;font-weight:800;color:#0f172a;padding:0 0 8px;">' . $itemAmount . '</td></tr>';
+    }
+    if ($serviceRowsHtml === '') {
+        $serviceRowsHtml = '<tr><td style="font-size:15px;line-height:21px;font-weight:600;color:#41547a;padding:0 0 8px;">Service</td><td align="right" style="font-size:15px;line-height:21px;font-weight:800;color:#0f172a;padding:0 0 8px;">' . $service . '</td></tr>';
+    }
 
     return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
         . '<title>Payment Receipt</title></head><body style="margin:0;padding:0;background:#f3f8ff;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">'
@@ -156,7 +179,8 @@ function staff_payment_recording_build_receipt_email_html(array $receipt): strin
         . '<tr><td style="padding:18px 24px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #dbeafe;border-radius:14px;overflow:hidden;">'
         . '<tr><td style="padding:12px 14px;background:#f9fcff;border-bottom:1px solid #dbeafe;font-size:13px;line-height:18px;letter-spacing:4px;font-weight:800;color:#4f668f;text-transform:uppercase;">Payment Breakdown</td></tr>'
         . '<tr><td style="padding:12px 14px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">'
-        . '<tr><td style="font-size:16px;line-height:22px;font-weight:600;color:#41547a;">Service(s)</td><td align="right" style="font-size:16px;line-height:22px;font-weight:800;color:#0f172a;">' . $service . '</td></tr>'
+        . $serviceRowsHtml
+        . '<tr><td style="font-size:16px;line-height:22px;font-weight:800;color:#1e3a8a;padding:2px 0 0;">Total</td><td align="right" style="font-size:16px;line-height:22px;font-weight:900;color:#1e3a8a;padding:2px 0 0;">' . $servicesTotal . '</td></tr>'
         . '<tr><td height="12"></td><td></td></tr>'
         . '<tr><td style="font-size:16px;line-height:22px;font-weight:600;color:#41547a;">Payment Date</td><td align="right" style="font-size:16px;line-height:22px;font-weight:800;color:#0f172a;">' . $paymentDate . '</td></tr>'
         . '<tr><td height="12"></td><td></td></tr>'
@@ -675,12 +699,56 @@ try {
                     if ($patientFullName === '') {
                         $patientFullName = 'Patient';
                     }
-                    $servicesLabel = trim((string) ($receiptRow['service_description'] ?? ''));
+                    $servicesLabel = '';
+                    $serviceItems = [];
+                    $servicesTotalValue = 0.0;
+                    $receiptBookingId = trim((string) ($receiptRow['booking_id'] ?? ''));
+                    if ($receiptBookingId !== '') {
+                        $receiptServicesStmt = $pdo->prepare("
+                            SELECT service_name, price
+                            FROM tbl_appointment_services
+                            WHERE tenant_id = ?
+                              AND booking_id = ?
+                            ORDER BY id ASC
+                        ");
+                        $receiptServicesStmt->execute([$tenantId, $receiptBookingId]);
+                        $receiptServicesRows = $receiptServicesStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+                        foreach ($receiptServicesRows as $serviceRow) {
+                            $serviceName = trim((string) ($serviceRow['service_name'] ?? ''));
+                            $serviceName = preg_replace('/\[[^\]]*\]/', '', $serviceName);
+                            $serviceName = trim((string) preg_replace('/\s+/', ' ', (string) $serviceName));
+                            if ($serviceName === '') {
+                                continue;
+                            }
+                            $serviceAmount = (float) ($serviceRow['price'] ?? 0);
+                            $servicesTotalValue += $serviceAmount;
+                            $serviceItems[] = [
+                                'name' => $serviceName,
+                                'amount' => '₱' . number_format($serviceAmount, 2),
+                            ];
+                        }
+                    }
+                    if ($serviceItems !== []) {
+                        $serviceSummaryParts = [];
+                        foreach ($serviceItems as $item) {
+                            $serviceSummaryParts[] = $item['name'] . ' (' . $item['amount'] . ')';
+                        }
+                        $servicesLabel = implode('; ', $serviceSummaryParts);
+                    }
                     if ($servicesLabel === '') {
-                        $servicesLabel = trim((string) ($receiptRow['service_type'] ?? ''));
+                        $servicesLabel = trim((string) ($receiptRow['service_description'] ?? ''));
+                        if ($servicesLabel === '') {
+                            $servicesLabel = trim((string) ($receiptRow['service_type'] ?? ''));
+                        }
+                        $servicesLabel = preg_replace('/\[[^\]]*\]/', '', $servicesLabel);
+                        $servicesLabel = trim((string) preg_replace('/\s+/', ' ', (string) $servicesLabel));
                     }
                     if ($servicesLabel === '') {
                         $servicesLabel = 'Dental treatment';
+                    }
+                    $servicesTotalLabel = '₱' . number_format($servicesTotalValue, 2);
+                    if ($serviceItems === []) {
+                        $servicesTotalLabel = '₱' . number_format((float) ($receiptRow['total_treatment_cost'] ?? 0), 2);
                     }
                     $amountPaid = (float) ($receiptRow['amount'] ?? 0);
                     $balanceLeft = max(0, (float) ($receiptRow['total_treatment_cost'] ?? 0) - (float) ($receiptRow['booking_total_paid'] ?? 0));
@@ -698,6 +766,7 @@ try {
                         . "Payment ID: " . (string) ($receiptRow['payment_id'] ?? '') . "\n"
                         . "Reference: {$referenceLabel}\n"
                         . "Services: {$servicesLabel}\n"
+                        . "Service Total: {$servicesTotalLabel}\n"
                         . "Amount Paid: {$amountPaidLabel}\n"
                         . "Remaining Balance: {$balanceLeftLabel}\n"
                         . "Payment Date: {$paymentDateLabel}\n";
@@ -709,6 +778,8 @@ try {
                         'reference' => $referenceLabel,
                         'payment_id' => (string) ($receiptRow['payment_id'] ?? ''),
                         'service' => $servicesLabel,
+                        'service_items' => $serviceItems,
+                        'services_total' => $servicesTotalLabel,
                         'payment_date' => $paymentDateLabel,
                         'payment_method' => $allowedMethods[strtolower(trim((string) ($receiptRow['payment_method'] ?? '')))] ?? ucfirst(str_replace('_', ' ', trim((string) ($receiptRow['payment_method'] ?? '')))),
                         'amount_paid' => $amountPaidLabel,
@@ -885,14 +956,14 @@ try {
                             ]);
                             $existingLookup[$serviceId] = true;
                             $addedCost += $servicePrice;
-                            $addedServiceLabels[] = $serviceName . ' (P' . number_format($servicePrice, 2) . ')';
+                            $addedServiceLabels[] = $serviceName . ' (₱' . number_format($servicePrice, 2) . ')';
                         }
 
                         if ($addedCost > 0) {
                             $totalCost += $addedCost;
                             $pendingBalance += $addedCost;
                             $serviceDescription = trim((string) ($bookingRow['service_description'] ?? ''));
-                            $addedServiceNote = '[ADDED AT PAYMENT] ' . implode('; ', $addedServiceLabels);
+                            $addedServiceNote = implode('; ', $addedServiceLabels);
                             $newServiceDescription = $serviceDescription !== '' ? ($serviceDescription . '; ' . $addedServiceNote) : $addedServiceNote;
                             $updateAppointmentCostStmt = $pdo->prepare("
                                 UPDATE tbl_appointments
