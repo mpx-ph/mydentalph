@@ -1906,6 +1906,7 @@ try {
         $transactionsSql = "
             SELECT
                 a.booking_id,
+                COALESCE(a.treatment_id, '') AS treatment_id,
                 a.patient_id,
                 a.appointment_date,
                 a.appointment_time,
@@ -1928,6 +1929,7 @@ try {
               AND LOWER(COALESCE(a.status, '')) <> 'cancelled'
             GROUP BY
                 a.booking_id,
+                a.treatment_id,
                 a.patient_id,
                 a.appointment_date,
                 a.appointment_time,
@@ -2059,6 +2061,51 @@ try {
             $b = trim((string) ($candRow['booking_id'] ?? ''));
             $transactionCandidates[$ic]['installment_schedule'] = $scheduleByBooking[$b] ?? [];
             $transactionCandidates[$ic]['booked_services'] = $bookedServicesByBooking[$b] ?? [];
+        }
+        if ($transactionCandidates !== []) {
+            $collapsedByTreatment = [];
+            $collapsedKeyOrder = [];
+            foreach ($transactionCandidates as $candRow) {
+                $isInstallment = !empty($candRow['is_installment_plan']);
+                $treatmentId = trim((string) ($candRow['treatment_id'] ?? ''));
+                if (!$isInstallment || $treatmentId === '') {
+                    $collapsedKeyOrder[] = null;
+                    $collapsedByTreatment[] = $candRow;
+                    continue;
+                }
+                $groupKey = 'treatment:' . $treatmentId;
+                $currentPaid = (float) ($candRow['total_paid'] ?? 0);
+                $currentScheduleCount = count((array) ($candRow['installment_schedule'] ?? []));
+                if (!isset($collapsedByTreatment[$groupKey])) {
+                    $collapsedByTreatment[$groupKey] = $candRow;
+                    $collapsedKeyOrder[] = $groupKey;
+                    continue;
+                }
+                $existing = $collapsedByTreatment[$groupKey];
+                $existingPaid = (float) ($existing['total_paid'] ?? 0);
+                $existingScheduleCount = count((array) ($existing['installment_schedule'] ?? []));
+                if ($currentPaid > $existingPaid || ($currentPaid === $existingPaid && $currentScheduleCount > $existingScheduleCount)) {
+                    $collapsedByTreatment[$groupKey] = $candRow;
+                }
+            }
+            $collapsedRows = [];
+            foreach ($collapsedKeyOrder as $key) {
+                if ($key === null) {
+                    continue;
+                }
+                if (isset($collapsedByTreatment[$key])) {
+                    $collapsedRows[] = $collapsedByTreatment[$key];
+                    unset($collapsedByTreatment[$key]);
+                }
+            }
+            foreach ($collapsedByTreatment as $key => $row) {
+                if (is_int($key)) {
+                    $collapsedRows[] = $row;
+                }
+            }
+            if ($collapsedRows !== []) {
+                $transactionCandidates = $collapsedRows;
+            }
         }
 
         $servicesStmt = $pdo->prepare("
@@ -3354,15 +3401,20 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const firstName = String(item.patient_first_name || '').trim();
             const lastName = String(item.patient_last_name || '').trim();
             const patientName = (firstName + ' ' + lastName).trim() || 'Unknown Patient';
-            const label = patientName + ' | Booking ' + (item.booking_id || '-') + ' | Pending ₱' + pendingBalance.toFixed(2);
             const rawPlan = item.is_installment_plan;
             const isInstallmentPlan = rawPlan === true || rawPlan === 1 || rawPlan === '1' || String(rawPlan) === '1';
+            const treatmentId = String(item.treatment_id || '').trim();
+            const recordRef = (isInstallmentPlan && treatmentId !== '')
+                ? ('Treatment ' + treatmentId)
+                : ('Booking ' + (item.booking_id || '-'));
+            const label = patientName + ' | ' + recordRef + ' | Pending ₱' + pendingBalance.toFixed(2);
             const bookedServicesRaw = Array.isArray(item.booked_services) ? item.booked_services : [];
             const booked_service_ids = bookedServicesRaw
                 .map((s) => String((s && s.service_id) || '').trim())
                 .filter((id) => id !== '');
             return {
                 booking_id: String(item.booking_id || ''),
+                treatment_id: treatmentId,
                 patient_id: String(item.patient_id || ''),
                 patient_name: patientName,
                 service_type: String(item.service_type || '-'),
@@ -3411,6 +3463,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     item.patient_name,
                     item.patient_id,
                     item.booking_id,
+                    item.treatment_id,
                     item.service_type,
                     bookedNames
                 ].join(' ').toLowerCase().indexOf(keyword) !== -1;
@@ -3534,7 +3587,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                         '<div class="rounded-2xl border border-slate-200 p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">' +
                             '<div class="min-w-0">' +
                                 '<p class="text-sm font-extrabold text-slate-900 truncate">' + escapeHtml(item.patient_name) + '</p>' +
-                                '<p class="text-xs font-semibold text-slate-500 mt-1">Patient ID: ' + escapeHtml(item.patient_id) + ' | Booking ID: ' + escapeHtml(item.booking_id) + '</p>' +
+                                '<p class="text-xs font-semibold text-slate-500 mt-1">Patient ID: ' + escapeHtml(item.patient_id) + ' | ' + (item.is_installment_plan && item.treatment_id ? ('Treatment ID: ' + escapeHtml(item.treatment_id)) : ('Booking ID: ' + escapeHtml(item.booking_id))) + '</p>' +
                                 '<p class="text-xs font-semibold text-slate-500 mt-1">Services: ' + svcLine + '</p>' +
                                 '<p class="text-xs font-semibold text-slate-500 mt-1">Date: ' + escapeHtml(item.appointment_date || '-') + ' ' + escapeHtml(item.appointment_time || '') + '</p>' +
                                 '<p class="text-xs font-semibold text-slate-700 mt-1">Total: ₱' + item.total_cost.toFixed(2) + ' | Paid: ₱' + item.total_paid.toFixed(2) + ' | Pending: ₱' + item.pending_balance.toFixed(2) + '</p>' +

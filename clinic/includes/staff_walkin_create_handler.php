@@ -184,6 +184,8 @@ try {
     $requestedTreatmentId = trim((string) ($input['treatment_id'] ?? ''));
     $resolvedTreatmentId = '';
     $activeTreatment = null;
+    $isActiveInstallmentTreatment = false;
+    $isFollowUpVisitForActiveTreatment = false;
 
     $quotedSvc = clinic_quote_identifier($servicesCatalogTable);
     $serviceStmt = $pdo->prepare("
@@ -241,6 +243,12 @@ try {
         ");
         $activeTreatmentStmt->execute([$tenantId, $patientId]);
         $activeTreatment = $activeTreatmentStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        if ($activeTreatment) {
+            $activeDurationMonths = (int) ($activeTreatment['duration_months'] ?? 0);
+            $activeMonthsLeft = (int) ($activeTreatment['months_left'] ?? 0);
+            $activeRemaining = (float) ($activeTreatment['remaining_balance'] ?? 0);
+            $isActiveInstallmentTreatment = $activeDurationMonths > 1 || $activeMonthsLeft > 0 || $activeRemaining > 0.009;
+        }
 
         if ($requestedTreatmentId !== '') {
             if (!$activeTreatment || (string) ($activeTreatment['treatment_id'] ?? '') !== $requestedTreatmentId) {
@@ -255,26 +263,7 @@ try {
 
         if ($resolvedTreatmentId !== '' && $activeTreatment) {
             $primaryServiceId = (string) ($activeTreatment['primary_service_id'] ?? '');
-            $hasPrimary = false;
-            foreach ($normalizedServices as $s) {
-                if ((string) ($s['service_id'] ?? '') === $primaryServiceId) {
-                    $hasPrimary = true;
-                    break;
-                }
-            }
-            if (!$hasPrimary && $primaryServiceId !== '') {
-                $serviceStmt->execute([$tenantId, $primaryServiceId]);
-                $primaryRow = $serviceStmt->fetch(PDO::FETCH_ASSOC);
-                if ($primaryRow) {
-                    $normalizedServices[] = [
-                        'service_id' => (string) ($primaryRow['service_id'] ?? ''),
-                        'service_name' => (string) ($primaryRow['service_name'] ?? ''),
-                        'price' => (float) ($primaryRow['price'] ?? 0),
-                        'enable_installment' => !empty($primaryRow['enable_installment']),
-                        'installment_duration_months' => (int) ($primaryRow['installment_duration_months'] ?? 0),
-                    ];
-                }
-            }
+            $isFollowUpVisitForActiveTreatment = $isActiveInstallmentTreatment;
             foreach ($normalizedServices as $s) {
                 if (!empty($s['enable_installment']) && (string) $s['service_id'] !== $primaryServiceId) {
                     $pdo->rollBack();
@@ -417,6 +406,7 @@ try {
         }
 
         $apptCols = clinic_table_columns($pdo, $apptTbl);
+        $appointmentLedgerCost = $isFollowUpVisitForActiveTreatment ? 0.0 : $totalCost;
         $apptData = [
             'tenant_id' => $tenantId,
             'booking_id' => $bookingId,
@@ -429,7 +419,7 @@ try {
             'visit_type' => $visitType,
             'status' => $localStatus,
             'notes' => $notes !== '' ? $notes : null,
-            'total_treatment_cost' => $totalCost,
+            'total_treatment_cost' => $appointmentLedgerCost,
             'duration_months' => null,
             'target_completion_date' => null,
             'start_date' => null,
