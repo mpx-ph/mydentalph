@@ -251,26 +251,7 @@ Global Clinic Presence
 </div>
 </section>
 </main>
-<!-- Footer -->
-<footer class="w-full border-t border-slate-200 bg-slate-50">
-<div class="flex flex-col md:flex-row justify-between items-center py-16 px-10 max-w-[1800px] mx-auto gap-8">
-<div class="mb-8 md:mb-0">
-<div class="text-xl font-extrabold text-on-surface font-headline tracking-tighter mb-2 flex items-center gap-2">
-<div class="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
-<span class="material-symbols-outlined text-white text-[10px]">select_check_box</span>
-</div>
-Aetheris Systems
-</div>
-<p class="font-headline text-[10px] uppercase tracking-[0.4em] font-black text-on-surface-variant/40">© 2024 Clinical Precision Framework. All rights reserved.</p>
-</div>
-<div class="flex flex-wrap justify-center gap-12 text-[10px] font-headline font-black uppercase tracking-[0.3em] text-on-surface-variant/60">
-<a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
-<a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
-<a class="hover:text-primary transition-colors" href="#">Interoperability Standards</a>
-<a class="hover:text-primary transition-colors" href="#">Support</a>
-</div>
-</div>
-</footer>
+<?php require_once __DIR__ . '/provider_marketing_footer.inc.php'; ?>
 <script>
     (function () {
         var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;

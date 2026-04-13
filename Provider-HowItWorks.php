@@ -322,21 +322,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </section>
 </main>
 
-<!-- Footer -->
-<footer class="w-full border-t border-slate-200 bg-slate-50 reveal" data-reveal="section">
-<div class="flex flex-col md:flex-row justify-between items-center py-10 px-8 max-w-screen-2xl mx-auto gap-4">
-<div class="text-lg font-bold text-slate-900 font-headline">Aetheris Systems</div>
-<div class="flex flex-wrap justify-center gap-8 text-xs font-inter text-slate-500">
-<a class="hover:text-blue-500 hover:underline transition-all" href="#">Privacy Policy</a>
-<a class="hover:text-blue-500 hover:underline transition-all" href="#">Terms of Service</a>
-<a class="hover:text-blue-500 hover:underline transition-all" href="#">Interoperability Standards</a>
-<a class="hover:text-blue-500 hover:underline transition-all" href="#">Contact Sales</a>
-</div>
-<div class="text-xs text-slate-500 font-inter opacity-80 hover:opacity-100">
-                © 2024 Clinical Precision Framework. All rights reserved.
-            </div>
-</div>
-</footer>
+<?php require_once __DIR__ . '/provider_marketing_footer.inc.php'; ?>
 <script>
     (function () {
         var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -641,21 +627,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </div>
 </section>
 </main>
-<!-- Footer -->
-<footer class="w-full border-t border-slate-200 bg-slate-50">
-<div class="flex flex-col md:flex-row justify-between items-center py-10 px-8 max-w-screen-2xl mx-auto gap-4">
-<div class="text-lg font-bold text-slate-900 font-headline">Aetheris Systems</div>
-<div class="flex flex-wrap justify-center gap-8 text-xs font-inter text-slate-500">
-<a class="hover:text-blue-500 hover:underline transition-all" href="#">Privacy Policy</a>
-<a class="hover:text-blue-500 hover:underline transition-all" href="#">Terms of Service</a>
-<a class="hover:text-blue-500 hover:underline transition-all" href="#">Interoperability Standards</a>
-<a class="hover:text-blue-500 hover:underline transition-all" href="#">Contact Sales</a>
-</div>
-<div class="text-xs text-slate-500 font-inter opacity-80 hover:opacity-100">
-                © 2024 Clinical Precision Framework. All rights reserved.
-            </div>
-</div>
-</footer>
+<?php require_once __DIR__ . '/provider_marketing_footer.inc.php'; ?>
 </div>
 </body></html>
 
@@ -1030,54 +1002,6 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </div>
 </section>
 </main>
-<!-- Footer -->
-<footer class="px-6 lg:px-40 py-12 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark">
-<div class="mx-auto max-w-[1200px]">
-<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 mb-12">
-<div class="col-span-2 lg:col-span-1">
-<div class="flex items-center gap-2 text-primary mb-6">
-<span class="material-symbols-outlined text-2xl font-bold">dentistry</span>
-<h2 class="text-slate-900 dark:text-slate-50 text-lg font-bold">MyDental</h2>
-</div>
-<p class="text-xs text-slate-500 leading-relaxed">The world's leading cloud-based dental practice management platform.</p>
-</div>
-<div>
-<h4 class="font-bold text-sm mb-4">Product</h4>
-<ul class="space-y-2 text-sm text-slate-500">
-<li><a class="hover:text-primary" href="#">Features</a></li>
-<li><a class="hover:text-primary" href="#">Security</a></li>
-<li><a class="hover:text-primary" href="#">Integrations</a></li>
-<li><a class="hover:text-primary" href="#">Pricing</a></li>
-</ul>
-</div>
-<div>
-<h4 class="font-bold text-sm mb-4">Resources</h4>
-<ul class="space-y-2 text-sm text-slate-500">
-<li><a class="hover:text-primary" href="#">Documentation</a></li>
-<li><a class="hover:text-primary" href="#">API Ref</a></li>
-<li><a class="hover:text-primary" href="#">Blog</a></li>
-<li><a class="hover:text-primary" href="#">Support</a></li>
-</ul>
-</div>
-<div>
-<h4 class="font-bold text-sm mb-4">Company</h4>
-<ul class="space-y-2 text-sm text-slate-500">
-<li><a class="hover:text-primary" href="#">About Us</a></li>
-<li><a class="hover:text-primary" href="#">Careers</a></li>
-<li><a class="hover:text-primary" href="#">Contact</a></li>
-<li><a class="hover:text-primary" href="#">Legal</a></li>
-</ul>
-</div>
-</div>
-<div class="pt-8 border-t border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
-<p class="text-xs text-slate-400">© 2024 MyDental Technologies Inc. All rights reserved.</p>
-<div class="flex gap-6">
-<a class="text-slate-400 hover:text-primary" href="#"><span class="material-symbols-outlined text-sm">public</span></a>
-<a class="text-slate-400 hover:text-primary" href="#"><span class="material-symbols-outlined text-sm">alternate_email</span></a>
-<a class="text-slate-400 hover:text-primary" href="#"><span class="material-symbols-outlined text-sm">share</span></a>
-</div>
-</div>
-</div>
-</footer>
+<?php require_once __DIR__ . '/provider_marketing_footer.inc.php'; ?>
 </div>
 </body></html>

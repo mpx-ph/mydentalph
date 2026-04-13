@@ -244,24 +244,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
   </section>
 </main>
 
-<!-- Footer -->
-<footer class="w-full border-t border-slate-200 bg-slate-50 reveal" data-reveal="section">
-<div class="flex flex-col md:flex-row justify-between items-center py-12 px-8 max-w-screen-2xl mx-auto gap-4">
-<div class="flex items-center gap-3 text-lg font-bold text-slate-900 font-headline">
-<img src="MyDental%20Logo.svg" alt="My Dental Logo" class="h-8 w-auto"/>
-                    My Dental
-                </div>
-<div class="flex flex-wrap justify-center gap-8 text-xs font-inter text-slate-500">
-<a class="hover:text-blue-500 hover:underline transition-all transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded" href="#">Privacy Policy</a>
-<a class="hover:text-blue-500 hover:underline transition-all transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded" href="#">Terms of Service</a>
-<a class="hover:text-blue-500 hover:underline transition-all transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded" href="#">Interoperability Standards</a>
-<a class="hover:text-blue-500 hover:underline transition-all transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded" href="#">Contact Sales</a>
-</div>
-<div class="text-xs text-slate-500 font-inter opacity-80 hover:opacity-100">
-            © 2024 My Dental Inc. All rights reserved.
-        </div>
-</div>
-</footer>
+<?php require_once __DIR__ . '/provider_marketing_footer.inc.php'; ?>
 
 <script>
   (function () {

@@ -294,24 +294,7 @@ $yearlySavingsAmount = ($baseYearlyAmount !== null && $yearlyAmount !== null)
 </div>
 </section>
 </main>
-<!-- Footer -->
-<footer class="w-full border-t border-slate-100 bg-white py-12 dark:bg-slate-950 reveal" data-reveal="section">
-<div class="mx-auto max-w-7xl px-6 lg:px-10">
-<div class="flex flex-col items-center justify-between gap-6 md:flex-row">
-<div class="flex items-center gap-3">
-<div class="flex h-8 w-8 items-center justify-center rounded bg-primary text-white">
-<span class="material-symbols-outlined text-sm">dentistry</span>
-</div>
-<span class="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-50">MyDental.com</span>
-</div>
-<p class="text-xs text-slate-500">© 2024 MyDental Solutions Inc. All rights reserved.</p>
-<div class="flex gap-6">
-<a class="text-xs font-semibold text-slate-500 hover:text-primary" href="#">Privacy Policy</a>
-<a class="text-xs font-semibold text-slate-500 hover:text-primary" href="#">Terms of Service</a>
-</div>
-</div>
-</div>
-</footer>
+<?php require_once __DIR__ . '/provider_marketing_footer.inc.php'; ?>
 
 <script>
     (function () {
