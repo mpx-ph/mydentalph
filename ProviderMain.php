@@ -10,7 +10,7 @@ require_once __DIR__ . '/provider_auth.php';
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>My Dental | Dental Clinic Management OS</title>
+    <title>MyDental | Dental Clinic Management OS</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link
         href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@1,400;1,700&display=swap"
@@ -214,7 +214,7 @@ require_once __DIR__ . '/provider_auth.php';
                     </h1>
                     <p
                         class="font-body text-lg w-full max-w-none sm:max-w-xl mb-8 sm:mb-10 leading-relaxed text-on-surface-variant font-medium">
-                        The My Dental OS: a unified dental management suite designed for efficiency, architectural
+                        The MyDental OS: a unified dental management suite designed for efficiency, architectural
                         precision, and multi-tenant clinic scaling.
                     </p>
                     <div>
@@ -442,7 +442,7 @@ require_once __DIR__ . '/provider_auth.php';
                         class="font-headline text-4xl font-extrabold text-white tracking-tighter leading-[0.95] md:text-5xl mb-6 lg:mb-7">
                         Ready to evolve your practice?</h2>
                     <p class="text-white/75 text-lg md:text-xl leading-relaxed mb-8 lg:mb-10">Join hundreds of
-                        dental clinics streamlining their clinical operations through the My Dental ecosystem.</p>
+                        dental clinics streamlining their clinical operations through the MyDental ecosystem.</p>
                     <div class="flex justify-center lg:justify-start">
                         <a href="Provider-Plans.php"
                             class="bg-white text-primary px-7 py-3 sm:px-9 sm:py-3.5 rounded-full font-bold text-xs sm:text-sm uppercase tracking-[0.12em] hover:scale-[1.02] transition-transform duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 inline-block">
