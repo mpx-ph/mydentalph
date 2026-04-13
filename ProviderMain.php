@@ -232,24 +232,26 @@ require_once __DIR__ . '/provider_auth.php';
         <section class="py-20 px-6 sm:px-8 lg:px-10 bg-white relative overflow-hidden reveal" data-reveal="section"
             id="features">
             <div class="max-w-[1800px] mx-auto">
-                <div class="flex flex-col lg:flex-row justify-between items-start mb-20 gap-12">
-                    <div class="max-w-3xl">
+                <div class="relative mb-20">
+                    <div
+                        class="pointer-events-none hidden lg:flex justify-center absolute inset-x-0 -top-10 h-56 overflow-visible z-0"
+                        aria-hidden="true">
+                        <span
+                            class="text-[16rem] font-headline font-black text-primary/[0.03] leading-none tracking-tighter select-none slow-float">CI</span>
+                    </div>
+                    <div class="relative z-10 max-w-3xl mx-auto text-center flex flex-col items-center">
                         <div
-                            class="text-primary font-bold text-xs uppercase mb-6 flex items-center gap-4 tracking-[0.3em]">
+                            class="text-primary font-bold text-xs uppercase mb-6 flex items-center justify-center gap-4 tracking-[0.3em]">
                             <span class="w-12 h-[1.5px] bg-primary"></span> System Capability
                         </div>
                         <h2
-                            class="font-headline text-4xl md:text-6xl font-extrabold tracking-tighter leading-[0.95] mb-6">
+                            class="font-headline text-4xl md:text-6xl font-extrabold tracking-tighter leading-[0.95] mb-6 text-center">
                             Clinical <br /> <span
                                 class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Intelligence</span>
                         </h2>
-                        <p class="text-on-surface-variant text-xl leading-relaxed max-w-xl font-medium">
+                        <p class="text-on-surface-variant text-xl leading-relaxed max-w-xl font-medium mx-auto">
                             Sophisticated architectural tooling designed for high-performance healthcare systems.
                         </p>
-                    </div>
-                    <div class="relative hidden lg:block pr-20">
-                        <span
-                            class="text-[16rem] font-headline font-black text-primary/[0.03] leading-none tracking-tighter absolute -right-20 -top-24 select-none slow-float">CI</span>
                     </div>
                 </div>
                 <!-- Staggered Card Layout -->
