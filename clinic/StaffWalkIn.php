@@ -929,18 +929,13 @@ try {
                 }
 
                 var successMsg = 'Walk-in appointment created successfully. Booking ID: ' + (data.data && data.data.booking_id ? data.data.booking_id : 'N/A');
-                if (data.data && data.data.database) {
-                    successMsg += ' — MySQL database: ' + data.data.database + '. In phpMyAdmin, select this exact database, then browse tbl_appointments / tbl_appointment_services.';
-                }
                 await staffUiAlert({
                     title: 'Walk-in booked',
                     message: successMsg,
                     variant: 'success'
                 });
                 var _back = <?php echo json_encode($backToAppointmentsHref, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
-                var _bk = (data.data && data.data.booking_id) ? String(data.data.booking_id) : '';
-                var _join = _back.indexOf('?') === -1 ? '?' : '&';
-                window.location.href = _back + (_bk !== '' ? (_join + 'saved_booking=' + encodeURIComponent(_bk)) : '');
+                window.location.href = _back;
             } catch (error) {
                 await staffUiAlert({
                     title: 'Could not create walk-in',
