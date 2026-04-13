@@ -251,25 +251,49 @@ function registerPublicClient(array $data) {
         $syncedPatientFields = [
             'first_name' => $data['first_name'],
             'last_name' => $data['last_name'],
+            'email' => $data['email'],
             'contact_number' => !empty($data['mobile']) ? $data['mobile'] : null, // tbl_users.phone equivalent
             'date_of_birth' => !empty($data['date_of_birth']) ? $data['date_of_birth'] : null,
         ];
+        // Some deployments include tbl_patients.email while others don't.
+        // Insert email only when the column exists.
+        $hasPatientEmailColumnStmt = $pdo->query("SHOW COLUMNS FROM tbl_patients LIKE 'email'");
+        $hasPatientEmailColumn = (bool) $hasPatientEmailColumnStmt->fetch();
 
-        $stmt = $pdo->prepare("
-            INSERT INTO tbl_patients (
-                tenant_id, patient_id, owner_user_id, linked_user_id, first_name, last_name, contact_number, date_of_birth, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
-        ");
-        $stmt->execute([
-            $tenantId,
-            $patientDisplayId,
-            $userId, // owner_user_id
-            $userId, // linked_user_id
-            $syncedPatientFields['first_name'],
-            $syncedPatientFields['last_name'],
-            $syncedPatientFields['contact_number'],
-            $syncedPatientFields['date_of_birth'],
-        ]);
+        if ($hasPatientEmailColumn) {
+            $stmt = $pdo->prepare("
+                INSERT INTO tbl_patients (
+                    tenant_id, patient_id, owner_user_id, linked_user_id, first_name, last_name, email, contact_number, date_of_birth, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            ");
+            $stmt->execute([
+                $tenantId,
+                $patientDisplayId,
+                $userId, // owner_user_id
+                $userId, // linked_user_id
+                $syncedPatientFields['first_name'],
+                $syncedPatientFields['last_name'],
+                $syncedPatientFields['email'],
+                $syncedPatientFields['contact_number'],
+                $syncedPatientFields['date_of_birth'],
+            ]);
+        } else {
+            $stmt = $pdo->prepare("
+                INSERT INTO tbl_patients (
+                    tenant_id, patient_id, owner_user_id, linked_user_id, first_name, last_name, contact_number, date_of_birth, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            ");
+            $stmt->execute([
+                $tenantId,
+                $patientDisplayId,
+                $userId, // owner_user_id
+                $userId, // linked_user_id
+                $syncedPatientFields['first_name'],
+                $syncedPatientFields['last_name'],
+                $syncedPatientFields['contact_number'],
+                $syncedPatientFields['date_of_birth'],
+            ]);
+        }
 
         $pdo->commit();
 
