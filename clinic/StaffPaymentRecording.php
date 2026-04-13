@@ -1,6 +1,7 @@
 <?php
 $staff_nav_active = 'payments';
 require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/../mail_config.php';
 
 /**
  * @return list<array{id:int, installment_number:int, amount_due:float, status:string}>
@@ -79,6 +80,14 @@ function staff_payment_recording_effective_installment_downpayment_amount(array 
         return round($price, 2);
     }
     return round($base, 2);
+}
+
+function staff_payment_recording_send_receipt_email(string $toEmail, string $subject, string $bodyText, string $bodyHtml): bool
+{
+    if (!function_exists('send_smtp_gmail')) {
+        return false;
+    }
+    return send_smtp_gmail($toEmail, $subject, $bodyText, $bodyHtml);
 }
 
 /**
@@ -303,6 +312,16 @@ $tenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']
 $userId = isset($_SESSION['user_id']) ? trim((string) $_SESSION['user_id']) : null;
 $paymentSuccess = '';
 $paymentError = '';
+$receiptEmailSuccess = '';
+$clinicDisplayName = isset($_SESSION['clinic_name']) ? trim((string) $_SESSION['clinic_name']) : '';
+$clinicLogoPath = isset($_SESSION['clinic_logo_nav']) ? trim((string) $_SESSION['clinic_logo_nav']) : '';
+if ($clinicDisplayName === '') {
+    $clinicDisplayName = 'MyDental Philippines';
+}
+if ($clinicLogoPath === '') {
+    $clinicLogoPath = 'DRCGLogo2.png';
+}
+$clinicLogoUrl = strpos($clinicLogoPath, 'http') === 0 ? $clinicLogoPath : (BASE_URL . ltrim($clinicLogoPath, '/'));
 if (isset($_GET['payment_success']) && $_GET['payment_success'] === '1') {
     $paymentSuccess = 'Payment recorded successfully.';
 }
@@ -368,6 +387,16 @@ try {
         $tenantRow = $tenantStmt->fetch(PDO::FETCH_ASSOC);
         if ($tenantRow && isset($tenantRow['tenant_id'])) {
             $tenantId = (string) $tenantRow['tenant_id'];
+        }
+    }
+
+    if ($tenantId !== '') {
+        $tenantProfileStmt = $pdo->prepare('SELECT clinic_name FROM tbl_tenants WHERE tenant_id = ? LIMIT 1');
+        $tenantProfileStmt->execute([$tenantId]);
+        $tenantProfile = $tenantProfileStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $tenantClinicName = trim((string) ($tenantProfile['clinic_name'] ?? ''));
+        if ($tenantClinicName !== '') {
+            $clinicDisplayName = $tenantClinicName;
         }
     }
 
@@ -468,6 +497,106 @@ try {
     }
 
     if ($tenantId !== '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $postAction = trim((string) ($_POST['action'] ?? 'record_payment'));
+        if ($postAction === 'send_receipt_email') {
+            $receiptPaymentId = trim((string) ($_POST['receipt_payment_id'] ?? ''));
+            if ($receiptPaymentId === '') {
+                $paymentError = 'Missing payment receipt reference.';
+            } else {
+                $receiptSql = "
+                    SELECT
+                        py.payment_id,
+                        py.patient_id,
+                        py.booking_id,
+                        py.amount,
+                        py.payment_date,
+                        py.payment_method,
+                        py.reference_number,
+                        py.status,
+                        COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
+                        COALESCE((
+                            SELECT SUM(py2.amount)
+                            FROM tbl_payments py2
+                            WHERE py2.tenant_id = py.tenant_id
+                              AND py2.booking_id = py.booking_id
+                              AND py2.status = 'completed'
+                        ), 0) AS booking_total_paid,
+                        COALESCE(a.service_type, '') AS service_type,
+                        COALESCE(a.service_description, '') AS service_description,
+                        COALESCE(p.first_name, '') AS patient_first_name,
+                        COALESCE(p.last_name, '') AS patient_last_name,
+                        COALESCE(u.email, '') AS patient_email
+                    FROM tbl_payments py
+                    LEFT JOIN tbl_appointments a
+                        ON a.tenant_id = py.tenant_id
+                       AND a.booking_id = py.booking_id
+                    LEFT JOIN tbl_patients p
+                        ON p.tenant_id = py.tenant_id
+                       AND p.patient_id = py.patient_id
+                    LEFT JOIN tbl_users u
+                        ON u.user_id = p.linked_user_id
+                    WHERE py.tenant_id = ?
+                      AND py.payment_id = ?
+                    LIMIT 1
+                ";
+                $receiptStmt = $pdo->prepare($receiptSql);
+                $receiptStmt->execute([$tenantId, $receiptPaymentId]);
+                $receiptRow = $receiptStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+                $patientEmail = trim((string) ($receiptRow['patient_email'] ?? ''));
+                if ($receiptRow === []) {
+                    $paymentError = 'Payment record was not found.';
+                } elseif ($patientEmail === '') {
+                    $paymentError = 'Patient has no registered email address.';
+                } else {
+                    $patientFullName = trim(trim((string) ($receiptRow['patient_first_name'] ?? '')) . ' ' . trim((string) ($receiptRow['patient_last_name'] ?? '')));
+                    if ($patientFullName === '') {
+                        $patientFullName = 'Patient';
+                    }
+                    $servicesLabel = trim((string) ($receiptRow['service_description'] ?? ''));
+                    if ($servicesLabel === '') {
+                        $servicesLabel = trim((string) ($receiptRow['service_type'] ?? ''));
+                    }
+                    if ($servicesLabel === '') {
+                        $servicesLabel = 'Dental treatment';
+                    }
+                    $amountPaid = (float) ($receiptRow['amount'] ?? 0);
+                    $balanceLeft = max(0, (float) ($receiptRow['total_treatment_cost'] ?? 0) - (float) ($receiptRow['booking_total_paid'] ?? 0));
+                    $paymentDateValue = trim((string) ($receiptRow['payment_date'] ?? ''));
+                    $paymentDateLabel = $paymentDateValue !== '' ? date('F d, Y h:i A', strtotime($paymentDateValue)) : '-';
+                    $referenceLabel = trim((string) ($receiptRow['reference_number'] ?? ''));
+                    if ($referenceLabel === '') {
+                        $referenceLabel = trim((string) ($receiptRow['payment_id'] ?? ''));
+                    }
+                    $emailSubject = 'Payment Receipt - ' . $clinicDisplayName;
+                    $emailBodyText = "Clinic: {$clinicDisplayName}\n"
+                        . "Patient: {$patientFullName}\n"
+                        . "Payment ID: " . (string) ($receiptRow['payment_id'] ?? '') . "\n"
+                        . "Reference: {$referenceLabel}\n"
+                        . "Services: {$servicesLabel}\n"
+                        . "Amount Paid: PHP " . number_format($amountPaid, 2) . "\n"
+                        . "Remaining Balance: PHP " . number_format($balanceLeft, 2) . "\n"
+                        . "Payment Date: {$paymentDateLabel}\n";
+                    $emailBodyHtml = '<div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.5;">'
+                        . '<h2 style="margin:0 0 12px;color:#0f172a;">' . htmlspecialchars($clinicDisplayName, ENT_QUOTES, 'UTF-8') . '</h2>'
+                        . '<p style="margin:0 0 12px;color:#334155;">Here is your payment receipt.</p>'
+                        . '<table style="width:100%;border-collapse:collapse;">'
+                        . '<tr><td style="padding:6px 0;font-weight:700;">Patient</td><td style="padding:6px 0;">' . htmlspecialchars($patientFullName, ENT_QUOTES, 'UTF-8') . '</td></tr>'
+                        . '<tr><td style="padding:6px 0;font-weight:700;">Payment ID</td><td style="padding:6px 0;">' . htmlspecialchars((string) ($receiptRow['payment_id'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td></tr>'
+                        . '<tr><td style="padding:6px 0;font-weight:700;">Reference</td><td style="padding:6px 0;">' . htmlspecialchars($referenceLabel, ENT_QUOTES, 'UTF-8') . '</td></tr>'
+                        . '<tr><td style="padding:6px 0;font-weight:700;">Services</td><td style="padding:6px 0;">' . htmlspecialchars($servicesLabel, ENT_QUOTES, 'UTF-8') . '</td></tr>'
+                        . '<tr><td style="padding:6px 0;font-weight:700;">Amount Paid</td><td style="padding:6px 0;">PHP ' . number_format($amountPaid, 2) . '</td></tr>'
+                        . '<tr><td style="padding:6px 0;font-weight:700;">Remaining Balance</td><td style="padding:6px 0;">PHP ' . number_format($balanceLeft, 2) . '</td></tr>'
+                        . '<tr><td style="padding:6px 0;font-weight:700;">Payment Date</td><td style="padding:6px 0;">' . htmlspecialchars($paymentDateLabel, ENT_QUOTES, 'UTF-8') . '</td></tr>'
+                        . '</table>'
+                        . '</div>';
+                    if (staff_payment_recording_send_receipt_email($patientEmail, $emailSubject, $emailBodyText, $emailBodyHtml)) {
+                        $receiptEmailSuccess = 'The receipt has been sent to the patient’s email.';
+                    } else {
+                        $paymentError = 'Failed to send the receipt email. Please try again.';
+                    }
+                }
+            }
+        } else {
         $patientQuery = trim((string) ($_POST['patient_query'] ?? ''));
         $selectedBookingId = trim((string) ($_POST['selected_booking_id'] ?? ''));
         $amount = (float) ($_POST['amount'] ?? 0);
@@ -1230,6 +1359,7 @@ try {
                 }
             }
         }
+        }
     }
 
     if ($tenantId !== '') {
@@ -1247,26 +1377,60 @@ try {
         $stmt->execute([$tenantId]);
         $summaryTotalPayments = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['total_payments'] ?? 0);
 
+        $recentServiceSelectSql = "COALESCE(a.service_type, '')";
+        $recentServiceJoinSql = '';
+        if ($supportsAppointmentServicesTable) {
+            $recentServiceSelectSql = "COALESCE(aps.service_list, COALESCE(a.service_type, ''))";
+            $recentServiceJoinSql = "
+                LEFT JOIN (
+                    SELECT booking_id, GROUP_CONCAT(service_name ORDER BY service_name SEPARATOR ', ') AS service_list
+                    FROM tbl_appointment_services
+                    WHERE tenant_id = ?
+                    GROUP BY booking_id
+                ) aps
+                    ON aps.booking_id = py.booking_id
+            ";
+        }
+
         $recentSql = "
             SELECT
                 py.payment_id,
                 py.patient_id,
+                py.booking_id,
                 py.amount,
                 py.payment_date,
                 py.payment_method,
+                py.reference_number,
                 py.status,
+                COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
+                COALESCE((
+                    SELECT SUM(py2.amount)
+                    FROM tbl_payments py2
+                    WHERE py2.tenant_id = py.tenant_id
+                      AND py2.booking_id = py.booking_id
+                      AND py2.status = 'completed'
+                ), 0) AS booking_total_paid,
+                {$recentServiceSelectSql} AS service_list,
+                COALESCE(u.email, '') AS patient_email,
                 p.first_name AS patient_first_name,
                 p.last_name AS patient_last_name
             FROM tbl_payments py
             LEFT JOIN tbl_patients p
                 ON p.tenant_id = py.tenant_id
                AND p.patient_id = py.patient_id
+            LEFT JOIN tbl_users u
+                ON u.user_id = p.linked_user_id
+            LEFT JOIN tbl_appointments a
+                ON a.tenant_id = py.tenant_id
+               AND a.booking_id = py.booking_id
+            {$recentServiceJoinSql}
             WHERE py.tenant_id = ?
             ORDER BY py.payment_date DESC, py.id DESC
             LIMIT 20
         ";
         $recentStmt = $pdo->prepare($recentSql);
-        $recentStmt->execute([$tenantId]);
+        $recentParams = $supportsAppointmentServicesTable ? [$tenantId, $tenantId] : [$tenantId];
+        $recentStmt->execute($recentParams);
         $recentPayments = $recentStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         $installmentPlanSqlParts = [];
@@ -1765,6 +1929,31 @@ try {
     $methodLabel = $allowedMethods[$methodKey] ?? ucfirst(str_replace('_', ' ', $methodKey));
     $statusKey = strtolower(trim((string) ($payment['status'] ?? 'pending')));
     $statusLabel = ucfirst(str_replace('_', ' ', $statusKey));
+    $serviceLabel = trim((string) ($payment['service_list'] ?? ''));
+    if ($serviceLabel === '') {
+        $serviceLabel = 'Dental treatment';
+    }
+    $remainingBalance = max(0, (float) ($payment['total_treatment_cost'] ?? 0) - (float) ($payment['booking_total_paid'] ?? 0));
+    $referenceLabel = trim((string) ($payment['reference_number'] ?? ''));
+    if ($referenceLabel === '') {
+        $referenceLabel = trim((string) ($payment['payment_id'] ?? ''));
+    }
+    $patientEmail = trim((string) ($payment['patient_email'] ?? ''));
+    $receiptPayload = [
+        'payment_id' => (string) ($payment['payment_id'] ?? ''),
+        'patient_name' => $patientName,
+        'patient_id' => $patientIdLabel,
+        'patient_email' => $patientEmail,
+        'service' => $serviceLabel,
+        'amount_paid' => round((float) ($payment['amount'] ?? 0), 2),
+        'remaining_balance' => round($remainingBalance, 2),
+        'payment_date' => $paymentDateRaw,
+        'payment_method' => $methodLabel,
+        'reference_number' => $referenceLabel,
+        'booking_id' => (string) ($payment['booking_id'] ?? ''),
+        'clinic_name' => $clinicDisplayName,
+        'clinic_logo' => $clinicLogoUrl,
+    ];
     $statusClasses = 'bg-amber-50 text-amber-600';
     $dotClass = 'bg-amber-500';
     if ($statusKey === 'completed') {
@@ -1809,6 +1998,15 @@ try {
 <button class="p-2 hover:bg-primary/10 rounded-lg text-primary transition-colors" title="<?php echo htmlspecialchars((string) ($payment['payment_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" type="button">
 <span class="material-symbols-outlined text-sm">visibility</span>
 </button>
+<button
+    class="p-2 hover:bg-primary/10 rounded-lg text-primary transition-colors"
+    title="View receipt"
+    type="button"
+    data-action="open-receipt"
+    data-receipt='<?php echo htmlspecialchars(json_encode($receiptPayload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8'); ?>'
+>
+<span class="material-symbols-outlined text-sm">receipt_long</span>
+</button>
 </div>
 </td>
 </tr>
@@ -1832,6 +2030,69 @@ try {
 </section>
 </div>
 </main>
+<form id="receipt-email-form" method="post" class="hidden">
+<input type="hidden" name="action" value="send_receipt_email"/>
+<input type="hidden" name="receipt_payment_id" id="receipt_payment_id_input" value=""/>
+</form>
+<div class="fixed inset-0 z-[70] hidden items-center justify-center p-6" id="receipt-modal" role="dialog" aria-modal="true" aria-labelledby="receipt-modal-title">
+<div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" id="receipt-modal-overlay"></div>
+<div class="relative z-10 w-full max-w-2xl">
+<div class="glass-form bg-white rounded-[2rem] shadow-2xl shadow-primary/20 max-h-[90vh] overflow-hidden flex flex-col">
+<div class="px-7 py-5 border-b border-slate-100 flex items-center justify-between">
+<h3 class="text-xl font-black font-headline text-slate-900" id="receipt-modal-title">Payment Receipt</h3>
+<button class="w-9 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 inline-flex items-center justify-center transition-colors" id="close-receipt-modal" type="button">
+<span class="material-symbols-outlined text-lg">close</span>
+</button>
+</div>
+<div class="px-7 py-6 overflow-y-auto no-scrollbar" id="receipt-modal-body">
+<div class="border border-slate-200 rounded-2xl p-6 bg-gradient-to-br from-white via-slate-50/40 to-primary/[0.05]" id="receipt-content">
+<div class="flex items-center gap-4 border-b border-slate-200 pb-4 mb-5">
+<img src="<?php echo htmlspecialchars($clinicLogoUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="Clinic Logo" class="w-14 h-14 rounded-xl object-cover border border-slate-200 bg-white" id="receipt-clinic-logo"/>
+<div>
+<p class="text-lg font-black text-slate-900" id="receipt-clinic-name"><?php echo htmlspecialchars($clinicDisplayName, ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-[11px] uppercase tracking-widest font-bold text-slate-500">Official Payment Receipt</p>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
+<div class="rounded-xl bg-white border border-slate-200 px-4 py-3">
+<p class="text-[10px] uppercase tracking-widest text-slate-500 font-black">Patient</p>
+<p class="text-sm font-bold text-slate-900 mt-1" id="receipt-patient-name">-</p>
+<p class="text-[11px] text-slate-500 mt-1" id="receipt-patient-meta">ID: -</p>
+</div>
+<div class="rounded-xl bg-white border border-slate-200 px-4 py-3">
+<p class="text-[10px] uppercase tracking-widest text-slate-500 font-black">Transaction Ref</p>
+<p class="text-sm font-bold text-slate-900 mt-1" id="receipt-reference">-</p>
+<p class="text-[11px] text-slate-500 mt-1" id="receipt-payment-id">Payment ID: -</p>
+</div>
+</div>
+<div class="space-y-2 rounded-xl bg-white border border-slate-200 p-4">
+<div class="flex items-center justify-between text-sm"><span class="font-semibold text-slate-600">Service(s)</span><span class="font-bold text-slate-900 text-right max-w-[60%]" id="receipt-services">-</span></div>
+<div class="flex items-center justify-between text-sm"><span class="font-semibold text-slate-600">Amount Paid</span><span class="font-extrabold text-primary" id="receipt-amount-paid">₱0.00</span></div>
+<div class="flex items-center justify-between text-sm"><span class="font-semibold text-slate-600">Remaining Balance</span><span class="font-bold text-amber-600" id="receipt-remaining-balance">₱0.00</span></div>
+<div class="flex items-center justify-between text-sm"><span class="font-semibold text-slate-600">Payment Date</span><span class="font-bold text-slate-900" id="receipt-payment-date">-</span></div>
+<div class="flex items-center justify-between text-sm"><span class="font-semibold text-slate-600">Payment Method</span><span class="font-bold text-slate-900" id="receipt-payment-method">-</span></div>
+</div>
+</div>
+</div>
+<div class="px-7 py-5 border-t border-slate-100 bg-white flex items-center justify-end gap-3">
+<button type="button" id="receipt-print-btn" class="px-5 py-2.5 rounded-xl bg-primary text-white text-[11px] font-black uppercase tracking-widest hover:bg-primary/90 transition-colors inline-flex items-center gap-2">
+<span class="material-symbols-outlined text-base">print</span> Print Now
+</button>
+<button type="button" id="receipt-send-email-btn" class="px-5 py-2.5 rounded-xl border border-primary/30 text-primary text-[11px] font-black uppercase tracking-widest hover:bg-primary/10 transition-colors inline-flex items-center gap-2">
+<span class="material-symbols-outlined text-base">mail</span> Send to Email
+</button>
+</div>
+</div>
+</div>
+</div>
+<div class="fixed inset-0 z-[80] hidden items-center justify-center p-6" id="receipt-email-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="receipt-email-confirm-title">
+<div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" id="receipt-email-confirm-overlay"></div>
+<div class="relative z-10 w-full max-w-md rounded-2xl bg-white border border-emerald-100 shadow-2xl p-6 text-center">
+<h4 id="receipt-email-confirm-title" class="text-lg font-black text-slate-900">Receipt Sent</h4>
+<p class="text-sm text-slate-600 mt-3">The receipt has been sent to the patient’s email.</p>
+<button type="button" id="receipt-email-confirm-close" class="mt-5 px-5 py-2.5 rounded-xl bg-emerald-500 text-white text-[11px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors">Close</button>
+</div>
+</div>
 <div class="fixed inset-0 z-50 hidden items-center justify-center p-6" id="transaction-modal" role="dialog" aria-modal="true" aria-labelledby="transaction-modal-title">
 <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" id="transaction-modal-overlay"></div>
 <div class="relative z-10 w-full max-w-4xl">
@@ -1851,6 +2112,7 @@ try {
 </button>
 </div>
 <form class="space-y-6" method="post">
+<input type="hidden" name="action" value="record_payment"/>
 <div class="space-y-3">
 <label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Patient Identification</label>
 <div class="flex gap-2 items-stretch">
@@ -2060,6 +2322,17 @@ This booking is installment-priced, but no installment schedule rows exist in th
         const closeBtn = document.getElementById('close-transaction-modal');
         const overlay = document.getElementById('transaction-modal-overlay');
         const hasServerError = <?php echo $paymentError !== '' ? 'true' : 'false'; ?>;
+        const receiptModal = document.getElementById('receipt-modal');
+        const receiptModalOverlay = document.getElementById('receipt-modal-overlay');
+        const closeReceiptModalBtn = document.getElementById('close-receipt-modal');
+        const receiptPrintBtn = document.getElementById('receipt-print-btn');
+        const receiptSendEmailBtn = document.getElementById('receipt-send-email-btn');
+        const receiptEmailForm = document.getElementById('receipt-email-form');
+        const receiptPaymentIdInput = document.getElementById('receipt_payment_id_input');
+        const receiptEmailConfirmModal = document.getElementById('receipt-email-confirm-modal');
+        const receiptEmailConfirmOverlay = document.getElementById('receipt-email-confirm-overlay');
+        const receiptEmailConfirmClose = document.getElementById('receipt-email-confirm-close');
+        let activeReceiptData = null;
         const transactionCandidates = <?php echo json_encode($transactionCandidates, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const openSelectorBtn = document.getElementById('open-transaction-selector-modal');
         const selectorModal = document.getElementById('transaction-selector-modal');
@@ -2742,6 +3015,115 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
         };
 
+        function formatPeso(value) {
+            const amount = Number(value || 0);
+            if (!Number.isFinite(amount)) {
+                return '₱0.00';
+            }
+            return '₱' + amount.toFixed(2);
+        }
+
+        function formatReceiptDate(value) {
+            const dateValue = String(value || '').trim();
+            if (!dateValue) {
+                return '-';
+            }
+            const parsed = new Date(dateValue.replace(' ', 'T'));
+            if (Number.isNaN(parsed.getTime())) {
+                return dateValue;
+            }
+            return parsed.toLocaleString('en-PH', {
+                year: 'numeric',
+                month: 'short',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function setReceiptText(id, value) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.textContent = value;
+            }
+        }
+
+        function openReceiptModal(receipt) {
+            if (!receiptModal || !receipt) {
+                return;
+            }
+            activeReceiptData = receipt;
+            setReceiptText('receipt-clinic-name', receipt.clinic_name || '<?php echo htmlspecialchars($clinicDisplayName, ENT_QUOTES, 'UTF-8'); ?>');
+            setReceiptText('receipt-patient-name', receipt.patient_name || '-');
+            setReceiptText('receipt-patient-meta', 'ID: ' + (receipt.patient_id || 'N/A'));
+            setReceiptText('receipt-reference', receipt.reference_number || '-');
+            setReceiptText('receipt-payment-id', 'Payment ID: ' + (receipt.payment_id || '-'));
+            setReceiptText('receipt-services', receipt.service || 'Dental treatment');
+            setReceiptText('receipt-amount-paid', formatPeso(receipt.amount_paid));
+            setReceiptText('receipt-remaining-balance', formatPeso(receipt.remaining_balance));
+            setReceiptText('receipt-payment-date', formatReceiptDate(receipt.payment_date));
+            setReceiptText('receipt-payment-method', receipt.payment_method || '-');
+            const logoImg = document.getElementById('receipt-clinic-logo');
+            if (logoImg && receipt.clinic_logo) {
+                logoImg.src = receipt.clinic_logo;
+            }
+            receiptModal.classList.remove('hidden');
+            receiptModal.classList.add('flex');
+            document.body.classList.add('overflow-hidden');
+        }
+
+        function closeReceiptModal() {
+            if (!receiptModal) {
+                return;
+            }
+            receiptModal.classList.add('hidden');
+            receiptModal.classList.remove('flex');
+            if (!modal || modal.classList.contains('hidden')) {
+                document.body.classList.remove('overflow-hidden');
+            }
+        }
+
+        function openReceiptPrintView() {
+            if (!activeReceiptData) {
+                return;
+            }
+            const printWin = window.open('', '_blank', 'width=900,height=700');
+            if (!printWin) {
+                return;
+            }
+            const html = '<!DOCTYPE html><html><head><title>Payment Receipt</title><style>' +
+                'body{font-family:Arial,sans-serif;padding:28px;color:#0f172a;}' +
+                '.head{display:flex;align-items:center;gap:12px;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:14px;}' +
+                '.logo{width:56px;height:56px;object-fit:cover;border:1px solid #e2e8f0;border-radius:8px;}' +
+                'table{width:100%;border-collapse:collapse;margin-top:8px;}td{padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:14px;}' +
+                'td:first-child{font-weight:700;color:#334155;width:36%;}</style></head><body>' +
+                '<div class="head"><img class="logo" src="' + escapeHtml(activeReceiptData.clinic_logo || '') + '" alt="Clinic Logo"/><div><h2 style="margin:0;">' + escapeHtml(activeReceiptData.clinic_name || '') + '</h2><p style="margin:2px 0 0;color:#64748b;font-size:12px;">Official Payment Receipt</p></div></div>' +
+                '<table>' +
+                '<tr><td>Patient</td><td>' + escapeHtml(activeReceiptData.patient_name || '-') + '</td></tr>' +
+                '<tr><td>Patient ID</td><td>' + escapeHtml(activeReceiptData.patient_id || '-') + '</td></tr>' +
+                '<tr><td>Transaction Reference</td><td>' + escapeHtml(activeReceiptData.reference_number || '-') + '</td></tr>' +
+                '<tr><td>Service(s)</td><td>' + escapeHtml(activeReceiptData.service || '-') + '</td></tr>' +
+                '<tr><td>Amount Paid</td><td>' + escapeHtml(formatPeso(activeReceiptData.amount_paid)) + '</td></tr>' +
+                '<tr><td>Remaining Balance</td><td>' + escapeHtml(formatPeso(activeReceiptData.remaining_balance)) + '</td></tr>' +
+                '<tr><td>Payment Date</td><td>' + escapeHtml(formatReceiptDate(activeReceiptData.payment_date)) + '</td></tr>' +
+                '<tr><td>Payment Method</td><td>' + escapeHtml(activeReceiptData.payment_method || '-') + '</td></tr>' +
+                '<tr><td>Payment ID</td><td>' + escapeHtml(activeReceiptData.payment_id || '-') + '</td></tr>' +
+                '</table></body></html>';
+            printWin.document.open();
+            printWin.document.write(html);
+            printWin.document.close();
+            printWin.focus();
+            printWin.print();
+        }
+
+        function closeReceiptEmailConfirmation() {
+            if (!receiptEmailConfirmModal) {
+                return;
+            }
+            receiptEmailConfirmModal.classList.add('hidden');
+            receiptEmailConfirmModal.classList.remove('flex');
+        }
+
         if (openBtn) {
             openBtn.addEventListener('click', openModal);
         }
@@ -2751,8 +3133,52 @@ This booking is installment-priced, but no installment schedule rows exist in th
         if (overlay) {
             overlay.addEventListener('click', closeModal);
         }
+        if (closeReceiptModalBtn) {
+            closeReceiptModalBtn.addEventListener('click', closeReceiptModal);
+        }
+        if (receiptModalOverlay) {
+            receiptModalOverlay.addEventListener('click', closeReceiptModal);
+        }
+        if (receiptPrintBtn) {
+            receiptPrintBtn.addEventListener('click', openReceiptPrintView);
+        }
+        if (receiptSendEmailBtn) {
+            receiptSendEmailBtn.addEventListener('click', () => {
+                if (!activeReceiptData || !receiptEmailForm || !receiptPaymentIdInput) {
+                    return;
+                }
+                receiptPaymentIdInput.value = String(activeReceiptData.payment_id || '');
+                receiptEmailForm.submit();
+            });
+        }
+        if (receiptEmailConfirmClose) {
+            receiptEmailConfirmClose.addEventListener('click', closeReceiptEmailConfirmation);
+        }
+        if (receiptEmailConfirmOverlay) {
+            receiptEmailConfirmOverlay.addEventListener('click', closeReceiptEmailConfirmation);
+        }
+        document.querySelectorAll('button[data-action="open-receipt"]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const payload = String(btn.getAttribute('data-receipt') || '');
+                if (!payload) {
+                    return;
+                }
+                try {
+                    openReceiptModal(JSON.parse(payload));
+                } catch (err) {
+                }
+            });
+        });
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
+                if (receiptEmailConfirmModal && !receiptEmailConfirmModal.classList.contains('hidden')) {
+                    closeReceiptEmailConfirmation();
+                    return;
+                }
+                if (receiptModal && !receiptModal.classList.contains('hidden')) {
+                    closeReceiptModal();
+                    return;
+                }
                 if (selectorModal && !selectorModal.classList.contains('hidden')) {
                     closeSelectorModal();
                     return;
@@ -2760,6 +3186,11 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 closeModal();
             }
         });
+        const hasReceiptEmailSuccess = <?php echo $receiptEmailSuccess !== '' ? 'true' : 'false'; ?>;
+        if (hasReceiptEmailSuccess && receiptEmailConfirmModal) {
+            receiptEmailConfirmModal.classList.remove('hidden');
+            receiptEmailConfirmModal.classList.add('flex');
+        }
         window.addEventListener('pageshow', (event) => {
             if (event.persisted) {
                 resetRecordPaymentForm();
