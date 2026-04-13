@@ -2281,8 +2281,8 @@ try {
 </div>
 <div class="rounded-2xl bg-white border border-slate-200 px-4 py-3 shadow-sm shadow-slate-900/5">
 <p class="text-[10px] uppercase tracking-widest text-slate-500 font-black">Transaction Ref</p>
-<p class="text-sm font-bold text-slate-900 mt-1" id="receipt-reference">-</p>
-<p class="text-[11px] text-slate-500 mt-1" id="receipt-payment-id">Payment ID: -</p>
+<p class="text-sm font-bold text-slate-900 mt-1 break-all whitespace-normal leading-snug" id="receipt-reference">-</p>
+<p class="text-[11px] text-slate-500 mt-1 break-all whitespace-normal leading-snug" id="receipt-payment-id">Payment ID: -</p>
 </div>
 </div>
 </div>
@@ -3295,50 +3295,56 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const remainingBalance = escapeHtml(formatPeso(receipt.remaining_balance));
 
             return '' +
-                '<div style="max-width:980px;margin:0 auto;background:#fff;border:1px solid #dbeafe;border-radius:20px;overflow:hidden;font-family:Arial,sans-serif;color:#0f172a;">' +
-                    '<div style="padding:24px;background:linear-gradient(135deg,#ffffff 0%,#f6fbff 60%,#ecf6ff 100%);border-bottom:1px solid #dbeafe;">' +
-                        '<div style="display:flex;align-items:flex-start;gap:14px;">' +
-                            '<img src="' + clinicLogo + '" alt="Clinic Logo" style="width:64px;height:64px;border-radius:16px;border:1px solid #dbeafe;object-fit:cover;background:#fff;">' +
+                '<div style="max-width:760px;margin:0 auto;background:#fff;border:1px solid #dbeafe;border-radius:18px;overflow:hidden;font-family:Arial,sans-serif;color:#0f172a;">' +
+                    '<div style="padding:22px 24px;background:#f8fcff;border-bottom:1px solid #dbeafe;">' +
+                        '<div style="display:flex;align-items:flex-start;gap:12px;">' +
+                            '<img src="' + clinicLogo + '" alt="Clinic Logo" style="width:64px;height:64px;border-radius:14px;border:1px solid #dbeafe;object-fit:cover;background:#fff;">' +
                             '<div>' +
-                                '<div style="font-size:18px;font-weight:800;line-height:1.2;">' + clinicName + '</div>' +
-                                '<div style="margin-top:8px;font-size:12px;letter-spacing:4px;font-weight:800;color:#647aa5;text-transform:uppercase;">Official Payment Receipt</div>' +
-                                '<div style="margin-top:12px;font-size:16px;color:#60739a;">Thank you for your payment. Keep this as your billing record.</div>' +
-                            '</div>' +
-                        '</div>' +
-                    '</div>' +
-                    '<div style="padding:20px 24px 0;">' +
-                        '<div style="display:flex;gap:16px;flex-wrap:wrap;">' +
-                            '<div style="flex:1;min-width:260px;border:1px solid #dbeafe;border-radius:16px;padding:14px 16px;">' +
-                                '<div style="font-size:11px;letter-spacing:3px;font-weight:800;color:#647aa5;text-transform:uppercase;">Patient</div>' +
-                                '<div style="margin-top:10px;font-size:34px;font-weight:800;line-height:1.15;">' + patientName + '</div>' +
-                                '<div style="margin-top:8px;font-size:26px;color:#7284a8;">ID ' + patientId + '</div>' +
-                            '</div>' +
-                            '<div style="flex:1;min-width:260px;border:1px solid #dbeafe;border-radius:16px;padding:14px 16px;">' +
-                                '<div style="font-size:11px;letter-spacing:3px;font-weight:800;color:#647aa5;text-transform:uppercase;">Transaction Ref</div>' +
-                                '<div style="margin-top:10px;font-size:32px;font-weight:800;line-height:1.15;">' + reference + '</div>' +
-                                '<div style="margin-top:8px;font-size:24px;color:#7284a8;">Payment ID ' + paymentId + '</div>' +
+                                '<div style="font-size:24px;line-height:30px;font-weight:800;">' + clinicName + '</div>' +
+                                '<div style="margin-top:8px;font-size:13px;line-height:18px;letter-spacing:4px;font-weight:800;color:#647aa5;text-transform:uppercase;">Official Payment Receipt</div>' +
+                                '<div style="margin-top:12px;font-size:16px;line-height:22px;color:#60739a;">Thank you for your payment. Keep this as your billing record.</div>' +
                             '</div>' +
                         '</div>' +
                     '</div>' +
                     '<div style="padding:18px 24px 0;">' +
-                        '<div style="border:1px solid #dbeafe;border-radius:16px;overflow:hidden;">' +
-                            '<div style="padding:12px 16px;border-bottom:1px solid #dbeafe;background:#f9fcff;font-size:12px;letter-spacing:4px;text-transform:uppercase;font-weight:800;color:#4f668f;">Payment Breakdown</div>' +
-                            '<div style="padding:12px 16px;display:flex;justify-content:space-between;gap:16px;font-size:20px;"><span style="font-weight:600;color:#41547a;">Service(s)</span><span style="font-weight:800;text-align:right;">' + service + '</span></div>' +
-                            '<div style="padding:12px 16px;display:flex;justify-content:space-between;gap:16px;font-size:20px;"><span style="font-weight:600;color:#41547a;">Payment Date</span><span style="font-weight:800;text-align:right;">' + paymentDate + '</span></div>' +
-                            '<div style="padding:12px 16px 14px;display:flex;justify-content:space-between;gap:16px;font-size:20px;"><span style="font-weight:600;color:#41547a;">Payment Method</span><span style="font-weight:800;text-align:right;">' + paymentMethod + '</span></div>' +
+                        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>' +
+                            '<td width="49%" valign="top" style="width:49%;border:1px solid #dbeafe;border-radius:14px;padding:12px 14px;">' +
+                                '<p style="margin:0;font-size:11px;line-height:14px;letter-spacing:3px;font-weight:800;color:#647aa5;text-transform:uppercase;">Patient</p>' +
+                                '<p style="margin:10px 0 0;font-size:18px;line-height:24px;font-weight:800;color:#0f172a;">' + patientName + '</p>' +
+                                '<p style="margin:8px 0 0;font-size:14px;line-height:18px;color:#7284a8;">ID ' + patientId + '</p>' +
+                            '</td>' +
+                            '<td width="2%"></td>' +
+                            '<td width="49%" valign="top" style="width:49%;border:1px solid #dbeafe;border-radius:14px;padding:12px 14px;">' +
+                                '<p style="margin:0;font-size:11px;line-height:14px;letter-spacing:3px;font-weight:800;color:#647aa5;text-transform:uppercase;">Transaction Ref</p>' +
+                                '<p style="margin:10px 0 0;font-size:18px;line-height:24px;font-weight:800;color:#0f172a;word-break:break-word;overflow-wrap:anywhere;">' + reference + '</p>' +
+                                '<p style="margin:8px 0 0;font-size:14px;line-height:18px;color:#7284a8;word-break:break-word;overflow-wrap:anywhere;">Payment ID ' + paymentId + '</p>' +
+                            '</td>' +
+                        '</tr></table>' +
+                    '</div>' +
+                    '<div style="padding:18px 24px 0;">' +
+                        '<div style="border:1px solid #dbeafe;border-radius:14px;overflow:hidden;">' +
+                            '<div style="padding:12px 14px;background:#f9fcff;border-bottom:1px solid #dbeafe;font-size:13px;line-height:18px;letter-spacing:4px;font-weight:800;color:#4f668f;text-transform:uppercase;">Payment Breakdown</div>' +
+                            '<div style="padding:12px 14px;font-size:16px;line-height:22px;">' +
+                                '<div style="display:flex;justify-content:space-between;gap:14px;"><span style="font-weight:600;color:#41547a;">Service(s)</span><span style="font-weight:800;text-align:right;max-width:70%;word-break:break-word;overflow-wrap:anywhere;">' + service + '</span></div>' +
+                                '<div style="height:12px;"></div>' +
+                                '<div style="display:flex;justify-content:space-between;gap:14px;"><span style="font-weight:600;color:#41547a;">Payment Date</span><span style="font-weight:800;text-align:right;">' + paymentDate + '</span></div>' +
+                                '<div style="height:12px;"></div>' +
+                                '<div style="display:flex;justify-content:space-between;gap:14px;"><span style="font-weight:600;color:#41547a;">Payment Method</span><span style="font-weight:800;text-align:right;">' + paymentMethod + '</span></div>' +
+                            '</div>' +
                         '</div>' +
                     '</div>' +
                     '<div style="padding:18px 24px 24px;">' +
-                        '<div style="display:flex;gap:16px;flex-wrap:wrap;">' +
-                            '<div style="flex:1;min-width:260px;border:1px solid #bfdbfe;border-radius:16px;background:#f0f8ff;padding:14px 16px;">' +
-                                '<div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:800;color:#2382ff;">Amount Paid</div>' +
-                                '<div style="margin-top:12px;font-size:46px;font-weight:800;color:#2382ff;line-height:1.1;">' + amountPaid + '</div>' +
-                            '</div>' +
-                            '<div style="flex:1;min-width:260px;border:1px solid #fcdca7;border-radius:16px;background:#fffaf0;padding:14px 16px;">' +
-                                '<div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:800;color:#b45309;">Remaining Balance</div>' +
-                                '<div style="margin-top:12px;font-size:46px;font-weight:800;color:#b45309;line-height:1.1;">' + remainingBalance + '</div>' +
-                            '</div>' +
-                        '</div>' +
+                        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>' +
+                            '<td width="49%" valign="top" style="width:49%;border:1px solid #bfdbfe;border-radius:14px;background:#f0f8ff;padding:12px 14px;">' +
+                                '<p style="margin:0;font-size:11px;line-height:14px;letter-spacing:3px;text-transform:uppercase;font-weight:800;color:#2382ff;">Amount Paid</p>' +
+                                '<p style="margin:12px 0 0;font-size:34px;line-height:38px;font-weight:800;color:#2382ff;">' + amountPaid + '</p>' +
+                            '</td>' +
+                            '<td width="2%"></td>' +
+                            '<td width="49%" valign="top" style="width:49%;border:1px solid #fcdca7;border-radius:14px;background:#fffaf0;padding:12px 14px;">' +
+                                '<p style="margin:0;font-size:11px;line-height:14px;letter-spacing:3px;text-transform:uppercase;font-weight:800;color:#b45309;">Remaining Balance</p>' +
+                                '<p style="margin:12px 0 0;font-size:34px;line-height:38px;font-weight:800;color:#b45309;">' + remainingBalance + '</p>' +
+                            '</td>' +
+                        '</tr></table>' +
                     '</div>' +
                 '</div>';
         }
