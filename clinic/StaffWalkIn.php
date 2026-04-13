@@ -513,13 +513,13 @@ try {
         let selectedServices = [];
         let selectedServiceCategoryFilter = 'all';
         const SERVICE_CATEGORY_FILTERS = [
-            { key: 'all', label: 'All Categories' },
-            { key: 'general_dentistry', label: 'General Dentistry' },
-            { key: 'restorative_dentistry', label: 'Restorative Dentistry' },
+            { key: 'all', label: 'All' },
+            { key: 'general_dentistry', label: 'General' },
+            { key: 'restorative_dentistry', label: 'Restorative' },
             { key: 'oral_surgery', label: 'Oral Surgery' },
             { key: 'crowns_and_bridges', label: 'Crowns and Bridges' },
-            { key: 'cosmetic_dentistry', label: 'Cosmetic Dentistry' },
-            { key: 'pediatric_dentistry', label: 'Pediatric Dentistry' },
+            { key: 'cosmetic_dentistry', label: 'Cosmetic' },
+            { key: 'pediatric_dentistry', label: 'Pediatric' },
             { key: 'orthodontics', label: 'Orthodontics' },
             { key: 'specialized_and_others', label: 'Specialized and Others' }
         ];
@@ -950,6 +950,7 @@ try {
         function openChooseServiceModal() {
             if (!chooseServiceModal) return;
             chooseServiceModal.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
             if (serviceSearchInput) serviceSearchInput.value = '';
             selectedServiceCategoryFilter = 'all';
             renderServiceCategoryFilters();
@@ -959,6 +960,7 @@ try {
         function closeChooseServiceModal() {
             if (!chooseServiceModal) return;
             chooseServiceModal.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
         }
 
         function setSelectedPatient(patientId, patientName) {
