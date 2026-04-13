@@ -130,10 +130,10 @@ require_once __DIR__ . '/provider_auth.php';
 
         /* Provider landing hero: full-width text over Banner1.svg (no extra overlays) */
         .provider-hero {
-            min-height: clamp(32rem, 85vh, 60rem);
+            /* Taller banner so more of Banner1.svg is visible without crowding the subject */
+            min-height: clamp(36rem, 90vh, 64rem);
             display: flex;
-            align-items: flex-end;
-            padding-bottom: clamp(2.75rem, 11vh, 8rem);
+            align-items: center;
         }
 
         .provider-hero__bg {
@@ -144,23 +144,23 @@ require_once __DIR__ . '/provider_auth.php';
             background-image: url('Banner1.svg');
             background-repeat: no-repeat;
             background-size: cover;
-            background-position: 72% center;
+            /* Anchor toward top of artwork so heads / upper scene stay in frame (cover crops bottom first) */
+            background-position: 72% top;
         }
 
         @media (max-width: 1023px) {
             .provider-hero__bg {
-                background-position: 60% center;
+                background-position: 60% top;
             }
         }
 
         @media (max-width: 639px) {
             .provider-hero {
-                min-height: clamp(28rem, 78vh, 52rem);
-                padding-bottom: clamp(2.25rem, 9vh, 5.5rem);
+                min-height: clamp(30rem, 82vh, 56rem);
             }
 
             .provider-hero__bg {
-                background-position: 55% center;
+                background-position: 55% top;
             }
         }
     </style>
@@ -174,7 +174,7 @@ require_once __DIR__ . '/provider_auth.php';
         <section class="provider-hero relative w-full overflow-hidden reveal" data-reveal="section">
             <div class="provider-hero__bg" aria-hidden="true"></div>
             <div
-                class="relative z-10 w-full max-w-[1800px] mx-auto px-5 sm:px-8 lg:px-14 xl:px-20 pt-10 sm:pt-12 lg:pt-16">
+                class="relative z-10 w-full max-w-[1800px] mx-auto px-5 sm:px-8 lg:px-14 xl:px-20 py-14 sm:py-16 lg:py-24">
                 <div class="max-w-xl lg:max-w-2xl xl:max-w-[40rem]">
                     <h1
                         class="font-headline text-[clamp(2.25rem,6.2vw,4.75rem)] font-extrabold tracking-[-0.045em] text-on-surface mb-6 sm:mb-8 leading-[0.92]">
