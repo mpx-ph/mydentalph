@@ -358,48 +358,29 @@ try {
                 </div>
 
                 <div id="walkInDefaultPaymentDetailsSection" class="elevated-card rounded-3xl p-6">
-                    <div class="flex items-start justify-between gap-3 mb-4">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center shadow-sm">
-                                <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">payments</span>
-                            </div>
-                            <div>
-                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Payment Details</p>
-                                <h3 class="text-xl font-extrabold text-slate-900">Payment Breakdown</h3>
-                            </div>
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Payment Details</p>
+                            <h3 class="text-lg font-extrabold text-slate-900">Payment Breakdown</h3>
                         </div>
                     </div>
-                    <div class="rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-50 to-white px-5 py-5">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:items-start">
-                            <div>
-                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Amount</p>
-                                <p id="walkInDefaultEstimatedTotal" class="mt-2 text-4xl leading-none font-extrabold text-slate-900">P0.00</p>
-                            </div>
-                            <div class="md:text-right">
-                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Installment Available?</p>
-                                <div class="mt-3 inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-1.5 border border-slate-200">
-                                    <span id="walkInDefaultInstallmentDot" class="w-2 h-2 rounded-full bg-slate-400"></span>
-                                    <span id="walkInDefaultInstallmentAvailable" class="text-sm font-extrabold text-slate-700">No</span>
-                                </div>
-                            </div>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-left">
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Amount</p>
+                            <p id="walkInDefaultEstimatedTotal" class="mt-2 text-2xl font-extrabold text-slate-900">P0.00</p>
                         </div>
-                        <div class="mt-6 border-t border-slate-200"></div>
-                        <div class="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
-                            <div>
-                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Down Payment (Min)</p>
-                                <p id="walkInDefaultDownPayment" class="mt-2 text-4xl leading-none font-extrabold text-slate-900">P0.00</p>
-                                <p id="walkInDefaultDownPaymentMeta" class="mt-1 text-[11px] font-semibold text-slate-400">Based on payment settings</p>
-                            </div>
-                            <div>
-                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Monthly (Est.)</p>
-                                <p id="walkInDefaultMonthlyEstimate" class="mt-2 text-4xl leading-none font-extrabold text-slate-900">P0.00</p>
-                            </div>
-                            <div>
-                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Duration (Max)</p>
-                                <p id="walkInDefaultDurationMax" class="mt-2 text-4xl leading-none font-extrabold text-slate-900">0 Months</p>
-                            </div>
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Down Payment</p>
+                            <p id="walkInDefaultDownPayment" class="mt-2 text-2xl font-extrabold text-slate-900">P0.00</p>
                         </div>
-                        <p class="mt-5 text-center text-[11px] italic font-semibold text-slate-400">Actual payment terms will be finalized during payment processing.</p>
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Monthly</p>
+                            <p id="walkInDefaultMonthlyEstimate" class="mt-2 text-2xl font-extrabold text-slate-900">P0.00</p>
+                        </div>
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Duration</p>
+                            <p id="walkInDefaultDurationMax" class="mt-2 text-2xl font-extrabold text-slate-900">0 Months</p>
+                        </div>
                     </div>
                 </div>
 
@@ -581,10 +562,7 @@ try {
         const walkInDefaultPaymentDetailsSectionEl = document.getElementById('walkInDefaultPaymentDetailsSection');
         const walkInTreatmentPaymentProgressSectionEl = document.getElementById('walkInTreatmentPaymentProgressSection');
         const walkInDefaultEstimatedTotalEl = document.getElementById('walkInDefaultEstimatedTotal');
-        const walkInDefaultInstallmentAvailableEl = document.getElementById('walkInDefaultInstallmentAvailable');
-        const walkInDefaultInstallmentDotEl = document.getElementById('walkInDefaultInstallmentDot');
         const walkInDefaultDownPaymentEl = document.getElementById('walkInDefaultDownPayment');
-        const walkInDefaultDownPaymentMetaEl = document.getElementById('walkInDefaultDownPaymentMeta');
         const walkInDefaultMonthlyEstimateEl = document.getElementById('walkInDefaultMonthlyEstimate');
         const walkInDefaultDurationMaxEl = document.getElementById('walkInDefaultDurationMax');
         const walkInPaymentSettings = <?php echo json_encode($walkInPaymentSettings, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
@@ -845,7 +823,6 @@ try {
             const installmentService = breakdownServices.find(function (service) {
                 return serviceInstallmentEnabled(service);
             }) || null;
-            const installmentAvailable = !!installmentService;
             const durationMonths = installmentService ? Math.max(0, Number(installmentService.installment_duration_months || 0)) : 0;
             const servicePrice = installmentService ? Number(installmentService.price || 0) : 0;
             const configuredPctRaw = walkInPaymentSettings && walkInPaymentSettings.regular_downpayment_percentage
@@ -865,20 +842,8 @@ try {
             if (walkInDefaultEstimatedTotalEl) {
                 walkInDefaultEstimatedTotalEl.textContent = formatPeso(totalAmount);
             }
-            if (walkInDefaultInstallmentAvailableEl) {
-                walkInDefaultInstallmentAvailableEl.textContent = installmentAvailable ? 'Yes' : 'No';
-            }
-            if (walkInDefaultInstallmentDotEl) {
-                walkInDefaultInstallmentDotEl.classList.toggle('bg-emerald-500', installmentAvailable);
-                walkInDefaultInstallmentDotEl.classList.toggle('bg-slate-400', !installmentAvailable);
-            }
             if (walkInDefaultDownPaymentEl) {
                 walkInDefaultDownPaymentEl.textContent = formatPeso(downPayment);
-            }
-            if (walkInDefaultDownPaymentMetaEl) {
-                walkInDefaultDownPaymentMetaEl.textContent = installmentAvailable
-                    ? ('Based on ' + configuredPct.toFixed(1) + '% minimum down payment setting')
-                    : 'Select an installment-enabled service to calculate minimum down payment.';
             }
             if (walkInDefaultMonthlyEstimateEl) {
                 walkInDefaultMonthlyEstimateEl.textContent = formatPeso(monthlyEstimate);
