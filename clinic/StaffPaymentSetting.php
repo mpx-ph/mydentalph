@@ -305,20 +305,81 @@ try {
 </div>
 </div>
 </main>
+<div id="update-rule-confirm-modal" class="fixed inset-0 z-50 hidden items-center justify-center px-4">
+<div id="update-rule-confirm-overlay" class="absolute inset-0 bg-slate-900/50"></div>
+<div class="relative w-full max-w-md rounded-3xl bg-white border border-slate-200 shadow-2xl p-8">
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">help</span>
+</div>
+<div class="space-y-2">
+<h4 class="text-xl font-headline font-extrabold text-on-background">Confirm Update</h4>
+<p class="text-sm font-medium text-on-surface-variant leading-relaxed">Are you sure you want to update these payment rules?</p>
+</div>
+</div>
+<div class="mt-8 flex justify-end gap-3">
+<button type="button" id="update-rule-cancel-btn" class="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Cancel</button>
+<button type="button" id="update-rule-confirm-btn" class="px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all">Confirm</button>
+</div>
+</div>
+</div>
 <script>
     (function () {
         var forms = document.querySelectorAll('.payment-rule-form');
-        if (!forms.length) {
+        var modal = document.getElementById('update-rule-confirm-modal');
+        var overlay = document.getElementById('update-rule-confirm-overlay');
+        var cancelBtn = document.getElementById('update-rule-cancel-btn');
+        var confirmBtn = document.getElementById('update-rule-confirm-btn');
+        var pendingForm = null;
+        var skipConfirmation = false;
+
+        if (!forms.length || !modal || !overlay || !cancelBtn || !confirmBtn) {
             return;
+        }
+
+        function openModal(form) {
+            pendingForm = form;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.classList.add('overflow-hidden');
+        }
+
+        function closeModal() {
+            pendingForm = null;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.classList.remove('overflow-hidden');
         }
 
         forms.forEach(function (form) {
             form.addEventListener('submit', function (event) {
-                var hasConfirmed = window.confirm('Are you sure you want to update these payment rules?');
-                if (!hasConfirmed) {
-                    event.preventDefault();
+                if (skipConfirmation) {
+                    return;
                 }
+
+                event.preventDefault();
+                openModal(form);
             });
+        });
+
+        cancelBtn.addEventListener('click', function () {
+            closeModal();
+        });
+
+        overlay.addEventListener('click', function () {
+            closeModal();
+        });
+
+        confirmBtn.addEventListener('click', function () {
+            if (!pendingForm) {
+                closeModal();
+                return;
+            }
+
+            var targetForm = pendingForm;
+            skipConfirmation = true;
+            closeModal();
+            targetForm.submit();
         });
     })();
 </script>
