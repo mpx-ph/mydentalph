@@ -805,8 +805,20 @@ try {
             const rawEnableInstallment = primaryService.enable_installment;
             const serviceInstallment = rawEnableInstallment === true || rawEnableInstallment === 1 || rawEnableInstallment === '1';
             const durationMonths = Number(treatment.duration_months || 0);
-            const monthsLeft = Number(treatment.months_left || 0);
+            const monthsLeft = computeTreatmentMonthsLeft(treatment);
             return serviceInstallment || durationMonths > 1 || monthsLeft > 0;
+        }
+
+        function computeTreatmentMonthsLeft(treatment) {
+            if (!treatment) return 0;
+            const durationMonths = Math.max(0, Number(treatment.duration_months || 0));
+            const monthsPaid = Math.max(0, Number(treatment.months_paid || 0));
+            const derivedFromProgress = Math.max(0, Math.ceil(durationMonths - monthsPaid));
+            const storedMonthsLeft = Math.max(0, Number(treatment.months_left || 0));
+            if (durationMonths > 0) {
+                return Math.min(durationMonths, Math.max(storedMonthsLeft, derivedFromProgress));
+            }
+            return storedMonthsLeft;
         }
 
         function updatePaymentDetailsVisibility() {
@@ -880,13 +892,13 @@ try {
             const total = treatment ? Number(treatment.total_cost || 0) : 0;
             const paid = treatment ? Number(treatment.amount_paid || 0) : 0;
             const remaining = treatment ? Math.max(0, Number(treatment.remaining_balance || 0)) : 0;
-            const monthsLeft = treatment ? Number(treatment.months_left || 0) : 0;
+            const monthsLeft = treatment ? computeTreatmentMonthsLeft(treatment) : 0;
             const percent = total > 0 ? Math.min(100, Math.round((paid / total) * 1000) / 10) : 0;
 
             if (walkInTotalAmountEl) walkInTotalAmountEl.textContent = formatPeso(total);
             if (walkInAmountPaidEl) walkInAmountPaidEl.textContent = formatPeso(paid);
             if (walkInRemainingBalanceEl) walkInRemainingBalanceEl.textContent = formatPeso(remaining);
-            if (walkInMonthsLeftEl) walkInMonthsLeftEl.textContent = String(monthsLeft) + ' Months';
+            if (walkInMonthsLeftEl) walkInMonthsLeftEl.textContent = String(monthsLeft) + (monthsLeft === 1 ? ' Month' : ' Months');
             if (walkInPaymentProgressLabelEl) walkInPaymentProgressLabelEl.textContent = percent + '% paid';
             if (walkInPaymentProgressBarEl) walkInPaymentProgressBarEl.style.width = Math.max(0, Math.min(100, percent)) + '%';
             if (walkInInstallmentAvailableEl) {
