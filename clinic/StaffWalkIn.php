@@ -813,10 +813,13 @@ try {
             if (!treatment) return 0;
             const durationMonths = Math.max(0, Number(treatment.duration_months || 0));
             const monthsPaid = Math.max(0, Number(treatment.months_paid || 0));
-            const derivedFromProgress = Math.max(0, Math.ceil(durationMonths - monthsPaid));
             const storedMonthsLeft = Math.max(0, Number(treatment.months_left || 0));
+            if (storedMonthsLeft > 0) {
+                return storedMonthsLeft;
+            }
+            const derivedFromProgress = Math.max(0, Math.ceil(durationMonths - monthsPaid));
             if (durationMonths > 0) {
-                return Math.min(durationMonths, Math.max(storedMonthsLeft, derivedFromProgress));
+                return Math.min(durationMonths, derivedFromProgress);
             }
             return storedMonthsLeft;
         }

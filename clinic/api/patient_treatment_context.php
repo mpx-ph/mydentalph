@@ -174,46 +174,64 @@ try {
             if ($installmentsHasTreatmentId && $canJoinInstallmentsByBooking) {
                 $monthsStmt = $pdo->prepare("
                     SELECT
-                        COUNT(*) AS total_rows,
-                        COALESCE(SUM(CASE WHEN LOWER(COALESCE(i.status, '')) IN ('paid','completed') THEN 1 ELSE 0 END), 0) AS settled_rows
-                    FROM {$qi} i
-                    WHERE i.tenant_id = ?
-                      AND (
-                            i.treatment_id = ?
-                            OR (
-                                COALESCE(i.treatment_id, '') = ''
-                                AND EXISTS (
-                                    SELECT 1
-                                    FROM {$qa} a
-                                    WHERE a.tenant_id = i.tenant_id
-                                      AND a.booking_id = i.booking_id
-                                      AND a.treatment_id = ?
+                        COUNT(*) AS total_slots,
+                        COALESCE(SUM(slot_group.slot_settled), 0) AS settled_slots
+                    FROM (
+                        SELECT
+                            COALESCE(NULLIF(CAST(i.installment_number AS CHAR), ''), CONCAT('row-', i.id)) AS slot_key,
+                            MAX(CASE WHEN LOWER(COALESCE(i.status, '')) IN ('paid','completed') THEN 1 ELSE 0 END) AS slot_settled
+                        FROM {$qi} i
+                        WHERE i.tenant_id = ?
+                          AND (
+                                i.treatment_id = ?
+                                OR (
+                                    COALESCE(i.treatment_id, '') = ''
+                                    AND EXISTS (
+                                        SELECT 1
+                                        FROM {$qa} a
+                                        WHERE a.tenant_id = i.tenant_id
+                                          AND a.booking_id = i.booking_id
+                                          AND a.treatment_id = ?
+                                    )
                                 )
-                            )
-                      )
+                          )
+                        GROUP BY slot_key
+                    ) AS slot_group
                 ");
                 $monthsStmt->execute([$tenantId, $treatmentId, $treatmentId]);
             } elseif ($installmentsHasTreatmentId) {
                 $monthsStmt = $pdo->prepare("
                     SELECT
-                        COUNT(*) AS total_rows,
-                        COALESCE(SUM(CASE WHEN LOWER(COALESCE(i.status, '')) IN ('paid','completed') THEN 1 ELSE 0 END), 0) AS settled_rows
-                    FROM {$qi} i
-                    WHERE i.tenant_id = ?
-                      AND i.treatment_id = ?
+                        COUNT(*) AS total_slots,
+                        COALESCE(SUM(slot_group.slot_settled), 0) AS settled_slots
+                    FROM (
+                        SELECT
+                            COALESCE(NULLIF(CAST(i.installment_number AS CHAR), ''), CONCAT('row-', i.id)) AS slot_key,
+                            MAX(CASE WHEN LOWER(COALESCE(i.status, '')) IN ('paid','completed') THEN 1 ELSE 0 END) AS slot_settled
+                        FROM {$qi} i
+                        WHERE i.tenant_id = ?
+                          AND i.treatment_id = ?
+                        GROUP BY slot_key
+                    ) AS slot_group
                 ");
                 $monthsStmt->execute([$tenantId, $treatmentId]);
             } elseif ($canJoinInstallmentsByBooking) {
                 $monthsStmt = $pdo->prepare("
                     SELECT
-                        COUNT(*) AS total_rows,
-                        COALESCE(SUM(CASE WHEN LOWER(COALESCE(i.status, '')) IN ('paid','completed') THEN 1 ELSE 0 END), 0) AS settled_rows
-                    FROM {$qi} i
-                    INNER JOIN {$qa} a
-                      ON a.tenant_id = i.tenant_id
-                     AND a.booking_id = i.booking_id
-                    WHERE i.tenant_id = ?
-                      AND a.treatment_id = ?
+                        COUNT(*) AS total_slots,
+                        COALESCE(SUM(slot_group.slot_settled), 0) AS settled_slots
+                    FROM (
+                        SELECT
+                            COALESCE(NULLIF(CAST(i.installment_number AS CHAR), ''), CONCAT('row-', i.id)) AS slot_key,
+                            MAX(CASE WHEN LOWER(COALESCE(i.status, '')) IN ('paid','completed') THEN 1 ELSE 0 END) AS slot_settled
+                        FROM {$qi} i
+                        INNER JOIN {$qa} a
+                          ON a.tenant_id = i.tenant_id
+                         AND a.booking_id = i.booking_id
+                        WHERE i.tenant_id = ?
+                          AND a.treatment_id = ?
+                        GROUP BY slot_key
+                    ) AS slot_group
                 ");
                 $monthsStmt->execute([$tenantId, $treatmentId]);
             } else {
@@ -222,10 +240,10 @@ try {
 
             if (isset($monthsStmt) && $monthsStmt !== null) {
                 $rows = $monthsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
-                $totalRows = (int) ($rows['total_rows'] ?? 0);
-                $settledRows = (int) ($rows['settled_rows'] ?? 0);
-                if ($totalRows > 0) {
-                    $computedMonthsLeft = max(0, $totalRows - $settledRows);
+                $totalSlots = (int) ($rows['total_slots'] ?? 0);
+                $settledSlots = (int) ($rows['settled_slots'] ?? 0);
+                if ($totalSlots > 0) {
+                    $computedMonthsLeft = max(0, $totalSlots - $settledSlots);
                 }
             }
         }
