@@ -132,7 +132,8 @@ require_once __DIR__ . '/provider_auth.php';
         .provider-hero {
             min-height: clamp(32rem, 85vh, 60rem);
             display: flex;
-            align-items: center;
+            align-items: flex-end;
+            padding-bottom: clamp(2.75rem, 11vh, 8rem);
         }
 
         .provider-hero__bg {
@@ -155,6 +156,7 @@ require_once __DIR__ . '/provider_auth.php';
         @media (max-width: 639px) {
             .provider-hero {
                 min-height: clamp(28rem, 78vh, 52rem);
+                padding-bottom: clamp(2.25rem, 9vh, 5.5rem);
             }
 
             .provider-hero__bg {
@@ -172,13 +174,8 @@ require_once __DIR__ . '/provider_auth.php';
         <section class="provider-hero relative w-full overflow-hidden reveal" data-reveal="section">
             <div class="provider-hero__bg" aria-hidden="true"></div>
             <div
-                class="relative z-10 w-full max-w-[1800px] mx-auto px-5 sm:px-8 lg:px-14 xl:px-20 py-14 sm:py-16 lg:py-24">
+                class="relative z-10 w-full max-w-[1800px] mx-auto px-5 sm:px-8 lg:px-14 xl:px-20 pt-10 sm:pt-12 lg:pt-16">
                 <div class="max-w-xl lg:max-w-2xl xl:max-w-[40rem]">
-                    <div
-                        class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-7 sm:mb-9">
-                        <img src="MyDental%20Logo.svg" alt="My Dental Logo" class="h-4 w-auto" />
-                        Platform Management
-                    </div>
                     <h1
                         class="font-headline text-[clamp(2.25rem,6.2vw,4.75rem)] font-extrabold tracking-[-0.045em] text-on-surface mb-6 sm:mb-8 leading-[0.92]">
                         <span class="block">Modernize Your</span>
