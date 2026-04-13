@@ -232,10 +232,10 @@ try {
 </section>
 <?php endif; ?>
 <!-- Configuration Cards Grid -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
 <!-- Regular Services Down Payment -->
-<div class="elevated-card rounded-3xl p-10 flex flex-col gap-8 hover:border-primary/30 transition-all group bg-slate-50/50">
-<form method="post" class="space-y-6">
+<div class="elevated-card rounded-3xl p-10 flex flex-col h-full hover:border-primary/30 transition-all group bg-slate-50/50">
+<form method="post" class="h-full flex flex-col gap-6 payment-rule-form">
 <input type="hidden" name="update_field" value="regular"/>
 <div class="flex items-center gap-5">
 <div class="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
@@ -246,7 +246,7 @@ try {
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-1">Standard clinic procedures &amp; checkups</p>
 </div>
 </div>
-<div class="space-y-6">
+<div class="space-y-6 flex-1 flex flex-col">
 <div class="space-y-3">
 <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Requirement Percentage</label>
 <div class="relative">
@@ -256,10 +256,10 @@ try {
 </div>
 </div>
 </div>
-<div class="p-5 rounded-2xl bg-white/60 border border-slate-100 text-sm text-slate-500 font-medium leading-relaxed">
+<div class="p-5 rounded-2xl bg-white/60 border border-slate-100 text-sm text-slate-500 font-medium leading-relaxed min-h-[96px]">
                         Applied to all basic diagnostic, preventative, and minor restorative services.
                     </div>
-<button class="w-full py-4 bg-primary text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 transition-all flex items-center justify-center gap-2">
+<button type="submit" class="w-full py-4 bg-primary text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 transition-all flex items-center justify-center gap-2 mt-auto">
 <span class="material-symbols-outlined text-lg">published_with_changes</span>
                         Update Rule
                     </button>
@@ -267,8 +267,8 @@ try {
 </form>
 </div>
 <!-- Long-Term Services Down Payment -->
-<div class="elevated-card rounded-3xl p-10 flex flex-col gap-8 hover:border-primary/30 transition-all group bg-slate-50/50">
-<form method="post" class="space-y-6">
+<div class="elevated-card rounded-3xl p-10 flex flex-col h-full hover:border-primary/30 transition-all group bg-slate-50/50">
+<form method="post" class="h-full flex flex-col gap-6 payment-rule-form">
 <input type="hidden" name="update_field" value="long_term"/>
 <div class="flex items-center gap-5">
 <div class="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
@@ -279,7 +279,7 @@ try {
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-1">Orthodontics, implants, and multi-stage plans</p>
 </div>
 </div>
-<div class="space-y-6">
+<div class="space-y-6 flex-1 flex flex-col">
 <div class="space-y-3">
 <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Fixed Minimum Amount</label>
 <div class="relative">
@@ -292,10 +292,10 @@ try {
 </div>
 </div>
 </div>
-<div class="p-5 rounded-2xl bg-white/60 border border-slate-100 text-sm text-slate-500 font-medium leading-relaxed">
+<div class="p-5 rounded-2xl bg-white/60 border border-slate-100 text-sm text-slate-500 font-medium leading-relaxed min-h-[96px]">
                         Minimum deposit required to initiate multi-month treatment cycles and material orders.
                     </div>
-<button class="w-full py-4 bg-primary text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 transition-all flex items-center justify-center gap-2">
+<button type="submit" class="w-full py-4 bg-primary text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 transition-all flex items-center justify-center gap-2 mt-auto">
 <span class="material-symbols-outlined text-lg">published_with_changes</span>
                         Update Rule
                     </button>
@@ -305,4 +305,21 @@ try {
 </div>
 </div>
 </main>
+<script>
+    (function () {
+        var forms = document.querySelectorAll('.payment-rule-form');
+        if (!forms.length) {
+            return;
+        }
+
+        forms.forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                var hasConfirmed = window.confirm('Are you sure you want to update these payment rules?');
+                if (!hasConfirmed) {
+                    event.preventDefault();
+                }
+            });
+        });
+    })();
+</script>
 </body></html>
