@@ -503,6 +503,14 @@ try {
             if ($receiptPaymentId === '') {
                 $paymentError = 'Missing payment receipt reference.';
             } else {
+                $recentReceiptState = isset($_SESSION['staff_last_receipt_email']) && is_array($_SESSION['staff_last_receipt_email'])
+                    ? $_SESSION['staff_last_receipt_email']
+                    : [];
+                $recentPaymentId = trim((string) ($recentReceiptState['payment_id'] ?? ''));
+                $recentTimestamp = (int) ($recentReceiptState['sent_at'] ?? 0);
+                if ($recentPaymentId === $receiptPaymentId && $recentTimestamp > 0 && (time() - $recentTimestamp) <= 45) {
+                    $receiptEmailSuccess = 'The receipt has been sent to the patient’s email.';
+                } else {
                 $receiptSql = "
                     SELECT
                         py.payment_id,
@@ -595,6 +603,10 @@ try {
                         . '</table>'
                         . '</div>';
                     if (staff_payment_recording_send_receipt_email($patientEmail, $emailSubject, $emailBodyText, $emailBodyHtml)) {
+                        $_SESSION['staff_last_receipt_email'] = [
+                            'payment_id' => $receiptPaymentId,
+                            'sent_at' => time(),
+                        ];
                         $receiptEmailSuccess = 'The receipt has been sent to the patient’s email.';
                     } else {
                         $smtpReason = '';
@@ -605,6 +617,7 @@ try {
                             . ($smtpReason !== '' ? (' SMTP error: ' . $smtpReason) : '');
                     }
                 }
+            }
             }
         } else {
         $patientQuery = trim((string) ($_POST['patient_query'] ?? ''));
@@ -2370,6 +2383,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
         const receiptEmailConfirmOverlay = document.getElementById('receipt-email-confirm-overlay');
         const receiptEmailConfirmClose = document.getElementById('receipt-email-confirm-close');
         let activeReceiptData = null;
+        let isSendingReceiptEmail = false;
         const transactionCandidates = <?php echo json_encode($transactionCandidates, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const openSelectorBtn = document.getElementById('open-transaction-selector-modal');
         const selectorModal = document.getElementById('transaction-selector-modal');
@@ -3181,10 +3195,14 @@ This booking is installment-priced, but no installment schedule rows exist in th
         }
         if (receiptSendEmailBtn) {
             receiptSendEmailBtn.addEventListener('click', () => {
-                if (!activeReceiptData || !receiptEmailForm || !receiptPaymentIdInput) {
+                if (!activeReceiptData || !receiptEmailForm || !receiptPaymentIdInput || isSendingReceiptEmail) {
                     return;
                 }
+                isSendingReceiptEmail = true;
                 receiptPaymentIdInput.value = String(activeReceiptData.payment_id || '');
+                receiptSendEmailBtn.disabled = true;
+                receiptSendEmailBtn.classList.add('opacity-70', 'cursor-not-allowed');
+                receiptSendEmailBtn.innerHTML = '<span class="material-symbols-outlined text-base">hourglass_top</span> Sending...';
                 receiptEmailForm.submit();
             });
         }
