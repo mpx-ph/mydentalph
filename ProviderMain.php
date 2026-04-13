@@ -111,22 +111,6 @@ require_once __DIR__ . '/provider_auth.php';
             clip-path: polygon(15% 0%, 100% 0%, 100% 100%, 0% 100%);
         }
 
-        /* Hero (SAMPLE1-style): soft fade from white into banner art, desktop only */
-        @media (min-width: 1024px) {
-            .hero-banner-image {
-                -webkit-mask-image: linear-gradient(90deg,
-                        transparent 0%,
-                        rgba(0, 0, 0, 0.2) 6%,
-                        #000 32%);
-                mask-image: linear-gradient(90deg,
-                        transparent 0%,
-                        rgba(0, 0, 0, 0.2) 6%,
-                        #000 32%);
-                mask-size: 100% 100%;
-                -webkit-mask-size: 100% 100%;
-            }
-        }
-
         .mesh-gradient {
             background-color: #ffffff;
             background-image:
@@ -143,6 +127,40 @@ require_once __DIR__ . '/provider_auth.php';
             background: linear-gradient(90deg, #2b8beb 0%, #2b8beb 50%, transparent 50%, transparent 100%);
             background-size: 20px 1px;
         }
+
+        /* Provider landing hero: full-width text over Banner1.svg (no extra overlays) */
+        .provider-hero {
+            min-height: clamp(32rem, 85vh, 60rem);
+            display: flex;
+            align-items: center;
+        }
+
+        .provider-hero__bg {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            background-color: #f7f9ff;
+            background-image: url('Banner1.svg');
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-position: 72% center;
+        }
+
+        @media (max-width: 1023px) {
+            .provider-hero__bg {
+                background-position: 60% center;
+            }
+        }
+
+        @media (max-width: 639px) {
+            .provider-hero {
+                min-height: clamp(28rem, 78vh, 52rem);
+            }
+
+            .provider-hero__bg {
+                background-position: 55% center;
+            }
+        }
     </style>
 </head>
 
@@ -150,70 +168,48 @@ require_once __DIR__ . '/provider_auth.php';
     <!-- Navigation (preserve existing login functionality) -->
     <?php include 'ProviderNavbar.php'; ?>
     <main>
-        <!-- Asymmetrical Hero Section -->
-        <section class="relative h-[85vh] flex items-stretch bg-white pt-0 overflow-hidden reveal"
-            data-reveal="section">
+        <!-- Hero: full-width banner (text over Banner1.svg) -->
+        <section class="provider-hero relative w-full overflow-hidden reveal" data-reveal="section">
+            <div class="provider-hero__bg" aria-hidden="true"></div>
             <div
-                class="max-w-[1800px] mx-auto w-full h-full grid grid-cols-1 lg:grid-cols-12 gap-0 items-stretch px-6 sm:px-8 lg:px-10">
-                <div class="lg:col-span-6 z-10 py-10 pr-8 self-center">
+                class="relative z-10 w-full max-w-[1800px] mx-auto px-5 sm:px-8 lg:px-14 xl:px-20 py-14 sm:py-16 lg:py-24">
+                <div class="max-w-xl lg:max-w-2xl xl:max-w-[40rem]">
                     <div
-                        class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8">
+                        class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-7 sm:mb-9">
                         <img src="MyDental%20Logo.svg" alt="My Dental Logo" class="h-4 w-auto" />
                         Platform Management
                     </div>
                     <h1
-                        class="font-headline text-[clamp(2.6rem,5.5vw,4.6rem)] font-extrabold tracking-[-0.05em] text-on-surface mb-6 leading-[0.88]">
+                        class="font-headline text-[clamp(2.25rem,6.2vw,4.75rem)] font-extrabold tracking-[-0.045em] text-on-surface mb-6 sm:mb-8 leading-[0.92]">
                         <span class="block">Modernize Your</span>
-                        <span class="relative block mt-1 text-[clamp(2.85rem,6vw,5.15rem)] leading-[0.92]">
+                        <span class="relative block">
                             <span
-                                class="font-editorial italic font-normal text-primary editorial-word inline-block">Practice.</span>
+                                class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Practice.</span>
                         </span>
                         <span
-                            class="block text-[clamp(1.2rem,2vw,2rem)] font-headline font-normal tracking-tight text-on-surface mt-3">
+                            class="block text-[clamp(1.05rem,2.4vw,1.85rem)] font-headline font-semibold tracking-tight text-on-surface/85 mt-2 sm:mt-3">
                             with <span
-                                class="font-editorial italic font-normal text-primary editorial-word inline-block">My
+                                class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">My
                                 Dental</span>
                         </span>
                     </h1>
-                    <p class="font-body text-lg max-w-lg mb-8 leading-relaxed text-on-surface-variant font-medium">
+                    <p
+                        class="font-body text-base sm:text-lg max-w-xl mb-9 sm:mb-10 leading-relaxed text-on-surface-variant font-medium">
                         The My Dental OS: a unified dental management suite designed for efficiency, architectural
                         precision, and multi-tenant clinic scaling.
                     </p>
-                    <div class="flex items-center gap-10">
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-10">
                         <a href="Provider-Plans.php"
-                            class="group relative px-10 py-5 bg-primary text-white font-bold rounded-full overflow-hidden transition-all hover:pr-14 active:scale-95 text-center transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                            class="group relative px-9 sm:px-10 py-4 sm:py-5 bg-primary text-white font-bold rounded-full overflow-hidden transition-all hover:pr-14 active:scale-95 text-center sm:text-left transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:w-auto w-full max-w-xs sm:max-w-none">
                             <span class="relative z-10">View Your Plans</span>
                             <span
                                 class="material-symbols-outlined absolute right-4 opacity-0 group-hover:opacity-100 transition-all">arrow_right_alt</span>
                         </a>
-                        <a class="font-bold text-sm uppercase tracking-widest flex items-center gap-3 hover:text-primary transition-colors transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
+                        <a class="font-bold text-sm uppercase tracking-widest flex items-center gap-3 hover:text-primary transition-colors transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded sm:justify-start justify-center"
                             href="ProviderContact.php">
-                            <span class="w-10 h-[1px] bg-on-surface/20"></span>
+                            <span class="w-10 h-[1px] bg-on-surface/25 shrink-0"></span>
                             Request Demo
                         </a>
-                    </div>
-                </div>
-                <div class="lg:col-span-6 relative h-full min-h-[280px] lg:min-h-0 self-stretch">
-                    <div
-                        class="absolute inset-0 lg:left-[-32%] lg:w-[132%] max-lg:left-0 max-lg:w-full bg-slate-100 overflow-hidden">
-                        <img alt="Dentist caring for a patient in a modern operatory"
-                            class="hero-banner-image block h-full w-full object-cover object-[52%_35%] max-lg:object-[center_30%]"
-                            src="Banner1.svg" width="1600" height="817" decoding="async" fetchpriority="high" />
-                    </div>
-                    <div
-                        class="absolute bottom-12 -left-6 glass-card p-6 rounded-2xl shadow-xl max-w-xs border border-white/40 transition-all duration-500 transform-gpu hover:-translate-y-1 hover:shadow-2xl">
-                        <div class="flex gap-4 items-start">
-                            <div
-                                class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0">
-                                <span class="material-symbols-outlined text-sm">dashboard_customize</span>
-                            </div>
-                            <div>
-                                <h4 class="font-headline font-extrabold text-sm tracking-tight mb-1">Unified Console
-                                </h4>
-                                <p class="text-[11px] leading-tight text-on-surface-variant font-medium">Manage patient
-                                    lifecycles, billing, and clinical assets from a single digital command center.</p>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
