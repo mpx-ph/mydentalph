@@ -2583,7 +2583,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
 </div>
 </div>
 </div>
-<div class="space-y-4" id="additional-services-section">
+<div class="hidden space-y-4" id="additional-services-section">
 <label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Additional Services</label>
 <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 space-y-3">
 <p class="text-[11px] font-semibold text-slate-500">Optional: add on-the-spot services. Selected services are added to treatment cost and reflected in schedule services. Services already on this appointment cannot be selected again.</p>
@@ -2842,6 +2842,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
             });
             renderSelectedAppointmentServices(null);
             updateClearBookingButtonVisibility();
+            updateAdditionalServicesVisibility();
             syncAmountWithAdditionalServices();
             refreshInstallmentPaymentUi();
         }
@@ -2872,6 +2873,14 @@ This booking is installment-priced, but no installment schedule rows exist in th
             if (clearBookingBtn) {
                 clearBookingBtn.classList.toggle('hidden', !hasBooking);
             }
+        }
+
+        function updateAdditionalServicesVisibility() {
+            if (!additionalServicesSection) {
+                return;
+            }
+            const hasBooking = !!(selectedTransaction && String(selectedTransaction.booking_id || '').trim() !== '');
+            additionalServicesSection.classList.toggle('hidden', !hasBooking);
         }
 
         function renderSelectedAppointmentServices(tx) {
@@ -3777,6 +3786,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     selectedTransactionLabel.textContent = selected.label;
                 }
                 selectedTransaction = selected;
+                updateAdditionalServicesVisibility();
                 if (amountInput) {
                     if (selected.is_installment_plan) {
                         syncMainAndSelectorFilter('installment');
@@ -3826,6 +3836,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
         }
         syncAmountWithAdditionalServices();
         refreshInstallmentPaymentUi();
+        updateAdditionalServicesVisibility();
 
         (function restoreSelectionAfterPost() {
             const bid = String(selectedBookingIdInput ? selectedBookingIdInput.value : '').trim();
@@ -3836,6 +3847,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const pre = normalizeTransactions.find((x) => x.booking_id === bid);
             if (pre) {
                 selectedTransaction = pre;
+                updateAdditionalServicesVisibility();
                 if (pre.is_installment_plan) {
                     syncMainAndSelectorFilter('installment');
                 } else {
@@ -3846,6 +3858,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 updateAdditionalServiceEligibility();
                 renderSelectedAppointmentServices(pre);
             }
+            updateAdditionalServicesVisibility();
             updateClearBookingButtonVisibility();
         })();
 
