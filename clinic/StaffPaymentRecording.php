@@ -526,6 +526,7 @@ $transactionCandidates = [];
 $availableServices = [];
 $supportsPaymentTypeColumn = false;
 $supportsAppointmentUpdatedAtColumn = false;
+$supportsAppointmentVisitTypeColumn = false;
 $supportsAppointmentServicesTable = false;
 $appointmentServiceColumns = [];
 $installmentsTableName = null;
@@ -633,6 +634,17 @@ try {
         ");
         $appointmentUpdatedAtColumnStmt->execute();
         $supportsAppointmentUpdatedAtColumn = (bool) $appointmentUpdatedAtColumnStmt->fetchColumn();
+
+        $appointmentVisitTypeColumnStmt = $pdo->prepare("
+            SELECT 1
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'tbl_appointments'
+              AND COLUMN_NAME = 'visit_type'
+            LIMIT 1
+        ");
+        $appointmentVisitTypeColumnStmt->execute();
+        $supportsAppointmentVisitTypeColumn = (bool) $appointmentVisitTypeColumnStmt->fetchColumn();
 
         $appointmentServicesTableStmt = $pdo->prepare("
             SELECT 1
@@ -1766,6 +1778,11 @@ try {
             $installmentPlanSelectSql = '( ' . implode(' OR ', $installmentPlanSqlParts) . ' ) AS is_installment_plan';
         }
 
+        $visitTypeSelectSql = $supportsAppointmentVisitTypeColumn
+            ? "COALESCE(a.visit_type, '') AS visit_type,"
+            : "'' AS visit_type,";
+        $visitTypeGroupSql = $supportsAppointmentVisitTypeColumn ? "a.visit_type," : '';
+
         $transactionsSql = "
             SELECT
                 a.booking_id,
@@ -1773,6 +1790,7 @@ try {
                 a.appointment_date,
                 a.appointment_time,
                 a.service_type,
+                {$visitTypeSelectSql}
                 {$installmentPlanSelectSql},
                 COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
                 COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0) AS total_paid,
@@ -1794,6 +1812,7 @@ try {
                 a.appointment_date,
                 a.appointment_time,
                 a.service_type,
+                {$visitTypeGroupSql}
                 a.total_treatment_cost,
                 p.first_name,
                 p.last_name
@@ -3227,6 +3246,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 patient_id: String(item.patient_id || ''),
                 patient_name: patientName,
                 service_type: String(item.service_type || '-'),
+                visit_type: String(item.visit_type || ''),
                 appointment_date: String(item.appointment_date || ''),
                 appointment_time: String(item.appointment_time || ''),
                 total_cost: totalCost,
@@ -3239,6 +3259,20 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 label: label
             };
         }).filter((item) => item.pending_balance > 0);
+
+        function getRecordTypeMeta(item) {
+            const rawType = String(item && item.visit_type ? item.visit_type : '').toLowerCase();
+            if (rawType === 'walk_in' || rawType === 'walk-in' || rawType === 'walkin') {
+                return {
+                    label: 'Walk-in',
+                    cls: 'bg-amber-100 text-amber-700 border border-amber-200'
+                };
+            }
+            return {
+                label: 'Booking',
+                cls: 'bg-sky-100 text-sky-700 border border-sky-200'
+            };
+        }
 
         function filterTransactionsByType(list) {
             if (transactionTypeFilter === 'installment') {
@@ -3374,6 +3408,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 const svcLine = (item.booked_services && item.booked_services.length)
                     ? item.booked_services.map((s) => escapeHtml(s.service_name || 'Service')).join(', ')
                     : escapeHtml(item.service_type);
+                const typeMeta = getRecordTypeMeta(item);
                 return '' +
                     '<div class="py-3 px-1 sm:px-2">' +
                         '<div class="rounded-2xl border border-slate-200 p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">' +
@@ -3384,7 +3419,10 @@ This booking is installment-priced, but no installment schedule rows exist in th
                                 '<p class="text-xs font-semibold text-slate-500 mt-1">Date: ' + escapeHtml(item.appointment_date || '-') + ' ' + escapeHtml(item.appointment_time || '') + '</p>' +
                                 '<p class="text-xs font-semibold text-slate-700 mt-1">Total: ₱' + item.total_cost.toFixed(2) + ' | Paid: ₱' + item.total_paid.toFixed(2) + ' | Pending: ₱' + item.pending_balance.toFixed(2) + '</p>' +
                             '</div>' +
-                            '<button type="button" data-action="select-transaction" data-booking-id="' + escapeHtml(item.booking_id) + '" class="shrink-0 px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-widest hover:bg-primary/90 transition-colors">Select</button>' +
+                            '<div class="shrink-0 flex items-center gap-2">' +
+                                '<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ' + typeMeta.cls + '">' + escapeHtml(typeMeta.label) + '</span>' +
+                                '<button type="button" data-action="select-transaction" data-booking-id="' + escapeHtml(item.booking_id) + '" class="px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-widest hover:bg-primary/90 transition-colors">Select</button>' +
+                            '</div>' +
                         '</div>' +
                     '</div>';
             }).join('');
