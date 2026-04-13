@@ -33,6 +33,8 @@ if ($user_initial === '') {
 <!-- Navigation -->
 <style>
     /* Prevent navbar "twitch" during page navigation while Tailwind CDN loads. */
+    /* No backdrop-filter here: it creates a containing block so position:fixed children
+       (mobile full-screen menu) only cover the header height and the page shows through. */
     .provider-navbar {
         position: fixed;
         top: 0;
@@ -42,9 +44,7 @@ if ($user_initial === '') {
         width: 100%;
         z-index: 50;
         overflow: visible;
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        background: rgba(255, 255, 255, 0.7);
+        background: rgba(255, 255, 255, 0.94);
         border-bottom: 1px solid rgba(19, 28, 37, 0.05);
         transition: background-color 200ms ease-out;
         will-change: background-color;
@@ -58,9 +58,27 @@ if ($user_initial === '') {
 
     .provider-nav-mobile__panel {
         overscroll-behavior: contain;
+        min-height: 100vh;
+        min-height: 100dvh;
+        /* Solid layer so hero never shows through; covers full viewport once header blur is gone */
+        background-color: #f7f9ff;
+        background-image: linear-gradient(180deg, #edf4ff 0%, #ffffff 52%, #f7f9ff 100%);
+    }
+
+    .dark .provider-nav-mobile__panel {
+        background-color: #101922;
+        background-image: linear-gradient(180deg, #131c25 0%, #101922 55%, #0c1218 100%);
+    }
+
+    .provider-nav-mobile__sheet a:not(.provider-nav-mobile__cta) {
+        color: #131c25;
+    }
+
+    .dark .provider-nav-mobile__sheet a:not(.provider-nav-mobile__cta) {
+        color: #f7f9ff;
     }
 </style>
-<header class="provider-navbar fixed top-0 left-0 right-0 z-50 h-16 w-full overflow-visible border-b border-on-surface/5 bg-white/70 dark:bg-background-dark/70 backdrop-blur-xl transition-colors duration-200 ease-out">
+<header class="provider-navbar fixed top-0 left-0 right-0 z-50 h-16 w-full overflow-visible border-b border-on-surface/5 bg-white/95 dark:bg-background-dark/95 transition-colors duration-200 ease-out">
 <div class="mx-auto max-w-[1800px] px-6 sm:px-8 lg:px-10 h-full overflow-visible">
 <div class="grid h-full grid-cols-[auto,1fr,auto] items-center overflow-visible">
 <div class="flex items-center gap-3">
@@ -125,7 +143,7 @@ Login
     <span class="material-symbols-outlined text-2xl leading-none" aria-hidden="true">menu</span>
 </summary>
 <div
-    class="provider-nav-mobile__panel fixed inset-0 z-[200] flex flex-col bg-gradient-to-b from-surface-container-low via-surface to-surface-variant dark:from-background-dark dark:via-background-dark dark:to-[#0c1218] md:hidden"
+    class="provider-nav-mobile__panel fixed inset-0 z-[200] flex min-h-0 w-screen flex-col md:hidden"
     role="dialog"
     aria-modal="true"
     aria-label="Site menu">
@@ -141,13 +159,13 @@ Login
             <img src="MyDental%20Logo.svg" alt="MyDental" width="160" height="40" class="h-10 w-auto" loading="lazy" decoding="async" />
         </a>
         <nav class="flex w-full max-w-md flex-col items-center gap-3 sm:gap-4" aria-label="Primary">
-            <a class="font-headline w-full rounded-2xl py-4 text-center text-xl font-extrabold uppercase tracking-[0.18em] text-on-surface transition-colors hover:bg-primary/10 hover:text-primary dark:text-surface sm:text-2xl" href="/">Home</a>
-            <a class="font-headline w-full rounded-2xl py-4 text-center text-xl font-extrabold uppercase tracking-[0.18em] text-on-surface transition-colors hover:bg-primary/10 hover:text-primary dark:text-surface sm:text-2xl" href="Provider-HowItWorks.php">More Features</a>
-            <a class="font-headline w-full rounded-2xl py-4 text-center text-xl font-extrabold uppercase tracking-[0.18em] text-on-surface transition-colors hover:bg-primary/10 hover:text-primary dark:text-surface sm:text-2xl" href="Provider-Plans.php">Pricing</a>
-            <a class="font-headline w-full rounded-2xl py-4 text-center text-xl font-extrabold uppercase tracking-[0.18em] text-on-surface transition-colors hover:bg-primary/10 hover:text-primary dark:text-surface sm:text-2xl" href="ProviderContact.php">Contact Us</a>
-            <a class="font-headline w-full rounded-2xl py-4 text-center text-xl font-extrabold uppercase tracking-[0.18em] text-on-surface transition-colors hover:bg-primary/10 hover:text-primary dark:text-surface sm:text-2xl" href="ProviderFAQs.php">FAQs</a>
+            <a class="font-headline w-full rounded-2xl py-4 text-center text-xl font-extrabold uppercase tracking-[0.18em] transition-colors hover:bg-primary/10 hover:text-primary sm:text-2xl" href="/">Home</a>
+            <a class="font-headline w-full rounded-2xl py-4 text-center text-xl font-extrabold uppercase tracking-[0.18em] transition-colors hover:bg-primary/10 hover:text-primary sm:text-2xl" href="Provider-HowItWorks.php">More Features</a>
+            <a class="font-headline w-full rounded-2xl py-4 text-center text-xl font-extrabold uppercase tracking-[0.18em] transition-colors hover:bg-primary/10 hover:text-primary sm:text-2xl" href="Provider-Plans.php">Pricing</a>
+            <a class="font-headline w-full rounded-2xl py-4 text-center text-xl font-extrabold uppercase tracking-[0.18em] transition-colors hover:bg-primary/10 hover:text-primary sm:text-2xl" href="ProviderContact.php">Contact Us</a>
+            <a class="font-headline w-full rounded-2xl py-4 text-center text-xl font-extrabold uppercase tracking-[0.18em] transition-colors hover:bg-primary/10 hover:text-primary sm:text-2xl" href="ProviderFAQs.php">FAQs</a>
         </nav>
-        <a href="Provider-Plans.php" class="font-headline mt-12 shrink-0 rounded-full bg-primary px-12 py-4 text-sm font-extrabold uppercase tracking-[0.2em] text-white shadow-lg shadow-primary/25 transition-transform hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+        <a href="Provider-Plans.php" class="provider-nav-mobile__cta font-headline mt-12 shrink-0 rounded-full bg-primary px-12 py-4 text-sm font-extrabold uppercase tracking-[0.2em] text-white shadow-lg shadow-primary/25 transition-transform hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
             View your plans
         </a>
     </div>
