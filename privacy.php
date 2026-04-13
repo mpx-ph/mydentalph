@@ -97,7 +97,7 @@ Privacy <span class="font-editorial italic font-normal text-primary editorial-wo
 </div>
 </section>
 
-<section class="max-w-[1800px] mx-auto px-6 sm:px-10 pb-20 reveal" data-reveal="section">
+<section class="max-w-[1800px] mx-auto px-6 sm:px-10 pb-20">
 <article class="max-w-3xl mx-auto bg-white dark:bg-slate-900/70 rounded-[2rem] border border-on-surface/5 shadow-[0_20px_50px_-15px_rgba(43,139,235,0.08)] px-6 sm:px-10 md:px-12 py-10 md:py-14 space-y-10 text-on-surface-variant leading-relaxed">
 <div class="prose-policy space-y-10 [&amp;_h2]:font-headline [&amp;_h2]:text-xl [&amp;_h2]:md:text-2xl [&amp;_h2]:font-extrabold [&amp;_h2]:text-on-surface [&amp;_h2]:tracking-tight [&amp;_h2]:mb-3 [&amp;_p]:text-[15px] [&amp;_p]:md:text-base [&amp;_ul]:list-disc [&amp;_ul]:pl-5 [&amp;_ul]:space-y-2 [&amp;_ul]:text-[15px] [&amp;_ul]:md:text-base">
 
