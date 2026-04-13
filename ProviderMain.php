@@ -156,11 +156,31 @@ require_once __DIR__ . '/provider_auth.php';
 
         @media (max-width: 639px) {
             .provider-hero {
-                min-height: clamp(30rem, 82vh, 56rem);
+                /* Stack copy in lower half like mobile reference */
+                align-items: flex-end;
+                min-height: clamp(31rem, 88vh, 52rem);
             }
 
             .provider-hero__bg {
-                background-position: 55% top;
+                background-position: 50% top;
+                background-size: cover;
+            }
+
+            /* White fade at bottom: asset has no built-in fade in this crop on narrow viewports */
+            .provider-hero::after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                z-index: 1;
+                pointer-events: none;
+                background: linear-gradient(
+                    to bottom,
+                    rgba(255, 255, 255, 0) 0%,
+                    rgba(255, 255, 255, 0) 38%,
+                    rgba(255, 255, 255, 0.55) 62%,
+                    rgba(255, 255, 255, 0.92) 82%,
+                    #ffffff 100%
+                );
             }
         }
     </style>
@@ -174,10 +194,10 @@ require_once __DIR__ . '/provider_auth.php';
         <section class="provider-hero relative w-full overflow-hidden reveal" data-reveal="section">
             <div class="provider-hero__bg" aria-hidden="true"></div>
             <div
-                class="relative z-10 w-full max-w-[1800px] mx-auto px-5 sm:px-8 lg:px-14 xl:px-20 py-14 sm:py-16 lg:py-24">
-                <div class="max-w-xl lg:max-w-2xl xl:max-w-[40rem]">
+                class="relative z-10 w-full max-w-[1800px] mx-auto px-5 sm:px-8 lg:px-14 xl:px-20 pt-8 pb-10 sm:py-16 lg:py-24">
+                <div class="w-full max-w-none sm:max-w-xl lg:max-w-2xl xl:max-w-[40rem]">
                     <h1
-                        class="font-headline text-[clamp(2.25rem,6.2vw,4.75rem)] font-extrabold tracking-[-0.045em] text-on-surface mb-6 sm:mb-8 leading-[0.92]">
+                        class="font-headline text-[clamp(2.1rem,7vw,4.75rem)] font-extrabold tracking-[-0.045em] text-on-surface mb-5 sm:mb-8 leading-[0.92]">
                         <span class="block">Modernize Your</span>
                         <span class="relative block">
                             <span
@@ -191,7 +211,7 @@ require_once __DIR__ . '/provider_auth.php';
                         </span>
                     </h1>
                     <p
-                        class="font-body text-base sm:text-lg max-w-xl mb-9 sm:mb-10 leading-relaxed text-on-surface-variant font-medium">
+                        class="font-body text-[0.9375rem] sm:text-lg w-full max-w-none sm:max-w-xl mb-8 sm:mb-10 leading-relaxed text-on-surface-variant font-medium">
                         The My Dental OS: a unified dental management suite designed for efficiency, architectural
                         precision, and multi-tenant clinic scaling.
                     </p>
