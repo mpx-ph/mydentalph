@@ -56,20 +56,8 @@ if ($user_initial === '') {
         height: 64px;
     }
 
-    .provider-nav-mobile > summary .provider-nav-mobile__icon--menu {
-        display: block;
-    }
-
-    .provider-nav-mobile > summary .provider-nav-mobile__icon--close {
-        display: none;
-    }
-
-    .provider-nav-mobile[open] > summary .provider-nav-mobile__icon--menu {
-        display: none;
-    }
-
-    .provider-nav-mobile[open] > summary .provider-nav-mobile__icon--close {
-        display: block;
+    .provider-nav-mobile__panel {
+        overscroll-behavior: contain;
     }
 </style>
 <header class="provider-navbar fixed top-0 left-0 right-0 z-50 h-16 w-full overflow-visible border-b border-on-surface/5 bg-white/70 dark:bg-background-dark/70 backdrop-blur-xl transition-colors duration-200 ease-out">
@@ -128,23 +116,69 @@ if ($user_initial === '') {
 Login
 </a>
 <?php endif; ?>
-<!-- Mobile menu to the right of Login / account (md+ uses horizontal nav) -->
+<!-- Mobile menu: full-screen overlay (md+ uses horizontal nav) -->
 <details class="provider-nav-mobile relative z-[60] md:hidden">
 <summary
     class="relative flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-xl border border-on-surface/10 bg-white/80 text-on-surface shadow-sm transition-colors hover:border-primary/25 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-slate-900/40 dark:text-surface [&::-webkit-details-marker]:hidden"
-    aria-label="Menu">
-    <span class="provider-nav-mobile__icon--menu material-symbols-outlined text-2xl leading-none" aria-hidden="true">menu</span>
-    <span class="provider-nav-mobile__icon--close material-symbols-outlined absolute text-2xl leading-none" aria-hidden="true">close</span>
+    aria-label="Open menu"
+    aria-expanded="false">
+    <span class="material-symbols-outlined text-2xl leading-none" aria-hidden="true">menu</span>
 </summary>
 <div
-    class="absolute right-0 top-[calc(100%+0.5rem)] w-[min(calc(100vw-2rem),18rem)] rounded-2xl border border-on-surface/10 bg-white/95 py-2 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/95">
-    <a class="block px-4 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-on-surface/80 hover:bg-primary/5 hover:text-primary dark:text-surface/85" href="/">Home</a>
-    <a class="block px-4 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-on-surface/80 hover:bg-primary/5 hover:text-primary dark:text-surface/85" href="Provider-HowItWorks.php">More Features</a>
-    <a class="block px-4 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-on-surface/80 hover:bg-primary/5 hover:text-primary dark:text-surface/85" href="Provider-Plans.php">Pricing</a>
-    <a class="block px-4 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-on-surface/80 hover:bg-primary/5 hover:text-primary dark:text-surface/85" href="ProviderContact.php">Contact Us</a>
-    <a class="block px-4 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-on-surface/80 hover:bg-primary/5 hover:text-primary dark:text-surface/85" href="ProviderFAQs.php">FAQs</a>
+    class="provider-nav-mobile__panel fixed inset-0 z-[200] flex flex-col bg-gradient-to-b from-surface-container-low via-surface to-surface-variant dark:from-background-dark dark:via-background-dark dark:to-[#0c1218] md:hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Site menu">
+    <button
+        type="button"
+        class="absolute right-4 top-5 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-on-surface/10 bg-white/90 text-on-surface shadow-md transition-colors hover:border-primary/30 hover:bg-white hover:text-primary dark:border-white/10 dark:bg-slate-900/80 dark:text-surface dark:hover:bg-slate-800"
+        aria-label="Close menu">
+        <span class="material-symbols-outlined text-2xl leading-none" aria-hidden="true">close</span>
+    </button>
+    <div class="absolute inset-0 z-0 bg-on-surface/[0.04] dark:bg-black/30" aria-hidden="true"></div>
+    <div class="provider-nav-mobile__sheet relative z-10 flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-8 pb-16 pt-20">
+        <a href="/" class="mb-14 shrink-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+            <img src="MyDental%20Logo.svg" alt="MyDental" width="160" height="40" class="h-10 w-auto" loading="lazy" decoding="async" />
+        </a>
+        <nav class="flex w-full max-w-md flex-col items-center gap-3 sm:gap-4" aria-label="Primary">
+            <a class="font-headline w-full rounded-2xl py-4 text-center text-xl font-extrabold uppercase tracking-[0.18em] text-on-surface transition-colors hover:bg-primary/10 hover:text-primary dark:text-surface sm:text-2xl" href="/">Home</a>
+            <a class="font-headline w-full rounded-2xl py-4 text-center text-xl font-extrabold uppercase tracking-[0.18em] text-on-surface transition-colors hover:bg-primary/10 hover:text-primary dark:text-surface sm:text-2xl" href="Provider-HowItWorks.php">More Features</a>
+            <a class="font-headline w-full rounded-2xl py-4 text-center text-xl font-extrabold uppercase tracking-[0.18em] text-on-surface transition-colors hover:bg-primary/10 hover:text-primary dark:text-surface sm:text-2xl" href="Provider-Plans.php">Pricing</a>
+            <a class="font-headline w-full rounded-2xl py-4 text-center text-xl font-extrabold uppercase tracking-[0.18em] text-on-surface transition-colors hover:bg-primary/10 hover:text-primary dark:text-surface sm:text-2xl" href="ProviderContact.php">Contact Us</a>
+            <a class="font-headline w-full rounded-2xl py-4 text-center text-xl font-extrabold uppercase tracking-[0.18em] text-on-surface transition-colors hover:bg-primary/10 hover:text-primary dark:text-surface sm:text-2xl" href="ProviderFAQs.php">FAQs</a>
+        </nav>
+        <a href="Provider-Plans.php" class="font-headline mt-12 shrink-0 rounded-full bg-primary px-12 py-4 text-sm font-extrabold uppercase tracking-[0.2em] text-white shadow-lg shadow-primary/25 transition-transform hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+            View your plans
+        </a>
+    </div>
 </div>
 </details>
+<script>
+(function () {
+    var root = document.querySelector('.provider-nav-mobile');
+    if (!root) return;
+    var summary = root.querySelector('summary');
+    var panel = root.querySelector('.provider-nav-mobile__panel');
+    function closeNav() {
+        root.removeAttribute('open');
+    }
+    function setOpenState(open) {
+        document.documentElement.style.overflow = open ? 'hidden' : '';
+        if (summary) summary.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    root.addEventListener('toggle', function () {
+        setOpenState(root.open);
+    });
+    if (panel) {
+        panel.addEventListener('click', function () {
+            closeNav();
+        });
+    }
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && root.open) closeNav();
+    });
+})();
+</script>
 </div>
 </div>
 </div>
