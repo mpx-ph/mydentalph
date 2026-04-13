@@ -33,6 +33,8 @@ try {
     $servicesTable = $dbTables['services'];
     $paymentsTable = $dbTables['payments'];
     $appointmentsTable = $dbTables['appointments'];
+    $installmentsTable = clinic_get_physical_table_name($pdo, 'tbl_installments')
+        ?? clinic_get_physical_table_name($pdo, 'installments');
     if ($treatmentsTable === null || $servicesTable === null) {
         echo json_encode([
             'success' => true,
@@ -152,6 +154,83 @@ try {
         }
     }
 
+    $computedMonthsLeft = null;
+    if ($installmentsTable !== null) {
+        $installmentsCols = clinic_table_columns($pdo, $installmentsTable);
+        $installmentsHasTreatmentId = in_array('treatment_id', $installmentsCols, true);
+        $installmentsHasBookingId = in_array('booking_id', $installmentsCols, true);
+        $installmentsHasStatus = in_array('status', $installmentsCols, true);
+        $appointmentsColsForInstallments = $appointmentsTable !== null ? clinic_table_columns($pdo, $appointmentsTable) : [];
+        $appointmentsHasTreatmentIdForInstallments = in_array('treatment_id', $appointmentsColsForInstallments, true);
+        $appointmentsHasBookingIdForInstallments = in_array('booking_id', $appointmentsColsForInstallments, true);
+        $canJoinInstallmentsByBooking = $qa !== null
+            && $installmentsHasBookingId
+            && $appointmentsHasBookingIdForInstallments
+            && $appointmentsHasTreatmentIdForInstallments;
+        $qi = clinic_quote_identifier($installmentsTable);
+        $treatmentId = (string) ($treatment['treatment_id'] ?? '');
+
+        if ($treatmentId !== '' && $installmentsHasStatus) {
+            if ($installmentsHasTreatmentId && $canJoinInstallmentsByBooking) {
+                $monthsStmt = $pdo->prepare("
+                    SELECT
+                        COUNT(*) AS total_rows,
+                        COALESCE(SUM(CASE WHEN LOWER(COALESCE(i.status, '')) IN ('paid','completed') THEN 1 ELSE 0 END), 0) AS settled_rows
+                    FROM {$qi} i
+                    WHERE i.tenant_id = ?
+                      AND (
+                            i.treatment_id = ?
+                            OR (
+                                COALESCE(i.treatment_id, '') = ''
+                                AND EXISTS (
+                                    SELECT 1
+                                    FROM {$qa} a
+                                    WHERE a.tenant_id = i.tenant_id
+                                      AND a.booking_id = i.booking_id
+                                      AND a.treatment_id = ?
+                                )
+                            )
+                      )
+                ");
+                $monthsStmt->execute([$tenantId, $treatmentId, $treatmentId]);
+            } elseif ($installmentsHasTreatmentId) {
+                $monthsStmt = $pdo->prepare("
+                    SELECT
+                        COUNT(*) AS total_rows,
+                        COALESCE(SUM(CASE WHEN LOWER(COALESCE(i.status, '')) IN ('paid','completed') THEN 1 ELSE 0 END), 0) AS settled_rows
+                    FROM {$qi} i
+                    WHERE i.tenant_id = ?
+                      AND i.treatment_id = ?
+                ");
+                $monthsStmt->execute([$tenantId, $treatmentId]);
+            } elseif ($canJoinInstallmentsByBooking) {
+                $monthsStmt = $pdo->prepare("
+                    SELECT
+                        COUNT(*) AS total_rows,
+                        COALESCE(SUM(CASE WHEN LOWER(COALESCE(i.status, '')) IN ('paid','completed') THEN 1 ELSE 0 END), 0) AS settled_rows
+                    FROM {$qi} i
+                    INNER JOIN {$qa} a
+                      ON a.tenant_id = i.tenant_id
+                     AND a.booking_id = i.booking_id
+                    WHERE i.tenant_id = ?
+                      AND a.treatment_id = ?
+                ");
+                $monthsStmt->execute([$tenantId, $treatmentId]);
+            } else {
+                $monthsStmt = null;
+            }
+
+            if (isset($monthsStmt) && $monthsStmt !== null) {
+                $rows = $monthsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+                $totalRows = (int) ($rows['total_rows'] ?? 0);
+                $settledRows = (int) ($rows['settled_rows'] ?? 0);
+                if ($totalRows > 0) {
+                    $computedMonthsLeft = max(0, $totalRows - $settledRows);
+                }
+            }
+        }
+    }
+
     $totalCost = (float) ($treatment['total_cost'] ?? 0);
     $amountPaid = $paymentsTotalPaid !== null
         ? $paymentsTotalPaid
@@ -176,7 +255,9 @@ try {
                 'remaining_balance' => round($remainingBalance, 2),
                 'duration_months' => (int) ($treatment['duration_months'] ?? 0),
                 'months_paid' => (int) ($treatment['months_paid'] ?? 0),
-                'months_left' => (int) ($treatment['months_left'] ?? 0),
+                'months_left' => $computedMonthsLeft !== null
+                    ? (int) $computedMonthsLeft
+                    : (int) ($treatment['months_left'] ?? 0),
                 'progress_percentage' => round($progressPct, 2),
                 'started_at' => (string) ($treatment['started_at'] ?? ''),
                 'primary_service' => $service,
