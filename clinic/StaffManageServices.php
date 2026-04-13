@@ -628,9 +628,15 @@ function bindEvents() {
     document.getElementById('saveServiceChangesBtn').addEventListener('click', saveServiceChanges);
 
     document.getElementById('servicesTableBody').addEventListener('click', function (e) {
-        const btn = e.target.closest('[data-edit-id]');
-        if (!btn) return;
-        openEditServiceModal(parseInt(btn.getAttribute('data-edit-id'), 10));
+        const editBtn = e.target.closest('[data-edit-id]');
+        if (editBtn) {
+            openEditServiceModal(parseInt(editBtn.getAttribute('data-edit-id'), 10));
+            return;
+        }
+        const deleteBtn = e.target.closest('[data-delete-id]');
+        if (deleteBtn) {
+            void deleteService(parseInt(deleteBtn.getAttribute('data-delete-id'), 10));
+        }
     });
 
     document.getElementById('categoryFilters').addEventListener('click', function (e) {
@@ -752,6 +758,7 @@ function renderServices() {
         const serviceName = escapeHtml(service.service_name || '');
         const serviceDetails = escapeHtml(service.service_details || '');
         const serviceId = escapeHtml(service.service_id || '');
+        const serviceNameAttr = escapeHtmlAttr(service.service_name || 'this service');
         const category = escapeHtml(service.category || 'Uncategorized');
         const colorClass = categoryColors[service.category] || 'bg-slate-100 text-slate-700';
         const price = Number(service.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -769,7 +776,16 @@ function renderServices() {
             '<td class="px-6 py-4"><span class="font-extrabold text-slate-900">P' + price + '</span></td>' +
             '<td class="px-6 py-4">' + status + '</td>' +
             '<td class="px-6 py-4 text-sm text-slate-500">' + escapeHtml(updatedAt) + '</td>' +
-            '<td class="px-6 py-4 text-right"><button class="text-primary font-bold text-sm hover:underline inline-flex items-center gap-1" data-edit-id="' + Number(service.id) + '"><span class="material-symbols-outlined text-sm">edit</span>Edit</button></td>' +
+            '<td class="px-6 py-4 text-right">' +
+                '<div class="inline-flex items-center gap-2 justify-end">' +
+                    '<button class="text-primary font-bold text-sm hover:underline inline-flex items-center gap-1" data-edit-id="' + Number(service.id) + '">' +
+                        '<span class="material-symbols-outlined text-sm">edit</span>Edit' +
+                    '</button>' +
+                    '<button class="text-red-600 font-bold text-sm hover:underline inline-flex items-center gap-1" data-delete-id="' + Number(service.id) + '" data-delete-name="' + serviceNameAttr + '">' +
+                        '<span class="material-symbols-outlined text-sm">delete</span>Delete' +
+                    '</button>' +
+                '</div>' +
+            '</td>' +
             '</tr>';
     }).join('');
 
@@ -1191,6 +1207,44 @@ function saveServiceChanges() {
     }).catch(function (err) {
         void staffUiAlert({ message: err.message || 'Failed to update service.', variant: 'error', title: 'Could not update service' });
     });
+}
+
+async function deleteService(serviceId) {
+    if (!serviceId || Number.isNaN(serviceId)) {
+        return;
+    }
+    const service = allServices.find(function (s) { return Number(s.id) === Number(serviceId); });
+    const serviceName = service && service.service_name ? String(service.service_name) : 'this service';
+    const ok = await staffUiConfirm({
+        title: 'Delete service?',
+        message: 'This will deactivate "' + serviceName + '" and hide it from active service lists.',
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel',
+        variant: 'danger'
+    });
+    if (!ok) {
+        return;
+    }
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ id: Number(serviceId) })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Failed to delete service.');
+        }
+        await staffUiAlert({
+            title: 'Service deleted',
+            message: '"' + serviceName + '" has been deactivated successfully.',
+            variant: 'success'
+        });
+        loadServices();
+    } catch (error) {
+        await staffUiAlert({ message: error.message || 'Failed to delete service.', variant: 'error', title: 'Could not delete service' });
+    }
 }
 
 function exportToCSV() {
