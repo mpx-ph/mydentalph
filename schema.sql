@@ -772,5 +772,60 @@ CREATE TABLE IF NOT EXISTS tbl_payment_settings (
     KEY idx_payment_settings_updated_by (updated_by)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ============================================
+-- TREATMENTS (installment source of truth)
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_treatments (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    treatment_id VARCHAR(50) NOT NULL,
+    patient_id VARCHAR(50) NOT NULL,
+    primary_service_id VARCHAR(50) NOT NULL,
+    primary_service_name VARCHAR(255) DEFAULT NULL,
+    total_cost DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    amount_paid DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    remaining_balance DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    duration_months INT NOT NULL DEFAULT 0,
+    months_paid INT NOT NULL DEFAULT 0,
+    months_left INT NOT NULL DEFAULT 0,
+    status ENUM('active','completed','cancelled') NOT NULL DEFAULT 'active',
+    started_at DATE DEFAULT NULL,
+    completed_at DATE DEFAULT NULL,
+    created_by VARCHAR(20) DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_treatments_tenant_treatment (tenant_id, treatment_id),
+    KEY idx_treatments_patient_status (tenant_id, patient_id, status),
+    KEY idx_treatments_primary_service (tenant_id, primary_service_id),
+    CONSTRAINT fk_treatments_tenant FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id) ON DELETE CASCADE,
+    CONSTRAINT fk_treatments_patient FOREIGN KEY (tenant_id, patient_id) REFERENCES tbl_patients(tenant_id, patient_id) ON DELETE CASCADE,
+    CONSTRAINT fk_treatments_service FOREIGN KEY (tenant_id, primary_service_id) REFERENCES tbl_services(tenant_id, service_id) ON DELETE RESTRICT,
+    CONSTRAINT fk_treatments_created_by FOREIGN KEY (created_by) REFERENCES tbl_users(user_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE tbl_appointments ADD COLUMN treatment_id VARCHAR(50) NULL AFTER patient_id;
+ALTER TABLE tbl_appointment_services ADD COLUMN treatment_id VARCHAR(50) NULL AFTER booking_id;
+ALTER TABLE tbl_payments ADD COLUMN treatment_id VARCHAR(50) NULL AFTER booking_id;
+ALTER TABLE tbl_installments ADD COLUMN treatment_id VARCHAR(50) NULL AFTER booking_id;
+
+ALTER TABLE tbl_appointments ADD KEY idx_appointments_treatment (tenant_id, treatment_id);
+ALTER TABLE tbl_appointment_services ADD KEY idx_appointment_services_treatment (tenant_id, treatment_id);
+ALTER TABLE tbl_payments ADD KEY idx_payments_treatment (tenant_id, treatment_id);
+ALTER TABLE tbl_installments ADD KEY idx_installments_treatment (tenant_id, treatment_id);
+
+ALTER TABLE tbl_appointments
+    ADD CONSTRAINT fk_appointments_treatment
+    FOREIGN KEY (tenant_id, treatment_id) REFERENCES tbl_treatments(tenant_id, treatment_id) ON DELETE SET NULL;
+ALTER TABLE tbl_appointment_services
+    ADD CONSTRAINT fk_appointment_services_treatment
+    FOREIGN KEY (tenant_id, treatment_id) REFERENCES tbl_treatments(tenant_id, treatment_id) ON DELETE SET NULL;
+ALTER TABLE tbl_payments
+    ADD CONSTRAINT fk_payments_treatment
+    FOREIGN KEY (tenant_id, treatment_id) REFERENCES tbl_treatments(tenant_id, treatment_id) ON DELETE SET NULL;
+ALTER TABLE tbl_installments
+    ADD CONSTRAINT fk_installments_treatment
+    FOREIGN KEY (tenant_id, treatment_id) REFERENCES tbl_treatments(tenant_id, treatment_id) ON DELETE SET NULL;
+
 SET FOREIGN_KEY_CHECKS = 1;
 

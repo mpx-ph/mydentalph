@@ -80,6 +80,7 @@ try {
     $appointmentServicesTable = $tblApsPhys ?? $legacyApsPhys;
 
     $servicesCatalogTable = $dbTables['services'];
+    $treatmentsTable = $dbTables['treatments'] ?? null;
     if ($appointmentsTable === null || $appointmentServicesTable === null || $servicesCatalogTable === null) {
         echo json_encode(['success' => false, 'message' => 'Database is missing appointment or service tables. Ensure schema/migrations are applied.']);
         exit;
@@ -179,10 +180,14 @@ try {
     $serviceDescriptions = [];
     $totalCost = 0.0;
     $normalizedServices = [];
+    $hasInstallmentService = false;
+    $requestedTreatmentId = trim((string) ($input['treatment_id'] ?? ''));
+    $resolvedTreatmentId = '';
+    $activeTreatment = null;
 
     $quotedSvc = clinic_quote_identifier($servicesCatalogTable);
     $serviceStmt = $pdo->prepare("
-        SELECT service_id, service_name, category, price
+        SELECT service_id, service_name, category, price, enable_installment, installment_duration_months
         FROM {$quotedSvc}
         WHERE tenant_id = ? AND service_id = ? AND status = 'active'
         LIMIT 1
@@ -204,7 +209,12 @@ try {
             'service_id' => (string) ($serviceRow['service_id'] ?? ''),
             'service_name' => $name,
             'price' => $price,
+            'enable_installment' => !empty($serviceRow['enable_installment']),
+            'installment_duration_months' => (int) ($serviceRow['installment_duration_months'] ?? 0),
         ];
+        if (!empty($serviceRow['enable_installment'])) {
+            $hasInstallmentService = true;
+        }
         if ($name !== '') {
             $serviceNames[] = $name;
             $serviceDescriptions[] = $name . ' (₱' . number_format($price, 2) . ')';
@@ -218,6 +228,65 @@ try {
         exit;
     }
 
+    if ($treatmentsTable !== null) {
+        $qtreat = clinic_quote_identifier($treatmentsTable);
+        $activeTreatmentStmt = $pdo->prepare("
+            SELECT *
+            FROM {$qtreat}
+            WHERE tenant_id = ?
+              AND patient_id = ?
+              AND LOWER(COALESCE(status, 'active')) = 'active'
+            ORDER BY started_at DESC, id DESC
+            LIMIT 1
+        ");
+        $activeTreatmentStmt->execute([$tenantId, $patientId]);
+        $activeTreatment = $activeTreatmentStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+        if ($requestedTreatmentId !== '') {
+            if (!$activeTreatment || (string) ($activeTreatment['treatment_id'] ?? '') !== $requestedTreatmentId) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Selected treatment is no longer active for this patient.']);
+                exit;
+            }
+            $resolvedTreatmentId = $requestedTreatmentId;
+        } elseif ($activeTreatment) {
+            $resolvedTreatmentId = (string) ($activeTreatment['treatment_id'] ?? '');
+        }
+
+        if ($resolvedTreatmentId !== '' && $activeTreatment) {
+            $primaryServiceId = (string) ($activeTreatment['primary_service_id'] ?? '');
+            $hasPrimary = false;
+            foreach ($normalizedServices as $s) {
+                if ((string) ($s['service_id'] ?? '') === $primaryServiceId) {
+                    $hasPrimary = true;
+                    break;
+                }
+            }
+            if (!$hasPrimary && $primaryServiceId !== '') {
+                $serviceStmt->execute([$tenantId, $primaryServiceId]);
+                $primaryRow = $serviceStmt->fetch(PDO::FETCH_ASSOC);
+                if ($primaryRow) {
+                    $normalizedServices[] = [
+                        'service_id' => (string) ($primaryRow['service_id'] ?? ''),
+                        'service_name' => (string) ($primaryRow['service_name'] ?? ''),
+                        'price' => (float) ($primaryRow['price'] ?? 0),
+                        'enable_installment' => !empty($primaryRow['enable_installment']),
+                        'installment_duration_months' => (int) ($primaryRow['installment_duration_months'] ?? 0),
+                    ];
+                }
+            }
+            foreach ($normalizedServices as $s) {
+                if (!empty($s['enable_installment']) && (string) $s['service_id'] !== $primaryServiceId) {
+                    $pdo->rollBack();
+                    echo json_encode(['success' => false, 'message' => 'Only regular add-on services are allowed while an installment treatment is active.']);
+                    exit;
+                }
+            }
+        }
+    }
+
+    $serviceNames = array_values(array_unique($serviceNames));
+    $serviceDescriptions = array_values(array_unique($serviceDescriptions));
     $serviceType = implode(', ', array_slice($serviceNames, 0, 3));
     if (count($serviceNames) > 3) {
         $serviceType .= ' (+' . (count($serviceNames) - 3) . ' more)';
@@ -242,6 +311,76 @@ try {
     $statusForDb = strtolower((string) $status);
     if ($statusForDb === 'scheduled') {
         $statusForDb = 'confirmed';
+    }
+
+    if ($treatmentsTable !== null && $resolvedTreatmentId === '' && $hasInstallmentService) {
+        if ($activeTreatment) {
+            $pdo->rollBack();
+            echo json_encode(['success' => false, 'message' => 'Patient already has an active installment treatment.']);
+            exit;
+        }
+        $primaryInstallment = null;
+        foreach ($normalizedServices as $s) {
+            if (!empty($s['enable_installment'])) {
+                $primaryInstallment = $s;
+                break;
+            }
+        }
+        if ($primaryInstallment !== null) {
+            $qtreat = clinic_quote_identifier($treatmentsTable);
+            $cols = clinic_table_columns($pdo, $treatmentsTable);
+            $prefix = 'TRT-' . $nowClinic->format('Y') . '-';
+            $seq = 0;
+            $lastTStmt = $pdo->prepare("
+                SELECT treatment_id FROM {$qtreat}
+                WHERE tenant_id = ? AND treatment_id LIKE ?
+                ORDER BY treatment_id DESC LIMIT 1
+            ");
+            $lastTStmt->execute([$tenantId, $prefix . '%']);
+            $lastTreatmentId = (string) ($lastTStmt->fetchColumn() ?: '');
+            if ($lastTreatmentId !== '') {
+                $parts = explode('-', $lastTreatmentId);
+                if (count($parts) === 3) {
+                    $seq = (int) $parts[2];
+                }
+            }
+            $resolvedTreatmentId = $prefix . str_pad((string) ($seq + 1), 6, '0', STR_PAD_LEFT);
+            $tdata = [
+                'tenant_id' => $tenantId,
+                'treatment_id' => $resolvedTreatmentId,
+                'patient_id' => $patientId,
+                'primary_service_id' => (string) ($primaryInstallment['service_id'] ?? ''),
+                'primary_service_name' => (string) ($primaryInstallment['service_name'] ?? ''),
+                'total_cost' => (float) ($primaryInstallment['price'] ?? 0),
+                'amount_paid' => 0.0,
+                'remaining_balance' => (float) ($primaryInstallment['price'] ?? 0),
+                'duration_months' => max(0, (int) ($primaryInstallment['installment_duration_months'] ?? 0)),
+                'months_paid' => 0,
+                'months_left' => max(0, (int) ($primaryInstallment['installment_duration_months'] ?? 0)),
+                'status' => 'active',
+                'started_at' => $appointmentDate,
+                'created_by' => $createdBy,
+            ];
+            $tCols = [];
+            $tPlace = [];
+            $tParams = [];
+            foreach (['tenant_id','treatment_id','patient_id','primary_service_id','primary_service_name','total_cost','amount_paid','remaining_balance','duration_months','months_paid','months_left','status','started_at','created_by'] as $col) {
+                if (!in_array($col, $cols, true)) {
+                    continue;
+                }
+                $tCols[] = clinic_quote_identifier($col);
+                $tPlace[] = '?';
+                $tParams[] = $tdata[$col];
+            }
+            if (in_array('created_at', $cols, true)) {
+                $tCols[] = '`created_at`';
+                $tPlace[] = 'NOW()';
+            }
+            if ($tCols !== []) {
+                $insTreat = $pdo->prepare('INSERT INTO ' . $qtreat . ' (' . implode(', ', $tCols) . ') VALUES (' . implode(', ', $tPlace) . ')');
+                $insTreat->execute($tParams);
+            }
+        }
     }
 
     $storageTargets = [
@@ -295,6 +434,7 @@ try {
             'target_completion_date' => null,
             'start_date' => null,
             'created_by' => $createdBy,
+            'treatment_id' => $resolvedTreatmentId !== '' ? $resolvedTreatmentId : null,
         ];
         if (in_array('dentist_id', $apptCols, true)) {
             $apptData['dentist_id'] = (int) $dentistId;
@@ -304,7 +444,7 @@ try {
         $insertPlaceholders = [];
         $insertParams = [];
         $columnOrder = [
-            'tenant_id', 'dentist_id', 'booking_id', 'patient_id', 'appointment_date', 'appointment_time',
+            'tenant_id', 'dentist_id', 'booking_id', 'patient_id', 'treatment_id', 'appointment_date', 'appointment_time',
             'service_type', 'service_description', 'treatment_type', 'visit_type', 'status', 'notes',
             'total_treatment_cost', 'duration_months', 'target_completion_date', 'start_date', 'created_by',
         ];
@@ -348,7 +488,8 @@ try {
                 'service_id' => $serviceRow['service_id'],
                 'service_name' => $serviceRow['service_name'],
                 'price' => $serviceRow['price'],
-                'is_original' => 1,
+                'is_original' => ($resolvedTreatmentId !== '' && !empty($activeTreatment) && (string) $serviceRow['service_id'] !== (string) ($activeTreatment['primary_service_id'] ?? '')) ? 0 : 1,
+                'treatment_id' => $resolvedTreatmentId !== '' ? $resolvedTreatmentId : null,
                 'added_by' => $createdBy,
             ];
             if (in_array('appointment_id', $apsCols, true)) {
@@ -357,7 +498,7 @@ try {
             $svcInsertCols = [];
             $svcPlaceholders = [];
             $svcParams = [];
-            $apsOrder = ['tenant_id', 'booking_id', 'appointment_id', 'service_id', 'service_name', 'price', 'is_original', 'added_by'];
+            $apsOrder = ['tenant_id', 'booking_id', 'appointment_id', 'treatment_id', 'service_id', 'service_name', 'price', 'is_original', 'added_by'];
             foreach ($apsOrder as $col) {
                 if (!in_array($col, $apsCols, true) || !array_key_exists($col, $rowData)) {
                     continue;
@@ -415,6 +556,7 @@ try {
         'data' => [
             'booking_id' => $bookingId,
             'appointment_id' => $firstAppointmentId,
+            'treatment_id' => $resolvedTreatmentId,
             'database' => $dbName,
             'written_to' => $written,
         ],

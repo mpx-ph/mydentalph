@@ -71,6 +71,7 @@ if (!function_exists('clinic_resolve_appointment_db_tables')) {
      *   patients: ?string,
      *   users: ?string,
      *   payments: ?string,
+ *   treatments: ?string,
      *   tenants: ?string,
      *   dentists: ?string
      * }
@@ -94,6 +95,7 @@ if (!function_exists('clinic_resolve_appointment_db_tables')) {
             'patients' => $pick($pdo, ['tbl_patients', 'patients']),
             'users' => $pick($pdo, ['tbl_users', 'users']),
             'payments' => $pick($pdo, ['tbl_payments', 'payments']),
+            'treatments' => $pick($pdo, ['tbl_treatments', 'treatments']),
             'tenants' => $pick($pdo, ['tbl_tenants', 'tenants']),
             'dentists' => $pick($pdo, ['tbl_dentists', 'dentists']),
         ];

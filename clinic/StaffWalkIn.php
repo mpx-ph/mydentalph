@@ -342,32 +342,41 @@ try {
                     <div class="flex items-center justify-between gap-3 mb-4">
                         <div>
                             <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Payment Details</p>
-                            <h3 class="text-lg font-extrabold text-slate-900">Cost Preview</h3>
+                            <h3 class="text-lg font-extrabold text-slate-900">Treatment Payment Progress</h3>
                         </div>
                         <span class="inline-flex items-center gap-1 text-xs font-bold text-slate-500">
                             <span class="material-symbols-outlined text-[16px]">payments</span>
-                            <span id="walkInInstallmentAvailable">Installment Available: No</span>
+                            <span id="walkInInstallmentAvailable">Active Installment Treatment: No</span>
                         </span>
+                    </div>
+                    <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4 mb-4">
+                        <div class="flex items-center justify-between text-[11px] font-bold text-slate-600">
+                            <span>Payment Completion</span>
+                            <span id="walkInPaymentProgressLabel">0%</span>
+                        </div>
+                        <div class="mt-2 h-3 w-full rounded-full bg-slate-200 overflow-hidden">
+                            <div id="walkInPaymentProgressBar" class="h-full bg-gradient-to-r from-primary to-blue-500 rounded-full" style="width: 0%;"></div>
+                        </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-left">
                         <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Amount</p>
+                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Cost</p>
                             <p id="walkInTotalAmount" class="mt-2 text-2xl font-extrabold text-slate-900">P0.00</p>
                         </div>
                         <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Down Payment (Min)</p>
-                            <p id="walkInDownPaymentMin" class="mt-2 text-xl font-extrabold text-slate-900">P0.00</p>
+                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Amount Paid</p>
+                            <p id="walkInAmountPaid" class="mt-2 text-xl font-extrabold text-slate-900">P0.00</p>
                         </div>
                         <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Monthly (Est.)</p>
-                            <p id="walkInMonthlyEst" class="mt-2 text-xl font-extrabold text-slate-900">P0.00</p>
+                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Remaining Balance</p>
+                            <p id="walkInRemainingBalance" class="mt-2 text-xl font-extrabold text-slate-900">P0.00</p>
                         </div>
                         <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Duration (Max)</p>
-                            <p id="walkInDurationMax" class="mt-2 text-xl font-extrabold text-slate-900">0 Months</p>
+                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Months Left</p>
+                            <p id="walkInMonthsLeft" class="mt-2 text-xl font-extrabold text-slate-900">0 Months</p>
                         </div>
                     </div>
-                    <p class="text-[11px] font-semibold text-slate-500 mt-4">Actual payment terms will be finalized during payment processing.</p>
+                    <p class="text-[11px] font-semibold text-slate-500 mt-4">Installment treatment progress is computed at treatment level and reused across follow-up visits.</p>
                 </div>
             </div>
         </section>
@@ -498,19 +507,23 @@ try {
         const notesInput = document.getElementById('walkInNotesInput');
         const createWalkInAppointmentBtn = document.getElementById('createWalkInAppointmentBtn');
         const walkInInstallmentAvailableEl = document.getElementById('walkInInstallmentAvailable');
-        const walkInDownPaymentMinEl = document.getElementById('walkInDownPaymentMin');
-        const walkInMonthlyEstEl = document.getElementById('walkInMonthlyEst');
-        const walkInDurationMaxEl = document.getElementById('walkInDurationMax');
+        const walkInPaymentProgressBarEl = document.getElementById('walkInPaymentProgressBar');
+        const walkInPaymentProgressLabelEl = document.getElementById('walkInPaymentProgressLabel');
+        const walkInAmountPaidEl = document.getElementById('walkInAmountPaid');
+        const walkInRemainingBalanceEl = document.getElementById('walkInRemainingBalance');
+        const walkInMonthsLeftEl = document.getElementById('walkInMonthsLeft');
         const walkInTotalAmountEl = document.getElementById('walkInTotalAmount');
         const dentistsSeedData = <?php echo json_encode($walkInDentists, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const patientsApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patients.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const servicesApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/services.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const patientTreatmentContextApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patient_treatment_context.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const appointmentsApiUrl = <?php echo json_encode($walkinCreateApiPath, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const clinicSlug = <?php echo json_encode((string) $currentTenantSlug, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const stockDentistImage = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=60';
         let allPatients = [];
         let allServices = [];
         let selectedServices = [];
+        let activeTreatmentContext = null;
         let selectedServiceCategoryFilter = 'all';
         const SERVICE_CATEGORY_FILTERS = [
             { key: 'all', label: 'All' },
@@ -624,13 +637,22 @@ try {
                 const category = escapeHtml(service.category || '-');
                 const categoryBadgeClass = getServiceCategoryBadgeClass(service.category);
                 const price = Number(service.price || 0);
+                const isInstallment = serviceInstallmentEnabled(service);
+                const hasActiveTreatment = !!(activeTreatmentContext && activeTreatmentContext.has_active_treatment);
+                const treatmentPrimaryServiceId = hasActiveTreatment
+                    ? String((activeTreatmentContext.treatment && activeTreatmentContext.treatment.primary_service && activeTreatmentContext.treatment.primary_service.service_id) || '')
+                    : '';
+                const blockedInstallmentAddOn = hasActiveTreatment && isInstallment && String(service.service_id || '') !== treatmentPrimaryServiceId;
+                const buttonClass = blockedInstallmentAddOn
+                    ? 'shrink-0 rounded-lg bg-slate-300 text-slate-600 px-3 py-2 text-xs font-extrabold uppercase tracking-wide cursor-not-allowed'
+                    : 'shrink-0 rounded-lg bg-primary text-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide hover:bg-primary/90 transition-colors';
                 return '' +
                     '<div class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-slate-50/80 transition-colors">' +
                         '<div class="min-w-0">' +
                             '<p class="text-sm font-bold text-slate-900 truncate">' + serviceName + '</p>' +
-                            '<p class="text-xs font-semibold text-slate-500 mt-1 inline-flex items-center gap-2"><span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ' + categoryBadgeClass + '">' + category + '</span><span>Php ' + price.toFixed(2) + '</span></p>' +
+                            '<p class="text-xs font-semibold text-slate-500 mt-1 inline-flex items-center gap-2"><span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ' + categoryBadgeClass + '">' + category + '</span><span>Php ' + price.toFixed(2) + '</span>' + (blockedInstallmentAddOn ? '<span class="text-amber-700">Installment service disabled</span>' : '') + '</p>' +
                         '</div>' +
-                        '<button type="button" data-action="select-service" data-service-id="' + serviceId + '" class="shrink-0 rounded-lg bg-primary text-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide hover:bg-primary/90 transition-colors">Select</button>' +
+                        '<button type="button" data-action="select-service" data-service-id="' + serviceId + '" ' + (blockedInstallmentAddOn ? 'disabled' : '') + ' class="' + buttonClass + '">Select</button>' +
                     '</div>';
             }).join('');
         }
@@ -647,6 +669,12 @@ try {
         function applyServiceFilters() {
             const keyword = serviceSearchInput ? serviceSearchInput.value.trim().toLowerCase() : '';
             const filtered = allServices.filter(function (service) {
+                if (activeTreatmentContext && activeTreatmentContext.has_active_treatment && serviceInstallmentEnabled(service)) {
+                    const treatmentPrimaryServiceId = String((activeTreatmentContext.treatment && activeTreatmentContext.treatment.primary_service && activeTreatmentContext.treatment.primary_service.service_id) || '');
+                    if (String(service.service_id || '') !== treatmentPrimaryServiceId) {
+                        return false;
+                    }
+                }
                 const categoryKey = normalizeServiceFilterCategory(service.category);
                 const categoryMatches = selectedServiceCategoryFilter === 'all' || categoryKey === selectedServiceCategoryFilter;
                 if (!categoryMatches) {
@@ -682,121 +710,52 @@ try {
             return v === true || v === 1 || v === '1';
         }
 
-        /**
-         * Services shown in Cost Preview: added services if any; otherwise the service currently chosen in the modal (before Add).
-         */
-        function getWalkInPreviewServices() {
-            if (selectedServices.length) {
-                return selectedServices;
-            }
-            const sid = selectedServiceIdInput ? String(selectedServiceIdInput.value || '').trim() : '';
-            if (!sid) {
-                return [];
-            }
-            const svc = allServices.find(function (item) {
-                return String(item.service_id || '') === sid;
-            });
-            return svc ? [svc] : [];
+        function formatPeso(amount) {
+            return 'P' + Number(amount || 0).toFixed(2);
         }
 
-        function computeWalkInCostPreview(services) {
-            let total = 0;
-            let installmentAvailable = false;
-            let downSum = 0;
-            let monthlySum = 0;
-            let durationMax = 0;
-            for (let i = 0; i < services.length; i++) {
-                const s = services[i];
-                const price = Number(s.price || 0);
-                total += price;
-                const inst = serviceInstallmentEnabled(s);
-                if (inst) {
-                    installmentAvailable = true;
-                }
-                let regDown = 0;
-                const rawReg = s.effective_regular_downpayment_amount;
-                if (rawReg !== null && rawReg !== undefined && rawReg !== '') {
-                    const n = Number(rawReg);
-                    if (!Number.isNaN(n)) {
-                        regDown = n;
-                    }
-                }
-                let instDown = null;
-                const rawInst = s.effective_installment_downpayment;
-                if (rawInst !== null && rawInst !== undefined && rawInst !== '') {
-                    const n = Number(rawInst);
-                    if (!Number.isNaN(n)) {
-                        instDown = n;
-                    }
-                }
-                if (inst) {
-                    downSum += instDown !== null ? instDown : 0;
-                } else {
-                    downSum += regDown;
-                }
-                if (inst) {
-                    const rawMon = s.effective_installment_monthly;
-                    if (rawMon !== null && rawMon !== undefined && rawMon !== '') {
-                        const mn = Number(rawMon);
-                        if (!Number.isNaN(mn)) {
-                            monthlySum += mn;
-                        }
-                    }
-                    const dm = parseInt(String(s.installment_duration_months || 0), 10);
-                    if (!Number.isNaN(dm) && dm > durationMax) {
-                        durationMax = dm;
-                    }
-                }
-            }
-            return {
-                total: total,
-                installmentAvailable: installmentAvailable,
-                downMin: downSum,
-                monthlyEst: monthlySum,
-                durationMax: durationMax
-            };
-        }
+        function updateTreatmentProgressCards(treatment) {
+            const total = treatment ? Number(treatment.total_cost || 0) : 0;
+            const paid = treatment ? Number(treatment.amount_paid || 0) : 0;
+            const remaining = treatment ? Number(treatment.remaining_balance || 0) : 0;
+            const monthsLeft = treatment ? Number(treatment.months_left || 0) : 0;
+            const percent = treatment ? Number(treatment.progress_percentage || 0) : 0;
 
-        function refreshWalkInCostPreview() {
-            const services = getWalkInPreviewServices();
-            if (!services.length) {
-                if (walkInTotalAmountEl) walkInTotalAmountEl.textContent = 'P0.00';
-                if (walkInInstallmentAvailableEl) walkInInstallmentAvailableEl.textContent = 'Installment Available: No';
-                if (walkInDownPaymentMinEl) walkInDownPaymentMinEl.textContent = 'P0.00';
-                if (walkInMonthlyEstEl) walkInMonthlyEstEl.textContent = 'P0.00';
-                if (walkInDurationMaxEl) walkInDurationMaxEl.textContent = '0 Months';
-                return;
-            }
-            const p = computeWalkInCostPreview(services);
-            if (walkInTotalAmountEl) walkInTotalAmountEl.textContent = 'P' + p.total.toFixed(2);
+            if (walkInTotalAmountEl) walkInTotalAmountEl.textContent = formatPeso(total);
+            if (walkInAmountPaidEl) walkInAmountPaidEl.textContent = formatPeso(paid);
+            if (walkInRemainingBalanceEl) walkInRemainingBalanceEl.textContent = formatPeso(remaining);
+            if (walkInMonthsLeftEl) walkInMonthsLeftEl.textContent = String(monthsLeft) + ' Months';
+            if (walkInPaymentProgressLabelEl) walkInPaymentProgressLabelEl.textContent = percent.toFixed(1) + '%';
+            if (walkInPaymentProgressBarEl) walkInPaymentProgressBarEl.style.width = Math.max(0, Math.min(100, percent)) + '%';
             if (walkInInstallmentAvailableEl) {
-                walkInInstallmentAvailableEl.textContent = 'Installment Available: ' + (p.installmentAvailable ? 'Yes' : 'No');
+                walkInInstallmentAvailableEl.textContent = 'Active Installment Treatment: ' + (treatment ? 'Yes' : 'No');
             }
-            if (walkInDownPaymentMinEl) walkInDownPaymentMinEl.textContent = 'P' + p.downMin.toFixed(2);
-            if (walkInMonthlyEstEl) walkInMonthlyEstEl.textContent = 'P' + p.monthlyEst.toFixed(2);
-            if (walkInDurationMaxEl) walkInDurationMaxEl.textContent = p.durationMax + ' Months';
         }
 
         function renderSelectedServices() {
             if (!selectedServicesContainer) return;
             if (!selectedServices.length) {
                 selectedServicesContainer.innerHTML = '<p class="text-[11px] font-semibold text-slate-500">No services added yet.</p>';
-                refreshWalkInCostPreview();
+                updateTreatmentProgressCards(activeTreatmentContext ? activeTreatmentContext.treatment : null);
                 return;
             }
             selectedServicesContainer.innerHTML = selectedServices.map(function (service) {
                 const serviceId = escapeHtml(service.service_id || '');
                 const serviceName = escapeHtml(service.service_name || '');
                 const price = Number(service.price || 0).toFixed(2);
+                const activePrimaryServiceId = activeTreatmentContext && activeTreatmentContext.has_active_treatment
+                    ? String((activeTreatmentContext.treatment && activeTreatmentContext.treatment.primary_service && activeTreatmentContext.treatment.primary_service.service_id) || '')
+                    : '';
+                const isLockedPrimary = activePrimaryServiceId !== '' && String(service.service_id || '') === activePrimaryServiceId;
                 return '' +
                     '<div class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">' +
-                        '<span class="text-xs font-bold text-slate-700">' + serviceName + ' (Php ' + price + ')</span>' +
-                        '<button type="button" data-action="remove-service" data-service-id="' + serviceId + '" class="w-6 h-6 rounded-md bg-red-50 text-red-500 hover:bg-red-100 inline-flex items-center justify-center">' +
+                        '<span class="text-xs font-bold text-slate-700">' + serviceName + ' (Php ' + price + ')' + (isLockedPrimary ? ' - ongoing installment' : '') + '</span>' +
+                        '<button type="button" data-action="remove-service" data-service-id="' + serviceId + '" ' + (isLockedPrimary ? 'disabled' : '') + ' class="w-6 h-6 rounded-md ' + (isLockedPrimary ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-red-50 text-red-500 hover:bg-red-100') + ' inline-flex items-center justify-center">' +
                             '<span class="material-symbols-outlined text-[14px]">close</span>' +
                         '</button>' +
                     '</div>';
             }).join('');
-            refreshWalkInCostPreview();
+            updateTreatmentProgressCards(activeTreatmentContext ? activeTreatmentContext.treatment : null);
         }
 
         function normalizeClinicalCategory(category) {
@@ -982,6 +941,11 @@ try {
         function setSelectedPatient(patientId, patientName) {
             if (selectedPatientIdInput) selectedPatientIdInput.value = patientId || '';
             if (selectedPatientLabel) selectedPatientLabel.textContent = patientName || 'Choose patient';
+            activeTreatmentContext = null;
+            selectedServices = [];
+            renderSelectedServices();
+            setSelectedService('', 'Select service');
+            updateTreatmentProgressCards(null);
         }
 
         function setSelectedDentist(dentistId, dentistName) {
@@ -992,13 +956,44 @@ try {
         function setSelectedService(serviceId, serviceName) {
             if (selectedServiceIdInput) selectedServiceIdInput.value = serviceId || '';
             if (selectedServiceLabel) selectedServiceLabel.textContent = serviceName || 'Select service';
-            refreshWalkInCostPreview();
+            updateTreatmentProgressCards(activeTreatmentContext ? activeTreatmentContext.treatment : null);
         }
 
         function buildApiUrl(baseUrl) {
             if (!clinicSlug) return baseUrl;
             const separator = baseUrl.indexOf('?') === -1 ? '?' : '&';
             return baseUrl + separator + 'clinic_slug=' + encodeURIComponent(clinicSlug);
+        }
+
+        async function loadPatientTreatmentContext(patientId) {
+            activeTreatmentContext = null;
+            updateTreatmentProgressCards(null);
+            if (!patientId) {
+                return;
+            }
+            try {
+                const response = await fetch(buildApiUrl(patientTreatmentContextApiUrl + '?patient_id=' + encodeURIComponent(patientId)), {
+                    credentials: 'include'
+                });
+                const data = await parseJsonResponse(response);
+                if (!response.ok || !data.success || !data.data || !data.data.has_active_treatment) {
+                    renderSelectedServices();
+                    applyServiceFilters();
+                    return;
+                }
+                activeTreatmentContext = data.data;
+                const primary = data.data.treatment && data.data.treatment.primary_service ? data.data.treatment.primary_service : null;
+                if (primary) {
+                    selectedServices = [primary];
+                    setSelectedService(primary.service_id || '', primary.service_name || 'Installment Treatment');
+                }
+                renderSelectedServices();
+                applyServiceFilters();
+                updateTreatmentProgressCards(data.data.treatment || null);
+            } catch (error) {
+                renderSelectedServices();
+                applyServiceFilters();
+            }
         }
 
         async function parseJsonResponse(response) {
@@ -1051,6 +1046,9 @@ try {
             const payload = {
                 patient_id: patientId,
                 clinic_slug: clinicSlug || '',
+                treatment_id: activeTreatmentContext && activeTreatmentContext.has_active_treatment && activeTreatmentContext.treatment
+                    ? (activeTreatmentContext.treatment.treatment_id || '')
+                    : '',
                 appointment_date: now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()),
                 appointment_time: formatTimeForApi(now),
                 services: selectedServices.map(function (service) {
@@ -1187,13 +1185,14 @@ try {
             });
         }
         if (patientListContainer) {
-            patientListContainer.addEventListener('click', function (event) {
+            patientListContainer.addEventListener('click', async function (event) {
                 const button = event.target.closest('button[data-action="select-patient"]');
                 if (!button) return;
                 const patientId = button.getAttribute('data-patient-id') || '';
                 const patientName = button.getAttribute('data-patient-name') || '';
                 setSelectedPatient(patientId, patientName);
                 closeChoosePatientModal();
+                await loadPatientTreatmentContext(patientId);
             });
         }
         if (dentistListContainer) {
@@ -1229,6 +1228,17 @@ try {
                     return String(item.service_id || '') === String(service.service_id || '');
                 });
                 if (alreadyAdded) return;
+                if (activeTreatmentContext && activeTreatmentContext.has_active_treatment && serviceInstallmentEnabled(service)) {
+                    const primaryId = String((activeTreatmentContext.treatment && activeTreatmentContext.treatment.primary_service && activeTreatmentContext.treatment.primary_service.service_id) || '');
+                    if (String(service.service_id || '') !== primaryId) {
+                        void staffUiAlert({
+                            title: 'Installment service blocked',
+                            message: 'Only regular services can be added while the patient has an active installment treatment.',
+                            variant: 'warning'
+                        });
+                        return;
+                    }
+                }
                 const nextServices = selectedServices.concat([service]);
                 const compatibility = validateServiceCompatibility(nextServices);
                 if (!compatibility.valid) {
