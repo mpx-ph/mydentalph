@@ -61,6 +61,9 @@ $backToAppointmentsHref = $clinicWebRoot . '/StaffAppointments.php' . ($basePara
 $walkinCreateApiPath = $clinicWebRoot . '/api/walkin_create.php';
 
 $walkInDentists = [];
+$walkInPaymentSettings = [
+    'regular_downpayment_percentage' => 20.0,
+];
 try {
     if (function_exists('getDBConnection')) {
         $pdo = getDBConnection();
@@ -95,6 +98,22 @@ try {
                 ");
                 $stmt->execute([$tenantId]);
                 $walkInDentists = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            }
+            $paymentSettingsTable = clinic_get_physical_table_name($pdo, 'tbl_payment_settings')
+                ?? clinic_get_physical_table_name($pdo, 'payment_settings');
+            if ($paymentSettingsTable !== null) {
+                $qpSettings = '`' . str_replace('`', '``', $paymentSettingsTable) . '`';
+                $psStmt = $pdo->prepare("
+                    SELECT regular_downpayment_percentage
+                    FROM {$qpSettings}
+                    WHERE tenant_id = ?
+                    LIMIT 1
+                ");
+                $psStmt->execute([$tenantId]);
+                $psRow = $psStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+                if ($psRow && isset($psRow['regular_downpayment_percentage'])) {
+                    $walkInPaymentSettings['regular_downpayment_percentage'] = (float) $psRow['regular_downpayment_percentage'];
+                }
             }
         }
     }
@@ -338,36 +357,38 @@ try {
                     </div>
                 </div>
 
-                <div id="walkInDefaultPaymentDetailsSection" class="rounded-3xl border border-slate-200/80 bg-white/95 px-6 py-6 shadow-[0_16px_50px_-28px_rgba(15,23,42,0.28)]">
-                    <div class="flex items-center justify-between gap-3 mb-5">
-                        <div>
-                            <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">Payment Details</p>
-                            <h3 class="text-2xl leading-tight font-extrabold tracking-tight text-slate-900">Payment Breakdown</h3>
-                        </div>
-                        <div class="hidden md:inline-flex items-center rounded-xl bg-primary/10 px-3 py-2 text-primary">
-                            <span class="material-symbols-outlined text-[18px]">payments</span>
+                <div id="walkInDefaultPaymentDetailsSection" class="elevated-card rounded-3xl p-6">
+                    <div class="flex items-start justify-between gap-3 mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center shadow-sm">
+                                <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">payments</span>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Payment Details</p>
+                                <h3 class="text-xl font-extrabold text-slate-900">Payment Breakdown</h3>
+                            </div>
                         </div>
                     </div>
-                    <div class="rounded-2xl border border-slate-100 bg-gradient-to-br from-white via-slate-50/35 to-slate-50/75 px-5 py-5">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 md:items-start">
+                    <div class="rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-50 to-white px-5 py-5">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:items-start">
                             <div>
                                 <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Amount</p>
                                 <p id="walkInDefaultEstimatedTotal" class="mt-2 text-4xl leading-none font-extrabold text-slate-900">P0.00</p>
                             </div>
                             <div class="md:text-right">
                                 <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Installment Available?</p>
-                                <div class="mt-3 inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-1.5">
-                                    <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                                <div class="mt-3 inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-1.5 border border-slate-200">
+                                    <span id="walkInDefaultInstallmentDot" class="w-2 h-2 rounded-full bg-slate-400"></span>
                                     <span id="walkInDefaultInstallmentAvailable" class="text-sm font-extrabold text-slate-700">No</span>
                                 </div>
                             </div>
                         </div>
                         <div class="mt-6 border-t border-slate-200"></div>
-                        <div class="mt-5 grid grid-cols-1 md:grid-cols-3 gap-5 text-left">
+                        <div class="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
                             <div>
                                 <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Down Payment (Min)</p>
                                 <p id="walkInDefaultDownPayment" class="mt-2 text-4xl leading-none font-extrabold text-slate-900">P0.00</p>
-                                <p id="walkInDefaultDownPaymentMeta" class="mt-2 text-[11px] font-semibold text-slate-500">0% of selected service</p>
+                                <p id="walkInDefaultDownPaymentMeta" class="mt-1 text-[11px] font-semibold text-slate-400">Based on payment settings</p>
                             </div>
                             <div>
                                 <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Monthly (Est.)</p>
@@ -561,10 +582,12 @@ try {
         const walkInTreatmentPaymentProgressSectionEl = document.getElementById('walkInTreatmentPaymentProgressSection');
         const walkInDefaultEstimatedTotalEl = document.getElementById('walkInDefaultEstimatedTotal');
         const walkInDefaultInstallmentAvailableEl = document.getElementById('walkInDefaultInstallmentAvailable');
+        const walkInDefaultInstallmentDotEl = document.getElementById('walkInDefaultInstallmentDot');
         const walkInDefaultDownPaymentEl = document.getElementById('walkInDefaultDownPayment');
         const walkInDefaultDownPaymentMetaEl = document.getElementById('walkInDefaultDownPaymentMeta');
         const walkInDefaultMonthlyEstimateEl = document.getElementById('walkInDefaultMonthlyEstimate');
         const walkInDefaultDurationMaxEl = document.getElementById('walkInDefaultDurationMax');
+        const walkInPaymentSettings = <?php echo json_encode($walkInPaymentSettings, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const dentistsSeedData = <?php echo json_encode($walkInDentists, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const patientsApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patients.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const servicesApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/services.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
@@ -791,22 +814,6 @@ try {
             return list;
         }
 
-        function getPrimaryBreakdownService(services) {
-            const selectedId = selectedServiceIdInput ? String(selectedServiceIdInput.value || '').trim() : '';
-            if (selectedId) {
-                const selectedMatch = services.find(function (service) {
-                    return String(service && service.service_id ? service.service_id : '') === selectedId;
-                });
-                if (selectedMatch) {
-                    return selectedMatch;
-                }
-            }
-            if (services.length > 0) {
-                return services[0];
-            }
-            return null;
-        }
-
         function treatmentIsInstallmentPlan(treatmentContext) {
             if (!treatmentContext || !treatmentContext.has_active_treatment || !treatmentContext.treatment) {
                 return false;
@@ -835,17 +842,17 @@ try {
             const totalAmount = breakdownServices.reduce(function (sum, service) {
                 return sum + Number(service && service.price ? service.price : 0);
             }, 0);
-            const primaryService = getPrimaryBreakdownService(breakdownServices);
             const installmentService = breakdownServices.find(function (service) {
                 return serviceInstallmentEnabled(service);
             }) || null;
             const installmentAvailable = !!installmentService;
             const durationMonths = installmentService ? Math.max(0, Number(installmentService.installment_duration_months || 0)) : 0;
             const servicePrice = installmentService ? Number(installmentService.price || 0) : 0;
-            const baseServicePrice = primaryService ? Math.max(0, Number(primaryService.price || 0)) : 0;
-            const effectiveDownPctRaw = primaryService ? Number(primaryService.effective_downpayment_percentage || 0) : 0;
-            const effectiveDownPct = Math.max(0, Math.min(100, effectiveDownPctRaw));
-            const downPayment = baseServicePrice > 0 ? ((baseServicePrice * effectiveDownPct) / 100) : 0;
+            const configuredPctRaw = walkInPaymentSettings && walkInPaymentSettings.regular_downpayment_percentage
+                ? Number(walkInPaymentSettings.regular_downpayment_percentage)
+                : 20;
+            const configuredPct = Number.isFinite(configuredPctRaw) ? Math.max(0, configuredPctRaw) : 20;
+            const downPayment = installmentService ? Math.max(0, servicePrice * (configuredPct / 100)) : 0;
             let monthlyEstimate = 0;
             if (installmentService && durationMonths > 0) {
                 if (downPayment > 0 && durationMonths > 1) {
@@ -861,11 +868,17 @@ try {
             if (walkInDefaultInstallmentAvailableEl) {
                 walkInDefaultInstallmentAvailableEl.textContent = installmentAvailable ? 'Yes' : 'No';
             }
+            if (walkInDefaultInstallmentDotEl) {
+                walkInDefaultInstallmentDotEl.classList.toggle('bg-emerald-500', installmentAvailable);
+                walkInDefaultInstallmentDotEl.classList.toggle('bg-slate-400', !installmentAvailable);
+            }
             if (walkInDefaultDownPaymentEl) {
                 walkInDefaultDownPaymentEl.textContent = formatPeso(downPayment);
             }
             if (walkInDefaultDownPaymentMetaEl) {
-                walkInDefaultDownPaymentMetaEl.textContent = effectiveDownPct.toFixed(2).replace(/\.00$/, '') + '% of selected service';
+                walkInDefaultDownPaymentMetaEl.textContent = installmentAvailable
+                    ? ('Based on ' + configuredPct.toFixed(1) + '% minimum down payment setting')
+                    : 'Select an installment-enabled service to calculate minimum down payment.';
             }
             if (walkInDefaultMonthlyEstimateEl) {
                 walkInDefaultMonthlyEstimateEl.textContent = formatPeso(monthlyEstimate);
