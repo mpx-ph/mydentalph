@@ -695,7 +695,7 @@ function updateService() {
 }
 
 /**
- * Delete service (soft delete by setting status to inactive)
+ * Delete service permanently (hard delete)
  */
 function deleteService() {
     global $pdo, $tenantId;
@@ -731,17 +731,15 @@ function deleteService() {
     
     try {
         $updateId = $serviceId ?: $existing['id'];
-        
-        // Soft delete by setting status to inactive
+
         $stmt = $pdo->prepare("
-            UPDATE tbl_services 
-            SET status = 'inactive'
+            DELETE FROM tbl_services
             WHERE id = ? AND tenant_id = ?
         ");
-        
+
         $stmt->execute([$updateId, $tenantId]);
-        
-        jsonResponse(true, 'Service deactivated successfully.');
+
+        jsonResponse(true, 'Service deleted successfully.');
         
     } catch (Exception $e) {
         error_log('Service delete error: ' . $e->getMessage());

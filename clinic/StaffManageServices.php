@@ -1234,9 +1234,20 @@ async function deleteService(serviceId) {
         if (!data.success) {
             throw new Error(data.message || 'Failed to delete service.');
         }
+        allServices = allServices.filter(function (s) { return Number(s.id) !== Number(serviceId); });
+        filteredServices = filteredServices.filter(function (s) { return Number(s.id) !== Number(serviceId); });
+        if (currentPage > 1) {
+            const totalAfterDelete = filteredServices.length;
+            const maxPageAfterDelete = Math.max(1, Math.ceil(totalAfterDelete / itemsPerPage));
+            if (currentPage > maxPageAfterDelete) {
+                currentPage = maxPageAfterDelete;
+            }
+        }
+        renderCategoryButtons();
+        renderServices();
         void staffUiAlert({
             title: 'Service deleted',
-            message: '"' + serviceName + '" has been deactivated.',
+            message: '"' + serviceName + '" has been permanently deleted.',
             variant: 'success'
         });
         loadServices();
