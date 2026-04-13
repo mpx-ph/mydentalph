@@ -338,7 +338,35 @@ try {
                     </div>
                 </div>
 
-                <div class="elevated-card rounded-3xl p-6">
+                <div id="walkInDefaultPaymentDetailsSection" class="elevated-card rounded-3xl p-6">
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Payment Details</p>
+                            <h3 class="text-lg font-extrabold text-slate-900">Default Payment Details</h3>
+                        </div>
+                        <span class="inline-flex items-center gap-1 text-xs font-bold text-slate-500">
+                            <span class="material-symbols-outlined text-[16px]">payments</span>
+                            Walk-In Estimate
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Estimated Total</p>
+                            <p id="walkInDefaultEstimatedTotal" class="mt-2 text-2xl font-extrabold text-slate-900">P0.00</p>
+                        </div>
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Selected Services</p>
+                            <p id="walkInDefaultServiceCount" class="mt-2 text-xl font-extrabold text-slate-900">0</p>
+                        </div>
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Payment Mode</p>
+                            <p id="walkInDefaultPaymentMode" class="mt-2 text-xl font-extrabold text-slate-900">Regular</p>
+                        </div>
+                    </div>
+                    <p class="text-[11px] font-semibold text-slate-500 mt-4">This section applies when no active installment treatment is linked to the selected patient.</p>
+                </div>
+
+                <div id="walkInTreatmentPaymentProgressSection" class="elevated-card rounded-3xl p-6 hidden">
                     <div class="flex items-center justify-between gap-3 mb-4">
                         <div>
                             <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Payment Details</p>
@@ -513,6 +541,11 @@ try {
         const walkInRemainingBalanceEl = document.getElementById('walkInRemainingBalance');
         const walkInMonthsLeftEl = document.getElementById('walkInMonthsLeft');
         const walkInTotalAmountEl = document.getElementById('walkInTotalAmount');
+        const walkInDefaultPaymentDetailsSectionEl = document.getElementById('walkInDefaultPaymentDetailsSection');
+        const walkInTreatmentPaymentProgressSectionEl = document.getElementById('walkInTreatmentPaymentProgressSection');
+        const walkInDefaultEstimatedTotalEl = document.getElementById('walkInDefaultEstimatedTotal');
+        const walkInDefaultServiceCountEl = document.getElementById('walkInDefaultServiceCount');
+        const walkInDefaultPaymentModeEl = document.getElementById('walkInDefaultPaymentMode');
         const dentistsSeedData = <?php echo json_encode($walkInDentists, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const patientsApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patients.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const servicesApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/services.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
@@ -638,7 +671,7 @@ try {
                 const categoryBadgeClass = getServiceCategoryBadgeClass(service.category);
                 const price = Number(service.price || 0);
                 const isInstallment = serviceInstallmentEnabled(service);
-                const hasActiveTreatment = !!(activeTreatmentContext && activeTreatmentContext.has_active_treatment);
+                const hasActiveTreatment = treatmentIsInstallmentPlan(activeTreatmentContext);
                 const treatmentPrimaryServiceId = hasActiveTreatment
                     ? String((activeTreatmentContext.treatment && activeTreatmentContext.treatment.primary_service && activeTreatmentContext.treatment.primary_service.service_id) || '')
                     : '';
@@ -669,7 +702,7 @@ try {
         function applyServiceFilters() {
             const keyword = serviceSearchInput ? serviceSearchInput.value.trim().toLowerCase() : '';
             const filtered = allServices.filter(function (service) {
-                if (activeTreatmentContext && activeTreatmentContext.has_active_treatment && serviceInstallmentEnabled(service)) {
+                if (treatmentIsInstallmentPlan(activeTreatmentContext) && serviceInstallmentEnabled(service)) {
                     const treatmentPrimaryServiceId = String((activeTreatmentContext.treatment && activeTreatmentContext.treatment.primary_service && activeTreatmentContext.treatment.primary_service.service_id) || '');
                     if (String(service.service_id || '') !== treatmentPrimaryServiceId) {
                         return false;
@@ -714,22 +747,65 @@ try {
             return 'P' + Number(amount || 0).toFixed(2);
         }
 
+        function serviceCountTotal() {
+            return selectedServices.reduce(function (sum, service) {
+                return sum + Number(service && service.price ? service.price : 0);
+            }, 0);
+        }
+
+        function treatmentIsInstallmentPlan(treatmentContext) {
+            if (!treatmentContext || !treatmentContext.has_active_treatment || !treatmentContext.treatment) {
+                return false;
+            }
+            const treatment = treatmentContext.treatment;
+            const primaryService = treatment.primary_service || {};
+            const rawEnableInstallment = primaryService.enable_installment;
+            const serviceInstallment = rawEnableInstallment === true || rawEnableInstallment === 1 || rawEnableInstallment === '1';
+            const durationMonths = Number(treatment.duration_months || 0);
+            const monthsLeft = Number(treatment.months_left || 0);
+            return serviceInstallment || durationMonths > 1 || monthsLeft > 0;
+        }
+
+        function updatePaymentDetailsVisibility() {
+            const hasInstallmentTreatment = treatmentIsInstallmentPlan(activeTreatmentContext);
+            if (walkInDefaultPaymentDetailsSectionEl) {
+                walkInDefaultPaymentDetailsSectionEl.classList.toggle('hidden', hasInstallmentTreatment);
+            }
+            if (walkInTreatmentPaymentProgressSectionEl) {
+                walkInTreatmentPaymentProgressSectionEl.classList.toggle('hidden', !hasInstallmentTreatment);
+            }
+        }
+
+        function updateDefaultPaymentDetails() {
+            if (walkInDefaultEstimatedTotalEl) {
+                walkInDefaultEstimatedTotalEl.textContent = formatPeso(serviceCountTotal());
+            }
+            if (walkInDefaultServiceCountEl) {
+                walkInDefaultServiceCountEl.textContent = String(selectedServices.length);
+            }
+            if (walkInDefaultPaymentModeEl) {
+                walkInDefaultPaymentModeEl.textContent = treatmentIsInstallmentPlan(activeTreatmentContext) ? 'Installment' : 'Regular';
+            }
+        }
+
         function updateTreatmentProgressCards(treatment) {
             const total = treatment ? Number(treatment.total_cost || 0) : 0;
             const paid = treatment ? Number(treatment.amount_paid || 0) : 0;
-            const remaining = treatment ? Number(treatment.remaining_balance || 0) : 0;
+            const remaining = treatment ? Math.max(0, Number(treatment.remaining_balance || 0)) : 0;
             const monthsLeft = treatment ? Number(treatment.months_left || 0) : 0;
-            const percent = treatment ? Number(treatment.progress_percentage || 0) : 0;
+            const percent = total > 0 ? Math.min(100, Math.round((paid / total) * 1000) / 10) : 0;
 
             if (walkInTotalAmountEl) walkInTotalAmountEl.textContent = formatPeso(total);
             if (walkInAmountPaidEl) walkInAmountPaidEl.textContent = formatPeso(paid);
             if (walkInRemainingBalanceEl) walkInRemainingBalanceEl.textContent = formatPeso(remaining);
             if (walkInMonthsLeftEl) walkInMonthsLeftEl.textContent = String(monthsLeft) + ' Months';
-            if (walkInPaymentProgressLabelEl) walkInPaymentProgressLabelEl.textContent = percent.toFixed(1) + '%';
+            if (walkInPaymentProgressLabelEl) walkInPaymentProgressLabelEl.textContent = percent.toFixed(1) + '% paid';
             if (walkInPaymentProgressBarEl) walkInPaymentProgressBarEl.style.width = Math.max(0, Math.min(100, percent)) + '%';
             if (walkInInstallmentAvailableEl) {
-                walkInInstallmentAvailableEl.textContent = 'Active Installment Treatment: ' + (treatment ? 'Yes' : 'No');
+                walkInInstallmentAvailableEl.textContent = 'Active Installment Treatment: ' + (treatmentIsInstallmentPlan(activeTreatmentContext) ? 'Yes' : 'No');
             }
+            updatePaymentDetailsVisibility();
+            updateDefaultPaymentDetails();
         }
 
         function renderSelectedServices() {
@@ -743,7 +819,7 @@ try {
                 const serviceId = escapeHtml(service.service_id || '');
                 const serviceName = escapeHtml(service.service_name || '');
                 const price = Number(service.price || 0).toFixed(2);
-                const activePrimaryServiceId = activeTreatmentContext && activeTreatmentContext.has_active_treatment
+                const activePrimaryServiceId = treatmentIsInstallmentPlan(activeTreatmentContext)
                     ? String((activeTreatmentContext.treatment && activeTreatmentContext.treatment.primary_service && activeTreatmentContext.treatment.primary_service.service_id) || '')
                     : '';
                 const isLockedPrimary = activePrimaryServiceId !== '' && String(service.service_id || '') === activePrimaryServiceId;
@@ -946,6 +1022,8 @@ try {
             renderSelectedServices();
             setSelectedService('', 'Select service');
             updateTreatmentProgressCards(null);
+            updatePaymentDetailsVisibility();
+            updateDefaultPaymentDetails();
         }
 
         function setSelectedDentist(dentistId, dentistName) {
@@ -969,6 +1047,8 @@ try {
             activeTreatmentContext = null;
             updateTreatmentProgressCards(null);
             if (!patientId) {
+                updatePaymentDetailsVisibility();
+                updateDefaultPaymentDetails();
                 return;
             }
             try {
@@ -977,13 +1057,16 @@ try {
                 });
                 const data = await parseJsonResponse(response);
                 if (!response.ok || !data.success || !data.data || !data.data.has_active_treatment) {
+                    activeTreatmentContext = null;
                     renderSelectedServices();
                     applyServiceFilters();
+                    updatePaymentDetailsVisibility();
+                    updateDefaultPaymentDetails();
                     return;
                 }
                 activeTreatmentContext = data.data;
                 const primary = data.data.treatment && data.data.treatment.primary_service ? data.data.treatment.primary_service : null;
-                if (primary) {
+                if (primary && treatmentIsInstallmentPlan(activeTreatmentContext)) {
                     selectedServices = [primary];
                     setSelectedService(primary.service_id || '', primary.service_name || 'Installment Treatment');
                 }
@@ -991,8 +1074,11 @@ try {
                 applyServiceFilters();
                 updateTreatmentProgressCards(data.data.treatment || null);
             } catch (error) {
+                activeTreatmentContext = null;
                 renderSelectedServices();
                 applyServiceFilters();
+                updatePaymentDetailsVisibility();
+                updateDefaultPaymentDetails();
             }
         }
 
@@ -1046,7 +1132,7 @@ try {
             const payload = {
                 patient_id: patientId,
                 clinic_slug: clinicSlug || '',
-                treatment_id: activeTreatmentContext && activeTreatmentContext.has_active_treatment && activeTreatmentContext.treatment
+                treatment_id: treatmentIsInstallmentPlan(activeTreatmentContext) && activeTreatmentContext.treatment
                     ? (activeTreatmentContext.treatment.treatment_id || '')
                     : '',
                 appointment_date: now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()),
@@ -1228,7 +1314,7 @@ try {
                     return String(item.service_id || '') === String(service.service_id || '');
                 });
                 if (alreadyAdded) return;
-                if (activeTreatmentContext && activeTreatmentContext.has_active_treatment && serviceInstallmentEnabled(service)) {
+                if (treatmentIsInstallmentPlan(activeTreatmentContext) && serviceInstallmentEnabled(service)) {
                     const primaryId = String((activeTreatmentContext.treatment && activeTreatmentContext.treatment.primary_service && activeTreatmentContext.treatment.primary_service.service_id) || '');
                     if (String(service.service_id || '') !== primaryId) {
                         void staffUiAlert({
@@ -1270,6 +1356,8 @@ try {
         }
 
         updateNow();
+        updatePaymentDetailsVisibility();
+        updateDefaultPaymentDetails();
         renderSelectedServices();
         setInterval(updateNow, 1000);
     })();
