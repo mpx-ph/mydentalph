@@ -90,6 +90,58 @@ function staff_payment_recording_send_receipt_email(string $toEmail, string $sub
     return send_smtp_gmail($toEmail, $subject, $bodyText, $bodyHtml);
 }
 
+function staff_payment_recording_build_receipt_email_html(array $receipt): string
+{
+    $clinicName = htmlspecialchars((string) ($receipt['clinic_name'] ?? 'MyDental Philippines'), ENT_QUOTES, 'UTF-8');
+    $clinicLogo = htmlspecialchars((string) ($receipt['clinic_logo'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $patientName = htmlspecialchars((string) ($receipt['patient_name'] ?? 'Patient'), ENT_QUOTES, 'UTF-8');
+    $patientId = htmlspecialchars((string) ($receipt['patient_id'] ?? 'N/A'), ENT_QUOTES, 'UTF-8');
+    $reference = htmlspecialchars((string) ($receipt['reference'] ?? '-'), ENT_QUOTES, 'UTF-8');
+    $paymentId = htmlspecialchars((string) ($receipt['payment_id'] ?? '-'), ENT_QUOTES, 'UTF-8');
+    $service = htmlspecialchars((string) ($receipt['service'] ?? 'Dental treatment'), ENT_QUOTES, 'UTF-8');
+    $paymentDate = htmlspecialchars((string) ($receipt['payment_date'] ?? '-'), ENT_QUOTES, 'UTF-8');
+    $paymentMethod = htmlspecialchars((string) ($receipt['payment_method'] ?? '-'), ENT_QUOTES, 'UTF-8');
+    $amountPaid = htmlspecialchars((string) ($receipt['amount_paid'] ?? '₱0.00'), ENT_QUOTES, 'UTF-8');
+    $remainingBalance = htmlspecialchars((string) ($receipt['remaining_balance'] ?? '₱0.00'), ENT_QUOTES, 'UTF-8');
+
+    return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+        . '<title>Payment Receipt</title></head><body style="margin:0;padding:24px;background:#f3f8ff;font-family:Arial,sans-serif;color:#0f172a;">'
+        . '<table role="presentation" cellpadding="0" cellspacing="0" style="max-width:760px;width:100%;margin:0 auto;background:#fff;border:1px solid #dbeafe;border-radius:20px;overflow:hidden;">'
+        . '<tr><td style="padding:24px;background:linear-gradient(135deg,#ffffff 0%,#f6fbff 60%,#ecf6ff 100%);border-bottom:1px solid #dbeafe;">'
+        . '<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;"><tr>'
+        . '<td style="width:74px;vertical-align:top;"><img src="' . $clinicLogo . '" alt="Clinic Logo" style="width:64px;height:64px;border-radius:16px;border:1px solid #dbeafe;object-fit:cover;background:#fff;"></td>'
+        . '<td style="vertical-align:top;"><div style="font-size:38px;line-height:0;margin-bottom:8px;">&nbsp;</div><p style="margin:0;font-size:36px;font-weight:800;color:#0f172a;letter-spacing:0.2px;">' . $clinicName . '</p>'
+        . '<p style="margin:8px 0 0;font-size:12px;letter-spacing:4px;font-weight:800;color:#647aa5;text-transform:uppercase;">Official Payment Receipt</p>'
+        . '<p style="margin:12px 0 0;font-size:16px;color:#60739a;">Thank you for your payment. Keep this as your billing record.</p></td>'
+        . '</tr></table></td></tr>'
+        . '<tr><td style="padding:20px 24px 0;"><table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;"><tr>'
+        . '<td style="width:50%;padding-right:8px;vertical-align:top;"><div style="border:1px solid #dbeafe;border-radius:16px;padding:14px 16px;">'
+        . '<p style="margin:0;font-size:11px;letter-spacing:3px;font-weight:800;color:#647aa5;text-transform:uppercase;">Patient</p>'
+        . '<p style="margin:10px 0 0;font-size:32px;font-weight:800;color:#0f172a;">' . $patientName . '</p>'
+        . '<p style="margin:8px 0 0;font-size:27px;color:#7284a8;">ID ' . $patientId . '</p></div></td>'
+        . '<td style="width:50%;padding-left:8px;vertical-align:top;"><div style="border:1px solid #dbeafe;border-radius:16px;padding:14px 16px;">'
+        . '<p style="margin:0;font-size:11px;letter-spacing:3px;font-weight:800;color:#647aa5;text-transform:uppercase;">Transaction Ref</p>'
+        . '<p style="margin:10px 0 0;font-size:31px;font-weight:800;color:#0f172a;">' . $reference . '</p>'
+        . '<p style="margin:8px 0 0;font-size:26px;color:#7284a8;">Payment ID ' . $paymentId . '</p></div></td>'
+        . '</tr></table></td></tr>'
+        . '<tr><td style="padding:18px 24px 0;"><div style="border:1px solid #dbeafe;border-radius:16px;overflow:hidden;">'
+        . '<div style="padding:12px 16px;border-bottom:1px solid #dbeafe;background:#f9fcff;font-size:12px;letter-spacing:4px;text-transform:uppercase;font-weight:800;color:#4f668f;">Payment Breakdown</div>'
+        . '<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">'
+        . '<tr><td style="padding:12px 16px;font-size:20px;font-weight:600;color:#41547a;">Service(s)</td><td style="padding:12px 16px;font-size:20px;font-weight:800;color:#0f172a;text-align:right;">' . $service . '</td></tr>'
+        . '<tr><td style="padding:12px 16px;font-size:20px;font-weight:600;color:#41547a;">Payment Date</td><td style="padding:12px 16px;font-size:20px;font-weight:800;color:#0f172a;text-align:right;">' . $paymentDate . '</td></tr>'
+        . '<tr><td style="padding:12px 16px 14px;font-size:20px;font-weight:600;color:#41547a;">Payment Method</td><td style="padding:12px 16px 14px;font-size:20px;font-weight:800;color:#0f172a;text-align:right;">' . $paymentMethod . '</td></tr>'
+        . '</table></div></td></tr>'
+        . '<tr><td style="padding:18px 24px 24px;"><table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;"><tr>'
+        . '<td style="width:50%;padding-right:8px;vertical-align:top;"><div style="border:1px solid #bfdbfe;border-radius:16px;background:#f0f8ff;padding:14px 16px;">'
+        . '<p style="margin:0;font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:800;color:#2382ff;">Amount Paid</p>'
+        . '<p style="margin:12px 0 0;font-size:46px;font-weight:800;color:#2382ff;">' . $amountPaid . '</p></div></td>'
+        . '<td style="width:50%;padding-left:8px;vertical-align:top;"><div style="border:1px solid #fcdca7;border-radius:16px;background:#fffaf0;padding:14px 16px;">'
+        . '<p style="margin:0;font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:800;color:#b45309;">Remaining Balance</p>'
+        . '<p style="margin:12px 0 0;font-size:46px;font-weight:800;color:#b45309;">' . $remainingBalance . '</p></div></td>'
+        . '</tr></table></td></tr>'
+        . '</table></body></html>';
+}
+
 /**
  * @return list<array{number:int, amount:float, status:string}>
  */
@@ -327,6 +379,10 @@ if (isset($_GET['payment_success']) && $_GET['payment_success'] === '1') {
 }
 if (isset($_GET['paymongo_error']) && $_GET['paymongo_error'] === '1') {
     $paymentError = 'Could not confirm the online payment. If money was debited, contact support with the booking reference and time of payment.';
+}
+if (isset($_SESSION['staff_receipt_email_success']) && $_SESSION['staff_receipt_email_success'] === '1') {
+    $receiptEmailSuccess = 'The receipt has been sent to the patient’s email.';
+    unset($_SESSION['staff_receipt_email_success']);
 }
 $allowedMethods = [
     'gcash' => 'GCash',
@@ -581,33 +637,41 @@ try {
                         $referenceLabel = trim((string) ($receiptRow['payment_id'] ?? ''));
                     }
                     $emailSubject = 'Payment Receipt - ' . $clinicDisplayName;
+                    $amountPaidLabel = '₱' . number_format($amountPaid, 2);
+                    $balanceLeftLabel = '₱' . number_format($balanceLeft, 2);
                     $emailBodyText = "Clinic: {$clinicDisplayName}\n"
                         . "Patient: {$patientFullName}\n"
                         . "Payment ID: " . (string) ($receiptRow['payment_id'] ?? '') . "\n"
                         . "Reference: {$referenceLabel}\n"
                         . "Services: {$servicesLabel}\n"
-                        . "Amount Paid: PHP " . number_format($amountPaid, 2) . "\n"
-                        . "Remaining Balance: PHP " . number_format($balanceLeft, 2) . "\n"
+                        . "Amount Paid: {$amountPaidLabel}\n"
+                        . "Remaining Balance: {$balanceLeftLabel}\n"
                         . "Payment Date: {$paymentDateLabel}\n";
-                    $emailBodyHtml = '<div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.5;">'
-                        . '<h2 style="margin:0 0 12px;color:#0f172a;">' . htmlspecialchars($clinicDisplayName, ENT_QUOTES, 'UTF-8') . '</h2>'
-                        . '<p style="margin:0 0 12px;color:#334155;">Here is your payment receipt.</p>'
-                        . '<table style="width:100%;border-collapse:collapse;">'
-                        . '<tr><td style="padding:6px 0;font-weight:700;">Patient</td><td style="padding:6px 0;">' . htmlspecialchars($patientFullName, ENT_QUOTES, 'UTF-8') . '</td></tr>'
-                        . '<tr><td style="padding:6px 0;font-weight:700;">Payment ID</td><td style="padding:6px 0;">' . htmlspecialchars((string) ($receiptRow['payment_id'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td></tr>'
-                        . '<tr><td style="padding:6px 0;font-weight:700;">Reference</td><td style="padding:6px 0;">' . htmlspecialchars($referenceLabel, ENT_QUOTES, 'UTF-8') . '</td></tr>'
-                        . '<tr><td style="padding:6px 0;font-weight:700;">Services</td><td style="padding:6px 0;">' . htmlspecialchars($servicesLabel, ENT_QUOTES, 'UTF-8') . '</td></tr>'
-                        . '<tr><td style="padding:6px 0;font-weight:700;">Amount Paid</td><td style="padding:6px 0;">PHP ' . number_format($amountPaid, 2) . '</td></tr>'
-                        . '<tr><td style="padding:6px 0;font-weight:700;">Remaining Balance</td><td style="padding:6px 0;">PHP ' . number_format($balanceLeft, 2) . '</td></tr>'
-                        . '<tr><td style="padding:6px 0;font-weight:700;">Payment Date</td><td style="padding:6px 0;">' . htmlspecialchars($paymentDateLabel, ENT_QUOTES, 'UTF-8') . '</td></tr>'
-                        . '</table>'
-                        . '</div>';
+                    $emailBodyHtml = staff_payment_recording_build_receipt_email_html([
+                        'clinic_name' => $clinicDisplayName,
+                        'clinic_logo' => $clinicLogoUrl,
+                        'patient_name' => $patientFullName,
+                        'patient_id' => trim((string) ($receiptRow['patient_id'] ?? 'N/A')),
+                        'reference' => $referenceLabel,
+                        'payment_id' => (string) ($receiptRow['payment_id'] ?? ''),
+                        'service' => $servicesLabel,
+                        'payment_date' => $paymentDateLabel,
+                        'payment_method' => $allowedMethods[strtolower(trim((string) ($receiptRow['payment_method'] ?? '')))] ?? ucfirst(str_replace('_', ' ', trim((string) ($receiptRow['payment_method'] ?? '')))),
+                        'amount_paid' => $amountPaidLabel,
+                        'remaining_balance' => $balanceLeftLabel,
+                    ]);
                     if (staff_payment_recording_send_receipt_email($patientEmail, $emailSubject, $emailBodyText, $emailBodyHtml)) {
                         $_SESSION['staff_last_receipt_email'] = [
                             'payment_id' => $receiptPaymentId,
                             'sent_at' => time(),
                         ];
-                        $receiptEmailSuccess = 'The receipt has been sent to the patient’s email.';
+                        $_SESSION['staff_receipt_email_success'] = '1';
+                        $redirectUrl = $_SERVER['REQUEST_URI'] ?? 'StaffPaymentRecording.php';
+                        if (!is_string($redirectUrl) || trim($redirectUrl) === '') {
+                            $redirectUrl = 'StaffPaymentRecording.php';
+                        }
+                        header('Location: ' . $redirectUrl);
+                        exit;
                     } else {
                         $smtpReason = '';
                         if (isset($GLOBALS['smtp_last_error'])) {
@@ -3092,6 +3156,68 @@ This booking is installment-priced, but no installment schedule rows exist in th
             });
         }
 
+        function buildReceiptHtmlMarkup(receipt) {
+            const clinicLogo = escapeHtml(receipt.clinic_logo || '');
+            const clinicName = escapeHtml(receipt.clinic_name || '');
+            const patientName = escapeHtml(receipt.patient_name || '-');
+            const patientId = escapeHtml(receipt.patient_id || 'N/A');
+            const reference = escapeHtml(receipt.reference_number || '-');
+            const paymentId = escapeHtml(receipt.payment_id || '-');
+            const service = escapeHtml(receipt.service || 'Dental treatment');
+            const paymentDate = escapeHtml(formatReceiptDate(receipt.payment_date));
+            const paymentMethod = escapeHtml(receipt.payment_method || '-');
+            const amountPaid = escapeHtml(formatPeso(receipt.amount_paid));
+            const remainingBalance = escapeHtml(formatPeso(receipt.remaining_balance));
+
+            return '' +
+                '<div style="max-width:980px;margin:0 auto;background:#fff;border:1px solid #dbeafe;border-radius:20px;overflow:hidden;font-family:Arial,sans-serif;color:#0f172a;">' +
+                    '<div style="padding:24px;background:linear-gradient(135deg,#ffffff 0%,#f6fbff 60%,#ecf6ff 100%);border-bottom:1px solid #dbeafe;">' +
+                        '<div style="display:flex;align-items:flex-start;gap:14px;">' +
+                            '<img src="' + clinicLogo + '" alt="Clinic Logo" style="width:64px;height:64px;border-radius:16px;border:1px solid #dbeafe;object-fit:cover;background:#fff;">' +
+                            '<div>' +
+                                '<div style="font-size:18px;font-weight:800;line-height:1.2;">' + clinicName + '</div>' +
+                                '<div style="margin-top:8px;font-size:12px;letter-spacing:4px;font-weight:800;color:#647aa5;text-transform:uppercase;">Official Payment Receipt</div>' +
+                                '<div style="margin-top:12px;font-size:16px;color:#60739a;">Thank you for your payment. Keep this as your billing record.</div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="padding:20px 24px 0;">' +
+                        '<div style="display:flex;gap:16px;flex-wrap:wrap;">' +
+                            '<div style="flex:1;min-width:260px;border:1px solid #dbeafe;border-radius:16px;padding:14px 16px;">' +
+                                '<div style="font-size:11px;letter-spacing:3px;font-weight:800;color:#647aa5;text-transform:uppercase;">Patient</div>' +
+                                '<div style="margin-top:10px;font-size:34px;font-weight:800;line-height:1.15;">' + patientName + '</div>' +
+                                '<div style="margin-top:8px;font-size:26px;color:#7284a8;">ID ' + patientId + '</div>' +
+                            '</div>' +
+                            '<div style="flex:1;min-width:260px;border:1px solid #dbeafe;border-radius:16px;padding:14px 16px;">' +
+                                '<div style="font-size:11px;letter-spacing:3px;font-weight:800;color:#647aa5;text-transform:uppercase;">Transaction Ref</div>' +
+                                '<div style="margin-top:10px;font-size:32px;font-weight:800;line-height:1.15;">' + reference + '</div>' +
+                                '<div style="margin-top:8px;font-size:24px;color:#7284a8;">Payment ID ' + paymentId + '</div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="padding:18px 24px 0;">' +
+                        '<div style="border:1px solid #dbeafe;border-radius:16px;overflow:hidden;">' +
+                            '<div style="padding:12px 16px;border-bottom:1px solid #dbeafe;background:#f9fcff;font-size:12px;letter-spacing:4px;text-transform:uppercase;font-weight:800;color:#4f668f;">Payment Breakdown</div>' +
+                            '<div style="padding:12px 16px;display:flex;justify-content:space-between;gap:16px;font-size:20px;"><span style="font-weight:600;color:#41547a;">Service(s)</span><span style="font-weight:800;text-align:right;">' + service + '</span></div>' +
+                            '<div style="padding:12px 16px;display:flex;justify-content:space-between;gap:16px;font-size:20px;"><span style="font-weight:600;color:#41547a;">Payment Date</span><span style="font-weight:800;text-align:right;">' + paymentDate + '</span></div>' +
+                            '<div style="padding:12px 16px 14px;display:flex;justify-content:space-between;gap:16px;font-size:20px;"><span style="font-weight:600;color:#41547a;">Payment Method</span><span style="font-weight:800;text-align:right;">' + paymentMethod + '</span></div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="padding:18px 24px 24px;">' +
+                        '<div style="display:flex;gap:16px;flex-wrap:wrap;">' +
+                            '<div style="flex:1;min-width:260px;border:1px solid #bfdbfe;border-radius:16px;background:#f0f8ff;padding:14px 16px;">' +
+                                '<div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:800;color:#2382ff;">Amount Paid</div>' +
+                                '<div style="margin-top:12px;font-size:46px;font-weight:800;color:#2382ff;line-height:1.1;">' + amountPaid + '</div>' +
+                            '</div>' +
+                            '<div style="flex:1;min-width:260px;border:1px solid #fcdca7;border-radius:16px;background:#fffaf0;padding:14px 16px;">' +
+                                '<div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:800;color:#b45309;">Remaining Balance</div>' +
+                                '<div style="margin-top:12px;font-size:46px;font-weight:800;color:#b45309;line-height:1.1;">' + remainingBalance + '</div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+        }
+
         function setReceiptText(id, value) {
             const el = document.getElementById(id);
             if (el) {
@@ -3142,24 +3268,10 @@ This booking is installment-priced, but no installment schedule rows exist in th
             if (!printWin) {
                 return;
             }
-            const html = '<!DOCTYPE html><html><head><title>Payment Receipt</title><style>' +
-                'body{font-family:Arial,sans-serif;padding:28px;color:#0f172a;}' +
-                '.head{display:flex;align-items:center;gap:12px;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:14px;}' +
-                '.logo{width:56px;height:56px;object-fit:cover;border:1px solid #e2e8f0;border-radius:8px;}' +
-                'table{width:100%;border-collapse:collapse;margin-top:8px;}td{padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:14px;}' +
-                'td:first-child{font-weight:700;color:#334155;width:36%;}</style></head><body>' +
-                '<div class="head"><img class="logo" src="' + escapeHtml(activeReceiptData.clinic_logo || '') + '" alt="Clinic Logo"/><div><h2 style="margin:0;">' + escapeHtml(activeReceiptData.clinic_name || '') + '</h2><p style="margin:2px 0 0;color:#64748b;font-size:12px;">Official Payment Receipt</p></div></div>' +
-                '<table>' +
-                '<tr><td>Patient</td><td>' + escapeHtml(activeReceiptData.patient_name || '-') + '</td></tr>' +
-                '<tr><td>Patient ID</td><td>' + escapeHtml(activeReceiptData.patient_id || '-') + '</td></tr>' +
-                '<tr><td>Transaction Reference</td><td>' + escapeHtml(activeReceiptData.reference_number || '-') + '</td></tr>' +
-                '<tr><td>Service(s)</td><td>' + escapeHtml(activeReceiptData.service || '-') + '</td></tr>' +
-                '<tr><td>Amount Paid</td><td>' + escapeHtml(formatPeso(activeReceiptData.amount_paid)) + '</td></tr>' +
-                '<tr><td>Remaining Balance</td><td>' + escapeHtml(formatPeso(activeReceiptData.remaining_balance)) + '</td></tr>' +
-                '<tr><td>Payment Date</td><td>' + escapeHtml(formatReceiptDate(activeReceiptData.payment_date)) + '</td></tr>' +
-                '<tr><td>Payment Method</td><td>' + escapeHtml(activeReceiptData.payment_method || '-') + '</td></tr>' +
-                '<tr><td>Payment ID</td><td>' + escapeHtml(activeReceiptData.payment_id || '-') + '</td></tr>' +
-                '</table></body></html>';
+            const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Payment Receipt</title><style>' +
+                'body{margin:0;padding:24px;background:#f3f8ff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}' +
+                '@media print{body{padding:0;background:#fff;} .print-wrap{margin:0;max-width:100%;}}' +
+                '</style></head><body><div class="print-wrap">' + buildReceiptHtmlMarkup(activeReceiptData) + '</div></body></html>';
             printWin.document.open();
             printWin.document.write(html);
             printWin.document.close();
@@ -3245,6 +3357,11 @@ This booking is installment-priced, but no installment schedule rows exist in th
         if (hasReceiptEmailSuccess && receiptEmailConfirmModal) {
             receiptEmailConfirmModal.classList.remove('hidden');
             receiptEmailConfirmModal.classList.add('flex');
+            try {
+                const u = new URL(window.location.href);
+                window.history.replaceState({}, '', u.pathname + u.search + u.hash);
+            } catch (e) {
+            }
         }
         window.addEventListener('pageshow', (event) => {
             if (event.persisted) {
