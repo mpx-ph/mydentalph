@@ -431,33 +431,33 @@ require_once __DIR__ . '/provider_auth.php';
                 </div>
             </div>
         </section>
-        <!-- Final CTA Section -->
-        <section class="bg-primary py-16 sm:py-20 lg:py-24 reveal overflow-hidden" data-reveal="section">
-            <div class="max-w-[1800px] mx-auto px-6 sm:px-8 lg:px-10 xl:px-14">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-0 lg:items-stretch">
-                    <div class="relative z-10 max-w-xl mx-auto lg:mx-0 text-center lg:text-left lg:py-4 lg:pr-10 xl:pr-14">
-                        <div
-                            class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-8 lg:mb-10">
-                            Institutional Boarding
-                        </div>
-                        <h2
-                            class="font-headline text-4xl font-extrabold text-white tracking-tighter leading-[0.95] md:text-5xl mb-6 lg:mb-7">
-                            Ready to evolve your practice?</h2>
-                        <p class="text-white/75 text-lg md:text-xl leading-relaxed mb-8 lg:mb-10">Join hundreds of
-                            dental clinics streamlining their clinical operations through the My Dental ecosystem.</p>
-                        <a href="Provider-Plans.php"
-                            class="bg-white text-primary px-10 sm:px-16 py-5 sm:py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:scale-[1.03] transition-transform duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 inline-block">
-                            Start Your Subscription
-                        </a>
-                    </div>
-                    <div
-                        class="relative w-full max-w-xl mx-auto lg:max-w-none lg:mx-0 aspect-[4/3] lg:aspect-auto lg:h-full min-h-[12rem] overflow-hidden">
-                        <img src="Banner2.webp"
-                            alt="Dental professionals collaborating with modern clinic software"
-                            class="absolute inset-0 w-full h-full object-cover object-center"
-                            loading="lazy" decoding="async" />
-                    </div>
+        <!-- Final CTA Section: true 50/50 split; image fills viewport right half (small top inset only) -->
+        <section
+            class="bg-primary reveal overflow-hidden pt-6 pb-16 sm:pb-20 lg:flex lg:flex-row lg:items-stretch lg:min-h-[min(36rem,82vh)] lg:py-0 lg:pb-0"
+            data-reveal="section">
+            <div
+                class="relative z-10 w-full lg:w-1/2 flex flex-col justify-center px-6 sm:px-10 lg:pl-16 xl:pl-24 2xl:pl-32 lg:pr-10 xl:pr-16 2xl:pr-20 py-10 sm:py-12 lg:py-16 lg:pb-20 max-w-xl mx-auto text-center lg:mx-0 lg:max-w-2xl lg:text-left">
+                <div
+                    class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-8 lg:mb-10 mx-auto lg:mx-0">
+                    Institutional Boarding
                 </div>
+                <h2
+                    class="font-headline text-4xl font-extrabold text-white tracking-tighter leading-[0.95] md:text-5xl mb-6 lg:mb-7">
+                    Ready to evolve your practice?</h2>
+                <p class="text-white/75 text-lg md:text-xl leading-relaxed mb-8 lg:mb-10">Join hundreds of
+                    dental clinics streamlining their clinical operations through the My Dental ecosystem.</p>
+                <div class="flex justify-center lg:justify-start">
+                    <a href="Provider-Plans.php"
+                        class="bg-white text-primary px-10 sm:px-16 py-5 sm:py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:scale-[1.03] transition-transform duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 inline-block">
+                        Start Your Subscription
+                    </a>
+                </div>
+            </div>
+            <div
+                class="relative w-full lg:w-1/2 min-h-[14rem] aspect-[4/3] lg:aspect-auto lg:min-h-0 lg:self-stretch -mx-6 sm:-mx-10 lg:mx-0">
+                <img src="Banner2.webp" alt="Dental professionals collaborating with modern clinic software"
+                    class="absolute inset-x-0 top-0 bottom-0 w-full h-full object-cover object-center lg:top-5 lg:bottom-0"
+                    loading="lazy" decoding="async" />
             </div>
         </section>
     </main>
