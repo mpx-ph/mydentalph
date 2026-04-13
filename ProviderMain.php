@@ -436,21 +436,19 @@ require_once __DIR__ . '/provider_auth.php';
             class="bg-primary reveal overflow-hidden pt-6 pb-16 sm:pb-20 lg:grid lg:grid-cols-2 lg:gap-0 lg:items-stretch lg:px-0 lg:pt-6 lg:pb-0"
             data-reveal="section">
             <div
-                class="relative z-10 w-full flex flex-col justify-start px-6 sm:px-10 lg:pl-16 xl:pl-24 2xl:pl-32 lg:pr-10 xl:pr-16 2xl:pr-20 py-10 sm:py-12 lg:py-14 lg:pb-16 max-w-xl mx-auto text-center lg:mx-0 lg:max-w-xl lg:text-left">
-                <div
-                    class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-8 lg:mb-10 mx-auto lg:mx-0">
-                    Institutional Boarding
-                </div>
-                <h2
-                    class="font-headline text-4xl font-extrabold text-white tracking-tighter leading-[0.95] md:text-5xl mb-6 lg:mb-7">
-                    Ready to evolve your practice?</h2>
-                <p class="text-white/75 text-lg md:text-xl leading-relaxed mb-8 lg:mb-10">Join hundreds of
-                    dental clinics streamlining their clinical operations through the My Dental ecosystem.</p>
-                <div class="flex justify-center lg:justify-start">
-                    <a href="Provider-Plans.php"
-                        class="bg-white text-primary px-10 sm:px-16 py-5 sm:py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:scale-[1.03] transition-transform duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 inline-block">
-                        Start Your Subscription
-                    </a>
+                class="relative z-10 w-full flex flex-col justify-start items-stretch px-6 sm:px-10 lg:px-12 xl:px-16 py-10 sm:py-12 lg:py-14 lg:pb-16">
+                <div class="w-full max-w-md mx-auto lg:max-w-lg text-center lg:text-left">
+                    <h2
+                        class="font-headline text-4xl font-extrabold text-white tracking-tighter leading-[0.95] md:text-5xl mb-5 lg:mb-6">
+                        Ready to evolve your practice?</h2>
+                    <p class="text-white/75 text-base md:text-lg leading-relaxed mb-6 lg:mb-8">Join hundreds of
+                        dental clinics streamlining their clinical operations through the My Dental ecosystem.</p>
+                    <div class="flex justify-center lg:justify-start">
+                        <a href="Provider-Plans.php"
+                            class="bg-white text-primary px-7 py-3 rounded-full font-bold text-xs uppercase tracking-[0.18em] hover:scale-[1.02] transition-transform duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 inline-block">
+                            Start Your Subscription
+                        </a>
+                    </div>
                 </div>
             </div>
             <div
