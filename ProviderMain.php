@@ -196,7 +196,8 @@ require_once __DIR__ . '/provider_auth.php';
             <div class="provider-hero__bg" aria-hidden="true"></div>
             <div
                 class="relative z-10 w-full max-w-[1800px] mx-auto px-5 sm:px-8 lg:px-14 xl:px-20 pt-8 pb-10 sm:py-16 lg:py-24">
-                <div class="w-full max-w-none sm:max-w-xl lg:max-w-2xl xl:max-w-[40rem]">
+                <div
+                    class="w-full max-w-none sm:max-w-xl lg:max-w-2xl xl:max-w-[40rem] lg:pl-10 xl:pl-16 2xl:pl-20">
                     <h1
                         class="font-headline text-[clamp(2.45rem,10vw,3.15rem)] sm:text-[clamp(2.1rem,7vw,4.75rem)] font-extrabold tracking-[-0.045em] text-on-surface mb-5 sm:mb-8 leading-[0.92]">
                         <span class="block">Modernize Your</span>
