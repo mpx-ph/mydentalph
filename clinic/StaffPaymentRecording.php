@@ -43,6 +43,69 @@ function staff_payment_recording_installment_is_paid(string $status): bool
     return $s === 'paid' || $s === 'completed';
 }
 
+function staff_payment_recording_normalize_service_category(string $category): string
+{
+    $raw = strtolower(trim($category));
+    if ($raw !== '') {
+        $raw = preg_replace('/\s+/', ' ', $raw) ?? $raw;
+    }
+    if ($raw === '') {
+        return '';
+    }
+    if (str_contains($raw, 'crowns') && str_contains($raw, 'bridges')) {
+        return 'crowns_and_bridges';
+    }
+    if (str_contains($raw, 'oral') && str_contains($raw, 'surgery')) {
+        return 'oral_surgery';
+    }
+    if (str_contains($raw, 'orthodont')) {
+        return 'orthodontics';
+    }
+    if (str_contains($raw, 'pediatric')) {
+        return 'pediatric_dentistry';
+    }
+    if (str_contains($raw, 'cosmetic')) {
+        return 'cosmetic_dentistry';
+    }
+    if (str_contains($raw, 'restorative')) {
+        return 'restorative_dentistry';
+    }
+    if (str_contains($raw, 'general')) {
+        return 'general_dentistry';
+    }
+    if (str_contains($raw, 'specialized') || str_contains($raw, 'specialised')) {
+        return 'specialized_and_others';
+    }
+    return '';
+}
+
+function staff_payment_recording_disallowed_combination_message(array $categories): string
+{
+    $set = [];
+    foreach ($categories as $category) {
+        $normalized = staff_payment_recording_normalize_service_category((string) $category);
+        if ($normalized !== '') {
+            $set[$normalized] = true;
+        }
+    }
+    $has = static function (string $category) use ($set): bool {
+        return isset($set[$category]);
+    };
+    if ($has('oral_surgery') && $has('crowns_and_bridges')) {
+        return 'Oral Surgery and Crowns and Bridges cannot be combined in one payment update because healing must occur first before crown placement. Please schedule these services separately if needed.';
+    }
+    if ($has('orthodontics') && $has('crowns_and_bridges')) {
+        return 'Orthodontics and Crowns and Bridges cannot be combined because permanent bridges should not be placed while teeth are still moving. Please schedule these services separately if needed.';
+    }
+    if ($has('orthodontics') && $has('cosmetic_dentistry')) {
+        return 'Orthodontics and Cosmetic Dentistry cannot be combined because cosmetic procedures like veneers should be done after alignment is complete. Please schedule these services separately if needed.';
+    }
+    if ($has('pediatric_dentistry') && $has('cosmetic_dentistry')) {
+        return 'Pediatric Dentistry and Cosmetic Dentistry cannot be combined because major cosmetic procedures are not appropriate for pediatric patients. Please schedule these services separately if needed.';
+    }
+    return '';
+}
+
 /**
  * @return array{regular_downpayment_percentage: float, long_term_min_downpayment: float}
  */
@@ -909,7 +972,7 @@ try {
 
                         $placeholders = implode(',', array_fill(0, count($additionalServiceIds), '?'));
                         $servicesSql = "
-                            SELECT service_id, service_name, price
+                            SELECT service_id, service_name, category, price
                             FROM tbl_services
                             WHERE tenant_id = ?
                               AND status = 'active'
@@ -920,6 +983,24 @@ try {
                         $servicesToAdd = $servicesStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
                         if (empty($servicesToAdd)) {
                             throw new RuntimeException('No valid additional services were selected.');
+                        }
+                        $appointmentCategoriesStmt = $pdo->prepare("
+                            SELECT COALESCE(NULLIF(sv.category, ''), '') AS category
+                            FROM tbl_appointment_services aps
+                            LEFT JOIN tbl_services sv
+                              ON sv.tenant_id = aps.tenant_id
+                             AND sv.service_id = aps.service_id
+                            WHERE aps.tenant_id = ?
+                              AND aps.booking_id = ?
+                        ");
+                        $appointmentCategoriesStmt->execute([$tenantId, $selectedBookingId]);
+                        $combinedCategories = $appointmentCategoriesStmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+                        foreach ($servicesToAdd as $serviceToAdd) {
+                            $combinedCategories[] = (string) ($serviceToAdd['category'] ?? '');
+                        }
+                        $blockedCombinationMessage = staff_payment_recording_disallowed_combination_message($combinedCategories);
+                        if ($blockedCombinationMessage !== '') {
+                            throw new RuntimeException($blockedCombinationMessage);
                         }
 
                         $insertColumns = ['tenant_id', 'booking_id', 'service_id', 'service_name', 'price'];
@@ -1801,11 +1882,19 @@ try {
             if ($bookedIdList !== []) {
                 $bookedPh = implode(',', array_fill(0, count($bookedIdList), '?'));
                 $bookedSql = "
-                    SELECT booking_id, service_id, service_name, price
-                    FROM tbl_appointment_services
-                    WHERE tenant_id = ?
-                      AND booking_id IN ({$bookedPh})
-                    ORDER BY booking_id ASC, service_name ASC
+                    SELECT
+                        aps.booking_id,
+                        aps.service_id,
+                        aps.service_name,
+                        aps.price,
+                        COALESCE(NULLIF(sv.category, ''), '') AS category
+                    FROM tbl_appointment_services aps
+                    LEFT JOIN tbl_services sv
+                      ON sv.tenant_id = aps.tenant_id
+                     AND sv.service_id = aps.service_id
+                    WHERE aps.tenant_id = ?
+                      AND aps.booking_id IN ({$bookedPh})
+                    ORDER BY aps.booking_id ASC, aps.service_name ASC
                 ";
                 $bookedStmt = $pdo->prepare($bookedSql);
                 $bookedStmt->execute(array_merge([$tenantId], $bookedIdList));
@@ -1820,6 +1909,7 @@ try {
                     $bookedServicesByBooking[$bb][] = [
                         'service_id' => trim((string) ($brow['service_id'] ?? '')),
                         'service_name' => trim((string) ($brow['service_name'] ?? '')),
+                        'category' => trim((string) ($brow['category'] ?? '')),
                         'price' => round((float) ($brow['price'] ?? 0), 2),
                     ];
                 }
@@ -2515,7 +2605,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
 ?>
 <label class="flex items-center justify-between gap-3 p-2.5 rounded-lg hover:bg-white border border-transparent hover:border-slate-200">
 <span class="flex items-start gap-3 min-w-0">
-<input class="additional-service-checkbox mt-1 rounded border-slate-300 text-primary focus:ring-primary/30" data-service-price="<?php echo htmlspecialchars((string) $servicePrice, ENT_QUOTES, 'UTF-8'); ?>" name="additional_service_ids[]" type="checkbox" value="<?php echo htmlspecialchars($serviceId, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $isChecked ? ' checked' : ''; ?>/>
+<input class="additional-service-checkbox mt-1 rounded border-slate-300 text-primary focus:ring-primary/30" data-service-price="<?php echo htmlspecialchars((string) $servicePrice, ENT_QUOTES, 'UTF-8'); ?>" data-service-category="<?php echo htmlspecialchars($serviceCategory, ENT_QUOTES, 'UTF-8'); ?>" name="additional_service_ids[]" type="checkbox" value="<?php echo htmlspecialchars($serviceId, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $isChecked ? ' checked' : ''; ?>/>
 <span class="min-w-0">
 <span class="block text-sm font-bold text-slate-800 truncate"><?php echo htmlspecialchars($serviceName, ENT_QUOTES, 'UTF-8'); ?></span>
 <span class="block text-xs text-slate-500"><?php echo htmlspecialchars($serviceCategory, ENT_QUOTES, 'UTF-8'); ?></span>
@@ -2628,6 +2718,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
         const selectedBookingIdInput = document.getElementById('selected_booking_id_input');
         const patientQueryInput = document.getElementById('patient_query_input');
         const selectedTransactionLabel = document.getElementById('selected_transaction_label');
+        const transactionForm = modal ? modal.querySelector('form[method="post"]') : null;
         const amountInput = document.querySelector('input[name="amount"]');
         const additionalServiceCheckboxes = document.querySelectorAll('.additional-service-checkbox');
         const additionalServicesTotalHint = document.getElementById('additional_services_total_hint');
@@ -3193,6 +3284,74 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 .replace(/'/g, '&#039;');
         }
 
+        function normalizeClinicalCategory(category) {
+            const raw = String(category || '').toLowerCase();
+            if (raw.indexOf('crowns') !== -1 && raw.indexOf('bridges') !== -1) return 'crowns_and_bridges';
+            if (raw.indexOf('oral') !== -1 && raw.indexOf('surgery') !== -1) return 'oral_surgery';
+            if (raw.indexOf('orthodont') !== -1) return 'orthodontics';
+            if (raw.indexOf('pediatric') !== -1) return 'pediatric_dentistry';
+            if (raw.indexOf('cosmetic') !== -1) return 'cosmetic_dentistry';
+            if (raw.indexOf('restorative') !== -1) return 'restorative_dentistry';
+            if (raw.indexOf('general') !== -1) return 'general_dentistry';
+            if (raw.indexOf('specialized') !== -1 || raw.indexOf('specialised') !== -1) return 'specialized_and_others';
+            return '';
+        }
+
+        function findBlockedCategoryCombination(categories) {
+            const normalized = new Set();
+            categories.forEach((category) => {
+                const mapped = normalizeClinicalCategory(category);
+                if (mapped) normalized.add(mapped);
+            });
+            const blockedRules = [
+                {
+                    pair: ['oral_surgery', 'crowns_and_bridges'],
+                    message: 'Oral Surgery and Crowns and Bridges cannot be combined because healing must occur first before crown placement.'
+                },
+                {
+                    pair: ['orthodontics', 'crowns_and_bridges'],
+                    message: 'Orthodontics and Crowns and Bridges cannot be combined because permanent bridges should not be placed while teeth are still moving.'
+                },
+                {
+                    pair: ['orthodontics', 'cosmetic_dentistry'],
+                    message: 'Orthodontics and Cosmetic Dentistry cannot be combined because cosmetic procedures like veneers should be done after alignment is complete.'
+                },
+                {
+                    pair: ['pediatric_dentistry', 'cosmetic_dentistry'],
+                    message: 'Pediatric Dentistry and Cosmetic Dentistry cannot be combined because major cosmetic procedures are not appropriate for pediatric patients.'
+                }
+            ];
+            for (let i = 0; i < blockedRules.length; i += 1) {
+                const rule = blockedRules[i];
+                if (normalized.has(rule.pair[0]) && normalized.has(rule.pair[1])) {
+                    return rule.message + ' Please schedule these services separately if needed.';
+                }
+            }
+            return '';
+        }
+
+        function validateSelectedAdditionalServices() {
+            if (!selectedTransaction) {
+                return { valid: true, message: '' };
+            }
+            const categories = [];
+            const booked = Array.isArray(selectedTransaction.booked_services) ? selectedTransaction.booked_services : [];
+            booked.forEach((service) => {
+                categories.push(service && service.category ? service.category : '');
+            });
+            additionalServiceCheckboxes.forEach((checkbox) => {
+                if (!checkbox.checked) {
+                    return;
+                }
+                categories.push(checkbox.getAttribute('data-service-category') || '');
+            });
+            const blockedMessage = findBlockedCategoryCombination(categories);
+            if (blockedMessage) {
+                return { valid: false, message: blockedMessage };
+            }
+            return { valid: true, message: '' };
+        }
+
         function renderTransactionRows(list) {
             if (!selectorList || !selectorEmpty) return;
             if (!list.length) {
@@ -3634,8 +3793,24 @@ This booking is installment-priced, but no installment schedule rows exist in th
             });
         }
         additionalServiceCheckboxes.forEach((checkbox) => {
-            checkbox.addEventListener('change', syncAmountWithAdditionalServices);
+            checkbox.addEventListener('change', () => {
+                const validation = validateSelectedAdditionalServices();
+                if (!validation.valid) {
+                    checkbox.checked = false;
+                    window.alert(validation.message);
+                }
+                syncAmountWithAdditionalServices();
+            });
         });
+        if (transactionForm) {
+            transactionForm.addEventListener('submit', (event) => {
+                const validation = validateSelectedAdditionalServices();
+                if (!validation.valid) {
+                    event.preventDefault();
+                    window.alert(validation.message);
+                }
+            });
+        }
         document.querySelectorAll('input[name="installment_pay_mode_ui"]').forEach((radio) => {
             radio.addEventListener('change', () => {
                 refreshInstallmentPaymentUi();

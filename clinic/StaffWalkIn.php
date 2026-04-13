@@ -700,6 +700,57 @@ try {
             refreshWalkInCostPreview();
         }
 
+        function normalizeClinicalCategory(category) {
+            const raw = String(category || '').toLowerCase();
+            if (raw.indexOf('crowns') !== -1 && raw.indexOf('bridges') !== -1) return 'crowns_and_bridges';
+            if (raw.indexOf('oral') !== -1 && raw.indexOf('surgery') !== -1) return 'oral_surgery';
+            if (raw.indexOf('orthodont') !== -1) return 'orthodontics';
+            if (raw.indexOf('pediatric') !== -1) return 'pediatric_dentistry';
+            if (raw.indexOf('cosmetic') !== -1) return 'cosmetic_dentistry';
+            if (raw.indexOf('restorative') !== -1) return 'restorative_dentistry';
+            if (raw.indexOf('general') !== -1) return 'general_dentistry';
+            if (raw.indexOf('specialized') !== -1 || raw.indexOf('specialised') !== -1) return 'specialized_and_others';
+            return '';
+        }
+
+        function validateServiceCompatibility(services) {
+            const categories = new Set();
+            services.forEach(function (service) {
+                const normalized = normalizeClinicalCategory(service && service.category);
+                if (normalized) {
+                    categories.add(normalized);
+                }
+            });
+            const blockedPairs = [
+                {
+                    pair: ['oral_surgery', 'crowns_and_bridges'],
+                    message: 'Oral Surgery and Crowns and Bridges cannot be combined in one booking because healing must occur first before crown placement.'
+                },
+                {
+                    pair: ['orthodontics', 'crowns_and_bridges'],
+                    message: 'Orthodontics and Crowns and Bridges cannot be combined because permanent bridges should not be placed while teeth are still moving.'
+                },
+                {
+                    pair: ['orthodontics', 'cosmetic_dentistry'],
+                    message: 'Orthodontics and Cosmetic Dentistry cannot be combined because cosmetic procedures like veneers should be done after alignment is complete.'
+                },
+                {
+                    pair: ['pediatric_dentistry', 'cosmetic_dentistry'],
+                    message: 'Pediatric Dentistry and Cosmetic Dentistry cannot be combined because major cosmetic procedures are not appropriate for pediatric patients.'
+                }
+            ];
+            for (let i = 0; i < blockedPairs.length; i++) {
+                const rule = blockedPairs[i];
+                if (categories.has(rule.pair[0]) && categories.has(rule.pair[1])) {
+                    return {
+                        valid: false,
+                        message: rule.message + ' Please schedule these services separately if needed.'
+                    };
+                }
+            }
+            return { valid: true, message: '' };
+        }
+
         function renderDentistsList() {
             if (!dentistListContainer || !dentistListEmptyState) return;
             if (!dentistsSeedData.length) {
@@ -881,6 +932,15 @@ try {
             }
             if (!selectedServices.length) {
                 void staffUiAlert({ message: 'Please add at least one service.', variant: 'warning', title: 'Services required' });
+                return;
+            }
+            const compatibility = validateServiceCompatibility(selectedServices);
+            if (!compatibility.valid) {
+                await staffUiAlert({
+                    title: 'Service combination not allowed',
+                    message: compatibility.message,
+                    variant: 'warning'
+                });
                 return;
             }
 
@@ -1069,6 +1129,16 @@ try {
                     return String(item.service_id || '') === String(service.service_id || '');
                 });
                 if (alreadyAdded) return;
+                const nextServices = selectedServices.concat([service]);
+                const compatibility = validateServiceCompatibility(nextServices);
+                if (!compatibility.valid) {
+                    void staffUiAlert({
+                        title: 'Service combination not allowed',
+                        message: compatibility.message,
+                        variant: 'warning'
+                    });
+                    return;
+                }
                 selectedServices.push(service);
                 setSelectedService('', 'Select service');
                 renderSelectedServices();
