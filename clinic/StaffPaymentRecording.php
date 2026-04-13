@@ -1032,6 +1032,7 @@ try {
         } else {
             $bookingSql = "
                 SELECT
+                    COALESCE(MAX(a.id), 0) AS appointment_id,
                     a.booking_id,
                     a.patient_id,
                     COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
@@ -1049,6 +1050,7 @@ try {
             $bookingStmt = $pdo->prepare($bookingSql);
             $bookingStmt->execute([$tenantId, $selectedBookingId]);
             $bookingRow = $bookingStmt->fetch(PDO::FETCH_ASSOC);
+            $appointmentId = (int) ($bookingRow['appointment_id'] ?? 0);
             $patientId = trim((string) ($bookingRow['patient_id'] ?? ''));
             $totalCost = (float) ($bookingRow['total_treatment_cost'] ?? 0);
             $totalPaid = (float) ($bookingRow['total_paid'] ?? 0);
@@ -1534,16 +1536,16 @@ try {
                         $totalPaidAfter = (float) ($bookingRow['total_paid'] ?? 0);
                         $pendingAfter = max(0, $totalCostAfter - $totalPaidAfter);
 
-                        $nextAppointmentStatus = ($pendingAfter <= 0.009) ? 'completed' : 'confirmed';
+                        $updateById = $appointmentId > 0;
                         $updateAppointmentSql = "
                             UPDATE tbl_appointments
-                            SET status = ?" . ($supportsAppointmentUpdatedAtColumn ? ", updated_at = NOW()" : "") . "
+                            SET status = 'completed'" . ($supportsAppointmentUpdatedAtColumn ? ", updated_at = NOW()" : "") . "
                             WHERE tenant_id = ?
-                              AND booking_id = ?
-                              AND status = 'pending'
+                              AND " . ($updateById ? "id = ?" : "booking_id = ?") . "
+                              AND LOWER(COALESCE(status, 'pending')) NOT IN ('cancelled', 'no_show')
                         ";
                         $updateAppointmentStmt = $pdo->prepare($updateAppointmentSql);
-                        $updateAppointmentStmt->execute([$nextAppointmentStatus, $tenantId, $selectedBookingId]);
+                        $updateAppointmentStmt->execute([$tenantId, $updateById ? $appointmentId : $selectedBookingId]);
 
                         $paymentSuccess = 'Payment recorded successfully.';
                         $selectedMethod = '';
@@ -1752,16 +1754,16 @@ try {
                         throw new RuntimeException($apiError !== '' ? ('PayMongo: ' . $apiError) : 'PayMongo did not return a checkout URL.');
                     }
 
-                    $nextAppointmentStatus = ($amount + 0.009 >= $pendingBalance) ? 'completed' : 'confirmed';
+                    $updateById = $appointmentId > 0;
                     $updateAppointmentSql = "
                         UPDATE tbl_appointments
-                        SET status = ?" . ($supportsAppointmentUpdatedAtColumn ? ", updated_at = NOW()" : "") . "
+                        SET status = 'completed'" . ($supportsAppointmentUpdatedAtColumn ? ", updated_at = NOW()" : "") . "
                         WHERE tenant_id = ?
-                          AND booking_id = ?
-                          AND status = 'pending'
+                          AND " . ($updateById ? "id = ?" : "booking_id = ?") . "
+                          AND LOWER(COALESCE(status, 'pending')) NOT IN ('cancelled', 'no_show')
                     ";
                     $updateAppointmentStmt = $pdo->prepare($updateAppointmentSql);
-                    $updateAppointmentStmt->execute([$nextAppointmentStatus, $tenantId, $selectedBookingId]);
+                    $updateAppointmentStmt->execute([$tenantId, $updateById ? $appointmentId : $selectedBookingId]);
 
                     $paymentSuccess = 'Payment recorded successfully.';
                     // Reset the modal form after successful submission.

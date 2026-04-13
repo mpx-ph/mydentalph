@@ -1197,6 +1197,18 @@ if ($currentTenantSlug !== '') {
             closeBookingTypeModal();
         }
     });
+
+    let appointmentsPageWasHidden = false;
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            appointmentsPageWasHidden = true;
+            return;
+        }
+        if (document.visibilityState === 'visible' && appointmentsPageWasHidden) {
+            appointmentsPageWasHidden = false;
+            window.location.reload();
+        }
+    });
 </script>
 </body>
 </html>
