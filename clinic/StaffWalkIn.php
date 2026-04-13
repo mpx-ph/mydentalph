@@ -63,6 +63,7 @@ $walkinCreateApiPath = $clinicWebRoot . '/api/walkin_create.php';
 $walkInDentists = [];
 $walkInPaymentSettings = [
     'regular_downpayment_percentage' => 20.0,
+    'long_term_min_downpayment' => 500.0,
 ];
 try {
     if (function_exists('getDBConnection')) {
@@ -104,7 +105,7 @@ try {
             if ($paymentSettingsTable !== null) {
                 $qpSettings = '`' . str_replace('`', '``', $paymentSettingsTable) . '`';
                 $psStmt = $pdo->prepare("
-                    SELECT regular_downpayment_percentage
+                    SELECT regular_downpayment_percentage, long_term_min_downpayment
                     FROM {$qpSettings}
                     WHERE tenant_id = ?
                     LIMIT 1
@@ -113,6 +114,9 @@ try {
                 $psRow = $psStmt->fetch(PDO::FETCH_ASSOC) ?: null;
                 if ($psRow && isset($psRow['regular_downpayment_percentage'])) {
                     $walkInPaymentSettings['regular_downpayment_percentage'] = (float) $psRow['regular_downpayment_percentage'];
+                }
+                if ($psRow && isset($psRow['long_term_min_downpayment'])) {
+                    $walkInPaymentSettings['long_term_min_downpayment'] = (float) $psRow['long_term_min_downpayment'];
                 }
             }
         }
@@ -825,11 +829,19 @@ try {
             }) || null;
             const durationMonths = installmentService ? Math.max(0, Number(installmentService.installment_duration_months || 0)) : 0;
             const servicePrice = installmentService ? Number(installmentService.price || 0) : 0;
-            const configuredPctRaw = walkInPaymentSettings && walkInPaymentSettings.regular_downpayment_percentage
-                ? Number(walkInPaymentSettings.regular_downpayment_percentage)
-                : 20;
-            const configuredPct = Number.isFinite(configuredPctRaw) ? Math.max(0, configuredPctRaw) : 20;
-            const downPayment = installmentService ? Math.max(0, servicePrice * (configuredPct / 100)) : 0;
+            const configuredMinDownRaw = walkInPaymentSettings && walkInPaymentSettings.long_term_min_downpayment !== undefined
+                ? Number(walkInPaymentSettings.long_term_min_downpayment)
+                : 500;
+            const configuredMinDown = Number.isFinite(configuredMinDownRaw) ? Math.max(0, configuredMinDownRaw) : 500;
+            const serviceConfiguredDownRaw = installmentService ? Number(installmentService.installment_downpayment || 0) : 0;
+            const hasServiceConfiguredDown = installmentService && Number.isFinite(serviceConfiguredDownRaw) && serviceConfiguredDownRaw > 0;
+            let downPayment = installmentService
+                ? (hasServiceConfiguredDown ? serviceConfiguredDownRaw : configuredMinDown)
+                : 0;
+            downPayment = Math.max(0, downPayment);
+            if (servicePrice > 0 && downPayment > servicePrice) {
+                downPayment = servicePrice;
+            }
             let monthlyEstimate = 0;
             if (installmentService && durationMonths > 0) {
                 if (downPayment > 0 && durationMonths > 1) {
