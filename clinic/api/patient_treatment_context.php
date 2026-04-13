@@ -31,6 +31,8 @@ try {
     $dbTables = clinic_resolve_appointment_db_tables($pdo);
     $treatmentsTable = $dbTables['treatments'];
     $servicesTable = $dbTables['services'];
+    $paymentsTable = $dbTables['payments'];
+    $appointmentsTable = $dbTables['appointments'];
     if ($treatmentsTable === null || $servicesTable === null) {
         echo json_encode([
             'success' => true,
@@ -42,6 +44,8 @@ try {
 
     $qt = clinic_quote_identifier($treatmentsTable);
     $qs = clinic_quote_identifier($servicesTable);
+    $qp = $paymentsTable !== null ? clinic_quote_identifier($paymentsTable) : null;
+    $qa = $appointmentsTable !== null ? clinic_quote_identifier($appointmentsTable) : null;
 
     $stmt = $pdo->prepare("
         SELECT
@@ -87,9 +91,72 @@ try {
     $serviceStmt->execute([$tenantId, $primaryServiceId]);
     $service = $serviceStmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
+    $paymentsTotalPaid = null;
+    if ($paymentsTable !== null) {
+        $paymentsCols = clinic_table_columns($pdo, $paymentsTable);
+        $appointmentsCols = $appointmentsTable !== null ? clinic_table_columns($pdo, $appointmentsTable) : [];
+        $paymentsHasTreatmentId = in_array('treatment_id', $paymentsCols, true);
+        $paymentsHasBookingId = in_array('booking_id', $paymentsCols, true);
+        $appointmentsHasTreatmentId = in_array('treatment_id', $appointmentsCols, true);
+        $appointmentsHasBookingId = in_array('booking_id', $appointmentsCols, true);
+        $canJoinByBooking = $qa !== null && $paymentsHasBookingId && $appointmentsHasBookingId && $appointmentsHasTreatmentId;
+        $treatmentId = (string) ($treatment['treatment_id'] ?? '');
+
+        if ($treatmentId !== '' && $qp !== null) {
+            if ($paymentsHasTreatmentId && $canJoinByBooking) {
+                $paidStmt = $pdo->prepare("
+                    SELECT COALESCE(SUM(py.amount), 0) AS total_paid
+                    FROM {$qp} py
+                    WHERE py.tenant_id = ?
+                      AND LOWER(COALESCE(py.status, '')) = 'completed'
+                      AND (
+                            py.treatment_id = ?
+                            OR (
+                                COALESCE(py.treatment_id, '') = ''
+                                AND EXISTS (
+                                    SELECT 1
+                                    FROM {$qa} a
+                                    WHERE a.tenant_id = py.tenant_id
+                                      AND a.booking_id = py.booking_id
+                                      AND a.treatment_id = ?
+                                )
+                            )
+                      )
+                ");
+                $paidStmt->execute([$tenantId, $treatmentId, $treatmentId]);
+                $paymentsTotalPaid = (float) ($paidStmt->fetchColumn() ?? 0);
+            } elseif ($paymentsHasTreatmentId) {
+                $paidStmt = $pdo->prepare("
+                    SELECT COALESCE(SUM(py.amount), 0) AS total_paid
+                    FROM {$qp} py
+                    WHERE py.tenant_id = ?
+                      AND LOWER(COALESCE(py.status, '')) = 'completed'
+                      AND py.treatment_id = ?
+                ");
+                $paidStmt->execute([$tenantId, $treatmentId]);
+                $paymentsTotalPaid = (float) ($paidStmt->fetchColumn() ?? 0);
+            } elseif ($canJoinByBooking) {
+                $paidStmt = $pdo->prepare("
+                    SELECT COALESCE(SUM(py.amount), 0) AS total_paid
+                    FROM {$qp} py
+                    INNER JOIN {$qa} a
+                      ON a.tenant_id = py.tenant_id
+                     AND a.booking_id = py.booking_id
+                    WHERE py.tenant_id = ?
+                      AND LOWER(COALESCE(py.status, '')) = 'completed'
+                      AND a.treatment_id = ?
+                ");
+                $paidStmt->execute([$tenantId, $treatmentId]);
+                $paymentsTotalPaid = (float) ($paidStmt->fetchColumn() ?? 0);
+            }
+        }
+    }
+
     $totalCost = (float) ($treatment['total_cost'] ?? 0);
-    $amountPaid = (float) ($treatment['amount_paid'] ?? 0);
-    $remainingBalance = (float) ($treatment['remaining_balance'] ?? 0);
+    $amountPaid = $paymentsTotalPaid !== null
+        ? $paymentsTotalPaid
+        : (float) ($treatment['amount_paid'] ?? 0);
+    $remainingBalance = max(0.0, $totalCost - $amountPaid);
     if ($totalCost > 0 && $remainingBalance < 0) {
         $remainingBalance = 0.0;
     }

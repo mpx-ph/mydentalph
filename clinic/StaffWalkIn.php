@@ -799,7 +799,7 @@ try {
             if (walkInAmountPaidEl) walkInAmountPaidEl.textContent = formatPeso(paid);
             if (walkInRemainingBalanceEl) walkInRemainingBalanceEl.textContent = formatPeso(remaining);
             if (walkInMonthsLeftEl) walkInMonthsLeftEl.textContent = String(monthsLeft) + ' Months';
-            if (walkInPaymentProgressLabelEl) walkInPaymentProgressLabelEl.textContent = percent.toFixed(1) + '% paid';
+            if (walkInPaymentProgressLabelEl) walkInPaymentProgressLabelEl.textContent = percent + '% paid';
             if (walkInPaymentProgressBarEl) walkInPaymentProgressBarEl.style.width = Math.max(0, Math.min(100, percent)) + '%';
             if (walkInInstallmentAvailableEl) {
                 walkInInstallmentAvailableEl.textContent = 'Active Installment Treatment: ' + (treatmentIsInstallmentPlan(activeTreatmentContext) ? 'Yes' : 'No');
