@@ -94,23 +94,6 @@ if ($user_initial === '') {
 <a class="rounded-full px-4 py-2 leading-none text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface/70 hover:text-primary hover:bg-primary/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" href="ProviderFAQs.php">FAQs</a>
 </nav>
 <div class="flex items-center justify-end gap-2 sm:gap-3 overflow-visible">
-<!-- Mobile menu (md and up use the horizontal nav above) -->
-<details class="provider-nav-mobile relative z-[60] md:hidden">
-<summary
-    class="relative flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-xl border border-on-surface/10 bg-white/80 text-on-surface shadow-sm transition-colors hover:border-primary/25 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-slate-900/40 dark:text-surface [&::-webkit-details-marker]:hidden"
-    aria-label="Menu">
-    <span class="provider-nav-mobile__icon--menu material-symbols-outlined text-2xl leading-none" aria-hidden="true">menu</span>
-    <span class="provider-nav-mobile__icon--close material-symbols-outlined absolute text-2xl leading-none" aria-hidden="true">close</span>
-</summary>
-<div
-    class="absolute right-0 top-[calc(100%+0.5rem)] w-[min(calc(100vw-2rem),18rem)] rounded-2xl border border-on-surface/10 bg-white/95 py-2 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/95">
-    <a class="block px-4 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-on-surface/80 hover:bg-primary/5 hover:text-primary dark:text-surface/85" href="/">Home</a>
-    <a class="block px-4 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-on-surface/80 hover:bg-primary/5 hover:text-primary dark:text-surface/85" href="Provider-HowItWorks.php">More Features</a>
-    <a class="block px-4 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-on-surface/80 hover:bg-primary/5 hover:text-primary dark:text-surface/85" href="Provider-Plans.php">Pricing</a>
-    <a class="block px-4 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-on-surface/80 hover:bg-primary/5 hover:text-primary dark:text-surface/85" href="ProviderContact.php">Contact Us</a>
-    <a class="block px-4 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-on-surface/80 hover:bg-primary/5 hover:text-primary dark:text-surface/85" href="ProviderFAQs.php">FAQs</a>
-</div>
-</details>
 <?php if ($logged_in): ?>
 <!-- Logged-in user card with dropdown -->
 <div class="relative">
@@ -145,6 +128,23 @@ if ($user_initial === '') {
 Login
 </a>
 <?php endif; ?>
+<!-- Mobile menu to the right of Login / account (md+ uses horizontal nav) -->
+<details class="provider-nav-mobile relative z-[60] md:hidden">
+<summary
+    class="relative flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-xl border border-on-surface/10 bg-white/80 text-on-surface shadow-sm transition-colors hover:border-primary/25 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-slate-900/40 dark:text-surface [&::-webkit-details-marker]:hidden"
+    aria-label="Menu">
+    <span class="provider-nav-mobile__icon--menu material-symbols-outlined text-2xl leading-none" aria-hidden="true">menu</span>
+    <span class="provider-nav-mobile__icon--close material-symbols-outlined absolute text-2xl leading-none" aria-hidden="true">close</span>
+</summary>
+<div
+    class="absolute right-0 top-[calc(100%+0.5rem)] w-[min(calc(100vw-2rem),18rem)] rounded-2xl border border-on-surface/10 bg-white/95 py-2 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/95">
+    <a class="block px-4 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-on-surface/80 hover:bg-primary/5 hover:text-primary dark:text-surface/85" href="/">Home</a>
+    <a class="block px-4 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-on-surface/80 hover:bg-primary/5 hover:text-primary dark:text-surface/85" href="Provider-HowItWorks.php">More Features</a>
+    <a class="block px-4 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-on-surface/80 hover:bg-primary/5 hover:text-primary dark:text-surface/85" href="Provider-Plans.php">Pricing</a>
+    <a class="block px-4 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-on-surface/80 hover:bg-primary/5 hover:text-primary dark:text-surface/85" href="ProviderContact.php">Contact Us</a>
+    <a class="block px-4 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-on-surface/80 hover:bg-primary/5 hover:text-primary dark:text-surface/85" href="ProviderFAQs.php">FAQs</a>
+</div>
+</details>
 </div>
 </div>
 </div>
