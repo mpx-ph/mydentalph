@@ -523,6 +523,16 @@ try {
             { key: 'orthodontics', label: 'Orthodontics' },
             { key: 'specialized_and_others', label: 'Specialized and Others' }
         ];
+        const SERVICE_CATEGORY_BADGE_CLASSES = {
+            'general_dentistry': 'bg-blue-100 text-blue-700',
+            'restorative_dentistry': 'bg-green-100 text-green-700',
+            'oral_surgery': 'bg-rose-100 text-rose-700',
+            'crowns_and_bridges': 'bg-amber-100 text-amber-700',
+            'cosmetic_dentistry': 'bg-violet-100 text-violet-700',
+            'pediatric_dentistry': 'bg-pink-100 text-pink-700',
+            'orthodontics': 'bg-orange-100 text-orange-700',
+            'specialized_and_others': 'bg-slate-100 text-slate-700'
+        };
 
         function pad(number) {
             return String(number).padStart(2, '0');
@@ -612,16 +622,22 @@ try {
                 const serviceId = escapeHtml(service.service_id || '');
                 const serviceName = escapeHtml(service.service_name || '');
                 const category = escapeHtml(service.category || '-');
+                const categoryBadgeClass = getServiceCategoryBadgeClass(service.category);
                 const price = Number(service.price || 0);
                 return '' +
                     '<div class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-slate-50/80 transition-colors">' +
                         '<div class="min-w-0">' +
                             '<p class="text-sm font-bold text-slate-900 truncate">' + serviceName + '</p>' +
-                            '<p class="text-xs font-semibold text-slate-500 mt-1 inline-flex items-center gap-2"><span class="px-2 py-1 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-wide">' + category + '</span><span>Php ' + price.toFixed(2) + '</span></p>' +
+                            '<p class="text-xs font-semibold text-slate-500 mt-1 inline-flex items-center gap-2"><span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ' + categoryBadgeClass + '">' + category + '</span><span>Php ' + price.toFixed(2) + '</span></p>' +
                         '</div>' +
                         '<button type="button" data-action="select-service" data-service-id="' + serviceId + '" class="shrink-0 rounded-lg bg-primary text-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide hover:bg-primary/90 transition-colors">Select</button>' +
                     '</div>';
             }).join('');
+        }
+
+        function getServiceCategoryBadgeClass(category) {
+            const key = normalizeServiceFilterCategory(category);
+            return SERVICE_CATEGORY_BADGE_CLASSES[key] || 'bg-slate-100 text-slate-700';
         }
 
         function normalizeServiceFilterCategory(category) {
