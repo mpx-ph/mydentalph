@@ -827,20 +827,31 @@ try {
             const installmentService = breakdownServices.find(function (service) {
                 return serviceInstallmentEnabled(service);
             }) || null;
+            const regularBasisAmount = totalAmount;
             const durationMonths = installmentService ? Math.max(0, Number(installmentService.installment_duration_months || 0)) : 0;
             const servicePrice = installmentService ? Number(installmentService.price || 0) : 0;
+            const configuredRegularPctRaw = walkInPaymentSettings && walkInPaymentSettings.regular_downpayment_percentage !== undefined
+                ? Number(walkInPaymentSettings.regular_downpayment_percentage)
+                : 20;
+            const configuredRegularPct = Number.isFinite(configuredRegularPctRaw) ? Math.max(0, configuredRegularPctRaw) : 20;
             const configuredMinDownRaw = walkInPaymentSettings && walkInPaymentSettings.long_term_min_downpayment !== undefined
                 ? Number(walkInPaymentSettings.long_term_min_downpayment)
                 : 500;
             const configuredMinDown = Number.isFinite(configuredMinDownRaw) ? Math.max(0, configuredMinDownRaw) : 500;
             const serviceConfiguredDownRaw = installmentService ? Number(installmentService.installment_downpayment || 0) : 0;
             const hasServiceConfiguredDown = installmentService && Number.isFinite(serviceConfiguredDownRaw) && serviceConfiguredDownRaw > 0;
-            let downPayment = installmentService
-                ? (hasServiceConfiguredDown ? serviceConfiguredDownRaw : configuredMinDown)
-                : 0;
+            let downPayment = 0;
+            if (installmentService) {
+                downPayment = hasServiceConfiguredDown ? serviceConfiguredDownRaw : configuredMinDown;
+            } else if (regularBasisAmount > 0) {
+                downPayment = regularBasisAmount * (configuredRegularPct / 100);
+            }
             downPayment = Math.max(0, downPayment);
-            if (servicePrice > 0 && downPayment > servicePrice) {
+            if (installmentService && servicePrice > 0 && downPayment > servicePrice) {
                 downPayment = servicePrice;
+            }
+            if (!installmentService && regularBasisAmount > 0 && downPayment > regularBasisAmount) {
+                downPayment = regularBasisAmount;
             }
             let monthlyEstimate = 0;
             if (installmentService && durationMonths > 0) {
