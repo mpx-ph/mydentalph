@@ -218,8 +218,8 @@ function registerPublicClient(array $data) {
         $fullName = trim($data['first_name'] . ' ' . $data['last_name']);
         $stmt = $pdo->prepare("
             INSERT INTO tbl_users (
-                user_id, tenant_id, username, email, full_name, password_hash, role, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                user_id, tenant_id, username, email, full_name, phone, password_hash, role, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $userId,
@@ -227,6 +227,7 @@ function registerPublicClient(array $data) {
             $data['username'],
             $data['email'],
             $fullName,
+            !empty($data['mobile']) ? $data['mobile'] : null,
             $hashedPassword,
             $role,
             $status,
@@ -245,21 +246,29 @@ function registerPublicClient(array $data) {
             $seq = 1;
         }
         $patientDisplayId = 'P-' . $year . '-' . str_pad($seq, 5, '0', STR_PAD_LEFT);
-        $mobile = !empty($data['mobile']) ? $data['mobile'] : null;
+        // Keep patient table synced using only applicable shared profile fields
+        // from the same registration payload used for tbl_users.
+        $syncedPatientFields = [
+            'first_name' => $data['first_name'],
+            'last_name' => $data['last_name'],
+            'contact_number' => !empty($data['mobile']) ? $data['mobile'] : null, // tbl_users.phone equivalent
+            'date_of_birth' => !empty($data['date_of_birth']) ? $data['date_of_birth'] : null,
+        ];
 
         $stmt = $pdo->prepare("
             INSERT INTO tbl_patients (
-                tenant_id, patient_id, owner_user_id, linked_user_id, first_name, last_name, contact_number, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+                tenant_id, patient_id, owner_user_id, linked_user_id, first_name, last_name, contact_number, date_of_birth, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
         ");
         $stmt->execute([
             $tenantId,
             $patientDisplayId,
             $userId, // owner_user_id
             $userId, // linked_user_id
-            $data['first_name'],
-            $data['last_name'],
-            $mobile,
+            $syncedPatientFields['first_name'],
+            $syncedPatientFields['last_name'],
+            $syncedPatientFields['contact_number'],
+            $syncedPatientFields['date_of_birth'],
         ]);
 
         $pdo->commit();
