@@ -90,6 +90,31 @@ function staff_payment_recording_send_receipt_email(string $toEmail, string $sub
     return send_smtp_gmail($toEmail, $subject, $bodyText, $bodyHtml);
 }
 
+function staff_payment_recording_absolute_asset_url(string $rawPath): string
+{
+    $value = trim($rawPath);
+    if ($value === '') {
+        return '';
+    }
+    if (preg_match('#^https?://#i', $value)) {
+        return $value;
+    }
+    $path = ltrim($value, '/');
+    $base = defined('BASE_URL') ? trim((string) BASE_URL) : '';
+    if ($base !== '' && preg_match('#^https?://#i', $base)) {
+        return rtrim($base, '/') . '/' . $path;
+    }
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = trim((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    if ($host === '') {
+        return $value;
+    }
+    if ($base !== '' && $base !== '/') {
+        return $scheme . '://' . $host . '/' . trim($base, '/') . '/' . $path;
+    }
+    return $scheme . '://' . $host . '/' . $path;
+}
+
 function staff_payment_recording_build_receipt_email_html(array $receipt): string
 {
     $clinicName = htmlspecialchars((string) ($receipt['clinic_name'] ?? 'MyDental Philippines'), ENT_QUOTES, 'UTF-8');
@@ -105,41 +130,48 @@ function staff_payment_recording_build_receipt_email_html(array $receipt): strin
     $remainingBalance = htmlspecialchars((string) ($receipt['remaining_balance'] ?? '₱0.00'), ENT_QUOTES, 'UTF-8');
 
     return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-        . '<title>Payment Receipt</title></head><body style="margin:0;padding:24px;background:#f3f8ff;font-family:Arial,sans-serif;color:#0f172a;">'
-        . '<table role="presentation" cellpadding="0" cellspacing="0" style="max-width:760px;width:100%;margin:0 auto;background:#fff;border:1px solid #dbeafe;border-radius:20px;overflow:hidden;">'
-        . '<tr><td style="padding:24px;background:linear-gradient(135deg,#ffffff 0%,#f6fbff 60%,#ecf6ff 100%);border-bottom:1px solid #dbeafe;">'
-        . '<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;"><tr>'
-        . '<td style="width:74px;vertical-align:top;"><img src="' . $clinicLogo . '" alt="Clinic Logo" style="width:64px;height:64px;border-radius:16px;border:1px solid #dbeafe;object-fit:cover;background:#fff;"></td>'
-        . '<td style="vertical-align:top;"><div style="font-size:38px;line-height:0;margin-bottom:8px;">&nbsp;</div><p style="margin:0;font-size:36px;font-weight:800;color:#0f172a;letter-spacing:0.2px;">' . $clinicName . '</p>'
-        . '<p style="margin:8px 0 0;font-size:12px;letter-spacing:4px;font-weight:800;color:#647aa5;text-transform:uppercase;">Official Payment Receipt</p>'
-        . '<p style="margin:12px 0 0;font-size:16px;color:#60739a;">Thank you for your payment. Keep this as your billing record.</p></td>'
+        . '<title>Payment Receipt</title></head><body style="margin:0;padding:0;background:#f3f8ff;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">'
+        . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f8ff;padding:24px 12px;"><tr><td align="center">'
+        . '<table role="presentation" width="760" cellpadding="0" cellspacing="0" style="width:760px;max-width:760px;background:#ffffff;border:1px solid #dbeafe;border-radius:18px;overflow:hidden;">'
+        . '<tr><td style="padding:22px 24px;background:#f8fcff;border-bottom:1px solid #dbeafe;">'
+        . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
+        . '<td width="72" valign="top" style="width:72px;padding-right:12px;">'
+        . ($clinicLogo !== '' ? '<img src="' . $clinicLogo . '" alt="Clinic Logo" width="64" height="64" style="display:block;width:64px;height:64px;border-radius:14px;border:1px solid #dbeafe;object-fit:cover;background:#fff;">' : '')
+        . '</td>'
+        . '<td valign="top"><p style="margin:0;font-size:24px;line-height:30px;font-weight:800;color:#0f172a;">' . $clinicName . '</p>'
+        . '<p style="margin:8px 0 0;font-size:13px;line-height:18px;letter-spacing:4px;font-weight:800;color:#647aa5;text-transform:uppercase;">Official Payment Receipt</p>'
+        . '<p style="margin:12px 0 0;font-size:16px;line-height:22px;color:#60739a;">Thank you for your payment. Keep this as your billing record.</p></td>'
         . '</tr></table></td></tr>'
-        . '<tr><td style="padding:20px 24px 0;"><table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;"><tr>'
-        . '<td style="width:50%;padding-right:8px;vertical-align:top;"><div style="border:1px solid #dbeafe;border-radius:16px;padding:14px 16px;">'
-        . '<p style="margin:0;font-size:11px;letter-spacing:3px;font-weight:800;color:#647aa5;text-transform:uppercase;">Patient</p>'
-        . '<p style="margin:10px 0 0;font-size:32px;font-weight:800;color:#0f172a;">' . $patientName . '</p>'
-        . '<p style="margin:8px 0 0;font-size:27px;color:#7284a8;">ID ' . $patientId . '</p></div></td>'
-        . '<td style="width:50%;padding-left:8px;vertical-align:top;"><div style="border:1px solid #dbeafe;border-radius:16px;padding:14px 16px;">'
-        . '<p style="margin:0;font-size:11px;letter-spacing:3px;font-weight:800;color:#647aa5;text-transform:uppercase;">Transaction Ref</p>'
-        . '<p style="margin:10px 0 0;font-size:31px;font-weight:800;color:#0f172a;">' . $reference . '</p>'
-        . '<p style="margin:8px 0 0;font-size:26px;color:#7284a8;">Payment ID ' . $paymentId . '</p></div></td>'
+        . '<tr><td style="padding:18px 24px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
+        . '<td width="49%" valign="top" style="width:49%;border:1px solid #dbeafe;border-radius:14px;padding:12px 14px;">'
+        . '<p style="margin:0;font-size:11px;line-height:14px;letter-spacing:3px;font-weight:800;color:#647aa5;text-transform:uppercase;">Patient</p>'
+        . '<p style="margin:10px 0 0;font-size:18px;line-height:24px;font-weight:800;color:#0f172a;">' . $patientName . '</p>'
+        . '<p style="margin:8px 0 0;font-size:14px;line-height:18px;color:#7284a8;">ID ' . $patientId . '</p></td>'
+        . '<td width="2%"></td>'
+        . '<td width="49%" valign="top" style="width:49%;border:1px solid #dbeafe;border-radius:14px;padding:12px 14px;">'
+        . '<p style="margin:0;font-size:11px;line-height:14px;letter-spacing:3px;font-weight:800;color:#647aa5;text-transform:uppercase;">Transaction Ref</p>'
+        . '<p style="margin:10px 0 0;font-size:18px;line-height:24px;font-weight:800;color:#0f172a;word-break:break-word;">' . $reference . '</p>'
+        . '<p style="margin:8px 0 0;font-size:14px;line-height:18px;color:#7284a8;">Payment ID ' . $paymentId . '</p></td>'
         . '</tr></table></td></tr>'
-        . '<tr><td style="padding:18px 24px 0;"><div style="border:1px solid #dbeafe;border-radius:16px;overflow:hidden;">'
-        . '<div style="padding:12px 16px;border-bottom:1px solid #dbeafe;background:#f9fcff;font-size:12px;letter-spacing:4px;text-transform:uppercase;font-weight:800;color:#4f668f;">Payment Breakdown</div>'
-        . '<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">'
-        . '<tr><td style="padding:12px 16px;font-size:20px;font-weight:600;color:#41547a;">Service(s)</td><td style="padding:12px 16px;font-size:20px;font-weight:800;color:#0f172a;text-align:right;">' . $service . '</td></tr>'
-        . '<tr><td style="padding:12px 16px;font-size:20px;font-weight:600;color:#41547a;">Payment Date</td><td style="padding:12px 16px;font-size:20px;font-weight:800;color:#0f172a;text-align:right;">' . $paymentDate . '</td></tr>'
-        . '<tr><td style="padding:12px 16px 14px;font-size:20px;font-weight:600;color:#41547a;">Payment Method</td><td style="padding:12px 16px 14px;font-size:20px;font-weight:800;color:#0f172a;text-align:right;">' . $paymentMethod . '</td></tr>'
-        . '</table></div></td></tr>'
-        . '<tr><td style="padding:18px 24px 24px;"><table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;"><tr>'
-        . '<td style="width:50%;padding-right:8px;vertical-align:top;"><div style="border:1px solid #bfdbfe;border-radius:16px;background:#f0f8ff;padding:14px 16px;">'
-        . '<p style="margin:0;font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:800;color:#2382ff;">Amount Paid</p>'
-        . '<p style="margin:12px 0 0;font-size:46px;font-weight:800;color:#2382ff;">' . $amountPaid . '</p></div></td>'
-        . '<td style="width:50%;padding-left:8px;vertical-align:top;"><div style="border:1px solid #fcdca7;border-radius:16px;background:#fffaf0;padding:14px 16px;">'
-        . '<p style="margin:0;font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:800;color:#b45309;">Remaining Balance</p>'
-        . '<p style="margin:12px 0 0;font-size:46px;font-weight:800;color:#b45309;">' . $remainingBalance . '</p></div></td>'
+        . '<tr><td style="padding:18px 24px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #dbeafe;border-radius:14px;overflow:hidden;">'
+        . '<tr><td style="padding:12px 14px;background:#f9fcff;border-bottom:1px solid #dbeafe;font-size:13px;line-height:18px;letter-spacing:4px;font-weight:800;color:#4f668f;text-transform:uppercase;">Payment Breakdown</td></tr>'
+        . '<tr><td style="padding:12px 14px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">'
+        . '<tr><td style="font-size:16px;line-height:22px;font-weight:600;color:#41547a;">Service(s)</td><td align="right" style="font-size:16px;line-height:22px;font-weight:800;color:#0f172a;">' . $service . '</td></tr>'
+        . '<tr><td height="12"></td><td></td></tr>'
+        . '<tr><td style="font-size:16px;line-height:22px;font-weight:600;color:#41547a;">Payment Date</td><td align="right" style="font-size:16px;line-height:22px;font-weight:800;color:#0f172a;">' . $paymentDate . '</td></tr>'
+        . '<tr><td height="12"></td><td></td></tr>'
+        . '<tr><td style="font-size:16px;line-height:22px;font-weight:600;color:#41547a;">Payment Method</td><td align="right" style="font-size:16px;line-height:22px;font-weight:800;color:#0f172a;">' . $paymentMethod . '</td></tr>'
+        . '</table></td></tr></table></td></tr>'
+        . '<tr><td style="padding:18px 24px 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
+        . '<td width="49%" valign="top" style="width:49%;border:1px solid #bfdbfe;border-radius:14px;background:#f0f8ff;padding:12px 14px;">'
+        . '<p style="margin:0;font-size:11px;line-height:14px;letter-spacing:3px;text-transform:uppercase;font-weight:800;color:#2382ff;">Amount Paid</p>'
+        . '<p style="margin:12px 0 0;font-size:34px;line-height:38px;font-weight:800;color:#2382ff;">' . $amountPaid . '</p></td>'
+        . '<td width="2%"></td>'
+        . '<td width="49%" valign="top" style="width:49%;border:1px solid #fcdca7;border-radius:14px;background:#fffaf0;padding:12px 14px;">'
+        . '<p style="margin:0;font-size:11px;line-height:14px;letter-spacing:3px;text-transform:uppercase;font-weight:800;color:#b45309;">Remaining Balance</p>'
+        . '<p style="margin:12px 0 0;font-size:34px;line-height:38px;font-weight:800;color:#b45309;">' . $remainingBalance . '</p></td>'
         . '</tr></table></td></tr>'
-        . '</table></body></html>';
+        . '</table></td></tr></table></body></html>';
 }
 
 /**
@@ -373,7 +405,7 @@ if ($clinicDisplayName === '') {
 if ($clinicLogoPath === '') {
     $clinicLogoPath = 'DRCGLogo2.png';
 }
-$clinicLogoUrl = strpos($clinicLogoPath, 'http') === 0 ? $clinicLogoPath : (BASE_URL . ltrim($clinicLogoPath, '/'));
+$clinicLogoUrl = staff_payment_recording_absolute_asset_url($clinicLogoPath);
 if (isset($_GET['payment_success']) && $_GET['payment_success'] === '1') {
     $paymentSuccess = 'Payment recorded successfully.';
 }
@@ -454,6 +486,28 @@ try {
         if ($tenantClinicName !== '') {
             $clinicDisplayName = $tenantClinicName;
         }
+        try {
+            $tenantLogoStmt = $pdo->prepare("
+                SELECT option_value
+                FROM clinic_customization_tenant
+                WHERE tenant_id = ?
+                  AND option_key IN ('logo_nav', 'logo', 'clinic_logo', 'logo_email')
+                ORDER BY FIELD(option_key, 'logo_nav', 'clinic_logo', 'logo_email', 'logo')
+                LIMIT 1
+            ");
+            $tenantLogoStmt->execute([$tenantId]);
+            $tenantLogoValue = trim((string) ($tenantLogoStmt->fetchColumn() ?: ''));
+            if ($tenantLogoValue !== '') {
+                $clinicLogoPath = $tenantLogoValue;
+            } elseif (isset($_SESSION['clinic_logo']) && trim((string) $_SESSION['clinic_logo']) !== '') {
+                $clinicLogoPath = trim((string) $_SESSION['clinic_logo']);
+            }
+        } catch (Throwable $logoErr) {
+            if (isset($_SESSION['clinic_logo']) && trim((string) $_SESSION['clinic_logo']) !== '') {
+                $clinicLogoPath = trim((string) $_SESSION['clinic_logo']);
+            }
+        }
+        $clinicLogoUrl = staff_payment_recording_absolute_asset_url($clinicLogoPath);
     }
 
     if ($tenantId !== '' && $_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['paymongo_cancel']) && (string) $_GET['paymongo_cancel'] === '1') {
