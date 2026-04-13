@@ -189,6 +189,30 @@ try {
         .walkin-primary-btn:active {
             transform: translateY(0) scale(0.99);
         }
+        .service-filter-chip {
+            border: 1px solid #dbe5f1;
+            background: #ffffff;
+            color: #475569;
+            border-radius: 999px;
+            padding: 0.5rem 0.9rem;
+            font-size: 0.69rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+        .service-filter-chip:hover {
+            border-color: rgba(43, 139, 235, 0.35);
+            color: #1e3a8a;
+            background: rgba(43, 139, 235, 0.06);
+        }
+        .service-filter-chip.is-active {
+            background: linear-gradient(120deg, #2b8beb, #3b82f6);
+            border-color: #2b8beb;
+            color: #ffffff;
+            box-shadow: 0 8px 18px -12px rgba(43, 139, 235, 0.9);
+        }
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
@@ -418,13 +442,23 @@ try {
                 </button>
             </div>
 
-            <div class="px-5 py-4 border-b border-slate-100">
-                <input id="serviceSearchInput" type="text" class="walkin-input w-full py-3 px-4" placeholder="Search service name or category"/>
+            <div class="px-5 py-4 border-b border-slate-100 bg-slate-50/60 space-y-4">
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 mb-2">Find Service</p>
+                    <div class="relative">
+                        <span class="material-symbols-outlined text-[18px] text-slate-400 absolute left-4 top-1/2 -translate-y-1/2">search</span>
+                        <input id="serviceSearchInput" type="text" class="walkin-input w-full py-3.5 pl-11 pr-4 border border-primary/20 shadow-sm" placeholder="Search service name, category, or code"/>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 mb-2">Filter by Category</p>
+                    <div id="serviceCategoryFilters" class="flex items-center gap-2 overflow-x-auto pb-1"></div>
+                </div>
             </div>
 
             <div class="max-h-[24rem] overflow-y-auto">
                 <div id="serviceListEmptyState" class="hidden px-5 py-8 text-center text-sm font-semibold text-slate-500"></div>
-                <div id="serviceListContainer" class="divide-y divide-slate-100"></div>
+                <div id="serviceListContainer" class="divide-y divide-slate-100 bg-white"></div>
             </div>
         </div>
     </div>
@@ -458,6 +492,7 @@ try {
         const chooseServiceModal = document.getElementById('chooseServiceModal');
         const closeChooseServiceModalBtn = document.getElementById('closeChooseServiceModalBtn');
         const serviceSearchInput = document.getElementById('serviceSearchInput');
+        const serviceCategoryFilters = document.getElementById('serviceCategoryFilters');
         const serviceListContainer = document.getElementById('serviceListContainer');
         const serviceListEmptyState = document.getElementById('serviceListEmptyState');
         const notesInput = document.getElementById('walkInNotesInput');
@@ -476,6 +511,18 @@ try {
         let allPatients = [];
         let allServices = [];
         let selectedServices = [];
+        let selectedServiceCategoryFilter = 'all';
+        const SERVICE_CATEGORY_FILTERS = [
+            { key: 'all', label: 'All Categories' },
+            { key: 'general_dentistry', label: 'General Dentistry' },
+            { key: 'restorative_dentistry', label: 'Restorative Dentistry' },
+            { key: 'oral_surgery', label: 'Oral Surgery' },
+            { key: 'crowns_and_bridges', label: 'Crowns and Bridges' },
+            { key: 'cosmetic_dentistry', label: 'Cosmetic Dentistry' },
+            { key: 'pediatric_dentistry', label: 'Pediatric Dentistry' },
+            { key: 'orthodontics', label: 'Orthodontics' },
+            { key: 'specialized_and_others', label: 'Specialized and Others' }
+        ];
 
         function pad(number) {
             return String(number).padStart(2, '0');
@@ -567,13 +614,49 @@ try {
                 const category = escapeHtml(service.category || '-');
                 const price = Number(service.price || 0);
                 return '' +
-                    '<div class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">' +
+                    '<div class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-slate-50/80 transition-colors">' +
                         '<div class="min-w-0">' +
                             '<p class="text-sm font-bold text-slate-900 truncate">' + serviceName + '</p>' +
-                            '<p class="text-xs font-semibold text-slate-500 mt-1">' + category + ' | Php ' + price.toFixed(2) + '</p>' +
+                            '<p class="text-xs font-semibold text-slate-500 mt-1 inline-flex items-center gap-2"><span class="px-2 py-1 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-wide">' + category + '</span><span>Php ' + price.toFixed(2) + '</span></p>' +
                         '</div>' +
                         '<button type="button" data-action="select-service" data-service-id="' + serviceId + '" class="shrink-0 rounded-lg bg-primary text-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide hover:bg-primary/90 transition-colors">Select</button>' +
                     '</div>';
+            }).join('');
+        }
+
+        function normalizeServiceFilterCategory(category) {
+            return normalizeClinicalCategory(category);
+        }
+
+        function applyServiceFilters() {
+            const keyword = serviceSearchInput ? serviceSearchInput.value.trim().toLowerCase() : '';
+            const filtered = allServices.filter(function (service) {
+                const categoryKey = normalizeServiceFilterCategory(service.category);
+                const categoryMatches = selectedServiceCategoryFilter === 'all' || categoryKey === selectedServiceCategoryFilter;
+                if (!categoryMatches) {
+                    return false;
+                }
+                if (!keyword) {
+                    return true;
+                }
+                const haystack = [
+                    service.service_name,
+                    service.category,
+                    service.service_id
+                ].join(' ').toLowerCase();
+                return haystack.indexOf(keyword) !== -1;
+            });
+            renderServicesList(filtered);
+        }
+
+        function renderServiceCategoryFilters() {
+            if (!serviceCategoryFilters) return;
+            serviceCategoryFilters.innerHTML = SERVICE_CATEGORY_FILTERS.map(function (item) {
+                const isActive = item.key === selectedServiceCategoryFilter;
+                return '' +
+                    '<button type="button" data-action="service-category-filter" data-category-key="' + escapeHtml(item.key) + '" class="service-filter-chip' + (isActive ? ' is-active' : '') + '">' +
+                        escapeHtml(item.label) +
+                    '</button>';
             }).join('');
         }
 
@@ -838,7 +921,7 @@ try {
             }
 
             allServices = mergedServices;
-            renderServicesList(allServices);
+            applyServiceFilters();
         }
 
         function openChoosePatientModal() {
@@ -868,6 +951,8 @@ try {
             if (!chooseServiceModal) return;
             chooseServiceModal.classList.remove('hidden');
             if (serviceSearchInput) serviceSearchInput.value = '';
+            selectedServiceCategoryFilter = 'all';
+            renderServiceCategoryFilters();
             loadAllServices();
         }
 
@@ -1051,20 +1136,17 @@ try {
         }
         if (serviceSearchInput) {
             serviceSearchInput.addEventListener('input', function () {
-                const keyword = serviceSearchInput.value.trim().toLowerCase();
-                if (!keyword) {
-                    renderServicesList(allServices);
-                    return;
-                }
-                const filtered = allServices.filter(function (service) {
-                    const haystack = [
-                        service.service_name,
-                        service.category,
-                        service.service_id
-                    ].join(' ').toLowerCase();
-                    return haystack.indexOf(keyword) !== -1;
-                });
-                renderServicesList(filtered);
+                applyServiceFilters();
+            });
+        }
+        if (serviceCategoryFilters) {
+            serviceCategoryFilters.addEventListener('click', function (event) {
+                const button = event.target.closest('button[data-action="service-category-filter"]');
+                if (!button) return;
+                const next = button.getAttribute('data-category-key') || 'all';
+                selectedServiceCategoryFilter = next;
+                renderServiceCategoryFilters();
+                applyServiceFilters();
             });
         }
         if (patientSearchInput) {
