@@ -111,6 +111,22 @@ require_once __DIR__ . '/provider_auth.php';
             clip-path: polygon(15% 0%, 100% 0%, 100% 100%, 0% 100%);
         }
 
+        /* Hero (SAMPLE1-style): soft fade from white into banner art, desktop only */
+        @media (min-width: 1024px) {
+            .hero-banner-image {
+                -webkit-mask-image: linear-gradient(90deg,
+                        transparent 0%,
+                        rgba(0, 0, 0, 0.2) 6%,
+                        #000 32%);
+                mask-image: linear-gradient(90deg,
+                        transparent 0%,
+                        rgba(0, 0, 0, 0.2) 6%,
+                        #000 32%);
+                mask-size: 100% 100%;
+                -webkit-mask-size: 100% 100%;
+            }
+        }
+
         .mesh-gradient {
             background-color: #ffffff;
             background-image:
@@ -135,7 +151,7 @@ require_once __DIR__ . '/provider_auth.php';
     <?php include 'ProviderNavbar.php'; ?>
     <main>
         <!-- Asymmetrical Hero Section -->
-        <section class="relative h-[85vh] flex items-stretch mesh-gradient pt-0 overflow-hidden reveal"
+        <section class="relative h-[85vh] flex items-stretch bg-white pt-0 overflow-hidden reveal"
             data-reveal="section">
             <div
                 class="max-w-[1800px] mx-auto w-full h-full grid grid-cols-1 lg:grid-cols-12 gap-0 items-stretch px-6 sm:px-8 lg:px-10">
@@ -148,14 +164,14 @@ require_once __DIR__ . '/provider_auth.php';
                     <h1
                         class="font-headline text-[clamp(2.6rem,5.5vw,4.6rem)] font-extrabold tracking-[-0.05em] text-on-surface mb-6 leading-[0.88]">
                         <span class="block">Modernize Your</span>
-                        <span class="relative block">
+                        <span class="relative block mt-1 text-[clamp(2.85rem,6vw,5.15rem)] leading-[0.92]">
                             <span
-                                class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Practice.</span>
+                                class="font-editorial italic font-normal text-primary editorial-word inline-block">Practice.</span>
                         </span>
                         <span
-                            class="block text-[clamp(1.2rem,2vw,2rem)] font-headline font-semibold tracking-tight text-on-surface/80 mt-2">
+                            class="block text-[clamp(1.2rem,2vw,2rem)] font-headline font-normal tracking-tight text-on-surface mt-3">
                             with <span
-                                class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">My
+                                class="font-editorial italic font-normal text-primary editorial-word inline-block">My
                                 Dental</span>
                         </span>
                     </h1>
@@ -177,12 +193,12 @@ require_once __DIR__ . '/provider_auth.php';
                         </a>
                     </div>
                 </div>
-                <div class="lg:col-span-6 relative h-full self-center">
-                    <div class="group slanted-container h-full w-full bg-slate-100 overflow-hidden shadow-2xl relative">
-                        <img alt="Modern dental clinic with advanced technology"
-                            class="block w-full h-full object-cover transition-none" style="object-position: 60% 28%;"
-                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKSToKSubciBNDHHIIhBLQWuwv70uupwQdixl7SdJZDmgnDrO7KwPH0nU9Tuyv8aNshhWTfTeP75EKGGbML5Ge0AweBfsy2V4AmVWId5nTGtpGe6_7fZcwoTag1cM1PJdBpkLGRE47XjINHeAHov0gmJegOGXOaY4Xsbphb11ypnokm_GnMy42Lk5byi_6B13so8CQ8mAtQE0e6twPfwumg6xkxXcDNMUMRCwqnTWdqYYK6EWku_TTChy4ON47ltF4FcaFeaL3nCw" />
-                        <div class="absolute inset-0 bg-primary/5 mix-blend-multiply"></div>
+                <div class="lg:col-span-6 relative h-full min-h-[280px] lg:min-h-0 self-stretch">
+                    <div
+                        class="absolute inset-0 lg:left-[-32%] lg:w-[132%] max-lg:left-0 max-lg:w-full bg-slate-100 overflow-hidden">
+                        <img alt="Dentist caring for a patient in a modern operatory"
+                            class="hero-banner-image block h-full w-full object-cover object-[52%_35%] max-lg:object-[center_30%]"
+                            src="Banner1.svg" width="1600" height="817" decoding="async" fetchpriority="high" />
                     </div>
                     <div
                         class="absolute bottom-12 -left-6 glass-card p-6 rounded-2xl shadow-xl max-w-xs border border-white/40 transition-all duration-500 transform-gpu hover:-translate-y-1 hover:shadow-2xl">
@@ -200,7 +216,6 @@ require_once __DIR__ . '/provider_auth.php';
                         </div>
                     </div>
                 </div>
-            </div>
             </div>
         </section>
         <!-- System Features: Clinical Intelligence -->
