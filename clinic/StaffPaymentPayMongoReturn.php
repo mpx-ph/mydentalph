@@ -8,6 +8,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/includes/staff_installment_helpers.php';
+require_once __DIR__ . '/includes/appointment_db_tables.php';
 
 if (isset($_SESSION['user_role']) && strtolower(trim((string) $_SESSION['user_role'])) === 'dentist') {
     header('Location: StaffDashboard.php');
@@ -75,6 +76,7 @@ try {
 
     $bookingSql = "
         SELECT
+            COALESCE(MAX(a.id), 0) AS appointment_id,
             a.booking_id,
             COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
             COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0) AS total_paid
@@ -98,6 +100,7 @@ try {
     $totalCost = (float) ($bookingRow['total_treatment_cost'] ?? 0);
     $totalPaid = (float) ($bookingRow['total_paid'] ?? 0);
     $pendingBalance = max(0, $totalCost - $totalPaid);
+    $appointmentId = (int) ($bookingRow['appointment_id'] ?? 0);
 
     $storedDate = trim((string) ($stash['payment_date'] ?? ''));
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $storedDate)) {
@@ -141,8 +144,6 @@ try {
             );
         }
 
-        $nextAppointmentStatus = ($pendingBalance <= 0.009) ? 'completed' : 'confirmed';
-
         $appointmentUpdatedAtColumnStmt = $pdo->prepare("
             SELECT 1
             FROM information_schema.COLUMNS
@@ -154,15 +155,26 @@ try {
         $appointmentUpdatedAtColumnStmt->execute();
         $supportsAppointmentUpdatedAtColumn = (bool) $appointmentUpdatedAtColumnStmt->fetchColumn();
 
-        $updateAppointmentSql = "
-            UPDATE tbl_appointments
-            SET status = ?" . ($supportsAppointmentUpdatedAtColumn ? ", updated_at = NOW()" : "") . "
-            WHERE tenant_id = ?
-              AND booking_id = ?
-              AND status = 'pending'
-        ";
-        $updateAppointmentStmt = $pdo->prepare($updateAppointmentSql);
-        $updateAppointmentStmt->execute([$nextAppointmentStatus, $tenantId, $bookingId]);
+        $tablesToUpdate = [];
+        foreach (['tbl_appointments', 'appointments'] as $candidate) {
+            $physical = clinic_get_physical_table_name($pdo, $candidate);
+            if ($physical !== null && $physical !== '' && !in_array($physical, $tablesToUpdate, true)) {
+                $tablesToUpdate[] = $physical;
+            }
+        }
+        foreach ($tablesToUpdate as $tableName) {
+            $updateById = $appointmentId > 0 && strtolower($tableName) === 'tbl_appointments';
+            $quotedTable = clinic_quote_identifier($tableName);
+            $updateAppointmentSql = "
+                UPDATE {$quotedTable}
+                SET status = 'completed'" . ($supportsAppointmentUpdatedAtColumn ? ", updated_at = NOW()" : "") . "
+                WHERE tenant_id = ?
+                  AND " . ($updateById ? "id = ?" : "booking_id = ?") . "
+                  AND LOWER(COALESCE(status, 'pending')) NOT IN ('cancelled', 'no_show')
+            ";
+            $updateAppointmentStmt = $pdo->prepare($updateAppointmentSql);
+            $updateAppointmentStmt->execute([$tenantId, $updateById ? $appointmentId : $bookingId]);
+        }
 
         $pdo->commit();
     } catch (Throwable $inner) {

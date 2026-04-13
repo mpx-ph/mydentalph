@@ -2,6 +2,7 @@
 $staff_nav_active = 'payments';
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/../mail_config.php';
+require_once __DIR__ . '/includes/appointment_db_tables.php';
 
 /**
  * @return list<array{id:int, installment_number:int, amount_due:float, status:string}>
@@ -41,6 +42,41 @@ function staff_payment_recording_installment_is_paid(string $status): bool
 {
     $s = strtolower(trim($status));
     return $s === 'paid' || $s === 'completed';
+}
+
+function staff_payment_recording_mark_appointment_completed(
+    PDO $pdo,
+    string $tenantId,
+    string $bookingId,
+    int $appointmentId,
+    bool $supportsAppointmentUpdatedAtColumn
+): void {
+    if ($tenantId === '' || $bookingId === '') {
+        return;
+    }
+    $tablesToUpdate = [];
+    foreach (['tbl_appointments', 'appointments'] as $candidate) {
+        $physical = clinic_get_physical_table_name($pdo, $candidate);
+        if ($physical !== null && $physical !== '' && !in_array($physical, $tablesToUpdate, true)) {
+            $tablesToUpdate[] = $physical;
+        }
+    }
+    if ($tablesToUpdate === []) {
+        return;
+    }
+    foreach ($tablesToUpdate as $tableName) {
+        $updateById = $appointmentId > 0 && strtolower($tableName) === 'tbl_appointments';
+        $quoted = clinic_quote_identifier($tableName);
+        $sql = "
+            UPDATE {$quoted}
+            SET status = 'completed'" . ($supportsAppointmentUpdatedAtColumn ? ", updated_at = NOW()" : "") . "
+            WHERE tenant_id = ?
+              AND " . ($updateById ? "id = ?" : "booking_id = ?") . "
+              AND LOWER(COALESCE(status, 'pending')) NOT IN ('cancelled', 'no_show')
+        ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$tenantId, $updateById ? $appointmentId : $bookingId]);
+    }
 }
 
 function staff_payment_recording_normalize_service_category(string $category): string
@@ -1536,16 +1572,13 @@ try {
                         $totalPaidAfter = (float) ($bookingRow['total_paid'] ?? 0);
                         $pendingAfter = max(0, $totalCostAfter - $totalPaidAfter);
 
-                        $updateById = $appointmentId > 0;
-                        $updateAppointmentSql = "
-                            UPDATE tbl_appointments
-                            SET status = 'completed'" . ($supportsAppointmentUpdatedAtColumn ? ", updated_at = NOW()" : "") . "
-                            WHERE tenant_id = ?
-                              AND " . ($updateById ? "id = ?" : "booking_id = ?") . "
-                              AND LOWER(COALESCE(status, 'pending')) NOT IN ('cancelled', 'no_show')
-                        ";
-                        $updateAppointmentStmt = $pdo->prepare($updateAppointmentSql);
-                        $updateAppointmentStmt->execute([$tenantId, $updateById ? $appointmentId : $selectedBookingId]);
+                        staff_payment_recording_mark_appointment_completed(
+                            $pdo,
+                            $tenantId,
+                            $selectedBookingId,
+                            $appointmentId,
+                            $supportsAppointmentUpdatedAtColumn
+                        );
 
                         $paymentSuccess = 'Payment recorded successfully.';
                         $selectedMethod = '';
@@ -1754,16 +1787,13 @@ try {
                         throw new RuntimeException($apiError !== '' ? ('PayMongo: ' . $apiError) : 'PayMongo did not return a checkout URL.');
                     }
 
-                    $updateById = $appointmentId > 0;
-                    $updateAppointmentSql = "
-                        UPDATE tbl_appointments
-                        SET status = 'completed'" . ($supportsAppointmentUpdatedAtColumn ? ", updated_at = NOW()" : "") . "
-                        WHERE tenant_id = ?
-                          AND " . ($updateById ? "id = ?" : "booking_id = ?") . "
-                          AND LOWER(COALESCE(status, 'pending')) NOT IN ('cancelled', 'no_show')
-                    ";
-                    $updateAppointmentStmt = $pdo->prepare($updateAppointmentSql);
-                    $updateAppointmentStmt->execute([$tenantId, $updateById ? $appointmentId : $selectedBookingId]);
+                    staff_payment_recording_mark_appointment_completed(
+                        $pdo,
+                        $tenantId,
+                        $selectedBookingId,
+                        $appointmentId,
+                        $supportsAppointmentUpdatedAtColumn
+                    );
 
                     $paymentSuccess = 'Payment recorded successfully.';
                     // Reset the modal form after successful submission.
