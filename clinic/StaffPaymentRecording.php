@@ -2579,7 +2579,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
 <div class="flex-1 w-full space-y-3">
 <label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Transaction Date</label>
 <div class="relative group">
-<input class="w-full px-6 py-4 form-input-styled rounded-2xl text-base font-semibold outline-none" max="<?php echo date('Y-m-d'); ?>" name="payment_date" required type="date" value="<?php echo htmlspecialchars($formPaymentDate, ENT_QUOTES, 'UTF-8'); ?>"/>
+<input class="w-full px-6 py-4 form-input-styled rounded-2xl text-base font-semibold outline-none cursor-default bg-slate-100/90" max="<?php echo date('Y-m-d'); ?>" name="payment_date" required type="date" value="<?php echo htmlspecialchars($formPaymentDate, ENT_QUOTES, 'UTF-8'); ?>" readonly aria-readonly="true" title="Transaction date is set automatically to today"/>
 </div>
 </div>
 </div>
