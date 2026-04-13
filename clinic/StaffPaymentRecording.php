@@ -525,7 +525,7 @@ try {
                         COALESCE(a.service_description, '') AS service_description,
                         COALESCE(p.first_name, '') AS patient_first_name,
                         COALESCE(p.last_name, '') AS patient_last_name,
-                        COALESCE(u.email, '') AS patient_email
+                        COALESCE(NULLIF(u_linked.email, ''), NULLIF(u_owner.email, ''), '') AS patient_email
                     FROM tbl_payments py
                     LEFT JOIN tbl_appointments a
                         ON a.tenant_id = py.tenant_id
@@ -533,8 +533,10 @@ try {
                     LEFT JOIN tbl_patients p
                         ON p.tenant_id = py.tenant_id
                        AND p.patient_id = py.patient_id
-                    LEFT JOIN tbl_users u
-                        ON u.user_id = p.linked_user_id
+                    LEFT JOIN tbl_users u_linked
+                        ON u_linked.user_id = p.linked_user_id
+                    LEFT JOIN tbl_users u_owner
+                        ON u_owner.user_id = p.owner_user_id
                     WHERE py.tenant_id = ?
                       AND py.payment_id = ?
                     LIMIT 1
@@ -543,6 +545,9 @@ try {
                 $receiptStmt->execute([$tenantId, $receiptPaymentId]);
                 $receiptRow = $receiptStmt->fetch(PDO::FETCH_ASSOC) ?: [];
                 $patientEmail = trim((string) ($receiptRow['patient_email'] ?? ''));
+                if ($patientEmail !== '' && !filter_var($patientEmail, FILTER_VALIDATE_EMAIL)) {
+                    $patientEmail = '';
+                }
                 if ($receiptRow === []) {
                     $paymentError = 'Payment record was not found.';
                 } elseif ($patientEmail === '') {
@@ -592,7 +597,12 @@ try {
                     if (staff_payment_recording_send_receipt_email($patientEmail, $emailSubject, $emailBodyText, $emailBodyHtml)) {
                         $receiptEmailSuccess = 'The receipt has been sent to the patient’s email.';
                     } else {
-                        $paymentError = 'Failed to send the receipt email. Please try again.';
+                        $smtpReason = '';
+                        if (isset($GLOBALS['smtp_last_error'])) {
+                            $smtpReason = trim((string) $GLOBALS['smtp_last_error']);
+                        }
+                        $paymentError = 'Failed to send the receipt email. Please try again.'
+                            . ($smtpReason !== '' ? (' SMTP error: ' . $smtpReason) : '');
                     }
                 }
             }
@@ -1411,15 +1421,17 @@ try {
                       AND py2.status = 'completed'
                 ), 0) AS booking_total_paid,
                 {$recentServiceSelectSql} AS service_list,
-                COALESCE(u.email, '') AS patient_email,
+                COALESCE(NULLIF(u_linked.email, ''), NULLIF(u_owner.email, ''), '') AS patient_email,
                 p.first_name AS patient_first_name,
                 p.last_name AS patient_last_name
             FROM tbl_payments py
             LEFT JOIN tbl_patients p
                 ON p.tenant_id = py.tenant_id
                AND p.patient_id = py.patient_id
-            LEFT JOIN tbl_users u
-                ON u.user_id = p.linked_user_id
+            LEFT JOIN tbl_users u_linked
+                ON u_linked.user_id = p.linked_user_id
+            LEFT JOIN tbl_users u_owner
+                ON u_owner.user_id = p.owner_user_id
             LEFT JOIN tbl_appointments a
                 ON a.tenant_id = py.tenant_id
                AND a.booking_id = py.booking_id
@@ -2038,48 +2050,73 @@ try {
 <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" id="receipt-modal-overlay"></div>
 <div class="relative z-10 w-full max-w-2xl">
 <div class="glass-form bg-white rounded-[2rem] shadow-2xl shadow-primary/20 max-h-[90vh] overflow-hidden flex flex-col">
-<div class="px-7 py-5 border-b border-slate-100 flex items-center justify-between">
-<h3 class="text-xl font-black font-headline text-slate-900" id="receipt-modal-title">Payment Receipt</h3>
-<button class="w-9 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 inline-flex items-center justify-center transition-colors" id="close-receipt-modal" type="button">
+<div class="px-7 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-primary/[0.09] via-white to-sky-500/[0.10]">
+<div>
+<p class="text-[10px] font-black uppercase tracking-[0.24em] text-primary/80">Transactions</p>
+<h3 class="text-xl font-black font-headline text-slate-900 mt-1" id="receipt-modal-title">Payment Receipt</h3>
+</div>
+<button class="w-9 h-9 rounded-lg bg-white/90 border border-slate-200 hover:bg-slate-100 text-slate-500 inline-flex items-center justify-center transition-colors" id="close-receipt-modal" type="button">
 <span class="material-symbols-outlined text-lg">close</span>
 </button>
 </div>
 <div class="px-7 py-6 overflow-y-auto no-scrollbar" id="receipt-modal-body">
-<div class="border border-slate-200 rounded-2xl p-6 bg-gradient-to-br from-white via-slate-50/40 to-primary/[0.05]" id="receipt-content">
-<div class="flex items-center gap-4 border-b border-slate-200 pb-4 mb-5">
-<img src="<?php echo htmlspecialchars($clinicLogoUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="Clinic Logo" class="w-14 h-14 rounded-xl object-cover border border-slate-200 bg-white" id="receipt-clinic-logo"/>
+<div class="relative border border-slate-200 rounded-3xl p-0 bg-white overflow-hidden shadow-lg shadow-slate-900/5" id="receipt-content">
+<div class="absolute top-0 right-0 w-44 h-44 bg-gradient-to-br from-primary/25 to-sky-400/0 blur-2xl pointer-events-none"></div>
+<div class="relative px-6 pt-6 pb-5 border-b border-slate-200/80 bg-gradient-to-r from-white via-slate-50/70 to-primary/[0.06]">
+<div class="flex items-start gap-4">
+<img src="<?php echo htmlspecialchars($clinicLogoUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="Clinic Logo" class="w-16 h-16 rounded-2xl object-cover border border-slate-200 bg-white shadow-sm" id="receipt-clinic-logo"/>
 <div>
-<p class="text-lg font-black text-slate-900" id="receipt-clinic-name"><?php echo htmlspecialchars($clinicDisplayName, ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="text-[11px] uppercase tracking-widest font-bold text-slate-500">Official Payment Receipt</p>
+<p class="text-xl font-black text-slate-900 leading-tight" id="receipt-clinic-name"><?php echo htmlspecialchars($clinicDisplayName, ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-[11px] uppercase tracking-[0.22em] font-black text-slate-500 mt-1">Official Payment Receipt</p>
+<p class="text-[11px] text-slate-500 mt-3">Thank you for your payment. Keep this as your billing record.</p>
 </div>
 </div>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
-<div class="rounded-xl bg-white border border-slate-200 px-4 py-3">
+<div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+<div class="rounded-2xl bg-white border border-slate-200 px-4 py-3 shadow-sm shadow-slate-900/5">
 <p class="text-[10px] uppercase tracking-widest text-slate-500 font-black">Patient</p>
 <p class="text-sm font-bold text-slate-900 mt-1" id="receipt-patient-name">-</p>
 <p class="text-[11px] text-slate-500 mt-1" id="receipt-patient-meta">ID: -</p>
 </div>
-<div class="rounded-xl bg-white border border-slate-200 px-4 py-3">
+<div class="rounded-2xl bg-white border border-slate-200 px-4 py-3 shadow-sm shadow-slate-900/5">
 <p class="text-[10px] uppercase tracking-widest text-slate-500 font-black">Transaction Ref</p>
 <p class="text-sm font-bold text-slate-900 mt-1" id="receipt-reference">-</p>
 <p class="text-[11px] text-slate-500 mt-1" id="receipt-payment-id">Payment ID: -</p>
 </div>
 </div>
-<div class="space-y-2 rounded-xl bg-white border border-slate-200 p-4">
-<div class="flex items-center justify-between text-sm"><span class="font-semibold text-slate-600">Service(s)</span><span class="font-bold text-slate-900 text-right max-w-[60%]" id="receipt-services">-</span></div>
-<div class="flex items-center justify-between text-sm"><span class="font-semibold text-slate-600">Amount Paid</span><span class="font-extrabold text-primary" id="receipt-amount-paid">₱0.00</span></div>
-<div class="flex items-center justify-between text-sm"><span class="font-semibold text-slate-600">Remaining Balance</span><span class="font-bold text-amber-600" id="receipt-remaining-balance">₱0.00</span></div>
-<div class="flex items-center justify-between text-sm"><span class="font-semibold text-slate-600">Payment Date</span><span class="font-bold text-slate-900" id="receipt-payment-date">-</span></div>
-<div class="flex items-center justify-between text-sm"><span class="font-semibold text-slate-600">Payment Method</span><span class="font-bold text-slate-900" id="receipt-payment-method">-</span></div>
+</div>
+<div class="relative px-6 py-5 bg-white">
+<div class="rounded-2xl border border-slate-200 overflow-hidden">
+<div class="px-4 py-3 bg-slate-50/90 border-b border-slate-200">
+<p class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-600">Payment Breakdown</p>
+</div>
+<div class="px-4 py-4 space-y-3">
+<div class="flex items-start justify-between gap-4 text-sm"><span class="font-semibold text-slate-600">Service(s)</span><span class="font-bold text-slate-900 text-right max-w-[60%]" id="receipt-services">-</span></div>
+<div class="flex items-center justify-between text-sm"><span class="font-semibold text-slate-600">Payment Date</span><span class="font-bold text-slate-900 text-right" id="receipt-payment-date">-</span></div>
+<div class="flex items-center justify-between text-sm"><span class="font-semibold text-slate-600">Payment Method</span><span class="font-bold text-slate-900 text-right" id="receipt-payment-method">-</span></div>
+</div>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+<div class="rounded-2xl border border-primary/20 bg-primary/[0.06] p-4">
+<p class="text-[10px] uppercase tracking-[0.2em] text-primary font-black">Amount Paid</p>
+<p class="text-2xl font-extrabold text-primary mt-2" id="receipt-amount-paid">₱0.00</p>
+</div>
+<div class="rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
+<p class="text-[10px] uppercase tracking-[0.2em] text-amber-700 font-black">Remaining Balance</p>
+<p class="text-2xl font-extrabold text-amber-700 mt-2" id="receipt-remaining-balance">₱0.00</p>
+</div>
+</div>
+</div>
+<div class="px-6 py-3 border-t border-dashed border-slate-200 bg-slate-50/70">
+<p class="text-[11px] font-semibold text-slate-500 text-center">Digitally generated receipt from <?php echo htmlspecialchars($clinicDisplayName, ENT_QUOTES, 'UTF-8'); ?></p>
 </div>
 </div>
 </div>
 <div class="px-7 py-5 border-t border-slate-100 bg-white flex items-center justify-end gap-3">
-<button type="button" id="receipt-print-btn" class="px-5 py-2.5 rounded-xl bg-primary text-white text-[11px] font-black uppercase tracking-widest hover:bg-primary/90 transition-colors inline-flex items-center gap-2">
-<span class="material-symbols-outlined text-base">print</span> Print Now
-</button>
 <button type="button" id="receipt-send-email-btn" class="px-5 py-2.5 rounded-xl border border-primary/30 text-primary text-[11px] font-black uppercase tracking-widest hover:bg-primary/10 transition-colors inline-flex items-center gap-2">
 <span class="material-symbols-outlined text-base">mail</span> Send to Email
+</button>
+<button type="button" id="receipt-print-btn" class="px-5 py-2.5 rounded-xl bg-primary text-white text-[11px] font-black uppercase tracking-widest hover:bg-primary/90 transition-colors inline-flex items-center gap-2 shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-base">print</span> Print Now
 </button>
 </div>
 </div>
