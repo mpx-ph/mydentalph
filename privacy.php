@@ -86,9 +86,6 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <main class="mesh-gradient flex-1">
 <section class="py-12 md:py-16 text-center px-4 overflow-hidden reveal" data-reveal="section">
 <div class="max-w-[1800px] mx-auto">
-<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.35em] mb-6">
-Legal &amp; Data Protection
-</div>
 <p class="font-headline text-sm font-bold text-on-surface-variant tracking-wide mb-3">MyDental Philippines Incorporated</p>
 <h1 class="font-headline text-[clamp(2.2rem,4.5vw,3.75rem)] font-extrabold tracking-[-0.04em] text-on-surface mb-4 leading-[1.1]">
 Privacy <span class="font-editorial italic font-normal text-primary editorial-word inline-block">Policy.</span>
@@ -206,24 +203,7 @@ Privacy <span class="font-editorial italic font-normal text-primary editorial-wo
 </section>
 </main>
 
-<footer class="w-full border-t border-slate-200 bg-slate-50 dark:bg-background-dark dark:border-slate-800">
-<div class="flex flex-col md:flex-row justify-between items-center py-16 px-10 max-w-[1800px] mx-auto gap-8">
-<div class="mb-8 md:mb-0 text-center md:text-left">
-<div class="text-xl font-extrabold text-on-surface font-headline tracking-tighter mb-2 flex items-center gap-2 justify-center md:justify-start">
-<div class="w-6 h-6 bg-primary rounded-full flex items-center justify-center shrink-0">
-<span class="material-symbols-outlined text-white text-[10px]">shield_lock</span>
-</div>
-MyDental Philippines
-</div>
-<p class="font-headline text-[10px] uppercase tracking-[0.35em] font-black text-on-surface-variant/50">&copy; <?php echo date('Y'); ?> MyDental Philippines Incorporated. All rights reserved.</p>
-</div>
-<div class="flex flex-wrap justify-center gap-8 md:gap-12 text-[10px] font-headline font-black uppercase tracking-[0.28em] text-on-surface-variant/60">
-<a class="text-primary transition-colors" href="privacy.php" aria-current="page">Privacy Policy</a>
-<a class="hover:text-primary transition-colors" href="ProviderContact.php">Contact</a>
-<a class="hover:text-primary transition-colors" href="ProviderFAQs.php">FAQs</a>
-</div>
-</div>
-</footer>
+<?php require_once __DIR__ . '/provider_marketing_footer.inc.php'; ?>
 <script>
     (function () {
         var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
