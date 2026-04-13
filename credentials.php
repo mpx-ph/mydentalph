@@ -30,9 +30,55 @@
         }
 
         .container {
-            max-width: 980px;
+            max-width: 1200px;
             margin: 32px auto;
             padding: 0 16px 32px;
+        }
+
+        .page-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
+            gap: 28px;
+            align-items: start;
+        }
+
+        .main-column {
+            min-width: 0;
+            margin-right: auto;
+            width: 100%;
+            max-width: 720px;
+        }
+
+        .pending-updates {
+            position: sticky;
+            top: 24px;
+        }
+
+        .pending-updates ul {
+            margin: 0 0 14px;
+            padding-left: 1.15rem;
+            color: var(--text);
+            font-size: 14px;
+        }
+
+        .pending-updates li {
+            margin: 8px 0;
+        }
+
+        .pending-updates .note {
+            margin: 0;
+            font-size: 13px;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .pending-updates .note code {
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
         }
 
         .header {
@@ -161,6 +207,20 @@
             background: var(--success);
         }
 
+        @media (max-width: 960px) {
+            .page-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .main-column {
+                max-width: none;
+            }
+
+            .pending-updates {
+                position: static;
+            }
+        }
+
         @media (max-width: 640px) {
             .row {
                 grid-template-columns: 1fr;
@@ -179,6 +239,8 @@
             <p>Quick copy page for test logins.</p>
         </div>
 
+        <div class="page-grid">
+        <div class="main-column">
         <section class="card">
             <h2>GIT REPO</h2>
             <div class="credential">
@@ -371,6 +433,21 @@ git push</textarea>
                 </div>
             </div>
         </section>
+        </div>
+
+        <aside class="pending-updates" aria-label="Pending updates">
+            <section class="card">
+                <h2>Pending Updates</h2>
+                <ul>
+                    <li>mydentalph.ct.ws Mobile view UI fixes (handled by MP)</li>
+                    <li>Approval of the Terms &amp; Conditions modal during plan purchases</li>
+                    <li>Service discounts</li>
+                    <li>Refunds (via PayMongo, if possible)</li>
+                </ul>
+                <p class="note">If you discover or fix any issues, please update them in <code>credentials.php</code>. Thanks!</p>
+            </section>
+        </aside>
+        </div>
 
     </div>
 
