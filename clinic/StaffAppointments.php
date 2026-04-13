@@ -51,16 +51,19 @@ if (!preg_match('/^\d{4}\-\d{2}$/', $selectedMonth)) {
     $selectedMonth = substr($selectedDate, 0, 7);
 }
 
-$allowedStatuses = ['all', 'scheduled', 'pending', 'cancelled', 'completed', 'no_show'];
+$allowedStatuses = ['all', 'pending', 'in_progress', 'completed', 'cancelled', 'no_show', 'scheduled', 'confirmed'];
 $selectedStatus = isset($_GET['status']) ? strtolower(trim((string) $_GET['status'])) : 'all';
 if (!in_array($selectedStatus, $allowedStatuses, true)) {
     $selectedStatus = 'all';
+}
+if ($selectedStatus === 'scheduled' || $selectedStatus === 'confirmed') {
+    $selectedStatus = 'pending';
 }
 
 $searchTerm = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
 
 $summary = [
-    'scheduled' => 0,
+    'in_progress' => 0,
     'cancelled' => 0,
     'pending' => 0,
 ];
@@ -123,7 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tenantId !== '') {
         $qSvc = $tSvc !== null ? clinic_quote_identifier($tSvc) : null;
 
         if ($postAction === 'update_status') {
-            $allowedUpdateStatuses = ['confirmed', 'completed', 'no_show'];
+            $allowedUpdateStatuses = ['pending', 'in_progress', 'completed', 'cancelled', 'no_show'];
             $newStatus = strtolower(trim((string) ($_POST['update_status'] ?? '')));
             if ($bookingId === '' || !in_array($newStatus, $allowedUpdateStatuses, true)) {
                 throw new RuntimeException('Please select a valid status.');
@@ -278,15 +281,15 @@ try {
 
             $summaryStmt = $pdo->prepare("
                 SELECT
-                    SUM(CASE WHEN status IN ('confirmed', 'scheduled') THEN 1 ELSE 0 END) AS scheduled_count,
+                    SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_count,
                     SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_count,
-                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_count
+                    SUM(CASE WHEN status IN ('pending', 'scheduled', 'confirmed') THEN 1 ELSE 0 END) AS pending_count
                 FROM {$qAppt}
                 WHERE tenant_id = ? AND appointment_date = ?
             ");
             $summaryStmt->execute([$tenantId, $selectedDate]);
             $summaryRow = $summaryStmt->fetch(PDO::FETCH_ASSOC) ?: [];
-            $summary['scheduled'] = (int) ($summaryRow['scheduled_count'] ?? 0);
+            $summary['in_progress'] = (int) ($summaryRow['in_progress_count'] ?? 0);
             $summary['cancelled'] = (int) ($summaryRow['cancelled_count'] ?? 0);
             $summary['pending'] = (int) ($summaryRow['pending_count'] ?? 0);
 
@@ -381,9 +384,7 @@ try {
         ";
             $params = [$tenantId, $selectedDate];
 
-            if ($selectedStatus === 'scheduled') {
-                $dailySql .= " AND a.status IN ('confirmed', 'scheduled')";
-            } elseif ($selectedStatus !== 'all') {
+            if ($selectedStatus !== 'all') {
                 $dailySql .= " AND a.status = ?";
                 $params[] = $selectedStatus;
             }
@@ -441,10 +442,10 @@ try {
 
 $statusLabels = [
     'all' => 'All Statuses',
-    'scheduled' => 'Scheduled',
     'pending' => 'Pending',
-    'cancelled' => 'Cancelled',
+    'in_progress' => 'In Progress',
     'completed' => 'Completed',
+    'cancelled' => 'Cancelled',
     'no_show' => 'No Show',
 ];
 $walkInBookingHref = BASE_URL . 'StaffWalkIn.php';
@@ -627,8 +628,8 @@ if ($currentTenantSlug !== '') {
                 <div class="w-11 h-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-5">
                     <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event_available</span>
                 </div>
-                <p class="text-4xl font-extrabold tracking-tight"><?php echo number_format($summary['scheduled']); ?></p>
-                <p class="text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Scheduled</p>
+                <p class="text-4xl font-extrabold tracking-tight"><?php echo number_format($summary['in_progress']); ?></p>
+                <p class="text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">In Progress</p>
             </div>
             <div class="elevated-card p-7 rounded-3xl">
                 <div class="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-5">
@@ -680,12 +681,12 @@ if ($currentTenantSlug !== '') {
                                 }
                                 $timeLabel = !empty($appointment['appointment_time']) ? date('g:i A', strtotime((string) $appointment['appointment_time'])) : '-';
                                 $statusRaw = strtolower(trim((string) ($appointment['status'] ?? 'pending')));
-                                if ($statusRaw === 'confirmed') {
-                                    $statusRaw = 'scheduled';
+                                if ($statusRaw === 'confirmed' || $statusRaw === 'scheduled') {
+                                    $statusRaw = 'pending';
                                 }
                                 $statusLabel = ucfirst(str_replace('_', ' ', $statusRaw));
                                 $statusClass = 'bg-amber-50 text-amber-600';
-                                if ($statusRaw === 'scheduled') {
+                                if ($statusRaw === 'in_progress') {
                                     $statusClass = 'bg-primary/10 text-primary';
                                 } elseif ($statusRaw === 'cancelled') {
                                     $statusClass = 'bg-rose-50 text-rose-600';
@@ -963,8 +964,8 @@ if ($currentTenantSlug !== '') {
                                     <span id="mBalancePending" class="font-black text-rose-600">P0.00</span>
                                 </div>
                             </div>
-                            <div id="mPaymentWarning" class="hidden mt-3 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 px-3 py-2">
-                                <p class="text-xs font-semibold leading-relaxed">This short-term appointment has pending balance and cannot be marked as completed until payments are recorded.</p>
+                            <div id="mPaymentWarning" class="hidden mt-3 rounded-xl border border-primary/25 bg-primary/5 text-primary px-3 py-2">
+                                <p class="text-xs font-semibold leading-relaxed">Appointment status is based on visit progress only and does not depend on payment status.</p>
                             </div>
                         </div>
 
@@ -974,8 +975,10 @@ if ($currentTenantSlug !== '') {
                                 <input type="hidden" name="modal_action" value="update_status"/>
                                 <input type="hidden" name="modal_booking_id" id="statusBookingId" value=""/>
                                 <select id="statusSelector" name="update_status" class="w-full bg-white border border-slate-200 rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 text-sm font-bold text-slate-700">
-                                    <option value="confirmed">Confirmed</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="in_progress">In Progress</option>
                                     <option value="completed">Completed</option>
+                                    <option value="cancelled">Cancelled</option>
                                     <option value="no_show">No Show</option>
                                 </select>
                                 <button type="submit" class="w-full inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-colors">
@@ -1070,7 +1073,6 @@ if ($currentTenantSlug !== '') {
         const totalCost = parseMoney(button.dataset.cost);
         const totalPaid = parseMoney(button.dataset.totalPaid);
         const pendingBalance = parseMoney(button.dataset.pendingBalance);
-        const treatmentTypeRaw = (button.dataset.treatmentTypeRaw || '').toLowerCase();
         const statusRaw = (button.dataset.statusRaw || '').toLowerCase();
 
         setText('mBookingId', button.dataset.bookingId || '');
@@ -1122,23 +1124,15 @@ if ($currentTenantSlug !== '') {
         if (statusBookingId) statusBookingId.value = button.dataset.bookingId || '';
 
         if (statusSelector) {
-            let selectedStatus = 'confirmed';
-            if (statusRaw === 'completed' || statusRaw === 'no_show' || statusRaw === 'confirmed') {
+            let selectedStatus = 'pending';
+            if (statusRaw === 'completed' || statusRaw === 'no_show' || statusRaw === 'pending' || statusRaw === 'in_progress' || statusRaw === 'cancelled') {
                 selectedStatus = statusRaw;
-            } else if (statusRaw === 'scheduled') {
-                selectedStatus = 'confirmed';
+            } else if (statusRaw === 'scheduled' || statusRaw === 'confirmed') {
+                selectedStatus = 'pending';
             }
             statusSelector.value = selectedStatus;
-            const completedOption = statusSelector.querySelector('option[value="completed"]');
-            const shouldWarn = treatmentTypeRaw === 'short_term' && pendingBalance > 0;
-            if (completedOption) {
-                completedOption.disabled = shouldWarn;
-            }
             if (warning) {
-                warning.classList.toggle('hidden', !shouldWarn);
-            }
-            if (shouldWarn && statusSelector.value === 'completed') {
-                statusSelector.value = 'confirmed';
+                warning.classList.remove('hidden');
             }
         }
         modal.classList.remove('hidden');

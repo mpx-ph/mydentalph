@@ -673,100 +673,24 @@ function calculateBookingBalance($bookingId, $pdo) {
 }
 
 /**
- * Compute final status for an appointment based on payment rules
+ * Compute final appointment status without payment coupling.
  * @param array $appointment Appointment data
- * @param PDO $pdo Database connection
- * @param int|null $installmentNumber Installment number if this is a follow-up visit
- * @return string Final status (PENDING, SCHEDULED, CANCELLED, NO_SHOW, COMPLETED)
+ * @param PDO $pdo Database connection (unused, kept for compatibility)
+ * @param int|null $installmentNumber Installment number (unused, kept for compatibility)
+ * @return string Final status (PENDING, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW)
  */
 function computeAppointmentStatus($appointment, $pdo, $installmentNumber = null) {
-    // Priority 1: If appointment status is CANCELLED, NO_SHOW, or COMPLETED → display that
-    $appointmentStatus = strtolower($appointment['status'] ?? 'pending');
-    
-    // Map database statuses to display statuses
-    if (in_array($appointmentStatus, ['cancelled', 'no_show', 'completed'])) {
-        // Return uppercase versions for consistency
-        if ($appointmentStatus === 'no_show') {
-            return 'NO_SHOW';
-        }
-        return strtoupper($appointmentStatus);
+    $appointmentStatus = strtolower(trim((string) ($appointment['status'] ?? 'pending')));
+    if ($appointmentStatus === 'scheduled' || $appointmentStatus === 'confirmed') {
+        $appointmentStatus = 'pending';
     }
-    
-    // If status is 'confirmed', it means payment is satisfied, so show as SCHEDULED
-    if ($appointmentStatus === 'confirmed') {
-        return 'SCHEDULED';
+    if (!in_array($appointmentStatus, ['pending', 'in_progress', 'completed', 'cancelled', 'no_show'], true)) {
+        $appointmentStatus = 'pending';
     }
-    
-    $bookingId = $appointment['booking_id'];
-    $treatmentType = $appointment['treatment_type'] ?? 'short_term';
-    
-    // Priority 2: Check payment status
-    $isPaymentSatisfied = false;
-    
-    if ($treatmentType === 'short_term') {
-        // For short_term: check if there's a completed payment for this booking
-        $stmt = $pdo->prepare("
-            SELECT COUNT(*) 
-            FROM payments 
-            WHERE booking_id = ? 
-            AND status = 'completed'
-            AND installment_number IS NULL
-            AND tenant_id = ?
-        ");
-        $stmt->execute([$bookingId, getClinicTenantId()]);
-        $isPaymentSatisfied = ($stmt->fetchColumn() > 0);
-        
-    } else { // long_term
-        if ($installmentNumber !== null) {
-            // This is a follow-up visit (installment)
-            // Check if this specific installment is paid
-            $stmt = $pdo->prepare("
-                SELECT status 
-                FROM installments 
-                WHERE booking_id = ? 
-                AND installment_number = ?
-                AND tenant_id = ?
-            ");
-            $stmt->execute([$bookingId, $installmentNumber, getClinicTenantId()]);
-            $installment = $stmt->fetch();
-            
-            if ($installment && in_array($installment['status'], ['paid', 'completed'])) {
-                $isPaymentSatisfied = true;
-            }
-        } else {
-            // This is the main appointment (Treatment 1)
-            // Check if there's a payment for this booking (main payment or downpayment)
-            $stmt = $pdo->prepare("
-                SELECT COUNT(*) 
-                FROM payments 
-                WHERE booking_id = ? 
-                AND status = 'completed'
-                AND tenant_id = ?
-            ");
-            $stmt->execute([$bookingId, getClinicTenantId()]);
-            $hasPayment = ($stmt->fetchColumn() > 0);
-            
-            // Also check if there's a paid installment (for downpayment scenarios)
-            $stmt = $pdo->prepare("
-                SELECT COUNT(*) 
-                FROM installments 
-                WHERE booking_id = ? 
-                AND status IN ('paid', 'completed')
-                AND tenant_id = ?
-            ");
-            $stmt->execute([$bookingId, getClinicTenantId()]);
-            $hasPaidInstallment = ($stmt->fetchColumn() > 0);
-            
-            $isPaymentSatisfied = $hasPayment || $hasPaidInstallment;
-        }
+    if ($appointmentStatus === 'no_show') {
+        return 'NO_SHOW';
     }
-    
-    // Priority 3: Determine final status
-    if (!$isPaymentSatisfied) {
-        return 'PENDING';
-    } else {
-        return 'SCHEDULED';
-    }
+    return strtoupper($appointmentStatus);
 }
 
 /**

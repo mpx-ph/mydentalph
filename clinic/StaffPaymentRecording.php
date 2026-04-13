@@ -44,39 +44,22 @@ function staff_payment_recording_installment_is_paid(string $status): bool
     return $s === 'paid' || $s === 'completed';
 }
 
-function staff_payment_recording_mark_appointment_completed(
-    PDO $pdo,
-    string $tenantId,
-    string $bookingId,
-    int $appointmentId,
-    bool $supportsAppointmentUpdatedAtColumn
-): void {
-    if ($tenantId === '' || $bookingId === '') {
-        return;
+function staff_payment_recording_financial_status(float $totalCost, float $totalPaid, string $appointmentDate = ''): string
+{
+    $remaining = max(0, round($totalCost - $totalPaid, 2));
+    if ($remaining <= 0.009) {
+        return 'PAID';
     }
-    $tablesToUpdate = [];
-    foreach (['tbl_appointments', 'appointments'] as $candidate) {
-        $physical = clinic_get_physical_table_name($pdo, $candidate);
-        if ($physical !== null && $physical !== '' && !in_array($physical, $tablesToUpdate, true)) {
-            $tablesToUpdate[] = $physical;
+    if ($totalPaid > 0) {
+        if ($appointmentDate !== '' && $appointmentDate < date('Y-m-d')) {
+            return 'OVERDUE';
         }
+        return 'PARTIAL';
     }
-    if ($tablesToUpdate === []) {
-        return;
+    if ($appointmentDate !== '' && $appointmentDate < date('Y-m-d')) {
+        return 'OVERDUE';
     }
-    foreach ($tablesToUpdate as $tableName) {
-        $updateById = $appointmentId > 0 && strtolower($tableName) === 'tbl_appointments';
-        $quoted = clinic_quote_identifier($tableName);
-        $sql = "
-            UPDATE {$quoted}
-            SET status = 'completed'" . ($supportsAppointmentUpdatedAtColumn ? ", updated_at = NOW()" : "") . "
-            WHERE tenant_id = ?
-              AND " . ($updateById ? "id = ?" : "booking_id = ?") . "
-              AND LOWER(COALESCE(status, 'pending')) NOT IN ('cancelled', 'no_show')
-        ";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$tenantId, $updateById ? $appointmentId : $bookingId]);
-    }
+    return 'UNPAID';
 }
 
 function staff_payment_recording_normalize_service_category(string $category): string
@@ -681,7 +664,6 @@ $recentPayments = [];
 $transactionCandidates = [];
 $availableServices = [];
 $supportsPaymentTypeColumn = false;
-$supportsAppointmentUpdatedAtColumn = false;
 $supportsAppointmentVisitTypeColumn = false;
 $supportsAppointmentServicesTable = false;
 $appointmentServiceColumns = [];
@@ -779,17 +761,6 @@ try {
         ");
         $paymentTypeColumnStmt->execute();
         $supportsPaymentTypeColumn = (bool) $paymentTypeColumnStmt->fetchColumn();
-
-        $appointmentUpdatedAtColumnStmt = $pdo->prepare("
-            SELECT 1
-            FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = 'tbl_appointments'
-              AND COLUMN_NAME = 'updated_at'
-            LIMIT 1
-        ");
-        $appointmentUpdatedAtColumnStmt->execute();
-        $supportsAppointmentUpdatedAtColumn = (bool) $appointmentUpdatedAtColumnStmt->fetchColumn();
 
         $appointmentVisitTypeColumnStmt = $pdo->prepare("
             SELECT 1
@@ -1068,7 +1039,6 @@ try {
         } else {
             $bookingSql = "
                 SELECT
-                    COALESCE(MAX(a.id), 0) AS appointment_id,
                     a.booking_id,
                     a.patient_id,
                     COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
@@ -1086,7 +1056,6 @@ try {
             $bookingStmt = $pdo->prepare($bookingSql);
             $bookingStmt->execute([$tenantId, $selectedBookingId]);
             $bookingRow = $bookingStmt->fetch(PDO::FETCH_ASSOC);
-            $appointmentId = (int) ($bookingRow['appointment_id'] ?? 0);
             $patientId = trim((string) ($bookingRow['patient_id'] ?? ''));
             $totalCost = (float) ($bookingRow['total_treatment_cost'] ?? 0);
             $totalPaid = (float) ($bookingRow['total_paid'] ?? 0);
@@ -1572,14 +1541,6 @@ try {
                         $totalPaidAfter = (float) ($bookingRow['total_paid'] ?? 0);
                         $pendingAfter = max(0, $totalCostAfter - $totalPaidAfter);
 
-                        staff_payment_recording_mark_appointment_completed(
-                            $pdo,
-                            $tenantId,
-                            $selectedBookingId,
-                            $appointmentId,
-                            $supportsAppointmentUpdatedAtColumn
-                        );
-
                         $paymentSuccess = 'Payment recorded successfully.';
                         $selectedMethod = '';
                         $selectedMethodForUi = '';
@@ -1787,14 +1748,6 @@ try {
                         throw new RuntimeException($apiError !== '' ? ('PayMongo: ' . $apiError) : 'PayMongo did not return a checkout URL.');
                     }
 
-                    staff_payment_recording_mark_appointment_completed(
-                        $pdo,
-                        $tenantId,
-                        $selectedBookingId,
-                        $appointmentId,
-                        $supportsAppointmentUpdatedAtColumn
-                    );
-
                     $paymentSuccess = 'Payment recorded successfully.';
                     // Reset the modal form after successful submission.
                     $selectedMethod = '';
@@ -1859,6 +1812,7 @@ try {
                 py.payment_method,
                 py.reference_number,
                 py.status,
+                COALESCE(a.appointment_date, '') AS appointment_date,
                 COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
                 COALESCE((
                     SELECT SUM(py2.amount)
@@ -2449,8 +2403,11 @@ try {
     $timeLabel = $paymentDateRaw !== '' ? date('h:i A', strtotime($paymentDateRaw)) : '-';
     $methodKey = strtolower(trim((string) ($payment['payment_method'] ?? 'cash')));
     $methodLabel = $allowedMethods[$methodKey] ?? ucfirst(str_replace('_', ' ', $methodKey));
-    $statusKey = strtolower(trim((string) ($payment['status'] ?? 'pending')));
-    $statusLabel = ucfirst(str_replace('_', ' ', $statusKey));
+    $financialStatus = staff_payment_recording_financial_status(
+        (float) ($payment['total_treatment_cost'] ?? 0),
+        (float) ($payment['booking_total_paid'] ?? 0),
+        trim((string) ($payment['appointment_date'] ?? ''))
+    );
     $serviceLabel = trim((string) ($payment['service_list'] ?? ''));
     if ($serviceLabel === '') {
         $serviceLabel = 'Dental treatment';
@@ -2513,13 +2470,16 @@ try {
         'clinic_name' => $clinicDisplayName,
         'clinic_logo' => $clinicLogoUrl,
     ];
-    $statusClasses = 'bg-amber-50 text-amber-600';
-    $dotClass = 'bg-amber-500';
-    if ($statusKey === 'completed') {
+    $statusClasses = 'bg-rose-50 text-rose-700';
+    $dotClass = 'bg-rose-500';
+    if ($financialStatus === 'PAID') {
         $statusClasses = 'bg-emerald-50 text-emerald-600';
         $dotClass = 'bg-emerald-500';
-    } elseif ($statusKey === 'cancelled') {
-        $statusClasses = 'bg-slate-100 text-slate-600';
+    } elseif ($financialStatus === 'PARTIAL') {
+        $statusClasses = 'bg-amber-50 text-amber-700';
+        $dotClass = 'bg-amber-500';
+    } elseif ($financialStatus === 'UNPAID') {
+        $statusClasses = 'bg-slate-100 text-slate-700';
         $dotClass = 'bg-slate-500';
     }
 ?>
@@ -2549,7 +2509,7 @@ try {
 <td class="px-6 py-5">
 <span class="inline-flex items-center gap-1.5 px-3 py-1 <?php echo $statusClasses; ?> text-[10px] font-black rounded-full uppercase tracking-widest">
 <span class="w-1.5 h-1.5 rounded-full <?php echo $dotClass; ?>"></span>
-<?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?>
+<?php echo htmlspecialchars($financialStatus, ENT_QUOTES, 'UTF-8'); ?>
 </span>
 </td>
 <td class="px-8 py-5 text-right">
