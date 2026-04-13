@@ -342,28 +342,40 @@ try {
                     <div class="flex items-center justify-between gap-3 mb-4">
                         <div>
                             <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Payment Details</p>
-                            <h3 class="text-lg font-extrabold text-slate-900">Default Payment Details</h3>
-                        </div>
-                        <span class="inline-flex items-center gap-1 text-xs font-bold text-slate-500">
-                            <span class="material-symbols-outlined text-[16px]">payments</span>
-                            Walk-In Estimate
-                        </span>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
-                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Estimated Total</p>
-                            <p id="walkInDefaultEstimatedTotal" class="mt-2 text-2xl font-extrabold text-slate-900">P0.00</p>
-                        </div>
-                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Selected Services</p>
-                            <p id="walkInDefaultServiceCount" class="mt-2 text-xl font-extrabold text-slate-900">0</p>
-                        </div>
-                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Payment Mode</p>
-                            <p id="walkInDefaultPaymentMode" class="mt-2 text-xl font-extrabold text-slate-900">Regular</p>
+                            <h3 class="text-lg font-extrabold text-slate-900">Payment Breakdown</h3>
                         </div>
                     </div>
-                    <p class="text-[11px] font-semibold text-slate-500 mt-4">This section applies when no active installment treatment is linked to the selected patient.</p>
+                    <div class="rounded-2xl border border-slate-100 bg-slate-50/60 px-4 py-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:items-start">
+                            <div>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Amount</p>
+                                <p id="walkInDefaultEstimatedTotal" class="mt-2 text-4xl leading-none font-extrabold text-slate-900">P0.00</p>
+                            </div>
+                            <div class="md:text-right">
+                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Installment Available?</p>
+                                <div class="mt-3 inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                                    <span id="walkInDefaultInstallmentAvailable" class="text-sm font-extrabold text-slate-700">No</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-6 border-t border-slate-200"></div>
+                        <div class="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+                            <div>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Down Payment (Min)</p>
+                                <p id="walkInDefaultDownPayment" class="mt-2 text-4xl leading-none font-extrabold text-slate-900">P0.00</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Monthly (Est.)</p>
+                                <p id="walkInDefaultMonthlyEstimate" class="mt-2 text-4xl leading-none font-extrabold text-slate-900">P0.00</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Duration (Max)</p>
+                                <p id="walkInDefaultDurationMax" class="mt-2 text-4xl leading-none font-extrabold text-slate-900">0 Months</p>
+                            </div>
+                        </div>
+                        <p class="mt-5 text-center text-[11px] italic font-semibold text-slate-400">Actual payment terms will be finalized during payment processing.</p>
+                    </div>
                 </div>
 
                 <div id="walkInTreatmentPaymentProgressSection" class="elevated-card rounded-3xl p-6 hidden">
@@ -544,8 +556,10 @@ try {
         const walkInDefaultPaymentDetailsSectionEl = document.getElementById('walkInDefaultPaymentDetailsSection');
         const walkInTreatmentPaymentProgressSectionEl = document.getElementById('walkInTreatmentPaymentProgressSection');
         const walkInDefaultEstimatedTotalEl = document.getElementById('walkInDefaultEstimatedTotal');
-        const walkInDefaultServiceCountEl = document.getElementById('walkInDefaultServiceCount');
-        const walkInDefaultPaymentModeEl = document.getElementById('walkInDefaultPaymentMode');
+        const walkInDefaultInstallmentAvailableEl = document.getElementById('walkInDefaultInstallmentAvailable');
+        const walkInDefaultDownPaymentEl = document.getElementById('walkInDefaultDownPayment');
+        const walkInDefaultMonthlyEstimateEl = document.getElementById('walkInDefaultMonthlyEstimate');
+        const walkInDefaultDurationMaxEl = document.getElementById('walkInDefaultDurationMax');
         const dentistsSeedData = <?php echo json_encode($walkInDentists, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const patientsApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patients.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const servicesApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/services.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
@@ -747,10 +761,29 @@ try {
             return 'P' + Number(amount || 0).toFixed(2);
         }
 
-        function serviceCountTotal() {
-            return selectedServices.reduce(function (sum, service) {
-                return sum + Number(service && service.price ? service.price : 0);
-            }, 0);
+        function getServiceById(serviceId) {
+            const key = String(serviceId || '').trim();
+            if (!key) return null;
+            return allServices.find(function (service) {
+                return String(service && service.service_id ? service.service_id : '') === key;
+            }) || null;
+        }
+
+        function getDefaultBreakdownServices() {
+            const list = selectedServices.slice();
+            const selectedId = selectedServiceIdInput ? String(selectedServiceIdInput.value || '').trim() : '';
+            if (selectedId) {
+                const exists = list.some(function (service) {
+                    return String(service && service.service_id ? service.service_id : '') === selectedId;
+                });
+                if (!exists) {
+                    const selectedService = getServiceById(selectedId);
+                    if (selectedService) {
+                        list.push(selectedService);
+                    }
+                }
+            }
+            return list;
         }
 
         function treatmentIsInstallmentPlan(treatmentContext) {
@@ -777,14 +810,40 @@ try {
         }
 
         function updateDefaultPaymentDetails() {
+            const breakdownServices = getDefaultBreakdownServices();
+            const totalAmount = breakdownServices.reduce(function (sum, service) {
+                return sum + Number(service && service.price ? service.price : 0);
+            }, 0);
+            const installmentService = breakdownServices.find(function (service) {
+                return serviceInstallmentEnabled(service);
+            }) || null;
+            const installmentAvailable = !!installmentService;
+            const durationMonths = installmentService ? Math.max(0, Number(installmentService.installment_duration_months || 0)) : 0;
+            const servicePrice = installmentService ? Number(installmentService.price || 0) : 0;
+            const downPayment = installmentService ? Math.max(0, Number(installmentService.installment_downpayment || 0)) : 0;
+            let monthlyEstimate = 0;
+            if (installmentService && durationMonths > 0) {
+                if (downPayment > 0 && durationMonths > 1) {
+                    monthlyEstimate = Math.max(0, servicePrice - downPayment) / (durationMonths - 1);
+                } else {
+                    monthlyEstimate = servicePrice / durationMonths;
+                }
+            }
+
             if (walkInDefaultEstimatedTotalEl) {
-                walkInDefaultEstimatedTotalEl.textContent = formatPeso(serviceCountTotal());
+                walkInDefaultEstimatedTotalEl.textContent = formatPeso(totalAmount);
             }
-            if (walkInDefaultServiceCountEl) {
-                walkInDefaultServiceCountEl.textContent = String(selectedServices.length);
+            if (walkInDefaultInstallmentAvailableEl) {
+                walkInDefaultInstallmentAvailableEl.textContent = installmentAvailable ? 'Yes' : 'No';
             }
-            if (walkInDefaultPaymentModeEl) {
-                walkInDefaultPaymentModeEl.textContent = treatmentIsInstallmentPlan(activeTreatmentContext) ? 'Installment' : 'Regular';
+            if (walkInDefaultDownPaymentEl) {
+                walkInDefaultDownPaymentEl.textContent = formatPeso(downPayment);
+            }
+            if (walkInDefaultMonthlyEstimateEl) {
+                walkInDefaultMonthlyEstimateEl.textContent = formatPeso(monthlyEstimate);
+            }
+            if (walkInDefaultDurationMaxEl) {
+                walkInDefaultDurationMaxEl.textContent = String(durationMonths) + ' Months';
             }
         }
 
