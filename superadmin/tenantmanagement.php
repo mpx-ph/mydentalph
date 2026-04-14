@@ -504,20 +504,7 @@ $rangeEnd = $totalRows === 0 ? 0 : min($totalRows, $offset + count($tenants));
 <?php
 $superadmin_nav = 'tenantmanagement';
 require __DIR__ . '/superadmin_sidebar.php';
-ob_start();
-?>
-<form method="get" action="tenantmanagement.php" class="relative w-full max-w-md group">
-<?php if ($filterBase['status'] !== ''): ?>
-<input type="hidden" name="status" value="<?php echo htmlspecialchars($filterBase['status'], ENT_QUOTES, 'UTF-8'); ?>"/>
-<?php endif; ?>
-<?php if ($filterBase['plan'] !== ''): ?>
-<input type="hidden" name="plan" value="<?php echo htmlspecialchars($filterBase['plan'], ENT_QUOTES, 'UTF-8'); ?>"/>
-<?php endif; ?>
-<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-xl pointer-events-none">search</span>
-<input name="q" value="<?php echo htmlspecialchars($filterBase['q'], ENT_QUOTES, 'UTF-8'); ?>" class="w-full bg-surface-container-low/50 border-none focus:ring-2 focus:ring-primary/20 rounded-2xl pl-11 pr-4 py-2.5 text-sm transition-all placeholder:text-on-surface-variant/50" placeholder="Search tenants, clinics, or email..." type="search" autocomplete="off"/>
-</form>
-<?php
-$superadmin_header_center = ob_get_clean();
+$superadmin_header_center = '';
 require __DIR__ . '/superadmin_header.php';
 ?>
 <button id="sa-mobile-sidebar-toggle" type="button" class="fixed top-6 left-4 z-[65] lg:hidden w-10 h-10 rounded-xl bg-white/90 border border-white text-primary shadow-md flex items-center justify-center" aria-controls="superadmin-sidebar" aria-expanded="false" aria-label="Open navigation menu">
@@ -534,6 +521,16 @@ require __DIR__ . '/superadmin_header.php';
 <div>
 <h2 class="text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Tenant Management</h2>
 <p class="text-on-surface-variant mt-2 font-medium">View and manage clinic tenant accounts across the network.</p>
+<form method="get" action="tenantmanagement.php" class="relative w-full max-w-md group mt-4">
+<?php if ($filterBase['status'] !== ''): ?>
+<input type="hidden" name="status" value="<?php echo htmlspecialchars($filterBase['status'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<?php endif; ?>
+<?php if ($filterBase['plan'] !== ''): ?>
+<input type="hidden" name="plan" value="<?php echo htmlspecialchars($filterBase['plan'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<?php endif; ?>
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-xl pointer-events-none">search</span>
+<input name="q" value="<?php echo htmlspecialchars($filterBase['q'], ENT_QUOTES, 'UTF-8'); ?>" class="w-full bg-surface-container-low/50 border-none focus:ring-2 focus:ring-primary/20 rounded-2xl pl-11 pr-4 py-2.5 text-sm transition-all placeholder:text-on-surface-variant/50" placeholder="Search tenants, clinics, or email..." type="search" autocomplete="off"/>
+</form>
 </div>
 <div class="flex items-center gap-3 w-full md:w-auto">
 <button id="open-tenant-export-modal" type="button" class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center justify-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all w-full sm:w-auto">

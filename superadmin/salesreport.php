@@ -127,7 +127,7 @@
 <body class="mesh-bg font-body text-on-surface antialiased min-h-screen">
 <?php
 $superadmin_nav = 'salesreport';
-$superadmin_header_search_placeholder = 'Search clinic data...';
+$superadmin_header_center = '';
 require_once __DIR__ . '/../db.php';
 date_default_timezone_set('Asia/Manila');
 try {
@@ -566,6 +566,10 @@ require __DIR__ . '/superadmin_header.php';
 <div>
 <h2 class="text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Sales Report</h2>
 <p class="text-on-surface-variant mt-2 font-medium">View and analyze clinic sales performance across all branches.</p>
+<div class="relative w-full max-w-md group mt-4">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-xl">search</span>
+<input class="w-full bg-surface-container-low/50 border-none focus:ring-2 focus:ring-primary/20 rounded-2xl pl-11 pr-4 py-2.5 text-sm transition-all placeholder:text-on-surface-variant/50" placeholder="Search clinic data..." type="text"/>
+</div>
 </div>
 <div class="flex items-center gap-3 w-full md:w-auto">
 <button id="open-sales-export-modal" type="button" class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center justify-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all w-full sm:w-auto">
