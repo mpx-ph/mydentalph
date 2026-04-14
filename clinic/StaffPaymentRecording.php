@@ -701,6 +701,7 @@ $supportsPaymentTypeColumn = false;
 $supportsAppointmentVisitTypeColumn = false;
 $supportsAppointmentServicesTable = false;
 $appointmentServiceColumns = [];
+$supportsAppointmentServiceTypeColumn = false;
 $installmentsTableName = null;
 $supportsServiceEnableInstallmentColumn = false;
 $supportsPaymentsInstallmentNumberColumn = false;
@@ -826,6 +827,7 @@ try {
             ");
             $appointmentServicesColumnsStmt->execute();
             $appointmentServiceColumns = array_map('strval', $appointmentServicesColumnsStmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
+            $supportsAppointmentServiceTypeColumn = in_array('service_type', $appointmentServiceColumns, true);
         }
 
         foreach (['tbl_installments', 'installments'] as $installmentsCandidate) {
@@ -2003,7 +2005,6 @@ try {
                 ON p.tenant_id = a.tenant_id
                AND p.patient_id = a.patient_id
             WHERE a.tenant_id = ?
-              AND COALESCE(a.total_treatment_cost, 0) > 0
               AND LOWER(COALESCE(a.status, '')) <> 'cancelled'
             GROUP BY
                 a.booking_id,
@@ -2016,7 +2017,6 @@ try {
                 a.total_treatment_cost,
                 p.first_name,
                 p.last_name
-            HAVING (COALESCE(a.total_treatment_cost, 0) - COALESCE(SUM(CASE WHEN py.status IN ('completed', 'paid') THEN py.amount ELSE 0 END), 0)) > 0.009
             ORDER BY a.appointment_date DESC, a.appointment_time DESC, a.created_at DESC
             LIMIT 300
         ";
@@ -2100,12 +2100,16 @@ try {
             $bookedIdList = array_keys($bookedBidKeys);
             if ($bookedIdList !== []) {
                 $bookedPh = implode(',', array_fill(0, count($bookedIdList), '?'));
+                $bookedServiceTypeSelectSql = $supportsAppointmentServiceTypeColumn
+                    ? "COALESCE(NULLIF(aps.service_type, ''), '')"
+                    : "''";
                 $bookedSql = "
                     SELECT
                         aps.booking_id,
                         aps.service_id,
                         aps.service_name,
                         aps.price,
+                        {$bookedServiceTypeSelectSql} AS service_type,
                         COALESCE(NULLIF(sv.category, ''), '') AS category
                     FROM tbl_appointment_services aps
                     LEFT JOIN tbl_services sv
@@ -2128,6 +2132,7 @@ try {
                     $bookedServicesByBooking[$bb][] = [
                         'service_id' => trim((string) ($brow['service_id'] ?? '')),
                         'service_name' => trim((string) ($brow['service_name'] ?? '')),
+                        'service_type' => trim((string) ($brow['service_type'] ?? '')),
                         'category' => trim((string) ($brow['category'] ?? '')),
                         'price' => round((float) ($brow['price'] ?? 0), 2),
                     ];
@@ -3480,7 +3485,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
         }
 
-        const normalizeTransactions = transactionCandidates.map((item) => {
+        const normalizeTransactions = transactionCandidates.flatMap((item) => {
             const totalCost = Number(item.total_treatment_cost || 0);
             const totalPaid = Number(item.total_paid || 0);
             const pendingBalance = Math.max(0, totalCost - totalPaid);
@@ -3498,7 +3503,12 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const booked_service_ids = bookedServicesRaw
                 .map((s) => String((s && s.service_id) || '').trim())
                 .filter((id) => id !== '');
-            return {
+            const bookedInstallment = bookedServicesRaw.filter((s) => String((s && s.service_type) || '').toLowerCase() === 'installment');
+            const bookedRegular = bookedServicesRaw.filter((s) => String((s && s.service_type) || '').toLowerCase() !== 'installment');
+            const regularCostByLines = bookedRegular.reduce((sum, s) => sum + Number((s && s.price) || 0), 0);
+            const hasInstallmentEntry = isInstallmentPlan || bookedInstallment.length > 0;
+            const hasRegularEntry = bookedRegular.length > 0 || !hasInstallmentEntry;
+            const baseRow = {
                 booking_id: String(item.booking_id || ''),
                 treatment_id: treatmentId,
                 patient_id: String(item.patient_id || ''),
@@ -3511,13 +3521,46 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 total_paid: totalPaid,
                 pending_balance: pendingBalance,
                 is_installment_plan: isInstallmentPlan,
-                transaction_type: String(item.transaction_type || (isInstallmentPlan ? 'installment' : 'regular')).toLowerCase() === 'installment' ? 'installment' : 'regular',
                 installment_schedule: Array.isArray(item.installment_schedule) ? item.installment_schedule : [],
-                booked_services: bookedServicesRaw,
-                booked_service_ids: booked_service_ids,
                 label: label
             };
-        }).filter((item) => item.pending_balance > 0);
+            const rows = [];
+            if (hasRegularEntry) {
+                const regularCost = regularCostByLines > 0 ? regularCostByLines : totalCost;
+                const regularPending = Math.max(0, regularCost - totalPaid);
+                rows.push({
+                    ...baseRow,
+                    transaction_key: baseRow.booking_id + '::regular',
+                    transaction_type: 'regular',
+                    is_installment_plan: false,
+                    installment_schedule: [],
+                    total_cost: regularCost,
+                    pending_balance: regularPending,
+                    booked_services: bookedRegular.length ? bookedRegular : bookedServicesRaw,
+                    booked_service_ids: (bookedRegular.length ? bookedRegular : bookedServicesRaw)
+                        .map((s) => String((s && s.service_id) || '').trim())
+                        .filter((id) => id !== '')
+                });
+            }
+            if (hasInstallmentEntry) {
+                rows.push({
+                    ...baseRow,
+                    transaction_key: baseRow.booking_id + '::installment',
+                    transaction_type: 'installment',
+                    is_installment_plan: true,
+                    booked_services: bookedInstallment.length ? bookedInstallment : bookedServicesRaw,
+                    booked_service_ids: (bookedInstallment.length ? bookedInstallment : bookedServicesRaw)
+                        .map((s) => String((s && s.service_id) || '').trim())
+                        .filter((id) => id !== '')
+                });
+            }
+            return rows;
+        }).filter((item) => {
+            if (item.transaction_type === 'installment') {
+                return item.pending_balance > 0 || getScheduleList(item).length > 0;
+            }
+            return item.pending_balance > 0;
+        });
 
         function getRecordTypeMeta(item) {
             const rawType = String(item && item.visit_type ? item.visit_type : '').toLowerCase();
@@ -3681,7 +3724,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                             '</div>' +
                             '<div class="shrink-0 flex items-center gap-2">' +
                                 '<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ' + typeMeta.cls + '">' + escapeHtml(typeMeta.label) + '</span>' +
-                                '<button type="button" data-action="select-transaction" data-booking-id="' + escapeHtml(item.booking_id) + '" class="px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-widest hover:bg-primary/90 transition-colors">Select</button>' +
+                                '<button type="button" data-action="select-transaction" data-transaction-key="' + escapeHtml(item.transaction_key || (item.booking_id + "::" + item.transaction_type)) + '" class="px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-widest hover:bg-primary/90 transition-colors">Select</button>' +
                             '</div>' +
                         '</div>' +
                     '</div>';
@@ -4069,8 +4112,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 if (!btn) {
                     return;
                 }
-                const bookingId = String(btn.getAttribute('data-booking-id') || '');
-                const selected = normalizeTransactions.find((item) => item.booking_id === bookingId);
+                const transactionKey = String(btn.getAttribute('data-transaction-key') || '');
+                const selected = normalizeTransactions.find((item) => String(item.transaction_key || '') === transactionKey);
                 if (!selected) {
                     return;
                 }
