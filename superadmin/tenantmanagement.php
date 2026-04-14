@@ -584,7 +584,7 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 </section>
 <!-- Main Data Table Container (Glassmorphism & Style from SCREEN_2) -->
-<div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
+<div id="tenant-directory-panel" class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
 <!-- Table Controls -->
 <div class="px-4 sm:px-6 lg:px-8 py-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/50">
 <form method="get" action="tenantmanagement.php" class="flex flex-wrap items-center gap-4 flex-1 min-w-0">
@@ -719,7 +719,7 @@ require __DIR__ . '/superadmin_header.php';
 <!-- Pagination (Matches SCREEN_2 Button Style) -->
 <div class="px-4 sm:px-6 lg:px-10 py-8 flex flex-wrap items-center justify-between gap-4 border-t border-white/50">
 <?php if ($page > 1): ?>
-<a href="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page - 1]), ENT_QUOTES, 'UTF-8'); ?>" class="px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
+<a href="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page - 1]), ENT_QUOTES, 'UTF-8'); ?>" class="js-tenant-pagination-link px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
 <span class="material-symbols-outlined text-lg">chevron_left</span> Previous
                 </a>
 <?php else: ?>
@@ -729,7 +729,7 @@ require __DIR__ . '/superadmin_header.php';
 <?php endif; ?>
 <p class="text-sm font-bold text-on-surface order-first sm:order-none w-full sm:w-auto text-center sm:text-left">Page <?php echo (int) $page; ?> of <?php echo (int) $totalPages; ?></p>
 <?php if ($page < $totalPages): ?>
-<a href="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page + 1]), ENT_QUOTES, 'UTF-8'); ?>" class="px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
+<a href="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page + 1]), ENT_QUOTES, 'UTF-8'); ?>" class="js-tenant-pagination-link px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
                     Next <span class="material-symbols-outlined text-lg">chevron_right</span>
                 </a>
 <?php else: ?>
@@ -869,6 +869,53 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 <script>
 (function () {
+    var panel = document.getElementById('tenant-directory-panel');
+    if (!panel || !window.fetch || !window.DOMParser) return;
+
+    function loadTenantPage(url, pushState) {
+        panel.setAttribute('aria-busy', 'true');
+        fetch(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(function (res) { return res.text(); })
+            .then(function (html) {
+                var parser = new DOMParser();
+                var nextDoc = parser.parseFromString(html, 'text/html');
+                var nextPanel = nextDoc.getElementById('tenant-directory-panel');
+                if (!nextPanel) {
+                    throw new Error('Table section not found');
+                }
+                panel.innerHTML = nextPanel.innerHTML;
+                if (pushState && window.history && typeof window.history.pushState === 'function') {
+                    window.history.pushState({ tenantPage: url }, '', url);
+                }
+            })
+            .catch(function () {
+                window.location.href = url;
+            })
+            .finally(function () {
+                panel.removeAttribute('aria-busy');
+            });
+    }
+
+    document.addEventListener('click', function (e) {
+        var link = e.target.closest('.js-tenant-pagination-link');
+        if (!link || !panel.contains(link)) {
+            return;
+        }
+        e.preventDefault();
+        loadTenantPage(link.href, true);
+    });
+
+    window.addEventListener('popstate', function () {
+        loadTenantPage(window.location.href, false);
+    });
+})();
+</script>
+<script>
+(function () {
     var toggleBtn = document.getElementById('sa-mobile-sidebar-toggle');
     var backdrop = document.getElementById('sa-mobile-sidebar-backdrop');
     var mqDesktop = window.matchMedia('(min-width: 1024px)');
@@ -942,8 +989,7 @@ require __DIR__ . '/superadmin_header.php';
     var body = document.getElementById('tenant-details-body');
     var closeBtn = document.getElementById('close-tenant-details-modal');
     var closeFooterBtn = document.getElementById('close-tenant-details-modal-footer');
-    var triggerButtons = document.querySelectorAll('.js-open-tenant-details');
-    if (!modal || !subtitle || !body || !triggerButtons.length) return;
+    if (!modal || !subtitle || !body) return;
 
     function setBodyHtml(html) {
         body.innerHTML = html;
@@ -1086,12 +1132,14 @@ require __DIR__ . '/superadmin_header.php';
             });
     }
 
-    triggerButtons.forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var tenantId = btn.getAttribute('data-tenant-id') || '';
-            if (!tenantId) return;
-            fetchDetails(tenantId);
-        });
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.js-open-tenant-details');
+        if (!btn) {
+            return;
+        }
+        var tenantId = btn.getAttribute('data-tenant-id') || '';
+        if (!tenantId) return;
+        fetchDetails(tenantId);
     });
 
     if (closeBtn) closeBtn.addEventListener('click', closeModal);
