@@ -41,8 +41,9 @@ try {
         jsonResponse(false, 'Email/Username and password are required.');
     }
 
-    // If tenant context is missing but clinic_slug was sent, resolve and set session (e.g. direct API call or new tab)
-    if (empty(getClinicTenantId()) && $clinicSlug !== '' && preg_match('/^[a-z0-9\-]+$/', strtolower($clinicSlug))) {
+    // If clinic_slug was sent, always resolve and apply that tenant context for this login attempt.
+    // This prevents stale session tenant_id values from causing false "Invalid credentials".
+    if ($clinicSlug !== '' && preg_match('/^[a-z0-9\-]+$/', strtolower($clinicSlug))) {
         $pdo = getDBConnection();
         $stmt = $pdo->prepare("
             SELECT tenant_id, clinic_slug
@@ -55,6 +56,9 @@ try {
         if ($tenant) {
             $_SESSION['public_tenant_id'] = $tenant['tenant_id'];
             $_SESSION['public_tenant_slug'] = $tenant['clinic_slug'];
+            // Ensure auth helpers resolve to the slug tenant for this request.
+            $_SESSION['tenant_id'] = $tenant['tenant_id'];
+            $_SESSION['tenant_slug'] = $tenant['clinic_slug'];
         }
     }
 
