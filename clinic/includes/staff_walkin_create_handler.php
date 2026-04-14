@@ -549,6 +549,16 @@ try {
 
     $verifyAppt = $pdo->prepare('SELECT COUNT(*) FROM ' . clinic_quote_identifier($appointmentsTable) . ' WHERE tenant_id = ? AND booking_id = ?');
     $verifySvc = $pdo->prepare('SELECT COUNT(*) FROM ' . clinic_quote_identifier($appointmentServicesTable) . ' WHERE tenant_id = ? AND booking_id = ?');
+    $verifyServiceTypeStmt = null;
+    if (in_array('service_type', clinic_table_columns($pdo, $appointmentServicesTable), true)) {
+        $verifyServiceTypeStmt = $pdo->prepare('
+            SELECT COUNT(*)
+            FROM ' . clinic_quote_identifier($appointmentServicesTable) . "
+            WHERE tenant_id = ?
+              AND booking_id = ?
+              AND COALESCE(NULLIF(TRIM(service_type), ''), 'installment') NOT IN ('installment', 'regular')
+        ");
+    }
     foreach ($writtenByBooking as $planBookingId => $expectedRows) {
         $verifyAppt->execute([$tenantId, $planBookingId]);
         if ((int) $verifyAppt->fetchColumn() < (int) ($expectedRows['appointment_rows'] ?? 1)) {
@@ -569,6 +579,18 @@ try {
                 'message' => 'Could not save walk-in: service lines were not stored in ' . $appointmentServicesTable . ' (expected ' . $expectedSvc . ', saw ' . $svcCount . ').',
             ]);
             exit;
+        }
+        if ($verifyServiceTypeStmt !== null) {
+            $verifyServiceTypeStmt->execute([$tenantId, $planBookingId]);
+            $invalidTypeRows = (int) $verifyServiceTypeStmt->fetchColumn();
+            if ($invalidTypeRows > 0) {
+                $pdo->rollBack();
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Could not save walk-in: one or more service rows have an invalid service_type value.',
+                ]);
+                exit;
+            }
         }
     }
 
