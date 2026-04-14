@@ -815,7 +815,7 @@ require __DIR__ . '/superadmin_header.php';
 <?php endif; ?>
 <div>
 <label class="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/70 mb-1">Year</label>
-<select name="daily_year" onchange="this.form.submit()" class="appearance-none bg-white/80 border border-outline-variant/50 rounded-xl px-3 py-2 pr-8 text-xs font-bold text-on-surface focus:border-primary focus:ring-primary/25">
+<select name="daily_year" class="appearance-none bg-white/80 border border-outline-variant/50 rounded-xl px-3 py-2 pr-8 text-xs font-bold text-on-surface focus:border-primary focus:ring-primary/25">
 <option value="">Default</option>
 <?php foreach ($dailyAvailableYears as $yr): ?>
 <option value="<?php echo (int) $yr; ?>"<?php echo $dailyFilterYear === (int) $yr ? ' selected' : ''; ?>><?php echo (int) $yr; ?></option>
@@ -824,7 +824,7 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 <div>
 <label class="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/70 mb-1">Month</label>
-<select name="daily_month" onchange="this.form.submit()" class="appearance-none bg-white/80 border border-outline-variant/50 rounded-xl px-3 py-2 pr-8 text-xs font-bold text-on-surface focus:border-primary focus:ring-primary/25">
+<select name="daily_month" class="appearance-none bg-white/80 border border-outline-variant/50 rounded-xl px-3 py-2 pr-8 text-xs font-bold text-on-surface focus:border-primary focus:ring-primary/25">
 <option value="">All Months</option>
 <?php for ($m = 1; $m <= 12; $m++): ?>
 <option value="<?php echo (int) $m; ?>"<?php echo $dailyFilterMonth === $m ? ' selected' : ''; ?>><?php echo htmlspecialchars(date('F', mktime(0, 0, 0, $m, 1))); ?></option>
