@@ -225,31 +225,21 @@ Send Inquiry
 <!-- Map Section -->
 <section class="max-w-[1800px] mx-auto px-10 mb-24 reveal" data-reveal="section">
 <div class="relative w-full h-[480px] rounded-[3rem] overflow-hidden bg-slate-100 dark:bg-slate-900/50 group shadow-2xl">
-<img alt="Global Clinic Presence Map" class="w-full h-full object-cover grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-1000" data-alt="A stylized abstract blue world map highlighting clinic locations" data-location="Global" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCHAWeMpCjaIVp3N6Be0htDT88O3XrZBxPznvmZth44vuQLZN8LC6jlsnkUoDQhUa5AWw3Ov1NNNaC9zoOcDxcHBTpBSrRGQEDOLd4ZpT88umkHbgljP0sWEJVMGg81YXNAZM9k3giFqqpQ_vR35kbVNB9KYlS5X41ocxvocCGrMj6AEc9TmktqfMOasA7LbrKwiyvrD687kYiXMJdjb7I_HJ2HiBJPMo76iNdD0Z2DNLMUM8QgyYlhBYtRJaOMm7gnwQQVlZ91xqA"/>
+<img alt="Stylized map background" class="w-full h-full object-cover grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-1000" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCHAWeMpCjaIVp3N6Be0htDT88O3XrZBxPznvmZth44vuQLZN8LC6jlsnkUoDQhUa5AWw3Ov1NNNaC9zoOcDxcHBTpBSrRGQEDOLd4ZpT88umkHbgljP0sWEJVMGg81YXNAZM9k3giFqqpQ_vR35kbVNB9KYlS5X41ocxvocCGrMj6AEc9TmktqfMOasA7LbrKwiyvrD687kYiXMJdjb7I_HJ2HiBJPMo76iNdD0Z2DNLMUM8QgyYlhBYtRJaOMm7gnwQQVlZ91xqA"/>
 <div class="absolute inset-0 bg-primary/5 mix-blend-multiply"></div>
 <div class="absolute inset-0 bg-gradient-to-t from-on-surface/60 via-transparent to-transparent flex flex-col justify-end p-14">
 <div class="glass-card p-8 rounded-[1.75rem] max-w-lg border border-white/40 shadow-2xl">
 <div class="inline-flex items-center gap-4 px-4 py-2 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.4em] mb-6">
-Global Clinic Presence
+Philippines support
 </div>
-<h4 class="text-2xl font-headline font-extrabold text-on-surface mb-4 tracking-tight">Worldwide Network</h4>
-<p class="text-on-surface-variant font-medium leading-relaxed">Join 2,400+ premium dental clinics worldwide leveraging MyDental OS for seamless operations.</p>
-<div class="mt-8 flex items-center gap-6">
-<div class="flex -space-x-3">
-<div class="w-12 h-12 rounded-full border-4 border-white bg-slate-200 overflow-hidden shadow-sm">
-<img alt="Doctor 1" data-alt="Portrait of a dental professional" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCXYFAsFvGaivjOOs_VeAzLI18O7RmUjGpdBbUR2cbWBZW_Ex-6Gc2Pulx6M-aJkUCGRM687wM4RGVo6G5ocPEwulBfDERj3s9zh5RwpNOXPACBFuyZIDQoOTlPeTSIh_FSXHIuowmrUw9w5t2B_QV4je5EtsdO11Of1_VPfg-90Gb_5EMmqfL-4uxeNzteyeNpmPqvggPvhQernaUXMFZtSmhSaCUP8QgdBiHM4x2K42H3OeVXcoM7Hn7fbeLciZT-C3QvswbBX9A"/>
-</div>
-<div class="w-12 h-12 rounded-full border-4 border-white bg-slate-200 overflow-hidden shadow-sm">
-<img alt="Doctor 2" data-alt="Portrait of a clinical technician" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuALQQmR7fkmfy1NFBmWIYEgtFx-4kJuAEhrEqHT_LOzONFwX49-dX3zynC6gFzAVbQz25IB116Lk9cTV0Ic3_7S-G9fxC3wfoPu0xG2Xsaqv0Jd8Vcq621yMP-FH0EJxLriy6RusZtB7DZaCRQmgL8Bvz93IyH9L13EsL33jnqvt4fr_MY1l27KsW1v8QtPIKL9uaYbi4oVN0g6lwK0SZQZqBlfBjREZupT4IqOuRbN-wpC7Ql0fC5Azj4VBLtrfTgSh7ZWUsfLC0c"/>
-</div>
-<div class="w-12 h-12 rounded-full border-4 border-white bg-primary flex items-center justify-center text-[10px] text-white font-black shadow-sm">+2k</div>
-</div>
-<span class="text-sm font-bold text-primary italic">Trusted by the industry's best</span>
-</div>
+<h4 class="text-2xl font-headline font-extrabold text-on-surface mb-4 tracking-tight">Quezon City headquarters</h4>
+<p class="text-on-surface-variant font-medium leading-relaxed">Our team helps clinics onboard to MyDental with training and responsive assistance.</p>
 </div>
 </div>
 </div>
 </section>
+
+<?php require_once __DIR__ . '/provider_evolve_practice_cta.inc.php'; ?>
 </main>
 <?php require_once __DIR__ . '/provider_marketing_footer.inc.php'; ?>
 <script>

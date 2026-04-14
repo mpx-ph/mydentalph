@@ -266,33 +266,7 @@ $yearlySavingsAmount = ($baseYearlyAmount !== null && $yearlyAmount !== null)
 </div>
 </div>
  </section>
-<!-- Final CTA -->
-<section class="py-12 px-6 reveal" data-reveal="section">
-<div class="mx-auto rounded-[3.5rem] bg-primary relative overflow-hidden flex flex-col items-center text-center shadow-2xl max-w-6xl py-24 px-10">
-<div class="relative z-10 max-w-3xl">
-<div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-10">
-                        Institutional Boarding
-                    </div>
-<h2 class="font-headline text-5xl font-extrabold text-white tracking-tighter leading-tight md:text-6xl mb-8">
-                        Ready to curate your clinical future?
-                    </h2>
-<p class="text-white/70 text-xl font-bold max-w-xl mx-auto leading-relaxed mb-10">
-                        Join clinics using MyDental OS to deliver premium patient experiences.
-                    </p>
-<div class="flex flex-col md:flex-row gap-6 justify-center">
-<a href="ProviderContact.php" class="bg-white text-primary px-16 py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-xl active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
-                            Request a Demo
-                        </a>
-<a href="Provider-HowItWorks.php" class="bg-white/10 text-white border border-white/20 px-10 py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:bg-white/20 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
-                            Feature Guide
-                        </a>
-</div>
-</div>
-<!-- Abstract Accents -->
-<div class="absolute top-0 right-0 w-1/3 h-full border-l border-white/10 pointer-events-none"></div>
-<div class="absolute -right-20 -bottom-20 w-80 h-80 bg-white/5 rounded-full blur-3xl slow-float"></div>
-</div>
-</section>
+<?php require_once __DIR__ . '/provider_evolve_practice_cta.inc.php'; ?>
 </main>
 <?php require_once __DIR__ . '/provider_marketing_footer.inc.php'; ?>
 

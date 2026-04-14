@@ -213,35 +213,9 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
     </div>
   </section>
 
-  <!-- Final CTA -->
-  <section class="max-w-6xl mx-auto mt-20 px-4 pb-24 reveal" data-reveal="section">
-    <div class="bg-primary rounded-[4rem] p-24 text-center text-white shadow-[0_40px_100px_-20px_rgba(43,139,235,0.4)] relative overflow-hidden">
-      <div class="relative z-10 max-w-3xl mx-auto">
-        <div class="inline-block px-4 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-10">
-          Institutional Boarding
-        </div>
-        <h2 class="text-5xl md:text-6xl font-extrabold tracking-tighter leading-[0.85] mb-8">
-          Still have questions?
-        </h2>
-        <p class="text-white/70 text-xl md:text-2xl max-w-xl mx-auto leading-relaxed mb-12">
-          Our support team is available 24/7 to help you optimize your clinic's workflow and resolve any technical issues.
-        </p>
-        <div class="flex flex-col sm:flex-row gap-6 justify-center">
-          <a href="ProviderContact.php" class="bg-white text-primary px-12 py-5 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-2xl active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40">
-            Contact Support
-          </a>
-          <a href="Provider-HowItWorks.php" class="bg-white/10 text-white backdrop-blur-md border border-white/20 px-12 py-5 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:bg-white/20 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40">
-            View Documentation
-          </a>
-        </div>
-      </div>
-
-      <!-- Abstract Accents -->
-      <div class="absolute top-0 right-0 w-1/3 h-full border-l border-white/10 pointer-events-none"></div>
-      <div class="absolute bottom-0 left-0 w-full h-1/4 border-t border-white/10 pointer-events-none"></div>
-      <div class="absolute -right-20 -bottom-20 w-80 h-80 bg-white/5 rounded-full blur-3xl slow-float pointer-events-none"></div>
-    </div>
-  </section>
+  <div class="mt-16 lg:mt-20">
+    <?php require_once __DIR__ . '/provider_evolve_practice_cta.inc.php'; ?>
+  </div>
 </main>
 
 <?php require_once __DIR__ . '/provider_marketing_footer.inc.php'; ?>
