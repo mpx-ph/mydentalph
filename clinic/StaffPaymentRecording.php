@@ -2516,6 +2516,16 @@ try {
         $paymentError = 'Unable to load payment data right now. Please try again.';
     }
 }
+
+$inlinePaymentError = $paymentError;
+$serverValidationPopupMessage = '';
+if ($paymentError === 'Please select a payment method.') {
+    $serverValidationPopupMessage = 'No payment method selected';
+    $inlinePaymentError = '';
+} elseif ($paymentError === 'Please select a pending appointment transaction first.') {
+    $serverValidationPopupMessage = 'No patient selected';
+    $inlinePaymentError = '';
+}
 ?>
 <!DOCTYPE html>
 
@@ -3031,9 +3041,9 @@ try {
 <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" id="transaction-modal-overlay"></div>
 <div class="relative z-10 w-full max-w-4xl">
 <div class="glass-form bg-white p-8 rounded-[2.5rem] shadow-2xl shadow-primary/20 max-h-[88vh] overflow-y-auto no-scrollbar">
-<?php if ($paymentError !== ''): ?>
+<?php if ($inlinePaymentError !== ''): ?>
 <div class="mb-6 rounded-2xl border border-red-200 bg-red-50 text-red-700 px-5 py-3 text-sm font-semibold">
-<?php echo htmlspecialchars($paymentError, ENT_QUOTES, 'UTF-8'); ?>
+<?php echo htmlspecialchars($inlinePaymentError, ENT_QUOTES, 'UTF-8'); ?>
 </div>
 <?php endif; ?>
 <div class="flex justify-between items-start mb-5 border-b border-primary/10 pb-4">
@@ -3222,6 +3232,14 @@ This booking is installment-priced, but no installment schedule rows exist in th
 </div>
 </div>
 </div>
+<div class="fixed inset-0 z-[90] hidden items-center justify-center p-6" id="payment-validation-modal" role="dialog" aria-modal="true" aria-labelledby="payment-validation-title">
+<div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" id="payment-validation-overlay"></div>
+<div class="relative z-10 w-full max-w-md rounded-2xl bg-white border border-rose-100 shadow-2xl p-6 text-center">
+<h4 id="payment-validation-title" class="text-lg font-black text-slate-900">Validation Required</h4>
+<p class="text-sm text-slate-600 mt-3" id="payment-validation-message">Please review your input.</p>
+<button type="button" id="payment-validation-close" class="mt-5 px-5 py-2.5 rounded-xl bg-primary text-white text-[11px] font-black uppercase tracking-widest hover:bg-primary/90 transition-colors">OK</button>
+</div>
+</div>
 <div class="fixed inset-0 z-[60] hidden items-center justify-center p-6" id="transaction-selector-modal" role="dialog" aria-modal="true" aria-labelledby="transaction-selector-title">
 <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" id="transaction-selector-overlay"></div>
 <div class="relative z-10 w-full max-w-5xl">
@@ -3256,7 +3274,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
         const openBtn = document.getElementById('open-transaction-modal');
         const closeBtn = document.getElementById('close-transaction-modal');
         const overlay = document.getElementById('transaction-modal-overlay');
-        const hasServerError = <?php echo $paymentError !== '' ? 'true' : 'false'; ?>;
+        const hasServerError = <?php echo $inlinePaymentError !== '' ? 'true' : 'false'; ?>;
+        const serverValidationPopupMessage = <?php echo json_encode($serverValidationPopupMessage, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const receiptModal = document.getElementById('receipt-modal');
         const receiptModalOverlay = document.getElementById('receipt-modal-overlay');
         const closeReceiptModalBtn = document.getElementById('close-receipt-modal');
@@ -3317,6 +3336,12 @@ This booking is installment-priced, but no installment schedule rows exist in th
         const selectedAppointmentDetailPanel = document.getElementById('selected-appointment-detail-panel');
         const selectedAppointmentServicesList = document.getElementById('selected-appointment-services-list');
         const selectedAppointmentServiceSummary = document.getElementById('selected-appointment-service-summary');
+        const paymentValidationModal = document.getElementById('payment-validation-modal');
+        const paymentValidationOverlay = document.getElementById('payment-validation-overlay');
+        const paymentValidationClose = document.getElementById('payment-validation-close');
+        const paymentValidationMessage = document.getElementById('payment-validation-message');
+        const paymentMethodInput = document.getElementById('payment_method_input');
+        const paymentMethodCards = document.querySelectorAll('.payment-card[data-method]');
         const defaultPickerLabel = 'Tap to choose appointment with pending balance';
         let selectedTransaction = null;
 
@@ -4125,6 +4150,32 @@ This booking is installment-priced, but no installment schedule rows exist in th
             selectorModal.classList.remove('flex');
         }
 
+        function showValidationPopup(message) {
+            if (!paymentValidationModal || !paymentValidationMessage) {
+                return;
+            }
+            paymentValidationMessage.textContent = String(message || 'Please review your input.');
+            paymentValidationModal.classList.remove('hidden');
+            paymentValidationModal.classList.add('flex');
+            document.body.classList.add('overflow-hidden');
+        }
+
+        function closeValidationPopup() {
+            if (!paymentValidationModal) {
+                return;
+            }
+            paymentValidationModal.classList.add('hidden');
+            paymentValidationModal.classList.remove('flex');
+            if (
+                (!modal || modal.classList.contains('hidden'))
+                && (!receiptModal || receiptModal.classList.contains('hidden'))
+                && (!selectorModal || selectorModal.classList.contains('hidden'))
+                && (!receiptEmailConfirmModal || receiptEmailConfirmModal.classList.contains('hidden'))
+            ) {
+                document.body.classList.remove('overflow-hidden');
+            }
+        }
+
         const openModal = () => {
             if (!modal) {
                 return;
@@ -4383,6 +4434,12 @@ This booking is installment-priced, but no installment schedule rows exist in th
         if (receiptEmailConfirmOverlay) {
             receiptEmailConfirmOverlay.addEventListener('click', closeReceiptEmailConfirmation);
         }
+        if (paymentValidationClose) {
+            paymentValidationClose.addEventListener('click', closeValidationPopup);
+        }
+        if (paymentValidationOverlay) {
+            paymentValidationOverlay.addEventListener('click', closeValidationPopup);
+        }
         document.querySelectorAll('button[data-action="open-receipt"]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const payload = String(btn.getAttribute('data-receipt') || '');
@@ -4399,6 +4456,10 @@ This booking is installment-priced, but no installment schedule rows exist in th
             if (event.key === 'Escape') {
                 if (receiptEmailConfirmModal && !receiptEmailConfirmModal.classList.contains('hidden')) {
                     closeReceiptEmailConfirmation();
+                    return;
+                }
+                if (paymentValidationModal && !paymentValidationModal.classList.contains('hidden')) {
+                    closeValidationPopup();
                     return;
                 }
                 if (receiptModal && !receiptModal.classList.contains('hidden')) {
@@ -4429,6 +4490,10 @@ This booking is installment-priced, but no installment schedule rows exist in th
         });
         if (hasServerError) {
             openModal();
+        }
+        if (serverValidationPopupMessage) {
+            openModal();
+            showValidationPopup(serverValidationPopupMessage);
         }
 
         if (openSelectorBtn) {
@@ -4496,17 +4561,34 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 const validation = validateSelectedAdditionalServices();
                 if (!validation.valid) {
                     checkbox.checked = false;
-                    window.alert(validation.message);
+                    showValidationPopup(validation.message);
                 }
                 syncAmountWithAdditionalServices();
             });
         });
         if (transactionForm) {
             transactionForm.addEventListener('submit', (event) => {
+                const bookingIdValue = String(selectedBookingIdInput ? selectedBookingIdInput.value : '').trim();
+                const paymentMethodValue = String(paymentMethodInput ? paymentMethodInput.value : '').trim();
+                if (!bookingIdValue && !paymentMethodValue) {
+                    event.preventDefault();
+                    showValidationPopup('Please select a patient and a payment method');
+                    return;
+                }
+                if (!bookingIdValue) {
+                    event.preventDefault();
+                    showValidationPopup('No patient selected');
+                    return;
+                }
+                if (!paymentMethodValue) {
+                    event.preventDefault();
+                    showValidationPopup('No payment method selected');
+                    return;
+                }
                 const validation = validateSelectedAdditionalServices();
                 if (!validation.valid) {
                     event.preventDefault();
-                    window.alert(validation.message);
+                    showValidationPopup(validation.message);
                 }
             });
         }
@@ -4557,14 +4639,12 @@ This booking is installment-priced, but no installment schedule rows exist in th
             updateClearBookingButtonVisibility();
         })();
 
-        const hiddenInput = document.getElementById('payment_method_input');
-        const cards = document.querySelectorAll('.payment-card[data-method]');
-        cards.forEach((card) => {
+        paymentMethodCards.forEach((card) => {
             card.addEventListener('click', () => {
-                cards.forEach((other) => other.classList.remove('active'));
+                paymentMethodCards.forEach((other) => other.classList.remove('active'));
                 card.classList.add('active');
-                if (hiddenInput) {
-                    hiddenInput.value = card.getAttribute('data-method') || '';
+                if (paymentMethodInput) {
+                    paymentMethodInput.value = card.getAttribute('data-method') || '';
                 }
             });
         });
