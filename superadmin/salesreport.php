@@ -832,7 +832,7 @@ require __DIR__ . '/superadmin_header.php';
 </select>
 </div>
 <?php if ($dailyFilterYear !== null || $dailyFilterMonth !== null): ?>
-<a href="<?php echo htmlspecialchars(salesreport_pagination_url('daily_page', 1, array_merge($salesreportQueryParams, ['daily_year' => null, 'daily_month' => null]))); ?>" class="inline-flex items-center justify-center h-9 px-3 rounded-xl text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/30 hover:bg-primary/5 transition-colors">Reset</a>
+<a href="<?php echo htmlspecialchars(salesreport_pagination_url('daily_page', 1, array_merge($salesreportQueryParams, ['daily_year' => null, 'daily_month' => null]))); ?>" class="js-daily-pagination-link inline-flex items-center justify-center h-9 px-3 rounded-xl text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/30 hover:bg-primary/5 transition-colors">Reset</a>
 <?php endif; ?>
 </form>
 <div class="overflow-x-auto mt-8">
