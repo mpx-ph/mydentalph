@@ -655,7 +655,7 @@ require __DIR__ . '/superadmin_header.php';
 <input type="hidden" name="q" value="<?php echo htmlspecialchars($filterBase['q'], ENT_QUOTES, 'UTF-8'); ?>"/>
 <?php endif; ?>
 <div class="relative group shrink-0">
-<select name="status" onchange="this.form.submit()" class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
+<select name="status" class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
 <option value=""<?php echo $filterBase['status'] === '' ? ' selected' : ''; ?>>All Status</option>
 <option value="active"<?php echo $filterBase['status'] === 'active' ? ' selected' : ''; ?>>Active</option>
 <option value="inactive"<?php echo $filterBase['status'] === 'inactive' ? ' selected' : ''; ?>>Inactive</option>
@@ -664,7 +664,7 @@ require __DIR__ . '/superadmin_header.php';
 <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xl">expand_more</span>
 </div>
 <div class="relative group shrink-0">
-<select name="plan" onchange="this.form.submit()" class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
+<select name="plan" class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
 <option value=""<?php echo $filterBase['plan'] === '' ? ' selected' : ''; ?>>All Plans</option>
 <?php foreach ($plans as $p): ?>
 <option value="<?php echo (int) $p['plan_id']; ?>"<?php echo $filterBase['plan'] === (string) $p['plan_id'] ? ' selected' : ''; ?>><?php echo htmlspecialchars($p['plan_name'], ENT_QUOTES, 'UTF-8'); ?></option>
@@ -1154,6 +1154,26 @@ require __DIR__ . '/superadmin_header.php';
         });
 
         if (config.filterFormSelector) {
+            document.addEventListener('change', function (e) {
+                var field = e.target;
+                if (!field || field.tagName !== 'SELECT') {
+                    return;
+                }
+                var form = field.form;
+                if (!form || !form.matches(config.filterFormSelector) || !panel.contains(form)) {
+                    return;
+                }
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+                } else {
+                    var evt = document.createEvent('Event');
+                    evt.initEvent('submit', true, true);
+                    if (form.dispatchEvent(evt)) {
+                        form.submit();
+                    }
+                }
+            });
+
             document.addEventListener('submit', function (e) {
                 var form = e.target;
                 if (!form || !form.matches(config.filterFormSelector) || !panel.contains(form)) {
