@@ -174,7 +174,11 @@ try {
             }
         }
     }
-    $bookingId = $bookingPrefix . str_pad((string) ($sequence + 1), 6, '0', STR_PAD_LEFT);
+    $allocateBookingId = static function () use (&$sequence, $bookingPrefix): string {
+        $sequence++;
+        return $bookingPrefix . str_pad((string) $sequence, 6, '0', STR_PAD_LEFT);
+    };
+    $bookingId = $allocateBookingId();
 
     $serviceNames = [];
     $serviceDescriptions = [];
@@ -284,6 +288,34 @@ try {
         ? mb_substr($serviceType, 0, 100, 'UTF-8')
         : substr($serviceType, 0, 100);
     $serviceDescription = implode('; ', $serviceDescriptions) . ' | Total: ₱' . number_format($totalCost, 2);
+    $buildServiceSummary = static function (array $rows): array {
+        $names = [];
+        $descriptions = [];
+        $sum = 0.0;
+        foreach ($rows as $row) {
+            $name = trim((string) ($row['service_name'] ?? ''));
+            $price = (float) ($row['price'] ?? 0);
+            if ($name !== '') {
+                $names[] = $name;
+                $descriptions[] = $name . ' (₱' . number_format($price, 2) . ')';
+            }
+            $sum += $price;
+        }
+        $names = array_values(array_unique($names));
+        $descriptions = array_values(array_unique($descriptions));
+        $type = implode(', ', array_slice($names, 0, 3));
+        if (count($names) > 3) {
+            $type .= ' (+' . (count($names) - 3) . ' more)';
+        }
+        $type = function_exists('mb_substr')
+            ? mb_substr($type, 0, 100, 'UTF-8')
+            : substr($type, 0, 100);
+        return [
+            'service_type' => $type,
+            'service_description' => implode('; ', $descriptions) . ' | Total: ₱' . number_format($sum, 2),
+            'total_cost' => $sum,
+        ];
+    };
     $createdBy = isset($_SESSION['user_id']) ? trim((string) $_SESSION['user_id']) : null;
     if ($createdBy === '') {
         $createdBy = null;
@@ -390,7 +422,56 @@ try {
     }
 
     $firstAppointmentId = 0;
+    $firstPrimaryBookingId = $bookingId;
     $written = [];
+    $writtenByBooking = [];
+    $servicePlans = [];
+    $primaryServiceId = trim((string) ($activeTreatment['primary_service_id'] ?? ''));
+    $regularServiceRows = [];
+    $installmentServiceRows = [];
+    if ($isFollowUpVisitForActiveTreatment && $resolvedTreatmentId !== '') {
+        foreach ($normalizedServices as $serviceRow) {
+            $sid = trim((string) ($serviceRow['service_id'] ?? ''));
+            $isInstallmentLine = !empty($serviceRow['enable_installment']) || ($primaryServiceId !== '' && $sid === $primaryServiceId);
+            if ($isInstallmentLine) {
+                $installmentServiceRows[] = $serviceRow;
+            } else {
+                $regularServiceRows[] = $serviceRow;
+            }
+        }
+    }
+    if ($isFollowUpVisitForActiveTreatment && $resolvedTreatmentId !== '' && $installmentServiceRows !== [] && $regularServiceRows !== []) {
+        $installmentSummary = $buildServiceSummary($installmentServiceRows);
+        $regularSummary = $buildServiceSummary($regularServiceRows);
+        $servicePlans[] = [
+            'booking_id' => $bookingId,
+            'treatment_id' => $resolvedTreatmentId,
+            'services' => $installmentServiceRows,
+            'service_type' => $installmentSummary['service_type'],
+            'service_description' => $installmentSummary['service_description'],
+            'total_treatment_cost' => 0.0,
+            'service_payment_type' => 'installment',
+        ];
+        $servicePlans[] = [
+            'booking_id' => $allocateBookingId(),
+            'treatment_id' => null,
+            'services' => $regularServiceRows,
+            'service_type' => $regularSummary['service_type'],
+            'service_description' => $regularSummary['service_description'],
+            'total_treatment_cost' => (float) $regularSummary['total_cost'],
+            'service_payment_type' => 'regular',
+        ];
+    } else {
+        $servicePlans[] = [
+            'booking_id' => $bookingId,
+            'treatment_id' => $resolvedTreatmentId !== '' ? $resolvedTreatmentId : null,
+            'services' => $normalizedServices,
+            'service_type' => $serviceType,
+            'service_description' => $serviceDescription,
+            'total_treatment_cost' => $isFollowUpVisitForActiveTreatment ? 0.0 : (float) $totalCost,
+            'service_payment_type' => ($resolvedTreatmentId !== '' && $isFollowUpVisitForActiveTreatment) ? 'installment' : 'regular',
+        ];
+    }
 
     foreach ($storageTargets as $idx => $target) {
         $apptTbl = $target['appt'];
@@ -406,136 +487,153 @@ try {
         }
 
         $apptCols = clinic_table_columns($pdo, $apptTbl);
-        $appointmentLedgerCost = $isFollowUpVisitForActiveTreatment ? 0.0 : $totalCost;
-        $apptData = [
-            'tenant_id' => $tenantId,
-            'booking_id' => $bookingId,
-            'patient_id' => $patientId,
-            'appointment_date' => $appointmentDate,
-            'appointment_time' => $appointmentTime,
-            'service_type' => $serviceType,
-            'service_description' => $serviceDescription,
-            'treatment_type' => 'short_term',
-            'visit_type' => $visitType,
-            'status' => $localStatus,
-            'notes' => $notes !== '' ? $notes : null,
-            'total_treatment_cost' => $appointmentLedgerCost,
-            'duration_months' => null,
-            'target_completion_date' => null,
-            'start_date' => null,
-            'created_by' => $createdBy,
-            'treatment_id' => $resolvedTreatmentId !== '' ? $resolvedTreatmentId : null,
-        ];
-        if (in_array('dentist_id', $apptCols, true)) {
-            $apptData['dentist_id'] = (int) $dentistId;
-        }
-
-        $insertCols = [];
-        $insertPlaceholders = [];
-        $insertParams = [];
-        $columnOrder = [
-            'tenant_id', 'dentist_id', 'booking_id', 'patient_id', 'treatment_id', 'appointment_date', 'appointment_time',
-            'service_type', 'service_description', 'treatment_type', 'visit_type', 'status', 'notes',
-            'total_treatment_cost', 'duration_months', 'target_completion_date', 'start_date', 'created_by',
-        ];
-        foreach ($columnOrder as $col) {
-            if (!in_array($col, $apptCols, true) || !array_key_exists($col, $apptData)) {
-                continue;
-            }
-            $insertCols[] = '`' . str_replace('`', '``', $col) . '`';
-            $insertPlaceholders[] = '?';
-            $insertParams[] = $apptData[$col];
-        }
-        if (in_array('created_at', $apptCols, true)) {
-            $insertCols[] = '`created_at`';
-            $insertPlaceholders[] = 'NOW()';
-        }
-        if ($insertCols === []) {
-            if ($idx === 0) {
-                $pdo->rollBack();
-                echo json_encode(['success' => false, 'message' => 'Appointment table structure is not compatible with walk-in booking.']);
-                exit;
-            }
-            error_log('Staff walk-in: skipping mirror storage — incompatible appointment columns on ' . $apptTbl);
-            continue;
-        }
-
-        $insertSql = 'INSERT INTO ' . $quotedAppt . ' (' . implode(', ', $insertCols) . ') VALUES (' . implode(', ', $insertPlaceholders) . ')';
-        $insertAppointmentStmt = $pdo->prepare($insertSql);
-        $insertAppointmentStmt->execute($insertParams);
-
-        $appointmentId = (int) $pdo->lastInsertId();
-        if ($idx === 0) {
-            $firstAppointmentId = $appointmentId;
-        }
-
         $apsCols = clinic_table_columns($pdo, $apsTbl);
         $quotedAps = clinic_quote_identifier($apsTbl);
-        foreach ($normalizedServices as $serviceRow) {
-            $rowData = [
+        foreach ($servicePlans as $plan) {
+            $planBookingId = (string) ($plan['booking_id'] ?? '');
+            $apptData = [
                 'tenant_id' => $tenantId,
-                'booking_id' => $bookingId,
-                'service_id' => $serviceRow['service_id'],
-                'service_name' => $serviceRow['service_name'],
-                'price' => $serviceRow['price'],
-                'is_original' => ($resolvedTreatmentId !== '' && !empty($activeTreatment) && (string) $serviceRow['service_id'] !== (string) ($activeTreatment['primary_service_id'] ?? '')) ? 0 : 1,
-                'treatment_id' => $resolvedTreatmentId !== '' ? $resolvedTreatmentId : null,
-                'added_by' => $createdBy,
+                'booking_id' => $planBookingId,
+                'patient_id' => $patientId,
+                'appointment_date' => $appointmentDate,
+                'appointment_time' => $appointmentTime,
+                'service_type' => (string) ($plan['service_type'] ?? ''),
+                'service_description' => (string) ($plan['service_description'] ?? ''),
+                'treatment_type' => 'short_term',
+                'visit_type' => $visitType,
+                'status' => $localStatus,
+                'notes' => $notes !== '' ? $notes : null,
+                'total_treatment_cost' => (float) ($plan['total_treatment_cost'] ?? 0),
+                'duration_months' => null,
+                'target_completion_date' => null,
+                'start_date' => null,
+                'created_by' => $createdBy,
+                'treatment_id' => $plan['treatment_id'],
             ];
-            if (in_array('appointment_id', $apsCols, true)) {
-                $rowData['appointment_id'] = $appointmentId > 0 ? $appointmentId : null;
+            if (in_array('dentist_id', $apptCols, true)) {
+                $apptData['dentist_id'] = (int) $dentistId;
             }
-            $svcInsertCols = [];
-            $svcPlaceholders = [];
-            $svcParams = [];
-            $apsOrder = ['tenant_id', 'booking_id', 'appointment_id', 'treatment_id', 'service_id', 'service_name', 'price', 'is_original', 'added_by'];
-            foreach ($apsOrder as $col) {
-                if (!in_array($col, $apsCols, true) || !array_key_exists($col, $rowData)) {
+
+            $insertCols = [];
+            $insertPlaceholders = [];
+            $insertParams = [];
+            $columnOrder = [
+                'tenant_id', 'dentist_id', 'booking_id', 'patient_id', 'treatment_id', 'appointment_date', 'appointment_time',
+                'service_type', 'service_description', 'treatment_type', 'visit_type', 'status', 'notes',
+                'total_treatment_cost', 'duration_months', 'target_completion_date', 'start_date', 'created_by',
+            ];
+            foreach ($columnOrder as $col) {
+                if (!in_array($col, $apptCols, true) || !array_key_exists($col, $apptData)) {
                     continue;
                 }
-                $svcInsertCols[] = '`' . str_replace('`', '``', $col) . '`';
-                $svcPlaceholders[] = '?';
-                $svcParams[] = $rowData[$col];
+                $insertCols[] = '`' . str_replace('`', '``', $col) . '`';
+                $insertPlaceholders[] = '?';
+                $insertParams[] = $apptData[$col];
             }
-            if (in_array('added_at', $apsCols, true)) {
-                $svcInsertCols[] = '`added_at`';
-                $svcPlaceholders[] = 'NOW()';
+            if (in_array('created_at', $apptCols, true)) {
+                $insertCols[] = '`created_at`';
+                $insertPlaceholders[] = 'NOW()';
             }
-            if ($svcInsertCols === []) {
-                throw new RuntimeException('Appointment services table has no compatible columns for walk-in lines: ' . $apsTbl);
+            if ($insertCols === []) {
+                if ($idx === 0) {
+                    $pdo->rollBack();
+                    echo json_encode(['success' => false, 'message' => 'Appointment table structure is not compatible with walk-in booking.']);
+                    exit;
+                }
+                error_log('Staff walk-in: skipping mirror storage — incompatible appointment columns on ' . $apptTbl);
+                continue 2;
             }
-            $svcSql = 'INSERT INTO ' . $quotedAps . ' (' . implode(', ', $svcInsertCols) . ') VALUES (' . implode(', ', $svcPlaceholders) . ')';
-            $svcStmt = $pdo->prepare($svcSql);
-            $svcStmt->execute($svcParams);
-        }
 
-        $written[] = [
-            'appointments_table' => $apptTbl,
-            'appointment_services_table' => $apsTbl,
-            'appointment_row_id' => $appointmentId,
-        ];
+            $insertSql = 'INSERT INTO ' . $quotedAppt . ' (' . implode(', ', $insertCols) . ') VALUES (' . implode(', ', $insertPlaceholders) . ')';
+            $insertAppointmentStmt = $pdo->prepare($insertSql);
+            $insertAppointmentStmt->execute($insertParams);
+
+            $appointmentId = (int) $pdo->lastInsertId();
+            if ($idx === 0 && $firstAppointmentId === 0) {
+                $firstAppointmentId = $appointmentId;
+            }
+
+            foreach ((array) ($plan['services'] ?? []) as $serviceRow) {
+                $isInstallmentRow = !empty($serviceRow['enable_installment']);
+                $rowData = [
+                    'tenant_id' => $tenantId,
+                    'booking_id' => $planBookingId,
+                    'service_id' => $serviceRow['service_id'],
+                    'service_name' => $serviceRow['service_name'],
+                    'price' => $serviceRow['price'],
+                    'is_original' => $isInstallmentRow ? 1 : 0,
+                    'treatment_id' => $plan['treatment_id'],
+                    'added_by' => $createdBy,
+                    'service_type' => (string) ($plan['service_payment_type'] ?? ($isInstallmentRow ? 'installment' : 'regular')),
+                ];
+                if (in_array('appointment_id', $apsCols, true)) {
+                    $rowData['appointment_id'] = $appointmentId > 0 ? $appointmentId : null;
+                }
+                $svcInsertCols = [];
+                $svcPlaceholders = [];
+                $svcParams = [];
+                $apsOrder = ['tenant_id', 'booking_id', 'appointment_id', 'treatment_id', 'service_id', 'service_name', 'price', 'service_type', 'is_original', 'added_by'];
+                foreach ($apsOrder as $col) {
+                    if (!in_array($col, $apsCols, true) || !array_key_exists($col, $rowData)) {
+                        continue;
+                    }
+                    $svcInsertCols[] = '`' . str_replace('`', '``', $col) . '`';
+                    $svcPlaceholders[] = '?';
+                    $svcParams[] = $rowData[$col];
+                }
+                if (in_array('added_at', $apsCols, true)) {
+                    $svcInsertCols[] = '`added_at`';
+                    $svcPlaceholders[] = 'NOW()';
+                }
+                if ($svcInsertCols === []) {
+                    throw new RuntimeException('Appointment services table has no compatible columns for walk-in lines: ' . $apsTbl);
+                }
+                $svcSql = 'INSERT INTO ' . $quotedAps . ' (' . implode(', ', $svcInsertCols) . ') VALUES (' . implode(', ', $svcPlaceholders) . ')';
+                $svcStmt = $pdo->prepare($svcSql);
+                $svcStmt->execute($svcParams);
+            }
+
+            $written[] = [
+                'booking_id' => $planBookingId,
+                'appointments_table' => $apptTbl,
+                'appointment_services_table' => $apsTbl,
+                'appointment_row_id' => $appointmentId,
+                'service_payment_type' => (string) ($plan['service_payment_type'] ?? 'regular'),
+            ];
+            if (!isset($writtenByBooking[$planBookingId])) {
+                $writtenByBooking[$planBookingId] = [
+                    'appointment_rows' => 0,
+                    'service_rows' => 0,
+                ];
+            }
+            $writtenByBooking[$planBookingId]['appointment_rows']++;
+            $writtenByBooking[$planBookingId]['service_rows'] += count((array) ($plan['services'] ?? []));
+        }
     }
 
     $verifyAppt = $pdo->prepare('SELECT COUNT(*) FROM ' . clinic_quote_identifier($appointmentsTable) . ' WHERE tenant_id = ? AND booking_id = ?');
-    $verifyAppt->execute([$tenantId, $bookingId]);
-    if ((int) $verifyAppt->fetchColumn() < 1) {
-        $pdo->rollBack();
-        echo json_encode([
-            'success' => false,
-            'message' => 'Could not save walk-in: booking was not stored in ' . $appointmentsTable . '. Check DB permissions and table name casing.',
-        ]);
-        exit;
-    }
     $verifySvc = $pdo->prepare('SELECT COUNT(*) FROM ' . clinic_quote_identifier($appointmentServicesTable) . ' WHERE tenant_id = ? AND booking_id = ?');
-    $verifySvc->execute([$tenantId, $bookingId]);
-    $svcCount = (int) $verifySvc->fetchColumn();
-    if ($svcCount < count($normalizedServices)) {
-        $pdo->rollBack();
-        echo json_encode([
-            'success' => false,
-            'message' => 'Could not save walk-in: service lines were not stored in ' . $appointmentServicesTable . ' (expected ' . count($normalizedServices) . ', saw ' . $svcCount . ').',
-        ]);
-        exit;
+    foreach ($writtenByBooking as $planBookingId => $expectedRows) {
+        $verifyAppt->execute([$tenantId, $planBookingId]);
+        if ((int) $verifyAppt->fetchColumn() < (int) ($expectedRows['appointment_rows'] ?? 1)) {
+            $pdo->rollBack();
+            echo json_encode([
+                'success' => false,
+                'message' => 'Could not save walk-in: booking was not stored in ' . $appointmentsTable . '. Check DB permissions and table name casing.',
+            ]);
+            exit;
+        }
+        $verifySvc->execute([$tenantId, $planBookingId]);
+        $svcCount = (int) $verifySvc->fetchColumn();
+        $expectedSvc = (int) ($expectedRows['service_rows'] ?? 0);
+        if ($svcCount < $expectedSvc) {
+            $pdo->rollBack();
+            echo json_encode([
+                'success' => false,
+                'message' => 'Could not save walk-in: service lines were not stored in ' . $appointmentServicesTable . ' (expected ' . $expectedSvc . ', saw ' . $svcCount . ').',
+            ]);
+            exit;
+        }
     }
 
     $pdo->commit();
@@ -544,9 +642,12 @@ try {
         'success' => true,
         'message' => 'Walk-in appointment created successfully.',
         'data' => [
-            'booking_id' => $bookingId,
+            'booking_id' => $firstPrimaryBookingId,
             'appointment_id' => $firstAppointmentId,
             'treatment_id' => $resolvedTreatmentId,
+            'bookings' => array_values(array_unique(array_map(static function (array $w): string {
+                return (string) ($w['booking_id'] ?? '');
+            }, $written))),
             'database' => $dbName,
             'written_to' => $written,
         ],

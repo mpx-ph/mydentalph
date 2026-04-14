@@ -1967,11 +1967,13 @@ try {
                 )
             ";
         }
+        $installmentPlanSqlParts[] = "TRIM(COALESCE(a.treatment_id, '')) <> ''";
         if (empty($installmentPlanSqlParts)) {
             $installmentPlanSelectSql = '0 AS is_installment_plan';
         } else {
             $installmentPlanSelectSql = '( ' . implode(' OR ', $installmentPlanSqlParts) . ' ) AS is_installment_plan';
         }
+        $transactionTypeSelectSql = "CASE WHEN ( " . implode(' OR ', $installmentPlanSqlParts) . " ) THEN 'installment' ELSE 'regular' END AS transaction_type";
 
         $visitTypeSelectSql = $supportsAppointmentVisitTypeColumn
             ? "COALESCE(a.visit_type, '') AS visit_type,"
@@ -1988,6 +1990,7 @@ try {
                 a.service_type,
                 {$visitTypeSelectSql}
                 {$installmentPlanSelectSql},
+                {$transactionTypeSelectSql},
                 COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
                 COALESCE(SUM(CASE WHEN py.status IN ('completed', 'paid') THEN py.amount ELSE 0 END), 0) AS total_paid,
                 p.first_name AS patient_first_name,
@@ -3508,6 +3511,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 total_paid: totalPaid,
                 pending_balance: pendingBalance,
                 is_installment_plan: isInstallmentPlan,
+                transaction_type: String(item.transaction_type || (isInstallmentPlan ? 'installment' : 'regular')).toLowerCase() === 'installment' ? 'installment' : 'regular',
                 installment_schedule: Array.isArray(item.installment_schedule) ? item.installment_schedule : [],
                 booked_services: bookedServicesRaw,
                 booked_service_ids: booked_service_ids,
@@ -3531,9 +3535,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
 
         function filterTransactionsByType(list) {
             if (transactionTypeFilter === 'installment') {
-                return list.filter((item) => item.is_installment_plan);
+                return list.filter((item) => String(item.transaction_type || '') === 'installment');
             }
-            return list.filter((item) => !item.is_installment_plan);
+            return list.filter((item) => String(item.transaction_type || '') === 'regular');
         }
 
         function filterTransactionsByKeyword(list, keyword) {
