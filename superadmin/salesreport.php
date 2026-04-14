@@ -600,7 +600,7 @@ require __DIR__ . '/superadmin_header.php';
 </option>
 <?php endforeach; ?>
 </select>
-<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-lg">filter_list</span>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-lg">expand_more</span>
 </div>
 </div>
 <div class="flex md:justify-end">
