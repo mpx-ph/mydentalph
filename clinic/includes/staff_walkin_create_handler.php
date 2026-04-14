@@ -473,6 +473,7 @@ try {
         ];
     }
 
+    $planTimeCursor = new DateTimeImmutable($appointmentDate . ' ' . $appointmentTime, $clinicTz);
     foreach ($storageTargets as $idx => $target) {
         $apptTbl = $target['appt'];
         $apsTbl = $target['aps'];
@@ -489,14 +490,15 @@ try {
         $apptCols = clinic_table_columns($pdo, $apptTbl);
         $apsCols = clinic_table_columns($pdo, $apsTbl);
         $quotedAps = clinic_quote_identifier($apsTbl);
-        foreach ($servicePlans as $plan) {
+        foreach ($servicePlans as $planIndex => $plan) {
             $planBookingId = (string) ($plan['booking_id'] ?? '');
+            $planAppointmentTime = $planTimeCursor->modify('+' . ((int) $planIndex) . ' seconds')->format('H:i:s');
             $apptData = [
                 'tenant_id' => $tenantId,
                 'booking_id' => $planBookingId,
                 'patient_id' => $patientId,
                 'appointment_date' => $appointmentDate,
-                'appointment_time' => $appointmentTime,
+                'appointment_time' => $planAppointmentTime,
                 'service_type' => (string) ($plan['service_type'] ?? ''),
                 'service_description' => (string) ($plan['service_description'] ?? ''),
                 'treatment_type' => 'short_term',
