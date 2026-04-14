@@ -2139,11 +2139,55 @@ try {
                 }
             }
         }
+        $primaryInstallmentServiceByTreatment = [];
+        if ($transactionCandidates !== []) {
+            $treatmentIds = [];
+            foreach ($transactionCandidates as $candRow) {
+                $tid = trim((string) ($candRow['treatment_id'] ?? ''));
+                if ($tid !== '') {
+                    $treatmentIds[$tid] = true;
+                }
+            }
+            $treatmentIdList = array_keys($treatmentIds);
+            if ($treatmentIdList !== []) {
+                $treatTblStmt = $pdo->prepare("
+                    SELECT TABLE_NAME
+                    FROM information_schema.TABLES
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME IN ('tbl_treatments', 'treatments')
+                    ORDER BY FIELD(TABLE_NAME, 'tbl_treatments', 'treatments')
+                    LIMIT 1
+                ");
+                $treatTblStmt->execute();
+                $treatTableName = trim((string) ($treatTblStmt->fetchColumn() ?: ''));
+                if ($treatTableName !== '') {
+                    $quotedTreat = '`' . str_replace('`', '``', $treatTableName) . '`';
+                    $treatPh = implode(',', array_fill(0, count($treatmentIdList), '?'));
+                    $treatSql = "
+                        SELECT treatment_id, COALESCE(primary_service_id, '') AS primary_service_id
+                        FROM {$quotedTreat}
+                        WHERE tenant_id = ?
+                          AND treatment_id IN ({$treatPh})
+                    ";
+                    $treatStmt = $pdo->prepare($treatSql);
+                    $treatStmt->execute(array_merge([$tenantId], $treatmentIdList));
+                    foreach ($treatStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $tr) {
+                        $tid = trim((string) ($tr['treatment_id'] ?? ''));
+                        if ($tid === '') {
+                            continue;
+                        }
+                        $primaryInstallmentServiceByTreatment[$tid] = trim((string) ($tr['primary_service_id'] ?? ''));
+                    }
+                }
+            }
+        }
 
         foreach ($transactionCandidates as $ic => $candRow) {
             $b = trim((string) ($candRow['booking_id'] ?? ''));
+            $tid = trim((string) ($candRow['treatment_id'] ?? ''));
             $transactionCandidates[$ic]['installment_schedule'] = $scheduleByBooking[$b] ?? [];
             $transactionCandidates[$ic]['booked_services'] = $bookedServicesByBooking[$b] ?? [];
+            $transactionCandidates[$ic]['primary_installment_service_id'] = $tid !== '' ? ($primaryInstallmentServiceByTreatment[$tid] ?? '') : '';
         }
         if ($transactionCandidates !== []) {
             $collapsedByTreatment = [];
@@ -3503,11 +3547,39 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const booked_service_ids = bookedServicesRaw
                 .map((s) => String((s && s.service_id) || '').trim())
                 .filter((id) => id !== '');
-            const bookedInstallment = bookedServicesRaw.filter((s) => String((s && s.service_type) || '').toLowerCase() === 'installment');
-            const bookedRegular = bookedServicesRaw.filter((s) => String((s && s.service_type) || '').toLowerCase() !== 'installment');
+            const primaryInstallmentServiceId = String(item.primary_installment_service_id || '').trim();
+            const bookedInstallment = bookedServicesRaw.filter((s) => {
+                const serviceType = String((s && s.service_type) || '').toLowerCase();
+                if (serviceType === 'installment') {
+                    return true;
+                }
+                const sid = String((s && s.service_id) || '').trim();
+                return primaryInstallmentServiceId !== '' && sid === primaryInstallmentServiceId;
+            });
+            const bookedRegular = bookedServicesRaw.filter((s) => {
+                const sid = String((s && s.service_id) || '').trim();
+                const serviceType = String((s && s.service_type) || '').toLowerCase();
+                if (serviceType === 'installment') {
+                    return false;
+                }
+                if (primaryInstallmentServiceId !== '' && sid === primaryInstallmentServiceId) {
+                    return false;
+                }
+                return true;
+            });
             const regularCostByLines = bookedRegular.reduce((sum, s) => sum + Number((s && s.price) || 0), 0);
             const hasInstallmentEntry = isInstallmentPlan || bookedInstallment.length > 0;
             const hasRegularEntry = bookedRegular.length > 0 || !hasInstallmentEntry;
+            const installmentScheduleRaw = Array.isArray(item.installment_schedule) ? item.installment_schedule : [];
+            const installmentTotalBySchedule = installmentScheduleRaw.reduce((sum, r) => sum + Number((r && r.amount_due) || 0), 0);
+            const installmentPaidBySchedule = installmentScheduleRaw.reduce((sum, r) => {
+                const s = String((r && r.status) || '').toLowerCase();
+                if (s === 'paid' || s === 'completed') {
+                    return sum + Number((r && r.amount_due) || 0);
+                }
+                return sum;
+            }, 0);
+            const installmentPaidResolved = installmentPaidBySchedule > 0 ? installmentPaidBySchedule : (hasInstallmentEntry ? totalPaid : 0);
             const baseRow = {
                 booking_id: String(item.booking_id || ''),
                 treatment_id: treatmentId,
@@ -3522,12 +3594,13 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 pending_balance: pendingBalance,
                 is_installment_plan: isInstallmentPlan,
                 installment_schedule: Array.isArray(item.installment_schedule) ? item.installment_schedule : [],
+                primary_installment_service_id: primaryInstallmentServiceId,
                 label: label
             };
             const rows = [];
             if (hasRegularEntry) {
                 const regularCost = regularCostByLines > 0 ? regularCostByLines : totalCost;
-                const regularPending = Math.max(0, regularCost - totalPaid);
+                const regularPaid = Math.max(0, Math.min(regularCost, totalPaid - installmentPaidResolved));
                 rows.push({
                     ...baseRow,
                     transaction_key: baseRow.booking_id + '::regular',
@@ -3535,7 +3608,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     is_installment_plan: false,
                     installment_schedule: [],
                     total_cost: regularCost,
-                    pending_balance: regularPending,
+                    total_paid: regularPaid,
+                    pending_balance: Math.max(0, regularCost - regularPaid),
                     booked_services: bookedRegular.length ? bookedRegular : bookedServicesRaw,
                     booked_service_ids: (bookedRegular.length ? bookedRegular : bookedServicesRaw)
                         .map((s) => String((s && s.service_id) || '').trim())
@@ -3543,11 +3617,16 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 });
             }
             if (hasInstallmentEntry) {
+                const installmentTotal = installmentTotalBySchedule > 0 ? installmentTotalBySchedule : totalCost;
+                const installmentPaid = Math.max(0, Math.min(installmentTotal, installmentPaidResolved));
                 rows.push({
                     ...baseRow,
                     transaction_key: baseRow.booking_id + '::installment',
                     transaction_type: 'installment',
                     is_installment_plan: true,
+                    total_cost: installmentTotal,
+                    total_paid: installmentPaid,
+                    pending_balance: Math.max(0, installmentTotal - installmentPaid),
                     booked_services: bookedInstallment.length ? bookedInstallment : bookedServicesRaw,
                     booked_service_ids: (bookedInstallment.length ? bookedInstallment : bookedServicesRaw)
                         .map((s) => String((s && s.service_id) || '').trim())
