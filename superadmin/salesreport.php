@@ -802,7 +802,7 @@ require __DIR__ . '/superadmin_header.php';
 <span>Daily</span>
 </div>
 </div>
-<form method="get" class="mt-5 flex flex-wrap items-end gap-3">
+<form method="get" class="js-daily-filter-form mt-5 flex flex-wrap items-end gap-3">
 <input type="hidden" name="range" value="<?php echo htmlspecialchars($selectedDateRange ?? '', ENT_QUOTES, 'UTF-8'); ?>"/>
 <?php if ($selectedClinicId !== null): ?>
 <input type="hidden" name="clinic" value="<?php echo htmlspecialchars((string) $selectedClinicId, ENT_QUOTES, 'UTF-8'); ?>"/>
@@ -1125,10 +1125,12 @@ $amount = (float) ($tx['amount'] ?? 0);
 (function () {
     if (!window.fetch || !window.DOMParser) return;
 
-    function setupPanelPagination(panelId, linkClass) {
+    function setupPanelPagination(panelId, linkClass, options) {
         var panel = document.getElementById(panelId);
         if (!panel) return;
         var isLoading = false;
+        var config = options || {};
+        var resetPageParam = config.resetPageParam || 'daily_page';
 
         function loadPage(url, pushState) {
             if (isLoading) return;
@@ -1180,12 +1182,46 @@ $amount = (float) ($tx['amount'] ?? 0);
             loadPage(link.href, true);
         });
 
+        if (config.filterFormSelector) {
+            document.addEventListener('change', function (e) {
+                var field = e.target;
+                if (!field || field.tagName !== 'SELECT') return;
+                var form = field.form;
+                if (!form || !form.matches(config.filterFormSelector) || !panel.contains(form)) return;
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+                } else {
+                    form.submit();
+                }
+            });
+
+            document.addEventListener('submit', function (e) {
+                var form = e.target;
+                if (!form || !form.matches(config.filterFormSelector) || !panel.contains(form)) return;
+                e.preventDefault();
+                var action = form.getAttribute('action') || window.location.pathname;
+                var method = (form.getAttribute('method') || 'get').toLowerCase();
+                if (method !== 'get') {
+                    form.submit();
+                    return;
+                }
+                var formData = new FormData(form);
+                formData.delete(resetPageParam);
+                var params = new URLSearchParams(formData);
+                var nextUrl = action + (params.toString() ? ('?' + params.toString()) : '');
+                loadPage(nextUrl, true);
+            });
+        }
+
         window.addEventListener('popstate', function () {
             loadPage(window.location.href, false);
         });
     }
 
-    setupPanelPagination('daily-revenue-panel', 'js-daily-pagination-link');
+    setupPanelPagination('daily-revenue-panel', 'js-daily-pagination-link', {
+        filterFormSelector: '.js-daily-filter-form',
+        resetPageParam: 'daily_page'
+    });
     setupPanelPagination('top-clinics-panel', 'js-clinics-pagination-link');
     setupPanelPagination('transactions-panel', 'js-tx-pagination-link');
 })();
