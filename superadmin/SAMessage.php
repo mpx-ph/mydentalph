@@ -202,16 +202,51 @@ $superadmin_header_center = '<div class="text-sm font-semibold text-on-surface-v
                 radial-gradient(at 50% 0%, hsla(217,100%,94%,1) 0, transparent 50%);
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
+        @media (max-width: 1023px) {
+            #superadmin-sidebar {
+                transform: translateX(-100%);
+                transition: transform 220ms ease;
+                z-index: 60;
+            }
+            body.sa-mobile-sidebar-open #superadmin-sidebar {
+                transform: translateX(0);
+            }
+            .sa-top-header {
+                left: 0;
+                width: 100% !important;
+                padding-left: 4.25rem;
+                padding-right: 1rem;
+            }
+            #sa-mobile-sidebar-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(19, 28, 37, 0.45);
+                backdrop-filter: blur(2px);
+                -webkit-backdrop-filter: blur(2px);
+                z-index: 55;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 220ms ease;
+            }
+            body.sa-mobile-sidebar-open #sa-mobile-sidebar-backdrop {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
     </style>
 </head>
 <body class="mesh-bg font-body text-on-surface min-h-screen">
 <?php require __DIR__ . '/superadmin_sidebar.php'; ?>
 <?php require __DIR__ . '/superadmin_header.php'; ?>
+<button id="sa-mobile-sidebar-toggle" type="button" class="fixed top-6 left-4 z-[65] lg:hidden w-10 h-10 rounded-xl bg-white/90 border border-white text-primary shadow-md flex items-center justify-center" aria-controls="superadmin-sidebar" aria-expanded="false" aria-label="Open navigation menu">
+    <span class="material-symbols-outlined text-[20px]">menu</span>
+</button>
+<div id="sa-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
 
-<main class="ml-64 pt-20 min-h-screen">
-    <div class="px-8 py-8">
+<main class="ml-0 lg:ml-64 pt-20 min-h-screen">
+    <div class="px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <section class="mb-6">
-            <h2 class="text-3xl font-extrabold font-headline tracking-tight">Tenant Messages</h2>
+            <h2 class="text-2xl sm:text-3xl font-extrabold font-headline tracking-tight">Tenant Messages</h2>
             <p class="text-sm text-on-surface-variant mt-1">Communicate directly with provider tenant teams.</p>
         </section>
 
@@ -223,10 +258,10 @@ $superadmin_header_center = '<div class="text-sm font-semibold text-on-surface-v
         <?php endif; ?>
 
         <section class="rounded-3xl border border-slate-200/70 bg-white/85 backdrop-blur-xl shadow-sm overflow-hidden min-h-[72vh] grid grid-cols-1 xl:grid-cols-[21rem,1fr]">
-            <aside class="border-r border-slate-200/70 p-4">
+            <aside class="border-b xl:border-b-0 xl:border-r border-slate-200/70 p-4">
                 <p class="text-[11px] uppercase tracking-[0.18em] text-primary font-extrabold">Tenant Threads</p>
                 <p class="text-xs text-on-surface-variant mt-1"><?php echo count($tenantConversations); ?> active conversation(s)</p>
-                <div class="mt-3 space-y-2 max-h-[60vh] overflow-y-auto no-scrollbar pr-1">
+                <div class="mt-3 space-y-2 max-h-[40vh] xl:max-h-[60vh] overflow-y-auto no-scrollbar pr-1">
                     <?php if ($tenantConversations === []): ?>
                         <div class="rounded-2xl border border-dashed border-slate-200 p-4 text-center text-sm text-on-surface-variant">No tenant messages yet.</div>
                     <?php else: ?>
@@ -249,7 +284,7 @@ $superadmin_header_center = '<div class="text-sm font-semibold text-on-surface-v
             </aside>
 
             <div class="flex flex-col min-h-[72vh]">
-                <div class="border-b border-slate-200/70 px-5 py-4">
+                <div class="border-b border-slate-200/70 px-4 sm:px-5 py-4">
                     <?php
                     $tenantName = trim((string) ($tenantInfo[$selectedTenantId]['clinic_name'] ?? 'Select a conversation'));
                     $partner = $userInfo[$selectedPartnerId] ?? [];
@@ -261,7 +296,7 @@ $superadmin_header_center = '<div class="text-sm font-semibold text-on-surface-v
                     <p class="text-xs text-on-surface-variant mt-1"><?php echo htmlspecialchars($partnerName, ENT_QUOTES, 'UTF-8'); ?></p>
                 </div>
 
-                <div id="thread-box" class="flex-1 overflow-y-auto px-5 py-4 space-y-3 bg-gradient-to-b from-white to-slate-50/50">
+                <div id="thread-box" class="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-3 bg-gradient-to-b from-white to-slate-50/50">
                     <?php if ($selectedTenantId === '' || $selectedPartnerId === ''): ?>
                         <div class="h-full flex items-center justify-center text-sm text-on-surface-variant">Select a tenant thread to view messages.</div>
                     <?php elseif ($messages === []): ?>
@@ -271,7 +306,7 @@ $superadmin_header_center = '<div class="text-sm font-semibold text-on-surface-v
                             $mine = (string) ($m['sender_id'] ?? '') === $currentSuperadminId;
                         ?>
                             <div class="flex <?php echo $mine ? 'justify-end' : 'justify-start'; ?>">
-                                <div class="max-w-[85%] rounded-2xl px-4 py-3 shadow-sm <?php echo $mine ? 'bg-primary text-white' : 'bg-white border border-slate-200 text-on-surface'; ?>">
+                                <div class="max-w-[92%] sm:max-w-[85%] rounded-2xl px-4 py-3 shadow-sm <?php echo $mine ? 'bg-primary text-white' : 'bg-white border border-slate-200 text-on-surface'; ?>">
                                     <?php if (trim((string) ($m['subject'] ?? '')) !== ''): ?>
                                         <p class="text-[11px] font-bold uppercase tracking-wide opacity-80 mb-1"><?php echo htmlspecialchars((string) $m['subject'], ENT_QUOTES, 'UTF-8'); ?></p>
                                     <?php endif; ?>
@@ -315,6 +350,44 @@ $superadmin_header_center = '<div class="text-sm font-semibold text-on-surface-v
         </section>
     </div>
 </main>
+<script>
+    (function () {
+        var toggleBtn = document.getElementById('sa-mobile-sidebar-toggle');
+        var backdrop = document.getElementById('sa-mobile-sidebar-backdrop');
+        var mqDesktop = window.matchMedia('(min-width: 1024px)');
+        if (!toggleBtn || !backdrop) return;
+
+        function setOpen(isOpen) {
+            document.body.classList.toggle('sa-mobile-sidebar-open', isOpen);
+            toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            toggleBtn.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+            var icon = toggleBtn.querySelector('.material-symbols-outlined');
+            if (icon) icon.textContent = isOpen ? 'close' : 'menu';
+            document.body.style.overflow = isOpen ? 'hidden' : '';
+        }
+
+        toggleBtn.addEventListener('click', function () {
+            setOpen(!document.body.classList.contains('sa-mobile-sidebar-open'));
+        });
+        backdrop.addEventListener('click', function () {
+            setOpen(false);
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && document.body.classList.contains('sa-mobile-sidebar-open')) {
+                setOpen(false);
+            }
+        });
+
+        function closeOnDesktop() {
+            if (mqDesktop.matches) setOpen(false);
+        }
+        if (typeof mqDesktop.addEventListener === 'function') {
+            mqDesktop.addEventListener('change', closeOnDesktop);
+        } else if (typeof mqDesktop.addListener === 'function') {
+            mqDesktop.addListener(closeOnDesktop);
+        }
+    })();
+</script>
 <script>
     (function () {
         var box = document.getElementById('thread-box');
