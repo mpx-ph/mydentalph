@@ -14,12 +14,28 @@ if (!isset($superadmin_header_center)) {
         . '" type="text"/>'
         . '</div>';
 }
+
+$superadminHeaderUserName = '';
+if (isset($_SESSION) && is_array($_SESSION)) {
+    $superadminHeaderUserName = trim((string) (
+        $_SESSION['full_name']
+        ?? $_SESSION['name']
+        ?? $_SESSION['username']
+        ?? ''
+    ));
+}
+if ($superadminHeaderUserName === '') {
+    $superadminHeaderUserName = 'User';
+}
 ?>
 <header class="sa-top-header fixed top-0 right-0 w-[calc(100%-16rem)] h-20 z-30 bg-white/70 backdrop-blur-xl border-b border-white/50 flex items-center justify-between px-8 transition-[width] duration-200">
 <div class="flex items-center gap-6 flex-1">
 <?php echo $superadmin_header_center; ?>
 </div>
 <div class="flex items-center gap-4">
+<span class="text-sm font-semibold text-on-surface-variant whitespace-nowrap">
+<?php echo 'Hello, ' . htmlspecialchars($superadminHeaderUserName, ENT_QUOTES, 'UTF-8'); ?>
+</span>
 <button class="hover:bg-surface-container-low rounded-full p-2.5 transition-all relative" type="button" aria-label="Notifications">
 <span class="material-symbols-outlined text-on-surface-variant">notifications</span>
 <span class="absolute top-2.5 right-2.5 w-2 h-2 bg-error rounded-full border-2 border-white"></span>
