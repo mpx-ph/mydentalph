@@ -1180,6 +1180,10 @@ try {
 
                         $insertColumns = ['tenant_id', 'booking_id', 'service_id', 'service_name', 'price'];
                         $insertValues = ['?', '?', '?', '?', '?'];
+                        if ($supportsAppointmentServiceTypeColumn) {
+                            $insertColumns[] = 'service_type';
+                            $insertValues[] = '?';
+                        }
                         if (in_array('is_original', $appointmentServiceColumns, true)) {
                             $insertColumns[] = 'is_original';
                             $insertValues[] = '0';
@@ -1203,13 +1207,17 @@ try {
                             }
                             $serviceName = trim((string) ($service['service_name'] ?? 'Additional Service'));
                             $servicePrice = (float) ($service['price'] ?? 0);
-                            $insertServiceStmt->execute([
+                            $insertParams = [
                                 $tenantId,
                                 $selectedBookingId,
                                 $serviceId,
                                 $serviceName,
                                 $servicePrice,
-                            ]);
+                            ];
+                            if ($supportsAppointmentServiceTypeColumn) {
+                                $insertParams[] = 'regular';
+                            }
+                            $insertServiceStmt->execute($insertParams);
                             $existingLookup[$serviceId] = true;
                             $addedCost += $servicePrice;
                             $addedServiceLabels[] = $serviceName . ' (₱' . number_format($servicePrice, 2) . ')';
@@ -1839,7 +1847,17 @@ try {
                 )
             ";
         }
-        if ($supportsAppointmentServicesTable && $supportsServiceEnableInstallmentColumn) {
+        if ($supportsAppointmentServicesTable && $supportsAppointmentServiceTypeColumn) {
+            $recentInstallmentPlanSqlParts[] = "
+                EXISTS (
+                    SELECT 1
+                    FROM tbl_appointment_services aps
+                    WHERE aps.tenant_id = a.tenant_id
+                      AND aps.booking_id = a.booking_id
+                      AND COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment') = 'installment'
+                )
+            ";
+        } elseif ($supportsAppointmentServicesTable && $supportsServiceEnableInstallmentColumn) {
             $recentInstallmentPlanSqlParts[] = "
                 EXISTS (
                     SELECT 1
@@ -1955,7 +1973,17 @@ try {
                 )
             ";
         }
-        if ($supportsAppointmentServicesTable && $supportsServiceEnableInstallmentColumn) {
+        if ($supportsAppointmentServicesTable && $supportsAppointmentServiceTypeColumn) {
+            $installmentPlanSqlParts[] = "
+                EXISTS (
+                    SELECT 1
+                    FROM tbl_appointment_services aps
+                    WHERE aps.tenant_id = a.tenant_id
+                      AND aps.booking_id = a.booking_id
+                      AND COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment') = 'installment'
+                )
+            ";
+        } elseif ($supportsAppointmentServicesTable && $supportsServiceEnableInstallmentColumn) {
             $installmentPlanSqlParts[] = "
                 EXISTS (
                     SELECT 1
@@ -2101,8 +2129,8 @@ try {
             if ($bookedIdList !== []) {
                 $bookedPh = implode(',', array_fill(0, count($bookedIdList), '?'));
                 $bookedServiceTypeSelectSql = $supportsAppointmentServiceTypeColumn
-                    ? "COALESCE(NULLIF(aps.service_type, ''), '')"
-                    : "''";
+                    ? "COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment')"
+                    : "'installment'";
                 $bookedSql = "
                     SELECT
                         aps.booking_id,
@@ -3549,7 +3577,10 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 .filter((id) => id !== '');
             const primaryInstallmentServiceId = String(item.primary_installment_service_id || '').trim();
             const bookedInstallment = bookedServicesRaw.filter((s) => {
-                const serviceType = String((s && s.service_type) || '').toLowerCase();
+                let serviceType = String((s && s.service_type) || '').toLowerCase().trim();
+                if (!serviceType) {
+                    serviceType = 'installment';
+                }
                 if (serviceType === 'installment') {
                     return true;
                 }
@@ -3558,7 +3589,10 @@ This booking is installment-priced, but no installment schedule rows exist in th
             });
             const bookedRegular = bookedServicesRaw.filter((s) => {
                 const sid = String((s && s.service_id) || '').trim();
-                const serviceType = String((s && s.service_type) || '').toLowerCase();
+                let serviceType = String((s && s.service_type) || '').toLowerCase().trim();
+                if (!serviceType) {
+                    serviceType = 'installment';
+                }
                 if (serviceType === 'installment') {
                     return false;
                 }

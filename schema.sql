@@ -385,6 +385,7 @@ CREATE TABLE IF NOT EXISTS tbl_appointment_services (
     service_id VARCHAR(50) NOT NULL,
     service_name VARCHAR(255),
     price DECIMAL(10,2),
+    service_type ENUM('installment','regular') NOT NULL DEFAULT 'installment',
     is_original TINYINT DEFAULT 1,
     added_by VARCHAR(20),
     added_at DATETIME DEFAULT CURRENT_TIMESTAMP,

@@ -59,11 +59,23 @@ try {
 
     // 2. Insert Services Breakdown
     $services = is_array($services_json) ? $services_json : json_decode($services_json, true);
+    $serviceTypeProbeStmt = $pdo->prepare("
+        SELECT COALESCE(enable_installment, 0) AS enable_installment
+        FROM tbl_services
+        WHERE tenant_id = ? AND service_id = ?
+        LIMIT 1
+    ");
     foreach ($services as $srv) {
+        $serviceType = strtolower(trim((string) ($srv['service_type'] ?? ($srv['type'] ?? ''))));
+        if ($serviceType !== 'installment' && $serviceType !== 'regular') {
+            $serviceTypeProbeStmt->execute([$tenant_id, $srv['id']]);
+            $enableInstallment = (int) ($serviceTypeProbeStmt->fetchColumn() ?? 0);
+            $serviceType = $enableInstallment === 1 ? 'installment' : 'regular';
+        }
         $stmt = $pdo->prepare("INSERT INTO tbl_appointment_services 
-            (tenant_id, booking_id, appointment_id, service_id, service_name, price) 
-            VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$tenant_id, $booking_id, $appointment_id, $srv['id'], $srv['name'], $srv['price']]);
+            (tenant_id, booking_id, appointment_id, service_id, service_name, price, service_type) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$tenant_id, $booking_id, $appointment_id, $srv['id'], $srv['name'], $srv['price'], $serviceType]);
     }
 
     // 3. Insert Payment
