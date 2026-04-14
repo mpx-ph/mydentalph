@@ -172,6 +172,37 @@ tailwind.config = {
         radial-gradient(at 50% 0%, hsla(217,100%,94%,1) 0, transparent 50%),
         radial-gradient(at 100% 0%, hsla(210,100%,98%,1) 0, transparent 50%);
 }
+@media (max-width: 1023px) {
+    #superadmin-sidebar {
+        transform: translateX(-100%);
+        transition: transform 220ms ease;
+        z-index: 60;
+    }
+    body.sa-mobile-sidebar-open #superadmin-sidebar {
+        transform: translateX(0);
+    }
+    .sa-top-header {
+        left: 0;
+        width: 100% !important;
+        padding-left: 4.25rem;
+        padding-right: 1rem;
+    }
+    #sa-mobile-sidebar-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(19, 28, 37, 0.45);
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+        z-index: 55;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 220ms ease;
+    }
+    body.sa-mobile-sidebar-open #sa-mobile-sidebar-backdrop {
+        opacity: 1;
+        pointer-events: auto;
+    }
+}
 </style>
 </head>
 <body class="mesh-bg font-body text-on-surface selection:bg-primary/10 min-h-screen">
@@ -180,14 +211,18 @@ $superadmin_nav = 'adddevs';
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
 ?>
-<main class="ml-64 pt-20 min-h-screen">
-    <div class="pt-8 px-10 pb-16">
+<button id="sa-mobile-sidebar-toggle" type="button" class="fixed top-6 left-4 z-[65] lg:hidden w-10 h-10 rounded-xl bg-white/90 border border-white text-primary shadow-md flex items-center justify-center" aria-controls="superadmin-sidebar" aria-expanded="false" aria-label="Open navigation menu">
+    <span class="material-symbols-outlined text-[20px]">menu</span>
+</button>
+<div id="sa-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
+<main class="ml-0 lg:ml-64 pt-20 min-h-screen">
+    <div class="pt-6 sm:pt-8 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16">
         <section class="max-w-3xl">
-            <h1 class="text-4xl font-extrabold font-headline tracking-tight text-on-surface">Add Developer Account</h1>
+            <h1 class="text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Add Developer Account</h1>
             <p class="text-on-surface-variant mt-2 font-medium">Create a new user in <code>tbl_users</code> with superadmin privileges.</p>
         </section>
 
-        <section class="mt-8 max-w-3xl bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow">
+        <section class="mt-8 max-w-3xl bg-white/70 backdrop-blur-xl p-5 sm:p-8 rounded-[2rem] editorial-shadow">
             <?php if ($success !== ''): ?>
                 <div class="mb-6 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
                     <?php echo htmlspecialchars($success, ENT_QUOTES, 'UTF-8'); ?>
@@ -267,7 +302,7 @@ require __DIR__ . '/superadmin_header.php';
                 </div>
 
                 <div class="pt-2">
-                    <button class="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-2.5 text-sm font-bold text-white shadow-sm hover:brightness-110 transition-all" type="submit">
+                    <button class="inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-2xl bg-primary px-6 py-2.5 text-sm font-bold text-white shadow-sm hover:brightness-110 transition-all" type="submit">
                         <span class="material-symbols-outlined text-lg">person_add</span>
                         Create Account
                     </button>
@@ -276,5 +311,43 @@ require __DIR__ . '/superadmin_header.php';
         </section>
     </div>
 </main>
+<script>
+(function () {
+    var toggleBtn = document.getElementById('sa-mobile-sidebar-toggle');
+    var backdrop = document.getElementById('sa-mobile-sidebar-backdrop');
+    var mqDesktop = window.matchMedia('(min-width: 1024px)');
+    if (!toggleBtn || !backdrop) return;
+
+    function setOpen(isOpen) {
+        document.body.classList.toggle('sa-mobile-sidebar-open', isOpen);
+        toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        toggleBtn.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+        var icon = toggleBtn.querySelector('.material-symbols-outlined');
+        if (icon) icon.textContent = isOpen ? 'close' : 'menu';
+        document.body.style.overflow = isOpen ? 'hidden' : '';
+    }
+
+    toggleBtn.addEventListener('click', function () {
+        setOpen(!document.body.classList.contains('sa-mobile-sidebar-open'));
+    });
+    backdrop.addEventListener('click', function () {
+        setOpen(false);
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && document.body.classList.contains('sa-mobile-sidebar-open')) {
+            setOpen(false);
+        }
+    });
+
+    function closeOnDesktop() {
+        if (mqDesktop.matches) setOpen(false);
+    }
+    if (typeof mqDesktop.addEventListener === 'function') {
+        mqDesktop.addEventListener('change', closeOnDesktop);
+    } else if (typeof mqDesktop.addListener === 'function') {
+        mqDesktop.addListener(closeOnDesktop);
+    }
+})();
+</script>
 </body>
 </html>
