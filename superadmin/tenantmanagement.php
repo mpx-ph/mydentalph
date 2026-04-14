@@ -455,6 +455,44 @@ $rangeEnd = $totalRows === 0 ? 0 : min($totalRows, $offset + count($tenants));
             background: rgba(237, 244, 255, 0.7);
             border: 1px solid rgba(192, 199, 212, 0.45);
         }
+        #tenant-directory-panel {
+            position: relative;
+            transition: opacity 180ms ease, transform 180ms ease;
+            will-change: opacity, transform;
+        }
+        #tenant-directory-panel.tm-loading {
+            opacity: 0.68;
+            transform: translateY(4px);
+            pointer-events: none;
+        }
+        #tenant-directory-panel.tm-loading::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: linear-gradient(
+                110deg,
+                rgba(255, 255, 255, 0) 15%,
+                rgba(255, 255, 255, 0.38) 45%,
+                rgba(255, 255, 255, 0) 75%
+            );
+            animation: tm-shimmer 1s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes tm-shimmer {
+            from { transform: translateX(-35%); }
+            to { transform: translateX(35%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #tenant-directory-panel,
+            #tenant-directory-panel.tm-loading {
+                transition: none;
+                transform: none;
+            }
+            #tenant-directory-panel.tm-loading::after {
+                animation: none;
+            }
+        }
         @media (max-width: 1023px) {
             #superadmin-sidebar {
                 transform: translateX(-100%);
@@ -871,8 +909,14 @@ require __DIR__ . '/superadmin_header.php';
 (function () {
     var panel = document.getElementById('tenant-directory-panel');
     if (!panel || !window.fetch || !window.DOMParser) return;
+    var isLoading = false;
 
     function loadTenantPage(url, pushState) {
+        if (isLoading) {
+            return;
+        }
+        isLoading = true;
+        panel.classList.add('tm-loading');
         panel.setAttribute('aria-busy', 'true');
         fetch(url, {
             headers: {
@@ -887,7 +931,13 @@ require __DIR__ . '/superadmin_header.php';
                 if (!nextPanel) {
                     throw new Error('Table section not found');
                 }
-                panel.innerHTML = nextPanel.innerHTML;
+                panel.style.opacity = '0';
+                panel.style.transform = 'translateY(6px)';
+                window.requestAnimationFrame(function () {
+                    panel.innerHTML = nextPanel.innerHTML;
+                    panel.style.opacity = '';
+                    panel.style.transform = '';
+                });
                 if (pushState && window.history && typeof window.history.pushState === 'function') {
                     window.history.pushState({ tenantPage: url }, '', url);
                 }
@@ -896,6 +946,8 @@ require __DIR__ . '/superadmin_header.php';
                 window.location.href = url;
             })
             .finally(function () {
+                isLoading = false;
+                panel.classList.remove('tm-loading');
                 panel.removeAttribute('aria-busy');
             });
     }
