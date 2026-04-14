@@ -256,13 +256,13 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <span class="material-symbols-outlined text-primary text-4xl mb-4 group-hover:scale-110 transition-transform">bar_chart</span>
 <p class="text-xl font-bold">Analytics</p>
 </div>
-<div class="h-40 rounded-3xl bg-primary-fixed flex flex-col justify-end p-8 transition-all hover:shadow-lg">
+<div class="min-h-40 rounded-3xl bg-primary-fixed flex flex-col justify-end p-8 transition-all hover:shadow-lg">
 <span class="material-symbols-outlined text-primary text-4xl mb-4">campaign</span>
-<p class="text-xl font-bold text-on-primary-fixed-variant">Omnichannel</p>
+<p class="text-xl font-bold text-on-primary-fixed-variant leading-tight">Omnichannel</p>
 </div>
 </div>
 <div class="space-y-6 pt-12">
-<div class="h-40 rounded-3xl bg-surface-container-low border border-primary/10 flex flex-col justify-end p-8">
+<div class="min-h-40 rounded-3xl bg-surface-container-low border border-primary/10 flex flex-col justify-end p-8">
 <span class="material-symbols-outlined text-primary text-4xl mb-4">mark_email_unread</span>
 <p class="text-xl font-bold">Alerts</p>
 </div>
