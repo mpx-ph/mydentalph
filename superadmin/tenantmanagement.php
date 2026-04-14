@@ -1163,7 +1163,8 @@ require __DIR__ . '/superadmin_header.php';
         headerOffset: 96
     });
     setupPanelPagination('workforce-panel', 'js-workforce-pagination-link', 'workforcePage', {
-        scrollToPanelTop: false
+        scrollToPanelTop: true,
+        headerOffset: 96
     });
 })();
 </script>
