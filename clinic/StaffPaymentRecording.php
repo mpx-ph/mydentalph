@@ -904,7 +904,7 @@ try {
                             FROM tbl_payments py2
                             WHERE py2.tenant_id = py.tenant_id
                               AND py2.booking_id = py.booking_id
-                              AND py2.status = 'paid'
+                              AND py2.status IN ('completed', 'paid')
                         ), 0) AS booking_total_paid,
                         COALESCE(a.service_type, '') AS service_type,
                         COALESCE(a.service_description, '') AS service_description,
@@ -1090,7 +1090,7 @@ try {
                     COALESCE(a.treatment_id, '') AS treatment_id,
                     COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
                     COALESCE(a.service_description, '') AS service_description,
-                    COALESCE(SUM(CASE WHEN py.status = 'paid' THEN py.amount ELSE 0 END), 0) AS total_paid
+                    COALESCE(SUM(CASE WHEN py.status IN ('completed', 'paid') THEN py.amount ELSE 0 END), 0) AS total_paid
                 FROM tbl_appointments a
                 LEFT JOIN tbl_payments py
                     ON py.tenant_id = a.tenant_id
@@ -1999,7 +1999,7 @@ try {
                     FROM tbl_payments py2
                     WHERE py2.tenant_id = py.tenant_id
                       AND py2.booking_id = py.booking_id
-                      AND py2.status = 'paid'
+                      AND py2.status IN ('completed', 'paid')
                 ), 0) AS booking_total_paid,
                 {$recentServiceSelectSql} AS service_list,
                 COALESCE(NULLIF(u_linked.email, ''), NULLIF(u_owner.email, ''), '') AS patient_email,
@@ -2145,7 +2145,7 @@ try {
                 LEFT JOIN (
                     SELECT tenant_id, booking_id, COALESCE(SUM(amount), 0) AS total_paid
                     FROM tbl_payments
-                    WHERE status = 'paid'
+                    WHERE status IN ('completed', 'paid')
                     GROUP BY tenant_id, booking_id
                 ) py
                     ON py.tenant_id = a.tenant_id
@@ -2154,6 +2154,7 @@ try {
                     ON p.tenant_id = a.tenant_id
                    AND p.patient_id = a.patient_id
                 WHERE a.tenant_id = ?
+                  AND LOWER(COALESCE(a.status, '')) <> 'cancelled'
                 GROUP BY
                     a.booking_id,
                     COALESCE(aps.appointment_id, a.id, 0),
@@ -2194,7 +2195,7 @@ try {
                 LEFT JOIN (
                     SELECT tenant_id, booking_id, COALESCE(SUM(amount), 0) AS total_paid
                     FROM tbl_payments
-                    WHERE status = 'paid'
+                    WHERE status IN ('completed', 'paid')
                     GROUP BY tenant_id, booking_id
                 ) py
                     ON py.tenant_id = a.tenant_id
@@ -2203,6 +2204,7 @@ try {
                     ON p.tenant_id = a.tenant_id
                    AND p.patient_id = a.patient_id
                 WHERE a.tenant_id = ?
+                  AND LOWER(COALESCE(a.status, '')) <> 'cancelled'
                 GROUP BY
                     a.booking_id,
                     a.id,
@@ -2408,50 +2410,6 @@ try {
             $transactionCandidates[$ic]['installment_schedule'] = $scheduleByBooking[$b] ?? [];
             $transactionCandidates[$ic]['booked_services'] = $bookedServicesByBucket[$bucketKey] ?? [];
             $transactionCandidates[$ic]['primary_installment_service_id'] = $tid !== '' ? ($primaryInstallmentServiceByTreatment[$tid] ?? '') : '';
-        }
-        if ($transactionCandidates !== []) {
-            $filteredCandidates = [];
-            foreach ($transactionCandidates as $candRow) {
-                $stype = strtolower(trim((string) ($candRow['service_type'] ?? '')));
-                if ($stype !== 'installment') {
-                    $filteredCandidates[] = $candRow;
-                    continue;
-                }
-
-                $installmentSchedule = is_array($candRow['installment_schedule'] ?? null)
-                    ? $candRow['installment_schedule']
-                    : [];
-                $scheduleHasRows = $installmentSchedule !== [];
-                $hasUnpaidSchedule = false;
-                $schedulePaidTotal = 0.0;
-                foreach ($installmentSchedule as $scheduleRow) {
-                    $instStatus = trim((string) ($scheduleRow['status'] ?? ''));
-                    if (staff_payment_recording_installment_is_paid($instStatus)) {
-                        $schedulePaidTotal += (float) ($scheduleRow['amount_due'] ?? 0);
-                        continue;
-                    }
-                    $hasUnpaidSchedule = true;
-                }
-
-                $rowTotalCost = (float) ($candRow['total_treatment_cost'] ?? 0);
-                $rowTotalPaid = (float) ($candRow['total_paid'] ?? 0);
-                $effectivePaid = $schedulePaidTotal > 0 ? $schedulePaidTotal : $rowTotalPaid;
-                $remainingBalance = max(0, $rowTotalCost - $effectivePaid);
-
-                if ($scheduleHasRows) {
-                    if (!$hasUnpaidSchedule) {
-                        continue;
-                    }
-                    if ($remainingBalance <= 0.009) {
-                        continue;
-                    }
-                } elseif ($remainingBalance <= 0.009) {
-                    continue;
-                }
-
-                $filteredCandidates[] = $candRow;
-            }
-            $transactionCandidates = $filteredCandidates;
         }
         if ($transactionCandidates !== []) {
             $collapsedByTreatment = [];
@@ -3959,16 +3917,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
             return rows;
         }).filter((item) => {
-            const schedule = getScheduleList(item);
-            const hasUnpaidInstallmentStatus = schedule.some((row) => {
-                const status = String((row && row.status) || '').toLowerCase().trim();
-                return status !== 'paid' && status !== 'completed';
-            });
             if (item.transaction_type === 'installment') {
-                if (schedule.length > 0 && !hasUnpaidInstallmentStatus) {
-                    return false;
-                }
-                return item.pending_balance > 0 || hasUnpaidInstallmentStatus;
+                return item.pending_balance > 0 || getScheduleList(item).length > 0;
             }
             return item.pending_balance > 0;
         });
