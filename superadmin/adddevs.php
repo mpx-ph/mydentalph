@@ -220,6 +220,7 @@ tailwind.config = {
 <body class="mesh-bg font-body text-on-surface selection:bg-primary/10 min-h-screen">
 <?php
 $superadmin_nav = 'adddevs';
+$superadmin_header_center = '';
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
 ?>

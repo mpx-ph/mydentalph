@@ -165,7 +165,7 @@ if ($selectedTenantId !== '' && $selectedPartnerId !== '' && $currentSuperadminI
 }
 
 $superadmin_nav = 'messages';
-$superadmin_header_center = '<div class="text-sm font-semibold text-on-surface-variant">Super Admin · Messages</div>';
+$superadmin_header_center = '';
 ?>
 <!DOCTYPE html>
 <html class="light" lang="en">

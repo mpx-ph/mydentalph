@@ -279,7 +279,7 @@ $pageTitle = htmlspecialchars($settings['system_name'], ENT_QUOTES, 'UTF-8');
 <body class="mesh-bg font-body text-on-surface antialiased min-h-screen">
 <?php
 $superadmin_nav = 'settings';
-$superadmin_header_center = '<div class="text-sm font-semibold text-on-surface-variant">Super Admin · Settings</div>';
+$superadmin_header_center = '';
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
 ?>

@@ -153,6 +153,7 @@ require_once __DIR__ . '/../db.php';
 <body class="mesh-bg font-body text-on-surface selection:bg-primary/10 min-h-screen">
 <?php
 $superadmin_nav = 'backupandrestore';
+$superadmin_header_center = '';
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
 ?>
