@@ -338,7 +338,7 @@ function sa_document_label(string $type): string
 <body class="mesh-bg font-body text-on-surface selection:bg-primary/10 min-h-screen">
 <?php
 $superadmin_nav = 'superadmin_approval';
-$superadmin_header_center = '<h2 class="text-2xl font-headline font-extrabold text-[#131c25] tracking-tight">Clinic Approvals</h2>';
+$superadmin_header_center = '';
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
 ?>
@@ -350,6 +350,10 @@ require __DIR__ . '/superadmin_header.php';
 <div class="flex flex-col lg:flex-row flex-grow overflow-visible lg:overflow-hidden relative">
 <div class="absolute top-40 right-10 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10"></div>
 <section class="w-full lg:w-3/5 p-4 sm:p-6 lg:p-10 overflow-y-visible lg:overflow-y-auto space-y-8 no-scrollbar">
+<section>
+<h2 class="text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Clinic Approvals</h2>
+<p class="text-on-surface-variant mt-2 font-medium">Review and decide clinic verification requests.</p>
+</section>
 <?php if ($error !== ''): ?>
 <div class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-sm font-semibold"><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></div>
 <?php endif; ?>
