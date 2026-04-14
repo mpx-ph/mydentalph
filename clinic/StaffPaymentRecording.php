@@ -696,6 +696,7 @@ $summaryTodayRevenue = 0.0;
 $summaryTotalPayments = 0;
 $recentPayments = [];
 $transactionCandidates = [];
+$transactionDebugRows = [];
 $availableServices = [];
 $supportsPaymentTypeColumn = false;
 $supportsAppointmentVisitTypeColumn = false;
@@ -1084,6 +1085,7 @@ try {
             $bookingSql = "
                 SELECT
                     a.booking_id,
+                    COALESCE(MAX(a.id), 0) AS appointment_id,
                     a.patient_id,
                     COALESCE(a.treatment_id, '') AS treatment_id,
                     COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
@@ -1250,8 +1252,17 @@ try {
                             throw new RuntimeException($blockedCombinationMessage);
                         }
 
+                        $appointmentRowId = (int) ($bookingRow['appointment_id'] ?? 0);
                         $insertColumns = ['tenant_id', 'booking_id', 'service_id', 'service_name', 'price'];
                         $insertValues = ['?', '?', '?', '?', '?'];
+                        if (in_array('appointment_id', $appointmentServiceColumns, true)) {
+                            $insertColumns[] = 'appointment_id';
+                            $insertValues[] = '?';
+                        }
+                        if (in_array('treatment_id', $appointmentServiceColumns, true)) {
+                            $insertColumns[] = 'treatment_id';
+                            $insertValues[] = '?';
+                        }
                         if ($supportsAppointmentServiceTypeColumn) {
                             $insertColumns[] = 'service_type';
                             $insertValues[] = '?';
@@ -1286,6 +1297,12 @@ try {
                                 $serviceName,
                                 $servicePrice,
                             ];
+                            if (in_array('appointment_id', $appointmentServiceColumns, true)) {
+                                $insertParams[] = $appointmentRowId > 0 ? $appointmentRowId : null;
+                            }
+                            if (in_array('treatment_id', $appointmentServiceColumns, true)) {
+                                $insertParams[] = null;
+                            }
                             if ($supportsAppointmentServiceTypeColumn) {
                                 $insertParams[] = 'regular';
                             }
@@ -2085,44 +2102,125 @@ try {
             : "'' AS visit_type,";
         $visitTypeGroupSql = $supportsAppointmentVisitTypeColumn ? "a.visit_type," : '';
 
-        $transactionsSql = "
-            SELECT
-                a.booking_id,
-                COALESCE(a.treatment_id, '') AS treatment_id,
-                a.patient_id,
-                a.appointment_date,
-                a.appointment_time,
-                a.service_type,
-                {$visitTypeSelectSql}
-                {$installmentPlanSelectSql},
-                {$transactionTypeSelectSql},
-                COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
-                COALESCE(SUM(CASE WHEN py.status IN ('completed', 'paid') THEN py.amount ELSE 0 END), 0) AS total_paid,
-                p.first_name AS patient_first_name,
-                p.last_name AS patient_last_name
-            FROM tbl_appointments a
-            LEFT JOIN tbl_payments py
-                ON py.tenant_id = a.tenant_id
-               AND py.booking_id = a.booking_id
-            LEFT JOIN tbl_patients p
-                ON p.tenant_id = a.tenant_id
-               AND p.patient_id = a.patient_id
-            WHERE a.tenant_id = ?
-              AND LOWER(COALESCE(a.status, '')) <> 'cancelled'
-            GROUP BY
-                a.booking_id,
-                a.treatment_id,
-                a.patient_id,
-                a.appointment_date,
-                a.appointment_time,
-                a.service_type,
-                {$visitTypeGroupSql}
-                a.total_treatment_cost,
-                p.first_name,
-                p.last_name
-            ORDER BY a.appointment_date DESC, a.appointment_time DESC, a.created_at DESC
-            LIMIT 300
-        ";
+        if ($supportsAppointmentServicesTable) {
+            $normalizedServiceTypeSql = $supportsAppointmentServiceTypeColumn
+                ? "CASE
+                        WHEN LOWER(TRIM(COALESCE(aps.service_type, ''))) = 'regular' THEN 'regular'
+                        WHEN LOWER(TRIM(COALESCE(aps.service_type, ''))) = 'installment' THEN 'installment'
+                        WHEN TRIM(COALESCE(aps.treatment_id, '')) <> '' THEN 'installment'
+                        ELSE 'regular'
+                    END"
+                : ($supportsServiceEnableInstallmentColumn ? "CASE WHEN COALESCE(sv.enable_installment, 0) = 1 THEN 'installment' ELSE 'regular' END" : "'installment'");
+            $transactionsSql = "
+                SELECT
+                    a.booking_id,
+                    COALESCE(aps.appointment_id, a.id, 0) AS appointment_id,
+                    CASE
+                        WHEN {$normalizedServiceTypeSql} = 'installment'
+                            THEN COALESCE(NULLIF(aps.treatment_id, ''), NULLIF(a.treatment_id, ''), '')
+                        ELSE ''
+                    END AS treatment_id,
+                    a.patient_id,
+                    a.appointment_date,
+                    a.appointment_time,
+                    {$normalizedServiceTypeSql} AS service_type,
+                    {$visitTypeSelectSql}
+                    CASE WHEN {$normalizedServiceTypeSql} = 'installment' THEN 1 ELSE 0 END AS is_installment_plan,
+                    CASE WHEN {$normalizedServiceTypeSql} = 'installment' THEN 'installment' ELSE 'regular' END AS transaction_type,
+                    CASE
+                        WHEN {$normalizedServiceTypeSql} = 'installment'
+                            THEN COALESCE(NULLIF(a.total_treatment_cost, 0), COALESCE(SUM(aps.price), 0))
+                        ELSE COALESCE(SUM(aps.price), 0)
+                    END AS total_treatment_cost,
+                    COALESCE(py.total_paid, 0) AS total_paid,
+                    p.first_name AS patient_first_name,
+                    p.last_name AS patient_last_name
+                FROM tbl_appointments a
+                INNER JOIN tbl_appointment_services aps
+                    ON aps.tenant_id = a.tenant_id
+                   AND aps.booking_id = a.booking_id
+                LEFT JOIN tbl_services sv
+                    ON sv.tenant_id = aps.tenant_id
+                   AND sv.service_id = aps.service_id
+                LEFT JOIN (
+                    SELECT tenant_id, booking_id, COALESCE(SUM(amount), 0) AS total_paid
+                    FROM tbl_payments
+                    WHERE status IN ('completed', 'paid')
+                    GROUP BY tenant_id, booking_id
+                ) py
+                    ON py.tenant_id = a.tenant_id
+                   AND py.booking_id = a.booking_id
+                LEFT JOIN tbl_patients p
+                    ON p.tenant_id = a.tenant_id
+                   AND p.patient_id = a.patient_id
+                WHERE a.tenant_id = ?
+                  AND LOWER(COALESCE(a.status, '')) <> 'cancelled'
+                GROUP BY
+                    a.booking_id,
+                    COALESCE(aps.appointment_id, a.id, 0),
+                    CASE
+                        WHEN {$normalizedServiceTypeSql} = 'installment'
+                            THEN COALESCE(NULLIF(aps.treatment_id, ''), NULLIF(a.treatment_id, ''), '')
+                        ELSE ''
+                    END,
+                    a.patient_id,
+                    a.appointment_date,
+                    a.appointment_time,
+                    {$normalizedServiceTypeSql},
+                    {$visitTypeGroupSql}
+                    a.total_treatment_cost,
+                    p.first_name,
+                    p.last_name
+                ORDER BY a.appointment_date DESC, a.appointment_time DESC, a.created_at DESC
+                LIMIT 300
+            ";
+        } else {
+            $transactionsSql = "
+                SELECT
+                    a.booking_id,
+                    COALESCE(a.id, 0) AS appointment_id,
+                    COALESCE(a.treatment_id, '') AS treatment_id,
+                    a.patient_id,
+                    a.appointment_date,
+                    a.appointment_time,
+                    a.service_type,
+                    {$visitTypeSelectSql}
+                    {$installmentPlanSelectSql},
+                    {$transactionTypeSelectSql},
+                    COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
+                    COALESCE(py.total_paid, 0) AS total_paid,
+                    p.first_name AS patient_first_name,
+                    p.last_name AS patient_last_name
+                FROM tbl_appointments a
+                LEFT JOIN (
+                    SELECT tenant_id, booking_id, COALESCE(SUM(amount), 0) AS total_paid
+                    FROM tbl_payments
+                    WHERE status IN ('completed', 'paid')
+                    GROUP BY tenant_id, booking_id
+                ) py
+                    ON py.tenant_id = a.tenant_id
+                   AND py.booking_id = a.booking_id
+                LEFT JOIN tbl_patients p
+                    ON p.tenant_id = a.tenant_id
+                   AND p.patient_id = a.patient_id
+                WHERE a.tenant_id = ?
+                  AND LOWER(COALESCE(a.status, '')) <> 'cancelled'
+                GROUP BY
+                    a.booking_id,
+                    a.id,
+                    a.treatment_id,
+                    a.patient_id,
+                    a.appointment_date,
+                    a.appointment_time,
+                    a.service_type,
+                    {$visitTypeGroupSql}
+                    a.total_treatment_cost,
+                    p.first_name,
+                    p.last_name
+                ORDER BY a.appointment_date DESC, a.appointment_time DESC, a.created_at DESC
+                LIMIT 300
+            ";
+        }
         $transactionsStmt = $pdo->prepare($transactionsSql);
         $transactionsStmt->execute([$tenantId]);
         $transactionCandidates = $transactionsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -2191,7 +2289,7 @@ try {
                 $scheduleByBooking[$bid] = staff_payment_recording_fetch_installments($pdo, $installmentsTableName, $tenantId, $bid);
             }
         }
-        $bookedServicesByBooking = [];
+        $bookedServicesByBucket = [];
         if ($supportsAppointmentServicesTable && $transactionCandidates !== []) {
             $bookedBidKeys = [];
             foreach ($transactionCandidates as $candRow) {
@@ -2204,17 +2302,26 @@ try {
             if ($bookedIdList !== []) {
                 $bookedPh = implode(',', array_fill(0, count($bookedIdList), '?'));
                 $bookedServiceTypeSelectSql = $supportsAppointmentServiceTypeColumn
-                    ? "COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment')"
+                    ? "CASE
+                            WHEN LOWER(TRIM(COALESCE(aps.service_type, ''))) = 'regular' THEN 'regular'
+                            WHEN LOWER(TRIM(COALESCE(aps.service_type, ''))) = 'installment' THEN 'installment'
+                            WHEN TRIM(COALESCE(aps.treatment_id, '')) <> '' THEN 'installment'
+                            ELSE 'regular'
+                        END"
                     : "'installment'";
                 $bookedSql = "
                     SELECT
                         aps.booking_id,
+                        COALESCE(aps.appointment_id, a2.id, 0) AS appointment_id,
                         aps.service_id,
                         aps.service_name,
                         aps.price,
                         {$bookedServiceTypeSelectSql} AS service_type,
                         COALESCE(NULLIF(sv.category, ''), '') AS category
                     FROM tbl_appointment_services aps
+                    LEFT JOIN tbl_appointments a2
+                      ON a2.tenant_id = aps.tenant_id
+                     AND a2.booking_id = aps.booking_id
                     LEFT JOIN tbl_services sv
                       ON sv.tenant_id = aps.tenant_id
                      AND sv.service_id = aps.service_id
@@ -2229,13 +2336,19 @@ try {
                     if ($bb === '') {
                         continue;
                     }
-                    if (!isset($bookedServicesByBooking[$bb])) {
-                        $bookedServicesByBooking[$bb] = [];
+                    $apptId = (int) ($brow['appointment_id'] ?? 0);
+                    $stype = strtolower(trim((string) ($brow['service_type'] ?? 'installment')));
+                    if ($stype !== 'regular') {
+                        $stype = 'installment';
                     }
-                    $bookedServicesByBooking[$bb][] = [
+                    $bucketKey = $bb . '::' . $apptId . '::' . $stype;
+                    if (!isset($bookedServicesByBucket[$bucketKey])) {
+                        $bookedServicesByBucket[$bucketKey] = [];
+                    }
+                    $bookedServicesByBucket[$bucketKey][] = [
                         'service_id' => trim((string) ($brow['service_id'] ?? '')),
                         'service_name' => trim((string) ($brow['service_name'] ?? '')),
-                        'service_type' => trim((string) ($brow['service_type'] ?? '')),
+                        'service_type' => $stype,
                         'category' => trim((string) ($brow['category'] ?? '')),
                         'price' => round((float) ($brow['price'] ?? 0), 2),
                     ];
@@ -2287,55 +2400,83 @@ try {
 
         foreach ($transactionCandidates as $ic => $candRow) {
             $b = trim((string) ($candRow['booking_id'] ?? ''));
+            $appointmentId = (int) ($candRow['appointment_id'] ?? 0);
             $tid = trim((string) ($candRow['treatment_id'] ?? ''));
+            $stype = strtolower(trim((string) ($candRow['service_type'] ?? '')));
+            if ($stype !== 'regular') {
+                $stype = 'installment';
+            }
+            $bucketKey = $b . '::' . $appointmentId . '::' . $stype;
             $transactionCandidates[$ic]['installment_schedule'] = $scheduleByBooking[$b] ?? [];
-            $transactionCandidates[$ic]['booked_services'] = $bookedServicesByBooking[$b] ?? [];
+            $transactionCandidates[$ic]['booked_services'] = $bookedServicesByBucket[$bucketKey] ?? [];
             $transactionCandidates[$ic]['primary_installment_service_id'] = $tid !== '' ? ($primaryInstallmentServiceByTreatment[$tid] ?? '') : '';
         }
         if ($transactionCandidates !== []) {
             $collapsedByTreatment = [];
             $collapsedKeyOrder = [];
             foreach ($transactionCandidates as $candRow) {
-                $isInstallment = !empty($candRow['is_installment_plan']);
+                $candidateType = strtolower(trim((string) ($candRow['service_type'] ?? '')));
+                $isInstallment = $candidateType === 'installment';
                 $treatmentId = trim((string) ($candRow['treatment_id'] ?? ''));
-                if (!$isInstallment || $treatmentId === '') {
-                    $collapsedKeyOrder[] = null;
-                    $collapsedByTreatment[] = $candRow;
+                if ($isInstallment && $treatmentId !== '') {
+                    $groupKey = 'treatment:' . $treatmentId;
+                    $currentPaid = (float) ($candRow['total_paid'] ?? 0);
+                    $currentScheduleCount = count((array) ($candRow['installment_schedule'] ?? []));
+                    if (!isset($collapsedByTreatment[$groupKey])) {
+                        $collapsedByTreatment[$groupKey] = $candRow;
+                        $collapsedKeyOrder[] = $groupKey;
+                        continue;
+                    }
+                    $existing = $collapsedByTreatment[$groupKey];
+                    $existingPaid = (float) ($existing['total_paid'] ?? 0);
+                    $existingScheduleCount = count((array) ($existing['installment_schedule'] ?? []));
+                    if ($currentPaid > $existingPaid || ($currentPaid === $existingPaid && $currentScheduleCount > $existingScheduleCount)) {
+                        $collapsedByTreatment[$groupKey] = $candRow;
+                    }
                     continue;
                 }
-                $groupKey = 'treatment:' . $treatmentId;
-                $currentPaid = (float) ($candRow['total_paid'] ?? 0);
-                $currentScheduleCount = count((array) ($candRow['installment_schedule'] ?? []));
-                if (!isset($collapsedByTreatment[$groupKey])) {
-                    $collapsedByTreatment[$groupKey] = $candRow;
-                    $collapsedKeyOrder[] = $groupKey;
-                    continue;
-                }
-                $existing = $collapsedByTreatment[$groupKey];
-                $existingPaid = (float) ($existing['total_paid'] ?? 0);
-                $existingScheduleCount = count((array) ($existing['installment_schedule'] ?? []));
-                if ($currentPaid > $existingPaid || ($currentPaid === $existingPaid && $currentScheduleCount > $existingScheduleCount)) {
-                    $collapsedByTreatment[$groupKey] = $candRow;
+                $appointmentId = (int) ($candRow['appointment_id'] ?? 0);
+                $bookingId = trim((string) ($candRow['booking_id'] ?? ''));
+                $regularGroupKey = 'regular:' . $bookingId . ':' . $appointmentId;
+                if (!isset($collapsedByTreatment[$regularGroupKey])) {
+                    $collapsedByTreatment[$regularGroupKey] = $candRow;
+                    $collapsedKeyOrder[] = $regularGroupKey;
+                } else {
+                    $collapsedByTreatment[$regularGroupKey]['total_treatment_cost'] = round(
+                        (float) ($collapsedByTreatment[$regularGroupKey]['total_treatment_cost'] ?? 0)
+                        + (float) ($candRow['total_treatment_cost'] ?? 0),
+                        2
+                    );
+                    $mergedServices = array_merge(
+                        (array) ($collapsedByTreatment[$regularGroupKey]['booked_services'] ?? []),
+                        (array) ($candRow['booked_services'] ?? [])
+                    );
+                    $collapsedByTreatment[$regularGroupKey]['booked_services'] = $mergedServices;
                 }
             }
             $collapsedRows = [];
             foreach ($collapsedKeyOrder as $key) {
-                if ($key === null) {
-                    continue;
-                }
                 if (isset($collapsedByTreatment[$key])) {
                     $collapsedRows[] = $collapsedByTreatment[$key];
                     unset($collapsedByTreatment[$key]);
                 }
             }
-            foreach ($collapsedByTreatment as $key => $row) {
-                if (is_int($key)) {
+            foreach ($collapsedByTreatment as $row) {
+                if (is_array($row)) {
                     $collapsedRows[] = $row;
                 }
             }
             if ($collapsedRows !== []) {
                 $transactionCandidates = $collapsedRows;
             }
+        }
+        foreach ($transactionCandidates as $candRow) {
+            $transactionDebugRows[] = [
+                'service_type' => strtolower(trim((string) ($candRow['service_type'] ?? ''))),
+                'booking_id' => trim((string) ($candRow['booking_id'] ?? '')),
+                'appointment_id' => (int) ($candRow['appointment_id'] ?? 0),
+                'treatment_id' => trim((string) ($candRow['treatment_id'] ?? '')),
+            ];
         }
 
         $servicesStmt = $pdo->prepare("
@@ -3129,6 +3270,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
         let activeReceiptData = null;
         let isSendingReceiptEmail = false;
         const transactionCandidates = <?php echo json_encode($transactionCandidates, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const transactionDebugRows = <?php echo json_encode($transactionDebugRows, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const openSelectorBtn = document.getElementById('open-transaction-selector-modal');
         const selectorModal = document.getElementById('transaction-selector-modal');
         const selectorOverlay = document.getElementById('transaction-selector-overlay');
@@ -3696,6 +3838,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const installmentPaidResolved = installmentPaidBySchedule > 0 ? installmentPaidBySchedule : (hasInstallmentEntry ? totalPaid : 0);
             const baseRow = {
                 booking_id: String(item.booking_id || ''),
+                appointment_id: Number(item.appointment_id || 0),
                 treatment_id: treatmentId,
                 patient_id: String(item.patient_id || ''),
                 patient_name: patientName,
@@ -3717,7 +3860,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 const regularPaid = Math.max(0, Math.min(regularCost, totalPaid - installmentPaidResolved));
                 rows.push({
                     ...baseRow,
-                    transaction_key: baseRow.booking_id + '::regular',
+                    transaction_key: baseRow.booking_id + '::' + String(baseRow.appointment_id || 0) + '::regular',
                     transaction_type: 'regular',
                     is_installment_plan: false,
                     installment_schedule: [],
@@ -3754,6 +3897,15 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
             return item.pending_balance > 0;
         });
+
+        if (Array.isArray(transactionDebugRows) && transactionDebugRows.length) {
+            console.table(transactionDebugRows.map((row) => ({
+                service_type: String(row.service_type || ''),
+                appointment_id: String(row.appointment_id || ''),
+                treatment_id: String(row.treatment_id || ''),
+                booking_id: String(row.booking_id || '')
+            })));
+        }
 
         function getRecordTypeMeta(item) {
             const rawType = String(item && item.visit_type ? item.visit_type : '').toLowerCase();
@@ -3910,7 +4062,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                         '<div class="rounded-2xl border border-slate-200 p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">' +
                             '<div class="min-w-0">' +
                                 '<p class="text-sm font-extrabold text-slate-900 truncate">' + escapeHtml(item.patient_name) + '</p>' +
-                                '<p class="text-xs font-semibold text-slate-500 mt-1">Patient ID: ' + escapeHtml(item.patient_id) + ' | ' + (item.is_installment_plan && item.treatment_id ? ('Treatment ID: ' + escapeHtml(item.treatment_id)) : ('Booking ID: ' + escapeHtml(item.booking_id))) + '</p>' +
+                                '<p class="text-xs font-semibold text-slate-500 mt-1">Patient ID: ' + escapeHtml(item.patient_id) + ' | Appointment ID: ' + escapeHtml(item.appointment_id || '-') + ' | ' + (item.is_installment_plan && item.treatment_id ? ('Treatment ID: ' + escapeHtml(item.treatment_id)) : ('Booking ID: ' + escapeHtml(item.booking_id))) + '</p>' +
                                 '<p class="text-xs font-semibold text-slate-500 mt-1">Services: ' + svcLine + '</p>' +
                                 '<p class="text-xs font-semibold text-slate-500 mt-1">Date: ' + escapeHtml(item.appointment_date || '-') + ' ' + escapeHtml(item.appointment_time || '') + '</p>' +
                                 '<p class="text-xs font-semibold text-slate-700 mt-1">Total: ₱' + item.total_cost.toFixed(2) + ' | Paid: ₱' + item.total_paid.toFixed(2) + ' | Pending: ₱' + item.pending_balance.toFixed(2) + '</p>' +
