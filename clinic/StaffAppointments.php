@@ -331,7 +331,7 @@ try {
                     FROM {$qPay} py
                     WHERE py.tenant_id = a.tenant_id
                       AND py.booking_id = a.booking_id
-                      AND py.status = 'paid'
+                      AND py.status = 'completed'
                 ) AS total_paid"
                 : '0 AS total_paid';
 

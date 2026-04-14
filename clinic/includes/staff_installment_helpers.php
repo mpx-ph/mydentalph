@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Mark installment rows paid and unlock the next pending installment (due), matching clinic/api/payments.php behavior.
+ * Mark installment rows paid and unlock the next pending installment (book_visit), matching clinic/api/payments.php behavior.
  *
  * @param list<array{id:int, installment_number:int}> $paidItems
  */
@@ -19,23 +19,7 @@ function staff_installments_apply_paid_with_unlocks(
         return;
     }
     $quoted = '`' . str_replace('`', '``', $installmentsTableName) . '`';
-    $columnStmt = $pdo->prepare("
-        SELECT COLUMN_NAME
-        FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = ?
-    ");
-    $columnStmt->execute([$installmentsTableName]);
-    $columns = array_map('strtolower', array_map('strval', $columnStmt->fetchAll(PDO::FETCH_COLUMN) ?: []));
-    $supportsLastPaymentDate = in_array('last_payment_date', $columns, true);
-    $supportsDueDate = in_array('due_date', $columns, true);
-
-    $markSql = "UPDATE {$quoted} i SET i.status = 'paid', i.payment_id = ?";
-    if ($supportsLastPaymentDate) {
-        $markSql .= ", i.last_payment_date = CURDATE()";
-    }
-    $markSql .= " WHERE i.id = ? AND i.booking_id = ? AND (i.tenant_id = ? OR i.tenant_id IS NULL)";
-    $mark = $pdo->prepare($markSql);
+    $mark = $pdo->prepare("UPDATE {$quoted} i SET i.status = 'paid', i.payment_id = ? WHERE i.id = ? AND i.booking_id = ? AND (i.tenant_id = ? OR i.tenant_id IS NULL)");
     foreach ($paidItems as $row) {
         $id = (int) ($row['id'] ?? 0);
         if ($id <= 0) {
@@ -43,16 +27,14 @@ function staff_installments_apply_paid_with_unlocks(
         }
         $mark->execute([$paymentId, $id, $bookingId, $tenantId]);
     }
-    $unlockSql = "
+    $unlock = $pdo->prepare("
         UPDATE {$quoted} i
-        SET i.status = 'due'"
-        . ($supportsDueDate ? ", i.due_date = COALESCE(i.due_date, DATE_ADD(CURDATE(), INTERVAL 30 DAY))" : "") . "
+        SET i.status = 'book_visit'
         WHERE i.booking_id = ?
           AND i.installment_number = ?
           AND LOWER(COALESCE(i.status, '')) = 'pending'
           AND (i.tenant_id = ? OR i.tenant_id IS NULL)
-    ";
-    $unlock = $pdo->prepare($unlockSql);
+    ");
     foreach ($paidItems as $row) {
         $num = (int) ($row['installment_number'] ?? 0);
         if ($num <= 0) {

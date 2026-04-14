@@ -25,13 +25,13 @@ try {
     $patient_id = $patRow['patient_id'];
 
     // 2. Identify all bookings for this patient that have a downpayment record
-    //    We sum ALL 'paid' payments (downpayment + remaining balance) for the actual balance calculation.
+    //    We sum ALL 'completed' payments (downpayment + remaining balance) for the actual balance calculation.
     $sql = "
         SELECT 
             p.booking_id,
             a.appointment_date,
             COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
-            SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END) AS total_paid_completed,
+            SUM(CASE WHEN p.status = 'completed' THEN p.amount ELSE 0 END) AS total_paid_completed,
             MAX(p.amount) AS amount_to_calculate
         FROM tbl_payments p
         LEFT JOIN tbl_appointments a 
@@ -60,7 +60,7 @@ try {
         
         $unpaid_due = max(0, $actual_cost - $paid);
 
-        // However, if they have absolutely NO paid payments yet (i.e. even the downpayment is pending),
+        // However, if they have absolutely NO completed payments yet (i.e. even the downpayment is pending),
         // we show the downpayment amount as due right now.
         if ($paid == 0) {
             $unpaid_due = $base_amount;

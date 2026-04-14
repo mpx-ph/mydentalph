@@ -11,7 +11,7 @@ $sql = "
         a.appointment_date,
         a.status as appt_status,
         COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
-        SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END) AS total_paid_completed,
+        SUM(CASE WHEN p.status = 'completed' THEN p.amount ELSE 0 END) AS total_paid_completed,
         MAX(CASE WHEN p.payment_type = 'downpayment' THEN p.amount ELSE 0 END) AS amount_to_calculate,
         SUM(CASE WHEN p.payment_type = 'downpayment' THEN 1 ELSE 0 END) as down_count
     FROM tbl_payments p

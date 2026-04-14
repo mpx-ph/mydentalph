@@ -178,7 +178,7 @@ function getPaymentsReport($dateFrom, $dateTo) {
             SUM(CASE WHEN payment_method = 'credit_card' THEN amount ELSE 0 END) as credit_card_total,
             SUM(CASE WHEN payment_method = 'gcash' THEN amount ELSE 0 END) as gcash_total
         FROM payments
-        WHERE status = 'paid' AND tenant_id = ?
+        WHERE status = 'completed' AND tenant_id = ?
     ";
     
     $summaryParams = [$tenantId];
@@ -272,7 +272,7 @@ function getDashboardStats() {
             SUM(amount) as total,
             COUNT(*) as transactions
         FROM payments
-        WHERE status = 'paid' 
+        WHERE status = 'completed' 
           AND tenant_id = ?
           AND MONTH(payment_date) = MONTH(CURDATE())
           AND YEAR(payment_date) = YEAR(CURDATE())

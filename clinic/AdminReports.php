@@ -19,8 +19,8 @@ $allAppointments = [];
 try {
     $pdo = getDBConnection();
     
-    // Fetch Total Revenue from payments table (only paid payments)
-    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE status = 'paid'");
+    // Fetch Total Revenue from payments table (only completed payments)
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE status = 'completed'");
     $stmt->execute();
     $revenueResult = $stmt->fetch(PDO::FETCH_ASSOC);
     $totalRevenue = $revenueResult['total'] ?? 0;
@@ -56,7 +56,7 @@ try {
                 SELECT SUM(pay.amount) 
                 FROM payments pay 
                 WHERE pay.booking_id = a.booking_id 
-                AND pay.status = 'paid'
+                AND pay.status = 'completed'
             ), 0) as total_paid
         FROM appointments a
         LEFT JOIN patients p ON a.patient_id = p.patient_id
