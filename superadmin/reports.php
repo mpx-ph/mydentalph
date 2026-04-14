@@ -81,6 +81,37 @@
             background: rgba(237, 244, 255, 0.7);
             border: 1px solid rgba(192, 199, 212, 0.45);
         }
+        @media (max-width: 1023px) {
+            #superadmin-sidebar {
+                transform: translateX(-100%);
+                transition: transform 220ms ease;
+                z-index: 60;
+            }
+            body.sa-mobile-sidebar-open #superadmin-sidebar {
+                transform: translateX(0);
+            }
+            .sa-top-header {
+                left: 0;
+                width: 100% !important;
+                padding-left: 4.25rem;
+                padding-right: 1rem;
+            }
+            #sa-mobile-sidebar-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(19, 28, 37, 0.45);
+                backdrop-filter: blur(2px);
+                -webkit-backdrop-filter: blur(2px);
+                z-index: 55;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 220ms ease;
+            }
+            body.sa-mobile-sidebar-open #sa-mobile-sidebar-backdrop {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
     </style>
 </head>
 <body class="mesh-bg font-body text-on-surface antialiased min-h-screen">
@@ -393,26 +424,30 @@ $periodOptions = [
 ];
 $isCustomPeriod = (strtolower($filterPeriod) === 'custom');
 ?>
+<button id="sa-mobile-sidebar-toggle" type="button" class="fixed top-6 left-4 z-[65] lg:hidden w-10 h-10 rounded-xl bg-white/90 border border-white text-primary shadow-md flex items-center justify-center" aria-controls="superadmin-sidebar" aria-expanded="false" aria-label="Open navigation menu">
+<span class="material-symbols-outlined text-[20px]">menu</span>
+</button>
+<div id="sa-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
 <!-- Main Content Area -->
-<main class="ml-64 pt-20 min-h-screen">
-<div class="pt-8 px-10 pb-16 space-y-10 relative">
+<main class="ml-0 lg:ml-64 pt-20 min-h-screen">
+<div class="pt-6 sm:pt-8 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-8 sm:space-y-10 relative">
 <!-- Decorative blur shape -->
 <div class="absolute top-40 right-10 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10"></div>
 <!-- Header Section -->
 <section class="flex flex-col md:flex-row md:items-end justify-between gap-4">
 <div>
-<h2 class="text-4xl font-extrabold font-headline tracking-tight text-on-surface">Reports</h2>
+<h2 class="text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Reports</h2>
 <p class="text-on-surface-variant mt-2 font-medium">View and generate detailed reports</p>
 </div>
-<div class="flex items-center gap-3">
-<button class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all">
+<div class="flex items-center gap-3 w-full md:w-auto">
+<button class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center justify-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all w-full sm:w-auto">
 <span class="material-symbols-outlined text-lg">add_circle</span>
                         Generate New Report
                     </button>
 </div>
 </section>
 <!-- Filters (summary cards + table use the same range and clinic) -->
-<section class="bg-white/70 backdrop-blur-xl rounded-[2rem] editorial-shadow border border-white/60 px-8 py-6">
+<section class="bg-white/70 backdrop-blur-xl rounded-[2rem] editorial-shadow border border-white/60 px-4 sm:px-6 lg:px-8 py-6">
 <form method="get" action="<?php echo $reportsFormAction; ?>" id="reportsFilters" class="flex flex-col gap-4">
 <div class="flex flex-col xl:flex-row xl:flex-wrap xl:items-end gap-4">
 <div class="flex flex-col gap-1.5 min-w-[200px]">
@@ -491,18 +526,18 @@ $isCustomPeriod = (strtolower($filterPeriod) === 'custom');
 })();
 </script>
 <!-- Export Buttons -->
-<div class="flex items-center gap-3">
-<button type="button" id="open-reports-export-modal" class="px-6 py-2.5 bg-white/60 text-primary text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
+<div class="flex flex-wrap items-center gap-3">
+<button type="button" id="open-reports-export-modal" class="px-6 py-2.5 bg-white/60 text-primary text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">
 <span class="material-symbols-outlined text-lg">picture_as_pdf</span> Export PDF
                 </button>
-<button class="px-6 py-2.5 bg-white/60 text-primary text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
+<button class="px-6 py-2.5 bg-white/60 text-primary text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">
 <span class="material-symbols-outlined text-lg">table_chart</span> Export Excel
                 </button>
 </div>
 <!-- Table Container -->
 <div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
 <!-- Table header (same filters as summary cards — use form above) -->
-<div class="px-8 py-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/50">
+<div class="px-4 sm:px-6 lg:px-8 py-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/50">
 <div class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60 max-w-xl">
     Same period and clinic as above · <?php echo htmlspecialchars($periodLabel, ENT_QUOTES, 'UTF-8'); ?> · <?php echo htmlspecialchars($filterClinicLabel, ENT_QUOTES, 'UTF-8'); ?>
 </div>
@@ -615,6 +650,44 @@ $isCustomPeriod = (strtolower($filterPeriod) === 'custom');
 </form>
 </div>
 </div>
+<script>
+(function () {
+    var toggleBtn = document.getElementById('sa-mobile-sidebar-toggle');
+    var backdrop = document.getElementById('sa-mobile-sidebar-backdrop');
+    var mqDesktop = window.matchMedia('(min-width: 1024px)');
+    if (!toggleBtn || !backdrop) return;
+
+    function setOpen(isOpen) {
+        document.body.classList.toggle('sa-mobile-sidebar-open', isOpen);
+        toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        toggleBtn.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+        var icon = toggleBtn.querySelector('.material-symbols-outlined');
+        if (icon) icon.textContent = isOpen ? 'close' : 'menu';
+        document.body.style.overflow = isOpen ? 'hidden' : '';
+    }
+
+    toggleBtn.addEventListener('click', function () {
+        setOpen(!document.body.classList.contains('sa-mobile-sidebar-open'));
+    });
+    backdrop.addEventListener('click', function () {
+        setOpen(false);
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && document.body.classList.contains('sa-mobile-sidebar-open')) {
+            setOpen(false);
+        }
+    });
+
+    function closeOnDesktop() {
+        if (mqDesktop.matches) setOpen(false);
+    }
+    if (typeof mqDesktop.addEventListener === 'function') {
+        mqDesktop.addEventListener('change', closeOnDesktop);
+    } else if (typeof mqDesktop.addListener === 'function') {
+        mqDesktop.addListener(closeOnDesktop);
+    }
+})();
+</script>
 <script>
 (function () {
     var openBtn = document.getElementById('open-reports-export-modal');
