@@ -1095,7 +1095,7 @@ try {
                    AND py.booking_id = a.booking_id
                 WHERE a.tenant_id = ?
                   AND a.booking_id = ?
-                GROUP BY a.booking_id, a.patient_id, a.total_treatment_cost, a.service_description
+                GROUP BY a.booking_id, a.patient_id, a.treatment_id, a.total_treatment_cost, a.service_description
                 LIMIT 1
             ";
             $bookingStmt = $pdo->prepare($bookingSql);
@@ -1115,9 +1115,6 @@ try {
                         COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment') AS normalized_service_type,
                         COALESCE(SUM(COALESCE(aps.price, 0)), 0) AS total_cost
                     FROM tbl_appointment_services aps
-                    INNER JOIN tbl_appointments a
-                        ON a.tenant_id = aps.tenant_id
-                       AND a.booking_id = aps.booking_id
                     WHERE aps.tenant_id = ?
                       AND aps.booking_id = ?
                     GROUP BY COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment')
