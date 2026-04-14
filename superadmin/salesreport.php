@@ -91,8 +91,20 @@
             .sa-top-header {
                 left: 0;
                 width: 100% !important;
-                padding-left: 4.25rem;
+                padding-left: 5.5rem;
                 padding-right: 1rem;
+            }
+            #sa-mobile-sidebar-toggle {
+                top: 1rem;
+                left: 0.75rem;
+                width: 2.75rem;
+                height: 2.75rem;
+                transition: left 220ms ease, background-color 220ms ease, color 220ms ease;
+            }
+            body.sa-mobile-sidebar-open #sa-mobile-sidebar-toggle {
+                left: calc(16rem - 3.25rem);
+                background: rgba(255, 255, 255, 0.98);
+                color: #0066ff;
             }
             #sa-mobile-sidebar-backdrop {
                 position: fixed;

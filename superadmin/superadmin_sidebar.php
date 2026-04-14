@@ -33,6 +33,9 @@ $navMain = [
 ];
 ?>
 <style>
+body.superadmin-shell .sa-logo-square {
+    display: none;
+}
 @media (min-width: 1024px) {
     body.superadmin-shell main {
         margin-left: 16rem;
@@ -97,6 +100,7 @@ $navMain = [
         transform-origin: left center;
     }
     body.superadmin-shell .sa-logo-square {
+        display: block;
         opacity: 0;
         transform: scale(0.92);
         pointer-events: none;
