@@ -195,6 +195,12 @@ $superadmin_header_center = '';
     </script>
     <style>
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 430, 'GRAD' 0, 'opsz' 24; }
+        .sidebar-glass {
+            background: rgba(252, 253, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-right: 1px solid rgba(224, 233, 246, 0.5);
+        }
         .mesh-bg {
             background-color: #f7f9ff;
             background-image:
@@ -225,7 +231,7 @@ $superadmin_header_center = '';
                 transition: left 220ms ease, background-color 220ms ease, color 220ms ease;
             }
             body.sa-mobile-sidebar-open #sa-mobile-sidebar-toggle {
-                left: 0.75rem;
+                left: calc(16rem - 3.25rem);
                 background: rgba(255, 255, 255, 0.98);
                 color: #0066ff;
             }
