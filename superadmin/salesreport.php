@@ -64,6 +64,44 @@
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
+        .js-paginated-panel {
+            position: relative;
+            transition: opacity 180ms ease, transform 180ms ease;
+            will-change: opacity, transform;
+        }
+        .js-paginated-panel.tm-loading {
+            opacity: 0.68;
+            transform: translateY(4px);
+            pointer-events: none;
+        }
+        .js-paginated-panel.tm-loading::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: linear-gradient(
+                110deg,
+                rgba(255, 255, 255, 0) 15%,
+                rgba(255, 255, 255, 0.38) 45%,
+                rgba(255, 255, 255, 0) 75%
+            );
+            animation: tm-shimmer 1s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes tm-shimmer {
+            from { transform: translateX(-35%); }
+            to { transform: translateX(35%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .js-paginated-panel,
+            .js-paginated-panel.tm-loading {
+                transition: none;
+                transform: none;
+            }
+            .js-paginated-panel.tm-loading::after {
+                animation: none;
+            }
+        }
         .export-modal-backdrop {
             background: rgba(19, 28, 37, 0.35);
             backdrop-filter: blur(4px);
@@ -213,7 +251,8 @@ function salesreport_pagination_controls(
     int $totalItems,
     int $perPage,
     int $itemCountOnPage,
-    array $queryParams
+    array $queryParams,
+    string $linkClass = ''
 ): void {
     if ($totalItems === 0) {
         echo '<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">0 results</p>';
@@ -238,12 +277,12 @@ function salesreport_pagination_controls(
 <?php if ($prevDisabled): ?>
 <span class="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/40 border border-white/50 cursor-not-allowed">Prev</span>
 <?php else: ?>
-<a href="<?php echo salesreport_pagination_url($pageKey, $prev, $queryParams); ?>" class="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/30 hover:bg-primary/5 transition-colors">Prev</a>
+<a href="<?php echo salesreport_pagination_url($pageKey, $prev, $queryParams); ?>" class="<?php echo htmlspecialchars(trim('px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/30 hover:bg-primary/5 transition-colors ' . $linkClass)); ?>">Prev</a>
 <?php endif; ?>
 <?php if ($nextDisabled): ?>
 <span class="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/40 border border-white/50 cursor-not-allowed">Next</span>
 <?php else: ?>
-<a href="<?php echo salesreport_pagination_url($pageKey, $next, $queryParams); ?>" class="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/30 hover:bg-primary/5 transition-colors">Next</a>
+<a href="<?php echo salesreport_pagination_url($pageKey, $next, $queryParams); ?>" class="<?php echo htmlspecialchars(trim('px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/30 hover:bg-primary/5 transition-colors ' . $linkClass)); ?>">Next</a>
 <?php endif; ?>
 </div>
 </div>
@@ -651,7 +690,7 @@ require __DIR__ . '/superadmin_header.php';
 </section>
 <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
 <!-- Recent Daily Revenue -->
-<section class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] p-5 sm:p-7 lg:p-10 editorial-shadow overflow-hidden">
+<section id="daily-revenue-panel" class="js-paginated-panel bg-white/70 backdrop-blur-xl rounded-[2.5rem] p-5 sm:p-7 lg:p-10 editorial-shadow overflow-hidden">
 <div class="flex items-start justify-between gap-4">
 <div>
 <h3 class="text-xl font-extrabold font-headline text-on-surface tracking-tight">Recent Daily Revenue</h3>
@@ -687,12 +726,12 @@ require __DIR__ . '/superadmin_header.php';
 </table>
 </div>
 <div class="px-4 sm:px-6 lg:px-8 py-5 border-t border-white/50">
-<?php salesreport_pagination_controls('daily_page', $dailyPage, $totalDailyPages, $dailyTotalItems, $dailyPerPage, count($recentDailyRevenue), $salesreportQueryParams); ?>
+<?php salesreport_pagination_controls('daily_page', $dailyPage, $totalDailyPages, $dailyTotalItems, $dailyPerPage, count($recentDailyRevenue), $salesreportQueryParams, 'js-daily-pagination-link'); ?>
 </div>
 </section>
 
 <!-- Top Clinics Ranking -->
-<section class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
+<section id="top-clinics-panel" class="js-paginated-panel bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
 <div class="px-4 sm:px-6 lg:px-10 py-8 flex items-center justify-between border-b border-white/50">
 <div>
 <h3 class="text-xl font-extrabold font-headline text-on-surface tracking-tight">Top Clinics</h3>
@@ -753,13 +792,13 @@ if ($rank === 1) {
 </table>
 </div>
 <div class="px-4 sm:px-6 lg:px-10 py-5 border-t border-white/50">
-<?php salesreport_pagination_controls('clinics_page', $clinicsPage, $clinicsTotalPages, $totalClinicsCount, $clinicsPerPage, count($topClinics), $salesreportQueryParams); ?>
+<?php salesreport_pagination_controls('clinics_page', $clinicsPage, $clinicsTotalPages, $totalClinicsCount, $clinicsPerPage, count($topClinics), $salesreportQueryParams, 'js-clinics-pagination-link'); ?>
 </div>
 </section>
 </div>
 
 <!-- Recent Transactions Table (Styled like SCREEN_4 table) -->
-<div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
+<div id="transactions-panel" class="js-paginated-panel bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
 <div class="px-4 sm:px-6 lg:px-10 py-8 flex items-center justify-between border-b border-white/50">
 <h3 class="text-xl font-extrabold font-headline text-on-surface tracking-tight">Recent Transactions</h3>
 <button class="text-primary font-bold text-sm hover:underline">View All History</button>
@@ -840,7 +879,7 @@ $amount = (float) ($tx['amount'] ?? 0);
 </table>
 </div>
 <div class="px-4 sm:px-6 lg:px-10 py-5 border-t border-white/50">
-<?php salesreport_pagination_controls('tx_page', $txPage, $txTotalPages, $totalTxCount, $txPerPage, count($recentTransactions), $salesreportQueryParams); ?>
+<?php salesreport_pagination_controls('tx_page', $txPage, $txTotalPages, $totalTxCount, $txPerPage, count($recentTransactions), $salesreportQueryParams, 'js-tx-pagination-link'); ?>
 </div>
 </div>
 </div>
@@ -948,6 +987,75 @@ $amount = (float) ($tx['amount'] ?? 0);
 </form>
 </div>
 </div>
+<script>
+(function () {
+    if (!window.fetch || !window.DOMParser) return;
+
+    function setupPanelPagination(panelId, linkClass) {
+        var panel = document.getElementById(panelId);
+        if (!panel) return;
+        var isLoading = false;
+
+        function loadPage(url, pushState) {
+            if (isLoading) return;
+            isLoading = true;
+            panel.classList.add('tm-loading');
+            panel.setAttribute('aria-busy', 'true');
+
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (res) { return res.text(); })
+                .then(function (html) {
+                    var parser = new DOMParser();
+                    var nextDoc = parser.parseFromString(html, 'text/html');
+                    var nextPanel = nextDoc.getElementById(panelId);
+                    if (!nextPanel) {
+                        throw new Error('Panel not found');
+                    }
+                    panel.style.opacity = '0';
+                    panel.style.transform = 'translateY(6px)';
+                    window.requestAnimationFrame(function () {
+                        panel.innerHTML = nextPanel.innerHTML;
+                        panel.style.opacity = '';
+                        panel.style.transform = '';
+                        var panelTop = panel.getBoundingClientRect().top + window.pageYOffset;
+                        window.scrollTo({
+                            top: Math.max(0, panelTop - 96),
+                            behavior: 'smooth'
+                        });
+                    });
+                    if (pushState && window.history && typeof window.history.pushState === 'function') {
+                        var state = {};
+                        state[panelId] = url;
+                        window.history.pushState(state, '', url);
+                    }
+                })
+                .catch(function () {
+                    window.location.href = url;
+                })
+                .finally(function () {
+                    isLoading = false;
+                    panel.classList.remove('tm-loading');
+                    panel.removeAttribute('aria-busy');
+                });
+        }
+
+        document.addEventListener('click', function (e) {
+            var link = e.target.closest('.' + linkClass);
+            if (!link || !panel.contains(link)) return;
+            e.preventDefault();
+            loadPage(link.href, true);
+        });
+
+        window.addEventListener('popstate', function () {
+            loadPage(window.location.href, false);
+        });
+    }
+
+    setupPanelPagination('daily-revenue-panel', 'js-daily-pagination-link');
+    setupPanelPagination('top-clinics-panel', 'js-clinics-pagination-link');
+    setupPanelPagination('transactions-panel', 'js-tx-pagination-link');
+})();
+</script>
 <script>
 (function () {
     var toggleBtn = document.getElementById('sa-mobile-sidebar-toggle');
