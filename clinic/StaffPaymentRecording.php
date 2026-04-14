@@ -5,16 +5,19 @@ require_once __DIR__ . '/../mail_config.php';
 require_once __DIR__ . '/includes/appointment_db_tables.php';
 
 /**
- * @return list<array{id:int, installment_number:int, amount_due:float, status:string}>
+ * @return list<array{id:int, installment_number:int, amount_due:float, status:string, due_date:string}>
  */
 function staff_payment_recording_fetch_installments(PDO $pdo, ?string $installmentsTableName, string $tenantId, string $bookingId): array
 {
     if ($installmentsTableName === null || $bookingId === '') {
         return [];
     }
+    $instColumns = staff_payment_recording_installments_table_columns($pdo, $installmentsTableName);
+    $hasDueDateColumn = in_array('due_date', $instColumns, true);
     $quoted = '`' . str_replace('`', '``', $installmentsTableName) . '`';
     $sql = "
-        SELECT id, installment_number, amount_due, status
+        SELECT id, installment_number, amount_due, status,
+               " . ($hasDueDateColumn ? "COALESCE(i.due_date, '')" : "''") . " AS due_date
         FROM {$quoted} i
         WHERE i.booking_id = ?
           AND (
@@ -33,6 +36,7 @@ function staff_payment_recording_fetch_installments(PDO $pdo, ?string $installme
             'installment_number' => (int) ($row['installment_number'] ?? 0),
             'amount_due' => round((float) ($row['amount_due'] ?? 0), 2),
             'status' => trim((string) ($row['status'] ?? '')),
+            'due_date' => trim((string) ($row['due_date'] ?? '')),
         ];
     }
     return $out;
@@ -44,19 +48,49 @@ function staff_payment_recording_installment_is_paid(string $status): bool
     return $s === 'paid' || $s === 'completed';
 }
 
-function staff_payment_recording_financial_status(float $totalCost, float $totalPaid, string $appointmentDate = ''): string
+function staff_payment_recording_financial_status(
+    float $totalCost,
+    float $totalPaid,
+    string $appointmentDate = '',
+    bool $isInstallmentPlan = false,
+    array $installmentSchedule = []
+): string
 {
+    $today = date('Y-m-d');
     $remaining = max(0, round($totalCost - $totalPaid, 2));
     if ($remaining <= 0.009) {
         return 'PAID';
     }
+    if ($isInstallmentPlan && $installmentSchedule !== []) {
+        $hasOverdueUnpaidInstallment = false;
+        $allInstallmentsPaid = true;
+        foreach ($installmentSchedule as $installment) {
+            $instStatus = trim((string) ($installment['status'] ?? ''));
+            $isInstallmentPaid = staff_payment_recording_installment_is_paid($instStatus);
+            if ($isInstallmentPaid) {
+                continue;
+            }
+            $allInstallmentsPaid = false;
+            $dueDate = trim((string) ($installment['due_date'] ?? ''));
+            if ($dueDate !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueDate) && $dueDate < $today) {
+                $hasOverdueUnpaidInstallment = true;
+            }
+        }
+        if ($allInstallmentsPaid) {
+            return 'PAID';
+        }
+        if ($totalPaid > 0) {
+            return $hasOverdueUnpaidInstallment ? 'OVERDUE' : 'PARTIAL';
+        }
+        return $hasOverdueUnpaidInstallment ? 'OVERDUE' : 'UNPAID';
+    }
     if ($totalPaid > 0) {
-        if ($appointmentDate !== '' && $appointmentDate < date('Y-m-d')) {
+        if ($appointmentDate !== '' && $appointmentDate < $today) {
             return 'OVERDUE';
         }
         return 'PARTIAL';
     }
-    if ($appointmentDate !== '' && $appointmentDate < date('Y-m-d')) {
+    if ($appointmentDate !== '' && $appointmentDate < $today) {
         return 'OVERDUE';
     }
     return 'UNPAID';
@@ -863,7 +897,7 @@ try {
                             FROM tbl_payments py2
                             WHERE py2.tenant_id = py.tenant_id
                               AND py2.booking_id = py.booking_id
-                              AND py2.status = 'completed'
+                              AND py2.status IN ('completed', 'paid')
                         ), 0) AS booking_total_paid,
                         COALESCE(a.service_type, '') AS service_type,
                         COALESCE(a.service_description, '') AS service_description,
@@ -1043,7 +1077,7 @@ try {
                     a.patient_id,
                     COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
                     COALESCE(a.service_description, '') AS service_description,
-                    COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0) AS total_paid
+                    COALESCE(SUM(CASE WHEN py.status IN ('completed', 'paid') THEN py.amount ELSE 0 END), 0) AS total_paid
                 FROM tbl_appointments a
                 LEFT JOIN tbl_payments py
                     ON py.tenant_id = a.tenant_id
@@ -1775,17 +1809,51 @@ try {
     if ($tenantId !== '') {
         $today = date('Y-m-d');
 
-        $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) AS total_revenue FROM tbl_payments WHERE tenant_id = ? AND status = 'completed'");
+        $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) AS total_revenue FROM tbl_payments WHERE tenant_id = ? AND status IN ('completed', 'paid')");
         $stmt->execute([$tenantId]);
         $summaryTotalRevenue = (float) ($stmt->fetch(PDO::FETCH_ASSOC)['total_revenue'] ?? 0);
 
-        $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) AS today_revenue FROM tbl_payments WHERE tenant_id = ? AND DATE(payment_date) = ? AND status = 'completed'");
+        $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) AS today_revenue FROM tbl_payments WHERE tenant_id = ? AND DATE(payment_date) = ? AND status IN ('completed', 'paid')");
         $stmt->execute([$tenantId, $today]);
         $summaryTodayRevenue = (float) ($stmt->fetch(PDO::FETCH_ASSOC)['today_revenue'] ?? 0);
 
         $stmt = $pdo->prepare('SELECT COUNT(*) AS total_payments FROM tbl_payments WHERE tenant_id = ?');
         $stmt->execute([$tenantId]);
         $summaryTotalPayments = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['total_payments'] ?? 0);
+
+        $recentInstallmentPlanSqlParts = [];
+        if ($installmentsTableName !== null) {
+            $quotedInstallmentsTable = '`' . str_replace('`', '``', $installmentsTableName) . '`';
+            $recentInstallmentPlanSqlParts[] = "
+                EXISTS (
+                    SELECT 1
+                    FROM {$quotedInstallmentsTable} i
+                    WHERE i.booking_id = a.booking_id
+                      AND (
+                          i.tenant_id = a.tenant_id
+                          OR i.tenant_id IS NULL
+                          OR TRIM(COALESCE(i.tenant_id, '')) = ''
+                      )
+                )
+            ";
+        }
+        if ($supportsAppointmentServicesTable && $supportsServiceEnableInstallmentColumn) {
+            $recentInstallmentPlanSqlParts[] = "
+                EXISTS (
+                    SELECT 1
+                    FROM tbl_appointment_services aps
+                    INNER JOIN tbl_services sv
+                        ON sv.tenant_id = aps.tenant_id
+                       AND sv.service_id = aps.service_id
+                    WHERE aps.tenant_id = a.tenant_id
+                      AND aps.booking_id = a.booking_id
+                      AND COALESCE(sv.enable_installment, 0) = 1
+                )
+            ";
+        }
+        $recentInstallmentPlanSelectSql = empty($recentInstallmentPlanSqlParts)
+            ? '0 AS is_installment_plan'
+            : '( ' . implode(' OR ', $recentInstallmentPlanSqlParts) . ' ) AS is_installment_plan';
 
         $recentServiceSelectSql = "COALESCE(a.service_type, '')";
         $recentServiceJoinSql = '';
@@ -1812,6 +1880,7 @@ try {
                 py.payment_method,
                 py.reference_number,
                 py.status,
+                {$recentInstallmentPlanSelectSql},
                 COALESCE(a.appointment_date, '') AS appointment_date,
                 COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
                 COALESCE((
@@ -1819,7 +1888,7 @@ try {
                     FROM tbl_payments py2
                     WHERE py2.tenant_id = py.tenant_id
                       AND py2.booking_id = py.booking_id
-                      AND py2.status = 'completed'
+                      AND py2.status IN ('completed', 'paid')
                 ), 0) AS booking_total_paid,
                 {$recentServiceSelectSql} AS service_list,
                 COALESCE(NULLIF(u_linked.email, ''), NULLIF(u_owner.email, ''), '') AS patient_email,
@@ -1845,6 +1914,26 @@ try {
         $recentParams = $supportsAppointmentServicesTable ? [$tenantId, $tenantId] : [$tenantId];
         $recentStmt->execute($recentParams);
         $recentPayments = $recentStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if ($installmentsTableName !== null && $recentPayments !== []) {
+            $recentScheduleByBooking = [];
+            foreach ($recentPayments as $idx => $paymentRow) {
+                $isInstallmentPlan = !empty($paymentRow['is_installment_plan']);
+                $bookingId = trim((string) ($paymentRow['booking_id'] ?? ''));
+                if (!$isInstallmentPlan || $bookingId === '') {
+                    $recentPayments[$idx]['installment_schedule'] = [];
+                    continue;
+                }
+                if (!isset($recentScheduleByBooking[$bookingId])) {
+                    $recentScheduleByBooking[$bookingId] = staff_payment_recording_fetch_installments(
+                        $pdo,
+                        $installmentsTableName,
+                        $tenantId,
+                        $bookingId
+                    );
+                }
+                $recentPayments[$idx]['installment_schedule'] = $recentScheduleByBooking[$bookingId];
+            }
+        }
 
         $installmentPlanSqlParts = [];
         if ($installmentsTableName !== null) {
@@ -1900,7 +1989,7 @@ try {
                 {$visitTypeSelectSql}
                 {$installmentPlanSelectSql},
                 COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
-                COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0) AS total_paid,
+                COALESCE(SUM(CASE WHEN py.status IN ('completed', 'paid') THEN py.amount ELSE 0 END), 0) AS total_paid,
                 p.first_name AS patient_first_name,
                 p.last_name AS patient_last_name
             FROM tbl_appointments a
@@ -1924,7 +2013,7 @@ try {
                 a.total_treatment_cost,
                 p.first_name,
                 p.last_name
-            HAVING (COALESCE(a.total_treatment_cost, 0) - COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0)) > 0.009
+            HAVING (COALESCE(a.total_treatment_cost, 0) - COALESCE(SUM(CASE WHEN py.status IN ('completed', 'paid') THEN py.amount ELSE 0 END), 0)) > 0.009
             ORDER BY a.appointment_date DESC, a.appointment_time DESC, a.created_at DESC
             LIMIT 300
         ";
@@ -2406,7 +2495,9 @@ try {
     $financialStatus = staff_payment_recording_financial_status(
         (float) ($payment['total_treatment_cost'] ?? 0),
         (float) ($payment['booking_total_paid'] ?? 0),
-        trim((string) ($payment['appointment_date'] ?? ''))
+        trim((string) ($payment['appointment_date'] ?? '')),
+        !empty($payment['is_installment_plan']),
+        (array) ($payment['installment_schedule'] ?? [])
     );
     $serviceLabel = trim((string) ($payment['service_list'] ?? ''));
     if ($serviceLabel === '') {
