@@ -779,7 +779,6 @@ require __DIR__ . '/superadmin_header.php';
 </tbody>
 </table>
 </div>
-</div>
 <!-- Pagination (Matches SCREEN_2 Button Style) -->
 <div class="px-4 sm:px-6 lg:px-10 py-8 flex flex-wrap items-center justify-between gap-4 border-t border-white/50">
 <?php if ($page > 1): ?>
