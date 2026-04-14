@@ -891,12 +891,12 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 <!-- Clinic Workforce Table -->
 <div id="workforce-panel" class="js-paginated-panel bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
-<div class="px-4 sm:px-6 lg:px-8 py-6 border-b border-white/50 flex items-center justify-between gap-4">
+<div class="px-5 sm:px-6 lg:px-8 py-6 border-b border-white/50 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
 <div>
 <h4 class="text-xl font-extrabold font-headline text-on-surface">Clinic Workforce</h4>
 <p class="text-sm text-on-surface-variant mt-1 font-medium">Staff and doctor headcount per tenant clinic.</p>
 </div>
-<span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/70">
+<span class="pt-1 md:pt-0 px-1 md:px-0 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/70 md:text-right">
                     Showing <?php echo $totalWorkforceRows === 0 ? '0' : number_format($workforceRangeStart) . '–' . number_format($workforceRangeEnd); ?> of <?php echo number_format($totalWorkforceRows); ?>
                 </span>
 </div>
