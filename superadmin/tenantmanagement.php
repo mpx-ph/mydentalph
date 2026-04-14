@@ -650,7 +650,7 @@ require __DIR__ . '/superadmin_header.php';
 <div id="tenant-directory-panel" class="js-paginated-panel bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
 <!-- Table Controls -->
 <div class="px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 border-b border-white/50">
-<form method="get" action="tenantmanagement.php" class="flex items-center gap-3 sm:gap-4 flex-nowrap overflow-x-auto no-scrollbar w-full md:w-auto md:flex-wrap md:overflow-visible md:flex-1 min-w-0">
+<form method="get" action="tenantmanagement.php" class="js-tenant-filter-form flex items-center gap-3 sm:gap-4 flex-nowrap overflow-x-auto no-scrollbar w-full md:w-auto md:flex-wrap md:overflow-visible md:flex-1 min-w-0">
 <?php if ($filterBase['q'] !== ''): ?>
 <input type="hidden" name="q" value="<?php echo htmlspecialchars($filterBase['q'], ENT_QUOTES, 'UTF-8'); ?>"/>
 <?php endif; ?>
@@ -1153,6 +1153,27 @@ require __DIR__ . '/superadmin_header.php';
             loadPage(link.href, true);
         });
 
+        if (config.filterFormSelector) {
+            document.addEventListener('submit', function (e) {
+                var form = e.target;
+                if (!form || !form.matches(config.filterFormSelector) || !panel.contains(form)) {
+                    return;
+                }
+                e.preventDefault();
+                var action = form.getAttribute('action') || window.location.pathname;
+                var method = (form.getAttribute('method') || 'get').toLowerCase();
+                if (method !== 'get') {
+                    form.submit();
+                    return;
+                }
+                var formData = new FormData(form);
+                formData.delete('page');
+                var params = new URLSearchParams(formData);
+                var nextUrl = action + (params.toString() ? ('?' + params.toString()) : '');
+                loadPage(nextUrl, true);
+            });
+        }
+
         window.addEventListener('popstate', function () {
             loadPage(window.location.href, false);
         });
@@ -1160,7 +1181,8 @@ require __DIR__ . '/superadmin_header.php';
 
     setupPanelPagination('tenant-directory-panel', 'js-tenant-pagination-link', 'tenantPage', {
         scrollToPanelTop: true,
-        headerOffset: 96
+        headerOffset: 96,
+        filterFormSelector: '.js-tenant-filter-form'
     });
     setupPanelPagination('workforce-panel', 'js-workforce-pagination-link', 'workforcePage', {
         scrollToPanelTop: true,
