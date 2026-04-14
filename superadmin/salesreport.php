@@ -622,17 +622,45 @@ $clinicsPerPage = 10;
 $topClinics = [];
 $totalClinicsCount = 0;
 $clinicsTotalPages = 1;
+$topClinicRanksByTenant = [];
 $clinicsPage = filter_var($_GET['clinics_page'] ?? null, FILTER_VALIDATE_INT);
 if ($clinicsPage === false || $clinicsPage < 1) {
     $clinicsPage = 1;
 }
 try {
-    [$clinicsWhere, $clinicsParams] = salesreport_build_subscription_filters(
+    [$clinicsWhereBase, $clinicsParamsBase] = salesreport_build_subscription_filters(
         $filterRangeStart,
         $filterRangeEnd,
         $selectedClinicId,
         'ts'
     );
+    $rankWhereSql = "ts.payment_status = 'paid'";
+    if (!empty($clinicsWhereBase)) {
+        $rankWhereSql .= " AND " . implode(" AND ", $clinicsWhereBase);
+    }
+    $rankStmt = $pdo->prepare("
+        SELECT
+            ts.tenant_id,
+            t.clinic_name,
+            COUNT(ts.id) as paid_transactions,
+            COALESCE(SUM(ts.amount_paid), 0) as total_spend
+        FROM tbl_tenant_subscriptions ts
+        INNER JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
+        WHERE $rankWhereSql
+        GROUP BY ts.tenant_id, t.clinic_name
+        ORDER BY total_spend DESC, paid_transactions DESC, t.clinic_name ASC
+    ");
+    $rankStmt->execute($clinicsParamsBase);
+    $rankRows = $rankStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    foreach ($rankRows as $rankIdx => $rankRow) {
+        $tenantIdKey = trim((string) ($rankRow['tenant_id'] ?? ''));
+        if ($tenantIdKey !== '') {
+            $topClinicRanksByTenant[$tenantIdKey] = $rankIdx + 1;
+        }
+    }
+
+    $clinicsWhere = $clinicsWhereBase;
+    $clinicsParams = $clinicsParamsBase;
     $clinicsWhereSql = "ts.payment_status = 'paid'";
     if ($topClinicsSearch !== '') {
         $clinicsWhere[] = "t.clinic_name LIKE ?";
@@ -662,6 +690,7 @@ try {
     $clinicsOffset = ($clinicsPage - 1) * $clinicsPerPage;
     $stmt = $pdo->prepare("
         SELECT
+            ts.tenant_id,
             t.clinic_name,
             COUNT(ts.id) as paid_transactions,
             COALESCE(SUM(ts.amount_paid), 0) as total_spend
@@ -922,7 +951,10 @@ require __DIR__ . '/superadmin_header.php';
 <?php else: ?>
 <?php foreach ($topClinics as $idx => $clinic): ?>
 <?php
-$rank = ($clinicsPage - 1) * $clinicsPerPage + $idx + 1;
+$tenantIdForRank = trim((string) ($clinic['tenant_id'] ?? ''));
+$rank = isset($topClinicRanksByTenant[$tenantIdForRank])
+    ? (int) $topClinicRanksByTenant[$tenantIdForRank]
+    : (($clinicsPage - 1) * $clinicsPerPage + $idx + 1);
 $rankBadgeClasses = 'bg-surface-container-high text-on-surface-variant';
 if ($rank === 1) {
     $rankBadgeClasses = 'bg-amber-50 text-amber-600';
