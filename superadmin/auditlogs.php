@@ -126,6 +126,37 @@ try {
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
+        @media (max-width: 1023px) {
+            #superadmin-sidebar {
+                transform: translateX(-100%);
+                transition: transform 220ms ease;
+                z-index: 60;
+            }
+            body.sa-mobile-sidebar-open #superadmin-sidebar {
+                transform: translateX(0);
+            }
+            .sa-top-header {
+                left: 0;
+                width: 100% !important;
+                padding-left: 4.25rem;
+                padding-right: 1rem;
+            }
+            #sa-mobile-sidebar-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(19, 28, 37, 0.45);
+                backdrop-filter: blur(2px);
+                -webkit-backdrop-filter: blur(2px);
+                z-index: 55;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 220ms ease;
+            }
+            body.sa-mobile-sidebar-open #sa-mobile-sidebar-backdrop {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
     </style>
 </head>
 <body class="mesh-bg font-body text-on-surface antialiased min-h-screen">
@@ -135,19 +166,23 @@ $superadmin_header_search_placeholder = 'Search system logs...';
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
 ?>
+<button id="sa-mobile-sidebar-toggle" type="button" class="fixed top-6 left-4 z-[65] lg:hidden w-10 h-10 rounded-xl bg-white/90 border border-white text-primary shadow-md flex items-center justify-center" aria-controls="superadmin-sidebar" aria-expanded="false" aria-label="Open navigation menu">
+<span class="material-symbols-outlined text-[20px]">menu</span>
+</button>
+<div id="sa-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
 <!-- Main Content Area -->
-<main class="ml-64 pt-20 min-h-screen">
-<div class="pt-8 px-10 pb-16 space-y-10 relative">
+<main class="ml-0 lg:ml-64 pt-20 min-h-screen">
+<div class="pt-6 sm:pt-8 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-8 sm:space-y-10 relative">
 <!-- Decorative blur shape -->
 <div class="absolute top-40 right-10 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10"></div>
 <!-- Header Section -->
 <section class="flex flex-col md:flex-row md:items-end justify-between gap-4">
 <div>
-<h2 class="text-4xl font-extrabold font-headline tracking-tight text-on-surface">Audit Logs</h2>
+<h2 class="text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Audit Logs</h2>
 <p class="text-on-surface-variant mt-2 font-medium">Track and monitor system activities across all clinic modules.</p>
 </div>
-<div class="flex items-center gap-3">
-<a href="auditlogs_export_pdf.php" target="_blank" rel="noopener noreferrer" class="inline-flex bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all no-underline">
+<div class="flex items-center gap-3 w-full md:w-auto">
+<a href="auditlogs_export_pdf.php" target="_blank" rel="noopener noreferrer" class="inline-flex bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow items-center justify-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all no-underline w-full sm:w-auto">
 <span class="material-symbols-outlined text-lg">picture_as_pdf</span>
                     PDF Export
                 </a>
@@ -187,19 +222,19 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 </section>
 <!-- Action Center Buttons -->
-<div class="flex items-center gap-3">
-<button class="px-6 py-2.5 bg-white/60 text-primary text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
+<div class="flex flex-wrap items-center gap-3">
+<button class="px-6 py-2.5 bg-white/60 text-primary text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">
 <span class="material-symbols-outlined text-lg">table_chart</span> Excel Export
             </button>
-<button class="px-6 py-2.5 bg-white/60 text-error text-sm font-bold rounded-xl border border-white hover:bg-error hover:text-white transition-all shadow-sm flex items-center gap-2">
+<button class="px-6 py-2.5 bg-white/60 text-error text-sm font-bold rounded-xl border border-white hover:bg-error hover:text-white transition-all shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">
 <span class="material-symbols-outlined text-lg">delete_sweep</span> Clear Logs
             </button>
 </div>
 <!-- Table Container -->
 <div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
 <!-- Table Controls -->
-<div class="px-8 py-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/50">
-<div class="flex items-center gap-4">
+<div class="px-4 sm:px-6 lg:px-8 py-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/50">
+<div class="flex flex-wrap items-center gap-4">
 <div class="relative group">
 <select class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
 <option>Last 7 Days</option>
@@ -309,7 +344,7 @@ require __DIR__ . '/superadmin_header.php';
 </table>
 </div>
 <!-- Pagination -->
-<div class="px-10 py-8 flex items-center justify-between border-t border-white/50">
+<div class="px-4 sm:px-6 lg:px-10 py-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/50">
 <button class="px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
 <span class="material-symbols-outlined text-lg">chevron_left</span> Previous
                 </button>
@@ -356,4 +391,42 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 </div>
 </main>
+<script>
+(function () {
+    var toggleBtn = document.getElementById('sa-mobile-sidebar-toggle');
+    var backdrop = document.getElementById('sa-mobile-sidebar-backdrop');
+    var mqDesktop = window.matchMedia('(min-width: 1024px)');
+    if (!toggleBtn || !backdrop) return;
+
+    function setOpen(isOpen) {
+        document.body.classList.toggle('sa-mobile-sidebar-open', isOpen);
+        toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        toggleBtn.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+        var icon = toggleBtn.querySelector('.material-symbols-outlined');
+        if (icon) icon.textContent = isOpen ? 'close' : 'menu';
+        document.body.style.overflow = isOpen ? 'hidden' : '';
+    }
+
+    toggleBtn.addEventListener('click', function () {
+        setOpen(!document.body.classList.contains('sa-mobile-sidebar-open'));
+    });
+    backdrop.addEventListener('click', function () {
+        setOpen(false);
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && document.body.classList.contains('sa-mobile-sidebar-open')) {
+            setOpen(false);
+        }
+    });
+
+    function closeOnDesktop() {
+        if (mqDesktop.matches) setOpen(false);
+    }
+    if (typeof mqDesktop.addEventListener === 'function') {
+        mqDesktop.addEventListener('change', closeOnDesktop);
+    } else if (typeof mqDesktop.addListener === 'function') {
+        mqDesktop.addListener(closeOnDesktop);
+    }
+})();
+</script>
 </body></html>
