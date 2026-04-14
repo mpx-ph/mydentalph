@@ -80,8 +80,8 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
     </style>
 </head>
 <body class="bg-background-light font-body text-on-surface dark:bg-background-dark dark:text-surface antialiased">
-<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
-<div class="layout-container flex h-full grow flex-col">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-clip">
+<div class="layout-container flex min-h-screen flex-col">
 <?php include 'ProviderNavbar.php'; ?>
 <main class="mesh-gradient flex-1">
 <section class="py-12 md:py-16 text-center px-4 overflow-hidden reveal" data-reveal="section">
