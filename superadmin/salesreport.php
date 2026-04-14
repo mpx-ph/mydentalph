@@ -330,6 +330,7 @@ $selectedClinicId = isset($_GET['clinic']) ? trim((string) $_GET['clinic']) : ''
 if ($selectedClinicId === '') {
     $selectedClinicId = null;
 }
+$topClinicsSearch = isset($_GET['clinics_q']) ? trim((string) $_GET['clinics_q']) : '';
 $filterRangeStart = null;
 $filterRangeEnd = null;
 if ($selectedDateRange !== 'all') {
@@ -633,6 +634,10 @@ try {
         'ts'
     );
     $clinicsWhereSql = "ts.payment_status = 'paid'";
+    if ($topClinicsSearch !== '') {
+        $clinicsWhere[] = "t.clinic_name LIKE ?";
+        $clinicsParams[] = '%' . $topClinicsSearch . '%';
+    }
     if (!empty($clinicsWhere)) {
         $clinicsWhereSql .= " AND " . implode(" AND ", $clinicsWhere);
     }
@@ -877,10 +882,27 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 </div>
 <div class="px-4 sm:px-6 lg:px-10 py-5 border-b border-white/50">
-<div class="relative w-full max-w-md group">
+<form method="get" class="js-clinics-filter-form relative w-full max-w-md group">
+<input type="hidden" name="range" value="<?php echo htmlspecialchars($selectedDateRange, ENT_QUOTES, 'UTF-8'); ?>"/>
+<?php if ($selectedClinicId !== null): ?>
+<input type="hidden" name="clinic" value="<?php echo htmlspecialchars((string) $selectedClinicId, ENT_QUOTES, 'UTF-8'); ?>"/>
+<?php endif; ?>
+<?php if ($dailyPage > 1): ?>
+<input type="hidden" name="daily_page" value="<?php echo (int) $dailyPage; ?>"/>
+<?php endif; ?>
+<?php if ($txPage > 1): ?>
+<input type="hidden" name="tx_page" value="<?php echo (int) $txPage; ?>"/>
+<?php endif; ?>
+<?php if ($dailyFilterYear !== null): ?>
+<input type="hidden" name="daily_year" value="<?php echo (int) $dailyFilterYear; ?>"/>
+<?php endif; ?>
+<?php if ($dailyFilterMonth !== null): ?>
+<input type="hidden" name="daily_month" value="<?php echo (int) $dailyFilterMonth; ?>"/>
+<?php endif; ?>
 <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-xl">search</span>
-<input class="w-full bg-surface-container-low/50 border border-outline-variant/30 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 rounded-2xl pl-11 pr-4 py-2.5 text-sm transition-all placeholder:text-on-surface-variant/50" placeholder="Search top clinics..." type="text"/>
-</div>
+<input name="clinics_q" value="<?php echo htmlspecialchars($topClinicsSearch, ENT_QUOTES, 'UTF-8'); ?>" class="w-full bg-surface-container-low/50 border border-outline-variant/30 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 rounded-2xl pl-11 pr-20 py-2.5 text-sm transition-all placeholder:text-on-surface-variant/50" placeholder="Search top clinics..." type="search"/>
+<button type="submit" class="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-8 px-3 rounded-xl text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/25 hover:bg-primary/5 transition-colors">Search</button>
+</form>
 </div>
 <div class="overflow-x-auto">
 <table class="w-full text-left">
@@ -1222,7 +1244,10 @@ $amount = (float) ($tx['amount'] ?? 0);
         filterFormSelector: '.js-daily-filter-form',
         resetPageParam: 'daily_page'
     });
-    setupPanelPagination('top-clinics-panel', 'js-clinics-pagination-link');
+    setupPanelPagination('top-clinics-panel', 'js-clinics-pagination-link', {
+        filterFormSelector: '.js-clinics-filter-form',
+        resetPageParam: 'clinics_page'
+    });
     setupPanelPagination('transactions-panel', 'js-tx-pagination-link');
 })();
 </script>
