@@ -184,7 +184,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <p class="text-on-surface-variant text-xl leading-relaxed font-medium mb-10">
                         Centralize high-resolution 3D X-rays, treatment plans, and clinical notes in one high-velocity interface. The "Digital Curator" view provides an editorialized look at patient progress.
                     </p>
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+<div class="grid grid-cols-2 gap-6">
 <div class="p-6 rounded-[2rem] bg-surface-container-low border border-primary/10 transition-all hover:bg-white hover:shadow-xl group">
 <div class="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform">
 <span class="material-symbols-outlined">imagesmode</span>
@@ -256,13 +256,13 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <span class="material-symbols-outlined text-primary text-4xl mb-4 group-hover:scale-110 transition-transform">bar_chart</span>
 <p class="text-xl font-bold">Analytics</p>
 </div>
-<div class="h-40 rounded-3xl bg-primary-fixed flex flex-col justify-end p-8 transition-all hover:shadow-lg">
+<div class="min-h-[10rem] rounded-3xl bg-primary-fixed flex flex-col justify-end p-8 transition-all hover:shadow-lg">
 <span class="material-symbols-outlined text-primary text-4xl mb-4">campaign</span>
-<p class="text-xl font-bold text-on-primary-fixed-variant">Omnichannel</p>
+<p class="text-lg sm:text-xl font-bold text-on-primary-fixed-variant leading-tight break-words">Omnichannel</p>
 </div>
 </div>
-<div class="space-y-6 pt-12">
-<div class="h-40 rounded-3xl bg-surface-container-low border border-primary/10 flex flex-col justify-end p-8">
+<div class="space-y-6 pt-0 sm:pt-12">
+<div class="min-h-[10rem] rounded-3xl bg-surface-container-low border border-primary/10 flex flex-col justify-end p-8">
 <span class="material-symbols-outlined text-primary text-4xl mb-4">mark_email_unread</span>
 <p class="text-xl font-bold">Alerts</p>
 </div>
