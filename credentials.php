@@ -568,6 +568,7 @@ git push</textarea>
                     <ul>
                         <li>mydentalph.ct.ws Mobile view UI fixes (handled by MP)</li>
                         <li>Create account not yet included in customization</li>
+                        <li>HOTDOG FAMILY CLINIC ACCOUNT IS AUTO-LOGGING IN WHEN SISIG DENTALS WAS OPENED.</li>
                         <li>Approval of the Terms &amp; Conditions modal during plan purchases</li>
                         <li>Service discounts</li>
                         <li>Refunds (via PayMongo, if possible)</li>
