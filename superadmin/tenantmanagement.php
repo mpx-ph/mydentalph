@@ -649,8 +649,8 @@ require __DIR__ . '/superadmin_header.php';
 <!-- Main Data Table Container (Glassmorphism & Style from SCREEN_2) -->
 <div id="tenant-directory-panel" class="js-paginated-panel bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
 <!-- Table Controls -->
-<div class="px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 border-b border-white/50">
-<form method="get" action="tenantmanagement.php" class="js-tenant-filter-form flex items-center gap-3 sm:gap-4 flex-nowrap overflow-x-auto no-scrollbar w-full md:w-auto md:flex-wrap md:overflow-visible md:flex-1 min-w-0">
+<div class="px-5 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 border-b border-white/50">
+<form method="get" action="tenantmanagement.php" class="js-tenant-filter-form -mx-1 px-1 md:px-0 md:mx-0 flex items-center gap-3 sm:gap-4 flex-nowrap overflow-x-auto no-scrollbar w-full md:w-auto md:flex-wrap md:overflow-visible md:flex-1 min-w-0">
 <?php if ($filterBase['q'] !== ''): ?>
 <input type="hidden" name="q" value="<?php echo htmlspecialchars($filterBase['q'], ENT_QUOTES, 'UTF-8'); ?>"/>
 <?php endif; ?>
@@ -673,7 +673,7 @@ require __DIR__ . '/superadmin_header.php';
 <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xl">filter_list</span>
 </div>
 </form>
-<div class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60 md:text-right">
+<div class="pt-1 md:pt-0 px-1 md:px-0 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60 md:text-right">
                     Showing <span class="text-primary opacity-100"><?php echo $totalRows === 0 ? '0' : number_format($rangeStart) . '–' . number_format($rangeEnd); ?></span> of <?php echo number_format($totalRows); ?> tenants
                 </div>
 </div>
