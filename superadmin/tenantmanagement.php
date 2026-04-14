@@ -1086,17 +1086,17 @@ require __DIR__ . '/superadmin_header.php';
 (function () {
     if (!window.fetch || !window.DOMParser) return;
 
-    function setupPanelPagination(panelId, linkClass, stateKey) {
+    function setupPanelPagination(panelId, linkClass, stateKey, options) {
         var panel = document.getElementById(panelId);
         if (!panel) return;
         var isLoading = false;
+        var config = options || {};
 
         function loadPage(url, pushState) {
             if (isLoading) {
                 return;
             }
             isLoading = true;
-            var panelTopBefore = panel.getBoundingClientRect().top + window.pageYOffset;
             panel.classList.add('tm-loading');
             panel.setAttribute('aria-busy', 'true');
             fetch(url, {
@@ -1118,11 +1118,14 @@ require __DIR__ . '/superadmin_header.php';
                         panel.innerHTML = nextPanel.innerHTML;
                         panel.style.opacity = '';
                         panel.style.transform = '';
-                        // Keep viewport anchored to this panel to avoid jumpy page movement.
-                        var panelTopAfter = panel.getBoundingClientRect().top + window.pageYOffset;
-                        var scrollDelta = panelTopAfter - panelTopBefore;
-                        if (scrollDelta !== 0) {
-                            window.scrollTo(0, window.pageYOffset + scrollDelta);
+                        // For top panels with dynamic content height, keep paging movement predictable.
+                        if (config.scrollToPanelTop) {
+                            var headerOffset = typeof config.headerOffset === 'number' ? config.headerOffset : 96;
+                            var panelTop = panel.getBoundingClientRect().top + window.pageYOffset;
+                            window.scrollTo({
+                                top: Math.max(0, panelTop - headerOffset),
+                                behavior: 'smooth'
+                            });
                         }
                     });
                     if (pushState && window.history && typeof window.history.pushState === 'function') {
@@ -1155,8 +1158,13 @@ require __DIR__ . '/superadmin_header.php';
         });
     }
 
-    setupPanelPagination('tenant-directory-panel', 'js-tenant-pagination-link', 'tenantPage');
-    setupPanelPagination('workforce-panel', 'js-workforce-pagination-link', 'workforcePage');
+    setupPanelPagination('tenant-directory-panel', 'js-tenant-pagination-link', 'tenantPage', {
+        scrollToPanelTop: true,
+        headerOffset: 96
+    });
+    setupPanelPagination('workforce-panel', 'js-workforce-pagination-link', 'workforcePage', {
+        scrollToPanelTop: false
+    });
 })();
 </script>
 <script>
