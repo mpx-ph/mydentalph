@@ -79,6 +79,37 @@
             background: rgba(237, 244, 255, 0.7);
             border: 1px solid rgba(192, 199, 212, 0.45);
         }
+        @media (max-width: 1023px) {
+            #superadmin-sidebar {
+                transform: translateX(-100%);
+                transition: transform 220ms ease;
+                z-index: 60;
+            }
+            body.sa-mobile-sidebar-open #superadmin-sidebar {
+                transform: translateX(0);
+            }
+            .sa-top-header {
+                left: 0;
+                width: 100% !important;
+                padding-left: 4.25rem;
+                padding-right: 1rem;
+            }
+            #sa-mobile-sidebar-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(19, 28, 37, 0.45);
+                backdrop-filter: blur(2px);
+                -webkit-backdrop-filter: blur(2px);
+                z-index: 55;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 220ms ease;
+            }
+            body.sa-mobile-sidebar-open #sa-mobile-sidebar-backdrop {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
     </style>
 </head>
 <body class="mesh-bg font-body text-on-surface antialiased min-h-screen">
@@ -510,18 +541,22 @@ if ($txPage > 1) {
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
 ?>
-<main class="ml-64 pt-20 min-h-screen">
-<div class="pt-8 px-10 pb-16 space-y-10 relative">
+<button id="sa-mobile-sidebar-toggle" type="button" class="fixed top-6 left-4 z-[65] lg:hidden w-10 h-10 rounded-xl bg-white/90 border border-white text-primary shadow-md flex items-center justify-center" aria-controls="superadmin-sidebar" aria-expanded="false" aria-label="Open navigation menu">
+<span class="material-symbols-outlined text-[20px]">menu</span>
+</button>
+<div id="sa-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
+<main class="ml-0 lg:ml-64 pt-20 min-h-screen">
+<div class="pt-6 sm:pt-8 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-8 sm:space-y-10 relative">
 <!-- Decorative blur shape -->
 <div class="absolute top-40 right-10 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10"></div>
 <!-- Page Header -->
 <section class="flex flex-col md:flex-row md:items-end justify-between gap-4">
 <div>
-<h2 class="text-4xl font-extrabold font-headline tracking-tight text-on-surface">Sales Report</h2>
+<h2 class="text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Sales Report</h2>
 <p class="text-on-surface-variant mt-2 font-medium">View and analyze clinic sales performance across all branches.</p>
 </div>
-<div class="flex items-center gap-3">
-<button id="open-sales-export-modal" type="button" class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all">
+<div class="flex items-center gap-3 w-full md:w-auto">
+<button id="open-sales-export-modal" type="button" class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center justify-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all w-full sm:w-auto">
 <span class="material-symbols-outlined text-lg">picture_as_pdf</span>
                         PDF Export
                     </button>
@@ -529,7 +564,7 @@ require __DIR__ . '/superadmin_header.php';
 </section>
 <!-- Filters Bar (Glassmorphism) -->
 <div class="flex flex-wrap items-center gap-4">
-<div class="bg-white/60 backdrop-blur-md px-6 py-3 rounded-2xl editorial-shadow flex items-center gap-4">
+<div class="bg-white/60 backdrop-blur-md px-4 sm:px-6 py-3 rounded-2xl editorial-shadow flex items-center gap-3 sm:gap-4 w-full md:w-auto">
 <div class="flex items-center gap-2 text-primary font-bold bg-primary/5 px-3 py-1.5 rounded-xl text-xs">
 <span class="material-symbols-outlined text-[18px]">calendar_today</span>
                         Filter
@@ -603,7 +638,7 @@ require __DIR__ . '/superadmin_header.php';
 </section>
 <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
 <!-- Recent Daily Revenue -->
-<section class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] p-10 editorial-shadow overflow-hidden">
+<section class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] p-5 sm:p-7 lg:p-10 editorial-shadow overflow-hidden">
 <div class="flex items-start justify-between gap-4">
 <div>
 <h3 class="text-xl font-extrabold font-headline text-on-surface tracking-tight">Recent Daily Revenue</h3>
@@ -638,14 +673,14 @@ require __DIR__ . '/superadmin_header.php';
 </tbody>
 </table>
 </div>
-<div class="px-8 py-5 border-t border-white/50">
+<div class="px-4 sm:px-6 lg:px-8 py-5 border-t border-white/50">
 <?php salesreport_pagination_controls('daily_page', $dailyPage, $totalDailyPages, $dailyTotalItems, $dailyPerPage, count($recentDailyRevenue), $salesreportQueryParams); ?>
 </div>
 </section>
 
 <!-- Top Clinics Ranking -->
 <section class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
-<div class="px-10 py-8 flex items-center justify-between border-b border-white/50">
+<div class="px-4 sm:px-6 lg:px-10 py-8 flex items-center justify-between border-b border-white/50">
 <div>
 <h3 class="text-xl font-extrabold font-headline text-on-surface tracking-tight">Top Clinics</h3>
 <p class="text-sm text-on-surface-variant font-medium mt-1">Ranked by total paid subscription spend</p>
@@ -698,7 +733,7 @@ if ($rank === 1) {
 </tbody>
 </table>
 </div>
-<div class="px-10 py-5 border-t border-white/50">
+<div class="px-4 sm:px-6 lg:px-10 py-5 border-t border-white/50">
 <?php salesreport_pagination_controls('clinics_page', $clinicsPage, $clinicsTotalPages, $totalClinicsCount, $clinicsPerPage, count($topClinics), $salesreportQueryParams); ?>
 </div>
 </section>
@@ -706,7 +741,7 @@ if ($rank === 1) {
 
 <!-- Recent Transactions Table (Styled like SCREEN_4 table) -->
 <div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
-<div class="px-10 py-8 flex items-center justify-between border-b border-white/50">
+<div class="px-4 sm:px-6 lg:px-10 py-8 flex items-center justify-between border-b border-white/50">
 <h3 class="text-xl font-extrabold font-headline text-on-surface tracking-tight">Recent Transactions</h3>
 <button class="text-primary font-bold text-sm hover:underline">View All History</button>
 </div>
@@ -785,14 +820,14 @@ $amount = (float) ($tx['amount'] ?? 0);
 </tbody>
 </table>
 </div>
-<div class="px-10 py-5 border-t border-white/50">
+<div class="px-4 sm:px-6 lg:px-10 py-5 border-t border-white/50">
 <?php salesreport_pagination_controls('tx_page', $txPage, $txTotalPages, $totalTxCount, $txPerPage, count($recentTransactions), $salesreportQueryParams); ?>
 </div>
 </div>
 </div>
 </main>
 <!-- Floating Action Button (Matches SCREEN_4 aesthetic) -->
-<div class="fixed bottom-10 right-10 z-50">
+<div class="hidden sm:block fixed bottom-10 right-10 z-50">
 <button class="w-16 h-16 rounded-3xl bg-primary text-white primary-glow flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
 <span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">add</span>
 </button>
@@ -894,6 +929,44 @@ $amount = (float) ($tx['amount'] ?? 0);
 </form>
 </div>
 </div>
+<script>
+(function () {
+    var toggleBtn = document.getElementById('sa-mobile-sidebar-toggle');
+    var backdrop = document.getElementById('sa-mobile-sidebar-backdrop');
+    var mqDesktop = window.matchMedia('(min-width: 1024px)');
+    if (!toggleBtn || !backdrop) return;
+
+    function setOpen(isOpen) {
+        document.body.classList.toggle('sa-mobile-sidebar-open', isOpen);
+        toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        toggleBtn.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+        var icon = toggleBtn.querySelector('.material-symbols-outlined');
+        if (icon) icon.textContent = isOpen ? 'close' : 'menu';
+        document.body.style.overflow = isOpen ? 'hidden' : '';
+    }
+
+    toggleBtn.addEventListener('click', function () {
+        setOpen(!document.body.classList.contains('sa-mobile-sidebar-open'));
+    });
+    backdrop.addEventListener('click', function () {
+        setOpen(false);
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && document.body.classList.contains('sa-mobile-sidebar-open')) {
+            setOpen(false);
+        }
+    });
+
+    function closeOnDesktop() {
+        if (mqDesktop.matches) setOpen(false);
+    }
+    if (typeof mqDesktop.addEventListener === 'function') {
+        mqDesktop.addEventListener('change', closeOnDesktop);
+    } else if (typeof mqDesktop.addListener === 'function') {
+        mqDesktop.addListener(closeOnDesktop);
+    }
+})();
+</script>
 <script>
 (function () {
     var openBtn = document.getElementById('open-sales-export-modal');
