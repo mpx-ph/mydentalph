@@ -1,7 +1,7 @@
 <?php
 /**
  * MyDental SSO: if user is logged in on provider (ProviderTenantDashboard / ProviderLogin),
- * store token in session and redirect to clinic AdminLoginPage for auto-approval.
+ * store token in session and redirect to clinic Login.php for auto-approval.
  * Uses session only (no file write) to avoid permission issues on shared hosting.
  */
 error_reporting(E_ALL);
@@ -30,10 +30,10 @@ $_SESSION['mydental_sso_data'] = [
     'created' => time()
 ];
 
-// Redirect to clinic admin login
+// Redirect to unified clinic login
 $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $clinicBase = '/clinictemplate/';
-$clinicLoginUrl = $protocol . '://' . $host . $clinicBase . 'AdminLoginPage.php?mydental_sso=1';
+$clinicLoginUrl = $protocol . '://' . $host . $clinicBase . 'Login.php?mydental_sso=1';
 header('Location: ' . $clinicLoginUrl);
 exit;

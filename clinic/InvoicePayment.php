@@ -10,14 +10,14 @@ require_once __DIR__ . '/includes/auth.php';
 
 // Require login - exclusive to manager, doctor, and staff
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type'])) {
-    header('Location: ' . clinicPageUrl('AdminLoginPage.php'));
+    header('Location: ' . clinicPageUrl('Login.php'));
     exit;
 }
 
 // Check session timeout
 if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > SESSION_TIMEOUT)) {
     logout();
-    header('Location: ' . clinicPageUrl('AdminLoginPage.php'));
+    header('Location: ' . clinicPageUrl('Login.php'));
     exit;
 }
 
@@ -27,7 +27,7 @@ $_SESSION['last_activity'] = time();
 // Verify user type is valid (manager, doctor, or staff only)
 $userType = $_SESSION['user_type'] ?? null;
 if (!in_array($userType, ['manager', 'doctor', 'staff'])) {
-    header('Location: ' . clinicPageUrl('AdminLoginPage.php'));
+    header('Location: ' . clinicPageUrl('Login.php'));
     exit;
 }
 

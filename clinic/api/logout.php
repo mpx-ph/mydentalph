@@ -47,10 +47,10 @@ if ($userType === 'manager' || $userType === 'admin' || $userType === 'doctor' |
             $redirectUrl = $origin . '/clinic/Login.php';
         }
     } elseif ($adminClinicSlug !== '' && preg_match('/^[a-z0-9\-]+$/', $adminClinicSlug)) {
-        $redirectUrl = $origin . '/' . rawurlencode(strtolower($adminClinicSlug)) . '/AdminLoginPage.php';
+        $redirectUrl = $origin . '/' . rawurlencode(strtolower($adminClinicSlug)) . '/login';
     } else {
         // Fallback to legacy /clinic path
-        $redirectUrl = $origin . '/clinic/AdminLoginPage.php';
+        $redirectUrl = $origin . '/clinic/Login.php';
     }
 } else {
     if ($clientClinicSlug !== '' && preg_match('/^[a-z0-9\-]+$/', $clientClinicSlug)) {

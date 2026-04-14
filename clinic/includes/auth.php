@@ -23,7 +23,7 @@ require_once __DIR__ . '/tenant.php';
  * Called from:
  * - loginUser() after password login (clinic api/login.php — patient + staff/admin forms)
  * - ProviderLogin.php (provider portal)
- * - AdminLoginPage.php MyDental SSO (after this fix)
+ * - Login.php MyDental SSO (after this fix)
  *
  * Not updated: users who have never logged in; failed logins; superadmin-only flows that bypass tbl_users.
  */
@@ -113,18 +113,18 @@ function isLoggedIn($type) {
 }
 
 /**
- * Require admin role (manager, doctor, or staff). Redirect to AdminLoginPage if not.
+ * Require admin role (manager, doctor, or staff). Redirect to Login.php if not.
  */
 function requireAdmin() {
     if (empty($_SESSION['user_id'])) {
-        header('Location: ' . clinicPageUrl('AdminLoginPage.php'));
+        header('Location: ' . clinicPageUrl('Login.php'));
         exit;
     }
     // All clinic admin pages must be tenant-scoped
     requireClinicTenantId();
     $allowed = ['manager', 'doctor', 'staff', 'admin'];
     if (!in_array($_SESSION['user_type'], $allowed)) {
-        header('Location: ' . clinicPageUrl('AdminLoginPage.php'));
+        header('Location: ' . clinicPageUrl('Login.php'));
         exit;
     }
 }
@@ -138,7 +138,7 @@ function requireLogin($type) {
         if ($type === 'client') {
             header('Location: ' . BASE_URL . 'Login.php');
         } else {
-            header('Location: ' . clinicPageUrl('AdminLoginPage.php'));
+            header('Location: ' . clinicPageUrl('Login.php'));
         }
         exit;
     }
@@ -149,7 +149,7 @@ function requireLogin($type) {
         if ($type === 'client') {
             header('Location: ' . BASE_URL . 'Login.php');
         } else {
-            header('Location: ' . clinicPageUrl('AdminLoginPage.php'));
+            header('Location: ' . clinicPageUrl('Login.php'));
         }
         exit;
     }

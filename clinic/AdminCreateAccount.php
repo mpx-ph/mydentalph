@@ -34,7 +34,7 @@ if (isLoggedIn('manager')) {
     exit();
 }
 
-$adminLoginUrl = clinicPageUrl('AdminLoginPage.php');
+$adminLoginUrl = clinicPageUrl('Login.php');
 ?>
 <!DOCTYPE html>
 <html lang="en"><head>

@@ -53,6 +53,72 @@ $staffRedirectAfterLogin = ($clinicSlugForFetch !== '' && preg_match('/^[a-z0-9\
     ? (rtrim(PROVIDER_BASE_URL, '/') . '/' . rawurlencode($slugLower) . '/StaffDashboard.php')
     : (($clinicSlugForFetch !== '') ? (BASE_URL . 'StaffDashboard.php?clinic_slug=' . rawurlencode($clinicSlugForFetch)) : (BASE_URL . 'StaffDashboard.php'));
 
+// MyDental SSO compatibility (migrated from AdminLoginPage.php).
+$ssoData = null;
+$ttl = 120;
+if (!empty($_GET['mydental_sso']) && !empty($_SESSION['mydental_sso_data'])) {
+    $candidate = $_SESSION['mydental_sso_data'];
+    if (!empty($candidate['email']) && isset($candidate['created']) && (time() - (int) $candidate['created']) <= $ttl) {
+        $ssoData = $candidate;
+    }
+    unset($_SESSION['mydental_sso_data']);
+}
+if ($ssoData !== null) {
+    try {
+        $pdo = getDBConnection();
+        $email = trim((string) ($ssoData['email'] ?? ''));
+        $tenantId = trim((string) ($ssoData['tenant_id'] ?? ''));
+        if ($email !== '' && $tenantId !== '') {
+            $tenantStmt = $pdo->prepare("SELECT clinic_slug FROM tbl_tenants WHERE tenant_id = ? LIMIT 1");
+            $tenantStmt->execute([$tenantId]);
+            $tenantRow = $tenantStmt->fetch(PDO::FETCH_ASSOC);
+            $tenantSlug = isset($tenantRow['clinic_slug']) ? strtolower(trim((string) $tenantRow['clinic_slug'])) : '';
+
+            $_SESSION['tenant_id'] = $tenantId;
+            if ($tenantSlug !== '' && preg_match('/^[a-z0-9\-]+$/', $tenantSlug)) {
+                $_SESSION['tenant_slug'] = $tenantSlug;
+                $_SESSION['public_tenant_slug'] = $tenantSlug;
+            }
+            $_SESSION['public_tenant_id'] = $tenantId;
+
+            $stmt = $pdo->prepare("
+                SELECT user_id, email, username, full_name, role
+                FROM tbl_users
+                WHERE LOWER(TRIM(COALESCE(email, ''))) = LOWER(TRIM(?))
+                  AND tenant_id = ?
+                  AND role IN ('manager', 'dentist', 'staff', 'tenant_owner')
+                  AND status = 'active'
+                LIMIT 1
+            ");
+            $stmt->execute([$email, $tenantId]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($user) {
+                $sessionType = _authRoleToUserType((string) ($user['role'] ?? ''));
+                if (in_array($sessionType, ['manager', 'doctor', 'staff', 'admin'], true)) {
+                    $_SESSION['user_id'] = (string) $user['user_id'];
+                    $_SESSION['user_name'] = trim((string) ($user['full_name'] ?? $user['username'] ?? $email));
+                    $_SESSION['user_email'] = (string) ($user['email'] ?? $email);
+                    $_SESSION['user_type'] = $sessionType;
+                    $_SESSION['user_role'] = (string) ($user['role'] ?? '');
+                    $_SESSION['clinic_id'] = $tenantId;
+                    $_SESSION['account_kind'] = 'staff';
+
+                    auth_update_user_last_activity($pdo, (string) $user['user_id']);
+                    header('Location: ' . clinicPageUrl('StaffDashboard.php'));
+                    exit;
+                }
+            }
+        }
+        header('Location: ' . $loginPageUrl . '?mydental_error=1');
+        exit;
+    } catch (Throwable $e) {
+        error_log('Login.php MyDental SSO: ' . $e->getMessage());
+        header('Location: ' . $loginPageUrl . '?mydental_error=1');
+        exit;
+    }
+}
+
 // URL for "Create new account" respecting clinic slug routing
 // .htaccess maps /{slug}/register -> clinic/RegisterClient.php?clinic_slug={slug}
 // For slug-based access (e.g. mydental.ct.ws/{slug}/login), we must build URLs from the domain root,
@@ -326,6 +392,9 @@ document.addEventListener('DOMContentLoaded', function() {
         errorMessage.classList.add('hidden');
         showSuccess('Password reset successful. You can now sign in with your new password.');
         try { history.replaceState(null, '', window.location.pathname); } catch (e) {}
+    }
+    if (urlParams.get('mydental_error') === '1') {
+        showError('MyDental auto-login was not completed. Please sign in with your clinic credentials.');
     }
     
     // Password visibility toggle

@@ -34,7 +34,7 @@ try {
         'created' => time()
     ];
 
-    $adminLogin = function_exists('clinicPageUrl') ? clinicPageUrl('AdminLoginPage.php') : (BASE_URL . 'AdminLoginPage.php');
+    $adminLogin = function_exists('clinicPageUrl') ? clinicPageUrl('Login.php') : (BASE_URL . 'Login.php');
     header('Location: ' . $adminLogin . '?mydental_sso=1');
     exit;
 } catch (Exception $e) {
@@ -42,7 +42,7 @@ try {
     $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
     $script = isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '';
     $base = defined('BASE_URL') ? BASE_URL : ('https://' . $host . '/' . (dirname($script) === '/' ? '' : trim(dirname($script), '/') . '/'));
-    $adminLogin = function_exists('clinicPageUrl') ? clinicPageUrl('AdminLoginPage.php') : ($base . 'AdminLoginPage.php');
+    $adminLogin = function_exists('clinicPageUrl') ? clinicPageUrl('Login.php') : ($base . 'Login.php');
     header('Location: ' . $adminLogin . '?mydental_error=1');
     exit;
 }
