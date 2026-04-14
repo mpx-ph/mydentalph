@@ -567,6 +567,7 @@ git push</textarea>
                 <div class="card-priority__body">
                     <ul>
                         <li>mydentalph.ct.ws Mobile view UI fixes (handled by MP)</li>
+                        <li>Create account not yet included in customization</li>
                         <li>Approval of the Terms &amp; Conditions modal during plan purchases</li>
                         <li>Service discounts</li>
                         <li>Refunds (via PayMongo, if possible)</li>
