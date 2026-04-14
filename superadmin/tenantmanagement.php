@@ -678,7 +678,94 @@ require __DIR__ . '/superadmin_header.php';
                 </div>
 </div>
 <!-- Table Content -->
-<div class="overflow-x-auto">
+<div class="md:hidden px-4 sm:px-6 py-5 space-y-4">
+<?php if ($dbError !== null): ?>
+<div class="rounded-2xl border border-error/20 bg-error/10 px-4 py-5 text-sm text-error font-medium">Unable to load tenants.</div>
+<?php elseif (empty($tenants)): ?>
+<div class="rounded-2xl border border-outline-variant/20 bg-white/70 px-4 py-5 text-sm text-on-surface-variant font-medium">No tenants match your filters.</div>
+<?php else: ?>
+<?php foreach ($tenants as $row):
+    $st = (string) ($row['subscription_status'] ?? '');
+    $ownerName = trim((string) ($row['owner_name'] ?? ''));
+    $displayName = $ownerName !== '' ? $ownerName : '—';
+    $email = trim((string) ($row['owner_email'] ?? ''));
+    $photo = trim((string) ($row['owner_photo'] ?? ''));
+    $planName = trim((string) ($row['plan_name'] ?? ''));
+    if ($st === 'active') {
+        $badge = '<span class="px-3 py-1.5 bg-green-50 text-green-600 rounded-xl text-[10px] font-bold uppercase tracking-wider">Active</span>';
+    } elseif ($st === 'inactive') {
+        $badge = '<span class="px-3 py-1.5 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-bold uppercase tracking-wider">Inactive</span>';
+    } elseif ($st === 'suspended') {
+        $badge = '<span class="px-3 py-1.5 bg-error-container/20 text-error rounded-xl text-[10px] font-bold uppercase tracking-wider">Suspended</span>';
+    } else {
+        $badge = '<span class="px-3 py-1.5 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-bold uppercase tracking-wider">' . htmlspecialchars($st, ENT_QUOTES, 'UTF-8') . '</span>';
+    }
+    $canPublish = $st !== 'active';
+    $canUnpublish = $st === 'active';
+    $canSuspend = $st !== 'suspended';
+    ?>
+<article class="rounded-2xl bg-white/80 border border-white/70 shadow-sm p-4 space-y-4">
+<div class="flex items-start gap-3">
+<?php if ($photo !== ''): ?>
+<img alt="" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" src="<?php echo htmlspecialchars($photo, ENT_QUOTES, 'UTF-8'); ?>"/>
+<?php else: ?>
+<div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-primary text-xs font-bold border-2 border-white shadow-sm"><?php echo htmlspecialchars(tenant_tm_initials($displayName === '—' ? (string) $row['clinic_name'] : $displayName), ENT_QUOTES, 'UTF-8'); ?></div>
+<?php endif; ?>
+<div class="min-w-0">
+<p class="text-sm font-bold text-on-surface leading-tight"><?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-[11px] text-on-surface-variant font-medium truncate"><?php echo $email !== '' ? htmlspecialchars($email, ENT_QUOTES, 'UTF-8') : '—'; ?></p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3 text-xs">
+<div>
+<p class="text-on-surface-variant/70 uppercase tracking-wide font-bold text-[10px]">Clinic</p>
+<button
+    type="button"
+    class="js-open-tenant-details text-sm font-semibold text-primary hover:underline text-left"
+    data-tenant-id="<?php echo htmlspecialchars((string) $row['tenant_id'], ENT_QUOTES, 'UTF-8'); ?>"
+>
+<?php echo htmlspecialchars((string) ($row['clinic_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+</button>
+</div>
+<div>
+<p class="text-on-surface-variant/70 uppercase tracking-wide font-bold text-[10px]">Status</p>
+<div class="mt-1"><?php echo $badge; ?></div>
+</div>
+<div>
+<p class="text-on-surface-variant/70 uppercase tracking-wide font-bold text-[10px]">Subscription</p>
+<?php if ($planName !== ''): ?>
+<span class="mt-1 inline-flex items-center gap-1.5 text-xs font-bold text-primary">
+<span class="material-symbols-outlined text-base">verified</span>
+<?php echo htmlspecialchars($planName, ENT_QUOTES, 'UTF-8'); ?>
+</span>
+<?php else: ?>
+<span class="mt-1 inline-block text-xs font-medium text-on-surface-variant/60">—</span>
+<?php endif; ?>
+</div>
+<div>
+<p class="text-on-surface-variant/70 uppercase tracking-wide font-bold text-[10px]">Last Activity</p>
+<p class="mt-1 text-xs font-medium text-on-surface-variant"><?php echo tenant_tm_last_activity($row['owner_last_login'] ?? null); ?></p>
+</div>
+</div>
+<div class="flex flex-wrap gap-2 pt-1">
+<form method="post" action="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page, 'wf_page' => $workforcePage]), ENT_QUOTES, 'UTF-8'); ?>" class="inline">
+<input type="hidden" name="tenant_id" value="<?php echo htmlspecialchars((string) $row['tenant_id'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<button type="submit" name="tenant_action" value="publish" <?php echo $canPublish ? '' : 'disabled'; ?> class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wide border border-outline-variant/30 <?php echo $canPublish ? 'text-primary hover:bg-primary/10' : 'opacity-40 cursor-not-allowed'; ?>"><span class="material-symbols-outlined text-base">publish</span> Publish</button>
+</form>
+<form method="post" action="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page, 'wf_page' => $workforcePage]), ENT_QUOTES, 'UTF-8'); ?>" class="inline">
+<input type="hidden" name="tenant_id" value="<?php echo htmlspecialchars((string) $row['tenant_id'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<button type="submit" name="tenant_action" value="unpublish" <?php echo $canUnpublish ? '' : 'disabled'; ?> class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wide border border-outline-variant/30 <?php echo $canUnpublish ? 'text-on-surface-variant hover:bg-white/80' : 'opacity-40 cursor-not-allowed'; ?>"><span class="material-symbols-outlined text-base">unpublished</span> Unpublish</button>
+</form>
+<form method="post" action="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page, 'wf_page' => $workforcePage]), ENT_QUOTES, 'UTF-8'); ?>" class="inline">
+<input type="hidden" name="tenant_id" value="<?php echo htmlspecialchars((string) $row['tenant_id'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<button type="submit" name="tenant_action" value="suspend" <?php echo $canSuspend ? '' : 'disabled'; ?> class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wide border border-outline-variant/30 <?php echo $canSuspend ? 'text-error hover:bg-error/10' : 'opacity-40 cursor-not-allowed'; ?>"><span class="material-symbols-outlined text-base">block</span> Suspend</button>
+</form>
+</div>
+</article>
+<?php endforeach; ?>
+<?php endif; ?>
+</div>
+<div class="hidden md:block overflow-x-auto">
 <table class="w-full text-left">
 <thead>
 <tr class="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/60">
@@ -813,7 +900,49 @@ require __DIR__ . '/superadmin_header.php';
                     Showing <?php echo $totalWorkforceRows === 0 ? '0' : number_format($workforceRangeStart) . '–' . number_format($workforceRangeEnd); ?> of <?php echo number_format($totalWorkforceRows); ?>
                 </span>
 </div>
-<div class="overflow-x-auto">
+<div class="md:hidden px-4 sm:px-6 py-5 space-y-4">
+<?php if ($dbError !== null): ?>
+<div class="rounded-2xl border border-error/20 bg-error/10 px-4 py-5 text-sm text-error font-medium">Unable to load clinic workforce data.</div>
+<?php elseif (empty($tenantWorkforce)): ?>
+<div class="rounded-2xl border border-outline-variant/20 bg-white/70 px-4 py-5 text-sm text-on-surface-variant font-medium">No clinic workforce records found.</div>
+<?php else: ?>
+<?php foreach ($tenantWorkforce as $wf): ?>
+<article class="rounded-2xl bg-white/80 border border-white/70 shadow-sm p-4 space-y-4">
+<div>
+<p class="text-[10px] uppercase tracking-wide font-bold text-on-surface-variant/70">Tenant ID</p>
+<p class="text-sm font-semibold text-on-surface"><?php echo htmlspecialchars((string) $wf['tenant_id'], ENT_QUOTES, 'UTF-8'); ?></p>
+</div>
+<div>
+<p class="text-[10px] uppercase tracking-wide font-bold text-on-surface-variant/70">Clinic Name</p>
+<button
+    type="button"
+    class="js-open-tenant-details text-sm font-semibold text-primary hover:underline text-left"
+    data-tenant-id="<?php echo htmlspecialchars((string) $wf['tenant_id'], ENT_QUOTES, 'UTF-8'); ?>"
+>
+<?php echo htmlspecialchars((string) $wf['clinic_name'], ENT_QUOTES, 'UTF-8'); ?>
+</button>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div>
+<p class="text-[10px] uppercase tracking-wide font-bold text-on-surface-variant/70 mb-1">Staff Count</p>
+<span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50 text-primary text-xs font-bold">
+<span class="material-symbols-outlined text-base">groups</span>
+<?php echo number_format((int) $wf['staff_count']); ?>
+</span>
+</div>
+<div>
+<p class="text-[10px] uppercase tracking-wide font-bold text-on-surface-variant/70 mb-1">Doctor Count</p>
+<span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold">
+<span class="material-symbols-outlined text-base">stethoscope</span>
+<?php echo number_format((int) $wf['doctor_count']); ?>
+</span>
+</div>
+</div>
+</article>
+<?php endforeach; ?>
+<?php endif; ?>
+</div>
+<div class="hidden md:block overflow-x-auto">
 <table class="w-full text-left">
 <thead>
 <tr class="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/60">
