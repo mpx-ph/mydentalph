@@ -1096,6 +1096,7 @@ require __DIR__ . '/superadmin_header.php';
                 return;
             }
             isLoading = true;
+            var panelTopBefore = panel.getBoundingClientRect().top + window.pageYOffset;
             panel.classList.add('tm-loading');
             panel.setAttribute('aria-busy', 'true');
             fetch(url, {
@@ -1117,6 +1118,12 @@ require __DIR__ . '/superadmin_header.php';
                         panel.innerHTML = nextPanel.innerHTML;
                         panel.style.opacity = '';
                         panel.style.transform = '';
+                        // Keep viewport anchored to this panel to avoid jumpy page movement.
+                        var panelTopAfter = panel.getBoundingClientRect().top + window.pageYOffset;
+                        var scrollDelta = panelTopAfter - panelTopBefore;
+                        if (scrollDelta !== 0) {
+                            window.scrollTo(0, window.pageYOffset + scrollDelta);
+                        }
                     });
                     if (pushState && window.history && typeof window.history.pushState === 'function') {
                         var state = {};
