@@ -933,7 +933,51 @@ require __DIR__ . '/superadmin_header.php';
 <button type="submit" class="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-8 px-3 rounded-xl text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/25 hover:bg-primary/5 transition-colors">Search</button>
 </form>
 </div>
-<div class="overflow-x-auto">
+<div class="md:hidden px-4 sm:px-6 py-5 space-y-4">
+<?php if (empty($topClinics)): ?>
+<div class="rounded-2xl border border-outline-variant/20 bg-white/70 px-4 py-5 text-sm text-on-surface-variant font-medium">No paid subscription data found.</div>
+<?php else: ?>
+<?php foreach ($topClinics as $idx => $clinic): ?>
+<?php
+$tenantIdForRank = trim((string) ($clinic['tenant_id'] ?? ''));
+$rank = isset($topClinicRanksByTenant[$tenantIdForRank])
+    ? (int) $topClinicRanksByTenant[$tenantIdForRank]
+    : (($clinicsPage - 1) * $clinicsPerPage + $idx + 1);
+$rankBadgeClasses = 'bg-surface-container-high text-on-surface-variant';
+if ($rank === 1) {
+    $rankBadgeClasses = 'bg-amber-50 text-amber-600';
+} elseif ($rank === 2) {
+    $rankBadgeClasses = 'bg-slate-100 text-slate-600';
+} elseif ($rank === 3) {
+    $rankBadgeClasses = 'bg-orange-50 text-orange-600';
+}
+?>
+<article class="rounded-2xl bg-white/80 border border-white/70 shadow-sm p-4 space-y-4">
+<div class="flex items-center justify-between gap-3">
+<p class="text-[10px] uppercase tracking-wide font-bold text-on-surface-variant/70">Rank</p>
+<span class="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider <?php echo htmlspecialchars($rankBadgeClasses); ?>">
+<?php echo htmlspecialchars((string) $rank); ?>
+</span>
+</div>
+<div>
+<p class="text-[10px] uppercase tracking-wide font-bold text-on-surface-variant/70">Clinic</p>
+<p class="mt-1 text-sm font-bold text-on-surface"><?php echo htmlspecialchars((string) ($clinic['clinic_name'] ?? 'Unknown Clinic')); ?></p>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div>
+<p class="text-[10px] uppercase tracking-wide font-bold text-on-surface-variant/70">Paid Transactions</p>
+<p class="mt-1 text-sm font-bold text-on-surface-variant"><?php echo htmlspecialchars(number_format((int) ($clinic['paid_transactions'] ?? 0))); ?></p>
+</div>
+<div>
+<p class="text-[10px] uppercase tracking-wide font-bold text-on-surface-variant/70">Total Spend</p>
+<p class="mt-1 text-sm font-black text-on-surface"><?php echo htmlspecialchars(salesreport_format_money_exact((float) ($clinic['total_spend'] ?? 0))); ?></p>
+</div>
+</div>
+</article>
+<?php endforeach; ?>
+<?php endif; ?>
+</div>
+<div class="hidden md:block overflow-x-auto">
 <table class="w-full text-left">
 <thead>
 <tr class="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/60">
@@ -991,7 +1035,74 @@ if ($rank === 1) {
 <h3 class="text-xl font-extrabold font-headline text-on-surface tracking-tight">Recent Transactions</h3>
 <button class="text-primary font-bold text-sm hover:underline">View All History</button>
 </div>
-<div class="overflow-x-auto">
+<div class="md:hidden px-4 sm:px-6 py-5 space-y-4">
+<?php if (empty($recentTransactions)): ?>
+<div class="rounded-2xl border border-outline-variant/20 bg-white/70 px-4 py-5 text-sm text-on-surface-variant font-medium">No recent transactions found.</div>
+<?php else: ?>
+<?php foreach ($recentTransactions as $tx): ?>
+<?php
+$status = (string) ($tx['status'] ?? '');
+$badgeLabel = 'Unknown';
+$badgeClasses = 'bg-on-surface-variant/5 text-on-surface-variant';
+$dotClasses = 'bg-on-surface-variant';
+if ($status === 'paid') {
+    $badgeLabel = 'Paid';
+    $badgeClasses = 'bg-green-50 text-green-600';
+    $dotClasses = 'bg-green-600';
+} elseif ($status === 'pending') {
+    $badgeLabel = 'Pending';
+    $badgeClasses = 'bg-amber-50 text-amber-600';
+    $dotClasses = 'bg-amber-600';
+} elseif ($status === 'failed' || $status === 'cancelled') {
+    $badgeLabel = 'Cancelled';
+    $badgeClasses = 'bg-error/10 text-error';
+    $dotClasses = 'bg-error';
+} else {
+    $badgeLabel = ucfirst($status);
+}
+
+$clinicName = (string) ($tx['clinic_name'] ?? 'Unknown Clinic');
+$serviceType = (string) ($tx['service_type'] ?? 'N/A');
+$amount = (float) ($tx['amount'] ?? 0);
+?>
+<article class="rounded-2xl bg-white/80 border border-white/70 shadow-sm p-4 space-y-4">
+<div>
+<p class="text-[10px] uppercase tracking-wide font-bold text-on-surface-variant/70">Date &amp; Time</p>
+<p class="mt-1 text-sm font-bold text-on-surface-variant"><?php echo htmlspecialchars(salesreport_format_datetime_for_table((string) ($tx['payment_date'] ?? ''))); ?></p>
+</div>
+<div>
+<p class="text-[10px] uppercase tracking-wide font-bold text-on-surface-variant/70">Tenant/Clinic</p>
+<div class="mt-1 flex items-center gap-2">
+<span class="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center text-primary border border-white">
+<span class="material-symbols-outlined text-base">domain</span>
+</span>
+<span class="text-sm font-bold text-on-surface"><?php echo htmlspecialchars($clinicName); ?></span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div>
+<p class="text-[10px] uppercase tracking-wide font-bold text-on-surface-variant/70">Service</p>
+<span class="mt-1 inline-flex px-3 py-1.5 bg-primary/5 text-primary rounded-xl text-[10px] font-bold uppercase tracking-wider"><?php echo htmlspecialchars($serviceType); ?></span>
+</div>
+<div>
+<p class="text-[10px] uppercase tracking-wide font-bold text-on-surface-variant/70">Amount</p>
+<p class="mt-1 text-sm font-black text-on-surface"><?php echo htmlspecialchars(salesreport_format_money_exact($amount)); ?></p>
+</div>
+</div>
+<div class="flex items-center justify-between gap-3 pt-1">
+<span class="px-3 py-1.5 <?php echo htmlspecialchars($badgeClasses); ?> rounded-xl text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full <?php echo htmlspecialchars($dotClasses); ?>"></span>
+<?php echo htmlspecialchars($badgeLabel); ?>
+</span>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</div>
+</article>
+<?php endforeach; ?>
+<?php endif; ?>
+</div>
+<div class="hidden md:block overflow-x-auto">
 <table class="w-full text-left">
 <thead>
 <tr class="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/60">
