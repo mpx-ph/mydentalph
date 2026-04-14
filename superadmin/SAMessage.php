@@ -225,7 +225,7 @@ $superadmin_header_center = '';
                 transition: left 220ms ease, background-color 220ms ease, color 220ms ease;
             }
             body.sa-mobile-sidebar-open #sa-mobile-sidebar-toggle {
-                left: calc(16rem - 3.25rem);
+                left: 0.75rem;
                 background: rgba(255, 255, 255, 0.98);
                 color: #0066ff;
             }
