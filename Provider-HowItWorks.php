@@ -250,19 +250,19 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 <!-- Feature 5 & 6: Insights & Comms -->
 <div class="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
 <div class="lg:w-1/2 order-2 lg:order-1">
-<div class="grid grid-cols-2 gap-6">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
 <div class="space-y-6">
 <div class="aspect-square rounded-3xl bg-surface-variant flex flex-col justify-end p-8 border border-on-surface/5 group hover:border-primary/30 transition-all">
 <span class="material-symbols-outlined text-primary text-4xl mb-4 group-hover:scale-110 transition-transform">bar_chart</span>
 <p class="text-xl font-bold">Analytics</p>
 </div>
-<div class="min-h-40 rounded-3xl bg-primary-fixed flex flex-col justify-end p-8 transition-all hover:shadow-lg">
+<div class="h-40 rounded-3xl bg-primary-fixed flex flex-col justify-end p-8 transition-all hover:shadow-lg">
 <span class="material-symbols-outlined text-primary text-4xl mb-4">campaign</span>
-<p class="text-xl font-bold text-on-primary-fixed-variant leading-tight">Omnichannel</p>
+<p class="text-xl font-bold text-on-primary-fixed-variant">Omnichannel</p>
 </div>
 </div>
 <div class="space-y-6 pt-12">
-<div class="min-h-40 rounded-3xl bg-surface-container-low border border-primary/10 flex flex-col justify-end p-8">
+<div class="h-40 rounded-3xl bg-surface-container-low border border-primary/10 flex flex-col justify-end p-8">
 <span class="material-symbols-outlined text-primary text-4xl mb-4">mark_email_unread</span>
 <p class="text-xl font-bold">Alerts</p>
 </div>
