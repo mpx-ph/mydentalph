@@ -449,6 +449,37 @@ function dashboard_format_int(int $n): string
             z-index: 50;
             transition: opacity 0.12s ease;
         }
+        @media (max-width: 1023px) {
+            #superadmin-sidebar {
+                transform: translateX(-100%);
+                transition: transform 220ms ease;
+                z-index: 60;
+            }
+            body.sa-mobile-sidebar-open #superadmin-sidebar {
+                transform: translateX(0);
+            }
+            .sa-top-header {
+                left: 0;
+                width: 100% !important;
+                padding-left: 4.25rem;
+                padding-right: 1rem;
+            }
+            #sa-mobile-sidebar-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(19, 28, 37, 0.45);
+                backdrop-filter: blur(2px);
+                -webkit-backdrop-filter: blur(2px);
+                z-index: 55;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 220ms ease;
+            }
+            body.sa-mobile-sidebar-open #sa-mobile-sidebar-backdrop {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
     </style>
 </head>
 <body class="mesh-bg font-body text-on-surface selection:bg-primary/10 min-h-screen">
@@ -459,29 +490,33 @@ $superadmin_header_center = '<div id="dashboard-header-title-slot" class="flex i
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
 ?>
+<button id="sa-mobile-sidebar-toggle" type="button" class="fixed top-6 left-4 z-[65] lg:hidden w-10 h-10 rounded-xl bg-white/90 border border-white text-primary shadow-md flex items-center justify-center" aria-controls="superadmin-sidebar" aria-expanded="false" aria-label="Open navigation menu">
+<span class="material-symbols-outlined text-[20px]">menu</span>
+</button>
+<div id="sa-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
 <!-- Main Content Area -->
-<main class="ml-64 pt-20 min-h-screen">
+<main class="ml-0 lg:ml-64 pt-20 min-h-screen">
 <!-- Page Canvas -->
-<div class="pt-8 px-10 pb-16 space-y-10 relative">
+<div class="pt-6 sm:pt-8 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-8 sm:space-y-10 relative">
 <!-- Decorative blur shape -->
 <div class="absolute top-40 right-10 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10"></div>
 <!-- Header Section -->
 <section class="flex flex-col md:flex-row md:items-end justify-between gap-4">
 <div>
 <div id="dashboard-analytics-title-sentinel" class="h-0"></div>
-<h2 id="dashboard-analytics-title" class="text-4xl font-extrabold font-headline tracking-tight text-on-surface">Dashboard Analytics</h2>
+<h2 id="dashboard-analytics-title" class="text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Dashboard Analytics</h2>
 <p class="text-on-surface-variant mt-2 font-medium">Real-time performance metrics for Clinical Precision ecosystem.</p>
 </div>
-<div class="flex items-center gap-3">
-<form method="get" action="<?php echo htmlspecialchars(basename($_SERVER['SCRIPT_NAME'] ?? 'dashboard.php'), ENT_QUOTES, 'UTF-8'); ?>" class="flex items-center gap-3">
+<div class="flex items-center gap-3 flex-wrap w-full md:w-auto">
+<form method="get" action="<?php echo htmlspecialchars(basename($_SERVER['SCRIPT_NAME'] ?? 'dashboard.php'), ENT_QUOTES, 'UTF-8'); ?>" class="flex items-center gap-3 w-full sm:w-auto">
 <label for="dashboard-period" class="sr-only">Select period</label>
-<select id="dashboard-period" name="period" onchange="this.form.submit()" class="bg-white/80 backdrop-blur-md text-primary px-5 py-2.5 rounded-2xl text-sm font-bold border border-white hover:bg-white transition-all shadow-sm cursor-pointer">
+<select id="dashboard-period" name="period" onchange="this.form.submit()" class="bg-white/80 backdrop-blur-md text-primary px-5 py-2.5 rounded-2xl text-sm font-bold border border-white hover:bg-white transition-all shadow-sm cursor-pointer w-full sm:w-auto">
 <?php foreach ($filter_labels as $period_key => $period_label): ?>
 <option value="<?php echo htmlspecialchars($period_key, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $filter_period === $period_key ? ' selected' : ''; ?>><?php echo htmlspecialchars($period_label, ENT_QUOTES, 'UTF-8'); ?></option>
 <?php endforeach; ?>
 </select>
 </form>
-<button id="open-dashboard-export-modal-secondary" type="button" class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all">
+<button id="open-dashboard-export-modal-secondary" type="button" class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center justify-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all w-full sm:w-auto">
 <span class="material-symbols-outlined text-lg">picture_as_pdf</span>
                         Export Report
                     </button>
@@ -555,15 +590,15 @@ require __DIR__ . '/superadmin_header.php';
 <!-- Revenue Analytics & AI Widget -->
 <div class="col-span-12 lg:col-span-8 space-y-8">
 <!-- Revenue Analytics Line Chart -->
-<div class="bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow relative overflow-hidden">
-<div class="absolute top-0 right-0 p-8">
+<div class="bg-white/70 backdrop-blur-xl p-5 sm:p-6 lg:p-8 rounded-[2rem] editorial-shadow relative overflow-hidden">
+<div class="relative md:absolute top-0 right-0 p-0 md:p-8 mb-4 md:mb-0">
 <div class="flex bg-surface-container-low/50 p-1.5 rounded-2xl border border-white/40" id="revenue-period-toggle" role="tablist">
 <button type="button" data-period="monthly" class="revenue-period-btn px-5 py-2 text-xs font-bold rounded-xl bg-white shadow-sm text-primary">Monthly</button>
 <button type="button" data-period="weekly" class="revenue-period-btn px-5 py-2 text-xs font-bold rounded-xl text-on-surface-variant hover:text-on-surface">Weekly</button>
 <button type="button" data-period="yearly" class="revenue-period-btn px-5 py-2 text-xs font-bold rounded-xl text-on-surface-variant hover:text-on-surface">Yearly</button>
 </div>
 </div>
-<div class="mb-10 pr-44">
+<div class="mb-10 pr-0 md:pr-44">
 <h4 class="text-xl font-extrabold font-headline">Revenue Analytics</h4>
 <p class="text-sm text-on-surface-variant font-medium">Paid subscription revenue (<span class="whitespace-nowrap">amount_paid</span>) by <span id="revenue-period-label">month</span></p>
 </div>
@@ -850,7 +885,7 @@ require __DIR__ . '/superadmin_header.php';
 </script>
 <div class="grid grid-cols-1 gap-8">
 <!-- Tenant Growth Bar Chart (new patients per month) -->
-<div class="bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow">
+<div class="bg-white/70 backdrop-blur-xl p-5 sm:p-6 lg:p-8 rounded-[2rem] editorial-shadow">
 <h4 class="text-lg font-extrabold font-headline mb-1">Tenant Growth</h4>
 <p class="text-xs text-on-surface-variant font-medium mb-6">New patient registrations per month</p>
 <div class="flex items-end justify-between h-40 px-2 gap-1">
@@ -890,7 +925,7 @@ for ($ti = 0; $ti < $tg_n; $ti++) {
 <!-- Side Panels: Distribution & Activity -->
 <div class="col-span-12 lg:col-span-4 space-y-8">
 <!-- Activity Distribution Donut -->
-<div class="bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow">
+<div class="bg-white/70 backdrop-blur-xl p-5 sm:p-6 lg:p-8 rounded-[2rem] editorial-shadow">
 <h4 class="text-lg font-extrabold font-headline mb-6">Clinic Activity</h4>
 <div class="relative w-48 h-48 mx-auto flex items-center justify-center">
 <?php
@@ -958,7 +993,7 @@ $clinic_active_inactive_dash_str = number_format($clinic_active_dash + $clinic_i
 </div>
 </div>
 <!-- Top Performing Clinics Horizontal Bar Chart (revenue) -->
-<div class="bg-white/70 backdrop-blur-xl p-8 rounded-[2rem] editorial-shadow">
+<div class="bg-white/70 backdrop-blur-xl p-5 sm:p-6 lg:p-8 rounded-[2rem] editorial-shadow">
 <h4 class="text-lg font-extrabold font-headline mb-1">Top Performing</h4>
 <p class="text-xs text-on-surface-variant font-medium mb-6">Total paid subscription revenue</p>
 <div class="space-y-6">
@@ -1149,6 +1184,47 @@ $tp_pct = max(0, min(100, $tp_pct));
             document.addEventListener('DOMContentLoaded', initClinicActivityHover);
         } else {
             initClinicActivityHover();
+        }
+    })();
+</script>
+<script>
+    (function () {
+        var toggleBtn = document.getElementById('sa-mobile-sidebar-toggle');
+        var backdrop = document.getElementById('sa-mobile-sidebar-backdrop');
+        var mqDesktop = window.matchMedia('(min-width: 1024px)');
+        if (!toggleBtn || !backdrop) return;
+
+        function setOpen(isOpen) {
+            document.body.classList.toggle('sa-mobile-sidebar-open', isOpen);
+            toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            toggleBtn.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+            var icon = toggleBtn.querySelector('.material-symbols-outlined');
+            if (icon) icon.textContent = isOpen ? 'close' : 'menu';
+            document.body.style.overflow = isOpen ? 'hidden' : '';
+        }
+
+        toggleBtn.addEventListener('click', function () {
+            var isOpen = document.body.classList.contains('sa-mobile-sidebar-open');
+            setOpen(!isOpen);
+        });
+
+        backdrop.addEventListener('click', function () {
+            setOpen(false);
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && document.body.classList.contains('sa-mobile-sidebar-open')) {
+                setOpen(false);
+            }
+        });
+
+        function closeOnDesktop() {
+            if (mqDesktop.matches) setOpen(false);
+        }
+        if (typeof mqDesktop.addEventListener === 'function') {
+            mqDesktop.addEventListener('change', closeOnDesktop);
+        } else if (typeof mqDesktop.addListener === 'function') {
+            mqDesktop.addListener(closeOnDesktop);
         }
     })();
 </script>
