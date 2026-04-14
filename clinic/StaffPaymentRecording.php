@@ -62,26 +62,6 @@ function staff_payment_recording_financial_status(float $totalCost, float $total
     return 'UNPAID';
 }
 
-function staff_payment_recording_payment_track(array $paymentRow): string
-{
-    $notes = strtolower((string) ($paymentRow['notes'] ?? ''));
-    if (strpos($notes, '[paytrack:regular]') !== false) {
-        return 'regular';
-    }
-    if (strpos($notes, '[paytrack:installment]') !== false) {
-        return 'installment';
-    }
-    $installmentNumber = (int) ($paymentRow['installment_number'] ?? 0);
-    if ($installmentNumber > 0) {
-        return 'installment';
-    }
-    $paymentType = strtolower(trim((string) ($paymentRow['payment_type'] ?? '')));
-    if ($paymentType === 'balancepayment') {
-        return 'installment';
-    }
-    return 'regular';
-}
-
 function staff_payment_recording_normalize_service_category(string $category): string
 {
     $raw = strtolower(trim($category));
@@ -691,10 +671,6 @@ $installmentsTableName = null;
 $supportsServiceEnableInstallmentColumn = false;
 $supportsPaymentsInstallmentNumberColumn = false;
 $formSelectedBookingId = trim((string) ($_POST['selected_booking_id'] ?? ''));
-$formSelectedPaymentTrack = trim((string) ($_POST['selected_payment_track'] ?? ''));
-if (!in_array($formSelectedPaymentTrack, ['regular', 'installment'], true)) {
-    $formSelectedPaymentTrack = 'regular';
-}
 $formInstallmentFlow = trim((string) ($_POST['installment_flow'] ?? 'regular'));
 $formInstallmentPayMode = trim((string) ($_POST['installment_pay_mode'] ?? 'full'));
 $formInstallmentSlotCount = (int) ($_POST['installment_slot_count'] ?? 1);
@@ -1037,11 +1013,6 @@ try {
         } else {
         $patientQuery = trim((string) ($_POST['patient_query'] ?? ''));
         $selectedBookingId = trim((string) ($_POST['selected_booking_id'] ?? ''));
-        $selectedPaymentTrack = trim((string) ($_POST['selected_payment_track'] ?? 'regular'));
-        if (!in_array($selectedPaymentTrack, ['regular', 'installment'], true)) {
-            $selectedPaymentTrack = 'regular';
-        }
-        $formSelectedPaymentTrack = $selectedPaymentTrack;
         $amount = (float) ($_POST['amount'] ?? 0);
         $paymentDate = trim((string) ($_POST['payment_date'] ?? date('Y-m-d')));
         $notes = trim((string) ($_POST['notes'] ?? ''));
@@ -1069,8 +1040,6 @@ try {
             $bookingSql = "
                 SELECT
                     a.booking_id,
-                    COALESCE(a.id, 0) AS appointment_id,
-                    COALESCE(a.treatment_id, '') AS treatment_id,
                     a.patient_id,
                     COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
                     COALESCE(a.service_description, '') AS service_description,
@@ -1081,67 +1050,16 @@ try {
                    AND py.booking_id = a.booking_id
                 WHERE a.tenant_id = ?
                   AND a.booking_id = ?
-                GROUP BY a.booking_id, a.id, a.treatment_id, a.patient_id, a.total_treatment_cost, a.service_description
+                GROUP BY a.booking_id, a.patient_id, a.total_treatment_cost, a.service_description
                 LIMIT 1
             ";
             $bookingStmt = $pdo->prepare($bookingSql);
             $bookingStmt->execute([$tenantId, $selectedBookingId]);
             $bookingRow = $bookingStmt->fetch(PDO::FETCH_ASSOC);
             $patientId = trim((string) ($bookingRow['patient_id'] ?? ''));
-            $appointmentIdForBooking = (int) ($bookingRow['appointment_id'] ?? 0);
-            $treatmentIdForBooking = trim((string) ($bookingRow['treatment_id'] ?? ''));
             $totalCost = (float) ($bookingRow['total_treatment_cost'] ?? 0);
             $totalPaid = (float) ($bookingRow['total_paid'] ?? 0);
             $pendingBalance = max(0, $totalCost - $totalPaid);
-            if ($selectedPaymentTrack === 'regular') {
-                $addonSql = "
-                    SELECT COALESCE(SUM(aps.price), 0) AS regular_addon_total
-                    FROM tbl_appointment_services aps
-                    LEFT JOIN tbl_services sv
-                      ON sv.tenant_id = aps.tenant_id
-                     AND sv.service_id = aps.service_id
-                    WHERE aps.tenant_id = ?
-                      AND aps.booking_id = ?
-                      AND COALESCE(aps.is_original, 1) = 0
-                      AND COALESCE(sv.enable_installment, 0) = 0
-                ";
-                $addonStmt = $pdo->prepare($addonSql);
-                $addonStmt->execute([$tenantId, $selectedBookingId]);
-                $addonTotal = (float) ($addonStmt->fetch(PDO::FETCH_ASSOC)['regular_addon_total'] ?? 0);
-
-                $regularPaidSql = "
-                    SELECT COALESCE(SUM(py.amount), 0) AS paid_regular
-                    FROM tbl_payments py
-                    WHERE py.tenant_id = ?
-                      AND py.booking_id = ?
-                      AND py.status = 'completed'
-                      AND LOWER(COALESCE(py.notes, '')) LIKE '%[paytrack:regular]%'
-                ";
-                $regularPaidStmt = $pdo->prepare($regularPaidSql);
-                $regularPaidStmt->execute([$tenantId, $selectedBookingId]);
-                $regularPaid = (float) ($regularPaidStmt->fetch(PDO::FETCH_ASSOC)['paid_regular'] ?? 0);
-                $pendingBalance = max(0, $addonTotal - $regularPaid);
-            } elseif ($selectedPaymentTrack === 'installment') {
-                $installmentClauses = ["LOWER(COALESCE(py.notes, '')) LIKE '%[paytrack:installment]%'"];
-                if ($supportsPaymentsInstallmentNumberColumn) {
-                    $installmentClauses[] = 'COALESCE(py.installment_number, 0) > 0';
-                }
-                if ($supportsPaymentTypeColumn) {
-                    $installmentClauses[] = "COALESCE(py.payment_type, '') = 'balancepayment'";
-                }
-                $installmentPaidSql = "
-                    SELECT COALESCE(SUM(py.amount), 0) AS paid_installment
-                    FROM tbl_payments py
-                    WHERE py.tenant_id = ?
-                      AND py.booking_id = ?
-                      AND py.status = 'completed'
-                      AND (" . implode(' OR ', $installmentClauses) . ")
-                ";
-                $installmentPaidStmt = $pdo->prepare($installmentPaidSql);
-                $installmentPaidStmt->execute([$tenantId, $selectedBookingId]);
-                $installmentPaid = (float) ($installmentPaidStmt->fetch(PDO::FETCH_ASSOC)['paid_installment'] ?? 0);
-                $pendingBalance = max(0, $totalCost - $installmentPaid);
-            }
 
             if ($patientId === '') {
                 $paymentError = 'Selected transaction was not found.';
@@ -1230,14 +1148,6 @@ try {
                             $insertColumns[] = 'is_original';
                             $insertValues[] = '0';
                         }
-                        if (in_array('appointment_id', $appointmentServiceColumns, true)) {
-                            $insertColumns[] = 'appointment_id';
-                            $insertValues[] = '?';
-                        }
-                        if (in_array('treatment_id', $appointmentServiceColumns, true)) {
-                            $insertColumns[] = 'treatment_id';
-                            $insertValues[] = '?';
-                        }
                         if (in_array('added_at', $appointmentServiceColumns, true)) {
                             $insertColumns[] = 'added_at';
                             $insertValues[] = 'NOW()';
@@ -1257,20 +1167,13 @@ try {
                             }
                             $serviceName = trim((string) ($service['service_name'] ?? 'Additional Service'));
                             $servicePrice = (float) ($service['price'] ?? 0);
-                            $insertParams = [
+                            $insertServiceStmt->execute([
                                 $tenantId,
                                 $selectedBookingId,
                                 $serviceId,
                                 $serviceName,
                                 $servicePrice,
-                            ];
-                            if (in_array('appointment_id', $appointmentServiceColumns, true)) {
-                                $insertParams[] = $appointmentIdForBooking > 0 ? $appointmentIdForBooking : null;
-                            }
-                            if (in_array('treatment_id', $appointmentServiceColumns, true)) {
-                                $insertParams[] = $treatmentIdForBooking !== '' ? $treatmentIdForBooking : null;
-                            }
-                            $insertServiceStmt->execute($insertParams);
+                            ]);
                             $existingLookup[$serviceId] = true;
                             $addedCost += $servicePrice;
                             $addedServiceLabels[] = $serviceName . ' (₱' . number_format($servicePrice, 2) . ')';
@@ -1295,9 +1198,6 @@ try {
                     }
 
                     if ($runSchedulePayment) {
-                        if ($selectedPaymentTrack !== 'installment') {
-                            throw new RuntimeException('Installment flow can only be used under the Installment transaction toggle.');
-                        }
                         require_once __DIR__ . '/includes/staff_installment_helpers.php';
 
                         $unpaid = [];
@@ -1356,7 +1256,7 @@ try {
                             $instLabels[] = '#' . (int) $tp['installment_number'];
                         }
                         $noteExtra = '[Installments: ' . implode(', ', $instLabels) . ']';
-                        $composedNotes = trim(($notes !== '' ? ($notes . ' ') : '') . $noteExtra . ' [PAYTRACK:INSTALLMENT]');
+                        $composedNotes = trim(($notes !== '' ? ($notes . ' ') : '') . $noteExtra);
 
                         $usePayMongo = in_array($method, ['gcash', 'bank_transfer', 'credit_card'], true);
                         $recordStatus = $usePayMongo ? 'pending' : 'completed';
@@ -1650,7 +1550,6 @@ try {
                         $formPaymentDate = date('Y-m-d');
                         $formNotes = '';
                         $formServiceIds = [];
-                        $formSelectedPaymentTrack = 'regular';
                         $formInstallmentFlow = 'regular';
                         $formInstallmentPayMode = 'full';
                         $formInstallmentSlotCount = 1;
@@ -1691,7 +1590,7 @@ try {
                             $amount,
                             $method,
                             $paymentDate . ' ' . date('H:i:s'),
-                            trim(($notes !== '' ? $notes . ' ' : '') . ($selectedPaymentTrack === 'installment' ? '[PAYTRACK:INSTALLMENT]' : '[PAYTRACK:REGULAR]')) ?: null,
+                            $notes !== '' ? $notes : null,
                             $recordStatus,
                             $userId !== '' ? $userId : null,
                             $paymentType,
@@ -1719,7 +1618,7 @@ try {
                             $amount,
                             $method,
                             $paymentDate . ' ' . date('H:i:s'),
-                            trim(($notes !== '' ? $notes . ' ' : '') . ($selectedPaymentTrack === 'installment' ? '[PAYTRACK:INSTALLMENT]' : '[PAYTRACK:REGULAR]')) ?: null,
+                            $notes !== '' ? $notes : null,
                             $recordStatus,
                             $userId !== '' ? $userId : null,
                         ];
@@ -1859,7 +1758,6 @@ try {
                     $formPaymentDate = date('Y-m-d');
                     $formNotes = '';
                     $formServiceIds = [];
-                    $formSelectedPaymentTrack = 'regular';
                     $formInstallmentFlow = 'regular';
                     $formInstallmentPayMode = 'full';
                     $formInstallmentSlotCount = 1;
@@ -2116,8 +2014,6 @@ try {
                         aps.service_id,
                         aps.service_name,
                         aps.price,
-                        COALESCE(aps.is_original, 1) AS is_original,
-                        COALESCE(sv.enable_installment, 0) AS enable_installment,
                         COALESCE(NULLIF(sv.category, ''), '') AS category
                     FROM tbl_appointment_services aps
                     LEFT JOIN tbl_services sv
@@ -2141,51 +2037,8 @@ try {
                         'service_id' => trim((string) ($brow['service_id'] ?? '')),
                         'service_name' => trim((string) ($brow['service_name'] ?? '')),
                         'category' => trim((string) ($brow['category'] ?? '')),
-                        'is_original' => (int) ($brow['is_original'] ?? 1),
-                        'enable_installment' => (int) ($brow['enable_installment'] ?? 0),
                         'price' => round((float) ($brow['price'] ?? 0), 2),
                     ];
-                }
-            }
-        }
-        $paidTotalsByBooking = [];
-        if (false && $transactionCandidates !== []) {
-            $bookingKeys = [];
-            foreach ($transactionCandidates as $candRow) {
-                $bb = trim((string) ($candRow['booking_id'] ?? ''));
-                if ($bb !== '') {
-                    $bookingKeys[$bb] = true;
-                }
-            }
-            $bookingList = array_keys($bookingKeys);
-            if ($bookingList !== []) {
-                $paidPlaceholders = implode(',', array_fill(0, count($bookingList), '?'));
-                $paymentTypeSelect = $supportsPaymentTypeColumn ? "COALESCE(py.payment_type, '') AS payment_type," : "'' AS payment_type,";
-                $installmentNumSelect = $supportsPaymentsInstallmentNumberColumn ? "COALESCE(py.installment_number, 0) AS installment_number," : "0 AS installment_number,";
-                $paidSql = "
-                    SELECT
-                        py.booking_id,
-                        COALESCE(py.amount, 0) AS amount,
-                        {$paymentTypeSelect}
-                        {$installmentNumSelect}
-                        COALESCE(py.notes, '') AS notes
-                    FROM tbl_payments py
-                    WHERE py.tenant_id = ?
-                      AND py.status = 'completed'
-                      AND py.booking_id IN ({$paidPlaceholders})
-                ";
-                $paidStmt = $pdo->prepare($paidSql);
-                $paidStmt->execute(array_merge([$tenantId], $bookingList));
-                foreach ($paidStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $prow) {
-                    $bb = trim((string) ($prow['booking_id'] ?? ''));
-                    if ($bb === '') {
-                        continue;
-                    }
-                    if (!isset($paidTotalsByBooking[$bb])) {
-                        $paidTotalsByBooking[$bb] = ['installment' => 0.0, 'regular' => 0.0];
-                    }
-                    $track = staff_payment_recording_payment_track($prow);
-                    $paidTotalsByBooking[$bb][$track] += (float) ($prow['amount'] ?? 0);
                 }
             }
         }
@@ -2194,19 +2047,6 @@ try {
             $b = trim((string) ($candRow['booking_id'] ?? ''));
             $transactionCandidates[$ic]['installment_schedule'] = $scheduleByBooking[$b] ?? [];
             $transactionCandidates[$ic]['booked_services'] = $bookedServicesByBooking[$b] ?? [];
-            $bookedServices = $bookedServicesByBooking[$b] ?? [];
-            $regularAddonTotal = 0.0;
-            foreach ($bookedServices as $svc) {
-                $isOriginal = (int) ($svc['is_original'] ?? 1) === 1;
-                $isInstallmentSvc = (int) ($svc['enable_installment'] ?? 0) === 1;
-                if (!$isOriginal && !$isInstallmentSvc) {
-                    $regularAddonTotal += (float) ($svc['price'] ?? 0);
-                }
-            }
-            $paidTracks = $paidTotalsByBooking[$b] ?? ['installment' => 0.0, 'regular' => 0.0];
-            $transactionCandidates[$ic]['regular_addon_total'] = round($regularAddonTotal, 2);
-            $transactionCandidates[$ic]['paid_installment'] = round((float) ($paidTracks['installment'] ?? 0), 2);
-            $transactionCandidates[$ic]['paid_regular'] = round((float) ($paidTracks['regular'] ?? 0), 2);
         }
         if ($transactionCandidates !== []) {
             $collapsedByTreatment = [];
@@ -2855,7 +2695,6 @@ try {
 <input name="installment_flow" id="installment_flow_input" type="hidden" value="<?php echo htmlspecialchars($formInstallmentFlow !== '' ? $formInstallmentFlow : 'regular', ENT_QUOTES, 'UTF-8'); ?>"/>
 <input name="installment_pay_mode" id="installment_pay_mode_input" type="hidden" value="<?php echo htmlspecialchars($formInstallmentPayMode !== '' ? $formInstallmentPayMode : 'full', ENT_QUOTES, 'UTF-8'); ?>"/>
 <input name="installment_slot_count" id="installment_slot_count_input" type="hidden" value="<?php echo (int) max(1, $formInstallmentSlotCount); ?>"/>
-<input name="selected_payment_track" id="selected_payment_track_input" type="hidden" value="<?php echo htmlspecialchars($formSelectedPaymentTrack, ENT_QUOTES, 'UTF-8'); ?>"/>
 <div class="hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/[0.06] to-slate-50/80 p-6 space-y-4" id="record-payment-status-panel">
 <div class="flex items-center justify-between gap-3 flex-wrap">
 <div>
@@ -3055,7 +2894,6 @@ This booking is installment-priced, but no installment schedule rows exist in th
         const transactionTypeInstallmentBtn = document.getElementById('transaction-type-installment-btn');
         let transactionTypeFilter = 'regular';
         const selectedBookingIdInput = document.getElementById('selected_booking_id_input');
-        const selectedPaymentTrackInput = document.getElementById('selected_payment_track_input');
         const patientQueryInput = document.getElementById('patient_query_input');
         const selectedTransactionLabel = document.getElementById('selected_transaction_label');
         const transactionForm = modal ? modal.querySelector('form[method="post"]') : null;
@@ -3104,9 +2942,6 @@ This booking is installment-priced, but no installment schedule rows exist in th
             selectedTransaction = null;
             if (selectedBookingIdInput) {
                 selectedBookingIdInput.value = '';
-            }
-            if (selectedPaymentTrackInput) {
-                selectedPaymentTrackInput.value = 'regular';
             }
             if (patientQueryInput) {
                 patientQueryInput.value = '';
@@ -3551,33 +3386,25 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
         }
 
-        const normalizeTransactions = [];
-        transactionCandidates.forEach((item) => {
+        const normalizeTransactions = transactionCandidates.map((item) => {
             const totalCost = Number(item.total_treatment_cost || 0);
+            const totalPaid = Number(item.total_paid || 0);
+            const pendingBalance = Math.max(0, totalCost - totalPaid);
             const firstName = String(item.patient_first_name || '').trim();
             const lastName = String(item.patient_last_name || '').trim();
             const patientName = (firstName + ' ' + lastName).trim() || 'Unknown Patient';
             const rawPlan = item.is_installment_plan;
             const isInstallmentPlan = rawPlan === true || rawPlan === 1 || rawPlan === '1' || String(rawPlan) === '1';
             const treatmentId = String(item.treatment_id || '').trim();
+            const recordRef = (isInstallmentPlan && treatmentId !== '')
+                ? ('Treatment ' + treatmentId)
+                : ('Booking ' + (item.booking_id || '-'));
+            const label = patientName + ' | ' + recordRef + ' | Pending ₱' + pendingBalance.toFixed(2);
             const bookedServicesRaw = Array.isArray(item.booked_services) ? item.booked_services : [];
             const booked_service_ids = bookedServicesRaw
                 .map((s) => String((s && s.service_id) || '').trim())
                 .filter((id) => id !== '');
-            const installmentSchedule = Array.isArray(item.installment_schedule) ? item.installment_schedule : [];
-            const paidInstallment = Number(item.paid_installment || 0);
-            const paidRegular = Number(item.paid_regular || 0);
-            const regularAddonTotal = Number(item.regular_addon_total || 0);
-            const installmentPendingFromSchedule = installmentSchedule
-                .filter((r) => !installmentStatusPaid(r.status))
-                .reduce((sum, r) => sum + Number(r.amount_due || 0), 0);
-            const installmentPending = isInstallmentPlan
-                ? Math.max(0, installmentPendingFromSchedule > 0 ? installmentPendingFromSchedule : (totalCost - paidInstallment))
-                : 0;
-            const regularPending = isInstallmentPlan
-                ? Math.max(0, regularAddonTotal - paidRegular)
-                : Math.max(0, totalCost - paidRegular);
-            const base = {
+            return {
                 booking_id: String(item.booking_id || ''),
                 treatment_id: treatmentId,
                 patient_id: String(item.patient_id || ''),
@@ -3587,31 +3414,15 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 appointment_date: String(item.appointment_date || ''),
                 appointment_time: String(item.appointment_time || ''),
                 total_cost: totalCost,
+                total_paid: totalPaid,
+                pending_balance: pendingBalance,
                 is_installment_plan: isInstallmentPlan,
+                installment_schedule: Array.isArray(item.installment_schedule) ? item.installment_schedule : [],
                 booked_services: bookedServicesRaw,
-                booked_service_ids: booked_service_ids
+                booked_service_ids: booked_service_ids,
+                label: label
             };
-            if (isInstallmentPlan && installmentPending > 0) {
-                normalizeTransactions.push(Object.assign({}, base, {
-                    selector_key: base.booking_id + '::installment',
-                    payment_track: 'installment',
-                    total_paid: paidInstallment,
-                    pending_balance: installmentPending,
-                    installment_schedule: installmentSchedule,
-                    label: patientName + ' | Treatment ' + (treatmentId || '-') + ' | Installment Pending ₱' + installmentPending.toFixed(2)
-                }));
-            }
-            if (regularPending > 0) {
-                normalizeTransactions.push(Object.assign({}, base, {
-                    selector_key: base.booking_id + '::regular',
-                    payment_track: 'regular',
-                    total_paid: paidRegular,
-                    pending_balance: regularPending,
-                    installment_schedule: [],
-                    label: patientName + ' | Booking ' + (base.booking_id || '-') + ' | Regular Pending ₱' + regularPending.toFixed(2)
-                }));
-            }
-        });
+        }).filter((item) => item.pending_balance > 0);
 
         function getRecordTypeMeta(item) {
             const rawType = String(item && item.visit_type ? item.visit_type : '').toLowerCase();
@@ -3629,9 +3440,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
 
         function filterTransactionsByType(list) {
             if (transactionTypeFilter === 'installment') {
-                return list.filter((item) => item.payment_track === 'installment');
+                return list.filter((item) => item.is_installment_plan);
             }
-            return list.filter((item) => item.payment_track === 'regular');
+            return list.filter((item) => !item.is_installment_plan);
         }
 
         function filterTransactionsByKeyword(list, keyword) {
@@ -3768,14 +3579,14 @@ This booking is installment-priced, but no installment schedule rows exist in th
                         '<div class="rounded-2xl border border-slate-200 p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">' +
                             '<div class="min-w-0">' +
                                 '<p class="text-sm font-extrabold text-slate-900 truncate">' + escapeHtml(item.patient_name) + '</p>' +
-                                '<p class="text-xs font-semibold text-slate-500 mt-1">Patient ID: ' + escapeHtml(item.patient_id) + ' | ' + (item.payment_track === 'installment' && item.treatment_id ? ('Treatment ID: ' + escapeHtml(item.treatment_id)) : ('Booking ID: ' + escapeHtml(item.booking_id))) + '</p>' +
+                                '<p class="text-xs font-semibold text-slate-500 mt-1">Patient ID: ' + escapeHtml(item.patient_id) + ' | ' + (item.is_installment_plan && item.treatment_id ? ('Treatment ID: ' + escapeHtml(item.treatment_id)) : ('Booking ID: ' + escapeHtml(item.booking_id))) + '</p>' +
                                 '<p class="text-xs font-semibold text-slate-500 mt-1">Services: ' + svcLine + '</p>' +
                                 '<p class="text-xs font-semibold text-slate-500 mt-1">Date: ' + escapeHtml(item.appointment_date || '-') + ' ' + escapeHtml(item.appointment_time || '') + '</p>' +
                                 '<p class="text-xs font-semibold text-slate-700 mt-1">Total: ₱' + item.total_cost.toFixed(2) + ' | Paid: ₱' + item.total_paid.toFixed(2) + ' | Pending: ₱' + item.pending_balance.toFixed(2) + '</p>' +
                             '</div>' +
                             '<div class="shrink-0 flex items-center gap-2">' +
                                 '<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ' + typeMeta.cls + '">' + escapeHtml(typeMeta.label) + '</span>' +
-                                '<button type="button" data-action="select-transaction" data-selector-key="' + escapeHtml(item.selector_key || '') + '" class="px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-widest hover:bg-primary/90 transition-colors">Select</button>' +
+                                '<button type="button" data-action="select-transaction" data-booking-id="' + escapeHtml(item.booking_id) + '" class="px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-widest hover:bg-primary/90 transition-colors">Select</button>' +
                             '</div>' +
                         '</div>' +
                     '</div>';
@@ -4163,16 +3974,13 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 if (!btn) {
                     return;
                 }
-                const selectorKey = String(btn.getAttribute('data-selector-key') || '');
-                const selected = normalizeTransactions.find((item) => item.selector_key === selectorKey);
+                const bookingId = String(btn.getAttribute('data-booking-id') || '');
+                const selected = normalizeTransactions.find((item) => item.booking_id === bookingId);
                 if (!selected) {
                     return;
                 }
                 if (selectedBookingIdInput) {
                     selectedBookingIdInput.value = selected.booking_id;
-                }
-                if (selectedPaymentTrackInput) {
-                    selectedPaymentTrackInput.value = selected.payment_track === 'installment' ? 'installment' : 'regular';
                 }
                 if (patientQueryInput) {
                     patientQueryInput.value = selected.label;
@@ -4183,7 +3991,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 selectedTransaction = selected;
                 updateAdditionalServicesVisibility();
                 if (amountInput) {
-                    if (selected.payment_track === 'installment') {
+                    if (selected.is_installment_plan) {
                         syncMainAndSelectorFilter('installment');
                     } else {
                         syncMainAndSelectorFilter('regular');
@@ -4235,16 +4043,15 @@ This booking is installment-priced, but no installment schedule rows exist in th
 
         (function restoreSelectionAfterPost() {
             const bid = String(selectedBookingIdInput ? selectedBookingIdInput.value : '').trim();
-            const track = String(selectedPaymentTrackInput ? selectedPaymentTrackInput.value : 'regular').trim();
             if (!bid) {
                 updateClearBookingButtonVisibility();
                 return;
             }
-            const pre = normalizeTransactions.find((x) => x.booking_id === bid && x.payment_track === (track === 'installment' ? 'installment' : 'regular'));
+            const pre = normalizeTransactions.find((x) => x.booking_id === bid);
             if (pre) {
                 selectedTransaction = pre;
                 updateAdditionalServicesVisibility();
-                if (pre.payment_track === 'installment') {
+                if (pre.is_installment_plan) {
                     syncMainAndSelectorFilter('installment');
                 } else {
                     syncMainAndSelectorFilter('regular');
