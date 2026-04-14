@@ -104,10 +104,17 @@ function tenant_tm_clinic_website_url(?string $clinic_slug): string {
     return rtrim($scheme . '://' . $host, '/') . '/' . rawurlencode($slug);
 }
 
+$tenantSearch = isset($_GET['tenant_q']) ? trim((string) $_GET['tenant_q']) : '';
+if ($tenantSearch === '' && isset($_GET['q'])) {
+    $tenantSearch = trim((string) $_GET['q']);
+}
+$workforceSearch = isset($_GET['wf_q']) ? trim((string) $_GET['wf_q']) : '';
+
 $filterBase = [
     'status' => isset($_GET['status']) ? (string) $_GET['status'] : '',
     'plan' => isset($_GET['plan']) ? (string) $_GET['plan'] : '',
-    'q' => isset($_GET['q']) ? trim((string) $_GET['q']) : '',
+    'tenant_q' => $tenantSearch,
+    'wf_q' => $workforceSearch,
 ];
 $page = max(1, (int) (isset($_GET['page']) ? $_GET['page'] : 1));
 $workforcePage = max(1, (int) (isset($_GET['wf_page']) ? $_GET['wf_page'] : 1));
@@ -310,10 +317,10 @@ try {
         $params[] = (int) $filterBase['plan'];
     }
 
-    if ($filterBase['q'] !== '') {
-        $like = '%' . $filterBase['q'] . '%';
-        $where[] = '(t.clinic_name LIKE ? OR t.tenant_id LIKE ? OR u.full_name LIKE ? OR u.email LIKE ?)';
-        array_push($params, $like, $like, $like, $like);
+    if ($filterBase['tenant_q'] !== '') {
+        $like = '%' . $filterBase['tenant_q'] . '%';
+        $where[] = 't.clinic_name LIKE ?';
+        $params[] = $like;
     }
 
     $whereSql = implode(' AND ', $where);
@@ -357,15 +364,24 @@ try {
     $lstmt->execute($params);
     $tenants = $lstmt->fetchAll(PDO::FETCH_ASSOC);
 
+    $workforceWhere = ['1=1'];
+    $workforceParams = [];
+    if ($filterBase['wf_q'] !== '') {
+        $wfLike = '%' . $filterBase['wf_q'] . '%';
+        $workforceWhere[] = '(t.clinic_name LIKE ? OR t.tenant_id LIKE ?)';
+        $workforceParams[] = $wfLike;
+        $workforceParams[] = $wfLike;
+    }
+    $workforceWhereSql = implode(' AND ', $workforceWhere);
+
     $workforceCountSql = "
         SELECT COUNT(*)
-        FROM (
-            SELECT t.tenant_id
-            FROM tbl_tenants t
-            GROUP BY t.tenant_id
-        ) wf
+        FROM tbl_tenants t
+        WHERE {$workforceWhereSql}
     ";
-    $totalWorkforceRows = (int) $pdo->query($workforceCountSql)->fetchColumn();
+    $workforceCountStmt = $pdo->prepare($workforceCountSql);
+    $workforceCountStmt->execute($workforceParams);
+    $totalWorkforceRows = (int) $workforceCountStmt->fetchColumn();
     $totalWorkforcePages = max(1, (int) ceil($totalWorkforceRows / $workforcePerPage));
     if ($workforcePage > $totalWorkforcePages) {
         $workforcePage = $totalWorkforcePages;
@@ -380,11 +396,14 @@ try {
             COALESCE(SUM(CASE WHEN u.role = 'dentist' THEN 1 ELSE 0 END), 0) AS doctor_count
         FROM tbl_tenants t
         LEFT JOIN tbl_users u ON u.tenant_id = t.tenant_id
+        WHERE {$workforceWhereSql}
         GROUP BY t.tenant_id, t.clinic_name
         ORDER BY t.clinic_name ASC
         LIMIT {$workforcePerPage} OFFSET {$workforceOffset}
     ";
-    $tenantWorkforce = $pdo->query($workforceSql)->fetchAll(PDO::FETCH_ASSOC);
+    $workforceStmt = $pdo->prepare($workforceSql);
+    $workforceStmt->execute($workforceParams);
+    $tenantWorkforce = $workforceStmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
     $dbError = $e->getMessage();
 }
@@ -591,8 +610,11 @@ require __DIR__ . '/superadmin_header.php';
 <?php if ($filterBase['plan'] !== ''): ?>
 <input type="hidden" name="plan" value="<?php echo htmlspecialchars($filterBase['plan'], ENT_QUOTES, 'UTF-8'); ?>"/>
 <?php endif; ?>
+<?php if ($filterBase['wf_q'] !== ''): ?>
+<input type="hidden" name="wf_q" value="<?php echo htmlspecialchars($filterBase['wf_q'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<?php endif; ?>
 <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-xl pointer-events-none">search</span>
-<input name="q" value="<?php echo htmlspecialchars($filterBase['q'], ENT_QUOTES, 'UTF-8'); ?>" class="w-full bg-surface-container-low/50 border-none focus:ring-2 focus:ring-primary/20 rounded-2xl pl-11 pr-4 py-2.5 text-sm transition-all placeholder:text-on-surface-variant/50" placeholder="Search tenants, clinics, or email..." type="search" autocomplete="off"/>
+<input name="tenant_q" value="<?php echo htmlspecialchars($filterBase['tenant_q'], ENT_QUOTES, 'UTF-8'); ?>" class="w-full bg-surface-container-low/50 border-none focus:ring-2 focus:ring-primary/20 rounded-2xl pl-11 pr-4 py-2.5 text-sm transition-all placeholder:text-on-surface-variant/50" placeholder="Search clinic name..." type="search" autocomplete="off"/>
 </form>
 </div>
 <div class="flex items-center gap-3 w-full md:w-auto">
@@ -651,9 +673,13 @@ require __DIR__ . '/superadmin_header.php';
 <!-- Table Controls -->
 <div class="px-5 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 border-b border-white/50">
 <form method="get" action="tenantmanagement.php" class="js-tenant-filter-form -mx-1 px-1 md:px-0 md:mx-0 flex items-center gap-3 sm:gap-4 flex-nowrap overflow-x-auto no-scrollbar w-full md:w-auto md:flex-wrap md:overflow-visible md:flex-1 min-w-0">
-<?php if ($filterBase['q'] !== ''): ?>
-<input type="hidden" name="q" value="<?php echo htmlspecialchars($filterBase['q'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<?php if ($filterBase['wf_q'] !== ''): ?>
+<input type="hidden" name="wf_q" value="<?php echo htmlspecialchars($filterBase['wf_q'], ENT_QUOTES, 'UTF-8'); ?>"/>
 <?php endif; ?>
+<input type="search" name="tenant_q" value="<?php echo htmlspecialchars($filterBase['tenant_q'], ENT_QUOTES, 'UTF-8'); ?>" placeholder="Search clinic name..." class="shrink-0 w-48 sm:w-56 bg-surface-container-low/50 border-none rounded-xl px-4 py-2.5 text-sm font-semibold text-on-surface placeholder:text-on-surface-variant/60 focus:ring-2 focus:ring-primary/20"/>
+<button type="submit" class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-surface-container-low/60 text-on-surface-variant hover:bg-white/80 transition-colors" aria-label="Search tenant table">
+<span class="material-symbols-outlined text-[20px]">search</span>
+</button>
 <div class="relative group shrink-0">
 <select name="status" class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
 <option value=""<?php echo $filterBase['status'] === '' ? ' selected' : ''; ?>>All Status</option>
@@ -896,6 +922,16 @@ require __DIR__ . '/superadmin_header.php';
 <h4 class="text-xl font-extrabold font-headline text-on-surface">Clinic Workforce</h4>
 <p class="text-sm text-on-surface-variant mt-1 font-medium">Staff and doctor headcount per tenant clinic.</p>
 </div>
+<form method="get" action="tenantmanagement.php" class="js-workforce-filter-form w-full md:w-auto md:flex md:items-center">
+<input type="hidden" name="status" value="<?php echo htmlspecialchars($filterBase['status'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<input type="hidden" name="plan" value="<?php echo htmlspecialchars($filterBase['plan'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<input type="hidden" name="tenant_q" value="<?php echo htmlspecialchars($filterBase['tenant_q'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<input type="hidden" name="page" value="<?php echo (int) $page; ?>"/>
+<input type="search" name="wf_q" value="<?php echo htmlspecialchars($filterBase['wf_q'], ENT_QUOTES, 'UTF-8'); ?>" placeholder="Search clinic name or tenant ID..." class="w-full md:w-72 bg-surface-container-low/50 border-none rounded-xl px-4 py-2.5 text-sm font-semibold text-on-surface placeholder:text-on-surface-variant/60 focus:ring-2 focus:ring-primary/20"/>
+<button type="submit" class="mt-2 md:mt-0 md:ml-2 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-surface-container-low/60 text-on-surface-variant hover:bg-white/80 transition-colors" aria-label="Search workforce table">
+<span class="material-symbols-outlined text-[20px]">search</span>
+</button>
+</form>
 <span class="pt-1 md:pt-0 px-1 md:px-0 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/70 md:text-right">
                     Showing <?php echo $totalWorkforceRows === 0 ? '0' : number_format($workforceRangeStart) . '–' . number_format($workforceRangeEnd); ?> of <?php echo number_format($totalWorkforceRows); ?>
                 </span>
@@ -1053,7 +1089,8 @@ require __DIR__ . '/superadmin_header.php';
 <form action="tenantmanagement_export_pdf.php" method="get" target="_blank" class="max-h-[70vh] overflow-y-auto p-8 space-y-7">
 <input type="hidden" name="status" value="<?php echo htmlspecialchars($filterBase['status'], ENT_QUOTES, 'UTF-8'); ?>"/>
 <input type="hidden" name="plan" value="<?php echo htmlspecialchars($filterBase['plan'], ENT_QUOTES, 'UTF-8'); ?>"/>
-<input type="hidden" name="q" value="<?php echo htmlspecialchars($filterBase['q'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<input type="hidden" name="tenant_q" value="<?php echo htmlspecialchars($filterBase['tenant_q'], ENT_QUOTES, 'UTF-8'); ?>"/>
+<input type="hidden" name="wf_q" value="<?php echo htmlspecialchars($filterBase['wf_q'], ENT_QUOTES, 'UTF-8'); ?>"/>
 <div>
 <h4 class="text-sm font-bold uppercase tracking-[0.16em] text-on-surface-variant/70 mb-4">Report sections</h4>
 <div class="space-y-4">
@@ -1091,6 +1128,7 @@ require __DIR__ . '/superadmin_header.php';
         if (!panel) return;
         var isLoading = false;
         var config = options || {};
+        var resetPageParam = config.resetPageParam || 'page';
 
         function loadPage(url, pushState) {
             if (isLoading) {
@@ -1187,7 +1225,7 @@ require __DIR__ . '/superadmin_header.php';
                     return;
                 }
                 var formData = new FormData(form);
-                formData.delete('page');
+                formData.delete(resetPageParam);
                 var params = new URLSearchParams(formData);
                 var nextUrl = action + (params.toString() ? ('?' + params.toString()) : '');
                 loadPage(nextUrl, true);
@@ -1202,11 +1240,14 @@ require __DIR__ . '/superadmin_header.php';
     setupPanelPagination('tenant-directory-panel', 'js-tenant-pagination-link', 'tenantPage', {
         scrollToPanelTop: true,
         headerOffset: 96,
-        filterFormSelector: '.js-tenant-filter-form'
+        filterFormSelector: '.js-tenant-filter-form',
+        resetPageParam: 'page'
     });
     setupPanelPagination('workforce-panel', 'js-workforce-pagination-link', 'workforcePage', {
         scrollToPanelTop: true,
-        headerOffset: 96
+        headerOffset: 96,
+        filterFormSelector: '.js-workforce-filter-form',
+        resetPageParam: 'wf_page'
     });
 })();
 </script>
