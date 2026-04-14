@@ -320,11 +320,10 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
             entries.forEach(function (entry) {
                 if (entry.isIntersecting) {
                     entry.target.classList.add('is-visible');
-                } else {
-                    entry.target.classList.remove('is-visible');
+                    observer.unobserve(entry.target);
                 }
             });
-        }, { threshold: 0.18, rootMargin: '0px 0px -10% 0px' });
+        }, { threshold: 0.01, rootMargin: '0px 0px -5% 0px' });
 
         elements.forEach(function (el) { observer.observe(el); });
     })();
