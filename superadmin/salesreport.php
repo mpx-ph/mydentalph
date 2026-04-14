@@ -330,6 +330,36 @@ $selectedClinicId = isset($_GET['clinic']) ? trim((string) $_GET['clinic']) : ''
 if ($selectedClinicId === '') {
     $selectedClinicId = null;
 }
+$dailyMonthOptions = [
+    1 => 'January',
+    2 => 'February',
+    3 => 'March',
+    4 => 'April',
+    5 => 'May',
+    6 => 'June',
+    7 => 'July',
+    8 => 'August',
+    9 => 'September',
+    10 => 'October',
+    11 => 'November',
+    12 => 'December',
+];
+$currentYear = (int) $todayStart->format('Y');
+$dailyYearOptions = [];
+for ($yr = $currentYear; $yr >= $currentYear - 10; $yr--) {
+    $dailyYearOptions[$yr] = (string) $yr;
+}
+$dailySelectedMonth = isset($_GET['daily_month']) ? (int) $_GET['daily_month'] : 0;
+if ($dailySelectedMonth < 1 || $dailySelectedMonth > 12) {
+    $dailySelectedMonth = 0;
+}
+$dailySelectedYear = isset($_GET['daily_year']) ? (int) $_GET['daily_year'] : 0;
+if ($dailySelectedYear !== 0 && !isset($dailyYearOptions[$dailySelectedYear])) {
+    $dailySelectedYear = 0;
+}
+if ($dailySelectedMonth > 0 && $dailySelectedYear === 0) {
+    $dailySelectedYear = $currentYear;
+}
 $filterRangeStart = null;
 $filterRangeEnd = null;
 if ($selectedDateRange !== 'all') {
@@ -385,35 +415,56 @@ try {
 // Recent daily revenue: paginated calendar days (newest first), paid subscriptions.
 $dailyPerPage = 5;
 $maxDaysBack = 365;
-$totalDailyPages = max(1, (int) ceil($maxDaysBack / $dailyPerPage));
+$dailyWindowStart = clone $todayStart;
+$dailyWindowStart->modify('-' . ($maxDaysBack - 1) . ' days');
+$dailyWindowEnd = clone $todayEnd;
+if ($dailySelectedYear > 0) {
+    $dailyWindowStart = new DateTime(sprintf('%04d-01-01 00:00:00', $dailySelectedYear));
+    if ($dailySelectedMonth > 0) {
+        $dailyWindowStart->setDate($dailySelectedYear, $dailySelectedMonth, 1);
+        $dailyWindowEnd = clone $dailyWindowStart;
+        $dailyWindowEnd->modify('+1 month');
+    } else {
+        $dailyWindowEnd = clone $dailyWindowStart;
+        $dailyWindowEnd->modify('+1 year');
+    }
+}
+if ($filterRangeStart !== null && $dailyWindowStart < $filterRangeStart) {
+    $dailyWindowStart = clone $filterRangeStart;
+}
+if ($filterRangeEnd !== null && $dailyWindowEnd > $filterRangeEnd) {
+    $dailyWindowEnd = clone $filterRangeEnd;
+}
+$dailyTotalItems = 0;
+if ($dailyWindowStart < $dailyWindowEnd) {
+    $dailyTotalItems = (int) $dailyWindowStart->diff($dailyWindowEnd)->format('%a');
+}
+$totalDailyPages = $dailyTotalItems > 0 ? max(1, (int) ceil($dailyTotalItems / $dailyPerPage)) : 1;
 $dailyPage = filter_var($_GET['daily_page'] ?? null, FILTER_VALIDATE_INT);
 if ($dailyPage === false || $dailyPage < 1) {
     $dailyPage = 1;
 } elseif ($dailyPage > $totalDailyPages) {
     $dailyPage = $totalDailyPages;
 }
-$minDaysAgo = ($dailyPage - 1) * $dailyPerPage;
 
 $recentDailyRevenue = [];
 try {
-    $rangeOldestDaysAgo = $minDaysAgo + $dailyPerPage - 1;
-    $pageStart = clone $todayStart;
-    $pageStart->modify('-' . $rangeOldestDaysAgo . ' days');
-    $pageEnd = clone $todayEnd;
-    $rangeStart = $pageStart;
-    $rangeEnd = $pageEnd;
-    if ($filterRangeStart !== null && $rangeStart < $filterRangeStart) {
-        $rangeStart = clone $filterRangeStart;
-    }
-    if ($filterRangeEnd !== null && $rangeEnd > $filterRangeEnd) {
-        $rangeEnd = clone $filterRangeEnd;
-    }
-
     $rows = [];
-    if ($rangeStart < $rangeEnd) {
+    if ($dailyTotalItems > 0) {
+        $dailyOffset = ($dailyPage - 1) * $dailyPerPage;
+        $sliceEnd = clone $dailyWindowEnd;
+        if ($dailyOffset > 0) {
+            $sliceEnd->modify('-' . $dailyOffset . ' days');
+        }
+        $sliceStart = clone $sliceEnd;
+        $sliceStart->modify('-' . $dailyPerPage . ' days');
+        if ($sliceStart < $dailyWindowStart) {
+            $sliceStart = clone $dailyWindowStart;
+        }
+
         [$dailyWhere, $dailyParams] = salesreport_build_subscription_filters(
-            $rangeStart,
-            $rangeEnd,
+            $sliceStart,
+            $sliceEnd,
             $selectedClinicId
         );
         $dailySql = "
@@ -442,23 +493,20 @@ try {
         }
     }
 
-    for ($k = 0; $k < $dailyPerPage; $k++) {
-        $daysAgo = $minDaysAgo + $k;
-        if ($daysAgo >= $maxDaysBack) {
-            break;
+        $cursor = clone $sliceEnd;
+        $cursor->modify('-1 day');
+        while ($cursor >= $sliceStart) {
+            $key = $cursor->format('Y-m-d');
+            $recentDailyRevenue[] = [
+                'label' => $cursor->format('M j, Y'),
+                'revenue' => (float) ($revenueByDay[$key] ?? 0),
+            ];
+            $cursor->modify('-1 day');
         }
-        $d = clone $todayStart;
-        $d->modify('-' . $daysAgo . ' days');
-        $key = $d->format('Y-m-d');
-        $recentDailyRevenue[] = [
-            'label' => $d->format('M j'),
-            'revenue' => (float) ($revenueByDay[$key] ?? 0),
-        ];
     }
 } catch (Exception $e) {
     error_log('salesreport recent daily revenue error: ' . $e->getMessage());
 }
-$dailyTotalItems = $maxDaysBack;
 
 // Recent transactions table: paid subscription records across all tenants (paginated).
 $txPerPage = 10;
@@ -588,6 +636,8 @@ if ($clinicsPage > 1) {
 if ($txPage > 1) {
     $salesreportQueryParams['tx_page'] = (string) $txPage;
 }
+$dailyFilterBaseParams = $salesreportQueryParams;
+unset($dailyFilterBaseParams['daily_page'], $dailyFilterBaseParams['daily_month'], $dailyFilterBaseParams['daily_year']);
 
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
@@ -701,6 +751,32 @@ require __DIR__ . '/superadmin_header.php';
 <span>Daily</span>
 </div>
 </div>
+<form method="get" class="js-daily-filter-form mt-5 flex flex-wrap items-end gap-3">
+<?php foreach ($dailyFilterBaseParams as $paramKey => $paramVal): ?>
+<input type="hidden" name="<?php echo htmlspecialchars((string) $paramKey); ?>" value="<?php echo htmlspecialchars((string) $paramVal); ?>"/>
+<?php endforeach; ?>
+<label class="flex flex-col gap-1">
+<span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">Month</span>
+<select name="daily_month" class="appearance-none bg-surface-container-low/60 border border-outline-variant/40 rounded-xl px-3 py-2 text-xs font-bold text-on-surface focus:border-primary focus:ring-primary/25 min-w-[132px]">
+<option value="">All Months</option>
+<?php foreach ($dailyMonthOptions as $monthNum => $monthLabel): ?>
+<option value="<?php echo (int) $monthNum; ?>"<?php echo $dailySelectedMonth === (int) $monthNum ? ' selected' : ''; ?>><?php echo htmlspecialchars($monthLabel); ?></option>
+<?php endforeach; ?>
+</select>
+</label>
+<label class="flex flex-col gap-1">
+<span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">Year</span>
+<select name="daily_year" class="appearance-none bg-surface-container-low/60 border border-outline-variant/40 rounded-xl px-3 py-2 text-xs font-bold text-on-surface focus:border-primary focus:ring-primary/25 min-w-[120px]">
+<option value="">All Years</option>
+<?php foreach ($dailyYearOptions as $yearValue => $yearLabel): ?>
+<option value="<?php echo (int) $yearValue; ?>"<?php echo $dailySelectedYear === (int) $yearValue ? ' selected' : ''; ?>><?php echo htmlspecialchars($yearLabel); ?></option>
+<?php endforeach; ?>
+</select>
+</label>
+<?php if ($dailySelectedMonth > 0 || $dailySelectedYear > 0): ?>
+<a href="<?php echo htmlspecialchars(salesreport_pagination_url('daily_page', 1, $dailyFilterBaseParams), ENT_QUOTES, 'UTF-8'); ?>" class="js-daily-pagination-link inline-flex items-center justify-center h-[34px] px-3 rounded-xl text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/25 hover:bg-primary/5 transition-colors">Reset</a>
+<?php endif; ?>
+</form>
 <div class="overflow-x-auto mt-8">
 <table class="w-full text-left">
 <thead>
@@ -991,10 +1067,11 @@ $amount = (float) ($tx['amount'] ?? 0);
 (function () {
     if (!window.fetch || !window.DOMParser) return;
 
-    function setupPanelPagination(panelId, linkClass) {
+    function setupPanelPagination(panelId, linkClass, options) {
         var panel = document.getElementById(panelId);
         if (!panel) return;
         var isLoading = false;
+        var config = options || {};
 
         function loadPage(url, pushState) {
             if (isLoading) return;
@@ -1046,12 +1123,48 @@ $amount = (float) ($tx['amount'] ?? 0);
             loadPage(link.href, true);
         });
 
+        if (config.filterFormSelector) {
+            document.addEventListener('change', function (e) {
+                var field = e.target;
+                if (!field || field.tagName !== 'SELECT') return;
+                var form = field.form;
+                if (!form || !form.matches(config.filterFormSelector) || !panel.contains(form)) return;
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+                } else {
+                    form.submit();
+                }
+            });
+
+            document.addEventListener('submit', function (e) {
+                var form = e.target;
+                if (!form || !form.matches(config.filterFormSelector) || !panel.contains(form)) return;
+                e.preventDefault();
+                var action = form.getAttribute('action') || window.location.pathname;
+                var method = (form.getAttribute('method') || 'get').toLowerCase();
+                if (method !== 'get') {
+                    form.submit();
+                    return;
+                }
+                var formData = new FormData(form);
+                if (config.resetPageParam) {
+                    formData.delete(config.resetPageParam);
+                }
+                var params = new URLSearchParams(formData);
+                var nextUrl = action + (params.toString() ? ('?' + params.toString()) : '');
+                loadPage(nextUrl, true);
+            });
+        }
+
         window.addEventListener('popstate', function () {
             loadPage(window.location.href, false);
         });
     }
 
-    setupPanelPagination('daily-revenue-panel', 'js-daily-pagination-link');
+    setupPanelPagination('daily-revenue-panel', 'js-daily-pagination-link', {
+        filterFormSelector: '.js-daily-filter-form',
+        resetPageParam: 'daily_page'
+    });
     setupPanelPagination('top-clinics-panel', 'js-clinics-pagination-link');
     setupPanelPagination('transactions-panel', 'js-tx-pagination-link');
 })();
