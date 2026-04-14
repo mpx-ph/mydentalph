@@ -290,6 +290,37 @@ function sa_document_label(string $type): string
         .doc-preview-modal.hidden {
             display: none;
         }
+        @media (max-width: 1023px) {
+            #superadmin-sidebar {
+                transform: translateX(-100%);
+                transition: transform 220ms ease;
+                z-index: 60;
+            }
+            body.sa-mobile-sidebar-open #superadmin-sidebar {
+                transform: translateX(0);
+            }
+            .sa-top-header {
+                left: 0;
+                width: 100% !important;
+                padding-left: 4.25rem;
+                padding-right: 1rem;
+            }
+            #sa-mobile-sidebar-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(19, 28, 37, 0.45);
+                backdrop-filter: blur(2px);
+                -webkit-backdrop-filter: blur(2px);
+                z-index: 55;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 220ms ease;
+            }
+            body.sa-mobile-sidebar-open #sa-mobile-sidebar-backdrop {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
     </style>
 </head>
 <body class="mesh-bg font-body text-on-surface selection:bg-primary/10 min-h-screen">
@@ -299,21 +330,25 @@ $superadmin_header_center = '<h2 class="text-2xl font-headline font-extrabold te
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
 ?>
-<main class="ml-64 flex-grow flex flex-col min-h-screen">
-<div class="pt-20 flex flex-grow overflow-hidden relative">
+<button id="sa-mobile-sidebar-toggle" type="button" class="fixed top-6 left-4 z-[65] lg:hidden w-10 h-10 rounded-xl bg-white/90 border border-white text-primary shadow-md flex items-center justify-center" aria-controls="superadmin-sidebar" aria-expanded="false" aria-label="Open navigation menu">
+<span class="material-symbols-outlined text-[20px]">menu</span>
+</button>
+<div id="sa-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
+<main class="ml-0 lg:ml-64 flex-grow flex flex-col min-h-screen pt-20">
+<div class="flex flex-col lg:flex-row flex-grow overflow-visible lg:overflow-hidden relative">
 <div class="absolute top-40 right-10 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10"></div>
-<section class="w-3/5 p-10 overflow-y-auto space-y-8 no-scrollbar">
+<section class="w-full lg:w-3/5 p-4 sm:p-6 lg:p-10 overflow-y-visible lg:overflow-y-auto space-y-8 no-scrollbar">
 <?php if ($error !== ''): ?>
 <div class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-sm font-semibold"><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></div>
 <?php endif; ?>
 <?php if ($success !== ''): ?>
 <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-semibold"><?php echo htmlspecialchars($success, ENT_QUOTES, 'UTF-8'); ?></div>
 <?php endif; ?>
-<div class="flex items-center justify-between mb-2">
-<div class="flex gap-2 p-1.5 bg-white/40 backdrop-blur-md rounded-2xl border border-white/60">
-<a href="?status=pending" class="px-5 py-2 rounded-xl text-xs font-bold transition-colors <?php echo $status_filter === 'pending' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Pending Tenants</a>
-<a href="?status=approved" class="px-5 py-2 rounded-xl text-xs font-bold <?php echo $status_filter === 'approved' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Approved</a>
-<a href="?status=rejected" class="px-5 py-2 rounded-xl text-xs font-bold <?php echo $status_filter === 'rejected' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Rejected</a>
+<div class="flex flex-wrap items-center justify-between gap-3 mb-2">
+<div class="flex flex-wrap gap-2 p-1.5 bg-white/40 backdrop-blur-md rounded-2xl border border-white/60">
+<a href="?status=pending" class="px-4 sm:px-5 py-2 rounded-xl text-xs font-bold transition-colors <?php echo $status_filter === 'pending' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Pending Tenants</a>
+<a href="?status=approved" class="px-4 sm:px-5 py-2 rounded-xl text-xs font-bold <?php echo $status_filter === 'approved' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Approved</a>
+<a href="?status=rejected" class="px-4 sm:px-5 py-2 rounded-xl text-xs font-bold <?php echo $status_filter === 'rejected' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Rejected</a>
 </div>
 <span class="text-xs font-bold text-on-surface-variant/70 px-4 py-2 bg-white/60 border border-white rounded-xl"><?php echo count($requests); ?> result(s)</span>
 </div>
@@ -345,7 +380,7 @@ require __DIR__ . '/superadmin_header.php';
 <?php endforeach; ?>
 </div>
 </section>
-<aside class="w-2/5 border-l border-white/40 bg-white/30 backdrop-blur-md p-10 overflow-y-auto no-scrollbar">
+<aside class="w-full lg:w-2/5 border-t lg:border-t-0 lg:border-l border-white/40 bg-white/30 backdrop-blur-md p-4 sm:p-6 lg:p-10 overflow-y-visible lg:overflow-y-auto no-scrollbar">
 <div class="space-y-10">
 <?php if (!$selected): ?>
 <div class="bg-white/70 border border-white rounded-[2rem] p-8 editorial-shadow">
@@ -388,7 +423,7 @@ require __DIR__ . '/superadmin_header.php';
 <?php if (empty($files)): ?>
 <p class="text-sm font-semibold text-on-surface-variant">No files uploaded.</p>
 <?php else: ?>
-<div class="grid grid-cols-2 gap-4">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 <?php foreach ($files as $f): ?>
 <button type="button" data-file-url="../<?php echo htmlspecialchars((string) ($f['stored_file_path'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" data-file-name="<?php echo htmlspecialchars((string) ($f['original_file_name'] ?? 'file'), ENT_QUOTES, 'UTF-8'); ?>" class="doc-preview-trigger group relative aspect-[4/3] rounded-2xl overflow-hidden editorial-shadow bg-white/40 border border-white cursor-pointer text-left">
 <div class="w-full h-full flex flex-col items-center justify-center px-3 text-center bg-gradient-to-br from-white to-blue-50/60">
@@ -414,7 +449,7 @@ require __DIR__ . '/superadmin_header.php';
 <form method="POST" class="space-y-4">
 <input type="hidden" name="request_id" value="<?php echo (int) $selected['request_id']; ?>"/>
 <textarea name="reviewer_notes" rows="3" class="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm bg-white/80 focus:border-primary/40 focus:ring-primary/20" placeholder="Optional notes for this review"></textarea>
-<div class="flex gap-3">
+<div class="flex flex-col sm:flex-row gap-3">
 <button type="submit" name="action" value="approve" class="flex-1 bg-primary text-white font-headline font-extrabold py-4 rounded-[2rem] primary-glow hover:brightness-110 transition-all">Approve Clinic Access</button>
 <button type="submit" name="action" value="reject" class="flex-1 bg-white/80 border border-error/20 text-error font-headline font-extrabold py-4 rounded-[2rem] editorial-shadow hover:bg-error/5 transition-all">Reject Registration</button>
 </div>
@@ -494,6 +529,44 @@ Final approval will trigger automated onboarding email to clinic administrator.
                 closeModal();
             }
         });
+    })();
+</script>
+<script>
+    (function () {
+        var toggleBtn = document.getElementById('sa-mobile-sidebar-toggle');
+        var backdrop = document.getElementById('sa-mobile-sidebar-backdrop');
+        var mqDesktop = window.matchMedia('(min-width: 1024px)');
+        if (!toggleBtn || !backdrop) return;
+
+        function setOpen(isOpen) {
+            document.body.classList.toggle('sa-mobile-sidebar-open', isOpen);
+            toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            toggleBtn.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+            var icon = toggleBtn.querySelector('.material-symbols-outlined');
+            if (icon) icon.textContent = isOpen ? 'close' : 'menu';
+            document.body.style.overflow = isOpen ? 'hidden' : '';
+        }
+
+        toggleBtn.addEventListener('click', function () {
+            setOpen(!document.body.classList.contains('sa-mobile-sidebar-open'));
+        });
+        backdrop.addEventListener('click', function () {
+            setOpen(false);
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && document.body.classList.contains('sa-mobile-sidebar-open')) {
+                setOpen(false);
+            }
+        });
+
+        function closeOnDesktop() {
+            if (mqDesktop.matches) setOpen(false);
+        }
+        if (typeof mqDesktop.addEventListener === 'function') {
+            mqDesktop.addEventListener('change', closeOnDesktop);
+        } else if (typeof mqDesktop.addListener === 'function') {
+            mqDesktop.addListener(closeOnDesktop);
+        }
     })();
 </script>
 </body></html>
