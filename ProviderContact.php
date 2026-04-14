@@ -109,7 +109,7 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
 </style>
 </head>
 <body class="bg-background-light font-body text-on-surface dark:bg-background-dark dark:text-surface antialiased">
-<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-clip">
 <div class="layout-container flex h-full grow flex-col">
 <!-- Navigation Bar -->
 <?php include 'ProviderNavbar.php'; ?>
