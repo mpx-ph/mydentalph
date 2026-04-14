@@ -79,7 +79,7 @@ try {
             COALESCE(MAX(a.id), 0) AS appointment_id,
             a.booking_id,
             COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
-            COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0) AS total_paid
+            COALESCE(SUM(CASE WHEN py.status = 'paid' THEN py.amount ELSE 0 END), 0) AS total_paid
         FROM tbl_appointments a
         LEFT JOIN tbl_payments py
             ON py.tenant_id = a.tenant_id
@@ -112,7 +112,7 @@ try {
     try {
         $updPay = $pdo->prepare("
             UPDATE tbl_payments
-            SET status = 'completed',
+            SET status = 'paid',
                 payment_date = ?
             WHERE tenant_id = ?
               AND payment_id = ?

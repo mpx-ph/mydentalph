@@ -41,22 +41,23 @@ function staff_payment_recording_fetch_installments(PDO $pdo, ?string $installme
 function staff_payment_recording_installment_is_paid(string $status): bool
 {
     $s = strtolower(trim($status));
-    return $s === 'paid' || $s === 'completed';
+    return $s === 'paid';
 }
 
-function staff_payment_recording_financial_status(float $totalCost, float $totalPaid, string $appointmentDate = ''): string
+function staff_payment_recording_financial_status(float $totalCost, float $totalPaid, string $appointmentDate = '', string $dueDate = ''): string
 {
     $remaining = max(0, round($totalCost - $totalPaid, 2));
+    $effectiveDueDate = $dueDate !== '' ? $dueDate : $appointmentDate;
     if ($remaining <= 0.009) {
         return 'PAID';
     }
     if ($totalPaid > 0) {
-        if ($appointmentDate !== '' && $appointmentDate < date('Y-m-d')) {
+        if ($effectiveDueDate !== '' && $effectiveDueDate < date('Y-m-d')) {
             return 'OVERDUE';
         }
         return 'PARTIAL';
     }
-    if ($appointmentDate !== '' && $appointmentDate < date('Y-m-d')) {
+    if ($effectiveDueDate !== '' && $effectiveDueDate < date('Y-m-d')) {
         return 'OVERDUE';
     }
     return 'UNPAID';
@@ -353,10 +354,7 @@ function staff_payment_recording_build_installments_plan(float $totalCost, int $
             } else {
                 $amount = $monthlyAmount;
             }
-            $status = 'pending';
-            if ($paymentOption === 'downpayment' && $downpaymentAmount > 0 && $installmentNumber === 2) {
-                $status = 'book_visit';
-            }
+            $status = ($installmentNumber === 1) ? 'due' : 'pending';
             $installments[] = [
                 'number' => $installmentNumber,
                 'amount' => round($amount, 2),
@@ -484,8 +482,10 @@ function staff_payment_recording_ensure_installment_schedule(
                             'status' => ($n <= $monthsPaid) ? 'paid' : 'pending',
                         ];
                     }
-                    if ($monthsPaid > 0 && $monthsPaid < count($plan)) {
-                        $plan[$monthsPaid]['status'] = 'book_visit';
+                    if ($monthsPaid === 0 && count($plan) > 0) {
+                        $plan[0]['status'] = 'due';
+                    } elseif ($monthsPaid > 0 && $monthsPaid < count($plan)) {
+                        $plan[$monthsPaid]['status'] = 'due';
                     }
                     $planTreatmentId = $appointmentTreatmentId;
                 }
@@ -555,6 +555,8 @@ function staff_payment_recording_ensure_installment_schedule(
         $hasTenant = in_array('tenant_id', $cols, true);
         $hasCreatedAt = in_array('created_at', $cols, true);
         $hasTreatmentId = in_array('treatment_id', $cols, true);
+        $hasDueDate = in_array('due_date', $cols, true);
+        $hasLastPaymentDate = in_array('last_payment_date', $cols, true);
 
         foreach ($plan as $inst) {
             $fields = [];
@@ -582,6 +584,16 @@ function staff_payment_recording_ensure_installment_schedule(
             $fields[] = 'status';
             $placeholders[] = '?';
             $params[] = (string) $inst['status'];
+            if ($hasDueDate) {
+                $fields[] = 'due_date';
+                $placeholders[] = '?';
+                $params[] = ((string) $inst['status'] === 'due') ? date('Y-m-d') : null;
+            }
+            if ($hasLastPaymentDate) {
+                $fields[] = 'last_payment_date';
+                $placeholders[] = '?';
+                $params[] = ((string) $inst['status'] === 'paid') ? date('Y-m-d') : null;
+            }
             if ($hasCreatedAt) {
                 $fields[] = 'created_at';
                 $placeholders[] = 'NOW()';
@@ -863,7 +875,7 @@ try {
                             FROM tbl_payments py2
                             WHERE py2.tenant_id = py.tenant_id
                               AND py2.booking_id = py.booking_id
-                              AND py2.status = 'completed'
+                              AND py2.status = 'paid'
                         ), 0) AS booking_total_paid,
                         COALESCE(a.service_type, '') AS service_type,
                         COALESCE(a.service_description, '') AS service_description,
@@ -1043,7 +1055,7 @@ try {
                     a.patient_id,
                     COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
                     COALESCE(a.service_description, '') AS service_description,
-                    COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0) AS total_paid
+                    COALESCE(SUM(CASE WHEN py.status = 'paid' THEN py.amount ELSE 0 END), 0) AS total_paid
                 FROM tbl_appointments a
                 LEFT JOIN tbl_payments py
                     ON py.tenant_id = a.tenant_id
@@ -1259,7 +1271,7 @@ try {
                         $composedNotes = trim(($notes !== '' ? ($notes . ' ') : '') . $noteExtra);
 
                         $usePayMongo = in_array($method, ['gcash', 'bank_transfer', 'credit_card'], true);
-                        $recordStatus = $usePayMongo ? 'pending' : 'completed';
+                        $recordStatus = $usePayMongo ? 'pending' : 'paid';
 
                         if ($mode === 'full') {
                             $paymentType = 'fullpayment';
@@ -1405,7 +1417,7 @@ try {
                             require_once dirname(__DIR__) . '/paymongo_config.php';
                             $secret = defined('PAYMONGO_SECRET_KEY') ? (string) PAYMONGO_SECRET_KEY : '';
                             if ($secret === '' || strpos($secret, 'YOUR_') !== false) {
-                                $del = $pdo->prepare('DELETE FROM tbl_payments WHERE tenant_id = ? AND payment_id = ? AND status = ?');
+                                $del = $pdo->prepare("UPDATE tbl_payments SET status = 'failed' WHERE tenant_id = ? AND payment_id = ? AND status = ? LIMIT 1");
                                 $del->execute([$tenantId, $paymentId, 'pending']);
                                 throw new RuntimeException('PayMongo API key is not configured.');
                             }
@@ -1418,7 +1430,7 @@ try {
                             $pmType = $paymongoTypeMap[$method] ?? 'gcash';
                             $amountCentavos = (int) round($amount * 100);
                             if ($amountCentavos < 100) {
-                                $del = $pdo->prepare('DELETE FROM tbl_payments WHERE tenant_id = ? AND payment_id = ? AND status = ?');
+                                $del = $pdo->prepare("UPDATE tbl_payments SET status = 'failed' WHERE tenant_id = ? AND payment_id = ? AND status = ? LIMIT 1");
                                 $del->execute([$tenantId, $paymentId, 'pending']);
                                 throw new RuntimeException('Amount is too small for online checkout (minimum ₱1.00).');
                             }
@@ -1501,7 +1513,7 @@ try {
                             curl_close($ch);
 
                             if ($curlError !== '') {
-                                $del = $pdo->prepare('DELETE FROM tbl_payments WHERE tenant_id = ? AND payment_id = ? AND status = ?');
+                                $del = $pdo->prepare("UPDATE tbl_payments SET status = 'failed' WHERE tenant_id = ? AND payment_id = ? AND status = ? LIMIT 1");
                                 $del->execute([$tenantId, $paymentId, 'pending']);
                                 throw new RuntimeException('Could not reach PayMongo: ' . $curlError);
                             }
@@ -1517,7 +1529,7 @@ try {
                                 exit;
                             }
 
-                            $del = $pdo->prepare('DELETE FROM tbl_payments WHERE tenant_id = ? AND payment_id = ? AND status = ?');
+                            $del = $pdo->prepare("UPDATE tbl_payments SET status = 'failed' WHERE tenant_id = ? AND payment_id = ? AND status = ? LIMIT 1");
                             $del->execute([$tenantId, $paymentId, 'pending']);
                             $apiError = '';
                             if (is_array($responseData) && isset($responseData['errors'][0])) {
@@ -1560,7 +1572,7 @@ try {
                     }
 
                     $usePayMongo = in_array($method, ['gcash', 'bank_transfer', 'credit_card'], true);
-                    $recordStatus = $usePayMongo ? 'pending' : 'completed';
+                    $recordStatus = $usePayMongo ? 'pending' : 'paid';
 
                     $paymentId = 'PAY-' . date('YmdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
                     // Keep compatibility with deployments where payment_type enum only allows downpayment/fullpayment.
@@ -1631,7 +1643,7 @@ try {
                         require_once dirname(__DIR__) . '/paymongo_config.php';
                         $secret = defined('PAYMONGO_SECRET_KEY') ? (string) PAYMONGO_SECRET_KEY : '';
                         if ($secret === '' || strpos($secret, 'YOUR_') !== false) {
-                            $del = $pdo->prepare('DELETE FROM tbl_payments WHERE tenant_id = ? AND payment_id = ? AND status = ?');
+                            $del = $pdo->prepare("UPDATE tbl_payments SET status = 'failed' WHERE tenant_id = ? AND payment_id = ? AND status = ? LIMIT 1");
                             $del->execute([$tenantId, $paymentId, 'pending']);
                             throw new RuntimeException('PayMongo API key is not configured.');
                         }
@@ -1644,7 +1656,7 @@ try {
                         $pmType = $paymongoTypeMap[$method] ?? 'gcash';
                         $amountCentavos = (int) round($amount * 100);
                         if ($amountCentavos < 100) {
-                            $del = $pdo->prepare('DELETE FROM tbl_payments WHERE tenant_id = ? AND payment_id = ? AND status = ?');
+                            $del = $pdo->prepare("UPDATE tbl_payments SET status = 'failed' WHERE tenant_id = ? AND payment_id = ? AND status = ? LIMIT 1");
                             $del->execute([$tenantId, $paymentId, 'pending']);
                             throw new RuntimeException('Amount is too small for online checkout (minimum ₱1.00).');
                         }
@@ -1723,7 +1735,7 @@ try {
                         curl_close($ch);
 
                         if ($curlError !== '') {
-                            $del = $pdo->prepare('DELETE FROM tbl_payments WHERE tenant_id = ? AND payment_id = ? AND status = ?');
+                            $del = $pdo->prepare("UPDATE tbl_payments SET status = 'failed' WHERE tenant_id = ? AND payment_id = ? AND status = ? LIMIT 1");
                             $del->execute([$tenantId, $paymentId, 'pending']);
                             throw new RuntimeException('Could not reach PayMongo: ' . $curlError);
                         }
@@ -1739,7 +1751,7 @@ try {
                             exit;
                         }
 
-                        $del = $pdo->prepare('DELETE FROM tbl_payments WHERE tenant_id = ? AND payment_id = ? AND status = ?');
+                        $del = $pdo->prepare("UPDATE tbl_payments SET status = 'failed' WHERE tenant_id = ? AND payment_id = ? AND status = ? LIMIT 1");
                         $del->execute([$tenantId, $paymentId, 'pending']);
                         $apiError = '';
                         if (is_array($responseData) && isset($responseData['errors'][0])) {
@@ -1775,11 +1787,11 @@ try {
     if ($tenantId !== '') {
         $today = date('Y-m-d');
 
-        $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) AS total_revenue FROM tbl_payments WHERE tenant_id = ? AND status = 'completed'");
+        $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) AS total_revenue FROM tbl_payments WHERE tenant_id = ? AND status = 'paid'");
         $stmt->execute([$tenantId]);
         $summaryTotalRevenue = (float) ($stmt->fetch(PDO::FETCH_ASSOC)['total_revenue'] ?? 0);
 
-        $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) AS today_revenue FROM tbl_payments WHERE tenant_id = ? AND DATE(payment_date) = ? AND status = 'completed'");
+        $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) AS today_revenue FROM tbl_payments WHERE tenant_id = ? AND DATE(payment_date) = ? AND status = 'paid'");
         $stmt->execute([$tenantId, $today]);
         $summaryTodayRevenue = (float) ($stmt->fetch(PDO::FETCH_ASSOC)['today_revenue'] ?? 0);
 
@@ -1789,6 +1801,7 @@ try {
 
         $recentServiceSelectSql = "COALESCE(a.service_type, '')";
         $recentServiceJoinSql = '';
+        $recentDueDateSelectSql = "''";
         if ($supportsAppointmentServicesTable) {
             $recentServiceSelectSql = "COALESCE(aps.service_list, COALESCE(a.service_type, ''))";
             $recentServiceJoinSql = "
@@ -1800,6 +1813,23 @@ try {
                 ) aps
                     ON aps.booking_id = py.booking_id
             ";
+        }
+        if ($installmentsTableName !== null) {
+            $installmentColumns = staff_payment_recording_installments_table_columns($pdo, $installmentsTableName);
+            if (in_array('due_date', $installmentColumns, true)) {
+                $quotedInstallmentsTable = '`' . str_replace('`', '``', $installmentsTableName) . '`';
+                $recentDueDateSelectSql = "COALESCE((
+                    SELECT DATE(MIN(i_due.due_date))
+                    FROM {$quotedInstallmentsTable} i_due
+                    WHERE i_due.booking_id = py.booking_id
+                      AND LOWER(COALESCE(i_due.status, 'pending')) IN ('due', 'pending')
+                      AND (
+                          i_due.tenant_id = py.tenant_id
+                          OR i_due.tenant_id IS NULL
+                          OR TRIM(COALESCE(i_due.tenant_id, '')) = ''
+                      )
+                ), '')";
+            }
         }
 
         $recentSql = "
@@ -1813,13 +1843,14 @@ try {
                 py.reference_number,
                 py.status,
                 COALESCE(a.appointment_date, '') AS appointment_date,
+                {$recentDueDateSelectSql} AS next_due_date,
                 COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
                 COALESCE((
                     SELECT SUM(py2.amount)
                     FROM tbl_payments py2
                     WHERE py2.tenant_id = py.tenant_id
                       AND py2.booking_id = py.booking_id
-                      AND py2.status = 'completed'
+                      AND py2.status = 'paid'
                 ), 0) AS booking_total_paid,
                 {$recentServiceSelectSql} AS service_list,
                 COALESCE(NULLIF(u_linked.email, ''), NULLIF(u_owner.email, ''), '') AS patient_email,
@@ -1900,7 +1931,7 @@ try {
                 {$visitTypeSelectSql}
                 {$installmentPlanSelectSql},
                 COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
-                COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0) AS total_paid,
+                COALESCE(SUM(CASE WHEN py.status = 'paid' THEN py.amount ELSE 0 END), 0) AS total_paid,
                 p.first_name AS patient_first_name,
                 p.last_name AS patient_last_name
             FROM tbl_appointments a
@@ -1924,7 +1955,7 @@ try {
                 a.total_treatment_cost,
                 p.first_name,
                 p.last_name
-            HAVING (COALESCE(a.total_treatment_cost, 0) - COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0)) > 0.009
+            HAVING (COALESCE(a.total_treatment_cost, 0) - COALESCE(SUM(CASE WHEN py.status = 'paid' THEN py.amount ELSE 0 END), 0)) > 0.009
             ORDER BY a.appointment_date DESC, a.appointment_time DESC, a.created_at DESC
             LIMIT 300
         ";
@@ -2406,7 +2437,8 @@ try {
     $financialStatus = staff_payment_recording_financial_status(
         (float) ($payment['total_treatment_cost'] ?? 0),
         (float) ($payment['booking_total_paid'] ?? 0),
-        trim((string) ($payment['appointment_date'] ?? ''))
+        trim((string) ($payment['appointment_date'] ?? '')),
+        trim((string) ($payment['next_due_date'] ?? ''))
     );
     $serviceLabel = trim((string) ($payment['service_list'] ?? ''));
     if ($serviceLabel === '') {
@@ -3027,7 +3059,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
 
         function installmentStatusPaid(status) {
             const s = String(status || '').toLowerCase();
-            return s === 'paid' || s === 'completed';
+            return s === 'paid';
         }
 
         function getScheduleList(tx) {

@@ -1452,7 +1452,7 @@ Save Changes
             for (const apt of longTermAppointments) {
                 const hasPayment = paidBookingIds.has(apt.booking_id);
                 const installments = await loadInstallmentsForBooking(apt.booking_id);
-                const hasPaidInstallment = installments.length > 0 && installments.some(inst => inst.status === 'paid' || inst.status === 'completed');
+                const hasPaidInstallment = installments.length > 0 && installments.some(inst => inst.status === 'paid');
                 
                 if (hasPayment || hasPaidInstallment) {
                     paidLongTermAppointments.push(apt);
@@ -1578,7 +1578,7 @@ Save Changes
 
         installments.forEach(inst => {
             totalDue += parseFloat(inst.amount_due || 0);
-            if (inst.status === 'paid' || inst.status === 'completed') {
+            if (inst.status === 'paid') {
                 totalPaid += parseFloat(inst.amount_due || 0);
             }
         });
@@ -1709,7 +1709,7 @@ Save Changes
                     if (i === 1) {
                         status = hasPayment ? 'paid' : 'pending';
                     } else if (i === 2 && hasPayment) {
-                        status = 'book_visit';
+                        status = 'due';
                     }
                     
                     fullPaymentInstallments.push({
@@ -1758,7 +1758,7 @@ Save Changes
         // Calculate total paid
         let totalPaid = 0;
         installments.forEach(inst => {
-            if (inst.status === 'paid' || inst.status === 'completed') {
+            if (inst.status === 'paid') {
                 totalPaid += parseFloat(inst.amount_due || 0);
             }
         });
@@ -1821,7 +1821,7 @@ Save Changes
                     </td>
                     <td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">${displayDate}</td>
                     <td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">${displayTime}</td>
-                    <td class="px-6 py-4 text-sm font-semibold ${inst.status === 'paid' || inst.status === 'completed' ? 'text-green-600 dark:text-green-400' : 'text-[#0d141b] dark:text-white'}">₱${amount}</td>
+                    <td class="px-6 py-4 text-sm font-semibold ${inst.status === 'paid' ? 'text-green-600 dark:text-green-400' : 'text-[#0d141b] dark:text-white'}">₱${amount}</td>
                 </tr>
             `;
         }).join('');
@@ -1831,9 +1831,8 @@ Save Changes
         const classes = {
             'pending': 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
             'paid': 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
-            'book_visit': 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
-            'locked': 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
-            'completed': 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+            'due': 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+            'locked': 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
         };
         return classes[status] || classes['pending'];
     }
@@ -1842,9 +1841,8 @@ Save Changes
         const texts = {
             'pending': 'Pending',
             'paid': 'Paid',
-            'book_visit': 'Book Visit',
-            'locked': 'Locked',
-            'completed': 'Completed'
+            'due': 'Due',
+            'locked': 'Locked'
         };
         return texts[status] || 'Pending';
     }
@@ -1852,9 +1850,8 @@ Save Changes
     function getStatusIconAdmin(status) {
         const icons = {
             'paid': '<span class="material-symbols-outlined text-sm">check_circle</span>',
-            'book_visit': '<span class="material-symbols-outlined text-sm">event</span>',
-            'locked': '<span class="material-symbols-outlined text-sm">lock</span>',
-            'completed': '<span class="material-symbols-outlined text-sm">check_circle</span>'
+            'due': '<span class="material-symbols-outlined text-sm">event</span>',
+            'locked': '<span class="material-symbols-outlined text-sm">lock</span>'
         };
         return icons[status] || '';
     }

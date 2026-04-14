@@ -96,7 +96,7 @@ try {
         $stmt->execute([$tenantId]);
         $pendingRequests = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0);
 
-        $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) AS total_revenue FROM tbl_payments WHERE tenant_id = ? AND DATE(payment_date) = ? AND status = 'completed'");
+        $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) AS total_revenue FROM tbl_payments WHERE tenant_id = ? AND DATE(payment_date) = ? AND status = 'paid'");
         $stmt->execute([$tenantId, $today]);
         $todayRevenue = (float) ($stmt->fetch(PDO::FETCH_ASSOC)['total_revenue'] ?? 0);
 

@@ -102,7 +102,7 @@ function createPayment() {
         'payment_date' => sanitize($input['payment_date'] ?? date('Y-m-d H:i:s')),
         'reference_number' => sanitize($input['reference_number'] ?? ''),
         'notes' => sanitize($input['notes'] ?? ''),
-        'status' => sanitize($input['status'] ?? 'completed')
+        'status' => sanitize($input['status'] ?? 'paid')
     ];
     
     // Validation
@@ -135,6 +135,10 @@ function createPayment() {
     $validMethods = ['cash', 'credit_card', 'debit_card', 'gcash', 'paymaya', 'bank_transfer', 'check', 'bank'];
     if (!in_array($data['payment_method'], $validMethods)) {
         jsonResponse(false, 'Invalid payment method.');
+    }
+    $validStatuses = ['pending', 'paid', 'cancelled', 'failed'];
+    if (!in_array($data['status'], $validStatuses, true)) {
+        jsonResponse(false, 'Invalid payment status.');
     }
     
     // Verify booking exists if provided (same tenant)
@@ -211,7 +215,7 @@ function createPayment() {
                 FROM installments 
                 WHERE booking_id = ? 
                 AND tenant_id = ?
-                AND status IN ('pending', 'book_visit')
+                AND status IN ('pending', 'due')
                 ORDER BY installment_number ASC 
                 LIMIT 1
             ");
@@ -301,34 +305,52 @@ function createPayment() {
             throw new Exception('Failed to insert payment after multiple attempts.');
         }
         
+        // Detect optional installment columns for richer status tracking.
+        $installmentColumnsStmt = $pdo->prepare("
+            SELECT COLUMN_NAME
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'installments'
+        ");
+        $installmentColumnsStmt->execute();
+        $installmentColumns = array_map('strtolower', array_map('strval', $installmentColumnsStmt->fetchAll(PDO::FETCH_COLUMN) ?: []));
+        $supportsInstallmentDueDate = in_array('due_date', $installmentColumns, true);
+        $supportsInstallmentLastPaymentDate = in_array('last_payment_date', $installmentColumns, true);
+
         // Update installment record if this is an installment payment
         if ($installmentId && $installmentNumber) {
-            $stmt = $pdo->prepare("
+            $updatePaidSql = "
                 UPDATE installments 
                 SET status = 'paid', 
-                    payment_id = ?,
+                    payment_id = ?"
+                    . ($supportsInstallmentLastPaymentDate ? ",
+                    last_payment_date = CURDATE()" : "") . ",
                     updated_at = NOW()
                 WHERE id = ? AND tenant_id = ?
-            ");
+            ";
+            $stmt = $pdo->prepare($updatePaidSql);
             $stmt->execute([$paymentId, $installmentId, $tenantId]);
             
-            // Check if there's a next installment that should be unlocked (status = 'book_visit')
+            // Check if there's a next installment that should be unlocked (status = 'due')
             // After paying installment 1, installment 2 should become available for booking
             $nextInstallmentNumber = $installmentNumber + 1;
-            $stmt = $pdo->prepare("
+            $unlockSql = "
                 UPDATE installments 
-                SET status = 'book_visit',
+                SET status = 'due'"
+                . ($supportsInstallmentDueDate ? ",
+                    due_date = COALESCE(due_date, DATE_ADD(CURDATE(), INTERVAL 30 DAY))" : "") . ",
                     updated_at = NOW()
                 WHERE booking_id = ? 
                 AND installment_number = ?
                 AND status = 'pending'
                 AND tenant_id = ?
-            ");
+            ";
+            $stmt = $pdo->prepare($unlockSql);
             $stmt->execute([$data['booking_id'], $nextInstallmentNumber, $tenantId]);
         }
 
-        // Any completed payment confirms the booking (treat as "Ongoing" in UI)
-        if (!empty($data['booking_id']) && $data['status'] === 'completed') {
+        // Any paid payment confirms the booking (treat as "Ongoing" in UI)
+        if (!empty($data['booking_id']) && $data['status'] === 'paid') {
             $stmt = $pdo->prepare("
                 UPDATE appointments
                 SET status = 'confirmed',

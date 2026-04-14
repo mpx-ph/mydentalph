@@ -122,7 +122,7 @@ function createInstallments($pdo, $bookingId, $totalCost, $durationMonths, $star
         $installments[] = [
             'number' => 1,
             'amount' => $downpaymentAmount,
-            'status' => 'pending'
+            'status' => 'due'
         ];
         $remainingAmount -= $downpaymentAmount;
         $installmentCount = $durationMonths - 1; // Remaining installments
@@ -147,14 +147,8 @@ function createInstallments($pdo, $bookingId, $totalCost, $durationMonths, $star
                 $amount = $monthlyAmount;
             }
             
-            // Determine initial status
-            // First installment (after downpayment if applicable) can be 'book_visit' if downpayment was paid
-            // Otherwise, all start as 'pending'
-            $status = 'pending';
-            if ($paymentOption === 'downpayment' && $downpaymentAmount > 0 && $installmentNumber === 2) {
-                // After downpayment, next installment can be booked
-                $status = 'book_visit';
-            }
+            // Determine initial status: first payable installment starts as due.
+            $status = ($installmentNumber === 1) ? 'due' : 'pending';
             
             $installments[] = [
                 'number' => $installmentNumber,
@@ -164,24 +158,42 @@ function createInstallments($pdo, $bookingId, $totalCost, $durationMonths, $star
         }
     }
     
+    $installmentColsStmt = $pdo->prepare("
+        SELECT COLUMN_NAME
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'installments'
+    ");
+    $installmentColsStmt->execute();
+    $installmentCols = array_map('strtolower', array_map('strval', $installmentColsStmt->fetchAll(PDO::FETCH_COLUMN) ?: []));
+    $supportsDueDate = in_array('due_date', $installmentCols, true);
+    $supportsLastPaymentDate = in_array('last_payment_date', $installmentCols, true);
+
     // Insert installments into database
     foreach ($installments as $installment) {
-        $stmt = $pdo->prepare("
-            INSERT INTO installments (
-                booking_id,
-                installment_number,
-                amount_due,
-                status,
-                created_at
-            ) VALUES (?, ?, ?, ?, NOW())
-        ");
-        
-        $stmt->execute([
+        $fields = ['booking_id', 'installment_number', 'amount_due', 'status'];
+        $placeholders = ['?', '?', '?', '?'];
+        $params = [
             $bookingId,
             $installment['number'],
             $installment['amount'],
             $installment['status']
-        ]);
+        ];
+        if ($supportsDueDate) {
+            $fields[] = 'due_date';
+            $placeholders[] = '?';
+            $params[] = ($installment['status'] === 'due') ? $startDate : null;
+        }
+        if ($supportsLastPaymentDate) {
+            $fields[] = 'last_payment_date';
+            $placeholders[] = '?';
+            $params[] = null;
+        }
+        $fields[] = 'created_at';
+        $placeholders[] = 'NOW()';
+
+        $stmt = $pdo->prepare("INSERT INTO installments (" . implode(', ', $fields) . ") VALUES (" . implode(', ', $placeholders) . ")");
+        $stmt->execute($params);
     }
 }
 
@@ -406,7 +418,7 @@ function createAppointment() {
                         SET scheduled_date = ?, 
                             scheduled_time = ?,
                             status = CASE 
-                                WHEN status = 'book_visit' THEN 'pending'
+                                WHEN status = 'due' THEN 'pending'
                                 WHEN status = 'paid' THEN 'pending'
                                 ELSE status
                             END,
@@ -657,7 +669,7 @@ function calculateBookingBalance($bookingId, $pdo) {
     $stmt = $pdo->prepare("
         SELECT COALESCE(SUM(amount), 0) as total_paid
         FROM payments
-        WHERE booking_id = ? AND status = 'completed' AND tenant_id = ?
+        WHERE booking_id = ? AND status = 'paid' AND tenant_id = ?
     ");
     $stmt->execute([$bookingId, $tenantId]);
     $result = $stmt->fetch();
@@ -1095,7 +1107,7 @@ function updateAppointment() {
                     SELECT COUNT(*) 
                     FROM payments 
                     WHERE booking_id = ? 
-                    AND status = 'completed'
+                    AND status = 'paid'
                     AND tenant_id = ?
                 ");
                 $stmt->execute([$apptData['booking_id'], $tenantId]);
@@ -1396,7 +1408,7 @@ function autoCancelPendingBookings() {
                 SELECT 1 
                 FROM payments p 
                 WHERE p.booking_id = a.booking_id 
-                AND p.status = 'completed'
+                AND p.status = 'paid'
                 AND p.tenant_id = ?
             )
         ");

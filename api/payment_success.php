@@ -4,8 +4,8 @@ require_once '../db.php';
 $pid = $_GET['pid'] ?? null;
 
 if ($pid) {
-    // Update the payment status to 'completed'
-    $stmt = $pdo->prepare("UPDATE tbl_payments SET status = 'completed' WHERE payment_id = ?");
+    // Update the payment status to 'paid'
+    $stmt = $pdo->prepare("UPDATE tbl_payments SET status = 'paid' WHERE payment_id = ?");
     $stmt->execute([$pid]);
 }
 ?>
