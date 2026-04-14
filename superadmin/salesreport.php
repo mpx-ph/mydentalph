@@ -566,10 +566,6 @@ require __DIR__ . '/superadmin_header.php';
 <div>
 <h2 class="text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Sales Report</h2>
 <p class="text-on-surface-variant mt-2 font-medium">View and analyze clinic sales performance across all branches.</p>
-<div class="relative w-full max-w-md group mt-4">
-<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-xl">search</span>
-<input class="w-full bg-surface-container-low/50 border-none focus:ring-2 focus:ring-primary/20 rounded-2xl pl-11 pr-4 py-2.5 text-sm transition-all placeholder:text-on-surface-variant/50" placeholder="Search clinic data..." type="text"/>
-</div>
 </div>
 <div class="flex items-center gap-3 w-full md:w-auto">
 <button id="open-sales-export-modal" type="button" class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center justify-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all w-full sm:w-auto">
@@ -578,25 +574,24 @@ require __DIR__ . '/superadmin_header.php';
                     </button>
 </div>
 </section>
-<!-- Filters Bar (Glassmorphism) -->
-<div class="flex flex-wrap items-center gap-4">
-<div class="bg-white/60 backdrop-blur-md px-4 sm:px-6 py-3 rounded-2xl editorial-shadow flex items-center gap-3 sm:gap-4 w-full md:w-auto">
-<div class="flex items-center gap-2 text-primary font-bold bg-primary/5 px-3 py-1.5 rounded-xl text-xs">
-<span class="material-symbols-outlined text-[18px]">calendar_today</span>
-                        Filter
-                    </div>
-<div class="h-6 w-px bg-outline-variant/30"></div>
-<form method="get" class="flex flex-wrap items-center gap-4">
+<!-- Filters Bar -->
+<section class="bg-white/70 backdrop-blur-xl rounded-[2rem] editorial-shadow p-4 sm:p-6">
+<form method="get" class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-4 items-end">
+<div>
+<label class="block text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant/70 mb-2">Date Range</label>
 <div class="relative group">
-<select name="range" onchange="this.form.submit()" class="appearance-none bg-transparent border-none text-sm font-bold text-on-surface cursor-pointer focus:ring-0 pr-8">
+<select name="range" onchange="this.form.submit()" class="w-full appearance-none bg-white/80 border border-outline-variant/50 rounded-xl px-3 py-2.5 pr-10 text-sm font-bold text-on-surface cursor-pointer focus:border-primary focus:ring-primary/25">
 <?php foreach ($dateRangeOptions as $rangeValue => $rangeLabel): ?>
 <option value="<?php echo htmlspecialchars($rangeValue); ?>"<?php echo $selectedDateRange === $rangeValue ? ' selected' : ''; ?>><?php echo htmlspecialchars($rangeLabel); ?></option>
 <?php endforeach; ?>
 </select>
-<span class="material-symbols-outlined absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-lg">expand_more</span>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-lg">expand_more</span>
 </div>
+</div>
+<div>
+<label class="block text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant/70 mb-2">Clinic</label>
 <div class="relative group">
-<select name="clinic" onchange="this.form.submit()" class="appearance-none bg-transparent border-none text-sm font-bold text-on-surface cursor-pointer focus:ring-0 pr-8">
+<select name="clinic" onchange="this.form.submit()" class="w-full appearance-none bg-white/80 border border-outline-variant/50 rounded-xl px-3 py-2.5 pr-10 text-sm font-bold text-on-surface cursor-pointer focus:border-primary focus:ring-primary/25">
 <option value="">All Clinics</option>
 <?php foreach ($filterClinics as $clinicOpt): ?>
 <?php $clinicIdOpt = trim((string) ($clinicOpt['tenant_id'] ?? '')); ?>
@@ -605,14 +600,16 @@ require __DIR__ . '/superadmin_header.php';
 </option>
 <?php endforeach; ?>
 </select>
-<span class="material-symbols-outlined absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-lg">filter_list</span>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-lg">filter_list</span>
 </div>
+</div>
+<div class="flex md:justify-end">
 <?php if ($selectedDateRange !== '30d' || $selectedClinicId !== null): ?>
-<a href="<?php echo htmlspecialchars($_SERVER['SCRIPT_NAME'] ?? 'salesreport.php', ENT_QUOTES, 'UTF-8'); ?>" class="text-xs font-bold text-primary hover:underline">Reset</a>
+<a href="<?php echo htmlspecialchars($_SERVER['SCRIPT_NAME'] ?? 'salesreport.php', ENT_QUOTES, 'UTF-8'); ?>" class="inline-flex items-center justify-center h-[42px] px-4 rounded-xl text-xs font-bold uppercase tracking-wider text-primary border border-primary/25 hover:bg-primary/5 transition-colors">Reset Filters</a>
 <?php endif; ?>
+</div>
 </form>
-</div>
-</div>
+</section>
 <!-- Summary Cards (Styled like SCREEN_4 metrics) -->
 <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 <div class="bg-white/60 backdrop-blur-md p-8 rounded-[2rem] editorial-shadow group hover:-translate-y-1 transition-all">
@@ -704,6 +701,12 @@ require __DIR__ . '/superadmin_header.php';
 <div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-60">
 <span class="material-symbols-outlined text-lg">leaderboard</span>
 <span>All Clinics</span>
+</div>
+</div>
+<div class="px-4 sm:px-6 lg:px-10 py-5 border-b border-white/50">
+<div class="relative w-full max-w-md group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-xl">search</span>
+<input class="w-full bg-surface-container-low/50 border border-outline-variant/30 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 rounded-2xl pl-11 pr-4 py-2.5 text-sm transition-all placeholder:text-on-surface-variant/50" placeholder="Search top clinics..." type="text"/>
 </div>
 </div>
 <div class="overflow-x-auto">
