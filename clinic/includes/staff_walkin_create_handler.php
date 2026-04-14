@@ -288,34 +288,6 @@ try {
         ? mb_substr($serviceType, 0, 100, 'UTF-8')
         : substr($serviceType, 0, 100);
     $serviceDescription = implode('; ', $serviceDescriptions) . ' | Total: ₱' . number_format($totalCost, 2);
-    $buildServiceSummary = static function (array $rows): array {
-        $names = [];
-        $descriptions = [];
-        $sum = 0.0;
-        foreach ($rows as $row) {
-            $name = trim((string) ($row['service_name'] ?? ''));
-            $price = (float) ($row['price'] ?? 0);
-            if ($name !== '') {
-                $names[] = $name;
-                $descriptions[] = $name . ' (₱' . number_format($price, 2) . ')';
-            }
-            $sum += $price;
-        }
-        $names = array_values(array_unique($names));
-        $descriptions = array_values(array_unique($descriptions));
-        $type = implode(', ', array_slice($names, 0, 3));
-        if (count($names) > 3) {
-            $type .= ' (+' . (count($names) - 3) . ' more)';
-        }
-        $type = function_exists('mb_substr')
-            ? mb_substr($type, 0, 100, 'UTF-8')
-            : substr($type, 0, 100);
-        return [
-            'service_type' => $type,
-            'service_description' => implode('; ', $descriptions) . ' | Total: ₱' . number_format($sum, 2),
-            'total_cost' => $sum,
-        ];
-    };
     $createdBy = isset($_SESSION['user_id']) ? trim((string) $_SESSION['user_id']) : null;
     if ($createdBy === '') {
         $createdBy = null;
@@ -425,55 +397,16 @@ try {
     $firstPrimaryBookingId = $bookingId;
     $written = [];
     $writtenByBooking = [];
-    $servicePlans = [];
+    $servicePlans = [[
+        'booking_id' => $bookingId,
+        'treatment_id' => $resolvedTreatmentId !== '' ? $resolvedTreatmentId : null,
+        'services' => $normalizedServices,
+        'service_type' => $serviceType,
+        'service_description' => $serviceDescription,
+        'total_treatment_cost' => $isFollowUpVisitForActiveTreatment ? 0.0 : (float) $totalCost,
+        'service_payment_type' => ($resolvedTreatmentId !== '' && $isFollowUpVisitForActiveTreatment) ? 'installment' : 'regular',
+    ]];
     $primaryServiceId = trim((string) ($activeTreatment['primary_service_id'] ?? ''));
-    $regularServiceRows = [];
-    $installmentServiceRows = [];
-    if ($isFollowUpVisitForActiveTreatment && $resolvedTreatmentId !== '') {
-        foreach ($normalizedServices as $serviceRow) {
-            $sid = trim((string) ($serviceRow['service_id'] ?? ''));
-            $isInstallmentLine = !empty($serviceRow['enable_installment']) || ($primaryServiceId !== '' && $sid === $primaryServiceId);
-            if ($isInstallmentLine) {
-                $installmentServiceRows[] = $serviceRow;
-            } else {
-                $regularServiceRows[] = $serviceRow;
-            }
-        }
-    }
-    if ($isFollowUpVisitForActiveTreatment && $resolvedTreatmentId !== '' && $installmentServiceRows !== [] && $regularServiceRows !== []) {
-        $installmentSummary = $buildServiceSummary($installmentServiceRows);
-        $regularSummary = $buildServiceSummary($regularServiceRows);
-        $servicePlans[] = [
-            'booking_id' => $bookingId,
-            'treatment_id' => $resolvedTreatmentId,
-            'services' => $installmentServiceRows,
-            'service_type' => $installmentSummary['service_type'],
-            'service_description' => $installmentSummary['service_description'],
-            'total_treatment_cost' => 0.0,
-            'service_payment_type' => 'installment',
-        ];
-        $servicePlans[] = [
-            'booking_id' => $allocateBookingId(),
-            'treatment_id' => null,
-            'services' => $regularServiceRows,
-            'service_type' => $regularSummary['service_type'],
-            'service_description' => $regularSummary['service_description'],
-            'total_treatment_cost' => (float) $regularSummary['total_cost'],
-            'service_payment_type' => 'regular',
-        ];
-    } else {
-        $servicePlans[] = [
-            'booking_id' => $bookingId,
-            'treatment_id' => $resolvedTreatmentId !== '' ? $resolvedTreatmentId : null,
-            'services' => $normalizedServices,
-            'service_type' => $serviceType,
-            'service_description' => $serviceDescription,
-            'total_treatment_cost' => $isFollowUpVisitForActiveTreatment ? 0.0 : (float) $totalCost,
-            'service_payment_type' => ($resolvedTreatmentId !== '' && $isFollowUpVisitForActiveTreatment) ? 'installment' : 'regular',
-        ];
-    }
-
-    $planTimeCursor = new DateTimeImmutable($appointmentDate . ' ' . $appointmentTime, $clinicTz);
     foreach ($storageTargets as $idx => $target) {
         $apptTbl = $target['appt'];
         $apsTbl = $target['aps'];
@@ -490,15 +423,14 @@ try {
         $apptCols = clinic_table_columns($pdo, $apptTbl);
         $apsCols = clinic_table_columns($pdo, $apsTbl);
         $quotedAps = clinic_quote_identifier($apsTbl);
-        foreach ($servicePlans as $planIndex => $plan) {
+        foreach ($servicePlans as $plan) {
             $planBookingId = (string) ($plan['booking_id'] ?? '');
-            $planAppointmentTime = $planTimeCursor->modify('+' . ((int) $planIndex) . ' seconds')->format('H:i:s');
             $apptData = [
                 'tenant_id' => $tenantId,
                 'booking_id' => $planBookingId,
                 'patient_id' => $patientId,
                 'appointment_date' => $appointmentDate,
-                'appointment_time' => $planAppointmentTime,
+                'appointment_time' => $appointmentTime,
                 'service_type' => (string) ($plan['service_type'] ?? ''),
                 'service_description' => (string) ($plan['service_description'] ?? ''),
                 'treatment_type' => 'short_term',
@@ -556,7 +488,9 @@ try {
             }
 
             foreach ((array) ($plan['services'] ?? []) as $serviceRow) {
-                $isInstallmentRow = !empty($serviceRow['enable_installment']);
+                $serviceRowId = trim((string) ($serviceRow['service_id'] ?? ''));
+                $isInstallmentRow = !empty($serviceRow['enable_installment']) || ($primaryServiceId !== '' && $serviceRowId === $primaryServiceId);
+                $serviceRowType = $isInstallmentRow ? 'installment' : 'regular';
                 $rowData = [
                     'tenant_id' => $tenantId,
                     'booking_id' => $planBookingId,
@@ -564,9 +498,9 @@ try {
                     'service_name' => $serviceRow['service_name'],
                     'price' => $serviceRow['price'],
                     'is_original' => $isInstallmentRow ? 1 : 0,
-                    'treatment_id' => $plan['treatment_id'],
+                    'treatment_id' => $isInstallmentRow ? $plan['treatment_id'] : null,
                     'added_by' => $createdBy,
-                    'service_type' => (string) ($plan['service_payment_type'] ?? ($isInstallmentRow ? 'installment' : 'regular')),
+                    'service_type' => $serviceRowType,
                 ];
                 if (in_array('appointment_id', $apsCols, true)) {
                     $rowData['appointment_id'] = $appointmentId > 0 ? $appointmentId : null;

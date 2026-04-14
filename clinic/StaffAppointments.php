@@ -278,6 +278,13 @@ try {
             $qUsr = $tUsr !== null ? clinic_quote_identifier($tUsr) : null;
             $qPay = $tPay !== null ? clinic_quote_identifier($tPay) : null;
             $qSvc = $tSvc !== null ? clinic_quote_identifier($tSvc) : null;
+            $apptCols = clinic_table_columns($pdo, $tAppt);
+            $apsCols = $tAps !== null ? clinic_table_columns($pdo, $tAps) : [];
+            $apptIdCol = in_array('id', $apptCols, true) ? 'id' : (in_array('appointment_id', $apptCols, true) ? 'appointment_id' : null);
+            $supportsApsAppointmentId = in_array('appointment_id', $apsCols, true) && $apptIdCol !== null;
+            $apsMatchSql = $supportsApsAppointmentId
+                ? 'svc.appointment_id = a.' . $apptIdCol
+                : 'svc.booking_id = a.booking_id';
 
             $summaryStmt = $pdo->prepare("
                 SELECT
@@ -313,7 +320,7 @@ try {
                     SELECT COALESCE(GROUP_CONCAT(svc.service_name SEPARATOR ', '), a.service_type)
                     FROM {$qAps} svc
                     WHERE svc.tenant_id = a.tenant_id
-                      AND svc.booking_id = a.booking_id
+                      AND {$apsMatchSql}
                 )"
                 : 'a.service_type';
             $serviceIdsExpr = $qAps !== null
@@ -321,7 +328,7 @@ try {
                     SELECT COALESCE(GROUP_CONCAT(DISTINCT svc.service_id ORDER BY svc.service_id SEPARATOR ','), '')
                     FROM {$qAps} svc
                     WHERE svc.tenant_id = a.tenant_id
-                      AND svc.booking_id = a.booking_id
+                      AND {$apsMatchSql}
                 )"
                 : "''";
 
