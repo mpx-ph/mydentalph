@@ -188,29 +188,20 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
           <details data-faq-item data-faq-title="What are the payment options?" class="group bg-white rounded-3xl p-10 border border-on-surface/5 hover:border-primary/20 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 cursor-pointer">
             <summary class="flex justify-between items-center gap-6 list-none outline-none cursor-pointer [&::-webkit-details-marker]:hidden">
               <h3 class="font-bold tracking-tight text-on-surface text-base md:text-lg">What are the payment options?</h3>
-              <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white transition-all duration-300">
-                <span class="material-symbols-outlined text-lg" data-icon="remove">remove</span>
+              <div class="w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-primary group-open:bg-primary group-open:text-white transition-all duration-300">
+                <span class="material-symbols-outlined text-lg transition-transform duration-300 group-open:rotate-45" data-icon="add">add</span>
               </div>
             </summary>
             <div class="mt-8 text-on-surface-variant text-lg leading-relaxed font-medium border-t border-on-surface/5 pt-8">
               We accept all major credit cards, bank transfers (ACH), and digital wallets including Apple Pay and Google Pay. For enterprise clients, we can also support quarterly and annual invoicing options.
             </div>
           </details>
-
-          <details data-faq-item data-faq-title="Can I change my plan at any time?" class="group bg-white rounded-3xl p-10 border border-on-surface/5 hover:border-primary/20 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 cursor-pointer">
-            <summary class="flex justify-between items-center gap-6 list-none outline-none cursor-pointer [&::-webkit-details-marker]:hidden">
-              <h3 class="font-bold tracking-tight text-on-surface text-base md:text-lg">Can I change my plan at any time?</h3>
-              <div class="w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-primary group-open:bg-primary group-open:text-white transition-all duration-300">
-                <span class="material-symbols-outlined text-lg transition-transform duration-300 group-open:rotate-45" data-icon="add">add</span>
-              </div>
-            </summary>
-            <div class="mt-8 text-on-surface-variant text-lg leading-relaxed font-medium border-t border-on-surface/5 pt-8">
-              Yes. You can upgrade or adjust your plan whenever you are ready. Changes take effect according to your billing cycle, and our support team can help you choose the best option for your clinic's current needs.
-            </div>
-          </details>
         </div>
       </div>
     </div>
+    <p id="faq-no-results" class="hidden text-center text-on-surface-variant text-base md:text-lg font-medium pt-2">
+      No result found. Need help? <a href="ProviderContact.php" class="text-primary font-semibold hover:underline">Contact Support here</a>.
+    </p>
   </section>
 
   <div class="mt-16 lg:mt-20">
@@ -249,16 +240,23 @@ require_once __DIR__ . '/provider_redirect_superadmin.php';
     if (!search) return;
 
     var items = Array.prototype.slice.call(document.querySelectorAll('[data-faq-item]'));
+    var noResults = document.getElementById('faq-no-results');
     var normalize = function (s) { return (s || '').toString().toLowerCase(); };
 
     search.addEventListener('input', function () {
       var q = normalize(search.value.trim());
+      var visibleCount = 0;
       items.forEach(function (item) {
         var title = normalize(item.getAttribute('data-faq-title'));
         var content = normalize(item.innerText);
         var match = !q || title.indexOf(q) !== -1 || content.indexOf(q) !== -1;
         item.style.display = match ? '' : 'none';
+        if (match) visibleCount += 1;
       });
+      if (noResults) {
+        var showNoResults = !!q && visibleCount === 0;
+        noResults.classList.toggle('hidden', !showNoResults);
+      }
     });
   })();
 </script>
