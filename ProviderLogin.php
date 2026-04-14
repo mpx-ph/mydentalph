@@ -320,20 +320,20 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
     <title>Provider Portal Login - MyDental</title>
 </head>
 
-<body class="mesh-gradient h-screen overflow-hidden flex flex-col items-center selection:bg-primary/20 bg-background-light dark:bg-background-dark text-on-surface dark:text-slate-100 antialiased">
+<body class="mesh-gradient min-h-screen overflow-x-hidden overflow-y-auto flex flex-col items-center selection:bg-primary/20 bg-background-light dark:bg-background-dark text-on-surface dark:text-slate-100 antialiased">
 <?php include 'ProviderNavbar.php'; ?>
 
-<main class="flex-1 w-full grid place-items-center px-4 sm:px-6 lg:px-8 relative py-10 reveal" data-reveal="section">
+<main class="flex-1 w-full grid place-items-center px-4 sm:px-6 lg:px-8 relative py-5 sm:py-10 reveal" data-reveal="section">
     <div class="w-full max-w-lg">
         <!-- Login Card -->
-        <div class="login-card rounded-[2.5rem] overflow-hidden p-12 space-y-10">
+        <div class="login-card rounded-[2.5rem] overflow-hidden p-6 sm:p-12 space-y-6 sm:space-y-10">
             <!-- Header Content -->
             <div class="text-center space-y-4">
-                <h1 class="font-headline text-5xl font-extrabold tracking-tighter leading-[1.1] text-on-surface">
+                <h1 class="font-headline text-4xl sm:text-5xl font-extrabold tracking-tighter leading-[1.1] text-on-surface">
                     Log In to Your
-                    <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Provider Account</span>
+                    <span class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block mt-1 sm:mt-0">Provider Account</span>
                 </h1>
-                <p class="text-on-surface-variant font-medium text-lg leading-relaxed max-w-xs mx-auto">
+                <p class="text-on-surface-variant font-medium text-base sm:text-lg leading-relaxed max-w-xs mx-auto">
                     Access your dashboard to manage clinic settings and subscriptions
                 </p>
             </div>
@@ -350,8 +350,8 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
             <?php endif; ?>
 
             <!-- Form -->
-            <form class="space-y-8" method="post" action="">
-                <div class="space-y-6">
+            <form class="space-y-6 sm:space-y-8" method="post" action="">
+                <div class="space-y-5 sm:space-y-6">
                     <!-- Login identifier Field -->
                     <div class="space-y-2.5">
                         <label class="block text-[10px] font-black text-primary uppercase tracking-[0.2em] ml-1" for="login_identifier">Email Address</label>
@@ -359,7 +359,7 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
                             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                 <span class="material-symbols-outlined text-primary/40 text-xl font-light">mail</span>
                             </div>
-                            <input class="block w-full pl-12 pr-4 py-4 bg-surface-container-low/50 border rounded-2xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none text-on-surface font-medium transition-all duration-200 placeholder:text-on-surface-variant/40 border-slate-200"
+                            <input class="block w-full pl-12 pr-4 py-3.5 sm:py-4 bg-surface-container-low/50 border rounded-2xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none text-on-surface font-medium transition-all duration-200 placeholder:text-on-surface-variant/40 border-slate-200"
                                    id="login_identifier"
                                    name="login_identifier"
                                    value="<?php echo isset($_POST['login_identifier']) ? htmlspecialchars($_POST['login_identifier']) : ''; ?>"
@@ -380,7 +380,7 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
                             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                 <span class="material-symbols-outlined text-primary/40 text-xl font-light">lock</span>
                             </div>
-                            <input class="block w-full pl-12 pr-16 py-4 bg-surface-container-low/50 border rounded-2xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none text-on-surface font-medium transition-all duration-200 placeholder:text-on-surface-variant/40 border-slate-200"
+                            <input class="block w-full pl-12 pr-16 py-3.5 sm:py-4 bg-surface-container-low/50 border rounded-2xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none text-on-surface font-medium transition-all duration-200 placeholder:text-on-surface-variant/40 border-slate-200"
                                    id="password"
                                    name="password"
                                    placeholder="********"
@@ -397,7 +397,7 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
                 </div>
 
                 <!-- Action Button -->
-                <button class="w-full py-5 px-6 bg-primary text-white font-black text-sm uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 active:scale-[0.98] transition-all duration-200" type="submit">
+                <button class="w-full py-4 sm:py-5 px-6 bg-primary text-white font-black text-sm uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 active:scale-[0.98] transition-all duration-200" type="submit">
                     Login
                 </button>
             </form>
@@ -412,7 +412,7 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
         </div>
 
         <!-- Trust Badges / Security -->
-        <div class="mt-8 flex justify-center items-center space-x-10 opacity-30 hover:opacity-60 transition-all duration-500 reveal" data-reveal="section">
+        <div class="mt-6 sm:mt-8 hidden sm:flex justify-center items-center space-x-10 opacity-30 hover:opacity-60 transition-all duration-500 reveal" data-reveal="section">
             <div class="flex items-center space-x-2">
                 <span class="material-symbols-outlined text-lg">verified_user</span>
                 <span class="text-[10px] uppercase font-black tracking-[0.2em]">HIPAA Compliant</span>
