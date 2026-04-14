@@ -110,7 +110,9 @@ $filterBase = [
     'q' => isset($_GET['q']) ? trim((string) $_GET['q']) : '',
 ];
 $page = max(1, (int) (isset($_GET['page']) ? $_GET['page'] : 1));
+$workforcePage = max(1, (int) (isset($_GET['wf_page']) ? $_GET['wf_page'] : 1));
 $perPage = 10;
+$workforcePerPage = 10;
 
 $totalTenants = 0;
 $activeTenants = 0;
@@ -121,6 +123,8 @@ $tenants = [];
 $tenantWorkforce = [];
 $totalRows = 0;
 $totalPages = 1;
+$totalWorkforceRows = 0;
+$totalWorkforcePages = 1;
 $dbError = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['tenant_action'], $_POST['tenant_id'])) {
@@ -143,7 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['tenant_action'], $_PO
             // ignore; redirect still shows list
         }
     }
-    $redir = tenant_tm_url($filterBase, ['page' => $page]);
+    $redir = tenant_tm_url($filterBase, ['page' => $page, 'wf_page' => $workforcePage]);
     header('Location: ' . $redir, true, 303);
     exit;
 }
@@ -353,6 +357,21 @@ try {
     $lstmt->execute($params);
     $tenants = $lstmt->fetchAll(PDO::FETCH_ASSOC);
 
+    $workforceCountSql = "
+        SELECT COUNT(*)
+        FROM (
+            SELECT t.tenant_id
+            FROM tbl_tenants t
+            GROUP BY t.tenant_id
+        ) wf
+    ";
+    $totalWorkforceRows = (int) $pdo->query($workforceCountSql)->fetchColumn();
+    $totalWorkforcePages = max(1, (int) ceil($totalWorkforceRows / $workforcePerPage));
+    if ($workforcePage > $totalWorkforcePages) {
+        $workforcePage = $totalWorkforcePages;
+    }
+    $workforceOffset = ($workforcePage - 1) * $workforcePerPage;
+
     $workforceSql = "
         SELECT
             t.tenant_id,
@@ -363,6 +382,7 @@ try {
         LEFT JOIN tbl_users u ON u.tenant_id = t.tenant_id
         GROUP BY t.tenant_id, t.clinic_name
         ORDER BY t.clinic_name ASC
+        LIMIT {$workforcePerPage} OFFSET {$workforceOffset}
     ";
     $tenantWorkforce = $pdo->query($workforceSql)->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
@@ -372,8 +392,13 @@ try {
 if (!isset($offset)) {
     $offset = ($page - 1) * $perPage;
 }
+if (!isset($workforceOffset)) {
+    $workforceOffset = ($workforcePage - 1) * $workforcePerPage;
+}
 $rangeStart = $totalRows === 0 ? 0 : $offset + 1;
 $rangeEnd = $totalRows === 0 ? 0 : min($totalRows, $offset + count($tenants));
+$workforceRangeStart = $totalWorkforceRows === 0 ? 0 : $workforceOffset + 1;
+$workforceRangeEnd = $totalWorkforceRows === 0 ? 0 : min($totalWorkforceRows, $workforceOffset + count($tenantWorkforce));
 ?>
 <!DOCTYPE html>
 
@@ -455,17 +480,17 @@ $rangeEnd = $totalRows === 0 ? 0 : min($totalRows, $offset + count($tenants));
             background: rgba(237, 244, 255, 0.7);
             border: 1px solid rgba(192, 199, 212, 0.45);
         }
-        #tenant-directory-panel {
+        .js-paginated-panel {
             position: relative;
             transition: opacity 180ms ease, transform 180ms ease;
             will-change: opacity, transform;
         }
-        #tenant-directory-panel.tm-loading {
+        .js-paginated-panel.tm-loading {
             opacity: 0.68;
             transform: translateY(4px);
             pointer-events: none;
         }
-        #tenant-directory-panel.tm-loading::after {
+        .js-paginated-panel.tm-loading::after {
             content: '';
             position: absolute;
             inset: 0;
@@ -484,12 +509,12 @@ $rangeEnd = $totalRows === 0 ? 0 : min($totalRows, $offset + count($tenants));
             to { transform: translateX(35%); }
         }
         @media (prefers-reduced-motion: reduce) {
-            #tenant-directory-panel,
-            #tenant-directory-panel.tm-loading {
+            .js-paginated-panel,
+            .js-paginated-panel.tm-loading {
                 transition: none;
                 transform: none;
             }
-            #tenant-directory-panel.tm-loading::after {
+            .js-paginated-panel.tm-loading::after {
                 animation: none;
             }
         }
@@ -622,7 +647,7 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 </section>
 <!-- Main Data Table Container (Glassmorphism & Style from SCREEN_2) -->
-<div id="tenant-directory-panel" class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
+<div id="tenant-directory-panel" class="js-paginated-panel bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
 <!-- Table Controls -->
 <div class="px-4 sm:px-6 lg:px-8 py-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/50">
 <form method="get" action="tenantmanagement.php" class="flex flex-wrap items-center gap-4 flex-1 min-w-0">
@@ -734,15 +759,15 @@ require __DIR__ . '/superadmin_header.php';
 <td class="px-8 py-5 text-xs font-medium text-on-surface-variant"><?php echo tenant_tm_last_activity($row['owner_last_login'] ?? null); ?></td>
 <td class="px-10 py-5 text-right">
 <div class="flex justify-end flex-wrap gap-1.5">
-<form method="post" action="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page]), ENT_QUOTES, 'UTF-8'); ?>" class="inline">
+<form method="post" action="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page, 'wf_page' => $workforcePage]), ENT_QUOTES, 'UTF-8'); ?>" class="inline">
 <input type="hidden" name="tenant_id" value="<?php echo htmlspecialchars((string) $row['tenant_id'], ENT_QUOTES, 'UTF-8'); ?>"/>
 <button type="submit" name="tenant_action" value="publish" <?php echo $canPublish ? '' : 'disabled'; ?> class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wide border border-outline-variant/30 <?php echo $canPublish ? 'text-primary hover:bg-primary/10' : 'opacity-40 cursor-not-allowed'; ?>"><span class="material-symbols-outlined text-base">publish</span> Publish</button>
 </form>
-<form method="post" action="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page]), ENT_QUOTES, 'UTF-8'); ?>" class="inline">
+<form method="post" action="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page, 'wf_page' => $workforcePage]), ENT_QUOTES, 'UTF-8'); ?>" class="inline">
 <input type="hidden" name="tenant_id" value="<?php echo htmlspecialchars((string) $row['tenant_id'], ENT_QUOTES, 'UTF-8'); ?>"/>
 <button type="submit" name="tenant_action" value="unpublish" <?php echo $canUnpublish ? '' : 'disabled'; ?> class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wide border border-outline-variant/30 <?php echo $canUnpublish ? 'text-on-surface-variant hover:bg-white/80' : 'opacity-40 cursor-not-allowed'; ?>"><span class="material-symbols-outlined text-base">unpublished</span> Unpublish</button>
 </form>
-<form method="post" action="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page]), ENT_QUOTES, 'UTF-8'); ?>" class="inline">
+<form method="post" action="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page, 'wf_page' => $workforcePage]), ENT_QUOTES, 'UTF-8'); ?>" class="inline">
 <input type="hidden" name="tenant_id" value="<?php echo htmlspecialchars((string) $row['tenant_id'], ENT_QUOTES, 'UTF-8'); ?>"/>
 <button type="submit" name="tenant_action" value="suspend" <?php echo $canSuspend ? '' : 'disabled'; ?> class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wide border border-outline-variant/30 <?php echo $canSuspend ? 'text-error hover:bg-error/10' : 'opacity-40 cursor-not-allowed'; ?>"><span class="material-symbols-outlined text-base">block</span> Suspend</button>
 </form>
@@ -757,7 +782,7 @@ require __DIR__ . '/superadmin_header.php';
 <!-- Pagination (Matches SCREEN_2 Button Style) -->
 <div class="px-4 sm:px-6 lg:px-10 py-8 flex flex-wrap items-center justify-between gap-4 border-t border-white/50">
 <?php if ($page > 1): ?>
-<a href="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page - 1]), ENT_QUOTES, 'UTF-8'); ?>" class="js-tenant-pagination-link px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
+<a href="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page - 1, 'wf_page' => $workforcePage]), ENT_QUOTES, 'UTF-8'); ?>" class="js-tenant-pagination-link px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
 <span class="material-symbols-outlined text-lg">chevron_left</span> Previous
                 </a>
 <?php else: ?>
@@ -767,7 +792,7 @@ require __DIR__ . '/superadmin_header.php';
 <?php endif; ?>
 <p class="text-sm font-bold text-on-surface order-first sm:order-none w-full sm:w-auto text-center sm:text-left">Page <?php echo (int) $page; ?> of <?php echo (int) $totalPages; ?></p>
 <?php if ($page < $totalPages): ?>
-<a href="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page + 1]), ENT_QUOTES, 'UTF-8'); ?>" class="js-tenant-pagination-link px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
+<a href="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page + 1, 'wf_page' => $workforcePage]), ENT_QUOTES, 'UTF-8'); ?>" class="js-tenant-pagination-link px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
                     Next <span class="material-symbols-outlined text-lg">chevron_right</span>
                 </a>
 <?php else: ?>
@@ -778,13 +803,15 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 </div>
 <!-- Clinic Workforce Table -->
-<div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
+<div id="workforce-panel" class="js-paginated-panel bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
 <div class="px-4 sm:px-6 lg:px-8 py-6 border-b border-white/50 flex items-center justify-between gap-4">
 <div>
 <h4 class="text-xl font-extrabold font-headline text-on-surface">Clinic Workforce</h4>
 <p class="text-sm text-on-surface-variant mt-1 font-medium">Staff and doctor headcount per tenant clinic.</p>
 </div>
-<span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/70">All Tenants</span>
+<span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/70">
+                    Showing <?php echo $totalWorkforceRows === 0 ? '0' : number_format($workforceRangeStart) . '–' . number_format($workforceRangeEnd); ?> of <?php echo number_format($totalWorkforceRows); ?>
+                </span>
 </div>
 <div class="overflow-x-auto">
 <table class="w-full text-left">
@@ -835,6 +862,27 @@ require __DIR__ . '/superadmin_header.php';
 <?php endif; ?>
 </tbody>
 </table>
+</div>
+<div class="px-4 sm:px-6 lg:px-10 py-8 flex flex-wrap items-center justify-between gap-4 border-t border-white/50">
+<?php if ($workforcePage > 1): ?>
+<a href="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page, 'wf_page' => $workforcePage - 1]), ENT_QUOTES, 'UTF-8'); ?>" class="js-workforce-pagination-link px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">chevron_left</span> Previous
+                </a>
+<?php else: ?>
+<span class="px-5 py-2.5 bg-white/40 text-on-surface-variant text-sm font-bold rounded-xl border border-white/60 shadow-sm flex items-center gap-2 opacity-40 cursor-not-allowed">
+<span class="material-symbols-outlined text-lg">chevron_left</span> Previous
+                </span>
+<?php endif; ?>
+<p class="text-sm font-bold text-on-surface order-first sm:order-none w-full sm:w-auto text-center sm:text-left">Page <?php echo (int) $workforcePage; ?> of <?php echo (int) $totalWorkforcePages; ?></p>
+<?php if ($workforcePage < $totalWorkforcePages): ?>
+<a href="<?php echo htmlspecialchars(tenant_tm_url($filterBase, ['page' => $page, 'wf_page' => $workforcePage + 1]), ENT_QUOTES, 'UTF-8'); ?>" class="js-workforce-pagination-link px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
+                    Next <span class="material-symbols-outlined text-lg">chevron_right</span>
+                </a>
+<?php else: ?>
+<span class="px-5 py-2.5 bg-white/40 text-on-surface-variant text-sm font-bold rounded-xl border border-white/60 shadow-sm flex items-center gap-2 opacity-40 cursor-not-allowed">
+                    Next <span class="material-symbols-outlined text-lg">chevron_right</span>
+                </span>
+<?php endif; ?>
 </div>
 </div>
 </div>
@@ -907,63 +955,72 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 <script>
 (function () {
-    var panel = document.getElementById('tenant-directory-panel');
-    if (!panel || !window.fetch || !window.DOMParser) return;
-    var isLoading = false;
+    if (!window.fetch || !window.DOMParser) return;
 
-    function loadTenantPage(url, pushState) {
-        if (isLoading) {
-            return;
-        }
-        isLoading = true;
-        panel.classList.add('tm-loading');
-        panel.setAttribute('aria-busy', 'true');
-        fetch(url, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
+    function setupPanelPagination(panelId, linkClass, stateKey) {
+        var panel = document.getElementById(panelId);
+        if (!panel) return;
+        var isLoading = false;
+
+        function loadPage(url, pushState) {
+            if (isLoading) {
+                return;
             }
-        })
-            .then(function (res) { return res.text(); })
-            .then(function (html) {
-                var parser = new DOMParser();
-                var nextDoc = parser.parseFromString(html, 'text/html');
-                var nextPanel = nextDoc.getElementById('tenant-directory-panel');
-                if (!nextPanel) {
-                    throw new Error('Table section not found');
+            isLoading = true;
+            panel.classList.add('tm-loading');
+            panel.setAttribute('aria-busy', 'true');
+            fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
-                panel.style.opacity = '0';
-                panel.style.transform = 'translateY(6px)';
-                window.requestAnimationFrame(function () {
-                    panel.innerHTML = nextPanel.innerHTML;
-                    panel.style.opacity = '';
-                    panel.style.transform = '';
+            })
+                .then(function (res) { return res.text(); })
+                .then(function (html) {
+                    var parser = new DOMParser();
+                    var nextDoc = parser.parseFromString(html, 'text/html');
+                    var nextPanel = nextDoc.getElementById(panelId);
+                    if (!nextPanel) {
+                        throw new Error('Table section not found');
+                    }
+                    panel.style.opacity = '0';
+                    panel.style.transform = 'translateY(6px)';
+                    window.requestAnimationFrame(function () {
+                        panel.innerHTML = nextPanel.innerHTML;
+                        panel.style.opacity = '';
+                        panel.style.transform = '';
+                    });
+                    if (pushState && window.history && typeof window.history.pushState === 'function') {
+                        var state = {};
+                        state[stateKey] = url;
+                        window.history.pushState(state, '', url);
+                    }
+                })
+                .catch(function () {
+                    window.location.href = url;
+                })
+                .finally(function () {
+                    isLoading = false;
+                    panel.classList.remove('tm-loading');
+                    panel.removeAttribute('aria-busy');
                 });
-                if (pushState && window.history && typeof window.history.pushState === 'function') {
-                    window.history.pushState({ tenantPage: url }, '', url);
-                }
-            })
-            .catch(function () {
-                window.location.href = url;
-            })
-            .finally(function () {
-                isLoading = false;
-                panel.classList.remove('tm-loading');
-                panel.removeAttribute('aria-busy');
-            });
+        }
+
+        document.addEventListener('click', function (e) {
+            var link = e.target.closest('.' + linkClass);
+            if (!link || !panel.contains(link)) {
+                return;
+            }
+            e.preventDefault();
+            loadPage(link.href, true);
+        });
+
+        window.addEventListener('popstate', function () {
+            loadPage(window.location.href, false);
+        });
     }
 
-    document.addEventListener('click', function (e) {
-        var link = e.target.closest('.js-tenant-pagination-link');
-        if (!link || !panel.contains(link)) {
-            return;
-        }
-        e.preventDefault();
-        loadTenantPage(link.href, true);
-    });
-
-    window.addEventListener('popstate', function () {
-        loadTenantPage(window.location.href, false);
-    });
+    setupPanelPagination('tenant-directory-panel', 'js-tenant-pagination-link', 'tenantPage');
+    setupPanelPagination('workforce-panel', 'js-workforce-pagination-link', 'workforcePage');
 })();
 </script>
 <script>
