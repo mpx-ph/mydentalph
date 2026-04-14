@@ -231,6 +231,37 @@ $pageTitle = htmlspecialchars($settings['system_name'], ENT_QUOTES, 'UTF-8');
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
+        @media (max-width: 1023px) {
+            #superadmin-sidebar {
+                transform: translateX(-100%);
+                transition: transform 220ms ease;
+                z-index: 60;
+            }
+            body.sa-mobile-sidebar-open #superadmin-sidebar {
+                transform: translateX(0);
+            }
+            .sa-top-header {
+                left: 0;
+                width: 100% !important;
+                padding-left: 4.25rem;
+                padding-right: 1rem;
+            }
+            #sa-mobile-sidebar-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(19, 28, 37, 0.45);
+                backdrop-filter: blur(2px);
+                -webkit-backdrop-filter: blur(2px);
+                z-index: 55;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 220ms ease;
+            }
+            body.sa-mobile-sidebar-open #sa-mobile-sidebar-backdrop {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
 </style>
 </head>
 <body class="mesh-bg font-body text-on-surface antialiased min-h-screen">
@@ -240,13 +271,17 @@ $superadmin_header_center = '<div class="text-sm font-semibold text-on-surface-v
 require __DIR__ . '/superadmin_sidebar.php';
 require __DIR__ . '/superadmin_header.php';
 ?>
-<main class="ml-64 pt-20 min-h-screen">
-<div class="pt-8 px-10 pb-16 space-y-10 relative">
+<button id="sa-mobile-sidebar-toggle" type="button" class="fixed top-6 left-4 z-[65] lg:hidden w-10 h-10 rounded-xl bg-white/90 border border-white text-primary shadow-md flex items-center justify-center" aria-controls="superadmin-sidebar" aria-expanded="false" aria-label="Open navigation menu">
+<span class="material-symbols-outlined text-[20px]">menu</span>
+</button>
+<div id="sa-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
+<main class="ml-0 lg:ml-64 pt-20 min-h-screen">
+<div class="pt-6 sm:pt-8 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-8 sm:space-y-10 relative">
 <div class="absolute top-40 right-10 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10"></div>
 
 <section class="flex flex-col md:flex-row md:items-end justify-between gap-4">
 <div>
-<h2 class="text-4xl font-extrabold font-headline tracking-tight text-on-surface">Settings</h2>
+<h2 class="text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Settings</h2>
 <p class="text-on-surface-variant mt-2 font-medium">General platform branding and database backup.</p>
 </div>
 </section>
@@ -262,7 +297,7 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 <?php endif; ?>
 
-<section class="bg-white/60 backdrop-blur-md rounded-[2rem] editorial-shadow p-8 md:p-10 space-y-8">
+<section class="bg-white/60 backdrop-blur-md rounded-[2rem] editorial-shadow p-5 sm:p-8 md:p-10 space-y-8">
 <div class="flex items-start gap-4">
 <div class="p-3 bg-blue-50 text-primary rounded-xl shadow-sm shrink-0">
 <span class="material-symbols-outlined text-2xl">tune</span>
@@ -309,7 +344,7 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 
 <div class="pt-2">
-<button class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow inline-flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all" type="submit">
+<button class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow inline-flex w-full sm:w-auto justify-center items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all" type="submit">
 <span class="material-symbols-outlined text-lg">save</span>
 Save general settings
 </button>
@@ -317,7 +352,7 @@ Save general settings
 </form>
 </section>
 
-<section class="bg-white/60 backdrop-blur-md rounded-[2rem] editorial-shadow p-8 md:p-10 space-y-8">
+<section class="bg-white/60 backdrop-blur-md rounded-[2rem] editorial-shadow p-5 sm:p-8 md:p-10 space-y-8">
 <div class="flex items-start gap-4">
 <div class="p-3 bg-blue-50 text-primary rounded-xl shadow-sm shrink-0">
 <span class="material-symbols-outlined text-2xl">sell</span>
@@ -390,7 +425,7 @@ foreach ($planLabels as $planKey => $planLabel):
 <?php endforeach; ?>
 
 <div class="pt-2">
-<button class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow inline-flex items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all" type="submit">
+<button class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow inline-flex w-full sm:w-auto justify-center items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all" type="submit">
 <span class="material-symbols-outlined text-lg">save</span>
 Save provider plan details
 </button>
@@ -398,7 +433,7 @@ Save provider plan details
 </form>
 </section>
 
-<section id="database-backup" class="bg-white/60 backdrop-blur-md rounded-[2rem] editorial-shadow p-8 md:p-10 space-y-6">
+<section id="database-backup" class="bg-white/60 backdrop-blur-md rounded-[2rem] editorial-shadow p-5 sm:p-8 md:p-10 space-y-6">
 <div class="flex items-start gap-4">
 <div class="p-3 bg-blue-50 text-primary rounded-xl shadow-sm shrink-0">
 <span class="material-symbols-outlined text-2xl">database</span>
@@ -419,6 +454,44 @@ Download full system backup (.sql)
 
 </div>
 </main>
+<script>
+    (function () {
+        var toggleBtn = document.getElementById('sa-mobile-sidebar-toggle');
+        var backdrop = document.getElementById('sa-mobile-sidebar-backdrop');
+        var mqDesktop = window.matchMedia('(min-width: 1024px)');
+        if (!toggleBtn || !backdrop) return;
+
+        function setOpen(isOpen) {
+            document.body.classList.toggle('sa-mobile-sidebar-open', isOpen);
+            toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            toggleBtn.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+            var icon = toggleBtn.querySelector('.material-symbols-outlined');
+            if (icon) icon.textContent = isOpen ? 'close' : 'menu';
+            document.body.style.overflow = isOpen ? 'hidden' : '';
+        }
+
+        toggleBtn.addEventListener('click', function () {
+            setOpen(!document.body.classList.contains('sa-mobile-sidebar-open'));
+        });
+        backdrop.addEventListener('click', function () {
+            setOpen(false);
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && document.body.classList.contains('sa-mobile-sidebar-open')) {
+                setOpen(false);
+            }
+        });
+
+        function closeOnDesktop() {
+            if (mqDesktop.matches) setOpen(false);
+        }
+        if (typeof mqDesktop.addEventListener === 'function') {
+            mqDesktop.addEventListener('change', closeOnDesktop);
+        } else if (typeof mqDesktop.addListener === 'function') {
+            mqDesktop.addListener(closeOnDesktop);
+        }
+    })();
+</script>
 <script>
     (function () {
         var monthlyPriceInput = document.getElementById('provider_plan_monthly_price');
