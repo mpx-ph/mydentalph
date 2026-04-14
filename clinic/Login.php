@@ -338,6 +338,19 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    function inferClinicSlugFromPath() {
+        try {
+            var path = String(window.location.pathname || '').replace(/\/+$/, '');
+            if (!path) return '';
+            // Supports slug route like /{slug}/login
+            var match = path.match(/^\/([a-z0-9\-]+)\/login$/i);
+            if (match && match[1]) {
+                return String(match[1]).toLowerCase();
+            }
+        } catch (e) {}
+        return '';
+    }
+
     // Form submission handler
     if (loginForm && loginBtn) {
         loginForm.addEventListener('submit', async function(e) {
@@ -362,9 +375,11 @@ document.addEventListener('DOMContentLoaded', function() {
             
             try {
                 const clinicSlug = <?php echo json_encode($clinicSlugForFetch, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+                const resolvedClinicSlug = clinicSlug || inferClinicSlugFromPath();
                 const debugLogin = <?php echo (isset($_GET['debug']) && $_GET['debug'] === '1') ? 'true' : 'false'; ?>;
                 const response = await fetch('<?php echo BASE_URL; ?>api/login.php', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {
                         'Content-Type': 'application/json',
                     },
@@ -373,12 +388,17 @@ document.addEventListener('DOMContentLoaded', function() {
                         email: email.trim(),
                         password: password,
                         user_type: 'portal',
-                        clinic_slug: clinicSlug || undefined,
+                        clinic_slug: resolvedClinicSlug || undefined,
                         debug: debugLogin
                     })
                 });
-                
-                const data = await response.json();
+
+                let data = null;
+                try {
+                    data = await response.json();
+                } catch (jsonErr) {
+                    throw new Error('Unexpected server response. Please refresh and try again.');
+                }
                 
                 if (data.success) {
                     showSuccess('Login successful! Redirecting...');
@@ -397,7 +417,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                         }, 2000);
                     } else {
-                        showError(data.message || 'Login failed. Please try again.');
+                        const apiMessage = String(data.message || '');
+                        if (apiMessage.toLowerCase().indexOf('tenant context missing') !== -1) {
+                            showError('Clinic context expired. Please reopen the clinic login URL and try again.');
+                        } else {
+                            showError(apiMessage || 'Login failed. Please try again.');
+                        }
                     }
                     loginBtn.disabled = false;
                     loginBtn.innerHTML = 'Sign In securely';
