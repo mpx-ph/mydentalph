@@ -565,6 +565,9 @@ try {
         const walkInTotalAmountEl = document.getElementById('walkInTotalAmount');
         const walkInDefaultPaymentDetailsSectionEl = document.getElementById('walkInDefaultPaymentDetailsSection');
         const walkInTreatmentPaymentProgressSectionEl = document.getElementById('walkInTreatmentPaymentProgressSection');
+        const walkInDefaultPaymentSectionTitleEl = walkInDefaultPaymentDetailsSectionEl
+            ? walkInDefaultPaymentDetailsSectionEl.querySelector('h3')
+            : null;
         const walkInDefaultEstimatedTotalEl = document.getElementById('walkInDefaultEstimatedTotal');
         const walkInDefaultDownPaymentEl = document.getElementById('walkInDefaultDownPayment');
         const walkInDefaultMonthlyEstimateEl = document.getElementById('walkInDefaultMonthlyEstimate');
@@ -695,21 +698,14 @@ try {
                 const categoryBadgeClass = getServiceCategoryBadgeClass(service.category);
                 const price = Number(service.price || 0);
                 const isInstallment = serviceInstallmentEnabled(service);
-                const hasActiveTreatment = treatmentIsInstallmentPlan(activeTreatmentContext);
-                const treatmentPrimaryServiceId = hasActiveTreatment
-                    ? String((activeTreatmentContext.treatment && activeTreatmentContext.treatment.primary_service && activeTreatmentContext.treatment.primary_service.service_id) || '')
-                    : '';
-                const blockedInstallmentAddOn = hasActiveTreatment && isInstallment && String(service.service_id || '') !== treatmentPrimaryServiceId;
-                const buttonClass = blockedInstallmentAddOn
-                    ? 'shrink-0 rounded-lg bg-slate-300 text-slate-600 px-3 py-2 text-xs font-extrabold uppercase tracking-wide cursor-not-allowed'
-                    : 'shrink-0 rounded-lg bg-primary text-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide hover:bg-primary/90 transition-colors';
+                const buttonClass = 'shrink-0 rounded-lg bg-primary text-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide hover:bg-primary/90 transition-colors';
                 return '' +
                     '<div class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-slate-50/80 transition-colors">' +
                         '<div class="min-w-0">' +
                             '<p class="text-sm font-bold text-slate-900 truncate">' + serviceName + '</p>' +
-                            '<p class="text-xs font-semibold text-slate-500 mt-1 inline-flex items-center gap-2"><span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ' + categoryBadgeClass + '">' + category + '</span><span>Php ' + price.toFixed(2) + '</span>' + (blockedInstallmentAddOn ? '<span class="text-amber-700">Installment service disabled</span>' : '') + '</p>' +
+                            '<p class="text-xs font-semibold text-slate-500 mt-1 inline-flex items-center gap-2"><span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ' + categoryBadgeClass + '">' + category + '</span><span>Php ' + price.toFixed(2) + '</span>' + (isInstallment ? '<span class="text-primary">Installment</span>' : '') + '</p>' +
                         '</div>' +
-                        '<button type="button" data-action="select-service" data-service-id="' + serviceId + '" ' + (blockedInstallmentAddOn ? 'disabled' : '') + ' class="' + buttonClass + '">Select</button>' +
+                        '<button type="button" data-action="select-service" data-service-id="' + serviceId + '" class="' + buttonClass + '">Select</button>' +
                     '</div>';
             }).join('');
         }
@@ -726,12 +722,6 @@ try {
         function applyServiceFilters() {
             const keyword = serviceSearchInput ? serviceSearchInput.value.trim().toLowerCase() : '';
             const filtered = allServices.filter(function (service) {
-                if (treatmentIsInstallmentPlan(activeTreatmentContext) && serviceInstallmentEnabled(service)) {
-                    const treatmentPrimaryServiceId = String((activeTreatmentContext.treatment && activeTreatmentContext.treatment.primary_service && activeTreatmentContext.treatment.primary_service.service_id) || '');
-                    if (String(service.service_id || '') !== treatmentPrimaryServiceId) {
-                        return false;
-                    }
-                }
                 const categoryKey = normalizeServiceFilterCategory(service.category);
                 const categoryMatches = selectedServiceCategoryFilter === 'all' || categoryKey === selectedServiceCategoryFilter;
                 if (!categoryMatches) {
@@ -796,6 +786,16 @@ try {
             return list;
         }
 
+        function getAddedServicesForInstallmentTreatment() {
+            if (!treatmentIsInstallmentPlan(activeTreatmentContext)) {
+                return getDefaultBreakdownServices();
+            }
+            const primaryServiceId = String((activeTreatmentContext && activeTreatmentContext.treatment && activeTreatmentContext.treatment.primary_service && activeTreatmentContext.treatment.primary_service.service_id) || '');
+            return selectedServices.filter(function (service) {
+                return String(service && service.service_id ? service.service_id : '') !== primaryServiceId;
+            });
+        }
+
         function treatmentIsInstallmentPlan(treatmentContext) {
             if (!treatmentContext || !treatmentContext.has_active_treatment || !treatmentContext.treatment) {
                 return false;
@@ -826,25 +826,50 @@ try {
 
         function updatePaymentDetailsVisibility() {
             const hasInstallmentTreatment = treatmentIsInstallmentPlan(activeTreatmentContext);
+            const hasAddedServices = getAddedServicesForInstallmentTreatment().length > 0;
             if (walkInDefaultPaymentDetailsSectionEl) {
-                walkInDefaultPaymentDetailsSectionEl.classList.toggle('hidden', hasInstallmentTreatment);
+                walkInDefaultPaymentDetailsSectionEl.classList.toggle('hidden', hasInstallmentTreatment ? !hasAddedServices : false);
             }
             if (walkInTreatmentPaymentProgressSectionEl) {
                 walkInTreatmentPaymentProgressSectionEl.classList.toggle('hidden', !hasInstallmentTreatment);
             }
+            if (walkInDefaultPaymentSectionTitleEl) {
+                walkInDefaultPaymentSectionTitleEl.textContent = 'Payment Breakdown';
+            }
+        }
+
+        function computeServiceDownPayment(service, configuredRegularPct, configuredMinDown) {
+            const servicePrice = Math.max(0, Number(service && service.price ? service.price : 0));
+            if (servicePrice <= 0) return 0;
+            if (!serviceInstallmentEnabled(service)) {
+                return Math.min(servicePrice, Math.max(0, servicePrice * (configuredRegularPct / 100)));
+            }
+            const serviceConfiguredDownRaw = Number(service && service.installment_downpayment !== undefined ? service.installment_downpayment : 0);
+            const hasServiceConfiguredDown = Number.isFinite(serviceConfiguredDownRaw) && serviceConfiguredDownRaw > 0;
+            const installmentDownPayment = hasServiceConfiguredDown ? serviceConfiguredDownRaw : configuredMinDown;
+            return Math.min(servicePrice, Math.max(0, installmentDownPayment));
+        }
+
+        function computeServiceMonthlyEstimate(service, downPayment) {
+            if (!serviceInstallmentEnabled(service)) {
+                return 0;
+            }
+            const durationMonths = Math.max(0, Number(service && service.installment_duration_months ? service.installment_duration_months : 0));
+            const servicePrice = Math.max(0, Number(service && service.price ? service.price : 0));
+            if (durationMonths <= 0 || servicePrice <= 0) {
+                return 0;
+            }
+            if (downPayment > 0 && durationMonths > 1) {
+                return Math.max(0, servicePrice - downPayment) / (durationMonths - 1);
+            }
+            return servicePrice / durationMonths;
         }
 
         function updateDefaultPaymentDetails() {
-            const breakdownServices = getDefaultBreakdownServices();
+            const breakdownServices = getAddedServicesForInstallmentTreatment();
             const totalAmount = breakdownServices.reduce(function (sum, service) {
                 return sum + Number(service && service.price ? service.price : 0);
             }, 0);
-            const installmentService = breakdownServices.find(function (service) {
-                return serviceInstallmentEnabled(service);
-            }) || null;
-            const regularBasisAmount = totalAmount;
-            const durationMonths = installmentService ? Math.max(0, Number(installmentService.installment_duration_months || 0)) : 0;
-            const servicePrice = installmentService ? Number(installmentService.price || 0) : 0;
             const configuredRegularPctRaw = walkInPaymentSettings && walkInPaymentSettings.regular_downpayment_percentage !== undefined
                 ? Number(walkInPaymentSettings.regular_downpayment_percentage)
                 : 20;
@@ -853,29 +878,17 @@ try {
                 ? Number(walkInPaymentSettings.long_term_min_downpayment)
                 : 500;
             const configuredMinDown = Number.isFinite(configuredMinDownRaw) ? Math.max(0, configuredMinDownRaw) : 500;
-            const serviceConfiguredDownRaw = installmentService ? Number(installmentService.installment_downpayment || 0) : 0;
-            const hasServiceConfiguredDown = installmentService && Number.isFinite(serviceConfiguredDownRaw) && serviceConfiguredDownRaw > 0;
-            let downPayment = 0;
-            if (installmentService) {
-                downPayment = hasServiceConfiguredDown ? serviceConfiguredDownRaw : configuredMinDown;
-            } else if (regularBasisAmount > 0) {
-                downPayment = regularBasisAmount * (configuredRegularPct / 100);
-            }
-            downPayment = Math.max(0, downPayment);
-            if (installmentService && servicePrice > 0 && downPayment > servicePrice) {
-                downPayment = servicePrice;
-            }
-            if (!installmentService && regularBasisAmount > 0 && downPayment > regularBasisAmount) {
-                downPayment = regularBasisAmount;
-            }
             let monthlyEstimate = 0;
-            if (installmentService && durationMonths > 0) {
-                if (downPayment > 0 && durationMonths > 1) {
-                    monthlyEstimate = Math.max(0, servicePrice - downPayment) / (durationMonths - 1);
-                } else {
-                    monthlyEstimate = servicePrice / durationMonths;
+            let downPayment = 0;
+            let durationMonths = 0;
+            breakdownServices.forEach(function (service) {
+                const serviceDownPayment = computeServiceDownPayment(service, configuredRegularPct, configuredMinDown);
+                downPayment += serviceDownPayment;
+                monthlyEstimate += computeServiceMonthlyEstimate(service, serviceDownPayment);
+                if (serviceInstallmentEnabled(service)) {
+                    durationMonths = Math.max(durationMonths, Math.max(0, Number(service && service.installment_duration_months ? service.installment_duration_months : 0)));
                 }
-            }
+            });
 
             if (walkInDefaultEstimatedTotalEl) {
                 walkInDefaultEstimatedTotalEl.textContent = formatPeso(totalAmount);
@@ -887,7 +900,7 @@ try {
                 walkInDefaultMonthlyEstimateEl.textContent = formatPeso(monthlyEstimate);
             }
             if (walkInDefaultDurationMaxEl) {
-                walkInDefaultDurationMaxEl.textContent = String(durationMonths) + ' Months';
+                walkInDefaultDurationMaxEl.textContent = String(durationMonths) + (durationMonths === 1 ? ' Month' : ' Months');
             }
         }
 
@@ -1417,17 +1430,6 @@ try {
                     return String(item.service_id || '') === String(service.service_id || '');
                 });
                 if (alreadyAdded) return;
-                if (treatmentIsInstallmentPlan(activeTreatmentContext) && serviceInstallmentEnabled(service)) {
-                    const primaryId = String((activeTreatmentContext.treatment && activeTreatmentContext.treatment.primary_service && activeTreatmentContext.treatment.primary_service.service_id) || '');
-                    if (String(service.service_id || '') !== primaryId) {
-                        void staffUiAlert({
-                            title: 'Installment service blocked',
-                            message: 'Only regular services can be added while the patient has an active installment treatment.',
-                            variant: 'warning'
-                        });
-                        return;
-                    }
-                }
                 const nextServices = selectedServices.concat([service]);
                 const compatibility = validateServiceCompatibility(nextServices);
                 if (!compatibility.valid) {
