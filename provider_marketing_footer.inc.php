@@ -14,7 +14,7 @@
             <a class="hover:text-blue-500 hover:underline transition-all transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
                 href="privacy.php">Privacy Policy</a>
             <a class="hover:text-blue-500 hover:underline transition-all transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
-                href="#">Terms of Service</a>
+                href="tos.php">Terms of Service</a>
         </div>
         <div class="text-xs text-slate-500 font-inter opacity-80 hover:opacity-100">
             © <?php echo (int) date('Y'); ?> MyDental Philippines Incorporated. All rights reserved.
