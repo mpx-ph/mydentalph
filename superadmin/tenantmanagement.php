@@ -649,12 +649,12 @@ require __DIR__ . '/superadmin_header.php';
 <!-- Main Data Table Container (Glassmorphism & Style from SCREEN_2) -->
 <div id="tenant-directory-panel" class="js-paginated-panel bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
 <!-- Table Controls -->
-<div class="px-4 sm:px-6 lg:px-8 py-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/50">
-<form method="get" action="tenantmanagement.php" class="flex flex-wrap items-center gap-4 flex-1 min-w-0">
+<div class="px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 border-b border-white/50">
+<form method="get" action="tenantmanagement.php" class="flex items-center gap-3 sm:gap-4 flex-nowrap overflow-x-auto no-scrollbar w-full md:w-auto md:flex-wrap md:overflow-visible md:flex-1 min-w-0">
 <?php if ($filterBase['q'] !== ''): ?>
 <input type="hidden" name="q" value="<?php echo htmlspecialchars($filterBase['q'], ENT_QUOTES, 'UTF-8'); ?>"/>
 <?php endif; ?>
-<div class="relative group">
+<div class="relative group shrink-0">
 <select name="status" onchange="this.form.submit()" class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
 <option value=""<?php echo $filterBase['status'] === '' ? ' selected' : ''; ?>>All Status</option>
 <option value="active"<?php echo $filterBase['status'] === 'active' ? ' selected' : ''; ?>>Active</option>
@@ -663,7 +663,7 @@ require __DIR__ . '/superadmin_header.php';
 </select>
 <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xl">expand_more</span>
 </div>
-<div class="relative group">
+<div class="relative group shrink-0">
 <select name="plan" onchange="this.form.submit()" class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
 <option value=""<?php echo $filterBase['plan'] === '' ? ' selected' : ''; ?>>All Plans</option>
 <?php foreach ($plans as $p): ?>
@@ -673,7 +673,7 @@ require __DIR__ . '/superadmin_header.php';
 <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xl">filter_list</span>
 </div>
 </form>
-<div class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">
+<div class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60 md:text-right">
                     Showing <span class="text-primary opacity-100"><?php echo $totalRows === 0 ? '0' : number_format($rangeStart) . '–' . number_format($rangeEnd); ?></span> of <?php echo number_format($totalRows); ?> tenants
                 </div>
 </div>
