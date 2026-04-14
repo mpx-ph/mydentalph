@@ -178,17 +178,6 @@ Elevating dental practice management through clinical precision and digital cura
 </div>
 </div>
 </div>
-<div class="pt-9 border-t border-on-surface/5">
-<p class="text-primary font-bold text-[10px] uppercase tracking-[0.4em] mb-6">Clinical Network</p>
-<div class="flex gap-4">
-<div class="h-12 w-12 rounded-full bg-surface-container-low flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all cursor-pointer">
-<span class="material-symbols-outlined text-xl" data-icon="share">share</span>
-</div>
-<div class="h-12 w-12 rounded-full bg-surface-container-low flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all cursor-pointer">
-<span class="material-symbols-outlined text-xl" data-icon="public">public</span>
-</div>
-</div>
-</div>
 </div>
 </div>
 
@@ -218,23 +207,6 @@ Send Inquiry
 <span class="material-symbols-outlined transition-transform group-hover:translate-x-1" data-icon="arrow_forward">arrow_right_alt</span>
 </button>
 </form>
-</div>
-</div>
-</section>
-
-<!-- Map Section -->
-<section class="max-w-[1800px] mx-auto px-10 mb-24 reveal" data-reveal="section">
-<div class="relative w-full h-[480px] rounded-[3rem] overflow-hidden bg-slate-100 dark:bg-slate-900/50 group shadow-2xl">
-<img alt="Stylized map background" class="w-full h-full object-cover grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-1000" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCHAWeMpCjaIVp3N6Be0htDT88O3XrZBxPznvmZth44vuQLZN8LC6jlsnkUoDQhUa5AWw3Ov1NNNaC9zoOcDxcHBTpBSrRGQEDOLd4ZpT88umkHbgljP0sWEJVMGg81YXNAZM9k3giFqqpQ_vR35kbVNB9KYlS5X41ocxvocCGrMj6AEc9TmktqfMOasA7LbrKwiyvrD687kYiXMJdjb7I_HJ2HiBJPMo76iNdD0Z2DNLMUM8QgyYlhBYtRJaOMm7gnwQQVlZ91xqA"/>
-<div class="absolute inset-0 bg-primary/5 mix-blend-multiply"></div>
-<div class="absolute inset-0 bg-gradient-to-t from-on-surface/60 via-transparent to-transparent flex flex-col justify-end p-14">
-<div class="glass-card p-8 rounded-[1.75rem] max-w-lg border border-white/40 shadow-2xl">
-<div class="inline-flex items-center gap-4 px-4 py-2 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.4em] mb-6">
-Philippines support
-</div>
-<h4 class="text-2xl font-headline font-extrabold text-on-surface mb-4 tracking-tight">Quezon City headquarters</h4>
-<p class="text-on-surface-variant font-medium leading-relaxed">Our team helps clinics onboard to MyDental with training and responsive assistance.</p>
-</div>
 </div>
 </div>
 </section>
