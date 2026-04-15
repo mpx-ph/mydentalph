@@ -227,7 +227,8 @@ function staff_payment_recording_plan_from_treatment_snapshot(array $treatment):
         $derivedDown = round($amountPaid - ($monthlyPortion * max(0, $monthsPaid - 1)), 2);
         if ($derivedDown > 0.009) {
             $downpaymentAmount = min($totalCost, max(0.0, $derivedDown));
-            $monthlyAmount = round(($totalCost - $downpaymentAmount) / max(1, $durationMonths - 1), 2);
+            // Downpayment is a separate deduction, not one of the monthly slots.
+            $monthlyAmount = round(($totalCost - $downpaymentAmount) / max(1, $durationMonths), 2);
         }
     }
 
@@ -239,6 +240,35 @@ function staff_payment_recording_plan_from_treatment_snapshot(array $treatment):
         'downpayment_amount' => round($downpaymentAmount, 2),
         'monthly_amount' => round(max(0.0, $monthlyAmount), 2),
     ];
+}
+
+/**
+ * @param list<array{number:int, amount:float, status:string}> $plan
+ * @return list<array{number:int, amount:float, status:string}>
+ */
+function staff_payment_recording_apply_statuses_from_paid_amount(array $plan, float $amountPaid): array
+{
+    if ($plan === []) {
+        return [];
+    }
+    $remainingPaid = max(0.0, round($amountPaid, 2));
+    $nextUnsettledIdx = null;
+    foreach ($plan as $idx => $slot) {
+        $slotAmount = max(0.0, round((float) ($slot['amount'] ?? 0), 2));
+        if ($slotAmount > 0.009 && $remainingPaid + 0.009 >= $slotAmount) {
+            $plan[$idx]['status'] = 'paid';
+            $remainingPaid = round(max(0.0, $remainingPaid - $slotAmount), 2);
+            continue;
+        }
+        if ($nextUnsettledIdx === null) {
+            $nextUnsettledIdx = $idx;
+        }
+        $plan[$idx]['status'] = 'pending';
+    }
+    if ($nextUnsettledIdx !== null) {
+        $plan[$nextUnsettledIdx]['status'] = 'book_visit';
+    }
+    return $plan;
 }
 
 function staff_payment_recording_send_receipt_email(string $toEmail, string $subject, string $bodyText, string $bodyHtml): bool
@@ -372,7 +402,8 @@ function staff_payment_recording_build_installments_plan(float $totalCost, int $
             'status' => 'pending',
         ];
         $remainingAmount -= $downpaymentAmount;
-        $installmentCount = $durationMonths - 1;
+        // Keep monthly count equal to configured duration; DP is separate.
+        $installmentCount = $durationMonths;
     } else {
         $installmentCount = $durationMonths;
     }
@@ -561,7 +592,6 @@ function staff_payment_recording_ensure_installment_schedule(
             if ($treatmentRow) {
                 $snapshot = staff_payment_recording_plan_from_treatment_snapshot($treatmentRow);
                 $durationMonths = (int) $snapshot['duration_months'];
-                $monthsPaid = (int) $snapshot['months_paid'];
                 $totalCost = (float) $snapshot['total_cost'];
                 $downpaymentAmount = (float) $snapshot['downpayment_amount'];
                 $monthlyAmount = (float) $snapshot['monthly_amount'];
@@ -576,40 +606,19 @@ function staff_payment_recording_ensure_installment_schedule(
                         }
                         $downpaymentAmount = round($serviceDown, 2);
                         if ($durationMonths > 1 && $downpaymentAmount > 0.009) {
-                            $monthlyAmount = round(($totalCost - $downpaymentAmount) / max(1, $durationMonths - 1), 2);
+                            $monthlyAmount = round(($totalCost - $downpaymentAmount) / max(1, $durationMonths), 2);
                         }
                     }
                 }
 
                 if ($durationMonths > 0 && $totalCost > 0.009) {
-                    $remainingAllocator = $totalCost;
-                    for ($n = 1; $n <= $durationMonths; $n++) {
-                        if ($downpaymentAmount > 0.009 && $durationMonths > 1) {
-                            if ($n === 1) {
-                                $slotAmount = $downpaymentAmount;
-                            } elseif ($n === $durationMonths) {
-                                $slotAmount = $remainingAllocator;
-                            } else {
-                                $slotAmount = $monthlyAmount;
-                            }
-                        } else {
-                            if ($n === $durationMonths) {
-                                $slotAmount = $remainingAllocator;
-                            } else {
-                                $slotAmount = $monthlyAmount;
-                            }
-                        }
-                        $slotAmount = round(max(0.0, $slotAmount), 2);
-                        $remainingAllocator = round(max(0.0, $remainingAllocator - $slotAmount), 2);
-                        $plan[] = [
-                            'number' => $n,
-                            'amount' => $slotAmount,
-                            'status' => ($n <= $monthsPaid) ? 'paid' : 'pending',
-                        ];
-                    }
-                    if ($monthsPaid > 0 && $monthsPaid < count($plan)) {
-                        $plan[$monthsPaid]['status'] = 'book_visit';
-                    }
+                    $paymentOption = ($durationMonths > 1 && $downpaymentAmount > 0.009) ? 'downpayment' : 'installment';
+                    $downForPlan = ($paymentOption === 'downpayment') ? $downpaymentAmount : 0.0;
+                    $plan = staff_payment_recording_build_installments_plan($totalCost, $durationMonths, $paymentOption, $downForPlan);
+
+                    // Source settled slots from amount paid instead of treating DP as a month counter.
+                    $amountPaidSnapshot = max(0.0, round($totalCost - (float) $snapshot['remaining_balance'], 2));
+                    $plan = staff_payment_recording_apply_statuses_from_paid_amount($plan, $amountPaidSnapshot);
                     $planTreatmentId = $appointmentTreatmentId;
                 }
             }
@@ -656,6 +665,17 @@ function staff_payment_recording_ensure_installment_schedule(
                 return false;
             }
         }
+
+        $paidStmt = $pdo->prepare("
+            SELECT COALESCE(SUM(py.amount), 0) AS total_paid
+            FROM tbl_payments py
+            WHERE py.tenant_id = ?
+              AND py.booking_id = ?
+              AND py.status IN ('completed', 'paid')
+        ");
+        $paidStmt->execute([$tenantId, $bookingId]);
+        $paidAmountForSchedule = (float) ($paidStmt->fetchColumn() ?: 0);
+        $plan = staff_payment_recording_apply_statuses_from_paid_amount($plan, $paidAmountForSchedule);
 
         $cols = staff_payment_recording_installments_table_columns($pdo, $installmentsTableName);
         $hasTenant = in_array('tenant_id', $cols, true);
