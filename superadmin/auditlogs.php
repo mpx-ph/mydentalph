@@ -296,32 +296,29 @@ require __DIR__ . '/superadmin_header.php';
 <div class="space-y-1.5">
 <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-on-surface-variant/70">User Type</p>
 <div class="relative group">
-<select class="appearance-none w-full bg-surface-container-low/60 border border-white/80 rounded-xl pl-4 pr-11 py-2.5 text-sm font-semibold text-on-surface cursor-pointer hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all">
+<select class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl px-4 py-2.5 text-sm font-semibold text-on-surface cursor-pointer hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all">
 <option>All Users</option>
 <option>System</option>
 <option>Staff</option>
 </select>
-<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-[20px]">expand_more</span>
 </div>
 </div>
 <div class="space-y-1.5">
 <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-on-surface-variant/70">Action</p>
 <div class="relative group">
-<select class="appearance-none w-full bg-surface-container-low/60 border border-white/80 rounded-xl pl-4 pr-11 py-2.5 text-sm font-semibold text-on-surface cursor-pointer hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all">
+<select class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl px-4 py-2.5 text-sm font-semibold text-on-surface cursor-pointer hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all">
 <option>All Actions</option>
 <option>Login</option>
 <option>Logout</option>
 </select>
-<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-[20px]">expand_more</span>
 </div>
 </div>
 <div class="space-y-1.5">
 <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-on-surface-variant/70">Clinic</p>
 <div class="relative group">
-<select class="appearance-none w-full bg-surface-container-low/60 border border-white/80 rounded-xl pl-4 pr-11 py-2.5 text-sm font-semibold text-on-surface cursor-pointer hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all">
+<select class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl px-4 py-2.5 text-sm font-semibold text-on-surface cursor-pointer hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all">
 <option>All Clinics</option>
 </select>
-<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-[20px]">expand_more</span>
 </div>
 </div>
 <div class="space-y-1.5">
@@ -350,12 +347,6 @@ require __DIR__ . '/superadmin_header.php';
 </section>
 <!-- Table Container -->
 <div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
-<!-- Table Controls -->
-<div class="px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-end border-b border-white/50">
-<div class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">
-                    Showing <span class="text-primary opacity-100"><?php echo $totalEventRows === 0 ? '0' : (number_format($showingFrom) . '-' . number_format($showingTo)); ?></span> of <?php echo number_format($totalEventRows); ?> results
-                </div>
-</div>
 <!-- Table Content -->
 <div class="overflow-x-auto">
 <table class="w-full text-left">
@@ -434,7 +425,8 @@ require __DIR__ . '/superadmin_header.php';
 </table>
 </div>
 <!-- Pagination -->
-<div class="px-4 sm:px-6 lg:px-10 py-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/50">
+<div class="px-4 sm:px-6 lg:px-10 py-6 border-t border-white/50 space-y-4">
+<div class="flex flex-wrap items-center justify-between gap-3">
 <?php $isFirstPage = $currentPage <= 1; ?>
 <?php $isLastPage = $currentPage >= $totalPages; ?>
 <?php if ($isFirstPage): ?>
@@ -467,34 +459,9 @@ require __DIR__ . '/superadmin_header.php';
 </a>
 <?php endif; ?>
 </div>
-</div>
-<!-- Footer Grid -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-<div class="p-10 bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow flex items-center justify-between group cursor-pointer hover:-translate-y-1 transition-all">
-<div>
-<h4 class="text-xl font-extrabold font-headline text-on-surface">Export Center</h4>
-<p class="text-sm text-on-surface-variant mt-2 font-medium">Access all generated audit files and security reports.</p>
-<button class="mt-6 px-6 py-2.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-2xl text-xs font-bold transition-all flex items-center gap-2">
-                        Manage Exports
-                        <span class="material-symbols-outlined text-sm">settings</span>
-</button>
-</div>
-<div class="w-24 h-24 rounded-[2rem] bg-primary/5 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-<span class="material-symbols-outlined text-4xl text-primary">folder_open</span>
-</div>
-</div>
-<div class="p-10 bg-gradient-to-br from-[#ffdcc3] to-[#ffb77e] rounded-[2.5rem] shadow-xl shadow-orange-900/10 flex items-center justify-between group cursor-pointer hover:-translate-y-1 transition-all">
-<div>
-<h4 class="text-xl font-extrabold font-headline text-[#2f1500]">System Health</h4>
-<p class="text-sm text-[#6e3900]/80 mt-2 font-medium leading-relaxed">Infrastructure status and system monitoring metrics.</p>
-<button class="mt-6 px-6 py-2.5 bg-white/30 text-[#2f1500] hover:bg-white/50 rounded-2xl text-xs font-bold transition-all flex items-center gap-2">
-                        View Status
-                        <span class="material-symbols-outlined text-sm">cloud_done</span>
-</button>
-</div>
-<div class="w-24 h-24 rounded-[2rem] bg-white/20 flex items-center justify-center group-hover:scale-105 transition-transform">
-<span class="material-symbols-outlined text-4xl text-[#2f1500]">analytics</span>
-</div>
+<div class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60 text-center sm:text-right">
+                    Showing <span class="text-primary opacity-100"><?php echo $totalEventRows === 0 ? '0' : (number_format($showingFrom) . '-' . number_format($showingTo)); ?></span> of <?php echo number_format($totalEventRows); ?> results
+                </div>
 </div>
 </div>
 </div>
