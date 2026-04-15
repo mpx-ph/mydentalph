@@ -548,6 +548,7 @@ function staff_payment_recording_ensure_installment_schedule(
         ");
         $svcStmt->execute([$tenantId, $bookingId, $primaryInstallmentServiceId, $primaryInstallmentServiceId]);
         $svcRow = $svcStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        $paymentSettings = staff_payment_recording_load_payment_settings($pdo, $tenantId);
 
         if ($appointmentTreatmentId !== '') {
             $treatStmt = $pdo->prepare("
@@ -570,15 +571,14 @@ function staff_payment_recording_ensure_installment_schedule(
                 // Service-level installment downpayment is authoritative when configured.
                 if ($svcRow) {
                     $serviceDownRaw = $svcRow['installment_downpayment'] ?? null;
-                    if ($serviceDownRaw !== null && $serviceDownRaw !== '') {
-                        $serviceDown = max(0.0, (float) $serviceDownRaw);
-                        if ($totalCost > 0 && $serviceDown > $totalCost) {
-                            $serviceDown = $totalCost;
-                        }
-                        $downpaymentAmount = round($serviceDown, 2);
-                        if ($durationMonths > 1 && $downpaymentAmount > 0.009) {
-                            $monthlyAmount = round(($totalCost - $downpaymentAmount) / max(1, $durationMonths), 2);
-                        }
+                    $effectiveDown = staff_payment_recording_effective_installment_downpayment_amount(
+                        $paymentSettings,
+                        $totalCost,
+                        $serviceDownRaw
+                    );
+                    $downpaymentAmount = $effectiveDown;
+                    if ($durationMonths > 1 && $downpaymentAmount > 0.009) {
+                        $monthlyAmount = round(($totalCost - $downpaymentAmount) / max(1, $durationMonths), 2);
                     }
                 }
 
@@ -629,11 +629,11 @@ function staff_payment_recording_ensure_installment_schedule(
             }
 
             $storedDown = $svcRow['installment_downpayment'] ?? null;
-            $storedDownFloat = ($storedDown !== null && $storedDown !== '') ? (float) $storedDown : null;
-            $effDown = max(0.0, $storedDownFloat ?? 0.0);
-            if ($totalCost > 0 && $effDown > $totalCost) {
-                $effDown = $totalCost;
-            }
+            $effDown = staff_payment_recording_effective_installment_downpayment_amount(
+                $paymentSettings,
+                $totalCost,
+                $storedDown
+            );
 
             $rawDur = $svcRow['installment_duration_months'] ?? null;
             $durationMonths = ($rawDur === null || $rawDur === '') ? 12 : (int) $rawDur;
