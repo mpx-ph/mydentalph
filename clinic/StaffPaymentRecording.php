@@ -3911,9 +3911,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 const installmentTotal = installmentTotalBySchedule > 0 ? installmentTotalBySchedule : totalCost;
                 const installmentPaid = Math.max(0, Math.min(installmentTotal, installmentPaidResolved));
                 const computedInstallmentRemainingBalance = Math.max(0, installmentTotal - installmentPaid);
-                const installmentRemainingBalance = hasTreatmentRemainingBalance
-                    ? Math.max(computedInstallmentRemainingBalance, Math.max(0, rawTreatmentRemainingBalance))
-                    : computedInstallmentRemainingBalance;
+                // Source remaining directly from resolved total/paid to avoid stale treatment snapshot values.
+                const installmentRemainingBalance = computedInstallmentRemainingBalance;
                 rows.push({
                     ...baseRow,
                     transaction_key: (baseRow.treatment_id ? ('treatment:' + baseRow.treatment_id) : ('booking:' + baseRow.booking_id)) + '::installment',
@@ -3933,9 +3932,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
         }).filter((item) => {
             if (item.transaction_type === 'installment') {
                 const remaining = Number(item.pending_balance || 0);
-                return remaining > 0;
+                return remaining > 0.009;
             }
-            return item.pending_balance > 0;
+            return Number(item.pending_balance || 0) > 0.009;
         });
 
         if (Array.isArray(transactionDebugRows) && transactionDebugRows.length) {
