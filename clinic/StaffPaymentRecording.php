@@ -596,8 +596,13 @@ function staff_payment_recording_ensure_installment_schedule(
                 $downpaymentAmount = (float) $snapshot['downpayment_amount'];
                 $monthlyAmount = (float) $snapshot['monthly_amount'];
 
-                // Service-level installment downpayment is authoritative when configured.
+                // Service-level installment settings are authoritative when configured.
                 if ($svcRow) {
+                    $serviceDurRaw = $svcRow['installment_duration_months'] ?? null;
+                    if ($serviceDurRaw !== null && $serviceDurRaw !== '') {
+                        $serviceDur = max(1, (int) $serviceDurRaw);
+                        $durationMonths = $serviceDur;
+                    }
                     $serviceDownRaw = $svcRow['installment_downpayment'] ?? null;
                     if ($serviceDownRaw !== null && $serviceDownRaw !== '') {
                         $serviceDown = max(0.0, (float) $serviceDownRaw);
