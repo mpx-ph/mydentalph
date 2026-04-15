@@ -724,6 +724,11 @@ if ($currentTenantSlug !== '') {
                                     $typeLabel = 'Short Term';
                                 }
                                 $treatmentType = $typeLabel === 'Long Term' ? 'long_term' : 'short_term';
+                                $normalizedTypeLabel = strtolower(trim($typeLabel));
+                                $typeBadgeClass = 'bg-blue-50 text-blue-700 border border-blue-200';
+                                if ($normalizedTypeLabel === 'long term') {
+                                    $typeBadgeClass = 'bg-orange-50 text-orange-700 border border-orange-200';
+                                }
                                 $totalCost = (float) ($appointment['total_treatment_cost'] ?? 0);
                                 $totalPaid = (float) ($appointment['total_paid'] ?? 0);
                                 $pendingBalance = max(0, $totalCost - $totalPaid);
@@ -744,7 +749,7 @@ if ($currentTenantSlug !== '') {
                                     </td>
                                     <td class="px-6 py-5 text-sm font-semibold text-slate-700"><?php echo htmlspecialchars((string) ($appointment['service_type'] ?? 'General Consultation'), ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td class="px-6 py-5">
-                                        <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-wider">
+                                        <span class="inline-flex items-center justify-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider <?php echo htmlspecialchars($typeBadgeClass, ENT_QUOTES, 'UTF-8'); ?>">
                                             <?php echo htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8'); ?>
                                         </span>
                                     </td>
