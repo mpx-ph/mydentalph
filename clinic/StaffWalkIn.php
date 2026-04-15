@@ -905,19 +905,15 @@ try {
         }
 
         function updateTreatmentProgressCards(treatment) {
-            const totalRaw = treatment ? Number(treatment.total_cost || 0) : 0;
-            const paidRaw = treatment ? Number(treatment.amount_paid || 0) : 0;
-            const progressRaw = treatment ? Number(treatment.progress_percentage) : NaN;
-            const remainingRaw = treatment ? Number(treatment.remaining_balance) : NaN;
-            const total = Number.isFinite(totalRaw) ? Math.max(0, totalRaw) : 0;
-            const paid = Number.isFinite(paidRaw) ? Math.max(0, paidRaw) : 0;
-            const remaining = Number.isFinite(remainingRaw)
-                ? Math.max(0, remainingRaw)
-                : Math.max(0, total - paid);
+            const total = treatment ? Number(treatment.total_cost || 0) : 0;
+            const paid = treatment ? Number(treatment.amount_paid || 0) : 0;
+            const remaining = treatment ? Math.max(0, Number(treatment.remaining_balance || 0)) : 0;
             const monthsLeft = treatment ? computeTreatmentMonthsLeft(treatment) : 0;
-            const computedPercent = total > 0 ? (paid / total) * 100 : 0;
-            const normalizedPercent = Number.isFinite(progressRaw) ? progressRaw : computedPercent;
-            const percent = Math.min(100, Math.max(0, Math.round(normalizedPercent * 10) / 10));
+            const apiProgressRaw = treatment ? Number(treatment.progress_percentage) : NaN;
+            const fallbackProgress = total > 0 ? Math.min(100, Math.round((paid / total) * 1000) / 10) : 0;
+            const percent = Number.isFinite(apiProgressRaw)
+                ? Math.max(0, Math.min(100, Math.round(apiProgressRaw * 10) / 10))
+                : fallbackProgress;
 
             if (walkInTotalAmountEl) walkInTotalAmountEl.textContent = formatPeso(total);
             if (walkInAmountPaidEl) walkInAmountPaidEl.textContent = formatPeso(paid);
