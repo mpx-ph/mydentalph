@@ -75,8 +75,8 @@ http_response_code(503);
                 </div>
 
                 <div class="order-1 flex items-center justify-center lg:order-2">
-                    <div class="w-full max-w-[640px] rounded-3xl border border-primary/15 bg-white/70 p-4 shadow-[0_12px_40px_rgba(43,139,235,0.12)] backdrop-blur-sm sm:p-5">
-                        <div id="maintenanceAnimation" class="aspect-video w-full rounded-2xl bg-surface"></div>
+                    <div class="w-full max-w-[860px]">
+                        <div id="maintenanceAnimation" class="aspect-[16/10] w-full bg-transparent"></div>
                     </div>
                 </div>
             </div>
