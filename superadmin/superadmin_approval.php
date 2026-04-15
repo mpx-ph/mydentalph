@@ -370,7 +370,7 @@ require __DIR__ . '/superadmin_header.php';
 </button>
 <div id="sa-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
 <main class="ml-0 lg:ml-64 flex-grow flex flex-col min-h-screen pt-24 sm:pt-20">
-<div class="flex flex-col lg:flex-row flex-grow overflow-visible lg:overflow-hidden relative">
+<div id="sa-approval-content" class="flex flex-col lg:flex-row flex-grow overflow-visible lg:overflow-hidden relative">
 <div class="absolute top-40 right-10 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10"></div>
 <section class="w-full lg:w-3/5 p-4 sm:p-6 lg:p-10 overflow-y-visible lg:overflow-y-auto space-y-8 no-scrollbar">
 <section>
@@ -385,13 +385,13 @@ require __DIR__ . '/superadmin_header.php';
 <?php endif; ?>
 <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
 <div class="flex flex-wrap gap-2 p-1.5 bg-white/40 backdrop-blur-md rounded-2xl border border-white/60">
-<a href="?status=pending" class="px-4 sm:px-5 py-2 rounded-xl text-xs font-bold transition-colors <?php echo $status_filter === 'pending' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Pending Tenants</a>
-<a href="?status=approved" class="px-4 sm:px-5 py-2 rounded-xl text-xs font-bold <?php echo $status_filter === 'approved' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Approved</a>
-<a href="?status=rejected" class="px-4 sm:px-5 py-2 rounded-xl text-xs font-bold <?php echo $status_filter === 'rejected' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Rejected</a>
+<a href="?status=pending" class="sa-status-tab px-4 sm:px-5 py-2 rounded-xl text-xs font-bold transition-colors <?php echo $status_filter === 'pending' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Pending Tenants</a>
+<a href="?status=approved" class="sa-status-tab px-4 sm:px-5 py-2 rounded-xl text-xs font-bold <?php echo $status_filter === 'approved' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Approved</a>
+<a href="?status=rejected" class="sa-status-tab px-4 sm:px-5 py-2 rounded-xl text-xs font-bold <?php echo $status_filter === 'rejected' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Rejected</a>
 </div>
 <span class="text-xs font-bold text-on-surface-variant/70 px-4 py-2 bg-white/60 border border-white rounded-xl"><?php echo count($requests); ?> result(s)</span>
 </div>
-<div class="space-y-6">
+<div class="space-y-6" id="sa-requests-list">
 <?php if (empty($requests)): ?>
 <div class="bg-white/60 backdrop-blur-md p-6 rounded-[2rem] editorial-shadow border border-white/60">
 <p class="text-sm font-semibold text-on-surface-variant">No tenant requests in this status yet.</p>
@@ -531,9 +531,8 @@ Final approval will trigger automated onboarding email to clinic administrator.
         const title = document.getElementById('docPreviewTitle');
         const closeBtn = document.getElementById('docPreviewClose');
         const backdrop = document.getElementById('docPreviewBackdrop');
-        const triggers = document.querySelectorAll('.doc-preview-trigger');
 
-        if (!modal || !frame || !title || !closeBtn || !backdrop || !triggers.length) {
+        if (!modal || !frame || !title || !closeBtn || !backdrop) {
             return;
         }
 
@@ -550,15 +549,17 @@ Final approval will trigger automated onboarding email to clinic administrator.
             document.body.classList.remove('overflow-hidden');
         }
 
-        triggers.forEach((trigger) => {
-            trigger.addEventListener('click', function () {
-                const fileUrl = this.getAttribute('data-file-url') || '';
-                const fileName = this.getAttribute('data-file-name') || 'Document Preview';
-                if (!fileUrl) {
-                    return;
-                }
-                openModal(fileUrl, fileName);
-            });
+        document.addEventListener('click', function (event) {
+            const trigger = event.target.closest('.doc-preview-trigger');
+            if (!trigger) {
+                return;
+            }
+            const fileUrl = trigger.getAttribute('data-file-url') || '';
+            const fileName = trigger.getAttribute('data-file-name') || 'Document Preview';
+            if (!fileUrl) {
+                return;
+            }
+            openModal(fileUrl, fileName);
         });
 
         closeBtn.addEventListener('click', closeModal);
@@ -567,6 +568,61 @@ Final approval will trigger automated onboarding email to clinic administrator.
             if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
                 closeModal();
             }
+        });
+    })();
+</script>
+<script>
+    (function () {
+        function setApprovalContentFromHtml(htmlText) {
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(htmlText, 'text/html');
+            var nextContent = doc.getElementById('sa-approval-content');
+            var currentContent = document.getElementById('sa-approval-content');
+            if (!nextContent || !currentContent) {
+                return false;
+            }
+            currentContent.replaceWith(nextContent);
+            return true;
+        }
+
+        function loadStatusTab(url, pushToHistory) {
+            var parsedUrl = new URL(url, window.location.href);
+            fetch(parsedUrl.toString(), {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Failed to load status tab.');
+                    }
+                    return response.text();
+                })
+                .then(function (htmlText) {
+                    if (!setApprovalContentFromHtml(htmlText)) {
+                        window.location.href = parsedUrl.toString();
+                        return;
+                    }
+                    if (pushToHistory) {
+                        window.history.pushState({ url: parsedUrl.toString() }, '', parsedUrl.toString());
+                    }
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                })
+                .catch(function () {
+                    window.location.href = parsedUrl.toString();
+                });
+        }
+
+        document.addEventListener('click', function (event) {
+            var link = event.target.closest('a.sa-status-tab');
+            if (!link) {
+                return;
+            }
+            event.preventDefault();
+            loadStatusTab(link.href, true);
+        });
+
+        window.addEventListener('popstate', function () {
+            loadStatusTab(window.location.href, false);
         });
     })();
 </script>
