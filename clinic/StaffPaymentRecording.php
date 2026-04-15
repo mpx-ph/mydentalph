@@ -1090,7 +1090,7 @@ try {
                     COALESCE(a.treatment_id, '') AS treatment_id,
                     COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
                     COALESCE(a.service_description, '') AS service_description,
-                    COALESCE(SUM(CASE WHEN py.status = 'paid' THEN py.amount ELSE 0 END), 0) AS total_paid
+                    COALESCE(SUM(CASE WHEN py.status IN ('completed', 'paid') THEN py.amount ELSE 0 END), 0) AS total_paid
                 FROM tbl_appointments a
                 LEFT JOIN tbl_payments py
                     ON py.tenant_id = a.tenant_id
@@ -2145,7 +2145,7 @@ try {
                 LEFT JOIN (
                     SELECT tenant_id, booking_id, COALESCE(SUM(amount), 0) AS total_paid
                     FROM tbl_payments
-                    WHERE status = 'paid'
+                    WHERE status IN ('completed', 'paid')
                     GROUP BY tenant_id, booking_id
                 ) py
                     ON py.tenant_id = a.tenant_id
@@ -2154,6 +2154,7 @@ try {
                     ON p.tenant_id = a.tenant_id
                    AND p.patient_id = a.patient_id
                 WHERE a.tenant_id = ?
+                  AND LOWER(COALESCE(a.status, '')) <> 'cancelled'
                 GROUP BY
                     a.booking_id,
                     COALESCE(aps.appointment_id, a.id, 0),
@@ -2194,7 +2195,7 @@ try {
                 LEFT JOIN (
                     SELECT tenant_id, booking_id, COALESCE(SUM(amount), 0) AS total_paid
                     FROM tbl_payments
-                    WHERE status = 'paid'
+                    WHERE status IN ('completed', 'paid')
                     GROUP BY tenant_id, booking_id
                 ) py
                     ON py.tenant_id = a.tenant_id
@@ -2203,6 +2204,7 @@ try {
                     ON p.tenant_id = a.tenant_id
                    AND p.patient_id = a.patient_id
                 WHERE a.tenant_id = ?
+                  AND LOWER(COALESCE(a.status, '')) <> 'cancelled'
                 GROUP BY
                     a.booking_id,
                     a.id,
@@ -3915,7 +3917,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 const installmentPaid = Math.max(0, Math.min(installmentTotal, installmentPaidResolved));
                 const computedInstallmentRemainingBalance = Math.max(0, installmentTotal - installmentPaid);
                 const installmentRemainingBalance = hasTreatmentRemainingBalance
-                    ? Math.max(0, rawTreatmentRemainingBalance)
+                    ? Math.max(computedInstallmentRemainingBalance, Math.max(0, rawTreatmentRemainingBalance))
                     : computedInstallmentRemainingBalance;
                 rows.push({
                     ...baseRow,
@@ -3935,11 +3937,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
             return rows;
         }).filter((item) => {
             if (item.transaction_type === 'installment') {
-                const hasExplicitRemaining = Number.isFinite(Number(item.treatment_remaining_balance));
                 const remaining = Number(item.pending_balance || 0);
-                if (hasExplicitRemaining) {
-                    return remaining > 0;
-                }
                 return remaining > 0;
             }
             return item.pending_balance > 0;
