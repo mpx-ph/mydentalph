@@ -251,7 +251,24 @@ try {
             $activeDurationMonths = (int) ($activeTreatment['duration_months'] ?? 0);
             $activeMonthsLeft = (int) ($activeTreatment['months_left'] ?? 0);
             $activeRemaining = (float) ($activeTreatment['remaining_balance'] ?? 0);
-            $isActiveInstallmentTreatment = $activeDurationMonths > 1 || $activeMonthsLeft > 0 || $activeRemaining > 0.009;
+            $activeTotalCost = (float) ($activeTreatment['total_cost'] ?? 0);
+            $activeAmountPaid = (float) ($activeTreatment['amount_paid'] ?? 0);
+            $activeInstallmentTotalSlots = (int) ($activeTreatment['installment_total_slots'] ?? 0);
+            $activeInstallmentSettledSlots = (int) ($activeTreatment['installment_settled_slots'] ?? 0);
+            $allInstallmentSlotsPaid = $activeInstallmentTotalSlots > 0 && $activeInstallmentSettledSlots >= $activeInstallmentTotalSlots;
+            $fullyPaidByBalance = $activeRemaining <= 0.009;
+            $fullyPaidByAmount = $activeTotalCost > 0 && $activeAmountPaid >= ($activeTotalCost - 0.009);
+            $isFullyPaidTreatment = $fullyPaidByBalance || $allInstallmentSlotsPaid || $fullyPaidByAmount;
+            $isActiveInstallmentTreatment = !$isFullyPaidTreatment
+                && (
+                    $activeDurationMonths > 1
+                    || $activeMonthsLeft > 0
+                    || $activeRemaining > 0.009
+                    || ($activeInstallmentTotalSlots > 0 && $activeInstallmentSettledSlots < $activeInstallmentTotalSlots)
+                );
+            if (!$isActiveInstallmentTreatment) {
+                $activeTreatment = null;
+            }
         }
 
         if ($requestedTreatmentId !== '') {
@@ -261,7 +278,7 @@ try {
                 exit;
             }
             $resolvedTreatmentId = $requestedTreatmentId;
-        } elseif ($activeTreatment) {
+        } elseif ($activeTreatment && $isActiveInstallmentTreatment) {
             $resolvedTreatmentId = (string) ($activeTreatment['treatment_id'] ?? '');
         }
 
