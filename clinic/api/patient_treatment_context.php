@@ -110,7 +110,7 @@ try {
                     SELECT COALESCE(SUM(py.amount), 0) AS total_paid
                     FROM {$qp} py
                     WHERE py.tenant_id = ?
-                      AND LOWER(COALESCE(py.status, '')) = 'completed'
+                      AND LOWER(COALESCE(py.status, '')) = 'paid'
                       AND (
                             py.treatment_id = ?
                             OR (
@@ -132,7 +132,7 @@ try {
                     SELECT COALESCE(SUM(py.amount), 0) AS total_paid
                     FROM {$qp} py
                     WHERE py.tenant_id = ?
-                      AND LOWER(COALESCE(py.status, '')) = 'completed'
+                      AND LOWER(COALESCE(py.status, '')) = 'paid'
                       AND py.treatment_id = ?
                 ");
                 $paidStmt->execute([$tenantId, $treatmentId]);
@@ -145,7 +145,7 @@ try {
                       ON a.tenant_id = py.tenant_id
                      AND a.booking_id = py.booking_id
                     WHERE py.tenant_id = ?
-                      AND LOWER(COALESCE(py.status, '')) = 'completed'
+                      AND LOWER(COALESCE(py.status, '')) = 'paid'
                       AND a.treatment_id = ?
                 ");
                 $paidStmt->execute([$tenantId, $treatmentId]);
@@ -187,7 +187,7 @@ try {
                     FROM (
                         SELECT
                             COALESCE(NULLIF(CAST(i.installment_number AS CHAR), ''), CONCAT('row-', i.id)) AS slot_key,
-                            MAX(CASE WHEN LOWER(COALESCE(i.status, '')) IN ('paid','completed') THEN 1 ELSE 0 END) AS slot_settled,
+                            MAX(CASE WHEN LOWER(COALESCE(i.status, '')) = 'paid' THEN 1 ELSE 0 END) AS slot_settled,
                             {$slotAmountExpr} AS slot_amount
                         FROM {$qi} i
                         WHERE i.tenant_id = ?
@@ -218,7 +218,7 @@ try {
                     FROM (
                         SELECT
                             COALESCE(NULLIF(CAST(i.installment_number AS CHAR), ''), CONCAT('row-', i.id)) AS slot_key,
-                            MAX(CASE WHEN LOWER(COALESCE(i.status, '')) IN ('paid','completed') THEN 1 ELSE 0 END) AS slot_settled,
+                            MAX(CASE WHEN LOWER(COALESCE(i.status, '')) = 'paid' THEN 1 ELSE 0 END) AS slot_settled,
                             {$slotAmountExpr} AS slot_amount
                         FROM {$qi} i
                         WHERE i.tenant_id = ?
@@ -237,7 +237,7 @@ try {
                     FROM (
                         SELECT
                             COALESCE(NULLIF(CAST(i.installment_number AS CHAR), ''), CONCAT('row-', i.id)) AS slot_key,
-                            MAX(CASE WHEN LOWER(COALESCE(i.status, '')) IN ('paid','completed') THEN 1 ELSE 0 END) AS slot_settled,
+                            MAX(CASE WHEN LOWER(COALESCE(i.status, '')) = 'paid' THEN 1 ELSE 0 END) AS slot_settled,
                             {$slotAmountExpr} AS slot_amount
                         FROM {$qi} i
                         INNER JOIN {$qa} a
@@ -276,24 +276,12 @@ try {
     $rawAmountPaid = $paymentsTotalPaid !== null
         ? $paymentsTotalPaid
         : (float) ($treatment['amount_paid'] ?? 0);
-    $totalCost = $computedInstallmentTotalAmount !== null && $computedInstallmentTotalAmount > 0
-        ? (float) $computedInstallmentTotalAmount
-        : $rawTotalCost;
-    $amountPaid = $computedInstallmentPaidAmount !== null && $computedInstallmentPaidAmount > 0
-        ? (float) $computedInstallmentPaidAmount
-        : $rawAmountPaid;
+    $totalCost = $rawTotalCost;
+    $amountPaid = $rawAmountPaid;
     if ($amountPaid > $totalCost && $totalCost > 0) {
         $amountPaid = $totalCost;
     }
     $remainingBalance = max(0.0, $totalCost - $amountPaid);
-    $storedRemainingBalance = max(0.0, (float) ($treatment['remaining_balance'] ?? 0));
-    if ($computedInstallmentTotalAmount !== null && $computedInstallmentTotalAmount > 0) {
-        $remainingBalance = max($remainingBalance, $storedRemainingBalance);
-        if ($remainingBalance > $totalCost) {
-            $remainingBalance = $totalCost;
-        }
-        $amountPaid = max(0.0, $totalCost - $remainingBalance);
-    }
     if ($totalCost > 0 && $remainingBalance < 0) {
         $remainingBalance = 0.0;
     }

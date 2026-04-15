@@ -905,38 +905,20 @@ try {
         }
 
         function updateTreatmentProgressCards(treatment) {
-            const scheduleTotalRaw = treatment ? Number(treatment.installment_total_amount) : NaN;
-            const schedulePaidRaw = treatment ? Number(treatment.installment_paid_amount) : NaN;
-            const total = Number.isFinite(scheduleTotalRaw) && scheduleTotalRaw > 0
-                ? scheduleTotalRaw
-                : (treatment ? Number(treatment.total_cost || 0) : 0);
-            const paidRaw = Number.isFinite(schedulePaidRaw) && schedulePaidRaw >= 0
-                ? schedulePaidRaw
-                : (treatment ? Math.max(0, Number(treatment.amount_paid || 0)) : 0);
-            const remainingRaw = treatment ? Math.max(0, Number(treatment.remaining_balance || 0)) : 0;
-            const monthsLeft = treatment ? computeTreatmentMonthsLeft(treatment) : 0;
-            const durationMonths = treatment ? Math.max(0, Number(treatment.duration_months || 0)) : 0;
-            const hasInstallmentTimeline = durationMonths > 0 && monthsLeft >= 0 && monthsLeft <= durationMonths;
-            const timelineProgress = hasInstallmentTimeline
-                ? Math.max(0, Math.min(100, Math.round(((durationMonths - monthsLeft) / durationMonths) * 1000) / 10))
+            const total = treatment ? Math.max(0, Number(treatment.total_cost || 0)) : 0;
+            const paidRaw = treatment ? Math.max(0, Number(treatment.amount_paid || 0)) : 0;
+            const paid = total > 0 ? Math.min(total, paidRaw) : paidRaw;
+            const remaining = Math.max(0, total - paid);
+            const monthsLeftRaw = treatment ? Number(treatment.months_left) : NaN;
+            const slotsLeftRaw = treatment
+                ? Number(treatment.installment_total_slots || 0) - Number(treatment.installment_settled_slots || 0)
                 : NaN;
-            const timelinePaidEstimate = Number.isFinite(timelineProgress) && total > 0
-                ? Math.max(0, Math.min(total, (timelineProgress / 100) * total))
-                : NaN;
-            const hasInconsistentMoneySnapshot = total > 0 && Math.abs((paidRaw + remainingRaw) - total) > 1;
-            const paid = hasInconsistentMoneySnapshot && Number.isFinite(timelinePaidEstimate)
-                ? timelinePaidEstimate
-                : Math.max(0, Math.min(total > 0 ? total : paidRaw, paidRaw));
-            const remaining = total > 0
-                ? Math.max(0, total - paid)
-                : remainingRaw;
-            const apiProgressRaw = treatment ? Number(treatment.progress_percentage) : NaN;
-            const fallbackProgress = total > 0 ? Math.min(100, Math.round((paid / total) * 1000) / 10) : 0;
-            const percent = Number.isFinite(timelineProgress)
-                ? timelineProgress
-                : Number.isFinite(apiProgressRaw)
-                ? Math.max(0, Math.min(100, Math.round(apiProgressRaw * 10) / 10))
-                : fallbackProgress;
+            const monthsLeft = Number.isFinite(monthsLeftRaw)
+                ? Math.max(0, Math.round(monthsLeftRaw))
+                : (Number.isFinite(slotsLeftRaw) ? Math.max(0, Math.round(slotsLeftRaw)) : 0);
+            const percent = total > 0
+                ? Math.max(0, Math.min(100, Math.round((paid / total) * 1000) / 10))
+                : 0;
 
             if (walkInTotalAmountEl) walkInTotalAmountEl.textContent = formatPeso(total);
             if (walkInAmountPaidEl) walkInAmountPaidEl.textContent = formatPeso(paid);
