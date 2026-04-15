@@ -46,14 +46,9 @@ http_response_code(503);
         }
 
         #maintenanceAnimation svg {
-            transform: scale(1.55);
-            transform-origin: center center;
-        }
-
-        @media (max-width: 1023px) {
-            #maintenanceAnimation svg {
-                transform: scale(1.35);
-            }
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
         }
     </style>
 </head>
@@ -108,7 +103,7 @@ http_response_code(503);
             var container = document.getElementById("maintenanceAnimation");
             if (!container) return;
 
-            lottie.loadAnimation({
+            var animation = lottie.loadAnimation({
                 container: container,
                 renderer: "svg",
                 loop: true,
@@ -116,6 +111,31 @@ http_response_code(503);
                 path: "Maintenance web.json",
                 rendererSettings: {
                     preserveAspectRatio: "xMidYMid slice"
+                }
+            });
+
+            animation.addEventListener("DOMLoaded", function () {
+                try {
+                    var svg = container.querySelector("svg");
+                    if (!svg) return;
+
+                    var graphicRoot = svg.querySelector("g");
+                    if (!graphicRoot) return;
+
+                    var box = graphicRoot.getBBox();
+                    if (!box || box.width <= 0 || box.height <= 0) return;
+
+                    var padX = box.width * 0.06;
+                    var padY = box.height * 0.08;
+                    var viewX = box.x - padX;
+                    var viewY = box.y - padY;
+                    var viewW = box.width + (padX * 2);
+                    var viewH = box.height + (padY * 2);
+
+                    svg.setAttribute("viewBox", viewX + " " + viewY + " " + viewW + " " + viewH);
+                    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+                } catch (e) {
+                    // Keep default rendering if SVG bounds cannot be calculated.
                 }
             });
         })();
