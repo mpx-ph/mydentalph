@@ -455,8 +455,42 @@ function staff_payment_recording_ensure_installment_schedule(
         ");
         $cntStmt->execute([$bookingId, $tenantId]);
         if ((int) $cntStmt->fetchColumn() > 0) {
-            $pdo->commit();
-            return true;
+            $existingStmt = $pdo->prepare("
+                SELECT id, status
+                FROM {$quoted} i
+                WHERE i.booking_id = ?
+                  AND (
+                      i.tenant_id = ?
+                      OR i.tenant_id IS NULL
+                      OR TRIM(COALESCE(i.tenant_id, '')) = ''
+                  )
+                ORDER BY i.installment_number ASC
+            ");
+            $existingStmt->execute([$bookingId, $tenantId]);
+            $existingRows = $existingStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $hasSettledInstallment = false;
+            foreach ($existingRows as $existingRow) {
+                if (staff_payment_recording_installment_is_paid((string) ($existingRow['status'] ?? ''))) {
+                    $hasSettledInstallment = true;
+                    break;
+                }
+            }
+            if ($hasSettledInstallment) {
+                $pdo->commit();
+                return true;
+            }
+
+            // All rows are still unsettled; regenerate schedule to match current service settings.
+            $deleteStmt = $pdo->prepare("
+                DELETE FROM {$quoted}
+                WHERE booking_id = ?
+                  AND (
+                      tenant_id = ?
+                      OR tenant_id IS NULL
+                      OR TRIM(COALESCE(tenant_id, '')) = ''
+                  )
+            ");
+            $deleteStmt->execute([$bookingId, $tenantId]);
         }
 
         $appointmentTreatmentId = '';
@@ -2289,10 +2323,6 @@ try {
             foreach ($transactionCandidates as $candRow) {
                 $bid = trim((string) ($candRow['booking_id'] ?? ''));
                 if ($bid === '' || empty($candRow['is_installment_plan'])) {
-                    continue;
-                }
-                $sched = $scheduleByBooking[$bid] ?? [];
-                if ($sched !== []) {
                     continue;
                 }
                 staff_payment_recording_ensure_installment_schedule(
