@@ -257,6 +257,62 @@ try {
             $activeInstallmentSettledSlots = (int) ($activeTreatment['installment_settled_slots'] ?? 0);
             $allInstallmentSlotsPaid = $activeInstallmentTotalSlots > 0 && $activeInstallmentSettledSlots >= $activeInstallmentTotalSlots;
             $activeTreatmentId = (string) ($activeTreatment['treatment_id'] ?? '');
+            if ($paymentsTable !== null && $activeTreatmentId !== '') {
+                $paymentsCols = clinic_table_columns($pdo, $paymentsTable);
+                $appointmentsColsForPayments = clinic_table_columns($pdo, $appointmentsTable);
+                $paymentsHasTreatmentId = in_array('treatment_id', $paymentsCols, true);
+                $paymentsHasBookingId = in_array('booking_id', $paymentsCols, true);
+                $appointmentsHasTreatmentIdForPayments = in_array('treatment_id', $appointmentsColsForPayments, true);
+                $appointmentsHasBookingIdForPayments = in_array('booking_id', $appointmentsColsForPayments, true);
+                $qp = clinic_quote_identifier($paymentsTable);
+                $qa = clinic_quote_identifier($appointmentsTable);
+                if ($paymentsHasTreatmentId && $paymentsHasBookingId && $appointmentsHasTreatmentIdForPayments && $appointmentsHasBookingIdForPayments) {
+                    $paidStmt = $pdo->prepare("
+                        SELECT COALESCE(SUM(py.amount), 0) AS total_paid
+                        FROM {$qp} py
+                        WHERE py.tenant_id = ?
+                          AND LOWER(COALESCE(py.status, '')) IN ('paid', 'completed')
+                          AND (
+                                py.treatment_id = ?
+                                OR (
+                                    COALESCE(py.treatment_id, '') = ''
+                                    AND EXISTS (
+                                        SELECT 1
+                                        FROM {$qa} a
+                                        WHERE a.tenant_id = py.tenant_id
+                                          AND a.booking_id = py.booking_id
+                                          AND a.treatment_id = ?
+                                    )
+                                )
+                          )
+                    ");
+                    $paidStmt->execute([$tenantId, $activeTreatmentId, $activeTreatmentId]);
+                    $activeAmountPaid = max($activeAmountPaid, (float) ($paidStmt->fetchColumn() ?? 0));
+                } elseif ($paymentsHasTreatmentId) {
+                    $paidStmt = $pdo->prepare("
+                        SELECT COALESCE(SUM(py.amount), 0) AS total_paid
+                        FROM {$qp} py
+                        WHERE py.tenant_id = ?
+                          AND LOWER(COALESCE(py.status, '')) IN ('paid', 'completed')
+                          AND py.treatment_id = ?
+                    ");
+                    $paidStmt->execute([$tenantId, $activeTreatmentId]);
+                    $activeAmountPaid = max($activeAmountPaid, (float) ($paidStmt->fetchColumn() ?? 0));
+                } elseif ($paymentsHasBookingId && $appointmentsHasTreatmentIdForPayments && $appointmentsHasBookingIdForPayments) {
+                    $paidStmt = $pdo->prepare("
+                        SELECT COALESCE(SUM(py.amount), 0) AS total_paid
+                        FROM {$qp} py
+                        INNER JOIN {$qa} a
+                          ON a.tenant_id = py.tenant_id
+                         AND a.booking_id = py.booking_id
+                        WHERE py.tenant_id = ?
+                          AND LOWER(COALESCE(py.status, '')) IN ('paid', 'completed')
+                          AND a.treatment_id = ?
+                    ");
+                    $paidStmt->execute([$tenantId, $activeTreatmentId]);
+                    $activeAmountPaid = max($activeAmountPaid, (float) ($paidStmt->fetchColumn() ?? 0));
+                }
+            }
             $installmentsTable = clinic_get_physical_table_name($pdo, 'tbl_installments')
                 ?? clinic_get_physical_table_name($pdo, 'installments');
             if ($installmentsTable !== null && $activeTreatmentId !== '') {
