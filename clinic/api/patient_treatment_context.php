@@ -110,7 +110,7 @@ try {
                     SELECT COALESCE(SUM(py.amount), 0) AS total_paid
                     FROM {$qp} py
                     WHERE py.tenant_id = ?
-                      AND LOWER(COALESCE(py.status, '')) = 'paid'
+                      AND LOWER(COALESCE(py.status, '')) IN ('paid', 'completed')
                       AND (
                             py.treatment_id = ?
                             OR (
@@ -132,7 +132,7 @@ try {
                     SELECT COALESCE(SUM(py.amount), 0) AS total_paid
                     FROM {$qp} py
                     WHERE py.tenant_id = ?
-                      AND LOWER(COALESCE(py.status, '')) = 'paid'
+                      AND LOWER(COALESCE(py.status, '')) IN ('paid', 'completed')
                       AND py.treatment_id = ?
                 ");
                 $paidStmt->execute([$tenantId, $treatmentId]);
@@ -145,7 +145,7 @@ try {
                       ON a.tenant_id = py.tenant_id
                      AND a.booking_id = py.booking_id
                     WHERE py.tenant_id = ?
-                      AND LOWER(COALESCE(py.status, '')) = 'paid'
+                      AND LOWER(COALESCE(py.status, '')) IN ('paid', 'completed')
                       AND a.treatment_id = ?
                 ");
                 $paidStmt->execute([$tenantId, $treatmentId]);
@@ -187,7 +187,7 @@ try {
                     FROM (
                         SELECT
                             COALESCE(NULLIF(CAST(i.installment_number AS CHAR), ''), CONCAT('row-', i.id)) AS slot_key,
-                            MAX(CASE WHEN LOWER(COALESCE(i.status, '')) = 'paid' THEN 1 ELSE 0 END) AS slot_settled,
+                            MAX(CASE WHEN LOWER(COALESCE(i.status, '')) IN ('paid','completed') THEN 1 ELSE 0 END) AS slot_settled,
                             {$slotAmountExpr} AS slot_amount
                         FROM {$qi} i
                         WHERE i.tenant_id = ?
@@ -218,7 +218,7 @@ try {
                     FROM (
                         SELECT
                             COALESCE(NULLIF(CAST(i.installment_number AS CHAR), ''), CONCAT('row-', i.id)) AS slot_key,
-                            MAX(CASE WHEN LOWER(COALESCE(i.status, '')) = 'paid' THEN 1 ELSE 0 END) AS slot_settled,
+                            MAX(CASE WHEN LOWER(COALESCE(i.status, '')) IN ('paid','completed') THEN 1 ELSE 0 END) AS slot_settled,
                             {$slotAmountExpr} AS slot_amount
                         FROM {$qi} i
                         WHERE i.tenant_id = ?
@@ -237,7 +237,7 @@ try {
                     FROM (
                         SELECT
                             COALESCE(NULLIF(CAST(i.installment_number AS CHAR), ''), CONCAT('row-', i.id)) AS slot_key,
-                            MAX(CASE WHEN LOWER(COALESCE(i.status, '')) = 'paid' THEN 1 ELSE 0 END) AS slot_settled,
+                            MAX(CASE WHEN LOWER(COALESCE(i.status, '')) IN ('paid','completed') THEN 1 ELSE 0 END) AS slot_settled,
                             {$slotAmountExpr} AS slot_amount
                         FROM {$qi} i
                         INNER JOIN {$qa} a
@@ -278,6 +278,9 @@ try {
         : (float) ($treatment['amount_paid'] ?? 0);
     $totalCost = $rawTotalCost;
     $amountPaid = $rawAmountPaid;
+    if ($amountPaid <= 0 && $computedInstallmentPaidAmount !== null && $computedInstallmentPaidAmount > 0) {
+        $amountPaid = (float) $computedInstallmentPaidAmount;
+    }
     if ($amountPaid > $totalCost && $totalCost > 0) {
         $amountPaid = $totalCost;
     }
