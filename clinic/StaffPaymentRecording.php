@@ -473,6 +473,25 @@ function staff_payment_recording_ensure_installment_schedule(
 
         $plan = [];
         $planTreatmentId = '';
+        $svcRow = null;
+
+        $svcStmt = $pdo->prepare("
+            SELECT
+                sv.installment_downpayment,
+                sv.installment_duration_months,
+                sv.price
+            FROM tbl_appointment_services aps
+            INNER JOIN tbl_services sv
+                ON sv.tenant_id = aps.tenant_id
+               AND sv.service_id = aps.service_id
+            WHERE aps.tenant_id = ?
+              AND aps.booking_id = ?
+              AND COALESCE(sv.enable_installment, 0) = 1
+            ORDER BY sv.price DESC
+            LIMIT 1
+        ");
+        $svcStmt->execute([$tenantId, $bookingId]);
+        $svcRow = $svcStmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
         if ($appointmentTreatmentId !== '') {
             $treatStmt = $pdo->prepare("
@@ -491,6 +510,21 @@ function staff_payment_recording_ensure_installment_schedule(
                 $totalCost = (float) $snapshot['total_cost'];
                 $downpaymentAmount = (float) $snapshot['downpayment_amount'];
                 $monthlyAmount = (float) $snapshot['monthly_amount'];
+
+                // Service-level installment downpayment is authoritative when configured.
+                if ($svcRow) {
+                    $serviceDownRaw = $svcRow['installment_downpayment'] ?? null;
+                    if ($serviceDownRaw !== null && $serviceDownRaw !== '') {
+                        $serviceDown = max(0.0, (float) $serviceDownRaw);
+                        if ($totalCost > 0 && $serviceDown > $totalCost) {
+                            $serviceDown = $totalCost;
+                        }
+                        $downpaymentAmount = round($serviceDown, 2);
+                        if ($durationMonths > 1 && $downpaymentAmount > 0.009) {
+                            $monthlyAmount = round(($totalCost - $downpaymentAmount) / max(1, $durationMonths - 1), 2);
+                        }
+                    }
+                }
 
                 if ($durationMonths > 0 && $totalCost > 0.009) {
                     $remainingAllocator = $totalCost;
@@ -527,23 +561,6 @@ function staff_payment_recording_ensure_installment_schedule(
         }
 
         if ($plan === []) {
-            $svcStmt = $pdo->prepare("
-            SELECT
-                sv.installment_downpayment,
-                sv.installment_duration_months,
-                sv.price
-            FROM tbl_appointment_services aps
-            INNER JOIN tbl_services sv
-                ON sv.tenant_id = aps.tenant_id
-               AND sv.service_id = aps.service_id
-            WHERE aps.tenant_id = ?
-              AND aps.booking_id = ?
-              AND COALESCE(sv.enable_installment, 0) = 1
-            ORDER BY sv.price DESC
-            LIMIT 1
-        ");
-            $svcStmt->execute([$tenantId, $bookingId]);
-            $svcRow = $svcStmt->fetch(PDO::FETCH_ASSOC);
             if (!$svcRow) {
                 $pdo->commit();
                 return false;
