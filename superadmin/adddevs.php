@@ -165,6 +165,26 @@ tailwind.config = {
     box-shadow: 0 12px 40px -10px rgba(19, 28, 37, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.8);
 }
+.glow-card {
+    position: relative;
+    overflow: hidden;
+}
+.glow-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top right, rgba(0, 102, 255, 0.12), transparent 55%);
+    pointer-events: none;
+}
+.field-shell {
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    background: rgba(255, 255, 255, 0.95);
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.field-shell:focus-within {
+    border-color: rgba(0, 102, 255, 0.56);
+    box-shadow: 0 0 0 4px rgba(0, 102, 255, 0.12);
+}
 .mesh-bg {
     background-color: #f7f9ff;
     background-image:
@@ -230,12 +250,24 @@ require __DIR__ . '/superadmin_header.php';
 <div id="sa-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
 <main class="ml-0 lg:ml-64 pt-20 min-h-screen">
     <div class="pt-6 sm:pt-8 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16">
-        <section class="max-w-3xl">
-            <h1 class="text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Add Developer Account</h1>
-            <p class="text-on-surface-variant mt-2 font-medium">Create a new user in <code>tbl_users</code> with superadmin privileges.</p>
+        <section class="max-w-4xl rounded-[2rem] border border-white/80 bg-white/70 backdrop-blur-xl px-5 py-6 sm:px-8 sm:py-7 editorial-shadow glow-card">
+            <div class="relative z-10 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <p class="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary">
+                        <span class="material-symbols-outlined text-sm">admin_panel_settings</span>
+                        Superadmin
+                    </p>
+                    <h1 class="mt-3 text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Add Developer Account</h1>
+                    <p class="text-on-surface-variant mt-2 font-medium">Create a new user in <code>tbl_users</code> with elevated access for platform operations.</p>
+                </div>
+                <div class="relative z-10 rounded-2xl border border-primary/15 bg-white/80 px-4 py-3 text-sm text-on-surface-variant">
+                    <p class="font-semibold text-on-surface">Quick reminder</p>
+                    <p class="mt-1">New accounts are created as active users immediately.</p>
+                </div>
+            </div>
         </section>
 
-        <section class="mt-8 max-w-3xl bg-white/70 backdrop-blur-xl p-5 sm:p-8 rounded-[2rem] editorial-shadow">
+        <section class="mt-8 max-w-4xl bg-white/75 backdrop-blur-xl p-5 sm:p-8 rounded-[2rem] editorial-shadow">
             <?php if ($success !== ''): ?>
                 <div class="mb-6 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
                     <?php echo htmlspecialchars($success, ENT_QUOTES, 'UTF-8'); ?>
@@ -253,69 +285,84 @@ require __DIR__ . '/superadmin_header.php';
             <?php endif; ?>
 
             <form action="adddevs.php" class="space-y-5" method="post" novalidate>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2" for="username">Username</label>
-                    <input
-                        class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-primary focus:ring-primary"
-                        id="username"
-                        name="username"
-                        required
-                        type="text"
-                        value="<?php echo htmlspecialchars($form['username'], ENT_QUOTES, 'UTF-8'); ?>"
-                    />
+                    <div class="field-shell rounded-xl">
+                        <input
+                            class="w-full rounded-xl border-0 bg-transparent px-4 py-2.5 text-sm focus:ring-0"
+                            id="username"
+                            name="username"
+                            required
+                            type="text"
+                            value="<?php echo htmlspecialchars($form['username'], ENT_QUOTES, 'UTF-8'); ?>"
+                        />
+                    </div>
                 </div>
 
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2" for="full_name">Full Name</label>
-                    <input
-                        class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-primary focus:ring-primary"
-                        id="full_name"
-                        name="full_name"
-                        required
-                        type="text"
-                        value="<?php echo htmlspecialchars($form['full_name'], ENT_QUOTES, 'UTF-8'); ?>"
-                    />
+                    <div class="field-shell rounded-xl">
+                        <input
+                            class="w-full rounded-xl border-0 bg-transparent px-4 py-2.5 text-sm focus:ring-0"
+                            id="full_name"
+                            name="full_name"
+                            required
+                            type="text"
+                            value="<?php echo htmlspecialchars($form['full_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                        />
+                    </div>
                 </div>
 
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2" for="email">Email</label>
-                    <input
-                        class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-primary focus:ring-primary"
-                        id="email"
-                        name="email"
-                        required
-                        type="email"
-                        value="<?php echo htmlspecialchars($form['email'], ENT_QUOTES, 'UTF-8'); ?>"
-                    />
+                    <div class="field-shell rounded-xl">
+                        <input
+                            class="w-full rounded-xl border-0 bg-transparent px-4 py-2.5 text-sm focus:ring-0"
+                            id="email"
+                            name="email"
+                            required
+                            type="email"
+                            value="<?php echo htmlspecialchars($form['email'], ENT_QUOTES, 'UTF-8'); ?>"
+                        />
+                    </div>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2" for="password">Password</label>
-                    <input
-                        class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-primary focus:ring-primary"
-                        id="password"
-                        minlength="8"
-                        name="password"
-                        required
-                        type="password"
-                    />
+                    <label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2" for="password">Initial Password</label>
+                    <div class="field-shell rounded-xl">
+                        <input
+                            class="w-full rounded-xl border-0 bg-transparent px-4 py-2.5 text-sm focus:ring-0"
+                            id="password"
+                            minlength="8"
+                            name="password"
+                            required
+                            type="password"
+                        />
+                    </div>
+                    <p class="mt-2 inline-flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-800">
+                        <span class="material-symbols-outlined text-sm leading-none">warning</span>
+                        This initial password must be replaced immediately by the user after first sign in.
+                    </p>
+                </div>
                 </div>
 
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2" for="role">Role</label>
-                    <select
-                        class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-primary focus:ring-primary"
-                        id="role"
-                        name="role"
-                        required
-                    >
-                        <option value="admin" <?php echo $form['role'] === 'admin' ? 'selected' : ''; ?>>ADMIN</option>
-                    </select>
-                    <p class="mt-2 text-xs text-on-surface-variant">ADMIN maps to <code>superadmin</code> in the database.</p>
+                    <div class="field-shell rounded-xl">
+                        <select
+                            class="w-full rounded-xl border-0 bg-transparent px-4 py-2.5 text-sm focus:ring-0"
+                            id="role"
+                            name="role"
+                            required
+                        >
+                            <option value="admin" <?php echo $form['role'] === 'admin' ? 'selected' : ''; ?>>ADMIN</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="pt-2">
-                    <button class="inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-2xl bg-primary px-6 py-2.5 text-sm font-bold text-white shadow-sm hover:brightness-110 transition-all" type="submit">
+                    <button class="inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-2xl bg-primary px-7 py-2.5 text-sm font-bold text-white shadow-md shadow-primary/25 hover:brightness-110 hover:-translate-y-0.5 transition-all" type="submit">
                         <span class="material-symbols-outlined text-lg">person_add</span>
                         Create Account
                     </button>
