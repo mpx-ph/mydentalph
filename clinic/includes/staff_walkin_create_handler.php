@@ -383,13 +383,19 @@ try {
             }
             $fullyPaidByBalance = $activeRemaining <= 0.009;
             $fullyPaidByAmount = $activeTotalCost > 0 && $activeAmountPaid >= ($activeTotalCost - 0.009);
-            $isFullyPaidTreatment = $fullyPaidByBalance || $allInstallmentSlotsPaid || $fullyPaidByAmount;
+            $fullyPaidByMonths = $activeDurationMonths > 0
+                && (
+                    $activeMonthsLeft <= 0
+                    || (int) ($activeTreatment['months_paid'] ?? 0) >= $activeDurationMonths
+                );
+            $isFullyPaidTreatment = $fullyPaidByBalance || $allInstallmentSlotsPaid || $fullyPaidByAmount || $fullyPaidByMonths;
+            $hasOutstandingByAmount = $activeTotalCost > 0 && $activeAmountPaid < ($activeTotalCost - 0.009);
+            $hasOutstandingBySlots = $activeInstallmentTotalSlots > 0 && $activeInstallmentSettledSlots < $activeInstallmentTotalSlots;
             $isActiveInstallmentTreatment = !$isFullyPaidTreatment
                 && (
-                    $activeDurationMonths > 1
-                    || $activeMonthsLeft > 0
-                    || $activeRemaining > 0.009
-                    || ($activeInstallmentTotalSlots > 0 && $activeInstallmentSettledSlots < $activeInstallmentTotalSlots)
+                    $activeRemaining > 0.009
+                    || $hasOutstandingByAmount
+                    || $hasOutstandingBySlots
                 );
             if (!$isActiveInstallmentTreatment) {
                 $activeTreatment = null;
@@ -404,7 +410,25 @@ try {
             }
             $resolvedTreatmentId = $requestedTreatmentId;
         } elseif ($activeTreatment && $isActiveInstallmentTreatment) {
-            $resolvedTreatmentId = (string) ($activeTreatment['treatment_id'] ?? '');
+            $activePrimaryServiceId = trim((string) ($activeTreatment['primary_service_id'] ?? ''));
+            $selectedInstallmentServiceIds = [];
+            foreach ($normalizedServices as $s) {
+                if (!empty($s['enable_installment'])) {
+                    $selectedInstallmentServiceIds[] = trim((string) ($s['service_id'] ?? ''));
+                }
+            }
+            $selectedInstallmentServiceIds = array_values(array_unique(array_filter($selectedInstallmentServiceIds, static function ($v) {
+                return $v !== '';
+            })));
+            if (empty($selectedInstallmentServiceIds)) {
+                $resolvedTreatmentId = (string) ($activeTreatment['treatment_id'] ?? '');
+            } elseif ($activePrimaryServiceId !== '' && in_array($activePrimaryServiceId, $selectedInstallmentServiceIds, true)) {
+                $resolvedTreatmentId = (string) ($activeTreatment['treatment_id'] ?? '');
+            } else {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Patient already has an active installment treatment. Continue the ongoing installment service first.']);
+                exit;
+            }
         }
 
         if ($resolvedTreatmentId !== '' && $activeTreatment) {
