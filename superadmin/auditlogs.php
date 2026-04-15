@@ -466,7 +466,100 @@ require __DIR__ . '/superadmin_header.php';
 <!-- Table Container -->
 <div id="auditlogs-table-shell" class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden transition-all duration-300">
 <!-- Table Content -->
-<div class="overflow-x-auto">
+<div class="md:hidden px-4 sm:px-6 py-5 space-y-4">
+<?php if ($dbError !== null): ?>
+<div class="rounded-2xl border border-error/20 bg-error/10 px-4 py-5 text-sm text-error font-medium"><?php echo htmlspecialchars($dbError); ?></div>
+<?php elseif (empty($eventRows)): ?>
+<div class="rounded-2xl border border-outline-variant/20 bg-white/70 px-4 py-5 text-sm text-on-surface-variant font-medium">No audit log events found for the selected filters.</div>
+<?php else: ?>
+<?php foreach ($eventRows as $row): ?>
+<?php
+    $action = (string) ($row['action'] ?? '');
+    $lowerAction = strtolower($action);
+    $isLogout = strpos($lowerAction, 'logout') !== false;
+    $isSubscription = strpos($lowerAction, 'subscription') !== false;
+    if ($isSubscription) {
+        $statusLabel = 'Subscriptions';
+        $statusClasses = 'bg-blue-50 text-blue-600';
+        $dotClass = 'bg-blue-600';
+    } elseif ($isLogout) {
+        $statusLabel = 'Logout';
+        $statusClasses = 'bg-amber-50 text-amber-600';
+        $dotClass = 'bg-amber-600';
+    } else {
+        $statusLabel = 'Login';
+        $statusClasses = 'bg-green-50 text-green-600';
+        $dotClass = 'bg-green-600';
+    }
+    $displayName = trim((string) ($row['full_name'] ?? ''));
+    if ($displayName === '') {
+        $displayName = trim((string) ($row['user_id'] ?? ''));
+    }
+    if ($displayName === '') {
+        $displayName = 'System';
+    }
+    $emailAddress = trim((string) ($row['email'] ?? ''));
+    $userRoleRaw = strtolower(trim((string) ($row['role'] ?? '')));
+    if ($userRoleRaw === 'superadmin') {
+        $userRoleLabel = 'Super Admin';
+    } elseif ($userRoleRaw === 'tenant_owner' || $userRoleRaw === 'manager') {
+        $userRoleLabel = 'Tenant';
+    } elseif ($userRoleRaw === 'staff') {
+        $userRoleLabel = 'Staff';
+    } elseif ($userRoleRaw === 'dentist') {
+        $userRoleLabel = 'Doctor';
+    } elseif ($userRoleRaw !== '') {
+        $userRoleLabel = ucwords(str_replace('_', ' ', $userRoleRaw));
+    } else {
+        $userRoleLabel = 'N/A';
+    }
+    $clinicName = trim((string) ($row['clinic_name'] ?? ''));
+    if ($clinicName === '') {
+        $clinicName = 'N/A';
+    }
+    $createdAtRaw = trim((string) ($row['created_at'] ?? ''));
+    $createdAtRaw = preg_replace('/\.\d+$/', '', $createdAtRaw);
+    $fmt = auditlogs_format_created_at_manila($createdAtRaw, $auditLogStorageTz);
+    $createdAtDate = $fmt['date'];
+    $createdAtTime = $fmt['time'];
+?>
+<article class="rounded-2xl bg-white/80 border border-white/70 shadow-sm p-4 space-y-4">
+<div class="flex items-start justify-between gap-3">
+<div class="min-w-0">
+<p class="text-sm font-bold text-on-surface leading-tight"><?php echo htmlspecialchars($displayName); ?></p>
+<?php if ($emailAddress !== ''): ?>
+<p class="text-[11px] text-on-surface-variant font-medium truncate"><?php echo htmlspecialchars($emailAddress); ?></p>
+<?php endif; ?>
+<p class="text-[10px] text-on-surface-variant/70 font-bold uppercase tracking-wide mt-1"><?php echo htmlspecialchars((string) ($row['ip_address'] ?: 'Unknown IP')); ?></p>
+</div>
+<span class="px-3 py-1.5 <?php echo $statusClasses; ?> rounded-xl text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1.5 shrink-0">
+<span class="w-1.5 h-1.5 rounded-full <?php echo $dotClass; ?>"></span> <?php echo htmlspecialchars($statusLabel); ?>
+</span>
+</div>
+<div class="grid grid-cols-2 gap-3 text-xs">
+<div>
+<p class="text-on-surface-variant/70 uppercase tracking-wide font-bold text-[10px]">User Role</p>
+<p class="mt-1 text-sm font-semibold text-on-surface"><?php echo htmlspecialchars($userRoleLabel); ?></p>
+</div>
+<div>
+<p class="text-on-surface-variant/70 uppercase tracking-wide font-bold text-[10px]">Clinic</p>
+<p class="mt-1 text-sm font-semibold text-on-surface"><?php echo htmlspecialchars($clinicName); ?></p>
+</div>
+<div class="col-span-2">
+<p class="text-on-surface-variant/70 uppercase tracking-wide font-bold text-[10px]">Action</p>
+<p class="mt-1 text-sm font-bold text-on-surface"><?php echo htmlspecialchars($action); ?></p>
+</div>
+<div class="col-span-2">
+<p class="text-on-surface-variant/70 uppercase tracking-wide font-bold text-[10px]">Date &amp; Time</p>
+<p class="mt-1 text-sm font-black text-on-surface"><?php echo htmlspecialchars($createdAtDate); ?></p>
+<p class="text-xs font-bold text-on-surface-variant"><?php echo htmlspecialchars($createdAtTime); ?></p>
+</div>
+</div>
+</article>
+<?php endforeach; ?>
+<?php endif; ?>
+</div>
+<div class="hidden md:block overflow-x-auto">
 <table class="w-full text-left">
 <thead>
 <tr class="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/60">
