@@ -66,6 +66,44 @@
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
+        .js-paginated-panel {
+            position: relative;
+            transition: opacity 180ms ease, transform 180ms ease;
+            will-change: opacity, transform;
+        }
+        .js-paginated-panel.tm-loading {
+            opacity: 0.68;
+            transform: translateY(4px);
+            pointer-events: none;
+        }
+        .js-paginated-panel.tm-loading::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: linear-gradient(
+                110deg,
+                rgba(255, 255, 255, 0) 15%,
+                rgba(255, 255, 255, 0.38) 45%,
+                rgba(255, 255, 255, 0) 75%
+            );
+            animation: tm-shimmer 1s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes tm-shimmer {
+            from { transform: translateX(-35%); }
+            to { transform: translateX(35%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .js-paginated-panel,
+            .js-paginated-panel.tm-loading {
+                transition: none;
+                transform: none;
+            }
+            .js-paginated-panel.tm-loading::after {
+                animation: none;
+            }
+        }
         .export-modal-backdrop {
             background: rgba(19, 28, 37, 0.35);
             backdrop-filter: blur(4px);
@@ -320,6 +358,16 @@ $filterClinicId = isset($_GET['clinic']) ? trim((string) $_GET['clinic']) : '';
 $filterClinicLabel = 'All clinics';
 $periodLabel = '—';
 $reportsFormAction = htmlspecialchars(basename(isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : 'reports.php'), ENT_QUOTES, 'UTF-8');
+$registrationsPerPage = 10;
+$registrationsPage = filter_var($_GET['reg_page'] ?? null, FILTER_VALIDATE_INT);
+if ($registrationsPage === false || $registrationsPage < 1) {
+    $registrationsPage = 1;
+}
+$registrationsTotalPages = 1;
+$registrationOffset = 0;
+$registrationRowsCount = 0;
+$registrationRangeStart = 0;
+$registrationRangeEnd = 0;
 
 try {
     try {
@@ -395,6 +443,11 @@ try {
     $stmt = $pdo->prepare("SELECT COUNT(*) AS cnt FROM tbl_users u {$regWhere}");
     $stmt->execute($regParams);
     $userRegistrationsTotal = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['cnt'] ?? 0);
+    $registrationsTotalPages = $userRegistrationsTotal > 0 ? max(1, (int) ceil($userRegistrationsTotal / $registrationsPerPage)) : 1;
+    if ($registrationsPage > $registrationsTotalPages) {
+        $registrationsPage = $registrationsTotalPages;
+    }
+    $registrationOffset = ($registrationsPage - 1) * $registrationsPerPage;
 
     $sqlReg = "
         SELECT
@@ -407,6 +460,7 @@ try {
         LEFT JOIN tbl_tenants t ON t.tenant_id = u.tenant_id
         {$regWhere}
         ORDER BY u.created_at DESC
+        LIMIT {$registrationsPerPage} OFFSET {$registrationOffset}
     ";
     try {
         $stmt = $pdo->prepare($sqlReg);
@@ -425,6 +479,34 @@ try {
 } catch (Throwable $e) {
     $dbError = 'Unable to load reports.';
     error_log('superadmin/reports.php: ' . $e->getMessage());
+}
+
+$registrationRowsCount = count($registrationRows);
+$registrationRangeStart = $registrationRowsCount > 0 ? ($registrationOffset + 1) : 0;
+$registrationRangeEnd = $registrationRowsCount > 0 ? ($registrationOffset + $registrationRowsCount) : 0;
+
+$reportsQueryParams = [];
+foreach ($_GET as $k => $v) {
+    if ($k === 'reg_page') {
+        continue;
+    }
+    $reportsQueryParams[$k] = $v;
+}
+if ($registrationsPage > 1) {
+    $reportsQueryParams['reg_page'] = (string) $registrationsPage;
+}
+
+function reports_pagination_url(int $page, array $baseParams): string
+{
+    $params = $baseParams;
+    if ($page <= 1) {
+        unset($params['reg_page']);
+    } else {
+        $params['reg_page'] = (string) $page;
+    }
+    $q = http_build_query($params);
+    $script = $_SERVER['SCRIPT_NAME'] ?? ('/' . basename(__FILE__));
+    return htmlspecialchars($script, ENT_QUOTES, 'UTF-8') . ($q !== '' ? '?' . $q : '');
 }
 
 $periodOptions = [
@@ -552,20 +634,57 @@ $isCustomPeriod = (strtolower($filterPeriod) === 'custom');
                 </button>
 </div>
 <!-- Table Container -->
-<div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
+<div id="registrations-panel" class="js-paginated-panel bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
 <!-- Table header (same filters as summary cards — use form above) -->
 <div class="px-4 sm:px-6 lg:px-8 py-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/50">
 <div class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60 max-w-xl">
     Same period and clinic as above · <?php echo htmlspecialchars($periodLabel, ENT_QUOTES, 'UTF-8'); ?> · <?php echo htmlspecialchars($filterClinicLabel, ENT_QUOTES, 'UTF-8'); ?>
 </div>
 <div class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">
-    <?php $registrationRowsCount = count($registrationRows); ?>
-    Showing <span class="text-primary opacity-100"><?php echo htmlspecialchars($registrationRowsCount > 0 ? ('1-' . (string) $registrationRowsCount) : '0', ENT_QUOTES, 'UTF-8'); ?></span>
+    Showing <span class="text-primary opacity-100"><?php echo htmlspecialchars($registrationRowsCount > 0 ? ((string) $registrationRangeStart . '-' . (string) $registrationRangeEnd) : '0', ENT_QUOTES, 'UTF-8'); ?></span>
     of <?php echo htmlspecialchars(number_format($userRegistrationsTotal), ENT_QUOTES, 'UTF-8'); ?> registrations
 </div>
 </div>
 <!-- Table Content -->
-<div class="overflow-x-auto">
+<div class="md:hidden px-4 sm:px-6 py-5 space-y-4">
+<?php if (!empty($registrationRows)): ?>
+<?php foreach ($registrationRows as $row): ?>
+<article class="rounded-2xl bg-white/80 border border-white/70 shadow-sm p-4 space-y-4">
+    <div>
+        <p class="text-[10px] uppercase tracking-wide font-bold text-on-surface-variant/70">Date</p>
+        <p class="mt-1 text-sm font-semibold text-on-surface-variant"><?php echo htmlspecialchars(reports_format_date_for_table($row['created_date'] ?? null), ENT_QUOTES, 'UTF-8'); ?></p>
+    </div>
+    <div>
+        <p class="text-[10px] uppercase tracking-wide font-bold text-on-surface-variant/70">Tenant Name</p>
+        <p class="mt-1 text-sm font-semibold text-on-surface"><?php echo htmlspecialchars((string) ($row['tenant_name'] ?? '—'), ENT_QUOTES, 'UTF-8'); ?></p>
+    </div>
+    <div class="grid grid-cols-1 gap-3">
+        <div>
+            <p class="text-[10px] uppercase tracking-wide font-bold text-on-surface-variant/70">User Name</p>
+            <p class="mt-1 text-sm font-semibold text-on-surface-variant"><?php echo htmlspecialchars((string) ($row['user_name'] ?? '—'), ENT_QUOTES, 'UTF-8'); ?></p>
+        </div>
+        <div>
+            <p class="text-[10px] uppercase tracking-wide font-bold text-on-surface-variant/70">User Email</p>
+            <p class="mt-1 text-sm font-semibold text-on-surface-variant break-all"><?php echo htmlspecialchars((string) ($row['user_email'] ?? '—'), ENT_QUOTES, 'UTF-8'); ?></p>
+        </div>
+    </div>
+    <div>
+        <p class="text-[10px] uppercase tracking-wide font-bold text-on-surface-variant/70">Last Active</p>
+        <p class="mt-1 text-xs font-medium text-on-surface-variant"><?php echo htmlspecialchars(reports_format_datetime_for_table($row['last_active_at'] ?? null), ENT_QUOTES, 'UTF-8'); ?></p>
+    </div>
+</article>
+<?php endforeach; ?>
+<?php else: ?>
+<div class="rounded-2xl border border-outline-variant/20 bg-white/70 px-4 py-5 text-sm text-on-surface-variant font-medium text-center">
+    <?php if ($dbError): ?>
+        <?php echo htmlspecialchars($dbError, ENT_QUOTES, 'UTF-8'); ?>
+    <?php else: ?>
+        No registrations for this period.
+    <?php endif; ?>
+</div>
+<?php endif; ?>
+</div>
+<div class="hidden md:block overflow-x-auto">
 <table class="w-full text-left">
 <thead>
 <tr class="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/60">
@@ -610,6 +729,27 @@ $isCustomPeriod = (strtolower($filterPeriod) === 'custom');
 <?php endif; ?>
 </tbody>
 </table>
+</div>
+<div class="px-4 sm:px-6 lg:px-8 py-5 border-t border-white/50 flex flex-wrap items-center justify-between gap-4">
+<?php if ($registrationsPage > 1): ?>
+<a href="<?php echo reports_pagination_url($registrationsPage - 1, $reportsQueryParams); ?>" class="js-registration-pagination-link px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">chevron_left</span> Previous
+</a>
+<?php else: ?>
+<span class="px-5 py-2.5 bg-white/40 text-on-surface-variant text-sm font-bold rounded-xl border border-white/60 shadow-sm flex items-center gap-2 opacity-40 cursor-not-allowed">
+<span class="material-symbols-outlined text-lg">chevron_left</span> Previous
+</span>
+<?php endif; ?>
+<p class="text-sm font-bold text-on-surface order-first sm:order-none w-full sm:w-auto text-center sm:text-left">Page <?php echo (int) $registrationsPage; ?> of <?php echo (int) $registrationsTotalPages; ?></p>
+<?php if ($registrationsPage < $registrationsTotalPages): ?>
+<a href="<?php echo reports_pagination_url($registrationsPage + 1, $reportsQueryParams); ?>" class="js-registration-pagination-link px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
+Next <span class="material-symbols-outlined text-lg">chevron_right</span>
+</a>
+<?php else: ?>
+<span class="px-5 py-2.5 bg-white/40 text-on-surface-variant text-sm font-bold rounded-xl border border-white/60 shadow-sm flex items-center gap-2 opacity-40 cursor-not-allowed">
+Next <span class="material-symbols-outlined text-lg">chevron_right</span>
+</span>
+<?php endif; ?>
 </div>
 </div>
 </div>
@@ -703,6 +843,73 @@ $isCustomPeriod = (strtolower($filterPeriod) === 'custom');
     } else if (typeof mqDesktop.addListener === 'function') {
         mqDesktop.addListener(closeOnDesktop);
     }
+})();
+</script>
+<script>
+(function () {
+    if (!window.fetch || !window.DOMParser) return;
+
+    function setupPanelPagination(panelId, linkClass) {
+        var panel = document.getElementById(panelId);
+        if (!panel) return;
+        var isLoading = false;
+
+        function loadPage(url, pushState) {
+            if (isLoading) return;
+            isLoading = true;
+            panel.classList.add('tm-loading');
+            panel.setAttribute('aria-busy', 'true');
+
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (res) { return res.text(); })
+                .then(function (html) {
+                    var parser = new DOMParser();
+                    var nextDoc = parser.parseFromString(html, 'text/html');
+                    var nextPanel = nextDoc.getElementById(panelId);
+                    if (!nextPanel) {
+                        throw new Error('Panel not found');
+                    }
+                    panel.style.opacity = '0';
+                    panel.style.transform = 'translateY(6px)';
+                    window.requestAnimationFrame(function () {
+                        panel.innerHTML = nextPanel.innerHTML;
+                        panel.style.opacity = '';
+                        panel.style.transform = '';
+                        var panelTop = panel.getBoundingClientRect().top + window.pageYOffset;
+                        window.scrollTo({
+                            top: Math.max(0, panelTop - 96),
+                            behavior: 'smooth'
+                        });
+                    });
+                    if (pushState && window.history && typeof window.history.pushState === 'function') {
+                        var state = {};
+                        state[panelId] = url;
+                        window.history.pushState(state, '', url);
+                    }
+                })
+                .catch(function () {
+                    window.location.href = url;
+                })
+                .finally(function () {
+                    isLoading = false;
+                    panel.classList.remove('tm-loading');
+                    panel.removeAttribute('aria-busy');
+                });
+        }
+
+        document.addEventListener('click', function (e) {
+            var link = e.target.closest('.' + linkClass);
+            if (!link || !panel.contains(link)) return;
+            e.preventDefault();
+            loadPage(link.href, true);
+        });
+
+        window.addEventListener('popstate', function () {
+            loadPage(window.location.href, false);
+        });
+    }
+
+    setupPanelPagination('registrations-panel', 'js-registration-pagination-link');
 })();
 </script>
 <script>
