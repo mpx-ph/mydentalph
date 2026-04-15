@@ -187,8 +187,9 @@ endforeach;
 </aside>
 <div id="sa-edit-profile-modal" class="fixed inset-0 z-[120] hidden" aria-hidden="true">
 <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" data-sa-modal-close></div>
-<div class="relative min-h-full w-full flex items-center justify-center p-4 sm:p-6">
-<div class="w-full max-w-3xl overflow-hidden rounded-3xl border border-white/70 bg-white/95 shadow-[0_26px_80px_-28px_rgba(15,23,42,0.65)]">
+<div class="relative h-full w-full overflow-y-auto">
+<div class="min-h-full w-full flex items-start sm:items-center justify-center p-4 sm:p-6">
+<div class="w-full max-w-3xl my-3 sm:my-6 max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] overflow-hidden rounded-3xl border border-white/70 bg-white/95 shadow-[0_26px_80px_-28px_rgba(15,23,42,0.65)] flex flex-col">
 <div class="px-5 sm:px-7 pt-6 sm:pt-7 pb-5 bg-gradient-to-r from-[#eef4ff] via-[#f8fbff] to-[#f0f7ff] border-b border-slate-100">
 <div class="flex items-start justify-between gap-3">
 <div>
@@ -200,7 +201,7 @@ endforeach;
 </button>
 </div>
 </div>
-<form class="px-5 sm:px-7 pb-5 sm:pb-7 space-y-5" method="post" action="" enctype="multipart/form-data" autocomplete="off">
+<form class="px-5 sm:px-7 pb-5 sm:pb-7 space-y-5 overflow-y-auto" method="post" action="" enctype="multipart/form-data" autocomplete="off">
 <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
 <div class="flex items-center gap-3">
 <?php if ($u['photo'] !== ''): ?>
@@ -264,6 +265,7 @@ endforeach;
 <button type="submit" class="rounded-xl bg-primary text-white px-5 py-2.5 text-sm font-semibold shadow-[0_12px_24px_-14px_rgba(0,102,255,0.8)] hover:opacity-95 transition-opacity">Save Changes</button>
 </div>
 </form>
+</div>
 </div>
 </div>
 </div>
