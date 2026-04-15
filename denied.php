@@ -41,22 +41,30 @@ http_response_code(403);
         }
     </style>
 </head>
-<body class="bg-background-light font-body text-on-surface dark:bg-background-dark dark:text-surface antialiased">
-    <?php include 'ProviderNavbar.php'; ?>
+<body class="bg-background-light font-body text-on-surface antialiased">
     <main>
         <section class="relative overflow-hidden bg-surface-variant">
-            <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(43,139,235,0.15),transparent_44%),radial-gradient(circle_at_bottom_left,rgba(43,139,235,0.1),transparent_42%)]"></div>
-            <div class="relative mx-auto flex min-h-[70vh] w-full max-w-[1800px] items-center px-6 py-20 sm:px-10 lg:px-14 xl:px-20">
+            <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(43,139,235,0.12),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(43,139,235,0.08),transparent_42%)]"></div>
+            <div class="relative mx-auto flex min-h-[78vh] w-full max-w-[1400px] items-center px-6 py-16 sm:px-10 lg:px-16">
                 <div class="w-full max-w-3xl">
                     <img src="MyDental Logo.svg" alt="MyDental logo" class="mb-10 h-16 w-auto sm:h-20" />
                     <p class="mb-4 font-headline text-xs font-bold uppercase tracking-[0.28em] text-primary">Access Control</p>
-                    <h1 class="font-headline text-[clamp(2.25rem,6vw,4.5rem)] font-extrabold tracking-[-0.045em] leading-[0.95]">
+                    <h1 class="font-headline text-[clamp(2.4rem,6.6vw,5.2rem)] font-extrabold leading-[0.95] tracking-tight text-on-surface">
                         403
-                        <span class="font-editorial italic font-normal text-primary editorial-word -skew-x-6 inline-block">Forbidden</span>
+                        <span class="font-editorial italic font-normal text-primary editorial-word -skew-x-6 inline-block">
+                            Forbidden
+                        </span>
                     </h1>
-                    <p class="mt-7 max-w-2xl text-lg font-medium leading-relaxed text-on-surface-variant sm:text-xl">
+                    <p class="mt-6 max-w-2xl text-lg font-medium leading-relaxed text-on-surface-variant sm:text-xl">
                         You do not have permission to access this page.
                     </p>
+                    <div class="mt-10">
+                        <a href="ProviderMain.php"
+                            class="group relative inline-flex items-center justify-center rounded-full bg-primary px-9 py-4 font-headline text-sm font-bold uppercase tracking-[0.15em] text-white transition-all hover:pr-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                            <span>Back to Home</span>
+                            <span class="ml-2 translate-x-0 opacity-80 transition-all group-hover:translate-x-1 group-hover:opacity-100">→</span>
+                        </a>
+                    </div>
                 </div>
             </div>
         </section>
