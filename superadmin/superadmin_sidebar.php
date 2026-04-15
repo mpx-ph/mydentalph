@@ -155,12 +155,6 @@ body.superadmin-shell .sa-logo-square {
     endif;
 endforeach;
 ?>
-<div class="px-3">
-<a class="flex items-center gap-3 px-4 py-3 text-error hover:text-error transition-colors duration-200 hover:bg-error/10 rounded-xl" href="../ProviderLogout.php">
-<span class="material-symbols-outlined text-[22px]">logout</span>
-<span class="sa-sidebar-label font-headline text-sm font-medium tracking-tight">Logout</span>
-</a>
-</div>
 </nav>
 <div class="px-4 mt-auto pt-4 shrink-0 border-t border-white/40">
 <div class="bg-white/40 backdrop-blur-md rounded-2xl p-4 border border-white/60 shadow-sm">
@@ -178,9 +172,76 @@ endforeach;
 <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest opacity-60 mt-0.5">Superadmin</p>
 </div>
 </div>
+<div class="mt-3 grid grid-cols-2 gap-2">
+<button type="button" id="sa-open-edit-profile" class="sa-profile-action-btn flex items-center justify-center gap-1.5 rounded-lg border border-primary/20 bg-primary/10 text-primary px-2.5 py-2 text-[11px] font-bold tracking-wide uppercase hover:bg-primary/15 transition-colors">
+<span class="material-symbols-outlined text-[16px]">edit_square</span>
+<span class="sa-sidebar-profile-text">Edit Profile</span>
+</button>
+<a href="../ProviderLogout.php" class="sa-profile-action-btn flex items-center justify-center gap-1.5 rounded-lg border border-error/20 bg-error/10 text-error px-2.5 py-2 text-[11px] font-bold tracking-wide uppercase hover:bg-error/15 transition-colors">
+<span class="material-symbols-outlined text-[16px]">logout</span>
+<span class="sa-sidebar-profile-text">Logout</span>
+</a>
+</div>
 </div>
 </div>
 </aside>
+<div id="sa-edit-profile-modal" class="fixed inset-0 z-[120] hidden" aria-hidden="true">
+<div class="absolute inset-0 bg-slate-900/45 backdrop-blur-[1px]" data-sa-modal-close></div>
+<div class="relative min-h-full w-full flex items-center justify-center p-4 sm:p-6">
+<div class="w-full max-w-2xl rounded-2xl border border-white/70 bg-white shadow-2xl">
+<div class="flex items-start justify-between gap-3 px-5 sm:px-6 pt-5 sm:pt-6 pb-2">
+<div>
+<h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-on-surface">EDIT PROFILE</h3>
+<p class="text-sm text-on-surface-variant mt-1">Update your Profile Details</p>
+</div>
+<button type="button" class="h-9 w-9 rounded-full border border-slate-200 text-on-surface-variant hover:text-on-surface hover:bg-slate-100 transition-colors flex items-center justify-center" aria-label="Close edit profile modal" data-sa-modal-close>
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<form class="px-5 sm:px-6 pb-5 sm:pb-6 space-y-4" method="post" action="" enctype="multipart/form-data" autocomplete="off">
+<div>
+<label for="sa-profile-photo" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-1.5">PHOTO</label>
+<input id="sa-profile-photo" name="profile_photo" type="file" accept="image/*" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<div>
+<label for="sa-profile-fullname" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-1.5">FULL NAME</label>
+<input id="sa-profile-fullname" name="full_name" type="text" value="<?php echo htmlspecialchars($u['full_name'], ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+</div>
+<div>
+<label for="sa-profile-username" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-1.5">USERNAME</label>
+<input id="sa-profile-username" name="username" type="text" value="<?php echo htmlspecialchars($u['username'], ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+</div>
+</div>
+<div>
+<label for="sa-profile-email" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-1.5">EMAIL</label>
+<input id="sa-profile-email" name="email" type="email" value="<?php echo htmlspecialchars($u['email'], ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+<p class="text-[11px] text-on-surface-variant mt-1.5">Email changes require OTP verification sent to the updated email address.</p>
+</div>
+<div>
+<label for="sa-profile-current-password" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-1.5">CURRENT PASSWORD</label>
+<input id="sa-profile-current-password" name="current_password" type="password" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+<p class="text-[11px] text-on-surface-variant mt-1.5">Required for email or password changes.</p>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<div>
+<label for="sa-profile-new-password" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-1.5">NEW PASSWORD</label>
+<input id="sa-profile-new-password" name="new_password" type="password" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+<p class="text-[11px] text-on-surface-variant mt-1.5">Only required when changing your password.</p>
+</div>
+<div>
+<label for="sa-profile-confirm-password" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-1.5">CONFIRM NEW PASSWORD</label>
+<input id="sa-profile-confirm-password" name="confirm_new_password" type="password" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+</div>
+</div>
+<div class="pt-2 flex items-center justify-end gap-2">
+<button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-slate-100 transition-colors" data-sa-modal-close>Cancel</button>
+<button type="submit" class="rounded-lg bg-primary text-white px-4 py-2 text-sm font-semibold hover:opacity-95 transition-opacity">Save Changes</button>
+</div>
+</form>
+</div>
+</div>
+</div>
 <button id="superadmin-sidebar-toggle" class="sa-sidebar-divider-toggle hidden lg:flex items-center justify-center" type="button" aria-label="Collapse sidebar" aria-expanded="true">
 <span class="material-symbols-outlined text-[20px]">chevron_left</span>
 </button>
@@ -244,5 +305,31 @@ endforeach;
     }
 
     restoreState();
+
+    var editProfileBtn = document.getElementById('sa-open-edit-profile');
+    var editProfileModal = document.getElementById('sa-edit-profile-modal');
+    if (editProfileBtn && editProfileModal) {
+        function setModalOpen(isOpen) {
+            editProfileModal.classList.toggle('hidden', !isOpen);
+            editProfileModal.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+            document.body.classList.toggle('overflow-hidden', isOpen);
+        }
+
+        editProfileBtn.addEventListener('click', function () {
+            setModalOpen(true);
+        });
+
+        editProfileModal.querySelectorAll('[data-sa-modal-close]').forEach(function (el) {
+            el.addEventListener('click', function () {
+                setModalOpen(false);
+            });
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !editProfileModal.classList.contains('hidden')) {
+                setModalOpen(false);
+            }
+        });
+    }
 })();
 </script>
