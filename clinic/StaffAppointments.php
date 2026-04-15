@@ -836,14 +836,16 @@ if ($currentTenantSlug !== '') {
                                     <td class="px-6 py-5">
                                         <div class="space-y-1.5 min-w-[10rem]">
                                             <?php foreach ($serviceLines as $line): ?>
-                                                <p class="text-sm font-semibold text-slate-700 leading-tight">
-                                                    <?php echo htmlspecialchars((string) ($line['name'] ?? 'General Consultation'), ENT_QUOTES, 'UTF-8'); ?>
-                                                </p>
+                                                <div class="min-h-[1.6rem] flex items-center">
+                                                    <p class="text-sm font-semibold text-slate-700 leading-tight">
+                                                        <?php echo htmlspecialchars((string) ($line['name'] ?? 'General Consultation'), ENT_QUOTES, 'UTF-8'); ?>
+                                                    </p>
+                                                </div>
                                             <?php endforeach; ?>
                                         </div>
                                     </td>
                                     <td class="px-6 py-5">
-                                        <div class="space-y-1.5">
+                                        <div class="space-y-1.5 min-w-[9rem]">
                                             <?php foreach ($serviceLines as $line): ?>
                                                 <?php
                                                 $lineTypeLabel = (string) ($line['type_label'] ?? 'Short Term');
@@ -851,9 +853,11 @@ if ($currentTenantSlug !== '') {
                                                     ? 'bg-orange-50 text-orange-700 border border-orange-200'
                                                     : 'bg-blue-50 text-blue-700 border border-blue-200';
                                                 ?>
-                                                <span class="inline-flex items-center justify-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider <?php echo htmlspecialchars($lineTypeClass, ENT_QUOTES, 'UTF-8'); ?>">
-                                                    <?php echo htmlspecialchars($lineTypeLabel, ENT_QUOTES, 'UTF-8'); ?>
-                                                </span>
+                                                <div class="min-h-[1.6rem] flex items-center">
+                                                    <span class="inline-flex items-center justify-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider <?php echo htmlspecialchars($lineTypeClass, ENT_QUOTES, 'UTF-8'); ?>">
+                                                        <?php echo htmlspecialchars($lineTypeLabel, ENT_QUOTES, 'UTF-8'); ?>
+                                                    </span>
+                                                </div>
                                             <?php endforeach; ?>
                                         </div>
                                     </td>
