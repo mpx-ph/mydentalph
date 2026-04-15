@@ -547,7 +547,7 @@ $isCustomPeriod = (strtolower($filterPeriod) === 'custom');
 </section>
 <!-- Filters (summary cards + table use the same range and clinic) -->
 <section class="bg-white/70 backdrop-blur-xl rounded-[2rem] editorial-shadow border border-white/60 px-4 sm:px-6 lg:px-8 py-6">
-<form method="get" action="<?php echo $reportsFormAction; ?>" id="reportsFilters" class="flex flex-col gap-4">
+<form method="get" action="<?php echo $reportsFormAction; ?>" id="reportsFilters" class="js-reports-filter-form flex flex-col gap-4">
 <div class="flex flex-col xl:flex-row xl:flex-wrap xl:items-end gap-4">
 <div class="flex flex-col gap-1.5 min-w-[200px]">
 <label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/70" for="reportsPeriod">Date period</label>
@@ -849,10 +849,12 @@ Next <span class="material-symbols-outlined text-lg">chevron_right</span>
 (function () {
     if (!window.fetch || !window.DOMParser) return;
 
-    function setupPanelPagination(panelId, linkClass) {
+    function setupPanelPagination(panelId, linkClass, options) {
         var panel = document.getElementById(panelId);
         if (!panel) return;
         var isLoading = false;
+        var config = options || {};
+        var resetPageParam = config.resetPageParam || 'reg_page';
 
         function loadPage(url, pushState) {
             if (isLoading) return;
@@ -904,12 +906,34 @@ Next <span class="material-symbols-outlined text-lg">chevron_right</span>
             loadPage(link.href, true);
         });
 
+        if (config.filterFormSelector) {
+            document.addEventListener('submit', function (e) {
+                var form = e.target;
+                if (!form || !form.matches(config.filterFormSelector)) return;
+                e.preventDefault();
+                var action = form.getAttribute('action') || window.location.pathname;
+                var method = (form.getAttribute('method') || 'get').toLowerCase();
+                if (method !== 'get') {
+                    form.submit();
+                    return;
+                }
+                var formData = new FormData(form);
+                formData.delete(resetPageParam);
+                var params = new URLSearchParams(formData);
+                var nextUrl = action + (params.toString() ? ('?' + params.toString()) : '');
+                loadPage(nextUrl, true);
+            });
+        }
+
         window.addEventListener('popstate', function () {
             loadPage(window.location.href, false);
         });
     }
 
-    setupPanelPagination('registrations-panel', 'js-registration-pagination-link');
+    setupPanelPagination('registrations-panel', 'js-registration-pagination-link', {
+        filterFormSelector: '.js-reports-filter-form',
+        resetPageParam: 'reg_page'
+    });
 })();
 </script>
 <script>
