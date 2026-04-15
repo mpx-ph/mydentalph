@@ -19,6 +19,26 @@ $totalPages = 1;
 $showingFrom = 0;
 $showingTo = 0;
 $paginationItems = [];
+$clinicOptions = [];
+
+$userTypeRaw = strtolower(trim((string) ($_GET['user_type'] ?? 'all')));
+$allowedUserTypes = ['all', 'super_admin', 'tenant', 'staff', 'doctor'];
+$selectedUserType = in_array($userTypeRaw, $allowedUserTypes, true) ? $userTypeRaw : 'all';
+
+$actionRaw = strtolower(trim((string) ($_GET['action_type'] ?? 'all')));
+$allowedActions = ['all', 'login', 'logout', 'subscriptions'];
+$selectedActionType = in_array($actionRaw, $allowedActions, true) ? $actionRaw : 'all';
+
+$clinicFilterRaw = trim((string) ($_GET['clinic_id'] ?? 'all'));
+$selectedClinicId = $clinicFilterRaw !== '' ? $clinicFilterRaw : 'all';
+
+$searchTerm = trim((string) ($_GET['q'] ?? ''));
+
+$fromDateRaw = trim((string) ($_GET['from_date'] ?? ''));
+$selectedFromDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $fromDateRaw) ? $fromDateRaw : '';
+
+$toDateRaw = trim((string) ($_GET['to_date'] ?? ''));
+$selectedToDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $toDateRaw) ? $toDateRaw : '';
 
 $basePath = strtok($_SERVER['REQUEST_URI'] ?? 'auditlogs.php', '?');
 $basePath = is_string($basePath) && $basePath !== '' ? $basePath : 'auditlogs.php';
@@ -56,13 +76,89 @@ try {
     ");
     $logoutEvents = (int) $logoutStmt->fetchColumn();
 
-    $eventsWhereSql = "LOWER(l.action) LIKE '%login%' OR LOWER(l.action) LIKE '%logout%'";
+    $clinicStmt = $pdo->query("
+        SELECT tenant_id, clinic_name
+        FROM tbl_tenants
+        ORDER BY clinic_name ASC
+    ");
+    $clinicOptions = $clinicStmt->fetchAll(PDO::FETCH_ASSOC);
+    $validClinicIds = [];
+    foreach ($clinicOptions as $clinicRow) {
+        $tenantId = trim((string) ($clinicRow['tenant_id'] ?? ''));
+        if ($tenantId !== '') {
+            $validClinicIds[$tenantId] = true;
+        }
+    }
+    if ($selectedClinicId !== 'all' && !isset($validClinicIds[$selectedClinicId])) {
+        $selectedClinicId = 'all';
+    }
 
-    $countEventsStmt = $pdo->query("
+    $whereClauses = [];
+    $queryBindings = [];
+
+    if ($selectedActionType === 'login') {
+        $whereClauses[] = "LOWER(l.action) LIKE :action_login";
+        $queryBindings[':action_login'] = '%login%';
+    } elseif ($selectedActionType === 'logout') {
+        $whereClauses[] = "LOWER(l.action) LIKE :action_logout";
+        $queryBindings[':action_logout'] = '%logout%';
+    } elseif ($selectedActionType === 'subscriptions') {
+        $whereClauses[] = "LOWER(l.action) LIKE :action_subscription";
+        $queryBindings[':action_subscription'] = '%subscription%';
+    } else {
+        $whereClauses[] = "(LOWER(l.action) LIKE :action_login OR LOWER(l.action) LIKE :action_logout OR LOWER(l.action) LIKE :action_subscription)";
+        $queryBindings[':action_login'] = '%login%';
+        $queryBindings[':action_logout'] = '%logout%';
+        $queryBindings[':action_subscription'] = '%subscription%';
+    }
+
+    if ($selectedUserType === 'super_admin') {
+        $whereClauses[] = "u.role = :role_superadmin";
+        $queryBindings[':role_superadmin'] = 'superadmin';
+    } elseif ($selectedUserType === 'tenant') {
+        $whereClauses[] = "(u.role = :role_tenant_owner OR u.role = :role_manager)";
+        $queryBindings[':role_tenant_owner'] = 'tenant_owner';
+        $queryBindings[':role_manager'] = 'manager';
+    } elseif ($selectedUserType === 'staff') {
+        $whereClauses[] = "u.role = :role_staff";
+        $queryBindings[':role_staff'] = 'staff';
+    } elseif ($selectedUserType === 'doctor') {
+        $whereClauses[] = "u.role = :role_doctor";
+        $queryBindings[':role_doctor'] = 'dentist';
+    }
+
+    if ($selectedClinicId !== 'all') {
+        $whereClauses[] = "l.tenant_id = :clinic_id";
+        $queryBindings[':clinic_id'] = $selectedClinicId;
+    }
+
+    if ($selectedFromDate !== '') {
+        $whereClauses[] = "l.created_at >= :from_date_start";
+        $queryBindings[':from_date_start'] = $selectedFromDate . ' 00:00:00';
+    }
+
+    if ($selectedToDate !== '') {
+        $whereClauses[] = "l.created_at <= :to_date_end";
+        $queryBindings[':to_date_end'] = $selectedToDate . ' 23:59:59';
+    }
+
+    if ($searchTerm !== '') {
+        $whereClauses[] = "(u.full_name LIKE :search_term OR u.email LIKE :search_term OR l.user_id LIKE :search_term OR l.action LIKE :search_term)";
+        $queryBindings[':search_term'] = '%' . $searchTerm . '%';
+    }
+
+    $eventsWhereSql = implode(' AND ', $whereClauses);
+
+    $countEventsStmt = $pdo->prepare("
         SELECT COUNT(*)
         FROM tbl_audit_logs l
+        LEFT JOIN tbl_users u ON u.user_id = l.user_id
         WHERE {$eventsWhereSql}
     ");
+    foreach ($queryBindings as $bindingKey => $bindingValue) {
+        $countEventsStmt->bindValue($bindingKey, $bindingValue);
+    }
+    $countEventsStmt->execute();
     $totalEventRows = (int) $countEventsStmt->fetchColumn();
     $totalPages = max(1, (int) ceil($totalEventRows / $perPage));
     $currentPage = min($currentPage, $totalPages);
@@ -75,13 +171,20 @@ try {
             l.action,
             l.ip_address,
             l.created_at,
-            u.full_name
+            u.full_name,
+            u.email,
+            u.role,
+            t.clinic_name
         FROM tbl_audit_logs l
         LEFT JOIN tbl_users u ON u.user_id = l.user_id
+        LEFT JOIN tbl_tenants t ON t.tenant_id = l.tenant_id
         WHERE {$eventsWhereSql}
         ORDER BY l.created_at DESC, l.log_id DESC
         LIMIT :limit OFFSET :offset
     ");
+    foreach ($queryBindings as $bindingKey => $bindingValue) {
+        $eventsStmt->bindValue($bindingKey, $bindingValue);
+    }
     $eventsStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
     $eventsStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
     $eventsStmt->execute();
@@ -292,58 +395,77 @@ require __DIR__ . '/superadmin_header.php';
 </section>
 <!-- Filters Panel -->
 <section class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+<form method="get" action="<?php echo htmlspecialchars($basePath); ?>" class="space-y-4">
 <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
 <div class="space-y-1.5">
 <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-on-surface-variant/70">User Type</p>
 <div class="relative group">
-<select class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl px-4 py-2.5 text-sm font-semibold text-on-surface cursor-pointer hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all">
-<option>All Users</option>
-<option>System</option>
-<option>Staff</option>
+<select name="user_type" class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl px-4 py-2.5 text-sm font-semibold text-on-surface cursor-pointer hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all">
+<option value="all" <?php echo $selectedUserType === 'all' ? 'selected' : ''; ?>>ALL USERS</option>
+<option value="super_admin" <?php echo $selectedUserType === 'super_admin' ? 'selected' : ''; ?>>Super Admin</option>
+<option value="tenant" <?php echo $selectedUserType === 'tenant' ? 'selected' : ''; ?>>Tenant</option>
+<option value="staff" <?php echo $selectedUserType === 'staff' ? 'selected' : ''; ?>>Staff</option>
+<option value="doctor" <?php echo $selectedUserType === 'doctor' ? 'selected' : ''; ?>>Doctor</option>
 </select>
 </div>
 </div>
 <div class="space-y-1.5">
 <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-on-surface-variant/70">Action</p>
 <div class="relative group">
-<select class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl px-4 py-2.5 text-sm font-semibold text-on-surface cursor-pointer hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all">
-<option>All Actions</option>
-<option>Login</option>
-<option>Logout</option>
+<select name="action_type" class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl px-4 py-2.5 text-sm font-semibold text-on-surface cursor-pointer hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all">
+<option value="all" <?php echo $selectedActionType === 'all' ? 'selected' : ''; ?>>ALL ACTIONS</option>
+<option value="login" <?php echo $selectedActionType === 'login' ? 'selected' : ''; ?>>Login</option>
+<option value="logout" <?php echo $selectedActionType === 'logout' ? 'selected' : ''; ?>>Logout</option>
+<option value="subscriptions" <?php echo $selectedActionType === 'subscriptions' ? 'selected' : ''; ?>>Subscriptions</option>
 </select>
 </div>
 </div>
 <div class="space-y-1.5">
 <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-on-surface-variant/70">Clinic</p>
 <div class="relative group">
-<select class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl px-4 py-2.5 text-sm font-semibold text-on-surface cursor-pointer hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all">
-<option>All Clinics</option>
+<select name="clinic_id" class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl px-4 py-2.5 text-sm font-semibold text-on-surface cursor-pointer hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all">
+<option value="all">All Clinics</option>
+<?php foreach ($clinicOptions as $clinicOption): ?>
+<?php
+    $clinicTenantId = (string) ($clinicOption['tenant_id'] ?? '');
+    $clinicName = trim((string) ($clinicOption['clinic_name'] ?? ''));
+    if ($clinicName === '') {
+        $clinicName = $clinicTenantId !== '' ? $clinicTenantId : 'Unnamed Clinic';
+    }
+?>
+<option value="<?php echo htmlspecialchars($clinicTenantId); ?>" <?php echo $selectedClinicId === $clinicTenantId ? 'selected' : ''; ?>><?php echo htmlspecialchars($clinicName); ?></option>
+<?php endforeach; ?>
 </select>
 </div>
 </div>
 <div class="space-y-1.5">
 <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-on-surface-variant/70">From Date</p>
 <div class="relative group">
-<input type="date" class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all"/>
+<input name="from_date" type="date" value="<?php echo htmlspecialchars($selectedFromDate); ?>" class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all"/>
 </div>
 </div>
 <div class="space-y-1.5">
 <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-on-surface-variant/70">To Date</p>
 <div class="relative group">
-<input type="date" class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all"/>
+<input name="to_date" type="date" value="<?php echo htmlspecialchars($selectedToDate); ?>" class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all"/>
 </div>
 </div>
 </div>
 <div class="flex flex-col lg:flex-row lg:items-center gap-3">
 <div class="relative w-full group">
 <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-[20px]">search</span>
-<input class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl pl-11 pr-4 py-2.5 text-sm font-medium text-on-surface placeholder:text-on-surface-variant/55 hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Search by username or email..." type="text"/>
+<input name="q" value="<?php echo htmlspecialchars($searchTerm); ?>" class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl pl-11 pr-4 py-2.5 text-sm font-medium text-on-surface placeholder:text-on-surface-variant/55 hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Search by username or email..." type="text"/>
 </div>
-<button type="button" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/80 text-on-surface-variant border border-white/90 hover:bg-white text-sm font-semibold transition-all whitespace-nowrap">
+<button type="submit" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white border border-primary/70 hover:brightness-110 text-sm font-semibold transition-all whitespace-nowrap">
+<span class="material-symbols-outlined text-[18px]">filter_alt</span>
+                    Apply
+                </button>
+<a href="<?php echo htmlspecialchars($basePath); ?>" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/80 text-on-surface-variant border border-white/90 hover:bg-white text-sm font-semibold transition-all whitespace-nowrap no-underline">
 <span class="material-symbols-outlined text-[18px]">restart_alt</span>
                     Reset
-                </button>
+                </a>
 </div>
+</form>
 </section>
 <!-- Table Container -->
 <div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
@@ -352,7 +474,9 @@ require __DIR__ . '/superadmin_header.php';
 <table class="w-full text-left">
 <thead>
 <tr class="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/60">
-<th class="px-10 py-5">User</th>
+<th class="px-8 py-5">User</th>
+<th class="px-6 py-5">User Role</th>
+<th class="px-6 py-5">Clinic</th>
 <th class="px-8 py-5">Action</th>
 <th class="px-8 py-5">Date &amp; Time</th>
 <th class="px-8 py-5">Status</th>
@@ -361,11 +485,11 @@ require __DIR__ . '/superadmin_header.php';
 <tbody class="divide-y divide-white/40">
 <?php if ($dbError !== null): ?>
 <tr>
-<td class="px-10 py-5 text-sm text-error font-bold" colspan="4"><?php echo htmlspecialchars($dbError); ?></td>
+<td class="px-8 py-5 text-sm text-error font-bold" colspan="6"><?php echo htmlspecialchars($dbError); ?></td>
 </tr>
 <?php elseif (empty($eventRows)): ?>
 <tr>
-<td class="px-10 py-5 text-sm text-on-surface-variant font-bold" colspan="4">No login/logout events found.</td>
+<td class="px-8 py-5 text-sm text-on-surface-variant font-bold" colspan="6">No audit log events found for the selected filters.</td>
 </tr>
 <?php else: ?>
 <?php foreach ($eventRows as $row): ?>
@@ -374,17 +498,45 @@ require __DIR__ . '/superadmin_header.php';
     $lowerAction = strtolower($action);
     $isLogin = strpos($lowerAction, 'login') !== false;
     $isLogout = strpos($lowerAction, 'logout') !== false;
-    $statusLabel = $isLogout ? 'Logout' : 'Login';
-    $statusClasses = $isLogout
-        ? 'bg-amber-50 text-amber-600'
-        : 'bg-green-50 text-green-600';
-    $dotClass = $isLogout ? 'bg-amber-600' : 'bg-green-600';
+    $isSubscription = strpos($lowerAction, 'subscription') !== false;
+    if ($isSubscription) {
+        $statusLabel = 'Subscriptions';
+        $statusClasses = 'bg-blue-50 text-blue-600';
+        $dotClass = 'bg-blue-600';
+    } elseif ($isLogout) {
+        $statusLabel = 'Logout';
+        $statusClasses = 'bg-amber-50 text-amber-600';
+        $dotClass = 'bg-amber-600';
+    } else {
+        $statusLabel = 'Login';
+        $statusClasses = 'bg-green-50 text-green-600';
+        $dotClass = 'bg-green-600';
+    }
     $displayName = trim((string) ($row['full_name'] ?? ''));
     if ($displayName === '') {
         $displayName = trim((string) ($row['user_id'] ?? ''));
     }
     if ($displayName === '') {
         $displayName = 'System';
+    }
+    $emailAddress = trim((string) ($row['email'] ?? ''));
+    $userRoleRaw = strtolower(trim((string) ($row['role'] ?? '')));
+    if ($userRoleRaw === 'superadmin') {
+        $userRoleLabel = 'Super Admin';
+    } elseif ($userRoleRaw === 'tenant_owner' || $userRoleRaw === 'manager') {
+        $userRoleLabel = 'Tenant';
+    } elseif ($userRoleRaw === 'staff') {
+        $userRoleLabel = 'Staff';
+    } elseif ($userRoleRaw === 'dentist') {
+        $userRoleLabel = 'Doctor';
+    } elseif ($userRoleRaw !== '') {
+        $userRoleLabel = ucwords(str_replace('_', ' ', $userRoleRaw));
+    } else {
+        $userRoleLabel = 'N/A';
+    }
+    $clinicName = trim((string) ($row['clinic_name'] ?? ''));
+    if ($clinicName === '') {
+        $clinicName = 'N/A';
     }
 
     $createdAtRaw = trim((string) ($row['created_at'] ?? ''));
@@ -396,13 +548,22 @@ require __DIR__ . '/superadmin_header.php';
     $createdAtTime = $fmt['time'];
 ?>
 <tr class="hover:bg-primary/5 transition-colors group">
-<td class="px-10 py-5">
+<td class="px-8 py-5">
 <div>
 <p class="text-sm font-bold text-on-surface"><?php echo htmlspecialchars($displayName); ?></p>
+<?php if ($emailAddress !== ''): ?>
+<p class="text-[10px] text-on-surface-variant/75 font-semibold"><?php echo htmlspecialchars($emailAddress); ?></p>
+<?php endif; ?>
 <p class="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">
 <?php echo htmlspecialchars((string) ($row['ip_address'] ?: 'Unknown IP')); ?>
 </p>
 </div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center rounded-lg px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-surface-container-low text-on-surface-variant"><?php echo htmlspecialchars($userRoleLabel); ?></span>
+</td>
+<td class="px-6 py-5">
+<span class="text-sm font-semibold text-on-surface"><?php echo htmlspecialchars($clinicName); ?></span>
 </td>
 <td class="px-8 py-5">
 <span class="text-sm font-bold text-on-surface"><?php echo htmlspecialchars($action); ?></span>
