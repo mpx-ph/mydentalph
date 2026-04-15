@@ -905,8 +905,14 @@ try {
         }
 
         function updateTreatmentProgressCards(treatment) {
-            const total = treatment ? Number(treatment.total_cost || 0) : 0;
-            const paidRaw = treatment ? Math.max(0, Number(treatment.amount_paid || 0)) : 0;
+            const scheduleTotalRaw = treatment ? Number(treatment.installment_total_amount) : NaN;
+            const schedulePaidRaw = treatment ? Number(treatment.installment_paid_amount) : NaN;
+            const total = Number.isFinite(scheduleTotalRaw) && scheduleTotalRaw > 0
+                ? scheduleTotalRaw
+                : (treatment ? Number(treatment.total_cost || 0) : 0);
+            const paidRaw = Number.isFinite(schedulePaidRaw) && schedulePaidRaw >= 0
+                ? schedulePaidRaw
+                : (treatment ? Math.max(0, Number(treatment.amount_paid || 0)) : 0);
             const remainingRaw = treatment ? Math.max(0, Number(treatment.remaining_balance || 0)) : 0;
             const monthsLeft = treatment ? computeTreatmentMonthsLeft(treatment) : 0;
             const durationMonths = treatment ? Math.max(0, Number(treatment.duration_months || 0)) : 0;
