@@ -331,6 +331,22 @@ try {
                       AND {$apsMatchSql}
                 )"
                 : "''";
+            $bookingTypeExpr = $qAps !== null
+                ? "(
+                    SELECT CASE
+                        WHEN SUM(CASE WHEN LOWER(COALESCE(NULLIF(TRIM(svc.service_type), ''), 'regular')) = 'installment' THEN 1 ELSE 0 END) > 0 THEN 'Long Term'
+                        ELSE 'Short Term'
+                    END
+                    FROM {$qAps} svc
+                    WHERE svc.tenant_id = a.tenant_id
+                      AND {$apsMatchSql}
+                )"
+                : "(
+                    CASE
+                        WHEN LOWER(COALESCE(NULLIF(TRIM(a.treatment_type), ''), 'short_term')) = 'long_term' THEN 'Long Term'
+                        ELSE 'Short Term'
+                    END
+                )";
 
             $totalPaidSelectSql = $qPay !== null
                 ? "(
@@ -376,6 +392,7 @@ try {
                 {$serviceIdsExpr} AS appointment_service_ids,
                 a.service_description,
                 a.treatment_type,
+                {$bookingTypeExpr} AS booking_type_label,
                 a.status,
                 a.notes,
                 a.total_treatment_cost,
@@ -702,8 +719,11 @@ if ($currentTenantSlug !== '') {
                                 } elseif ($statusRaw === 'no_show') {
                                     $statusClass = 'bg-slate-200 text-slate-700';
                                 }
-                                $treatmentType = (string) ($appointment['treatment_type'] ?? 'short_term');
-                                $typeLabel = ucfirst(str_replace('_', ' ', $treatmentType));
+                                $typeLabel = trim((string) ($appointment['booking_type_label'] ?? ''));
+                                if ($typeLabel === '') {
+                                    $typeLabel = 'Short Term';
+                                }
+                                $treatmentType = $typeLabel === 'Long Term' ? 'long_term' : 'short_term';
                                 $totalCost = (float) ($appointment['total_treatment_cost'] ?? 0);
                                 $totalPaid = (float) ($appointment['total_paid'] ?? 0);
                                 $pendingBalance = max(0, $totalCost - $totalPaid);

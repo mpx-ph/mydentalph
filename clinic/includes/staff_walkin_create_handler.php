@@ -405,6 +405,7 @@ try {
         'service_description' => $serviceDescription,
         'total_treatment_cost' => $isFollowUpVisitForActiveTreatment ? 0.0 : (float) $totalCost,
         'service_payment_type' => ($resolvedTreatmentId !== '' && $isFollowUpVisitForActiveTreatment) ? 'installment' : 'regular',
+        'has_installment' => $hasInstallmentService,
     ]];
     $primaryServiceId = trim((string) ($activeTreatment['primary_service_id'] ?? ''));
     foreach ($storageTargets as $idx => $target) {
@@ -433,7 +434,7 @@ try {
                 'appointment_time' => $appointmentTime,
                 'service_type' => (string) ($plan['service_type'] ?? ''),
                 'service_description' => (string) ($plan['service_description'] ?? ''),
-                'treatment_type' => 'short_term',
+                'treatment_type' => !empty($plan['has_installment']) ? 'long_term' : 'short_term',
                 'visit_type' => $visitType,
                 'status' => $localStatus,
                 'notes' => $notes !== '' ? $notes : null,
@@ -501,6 +502,7 @@ try {
                     'treatment_id' => $isInstallmentRow ? $plan['treatment_id'] : null,
                     'added_by' => $createdBy,
                     'service_type' => $serviceRowType,
+                    'type' => $serviceRowType === 'installment' ? 'Long Term' : 'Short Term',
                 ];
                 if (in_array('appointment_id', $apsCols, true)) {
                     $rowData['appointment_id'] = $appointmentId > 0 ? $appointmentId : null;
@@ -508,7 +510,7 @@ try {
                 $svcInsertCols = [];
                 $svcPlaceholders = [];
                 $svcParams = [];
-                $apsOrder = ['tenant_id', 'booking_id', 'appointment_id', 'treatment_id', 'service_id', 'service_name', 'price', 'service_type', 'is_original', 'added_by'];
+                $apsOrder = ['tenant_id', 'booking_id', 'appointment_id', 'treatment_id', 'service_id', 'service_name', 'price', 'service_type', 'type', 'is_original', 'added_by'];
                 foreach ($apsOrder as $col) {
                     if (!in_array($col, $apsCols, true) || !array_key_exists($col, $rowData)) {
                         continue;

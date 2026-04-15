@@ -65,6 +65,17 @@ try {
         WHERE tenant_id = ? AND service_id = ?
         LIMIT 1
     ");
+    $apsColumns = [];
+    $apsColsStmt = $pdo->query("SHOW COLUMNS FROM tbl_appointment_services");
+    if ($apsColsStmt) {
+        foreach ($apsColsStmt->fetchAll(PDO::FETCH_ASSOC) as $colRow) {
+            $colName = strtolower(trim((string) ($colRow['Field'] ?? '')));
+            if ($colName !== '') {
+                $apsColumns[$colName] = true;
+            }
+        }
+    }
+    $hasTypeColumn = isset($apsColumns['type']);
     foreach ($services as $srv) {
         $serviceType = strtolower(trim((string) ($srv['service_type'] ?? ($srv['type'] ?? ''))));
         if ($serviceType !== 'installment' && $serviceType !== 'regular') {
@@ -72,10 +83,18 @@ try {
             $enableInstallment = (int) ($serviceTypeProbeStmt->fetchColumn() ?? 0);
             $serviceType = $enableInstallment === 1 ? 'installment' : 'regular';
         }
-        $stmt = $pdo->prepare("INSERT INTO tbl_appointment_services 
-            (tenant_id, booking_id, appointment_id, service_id, service_name, price, service_type) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$tenant_id, $booking_id, $appointment_id, $srv['id'], $srv['name'], $srv['price'], $serviceType]);
+        $typeLabel = $serviceType === 'installment' ? 'Long Term' : 'Short Term';
+        if ($hasTypeColumn) {
+            $stmt = $pdo->prepare("INSERT INTO tbl_appointment_services 
+                (tenant_id, booking_id, appointment_id, service_id, service_name, price, service_type, `type`) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$tenant_id, $booking_id, $appointment_id, $srv['id'], $srv['name'], $srv['price'], $serviceType, $typeLabel]);
+        } else {
+            $stmt = $pdo->prepare("INSERT INTO tbl_appointment_services 
+                (tenant_id, booking_id, appointment_id, service_id, service_name, price, service_type) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$tenant_id, $booking_id, $appointment_id, $srv['id'], $srv['name'], $srv['price'], $serviceType]);
+        }
     }
 
     // 3. Insert Payment
