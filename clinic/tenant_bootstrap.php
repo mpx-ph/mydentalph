@@ -29,7 +29,7 @@ if (!function_exists('redirectToNotFoundPage')) {
     function redirectToNotFoundPage(): void
     {
         http_response_code(404);
-        $notFoundPath = '/notfound.php';
+        $notFoundPath = '/404';
 
         if (!headers_sent()) {
             header('Location: ' . $notFoundPath);

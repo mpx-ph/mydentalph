@@ -8,6 +8,13 @@ DirectoryIndex ProviderMain.php
 RewriteCond %{THE_REQUEST} \s/+ProviderMain\.php[\s?] [NC]
 RewriteRule ^ProviderMain\.php$ /? [R=301,L]
 
+# Canonical 404 URL: redirect direct /notfound.php requests to /404
+RewriteCond %{THE_REQUEST} \s/+notfound\.php[\s?] [NC]
+RewriteRule ^notfound\.php$ /404 [R=301,L]
+
+# Pretty route for the shared 404 page
+RewriteRule ^404/?$ notfound.php [L]
+
 # Allow existing files and directories to be served normally
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
