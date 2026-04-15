@@ -13,6 +13,22 @@ $logoutEvents = 0;
 $totalEventRows = 0;
 $eventRows = [];
 $dbError = null;
+$perPage = 10;
+$currentPage = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
+$totalPages = 1;
+$showingFrom = 0;
+$showingTo = 0;
+$paginationItems = [];
+
+$basePath = strtok($_SERVER['REQUEST_URI'] ?? 'auditlogs.php', '?');
+$basePath = is_string($basePath) && $basePath !== '' ? $basePath : 'auditlogs.php';
+$queryParams = $_GET;
+unset($queryParams['page']);
+$buildPageUrl = static function (int $page) use ($basePath, $queryParams): string {
+    $params = $queryParams;
+    $params['page'] = max(1, $page);
+    return $basePath . '?' . http_build_query($params);
+};
 
 try {
     // Rows use MySQL CURRENT_TIMESTAMP in the connection's zone (usually SYSTEM) — infer BEFORE SET +08.
@@ -40,7 +56,19 @@ try {
     ");
     $logoutEvents = (int) $logoutStmt->fetchColumn();
 
-    $eventsStmt = $pdo->query("
+    $eventsWhereSql = "LOWER(l.action) LIKE '%login%' OR LOWER(l.action) LIKE '%logout%'";
+
+    $countEventsStmt = $pdo->query("
+        SELECT COUNT(*)
+        FROM tbl_audit_logs l
+        WHERE {$eventsWhereSql}
+    ");
+    $totalEventRows = (int) $countEventsStmt->fetchColumn();
+    $totalPages = max(1, (int) ceil($totalEventRows / $perPage));
+    $currentPage = min($currentPage, $totalPages);
+    $offset = ($currentPage - 1) * $perPage;
+
+    $eventsStmt = $pdo->prepare("
         SELECT
             l.log_id,
             l.user_id,
@@ -50,11 +78,40 @@ try {
             u.full_name
         FROM tbl_audit_logs l
         LEFT JOIN tbl_users u ON u.user_id = l.user_id
-        WHERE LOWER(l.action) LIKE '%login%' OR LOWER(l.action) LIKE '%logout%'
+        WHERE {$eventsWhereSql}
         ORDER BY l.created_at DESC, l.log_id DESC
+        LIMIT :limit OFFSET :offset
     ");
+    $eventsStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+    $eventsStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $eventsStmt->execute();
     $eventRows = $eventsStmt->fetchAll(PDO::FETCH_ASSOC);
-    $totalEventRows = count($eventRows);
+
+    if ($totalEventRows > 0) {
+        $showingFrom = $offset + 1;
+        $showingTo = $offset + count($eventRows);
+    }
+
+    if ($totalPages <= 7) {
+        for ($page = 1; $page <= $totalPages; $page++) {
+            $paginationItems[] = $page;
+        }
+    } else {
+        $paginationItems[] = 1;
+        $startPage = max(2, $currentPage - 1);
+        $endPage = min($totalPages - 1, $currentPage + 1);
+
+        if ($startPage > 2) {
+            $paginationItems[] = '...';
+        }
+        for ($page = $startPage; $page <= $endPage; $page++) {
+            $paginationItems[] = $page;
+        }
+        if ($endPage < $totalPages - 1) {
+            $paginationItems[] = '...';
+        }
+        $paginationItems[] = $totalPages;
+    }
 } catch (Throwable $e) {
     $dbError = 'Unable to load audit logs right now.';
 }
@@ -296,7 +353,7 @@ require __DIR__ . '/superadmin_header.php';
 <!-- Table Controls -->
 <div class="px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-end border-b border-white/50">
 <div class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">
-                    Showing <span class="text-primary opacity-100"><?php echo $totalEventRows === 0 ? '0' : ('1-' . $totalEventRows); ?></span> of <?php echo number_format($totalEventRows); ?> results
+                    Showing <span class="text-primary opacity-100"><?php echo $totalEventRows === 0 ? '0' : (number_format($showingFrom) . '-' . number_format($showingTo)); ?></span> of <?php echo number_format($totalEventRows); ?> results
                 </div>
 </div>
 <!-- Table Content -->
@@ -378,19 +435,37 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 <!-- Pagination -->
 <div class="px-4 sm:px-6 lg:px-10 py-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/50">
-<button class="px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
+<?php $isFirstPage = $currentPage <= 1; ?>
+<?php $isLastPage = $currentPage >= $totalPages; ?>
+<?php if ($isFirstPage): ?>
+<span class="px-5 py-2.5 bg-white/40 text-on-surface-variant/50 text-sm font-bold rounded-xl border border-white/70 shadow-sm flex items-center gap-2 cursor-not-allowed">
 <span class="material-symbols-outlined text-lg">chevron_left</span> Previous
-                </button>
+</span>
+<?php else: ?>
+<a href="<?php echo htmlspecialchars($buildPageUrl($currentPage - 1)); ?>" class="px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2 no-underline">
+<span class="material-symbols-outlined text-lg">chevron_left</span> Previous
+</a>
+<?php endif; ?>
 <div class="flex items-center gap-2">
-<button class="w-10 h-10 bg-primary text-white rounded-xl font-bold text-sm active-glow">1</button>
-<button class="w-10 h-10 bg-white/40 text-on-surface-variant hover:bg-white rounded-xl font-bold text-sm transition-all">2</button>
-<button class="w-10 h-10 bg-white/40 text-on-surface-variant hover:bg-white rounded-xl font-bold text-sm transition-all">3</button>
+<?php foreach ($paginationItems as $pageItem): ?>
+<?php if ($pageItem === '...'): ?>
 <span class="px-2 opacity-40">...</span>
-<button class="w-10 h-10 bg-white/40 text-on-surface-variant hover:bg-white rounded-xl font-bold text-sm transition-all">1284</button>
+<?php elseif ((int) $pageItem === $currentPage): ?>
+<span class="w-10 h-10 bg-primary text-white rounded-xl font-bold text-sm active-glow inline-flex items-center justify-center"><?php echo (int) $pageItem; ?></span>
+<?php else: ?>
+<a href="<?php echo htmlspecialchars($buildPageUrl((int) $pageItem)); ?>" class="w-10 h-10 bg-white/40 text-on-surface-variant hover:bg-white rounded-xl font-bold text-sm transition-all inline-flex items-center justify-center no-underline"><?php echo (int) $pageItem; ?></a>
+<?php endif; ?>
+<?php endforeach; ?>
 </div>
-<button class="px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
+<?php if ($isLastPage): ?>
+<span class="px-5 py-2.5 bg-white/40 text-on-surface-variant/50 text-sm font-bold rounded-xl border border-white/70 shadow-sm flex items-center gap-2 cursor-not-allowed">
                     Next <span class="material-symbols-outlined text-lg">chevron_right</span>
-</button>
+</span>
+<?php else: ?>
+<a href="<?php echo htmlspecialchars($buildPageUrl($currentPage + 1)); ?>" class="px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2 no-underline">
+                    Next <span class="material-symbols-outlined text-lg">chevron_right</span>
+</a>
+<?php endif; ?>
 </div>
 </div>
 <!-- Footer Grid -->
