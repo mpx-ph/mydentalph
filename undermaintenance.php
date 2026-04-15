@@ -40,6 +40,21 @@ http_response_code(503);
             text-shadow: 0 0 14px rgba(43, 139, 235, 0.14);
             letter-spacing: -0.02em;
         }
+
+        #maintenanceAnimation {
+            overflow: hidden;
+        }
+
+        #maintenanceAnimation svg {
+            transform: scale(1.55);
+            transform-origin: center center;
+        }
+
+        @media (max-width: 1023px) {
+            #maintenanceAnimation svg {
+                transform: scale(1.35);
+            }
+        }
     </style>
 </head>
 <body class="bg-background-light font-body text-on-surface antialiased">
@@ -75,8 +90,8 @@ http_response_code(503);
                 </div>
 
                 <div class="order-1 flex items-center justify-center lg:order-2">
-                    <div class="w-full max-w-[860px]">
-                        <div id="maintenanceAnimation" class="aspect-[16/10] w-full bg-transparent"></div>
+                    <div class="w-full max-w-[980px]">
+                        <div id="maintenanceAnimation" class="aspect-[16/9] w-full bg-transparent"></div>
                     </div>
                 </div>
             </div>
@@ -98,7 +113,10 @@ http_response_code(503);
                 renderer: "svg",
                 loop: true,
                 autoplay: true,
-                path: "Maintenance web.json"
+                path: "Maintenance web.json",
+                rendererSettings: {
+                    preserveAspectRatio: "xMidYMid slice"
+                }
             });
         })();
     </script>
