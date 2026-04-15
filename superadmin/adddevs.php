@@ -257,8 +257,8 @@ require __DIR__ . '/superadmin_header.php';
                         <span class="material-symbols-outlined text-sm">admin_panel_settings</span>
                         Superadmin
                     </p>
-                    <h1 class="mt-3 text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Add Developer Account</h1>
-                    <p class="text-on-surface-variant mt-2 font-medium">Create a new user in <code>tbl_users</code> with elevated access for platform operations.</p>
+                    <h1 class="mt-3 text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Add Administrator Account</h1>
+                    <p class="text-on-surface-variant mt-2 font-medium">Create a new user with elevated access for platform operations.</p>
                 </div>
                 <div class="relative z-10 rounded-2xl border border-primary/15 bg-white/80 px-4 py-3 text-sm text-on-surface-variant">
                     <p class="font-semibold text-on-surface">Quick reminder</p>
