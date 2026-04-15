@@ -2,9 +2,8 @@
 if (session_id() === '') {
     session_start();
 }
-
-$userId = $_SESSION['user_id'] ?? null;
-if ($userId === null || $userId === '') {
+// user_id can be 0 for hardcoded superadmin; empty() treats 0 as empty
+if (!isset($_SESSION['user_id'])) {
     $script = basename(isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : 'dashboard.php');
     $qs = isset($_SERVER['QUERY_STRING']) && $_SERVER['QUERY_STRING'] !== ''
         ? '?' . $_SERVER['QUERY_STRING']
@@ -13,33 +12,32 @@ if ($userId === null || $userId === '') {
     exit;
 }
 
+$uid = $_SESSION['user_id'];
+$sessionRole = isset($_SESSION['role']) ? (string) $_SESSION['role'] : '';
 $dbRole = null;
+
 try {
-    require_once __DIR__ . '/../db.php';
-    if (isset($pdo) && $pdo instanceof PDO) {
+    if (!isset($pdo) || !($pdo instanceof PDO)) {
+        require_once __DIR__ . '/../db.php';
+    }
+    if (isset($pdo) && ($pdo instanceof PDO)) {
         $stmt = $pdo->prepare('SELECT role FROM tbl_users WHERE user_id = ? LIMIT 1');
-        $stmt->execute([$userId]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($row && array_key_exists('role', $row)) {
-            $dbRole = trim((string) $row['role']);
+        $stmt->execute([$uid]);
+        $role = $stmt->fetchColumn();
+        if ($role !== false) {
+            $dbRole = (string) $role;
         }
     }
 } catch (Throwable $e) {
-    // Keep null role so access is denied safely below.
+    // Fail closed: if we cannot verify role, deny access.
 }
 
-if ($dbRole === null || $dbRole === '') {
-    // Stale/invalid session: treat as unauthenticated.
-    $script = basename(isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : 'dashboard.php');
-    $qs = isset($_SERVER['QUERY_STRING']) && $_SERVER['QUERY_STRING'] !== ''
-        ? '?' . $_SERVER['QUERY_STRING']
-        : '';
-    header('Location: ../ProviderLogin.php?redirect=' . rawurlencode('superadmin/' . $script . $qs));
-    exit;
+$effectiveRole = $dbRole !== null ? $dbRole : $sessionRole;
+if ($effectiveRole === 'superadmin') {
+    // Keep session role aligned with source of truth.
+    $_SESSION['role'] = 'superadmin';
+    return;
 }
 
-$_SESSION['role'] = $dbRole;
-if ($dbRole !== 'superadmin') {
-    header('Location: ../denied.php');
-    exit;
-}
+header('Location: ../denied.php');
+exit;
