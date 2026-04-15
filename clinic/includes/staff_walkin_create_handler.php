@@ -256,6 +256,75 @@ try {
             $activeInstallmentTotalSlots = (int) ($activeTreatment['installment_total_slots'] ?? 0);
             $activeInstallmentSettledSlots = (int) ($activeTreatment['installment_settled_slots'] ?? 0);
             $allInstallmentSlotsPaid = $activeInstallmentTotalSlots > 0 && $activeInstallmentSettledSlots >= $activeInstallmentTotalSlots;
+            $activeTreatmentId = (string) ($activeTreatment['treatment_id'] ?? '');
+            $installmentsTable = clinic_get_physical_table_name($pdo, 'tbl_installments')
+                ?? clinic_get_physical_table_name($pdo, 'installments');
+            if ($installmentsTable !== null && $activeTreatmentId !== '') {
+                $installmentCols = clinic_table_columns($pdo, $installmentsTable);
+                $hasInstallmentTreatmentId = in_array('treatment_id', $installmentCols, true);
+                $hasInstallmentBookingId = in_array('booking_id', $installmentCols, true);
+                $hasInstallmentStatus = in_array('status', $installmentCols, true);
+                if ($hasInstallmentTreatmentId && $hasInstallmentStatus) {
+                    $qi = clinic_quote_identifier($installmentsTable);
+                    $slotKeyExpr = in_array('installment_number', $installmentCols, true)
+                        ? "COALESCE(NULLIF(CAST(i.installment_number AS CHAR), ''), CONCAT('row-', i.id))"
+                        : (in_array('id', $installmentCols, true) ? "CONCAT('row-', i.id)" : "CONCAT('row-', UUID())");
+                    $slotSummarySql = "
+                        SELECT
+                            COUNT(*) AS total_slots,
+                            COALESCE(SUM(slot_group.slot_settled), 0) AS settled_slots
+                        FROM (
+                            SELECT
+                                {$slotKeyExpr} AS slot_key,
+                                MAX(CASE WHEN LOWER(COALESCE(i.status, '')) IN ('paid', 'completed') THEN 1 ELSE 0 END) AS slot_settled
+                            FROM {$qi} i
+                            WHERE i.tenant_id = ?
+                              AND i.treatment_id = ?
+                            GROUP BY slot_key
+                        ) AS slot_group
+                    ";
+                    $slotSummaryStmt = $pdo->prepare($slotSummarySql);
+                    $slotSummaryStmt->execute([$tenantId, $activeTreatmentId]);
+                    $slotSummary = $slotSummaryStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+                    $dbTotalSlots = (int) ($slotSummary['total_slots'] ?? 0);
+                    $dbSettledSlots = (int) ($slotSummary['settled_slots'] ?? 0);
+                    if ($dbTotalSlots <= 0 && $hasInstallmentBookingId) {
+                        $apptColsForInstallments = clinic_table_columns($pdo, $appointmentsTable);
+                        $appointmentsHasBookingId = in_array('booking_id', $apptColsForInstallments, true);
+                        $appointmentsHasTreatmentId = in_array('treatment_id', $apptColsForInstallments, true);
+                        if ($appointmentsHasBookingId && $appointmentsHasTreatmentId) {
+                            $qa = clinic_quote_identifier($appointmentsTable);
+                            $slotSummaryByBookingSql = "
+                                SELECT
+                                    COUNT(*) AS total_slots,
+                                    COALESCE(SUM(slot_group.slot_settled), 0) AS settled_slots
+                                FROM (
+                                    SELECT
+                                        {$slotKeyExpr} AS slot_key,
+                                        MAX(CASE WHEN LOWER(COALESCE(i.status, '')) IN ('paid', 'completed') THEN 1 ELSE 0 END) AS slot_settled
+                                    FROM {$qi} i
+                                    INNER JOIN {$qa} a
+                                      ON a.tenant_id = i.tenant_id
+                                     AND a.booking_id = i.booking_id
+                                    WHERE i.tenant_id = ?
+                                      AND a.treatment_id = ?
+                                    GROUP BY slot_key
+                                ) AS slot_group
+                            ";
+                            $slotSummaryByBookingStmt = $pdo->prepare($slotSummaryByBookingSql);
+                            $slotSummaryByBookingStmt->execute([$tenantId, $activeTreatmentId]);
+                            $slotSummaryByBooking = $slotSummaryByBookingStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+                            $dbTotalSlots = (int) ($slotSummaryByBooking['total_slots'] ?? 0);
+                            $dbSettledSlots = (int) ($slotSummaryByBooking['settled_slots'] ?? 0);
+                        }
+                    }
+                    if ($dbTotalSlots > 0) {
+                        $activeInstallmentTotalSlots = $dbTotalSlots;
+                        $activeInstallmentSettledSlots = max(0, min($dbTotalSlots, $dbSettledSlots));
+                        $allInstallmentSlotsPaid = $activeInstallmentSettledSlots >= $activeInstallmentTotalSlots;
+                    }
+                }
+            }
             $fullyPaidByBalance = $activeRemaining <= 0.009;
             $fullyPaidByAmount = $activeTotalCost > 0 && $activeAmountPaid >= ($activeTotalCost - 0.009);
             $isFullyPaidTreatment = $fullyPaidByBalance || $allInstallmentSlotsPaid || $fullyPaidByAmount;
