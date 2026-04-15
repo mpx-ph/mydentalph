@@ -709,15 +709,15 @@ if ($currentTenantSlug !== '') {
                                     $statusRaw = 'pending';
                                 }
                                 $statusLabel = ucfirst(str_replace('_', ' ', $statusRaw));
-                                $statusClass = 'bg-amber-50 text-amber-600';
+                                $statusClass = 'bg-amber-50 text-amber-700 border border-amber-200';
                                 if ($statusRaw === 'in_progress') {
-                                    $statusClass = 'bg-primary/10 text-primary';
+                                    $statusClass = 'bg-blue-50 text-blue-700 border border-blue-200';
                                 } elseif ($statusRaw === 'cancelled') {
-                                    $statusClass = 'bg-rose-50 text-rose-600';
+                                    $statusClass = 'bg-rose-50 text-rose-700 border border-rose-200';
                                 } elseif ($statusRaw === 'completed') {
-                                    $statusClass = 'bg-emerald-50 text-emerald-600';
+                                    $statusClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
                                 } elseif ($statusRaw === 'no_show') {
-                                    $statusClass = 'bg-slate-200 text-slate-700';
+                                    $statusClass = 'bg-slate-100 text-slate-700 border border-slate-200';
                                 }
                                 $typeLabel = trim((string) ($appointment['booking_type_label'] ?? ''));
                                 if ($typeLabel === '') {
@@ -754,7 +754,7 @@ if ($currentTenantSlug !== '') {
                                         </span>
                                     </td>
                                     <td class="px-6 py-5">
-                                        <span class="px-2.5 py-1 rounded-full <?php echo $statusClass; ?> text-[10px] font-black uppercase tracking-wider">
+                                        <span class="inline-flex items-center justify-center px-3 py-1 rounded-full <?php echo htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8'); ?> text-[10px] font-black uppercase tracking-wider">
                                             <?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?>
                                         </span>
                                     </td>
