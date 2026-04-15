@@ -909,9 +909,16 @@ try {
             const paid = treatment ? Number(treatment.amount_paid || 0) : 0;
             const remaining = treatment ? Math.max(0, Number(treatment.remaining_balance || 0)) : 0;
             const monthsLeft = treatment ? computeTreatmentMonthsLeft(treatment) : 0;
+            const durationMonths = treatment ? Math.max(0, Number(treatment.duration_months || 0)) : 0;
+            const hasInstallmentTimeline = durationMonths > 0 && monthsLeft >= 0 && monthsLeft <= durationMonths;
+            const timelineProgress = hasInstallmentTimeline
+                ? Math.max(0, Math.min(100, Math.round(((durationMonths - monthsLeft) / durationMonths) * 1000) / 10))
+                : NaN;
             const apiProgressRaw = treatment ? Number(treatment.progress_percentage) : NaN;
             const fallbackProgress = total > 0 ? Math.min(100, Math.round((paid / total) * 1000) / 10) : 0;
-            const percent = Number.isFinite(apiProgressRaw)
+            const percent = Number.isFinite(timelineProgress)
+                ? timelineProgress
+                : Number.isFinite(apiProgressRaw)
                 ? Math.max(0, Math.min(100, Math.round(apiProgressRaw * 10) / 10))
                 : fallbackProgress;
 
