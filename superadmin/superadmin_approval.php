@@ -302,7 +302,7 @@ function sa_document_label(string $type): string
             .sa-top-header {
                 left: 0;
                 width: 100% !important;
-                padding-left: 5.5rem;
+                padding-left: 4.5rem;
                 padding-right: 1rem;
             }
             #sa-mobile-sidebar-toggle {
@@ -332,6 +332,29 @@ function sa_document_label(string $type): string
                 opacity: 1;
                 pointer-events: auto;
             }
+            .sa-request-card-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .sa-request-card-meta {
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            .sa-request-card-meta span {
+                min-width: 0;
+                max-width: 100%;
+                overflow-wrap: anywhere;
+            }
+            .sa-review-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+            .sa-status-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
         }
     </style>
 </head>
@@ -346,7 +369,7 @@ require __DIR__ . '/superadmin_header.php';
 <span class="material-symbols-outlined text-[20px]">menu</span>
 </button>
 <div id="sa-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
-<main class="ml-0 lg:ml-64 flex-grow flex flex-col min-h-screen pt-20">
+<main class="ml-0 lg:ml-64 flex-grow flex flex-col min-h-screen pt-24 sm:pt-20">
 <div class="flex flex-col lg:flex-row flex-grow overflow-visible lg:overflow-hidden relative">
 <div class="absolute top-40 right-10 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10"></div>
 <section class="w-full lg:w-3/5 p-4 sm:p-6 lg:p-10 overflow-y-visible lg:overflow-y-auto space-y-8 no-scrollbar">
@@ -376,7 +399,7 @@ require __DIR__ . '/superadmin_header.php';
 <?php endif; ?>
 <?php foreach ($requests as $r): ?>
 <a href="?status=<?php echo urlencode($status_filter); ?>&request_id=<?php echo (int) $r['request_id']; ?>" class="block backdrop-blur-md p-6 rounded-[2rem] editorial-shadow border-l-[6px] <?php echo ((int) $r['request_id'] === $selected_request_id) ? 'bg-white/80 border-primary active-glow' : 'bg-white/45 border-transparent hover:bg-white/65'; ?> transition-all cursor-pointer group">
-<div class="flex items-start justify-between gap-4">
+<div class="flex items-start justify-between gap-4 sa-request-card-header">
 <div class="flex gap-5">
 <div class="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
 <span class="material-symbols-outlined text-3xl">dentistry</span>
@@ -384,7 +407,7 @@ require __DIR__ . '/superadmin_header.php';
 <div>
 <h3 class="font-headline font-extrabold text-on-surface text-lg"><?php echo htmlspecialchars((string) ($r['clinic_name'] ?? 'Clinic'), ENT_QUOTES, 'UTF-8'); ?></h3>
 <p class="text-on-surface-variant text-xs font-medium mt-1">Owner: <?php echo htmlspecialchars((string) ($r['owner_name'] ?? 'N/A'), ENT_QUOTES, 'UTF-8'); ?></p>
-<div class="flex items-center gap-4 mt-4 text-[11px] text-on-surface-variant/70 font-bold uppercase tracking-widest">
+<div class="flex items-center gap-4 mt-4 text-[11px] text-on-surface-variant/70 font-bold uppercase tracking-widest sa-request-card-meta">
 <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-base">mail</span><?php echo htmlspecialchars((string) ($r['owner_email'] ?? 'N/A'), ENT_QUOTES, 'UTF-8'); ?></span>
 <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-base">calendar_today</span><?php echo htmlspecialchars((string) ($r['submitted_at'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
 </div>
@@ -404,7 +427,7 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 <?php else: ?>
 <div class="space-y-6">
-<div class="flex items-center justify-between">
+<div class="flex items-center justify-between sa-review-header">
 <h4 class="font-headline font-extrabold text-2xl text-on-surface">Review Details</h4>
 <span class="text-[10px] font-extrabold text-primary px-3 py-1.5 bg-blue-50 rounded-xl border border-blue-100 uppercase tracking-widest">REF: #<?php echo (int) $selected['request_id']; ?></span>
 </div>
@@ -428,7 +451,7 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 </div>
 <div class="bg-white/60 backdrop-blur-md rounded-[2rem] p-6 editorial-shadow">
-<div class="flex items-center justify-between border-b border-on-surface/5 pb-4">
+<div class="flex items-center justify-between border-b border-on-surface/5 pb-4 sa-status-row">
 <span class="text-[11px] font-extrabold text-on-surface-variant uppercase tracking-widest">Verification Status</span>
 <span class="px-2 py-1 rounded-lg border text-[10px] uppercase tracking-widest font-extrabold <?php echo sa_status_badge_class((string) ($selected['status'] ?? 'pending')); ?>"><?php echo htmlspecialchars((string) ($selected['status'] ?? 'pending'), ENT_QUOTES, 'UTF-8'); ?></span>
 </div>
