@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/provider_redirect_superadmin.php';
+require_once __DIR__ . '/provider_maintenance_guard.php';
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/provider_auth.php';
 require_once __DIR__ . '/superadmin/superadmin_settings_lib.php';

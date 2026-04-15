@@ -13,19 +13,24 @@ function superadmin_settings_ensure_table(PDO $pdo): void
             system_name VARCHAR(255) NOT NULL DEFAULT 'MyDental',
             brand_logo_path VARCHAR(512) NOT NULL DEFAULT 'MyDental Logo.svg',
             brand_tagline VARCHAR(255) NOT NULL DEFAULT 'MANAGEMENT CONSOLE',
+            provider_maintenance_mode TINYINT(1) NOT NULL DEFAULT 0,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
     $n = (int) $pdo->query('SELECT COUNT(*) FROM tbl_superadmin_settings WHERE id = 1')->fetchColumn();
     if ($n === 0) {
-        $pdo->exec("INSERT INTO tbl_superadmin_settings (id, system_name, brand_logo_path, brand_tagline)
-            VALUES (1, 'MyDental', 'MyDental Logo.svg', 'MANAGEMENT CONSOLE')");
+        $pdo->exec("INSERT INTO tbl_superadmin_settings (id, system_name, brand_logo_path, brand_tagline, provider_maintenance_mode)
+            VALUES (1, 'MyDental', 'MyDental Logo.svg', 'MANAGEMENT CONSOLE', 0)");
     }
 
     // Add new columns on existing installs without requiring manual migrations.
     $col = $pdo->query("SHOW COLUMNS FROM tbl_superadmin_settings LIKE 'provider_plans_json'")->fetch(PDO::FETCH_ASSOC);
     if (!$col) {
         $pdo->exec("ALTER TABLE tbl_superadmin_settings ADD COLUMN provider_plans_json LONGTEXT NULL AFTER brand_tagline");
+    }
+    $maintenanceCol = $pdo->query("SHOW COLUMNS FROM tbl_superadmin_settings LIKE 'provider_maintenance_mode'")->fetch(PDO::FETCH_ASSOC);
+    if (!$maintenanceCol) {
+        $pdo->exec("ALTER TABLE tbl_superadmin_settings ADD COLUMN provider_maintenance_mode TINYINT(1) NOT NULL DEFAULT 0 AFTER brand_tagline");
     }
 }
 
@@ -131,18 +136,19 @@ function superadmin_sanitize_provider_plans($raw): array
 }
 
 /**
- * @return array{system_name: string, brand_logo_path: string, brand_tagline: string, provider_plans: array<string, array{name: string, price: string, description: string, cta: string, features: array<int, string>}>}
+ * @return array{system_name: string, brand_logo_path: string, brand_tagline: string, provider_maintenance_mode: bool, provider_plans: array<string, array{name: string, price: string, description: string, cta: string, features: array<int, string>}>}
  */
 function superadmin_get_settings(PDO $pdo): array
 {
     superadmin_settings_ensure_table($pdo);
-    $stmt = $pdo->query('SELECT system_name, brand_logo_path, brand_tagline, provider_plans_json FROM tbl_superadmin_settings WHERE id = 1');
+    $stmt = $pdo->query('SELECT system_name, brand_logo_path, brand_tagline, provider_maintenance_mode, provider_plans_json FROM tbl_superadmin_settings WHERE id = 1');
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) {
         return [
             'system_name' => 'MyDental',
             'brand_logo_path' => 'MyDental Logo.svg',
             'brand_tagline' => 'MANAGEMENT CONSOLE',
+            'provider_maintenance_mode' => false,
             'provider_plans' => superadmin_default_provider_plans(),
         ];
     }
@@ -159,6 +165,7 @@ function superadmin_get_settings(PDO $pdo): array
         'system_name' => (string) $row['system_name'],
         'brand_logo_path' => (string) $row['brand_logo_path'],
         'brand_tagline' => (string) $row['brand_tagline'],
+        'provider_maintenance_mode' => !empty($row['provider_maintenance_mode']),
         'provider_plans' => superadmin_sanitize_provider_plans($plansRaw),
     ];
 }
@@ -254,7 +261,7 @@ function superadmin_sync_subscription_plan_prices(PDO $pdo, array $plans): void
 }
 
 /**
- * @param array{system_name?: string, brand_logo_path?: string, brand_tagline?: string, provider_plans?: array<string, array{name?: string, price?: string, description?: string, cta?: string, features?: array<int, string>}|mixed>} $data
+ * @param array{system_name?: string, brand_logo_path?: string, brand_tagline?: string, provider_maintenance_mode?: bool|int|string, provider_plans?: array<string, array{name?: string, price?: string, description?: string, cta?: string, features?: array<int, string>}|mixed>} $data
  */
 function superadmin_save_settings(PDO $pdo, array $data): void
 {
@@ -286,6 +293,8 @@ function superadmin_save_settings(PDO $pdo, array $data): void
         $tag = substr($tag, 0, 255);
     }
 
+    $maintenanceMode = !empty($data['provider_maintenance_mode']) ? 1 : 0;
+
     $plans = superadmin_default_provider_plans();
     if (isset($data['provider_plans'])) {
         $plans = superadmin_sanitize_provider_plans($data['provider_plans']);
@@ -300,8 +309,8 @@ function superadmin_save_settings(PDO $pdo, array $data): void
         $plansJson = json_encode(superadmin_default_provider_plans(), JSON_UNESCAPED_UNICODE);
     }
 
-    $stmt = $pdo->prepare('UPDATE tbl_superadmin_settings SET system_name = ?, brand_logo_path = ?, brand_tagline = ?, provider_plans_json = ? WHERE id = 1');
-    $stmt->execute([$name, $logo, $tag, (string) $plansJson]);
+    $stmt = $pdo->prepare('UPDATE tbl_superadmin_settings SET system_name = ?, brand_logo_path = ?, brand_tagline = ?, provider_maintenance_mode = ?, provider_plans_json = ? WHERE id = 1');
+    $stmt->execute([$name, $logo, $tag, $maintenanceMode, (string) $plansJson]);
     try {
         superadmin_sync_subscription_plan_prices($pdo, $plans);
     } catch (Throwable $e) {

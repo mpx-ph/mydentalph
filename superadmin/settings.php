@@ -30,6 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_superadmin_setti
         'system_name' => (string) ($currentSettings['system_name'] ?? 'MyDental'),
         'brand_tagline' => (string) ($currentSettings['brand_tagline'] ?? 'MANAGEMENT CONSOLE'),
         'brand_logo_path' => (string) ($currentSettings['brand_logo_path'] ?? 'MyDental Logo.svg'),
+        'provider_maintenance_mode' => !empty($currentSettings['provider_maintenance_mode']),
         'provider_plans' => isset($currentSettings['provider_plans']) && is_array($currentSettings['provider_plans'])
             ? $currentSettings['provider_plans']
             : superadmin_default_provider_plans(),
@@ -79,6 +80,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_superadmin_setti
         }
 
         $data['provider_plans'] = $providerPlans;
+    } elseif ($settingsSection === 'maintenance') {
+        $data['provider_maintenance_mode'] = !empty($_POST['provider_maintenance_mode']);
     } else {
         $data['system_name'] = isset($_POST['system_name']) ? (string) $_POST['system_name'] : $data['system_name'];
         $data['brand_tagline'] = isset($_POST['brand_tagline']) ? (string) $_POST['brand_tagline'] : $data['brand_tagline'];
@@ -294,7 +297,7 @@ require __DIR__ . '/superadmin_header.php';
 <section class="flex flex-col md:flex-row md:items-end justify-between gap-4">
 <div>
 <h2 class="text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Settings</h2>
-<p class="text-on-surface-variant mt-2 font-medium">General platform branding and database backup.</p>
+<p class="text-on-surface-variant mt-2 font-medium">General branding, provider site maintenance mode, pricing, and database backup.</p>
 </div>
 </section>
 
@@ -359,6 +362,39 @@ require __DIR__ . '/superadmin_header.php';
 <button class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow inline-flex w-full sm:w-auto justify-center items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all" type="submit">
 <span class="material-symbols-outlined text-lg">save</span>
 Save general settings
+</button>
+</div>
+</form>
+</section>
+
+<section class="bg-white/60 backdrop-blur-md rounded-[2rem] editorial-shadow p-5 sm:p-8 md:p-10 space-y-8">
+<div class="flex items-start gap-4">
+<div class="p-3 bg-blue-50 text-primary rounded-xl shadow-sm shrink-0">
+<span class="material-symbols-outlined text-2xl">build_circle</span>
+</div>
+<div class="min-w-0 flex-1">
+<h3 class="text-xl font-bold font-headline text-on-surface">Maintenance mode</h3>
+<p class="text-on-surface-variant text-sm mt-1">Temporarily redirect public provider marketing pages to the maintenance screen while keeping `ProviderLogin.php` available for Super Admin access.</p>
+</div>
+</div>
+
+<form method="post" action="" class="space-y-6 max-w-2xl">
+<input type="hidden" name="save_superadmin_settings" value="1"/>
+<input type="hidden" name="settings_section" value="maintenance"/>
+
+<?php $maintenanceEnabled = !empty($settings['provider_maintenance_mode']); ?>
+<label class="flex items-start gap-3 rounded-2xl border border-white/80 bg-surface-container-low/40 px-4 py-4">
+<input class="mt-1 h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/30" type="checkbox" name="provider_maintenance_mode" value="1" <?php echo $maintenanceEnabled ? 'checked' : ''; ?> />
+<span class="text-sm text-on-surface">
+<span class="block font-semibold">Enable provider website maintenance mode</span>
+<span class="block text-on-surface-variant mt-1">When enabled, these pages redirect to `undermaintenance.php`: `ProviderMain.php`, `Provider-HowItWorks.php`, `Provider-Plans.php`, `ProviderContact.php`, and `ProviderFAQs.php`.</span>
+</span>
+</label>
+
+<div class="pt-2">
+<button class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow inline-flex w-full sm:w-auto justify-center items-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all" type="submit">
+<span class="material-symbols-outlined text-lg">save</span>
+Save maintenance mode
 </button>
 </div>
 </form>
