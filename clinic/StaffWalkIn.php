@@ -906,14 +906,24 @@ try {
 
         function updateTreatmentProgressCards(treatment) {
             const total = treatment ? Number(treatment.total_cost || 0) : 0;
-            const paid = treatment ? Number(treatment.amount_paid || 0) : 0;
-            const remaining = treatment ? Math.max(0, Number(treatment.remaining_balance || 0)) : 0;
+            const paidRaw = treatment ? Math.max(0, Number(treatment.amount_paid || 0)) : 0;
+            const remainingRaw = treatment ? Math.max(0, Number(treatment.remaining_balance || 0)) : 0;
             const monthsLeft = treatment ? computeTreatmentMonthsLeft(treatment) : 0;
             const durationMonths = treatment ? Math.max(0, Number(treatment.duration_months || 0)) : 0;
             const hasInstallmentTimeline = durationMonths > 0 && monthsLeft >= 0 && monthsLeft <= durationMonths;
             const timelineProgress = hasInstallmentTimeline
                 ? Math.max(0, Math.min(100, Math.round(((durationMonths - monthsLeft) / durationMonths) * 1000) / 10))
                 : NaN;
+            const timelinePaidEstimate = Number.isFinite(timelineProgress) && total > 0
+                ? Math.max(0, Math.min(total, (timelineProgress / 100) * total))
+                : NaN;
+            const hasInconsistentMoneySnapshot = total > 0 && Math.abs((paidRaw + remainingRaw) - total) > 1;
+            const paid = hasInconsistentMoneySnapshot && Number.isFinite(timelinePaidEstimate)
+                ? timelinePaidEstimate
+                : Math.max(0, Math.min(total > 0 ? total : paidRaw, paidRaw));
+            const remaining = total > 0
+                ? Math.max(0, total - paid)
+                : remainingRaw;
             const apiProgressRaw = treatment ? Number(treatment.progress_percentage) : NaN;
             const fallbackProgress = total > 0 ? Math.min(100, Math.round((paid / total) * 1000) / 10) : 0;
             const percent = Number.isFinite(timelineProgress)
