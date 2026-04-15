@@ -68,6 +68,7 @@ $summary = [
     'pending' => 0,
 ];
 $dailyAppointments = [];
+$appointmentServicesByKey = [];
 $monthCounts = [];
 
 $monthStart = $selectedMonth . '-01';
@@ -384,6 +385,7 @@ try {
 
             $dailySql = "
             SELECT
+                " . ($apptIdCol !== null ? "a.{$apptIdCol} AS appointment_row_id," : "NULL AS appointment_row_id,") . "
                 a.booking_id,
                 a.patient_id,
                 a.appointment_date,
@@ -447,6 +449,70 @@ try {
             $dailyStmt = $pdo->prepare($dailySql);
             $dailyStmt->execute($params);
             $dailyAppointments = $dailyStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            if ($qAps !== null && !empty($dailyAppointments)) {
+                $bookingIds = [];
+                $appointmentRowIds = [];
+                foreach ($dailyAppointments as $row) {
+                    $bookingIdVal = trim((string) ($row['booking_id'] ?? ''));
+                    if ($bookingIdVal !== '') {
+                        $bookingIds[$bookingIdVal] = true;
+                    }
+                    $appointmentRowIdVal = (int) ($row['appointment_row_id'] ?? 0);
+                    if ($appointmentRowIdVal > 0) {
+                        $appointmentRowIds[$appointmentRowIdVal] = true;
+                    }
+                }
+                $bookingIdList = array_keys($bookingIds);
+                $appointmentRowIdList = array_keys($appointmentRowIds);
+                if (!empty($bookingIdList)) {
+                    $bookingPlaceholders = implode(',', array_fill(0, count($bookingIdList), '?'));
+                    $svcSql = "
+                        SELECT booking_id, service_name, service_type" . ($supportsApsAppointmentId ? ", appointment_id" : ", NULL AS appointment_id") . "
+                        FROM {$qAps}
+                        WHERE tenant_id = ?
+                          AND booking_id IN ({$bookingPlaceholders})
+                    ";
+                    $svcParams = array_merge([$tenantId], $bookingIdList);
+                    if ($supportsApsAppointmentId && !empty($appointmentRowIdList)) {
+                        $apptPlaceholders = implode(',', array_fill(0, count($appointmentRowIdList), '?'));
+                        $svcSql .= " AND (appointment_id IN ({$apptPlaceholders}) OR appointment_id IS NULL)";
+                        $svcParams = array_merge($svcParams, $appointmentRowIdList);
+                    }
+                    $svcSql .= " ORDER BY id ASC";
+                    $svcStmt = $pdo->prepare($svcSql);
+                    $svcStmt->execute($svcParams);
+                    foreach ($svcStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $svcRow) {
+                        $svcBookingId = trim((string) ($svcRow['booking_id'] ?? ''));
+                        if ($svcBookingId === '') {
+                            continue;
+                        }
+                        $svcName = trim((string) ($svcRow['service_name'] ?? ''));
+                        if ($svcName === '') {
+                            $svcName = 'General Consultation';
+                        }
+                        $normalizedSvcType = strtolower(trim((string) ($svcRow['service_type'] ?? 'regular')));
+                        $svcTypeLabel = $normalizedSvcType === 'installment' ? 'Long Term' : 'Short Term';
+                        $serviceEntry = [
+                            'name' => $svcName,
+                            'type_label' => $svcTypeLabel,
+                            'raw_type' => $normalizedSvcType,
+                        ];
+                        $svcAppointmentId = (int) ($svcRow['appointment_id'] ?? 0);
+                        if ($supportsApsAppointmentId && $svcAppointmentId > 0) {
+                            $idKey = 'id:' . $svcAppointmentId;
+                            if (!isset($appointmentServicesByKey[$idKey])) {
+                                $appointmentServicesByKey[$idKey] = [];
+                            }
+                            $appointmentServicesByKey[$idKey][] = $serviceEntry;
+                        }
+                        $bookingKey = 'booking:' . $svcBookingId;
+                        if (!isset($appointmentServicesByKey[$bookingKey])) {
+                            $appointmentServicesByKey[$bookingKey] = [];
+                        }
+                        $appointmentServicesByKey[$bookingKey][] = $serviceEntry;
+                    }
+                }
+            }
 
             if ($qSvc !== null) {
                 $servicesStmt = $pdo->prepare("
@@ -685,7 +751,7 @@ if ($currentTenantSlug !== '') {
                         <tr class="bg-slate-50/70">
                             <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Time</th>
                             <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Patient</th>
-                            <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Treatment</th>
+                            <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Service</th>
                             <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Type</th>
                             <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
                             <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">Actions</th>
@@ -719,15 +785,35 @@ if ($currentTenantSlug !== '') {
                                 } elseif ($statusRaw === 'no_show') {
                                     $statusClass = 'bg-slate-100 text-slate-700 border border-slate-200';
                                 }
-                                $typeLabel = trim((string) ($appointment['booking_type_label'] ?? ''));
-                                if ($typeLabel === '') {
-                                    $typeLabel = 'Short Term';
+                                $appointmentRowId = (int) ($appointment['appointment_row_id'] ?? 0);
+                                $serviceKey = $appointmentRowId > 0 ? ('id:' . $appointmentRowId) : ('booking:' . (string) ($appointment['booking_id'] ?? ''));
+                                $serviceLines = $appointmentServicesByKey[$serviceKey] ?? [];
+                                if (empty($serviceLines)) {
+                                    $fallbackTypeLabel = trim((string) ($appointment['booking_type_label'] ?? 'Short Term'));
+                                    if ($fallbackTypeLabel === '') {
+                                        $fallbackTypeLabel = 'Short Term';
+                                    }
+                                    $serviceLines[] = [
+                                        'name' => (string) ($appointment['service_type'] ?? 'General Consultation'),
+                                        'type_label' => $fallbackTypeLabel,
+                                        'raw_type' => $fallbackTypeLabel === 'Long Term' ? 'installment' : 'regular',
+                                    ];
                                 }
-                                $treatmentType = $typeLabel === 'Long Term' ? 'long_term' : 'short_term';
-                                $normalizedTypeLabel = strtolower(trim($typeLabel));
-                                $typeBadgeClass = 'bg-blue-50 text-blue-700 border border-blue-200';
-                                if ($normalizedTypeLabel === 'long term') {
-                                    $typeBadgeClass = 'bg-orange-50 text-orange-700 border border-orange-200';
+                                $hasInstallmentInLines = false;
+                                $serviceLineNames = [];
+                                foreach ($serviceLines as $line) {
+                                    $serviceLineNames[] = (string) ($line['name'] ?? '');
+                                    if (strtolower(trim((string) ($line['raw_type'] ?? 'regular'))) === 'installment') {
+                                        $hasInstallmentInLines = true;
+                                    }
+                                }
+                                $typeLabel = $hasInstallmentInLines ? 'Long Term' : 'Short Term';
+                                $treatmentType = $hasInstallmentInLines ? 'long_term' : 'short_term';
+                                $serviceLabelForModal = implode(', ', array_values(array_filter($serviceLineNames, static function ($name) {
+                                    return trim((string) $name) !== '';
+                                })));
+                                if ($serviceLabelForModal === '') {
+                                    $serviceLabelForModal = (string) ($appointment['service_type'] ?? '');
                                 }
                                 $totalCost = (float) ($appointment['total_treatment_cost'] ?? 0);
                                 $totalPaid = (float) ($appointment['total_paid'] ?? 0);
@@ -747,11 +833,29 @@ if ($currentTenantSlug !== '') {
                                         <p class="text-sm font-bold text-slate-800"><?php echo htmlspecialchars($patientName, ENT_QUOTES, 'UTF-8'); ?></p>
                                         <p class="text-[10px] font-bold uppercase tracking-wide text-slate-500 mt-0.5"><?php echo htmlspecialchars((string) $patientIdLabel, ENT_QUOTES, 'UTF-8'); ?></p>
                                     </td>
-                                    <td class="px-6 py-5 text-sm font-semibold text-slate-700"><?php echo htmlspecialchars((string) ($appointment['service_type'] ?? 'General Consultation'), ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td class="px-6 py-5">
-                                        <span class="inline-flex items-center justify-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider <?php echo htmlspecialchars($typeBadgeClass, ENT_QUOTES, 'UTF-8'); ?>">
-                                            <?php echo htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8'); ?>
-                                        </span>
+                                        <div class="space-y-1.5 min-w-[10rem]">
+                                            <?php foreach ($serviceLines as $line): ?>
+                                                <p class="text-sm font-semibold text-slate-700 leading-tight">
+                                                    <?php echo htmlspecialchars((string) ($line['name'] ?? 'General Consultation'), ENT_QUOTES, 'UTF-8'); ?>
+                                                </p>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-5">
+                                        <div class="space-y-1.5">
+                                            <?php foreach ($serviceLines as $line): ?>
+                                                <?php
+                                                $lineTypeLabel = (string) ($line['type_label'] ?? 'Short Term');
+                                                $lineTypeClass = strtolower(trim($lineTypeLabel)) === 'long term'
+                                                    ? 'bg-orange-50 text-orange-700 border border-orange-200'
+                                                    : 'bg-blue-50 text-blue-700 border border-blue-200';
+                                                ?>
+                                                <span class="inline-flex items-center justify-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider <?php echo htmlspecialchars($lineTypeClass, ENT_QUOTES, 'UTF-8'); ?>">
+                                                    <?php echo htmlspecialchars($lineTypeLabel, ENT_QUOTES, 'UTF-8'); ?>
+                                                </span>
+                                            <?php endforeach; ?>
+                                        </div>
                                     </td>
                                     <td class="px-6 py-5">
                                         <span class="inline-flex items-center justify-center px-3 py-1 rounded-full <?php echo htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8'); ?> text-[10px] font-black uppercase tracking-wider">
@@ -770,7 +874,7 @@ if ($currentTenantSlug !== '') {
                                             data-date="<?php echo htmlspecialchars(date('F j, Y', strtotime((string) ($appointment['appointment_date'] ?? $selectedDate))), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-time="<?php echo htmlspecialchars($timeLabel, ENT_QUOTES, 'UTF-8'); ?>"
                                             data-type="<?php echo htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8'); ?>"
-                                            data-treatment="<?php echo htmlspecialchars((string) ($appointment['service_type'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-treatment="<?php echo htmlspecialchars($serviceLabelForModal, ENT_QUOTES, 'UTF-8'); ?>"
                                             data-description="<?php echo htmlspecialchars((string) ($appointment['service_description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-cost="<?php echo htmlspecialchars((string) $totalCost, ENT_QUOTES, 'UTF-8'); ?>"
                                             data-total-paid="<?php echo htmlspecialchars((string) $totalPaid, ENT_QUOTES, 'UTF-8'); ?>"
