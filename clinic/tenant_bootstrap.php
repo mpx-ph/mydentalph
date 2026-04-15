@@ -21,6 +21,26 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+/**
+ * Send users to the shared 404 page for unknown/invalid clinic slugs.
+ * Falls back to direct include when redirect headers are unavailable.
+ */
+if (!function_exists('redirectToNotFoundPage')) {
+    function redirectToNotFoundPage(): void
+    {
+        http_response_code(404);
+        $notFoundPath = '/notfound.php';
+
+        if (!headers_sent()) {
+            header('Location: ' . $notFoundPath);
+            exit;
+        }
+
+        require __DIR__ . '/../notfound.php';
+        exit;
+    }
+}
+
 // Use same DB as config (getDBConnection from config/database.php) so one connection path
 if (!function_exists('getDBConnection')) {
     require_once __DIR__ . '/config/config.php';
@@ -39,8 +59,7 @@ $clinic_slug = strtolower(trim($clinic_slug));
 
 // Basic slug validation – keep in sync with ProviderClinicSetup.php
 if ($clinic_slug === '' || !preg_match('/^[a-z0-9\-]+$/', $clinic_slug)) {
-    http_response_code(404);
-    exit('Clinic not found.');
+    redirectToNotFoundPage();
 }
 
 $stmt = $pdo->prepare("
@@ -53,8 +72,7 @@ $stmt->execute([$clinic_slug]);
 $tenant = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$tenant) {
-    http_response_code(404);
-    exit('Clinic not found.');
+    redirectToNotFoundPage();
 }
 
 $currentTenantId   = $tenant['tenant_id'];
