@@ -494,6 +494,7 @@ function staff_payment_recording_ensure_installment_schedule(
         }
 
         $appointmentTreatmentId = '';
+        $primaryInstallmentServiceId = '';
         $apptTreatmentStmt = $pdo->prepare("
             SELECT COALESCE(a.treatment_id, '') AS treatment_id
             FROM tbl_appointments a
@@ -504,6 +505,18 @@ function staff_payment_recording_ensure_installment_schedule(
         $apptTreatmentStmt->execute([$tenantId, $bookingId]);
         $apptTreatmentRow = $apptTreatmentStmt->fetch(PDO::FETCH_ASSOC) ?: [];
         $appointmentTreatmentId = trim((string) ($apptTreatmentRow['treatment_id'] ?? ''));
+        if ($appointmentTreatmentId !== '') {
+            $primarySvcStmt = $pdo->prepare("
+                SELECT COALESCE(t.primary_service_id, '') AS primary_service_id
+                FROM tbl_treatments t
+                WHERE t.tenant_id = ?
+                  AND t.treatment_id = ?
+                LIMIT 1
+            ");
+            $primarySvcStmt->execute([$tenantId, $appointmentTreatmentId]);
+            $primarySvcRow = $primarySvcStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+            $primaryInstallmentServiceId = trim((string) ($primarySvcRow['primary_service_id'] ?? ''));
+        }
 
         $plan = [];
         $planTreatmentId = '';
@@ -511,9 +524,11 @@ function staff_payment_recording_ensure_installment_schedule(
 
         $svcStmt = $pdo->prepare("
             SELECT
+                sv.service_id,
                 sv.installment_downpayment,
                 sv.installment_duration_months,
-                sv.price
+                sv.price,
+                COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment') AS normalized_service_type
             FROM tbl_appointment_services aps
             INNER JOIN tbl_services sv
                 ON sv.tenant_id = aps.tenant_id
@@ -521,10 +536,16 @@ function staff_payment_recording_ensure_installment_schedule(
             WHERE aps.tenant_id = ?
               AND aps.booking_id = ?
               AND COALESCE(sv.enable_installment, 0) = 1
-            ORDER BY sv.price DESC
+            ORDER BY
+                CASE
+                    WHEN ? <> '' AND sv.service_id = ? THEN 0
+                    WHEN LOWER(COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment')) = 'installment' THEN 1
+                    ELSE 2
+                END ASC,
+                sv.price DESC
             LIMIT 1
         ");
-        $svcStmt->execute([$tenantId, $bookingId]);
+        $svcStmt->execute([$tenantId, $bookingId, $primaryInstallmentServiceId, $primaryInstallmentServiceId]);
         $svcRow = $svcStmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
         if ($appointmentTreatmentId !== '') {
