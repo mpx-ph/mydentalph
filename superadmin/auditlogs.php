@@ -395,7 +395,7 @@ require __DIR__ . '/superadmin_header.php';
 </section>
 <!-- Filters Panel -->
 <section class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow px-4 sm:px-6 lg:px-8 py-6 space-y-4">
-<form method="get" action="<?php echo htmlspecialchars($basePath); ?>" class="space-y-4">
+<form id="audit-filter-form" method="get" action="<?php echo htmlspecialchars($basePath); ?>" class="space-y-4">
 <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
 <div class="space-y-1.5">
 <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-on-surface-variant/70">User Type</p>
@@ -454,21 +454,17 @@ require __DIR__ . '/superadmin_header.php';
 <div class="flex flex-col lg:flex-row lg:items-center gap-3">
 <div class="relative w-full group">
 <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-[20px]">search</span>
-<input name="q" value="<?php echo htmlspecialchars($searchTerm); ?>" class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl pl-11 pr-4 py-2.5 text-sm font-medium text-on-surface placeholder:text-on-surface-variant/55 hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Search by username or email..." type="text"/>
+<input id="audit-filter-search" name="q" value="<?php echo htmlspecialchars($searchTerm); ?>" class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl pl-11 pr-4 py-2.5 text-sm font-medium text-on-surface placeholder:text-on-surface-variant/55 hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Search by username or email..." type="text"/>
 </div>
-<button type="submit" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white border border-primary/70 hover:brightness-110 text-sm font-semibold transition-all whitespace-nowrap">
-<span class="material-symbols-outlined text-[18px]">filter_alt</span>
-                    Apply
-                </button>
-<a href="<?php echo htmlspecialchars($basePath); ?>" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/80 text-on-surface-variant border border-white/90 hover:bg-white text-sm font-semibold transition-all whitespace-nowrap no-underline">
+<button id="audit-filter-reset" type="button" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/80 text-on-surface-variant border border-white/90 hover:bg-white text-sm font-semibold transition-all whitespace-nowrap">
 <span class="material-symbols-outlined text-[18px]">restart_alt</span>
                     Reset
-                </a>
+                </button>
 </div>
 </form>
 </section>
 <!-- Table Container -->
-<div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
+<div id="auditlogs-table-shell" class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden transition-all duration-300">
 <!-- Table Content -->
 <div class="overflow-x-auto">
 <table class="w-full text-left">
@@ -595,7 +591,7 @@ require __DIR__ . '/superadmin_header.php';
 <span class="material-symbols-outlined text-lg">chevron_left</span> Previous
 </span>
 <?php else: ?>
-<a href="<?php echo htmlspecialchars($buildPageUrl($currentPage - 1)); ?>" class="px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2 no-underline">
+<a href="<?php echo htmlspecialchars($buildPageUrl($currentPage - 1)); ?>" class="js-audit-page px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2 no-underline">
 <span class="material-symbols-outlined text-lg">chevron_left</span> Previous
 </a>
 <?php endif; ?>
@@ -606,7 +602,7 @@ require __DIR__ . '/superadmin_header.php';
 <?php elseif ((int) $pageItem === $currentPage): ?>
 <span class="w-10 h-10 bg-primary text-white rounded-xl font-bold text-sm active-glow inline-flex items-center justify-center"><?php echo (int) $pageItem; ?></span>
 <?php else: ?>
-<a href="<?php echo htmlspecialchars($buildPageUrl((int) $pageItem)); ?>" class="w-10 h-10 bg-white/40 text-on-surface-variant hover:bg-white rounded-xl font-bold text-sm transition-all inline-flex items-center justify-center no-underline"><?php echo (int) $pageItem; ?></a>
+<a href="<?php echo htmlspecialchars($buildPageUrl((int) $pageItem)); ?>" class="js-audit-page w-10 h-10 bg-white/40 text-on-surface-variant hover:bg-white rounded-xl font-bold text-sm transition-all inline-flex items-center justify-center no-underline"><?php echo (int) $pageItem; ?></a>
 <?php endif; ?>
 <?php endforeach; ?>
 </div>
@@ -615,7 +611,7 @@ require __DIR__ . '/superadmin_header.php';
                     Next <span class="material-symbols-outlined text-lg">chevron_right</span>
 </span>
 <?php else: ?>
-<a href="<?php echo htmlspecialchars($buildPageUrl($currentPage + 1)); ?>" class="px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2 no-underline">
+<a href="<?php echo htmlspecialchars($buildPageUrl($currentPage + 1)); ?>" class="js-audit-page px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2 no-underline">
                     Next <span class="material-symbols-outlined text-lg">chevron_right</span>
 </a>
 <?php endif; ?>
@@ -663,6 +659,140 @@ require __DIR__ . '/superadmin_header.php';
     } else if (typeof mqDesktop.addListener === 'function') {
         mqDesktop.addListener(closeOnDesktop);
     }
+})();
+</script>
+<script>
+(function () {
+    var filterForm = document.getElementById('audit-filter-form');
+    var searchInput = document.getElementById('audit-filter-search');
+    var resetBtn = document.getElementById('audit-filter-reset');
+    if (!filterForm) return;
+
+    var searchDebounceTimer = null;
+    var activeController = null;
+
+    function getTableShell() {
+        return document.getElementById('auditlogs-table-shell');
+    }
+
+    function setLoading(isLoading) {
+        var shell = getTableShell();
+        if (!shell) return;
+        shell.classList.toggle('opacity-60', isLoading);
+        shell.classList.toggle('translate-y-1', isLoading);
+        shell.classList.toggle('pointer-events-none', isLoading);
+    }
+
+    function buildUrlFromFilters(resetPage) {
+        var formData = new FormData(filterForm);
+        var params = new URLSearchParams(formData);
+        if (resetPage) {
+            params.delete('page');
+        }
+        ['q', 'from_date', 'to_date'].forEach(function (key) {
+            if ((params.get(key) || '').trim() === '') {
+                params.delete(key);
+            }
+        });
+        var query = params.toString();
+        var actionUrl = filterForm.getAttribute('action') || window.location.pathname;
+        return query ? (actionUrl + '?' + query) : actionUrl;
+    }
+
+    function fetchTableOnly(url, pushState) {
+        if (activeController) {
+            activeController.abort();
+        }
+        activeController = new AbortController();
+        setLoading(true);
+
+        fetch(url, {
+            method: 'GET',
+            headers: { 'X-Requested-With': 'fetch' },
+            signal: activeController.signal
+        })
+            .then(function (response) {
+                if (!response.ok) throw new Error('Request failed');
+                return response.text();
+            })
+            .then(function (html) {
+                var parser = new DOMParser();
+                var doc = parser.parseFromString(html, 'text/html');
+                var incomingShell = doc.getElementById('auditlogs-table-shell');
+                var currentShell = getTableShell();
+                if (!incomingShell || !currentShell) {
+                    window.location.href = url;
+                    return;
+                }
+                currentShell.replaceWith(incomingShell);
+                if (pushState) {
+                    window.history.pushState({}, '', url);
+                }
+            })
+            .catch(function (error) {
+                if (error.name === 'AbortError') return;
+                window.location.href = url;
+            })
+            .finally(function () {
+                setLoading(false);
+            });
+    }
+
+    function applyFilters(resetPage, pushState) {
+        var url = buildUrlFromFilters(resetPage);
+        fetchTableOnly(url, pushState);
+    }
+
+    filterForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        applyFilters(false, true);
+    });
+
+    var immediateControls = filterForm.querySelectorAll('select, input[type="date"]');
+    immediateControls.forEach(function (control) {
+        control.addEventListener('change', function () {
+            applyFilters(true, true);
+        });
+    });
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function () {
+            window.clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = window.setTimeout(function () {
+                applyFilters(true, true);
+            }, 350);
+        });
+    }
+
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function () {
+            var selects = filterForm.querySelectorAll('select');
+            selects.forEach(function (select) {
+                select.selectedIndex = 0;
+            });
+            var dateInputs = filterForm.querySelectorAll('input[type="date"]');
+            dateInputs.forEach(function (input) {
+                input.value = '';
+            });
+            if (searchInput) {
+                searchInput.value = '';
+            }
+            applyFilters(true, true);
+        });
+    }
+
+    document.addEventListener('click', function (event) {
+        var pageLink = event.target.closest('a.js-audit-page');
+        if (!pageLink) return;
+        event.preventDefault();
+        var url = pageLink.getAttribute('href');
+        if (!url) return;
+        fetchTableOnly(url, true);
+    });
+
+    window.addEventListener('popstate', function () {
+        fetchTableOnly(window.location.href, false);
+    });
 })();
 </script>
 </body></html>
