@@ -56,7 +56,7 @@ http_response_code(503);
     <main>
         <section class="relative overflow-hidden bg-surface-variant">
             <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(43,139,235,0.14),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(43,139,235,0.08),transparent_45%)]"></div>
-            <div class="relative mx-auto grid min-h-[82vh] w-full max-w-[1400px] grid-cols-1 items-center gap-10 px-6 py-14 sm:px-10 lg:grid-cols-2 lg:gap-16 lg:px-16">
+            <div class="relative mx-auto grid min-h-[82vh] w-full max-w-[1500px] grid-cols-1 items-center gap-10 px-6 py-14 sm:px-10 lg:grid-cols-[1fr_1.35fr] lg:gap-10 lg:px-16">
                 <div class="order-2 lg:order-1">
                     <img src="MyDental Logo.svg" alt="MyDental logo" class="mb-8 h-14 w-auto sm:h-16" />
                     <p class="mb-4 font-headline text-xs font-bold uppercase tracking-[0.28em] text-primary">System Notice</p>
@@ -85,8 +85,8 @@ http_response_code(503);
                 </div>
 
                 <div class="order-1 flex items-center justify-center lg:order-2">
-                    <div class="w-full max-w-[980px]">
-                        <div id="maintenanceAnimation" class="aspect-[16/9] w-full bg-transparent"></div>
+                    <div class="w-full max-w-[1200px]">
+                        <div id="maintenanceAnimation" class="aspect-[16/8] w-full bg-transparent"></div>
                     </div>
                 </div>
             </div>
@@ -125,8 +125,8 @@ http_response_code(503);
                     var box = graphicRoot.getBBox();
                     if (!box || box.width <= 0 || box.height <= 0) return;
 
-                    var padX = box.width * 0.06;
-                    var padY = box.height * 0.08;
+                    var padX = box.width * 0.015;
+                    var padY = box.height * 0.025;
                     var viewX = box.x - padX;
                     var viewY = box.y - padY;
                     var viewW = box.width + (padX * 2);
