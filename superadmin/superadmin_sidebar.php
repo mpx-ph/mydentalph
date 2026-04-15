@@ -186,57 +186,82 @@ endforeach;
 </div>
 </aside>
 <div id="sa-edit-profile-modal" class="fixed inset-0 z-[120] hidden" aria-hidden="true">
-<div class="absolute inset-0 bg-slate-900/45 backdrop-blur-[1px]" data-sa-modal-close></div>
+<div class="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" data-sa-modal-close></div>
 <div class="relative min-h-full w-full flex items-center justify-center p-4 sm:p-6">
-<div class="w-full max-w-2xl rounded-2xl border border-white/70 bg-white shadow-2xl">
-<div class="flex items-start justify-between gap-3 px-5 sm:px-6 pt-5 sm:pt-6 pb-2">
+<div class="w-full max-w-3xl overflow-hidden rounded-3xl border border-white/70 bg-white/95 shadow-[0_26px_80px_-28px_rgba(15,23,42,0.65)]">
+<div class="px-5 sm:px-7 pt-6 sm:pt-7 pb-5 bg-gradient-to-r from-[#eef4ff] via-[#f8fbff] to-[#f0f7ff] border-b border-slate-100">
+<div class="flex items-start justify-between gap-3">
 <div>
-<h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-on-surface">EDIT PROFILE</h3>
-<p class="text-sm text-on-surface-variant mt-1">Update your Profile Details</p>
+<h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-on-surface">EDIT PROFILE</h3>
+<p class="text-sm text-on-surface-variant mt-1.5">Update your Profile Details</p>
 </div>
-<button type="button" class="h-9 w-9 rounded-full border border-slate-200 text-on-surface-variant hover:text-on-surface hover:bg-slate-100 transition-colors flex items-center justify-center" aria-label="Close edit profile modal" data-sa-modal-close>
+<button type="button" class="h-10 w-10 rounded-full border border-slate-200 bg-white text-on-surface-variant hover:text-on-surface hover:bg-slate-100 transition-colors flex items-center justify-center shadow-sm" aria-label="Close edit profile modal" data-sa-modal-close>
 <span class="material-symbols-outlined text-[20px]">close</span>
 </button>
 </div>
-<form class="px-5 sm:px-6 pb-5 sm:pb-6 space-y-4" method="post" action="" enctype="multipart/form-data" autocomplete="off">
+</div>
+<form class="px-5 sm:px-7 pb-5 sm:pb-7 space-y-5" method="post" action="" enctype="multipart/form-data" autocomplete="off">
+<div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+<div class="flex items-center gap-3">
+<?php if ($u['photo'] !== ''): ?>
+<img src="<?php echo htmlspecialchars($u['photo'], ENT_QUOTES, 'UTF-8'); ?>" alt="" class="w-14 h-14 rounded-full object-cover border-2 border-white shadow shrink-0"/>
+<?php else: ?>
+<div class="w-14 h-14 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-bold border-2 border-white shadow shrink-0"><?php echo htmlspecialchars($initials, ENT_QUOTES, 'UTF-8'); ?></div>
+<?php endif; ?>
+<div class="min-w-0">
+<p class="text-sm font-bold text-on-surface truncate"><?php echo htmlspecialchars($u['full_name'], ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-xs text-on-surface-variant truncate"><?php echo htmlspecialchars($emailDisplay, ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-[11px] text-primary font-semibold mt-0.5 uppercase tracking-wide">Superadmin Account</p>
+</div>
+</div>
+</div>
+<div class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 space-y-4">
+<p class="text-[11px] font-bold tracking-[0.15em] uppercase text-on-surface-variant">Profile Details</p>
 <div>
-<label for="sa-profile-photo" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-1.5">PHOTO</label>
-<input id="sa-profile-photo" name="profile_photo" type="file" accept="image/*" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+<label for="sa-profile-photo" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-2">PHOTO</label>
+<input id="sa-profile-photo" name="profile_photo" type="file" accept="image/*" class="block w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-on-surface file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:opacity-95 focus:outline-none focus:ring-2 focus:ring-primary/30"/>
 </div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 <div>
-<label for="sa-profile-fullname" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-1.5">FULL NAME</label>
-<input id="sa-profile-fullname" name="full_name" type="text" value="<?php echo htmlspecialchars($u['full_name'], ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+<label for="sa-profile-fullname" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-2">FULL NAME</label>
+<input id="sa-profile-fullname" name="full_name" type="text" value="<?php echo htmlspecialchars($u['full_name'], ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-sm text-on-surface placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40"/>
 </div>
 <div>
-<label for="sa-profile-username" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-1.5">USERNAME</label>
-<input id="sa-profile-username" name="username" type="text" value="<?php echo htmlspecialchars($u['username'], ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+<label for="sa-profile-username" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-2">USERNAME</label>
+<input id="sa-profile-username" name="username" type="text" value="<?php echo htmlspecialchars($u['username'], ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-sm text-on-surface placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40"/>
 </div>
 </div>
 <div>
-<label for="sa-profile-email" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-1.5">EMAIL</label>
-<input id="sa-profile-email" name="email" type="email" value="<?php echo htmlspecialchars($u['email'], ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"/>
-<p class="text-[11px] text-on-surface-variant mt-1.5">Email changes require OTP verification sent to the updated email address.</p>
+<label for="sa-profile-email" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-2">EMAIL</label>
+<input id="sa-profile-email" name="email" type="email" value="<?php echo htmlspecialchars($u['email'], ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-sm text-on-surface placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40"/>
+<p class="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-800">
+<span class="material-symbols-outlined text-[14px]">mark_email_read</span>
+<span>Email changes require OTP verification sent to the updated email address.</span>
+</p>
 </div>
+</div>
+<div class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 space-y-4">
+<p class="text-[11px] font-bold tracking-[0.15em] uppercase text-on-surface-variant">Security</p>
 <div>
-<label for="sa-profile-current-password" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-1.5">CURRENT PASSWORD</label>
-<input id="sa-profile-current-password" name="current_password" type="password" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+<label for="sa-profile-current-password" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-2">CURRENT PASSWORD</label>
+<input id="sa-profile-current-password" name="current_password" type="password" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-sm text-on-surface placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40"/>
 <p class="text-[11px] text-on-surface-variant mt-1.5">Required for email or password changes.</p>
 </div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 <div>
-<label for="sa-profile-new-password" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-1.5">NEW PASSWORD</label>
-<input id="sa-profile-new-password" name="new_password" type="password" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+<label for="sa-profile-new-password" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-2">NEW PASSWORD</label>
+<input id="sa-profile-new-password" name="new_password" type="password" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-sm text-on-surface placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40"/>
 <p class="text-[11px] text-on-surface-variant mt-1.5">Only required when changing your password.</p>
 </div>
 <div>
-<label for="sa-profile-confirm-password" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-1.5">CONFIRM NEW PASSWORD</label>
-<input id="sa-profile-confirm-password" name="confirm_new_password" type="password" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+<label for="sa-profile-confirm-password" class="block text-[11px] font-bold tracking-[0.14em] uppercase text-on-surface-variant mb-2">CONFIRM NEW PASSWORD</label>
+<input id="sa-profile-confirm-password" name="confirm_new_password" type="password" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-sm text-on-surface placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40"/>
 </div>
 </div>
-<div class="pt-2 flex items-center justify-end gap-2">
-<button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-slate-100 transition-colors" data-sa-modal-close>Cancel</button>
-<button type="submit" class="rounded-lg bg-primary text-white px-4 py-2 text-sm font-semibold hover:opacity-95 transition-opacity">Save Changes</button>
+</div>
+<div class="pt-1 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
+<button type="button" class="rounded-xl border border-slate-300 bg-white px-4.5 py-2.5 text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-slate-100 transition-colors" data-sa-modal-close>Cancel</button>
+<button type="submit" class="rounded-xl bg-primary text-white px-5 py-2.5 text-sm font-semibold shadow-[0_12px_24px_-14px_rgba(0,102,255,0.8)] hover:opacity-95 transition-opacity">Save Changes</button>
 </div>
 </form>
 </div>
