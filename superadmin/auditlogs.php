@@ -192,10 +192,6 @@ require __DIR__ . '/superadmin_header.php';
 <div>
 <h2 class="text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Audit Logs</h2>
 <p class="text-on-surface-variant mt-2 font-medium">Track and monitor system activities across all clinic modules.</p>
-<div class="relative w-full max-w-md group mt-4">
-<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-xl">search</span>
-<input class="w-full bg-surface-container-low/50 border-none focus:ring-2 focus:ring-primary/20 rounded-2xl pl-11 pr-4 py-2.5 text-sm transition-all placeholder:text-on-surface-variant/50" placeholder="Search system logs..." type="text"/>
-</div>
 </div>
 <div class="flex items-center gap-3 w-full md:w-auto">
 <a href="auditlogs_export_pdf.php" target="_blank" rel="noopener noreferrer" class="inline-flex bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow items-center justify-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all no-underline w-full sm:w-auto">
@@ -237,16 +233,8 @@ require __DIR__ . '/superadmin_header.php';
 <h3 class="text-3xl font-extrabold text-on-surface mt-1.5 font-headline"><?php echo number_format($logoutEvents); ?></h3>
 </div>
 </section>
-<!-- Action Center Buttons -->
-<div class="flex flex-wrap items-center gap-3">
-<button class="px-6 py-2.5 bg-white/60 text-primary text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">
-<span class="material-symbols-outlined text-lg">table_chart</span> Excel Export
-            </button>
-</div>
-<!-- Table Container -->
-<div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
-<!-- Table Controls -->
-<div class="px-4 sm:px-6 lg:px-8 py-6 border-b border-white/50 space-y-4">
+<!-- Filters Panel -->
+<section class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow px-4 sm:px-6 lg:px-8 py-6 space-y-4">
 <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
 <div class="space-y-1.5">
 <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-on-surface-variant/70">User Type</p>
@@ -302,6 +290,11 @@ require __DIR__ . '/superadmin_header.php';
                     Reset
                 </button>
 </div>
+</section>
+<!-- Table Container -->
+<div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
+<!-- Table Controls -->
+<div class="px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-end border-b border-white/50">
 <div class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">
                     Showing <span class="text-primary opacity-100"><?php echo $totalEventRows === 0 ? '0' : ('1-' . $totalEventRows); ?></span> of <?php echo number_format($totalEventRows); ?> results
                 </div>
