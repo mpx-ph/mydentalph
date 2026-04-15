@@ -698,14 +698,18 @@ try {
                 const categoryBadgeClass = getServiceCategoryBadgeClass(service.category);
                 const price = Number(service.price || 0);
                 const isInstallment = serviceInstallmentEnabled(service);
-                const buttonClass = 'shrink-0 rounded-lg bg-primary text-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide hover:bg-primary/90 transition-colors';
+                const selectionRule = getServiceSelectionRule(service);
+                const buttonDisabled = !selectionRule.allowed;
+                const buttonClass = buttonDisabled
+                    ? 'shrink-0 rounded-lg bg-slate-200 text-slate-500 px-3 py-2 text-xs font-extrabold uppercase tracking-wide cursor-not-allowed'
+                    : 'shrink-0 rounded-lg bg-primary text-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide hover:bg-primary/90 transition-colors';
                 return '' +
                     '<div class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-slate-50/80 transition-colors">' +
                         '<div class="min-w-0">' +
                             '<p class="text-sm font-bold text-slate-900 truncate">' + serviceName + '</p>' +
-                            '<p class="text-xs font-semibold text-slate-500 mt-1 inline-flex items-center gap-2"><span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ' + categoryBadgeClass + '">' + category + '</span><span>Php ' + price.toFixed(2) + '</span>' + (isInstallment ? '<span class="text-primary">Installment</span>' : '') + '</p>' +
+                            '<p class="text-xs font-semibold text-slate-500 mt-1 inline-flex items-center gap-2"><span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ' + categoryBadgeClass + '">' + category + '</span><span>Php ' + price.toFixed(2) + '</span>' + (isInstallment ? '<span class="text-primary">Installment</span>' : '') + (selectionRule.allowed ? '' : '<span class="text-amber-700">' + escapeHtml(selectionRule.reason || 'Not available') + '</span>') + '</p>' +
                         '</div>' +
-                        '<button type="button" data-action="select-service" data-service-id="' + serviceId + '" class="' + buttonClass + '">Select</button>' +
+                        '<button type="button" data-action="select-service" data-service-id="' + serviceId + '" ' + (buttonDisabled ? 'disabled' : '') + ' class="' + buttonClass + '">' + (selectionRule.allowed ? 'Select' : 'Locked') + '</button>' +
                     '</div>';
             }).join('');
         }
@@ -812,6 +816,36 @@ try {
             return serviceInstallment || durationMonths > 1 || monthsLeft > 0;
         }
 
+        function getActiveInstallmentPrimaryServiceId() {
+            if (!treatmentIsInstallmentPlan(activeTreatmentContext)) {
+                return '';
+            }
+            return String((activeTreatmentContext && activeTreatmentContext.treatment && activeTreatmentContext.treatment.primary_service && activeTreatmentContext.treatment.primary_service.service_id) || '');
+        }
+
+        function hasActiveInstallmentTreatment() {
+            return getActiveInstallmentPrimaryServiceId() !== '';
+        }
+
+        function getServiceSelectionRule(service) {
+            const serviceId = String(service && service.service_id ? service.service_id : '');
+            const isInstallment = serviceInstallmentEnabled(service);
+            const activePrimaryServiceId = getActiveInstallmentPrimaryServiceId();
+            if (!activePrimaryServiceId) {
+                return { allowed: true, reason: '' };
+            }
+            if (!isInstallment) {
+                return { allowed: true, reason: '' };
+            }
+            if (serviceId === activePrimaryServiceId) {
+                return { allowed: true, reason: '' };
+            }
+            return {
+                allowed: false,
+                reason: 'Only the ongoing installment service is allowed.'
+            };
+        }
+
         function computeTreatmentMonthsLeft(treatment) {
             if (!treatment) return 0;
             const durationMonths = Math.max(0, Number(treatment.duration_months || 0));
@@ -845,6 +879,21 @@ try {
                 if (allInstallmentsPaid) {
                     return true;
                 }
+            }
+            const totalSlots = Number(treatment.installment_total_slots);
+            const settledSlots = Number(treatment.installment_settled_slots);
+            if (Number.isFinite(totalSlots) && totalSlots > 0 && Number.isFinite(settledSlots) && settledSlots >= totalSlots) {
+                return true;
+            }
+            const installmentTotalAmount = Number(treatment.installment_total_amount);
+            const installmentPaidAmount = Number(treatment.installment_paid_amount);
+            if (
+                Number.isFinite(installmentTotalAmount)
+                && installmentTotalAmount > 0
+                && Number.isFinite(installmentPaidAmount)
+                && installmentPaidAmount >= (installmentTotalAmount - 0.009)
+            ) {
+                return true;
             }
             return false;
         }
@@ -1182,9 +1231,22 @@ try {
         }
 
         function setSelectedService(serviceId, serviceName) {
+            const selectedService = getServiceById(serviceId);
+            if (selectedService) {
+                const serviceRule = getServiceSelectionRule(selectedService);
+                if (!serviceRule.allowed) {
+                    void staffUiAlert({
+                        title: 'Installment service locked',
+                        message: serviceRule.reason || 'Only the ongoing installment service can be selected while treatment is active.',
+                        variant: 'warning'
+                    });
+                    return false;
+                }
+            }
             if (selectedServiceIdInput) selectedServiceIdInput.value = serviceId || '';
             if (selectedServiceLabel) selectedServiceLabel.textContent = serviceName || 'Select service';
             updateTreatmentProgressCards(activeTreatmentContext ? activeTreatmentContext.treatment : null);
+            return true;
         }
 
         function buildApiUrl(baseUrl) {
@@ -1208,6 +1270,8 @@ try {
                 const data = await parseJsonResponse(response);
                 if (!response.ok || !data.success || !data.data || !data.data.has_active_treatment) {
                     activeTreatmentContext = null;
+                    selectedServices = [];
+                    setSelectedService('', 'Select service');
                     renderSelectedServices();
                     applyServiceFilters();
                     updatePaymentDetailsVisibility();
@@ -1229,12 +1293,17 @@ try {
                 if (primary && treatmentIsInstallmentPlan(activeTreatmentContext)) {
                     selectedServices = [primary];
                     setSelectedService(primary.service_id || '', primary.service_name || 'Installment Treatment');
+                } else {
+                    selectedServices = [];
+                    setSelectedService('', 'Select service');
                 }
                 renderSelectedServices();
                 applyServiceFilters();
                 updateTreatmentProgressCards(data.data.treatment || null);
             } catch (error) {
                 activeTreatmentContext = null;
+                selectedServices = [];
+                setSelectedService('', 'Select service');
                 renderSelectedServices();
                 applyServiceFilters();
                 updatePaymentDetailsVisibility();
@@ -1277,6 +1346,32 @@ try {
             if (!selectedServices.length) {
                 void staffUiAlert({ message: 'Please add at least one service.', variant: 'warning', title: 'Services required' });
                 return;
+            }
+            if (hasActiveInstallmentTreatment()) {
+                const activePrimaryServiceId = getActiveInstallmentPrimaryServiceId();
+                const hasPrimaryService = selectedServices.some(function (service) {
+                    return String(service && service.service_id ? service.service_id : '') === activePrimaryServiceId;
+                });
+                if (!hasPrimaryService) {
+                    void staffUiAlert({
+                        title: 'Installment service required',
+                        message: 'Please keep the ongoing installment service in this booking.',
+                        variant: 'warning'
+                    });
+                    return;
+                }
+                const hasOtherInstallment = selectedServices.some(function (service) {
+                    const serviceId = String(service && service.service_id ? service.service_id : '');
+                    return serviceInstallmentEnabled(service) && serviceId !== activePrimaryServiceId;
+                });
+                if (hasOtherInstallment) {
+                    void staffUiAlert({
+                        title: 'Installment service restricted',
+                        message: 'Only the ongoing installment service is allowed while treatment is active. Add regular services only.',
+                        variant: 'warning'
+                    });
+                    return;
+                }
             }
             const compatibility = validateServiceCompatibility(selectedServices);
             if (!compatibility.valid) {
@@ -1453,12 +1548,14 @@ try {
             serviceListContainer.addEventListener('click', function (event) {
                 const button = event.target.closest('button[data-action="select-service"]');
                 if (!button) return;
+                if (button.disabled) return;
                 const serviceId = button.getAttribute('data-service-id') || '';
                 const service = allServices.find(function (item) {
                     return String(item.service_id || '') === serviceId;
                 });
                 if (!service) return;
-                setSelectedService(service.service_id || '', service.service_name || '');
+                const selected = setSelectedService(service.service_id || '', service.service_name || '');
+                if (!selected) return;
                 closeChooseServiceModal();
             });
         }
@@ -1470,11 +1567,35 @@ try {
                     return String(item.service_id || '') === String(serviceId);
                 });
                 if (!service) return;
+                const serviceRule = getServiceSelectionRule(service);
+                if (!serviceRule.allowed) {
+                    void staffUiAlert({
+                        title: 'Installment service locked',
+                        message: serviceRule.reason || 'Only the ongoing installment service can be used while treatment is active.',
+                        variant: 'warning'
+                    });
+                    return;
+                }
                 const alreadyAdded = selectedServices.some(function (item) {
                     return String(item.service_id || '') === String(service.service_id || '');
                 });
                 if (alreadyAdded) return;
                 const nextServices = selectedServices.concat([service]);
+                if (hasActiveInstallmentTreatment()) {
+                    const activePrimaryServiceId = getActiveInstallmentPrimaryServiceId();
+                    const hasOtherInstallment = nextServices.some(function (item) {
+                        const serviceId = String(item && item.service_id ? item.service_id : '');
+                        return serviceInstallmentEnabled(item) && serviceId !== activePrimaryServiceId;
+                    });
+                    if (hasOtherInstallment) {
+                        void staffUiAlert({
+                            title: 'Installment service restricted',
+                            message: 'Only the ongoing installment service is allowed while treatment is active. Add regular services only.',
+                            variant: 'warning'
+                        });
+                        return;
+                    }
+                }
                 const compatibility = validateServiceCompatibility(nextServices);
                 if (!compatibility.valid) {
                     void staffUiAlert({
