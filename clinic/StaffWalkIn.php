@@ -800,6 +800,9 @@ try {
             if (!treatmentContext || !treatmentContext.has_active_treatment || !treatmentContext.treatment) {
                 return false;
             }
+            if (treatmentIsFullyPaid(treatmentContext)) {
+                return false;
+            }
             const treatment = treatmentContext.treatment;
             const primaryService = treatment.primary_service || {};
             const rawEnableInstallment = primaryService.enable_installment;
@@ -822,6 +825,28 @@ try {
                 return Math.min(durationMonths, derivedFromProgress);
             }
             return storedMonthsLeft;
+        }
+
+        function treatmentIsFullyPaid(treatmentContext) {
+            if (!treatmentContext || !treatmentContext.treatment) {
+                return false;
+            }
+            const treatment = treatmentContext.treatment;
+            const remainingBalanceRaw = Number(treatment.remaining_balance);
+            const hasRemainingBalance = Number.isFinite(remainingBalanceRaw);
+            if (hasRemainingBalance && remainingBalanceRaw <= 0) {
+                return true;
+            }
+            const installments = Array.isArray(treatment.installments) ? treatment.installments : [];
+            if (installments.length > 0) {
+                const allInstallmentsPaid = installments.every(function (installment) {
+                    return String(installment && installment.status ? installment.status : '').trim().toLowerCase() === 'paid';
+                });
+                if (allInstallmentsPaid) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         function updatePaymentDetailsVisibility() {
@@ -1183,6 +1208,16 @@ try {
                 const data = await parseJsonResponse(response);
                 if (!response.ok || !data.success || !data.data || !data.data.has_active_treatment) {
                     activeTreatmentContext = null;
+                    renderSelectedServices();
+                    applyServiceFilters();
+                    updatePaymentDetailsVisibility();
+                    updateDefaultPaymentDetails();
+                    return;
+                }
+                if (treatmentIsFullyPaid(data.data)) {
+                    activeTreatmentContext = null;
+                    selectedServices = [];
+                    setSelectedService('', 'Select service');
                     renderSelectedServices();
                     applyServiceFilters();
                     updatePaymentDetailsVisibility();
