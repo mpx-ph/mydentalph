@@ -242,41 +242,65 @@ require __DIR__ . '/superadmin_header.php';
 <button class="px-6 py-2.5 bg-white/60 text-primary text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">
 <span class="material-symbols-outlined text-lg">table_chart</span> Excel Export
             </button>
-<button class="px-6 py-2.5 bg-white/60 text-error text-sm font-bold rounded-xl border border-white hover:bg-error hover:text-white transition-all shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">
-<span class="material-symbols-outlined text-lg">delete_sweep</span> Clear Logs
-            </button>
 </div>
 <!-- Table Container -->
 <div class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
 <!-- Table Controls -->
-<div class="px-4 sm:px-6 lg:px-8 py-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/50">
-<div class="flex flex-wrap items-center gap-4">
+<div class="px-4 sm:px-6 lg:px-8 py-6 border-b border-white/50 space-y-4">
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+<div class="space-y-1.5">
+<p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-on-surface-variant/70">User Type</p>
 <div class="relative group">
-<select class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
-<option>Last 7 Days</option>
-<option>Last 30 Days</option>
-<option>Last Quarter</option>
+<select class="appearance-none w-full bg-surface-container-low/60 border border-white/80 rounded-xl pl-4 pr-11 py-2.5 text-sm font-semibold text-on-surface cursor-pointer hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all">
+<option>All Users</option>
+<option>System</option>
+<option>Staff</option>
 </select>
-<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xl">expand_more</span>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-[20px]">expand_more</span>
 </div>
+</div>
+<div class="space-y-1.5">
+<p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-on-surface-variant/70">Action</p>
 <div class="relative group">
-<select class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
-<option>Action Type: All</option>
-<option>Security Updates</option>
-<option>Patient Records</option>
-<option>Financial Updates</option>
+<select class="appearance-none w-full bg-surface-container-low/60 border border-white/80 rounded-xl pl-4 pr-11 py-2.5 text-sm font-semibold text-on-surface cursor-pointer hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all">
+<option>All Actions</option>
+<option>Login</option>
+<option>Logout</option>
 </select>
-<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xl">filter_list</span>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-[20px]">expand_more</span>
 </div>
+</div>
+<div class="space-y-1.5">
+<p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-on-surface-variant/70">Clinic</p>
 <div class="relative group">
-<select class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all">
-<option>Status: All</option>
-<option>Completed</option>
-<option>Pending</option>
-<option>Failed</option>
+<select class="appearance-none w-full bg-surface-container-low/60 border border-white/80 rounded-xl pl-4 pr-11 py-2.5 text-sm font-semibold text-on-surface cursor-pointer hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all">
+<option>All Clinics</option>
 </select>
-<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xl">tune</span>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-[20px]">expand_more</span>
 </div>
+</div>
+<div class="space-y-1.5">
+<p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-on-surface-variant/70">From Date</p>
+<div class="relative group">
+<input type="date" class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all"/>
+</div>
+</div>
+<div class="space-y-1.5">
+<p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-on-surface-variant/70">To Date</p>
+<div class="relative group">
+<input type="date" class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all"/>
+</div>
+</div>
+</div>
+<div class="flex flex-col lg:flex-row lg:items-center gap-3">
+<div class="relative w-full group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-[20px]">search</span>
+<input class="w-full bg-surface-container-low/60 border border-white/80 rounded-xl pl-11 pr-4 py-2.5 text-sm font-medium text-on-surface placeholder:text-on-surface-variant/55 hover:bg-white/90 focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Search by username or email..." type="text"/>
+</div>
+<button type="button" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/80 text-on-surface-variant border border-white/90 hover:bg-white text-sm font-semibold transition-all whitespace-nowrap">
+<span class="material-symbols-outlined text-[18px]">restart_alt</span>
+                    Reset
+                </button>
 </div>
 <div class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">
                     Showing <span class="text-primary opacity-100"><?php echo $totalEventRows === 0 ? '0' : ('1-' . $totalEventRows); ?></span> of <?php echo number_format($totalEventRows); ?> results
