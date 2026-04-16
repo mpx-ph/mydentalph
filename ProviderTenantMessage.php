@@ -227,13 +227,55 @@ require_once __DIR__ . '/provider_tenant_header_context.inc.php';
                 radial-gradient(at 50% 0%, hsla(217, 100%, 94%, 1) 0, transparent 50%);
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
+        @media (max-width: 1023.98px) {
+            .provider-top-header {
+                left: 0 !important;
+                min-height: 5rem;
+            }
+            #provider-sidebar {
+                transform: translateX(-100%);
+                transition: transform 220ms ease;
+                z-index: 60;
+            }
+            body.provider-mobile-sidebar-open #provider-sidebar {
+                transform: translateX(0);
+            }
+            #provider-mobile-sidebar-toggle {
+                transition: left 220ms ease, background-color 220ms ease, color 220ms ease;
+            }
+            body.provider-mobile-sidebar-open #provider-mobile-sidebar-toggle {
+                left: calc(16rem - 3.25rem);
+                background: rgba(255, 255, 255, 0.98);
+                color: #0066ff;
+            }
+            #provider-mobile-sidebar-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(19, 28, 37, 0.45);
+                backdrop-filter: blur(2px);
+                -webkit-backdrop-filter: blur(2px);
+                z-index: 55;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 220ms ease;
+            }
+            body.provider-mobile-sidebar-open #provider-mobile-sidebar-backdrop {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
     </style>
 </head>
 <body class="mesh-bg font-body text-on-background min-h-screen">
 <?php include __DIR__ . '/provider_tenant_sidebar.inc.php'; ?>
 <?php include __DIR__ . '/provider_tenant_top_header.inc.php'; ?>
 
-<main class="ml-64 pt-[4.5rem] sm:pt-20 min-h-screen">
+<button id="provider-mobile-sidebar-toggle" type="button" class="fixed top-6 left-4 z-[65] lg:hidden w-10 h-10 rounded-xl bg-white/90 border border-white text-primary shadow-md flex items-center justify-center" aria-controls="provider-sidebar" aria-expanded="false" aria-label="Open navigation menu">
+    <span class="material-symbols-outlined text-[20px]">menu</span>
+</button>
+<div id="provider-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
+
+<main class="ml-0 lg:ml-64 pt-[4.75rem] sm:pt-20 min-h-screen">
     <div class="px-6 lg:px-10 py-8">
         <section class="mb-6">
             <h2 class="text-3xl font-extrabold font-headline tracking-tight">Secure Messages</h2>
@@ -342,6 +384,58 @@ require_once __DIR__ . '/provider_tenant_header_context.inc.php';
     (function () {
         var box = document.getElementById('thread-box');
         if (box) { box.scrollTop = box.scrollHeight; }
+
+        var body = document.body;
+        var sidebar = document.getElementById('provider-sidebar');
+        var mobileToggle = document.getElementById('provider-mobile-sidebar-toggle');
+        var mobileBackdrop = document.getElementById('provider-mobile-sidebar-backdrop');
+        var desktopQuery = window.matchMedia('(min-width: 1024px)');
+
+        if (!body || !sidebar || !mobileToggle || !mobileBackdrop) {
+            return;
+        }
+
+        function setMobileSidebar(open) {
+            body.classList.toggle('provider-mobile-sidebar-open', open);
+            mobileToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            mobileToggle.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+            var icon = mobileToggle.querySelector('.material-symbols-outlined');
+            if (icon) {
+                icon.textContent = open ? 'close' : 'menu';
+            }
+        }
+
+        function closeOnDesktop() {
+            if (desktopQuery.matches) {
+                setMobileSidebar(false);
+            }
+        }
+
+        mobileToggle.addEventListener('click', function () {
+            setMobileSidebar(!body.classList.contains('provider-mobile-sidebar-open'));
+        });
+        mobileBackdrop.addEventListener('click', function () {
+            setMobileSidebar(false);
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && body.classList.contains('provider-mobile-sidebar-open')) {
+                setMobileSidebar(false);
+            }
+        });
+        sidebar.querySelectorAll('a').forEach(function (link) {
+            link.addEventListener('click', function () {
+                if (!desktopQuery.matches) {
+                    setMobileSidebar(false);
+                }
+            });
+        });
+        if (typeof desktopQuery.addEventListener === 'function') {
+            desktopQuery.addEventListener('change', closeOnDesktop);
+        } else if (typeof desktopQuery.addListener === 'function') {
+            desktopQuery.addListener(closeOnDesktop);
+        }
+
+        setMobileSidebar(false);
     })();
 </script>
 </body>
