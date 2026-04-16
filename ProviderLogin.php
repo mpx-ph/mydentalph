@@ -4,6 +4,7 @@ require_once __DIR__ . '/db.php';
 
 $error = '';
 $success = '';
+$loginRedirectTarget = '';
 
 function providerNormalizeStatus($status): string {
     return strtolower(trim((string) $status));
@@ -212,16 +213,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (($user['role'] ?? '') === 'superadmin') {
                         if ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)
                             && strpos($redirect, 'superadmin/') === 0) {
-                            header('Location: ' . $redirect);
+                            $loginRedirectTarget = $redirect;
                         } else {
-                            header('Location: superadmin/dashboard.php');
+                            $loginRedirectTarget = 'superadmin/dashboard.php';
                         }
                     } elseif ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)) {
-                        header('Location: ' . $redirect);
+                        $loginRedirectTarget = $redirect;
                     } else {
-                        header('Location: /');
+                        $loginRedirectTarget = '/';
                     }
-                    exit;
                 }
             }
 
@@ -245,6 +245,7 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,400;1,700&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -431,6 +432,20 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
     <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Secure AES-256 Encryption</span>
 </div>
 
+<?php if ($loginRedirectTarget !== ''): ?>
+<div id="login-success-overlay" class="fixed inset-0 z-[120] hidden items-center justify-center bg-white/80 backdrop-blur-sm">
+    <div class="w-[220px] sm:w-[280px]">
+        <lottie-player
+            id="login-success-lottie"
+            src="loginsuccess.json"
+            background="transparent"
+            speed="1"
+            autoplay
+            loop="false"></lottie-player>
+    </div>
+</div>
+<?php endif; ?>
+
 <!-- Decorative Background Accents -->
 <div class="fixed top-[-10%] right-[-5%] w-[40rem] h-[40rem] bg-primary/5 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
 <div class="fixed bottom-[-10%] left-[-5%] w-[30rem] h-[30rem] bg-primary/5 rounded-full blur-[100px] -z-10 pointer-events-none"></div>
@@ -457,6 +472,35 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
         }, { threshold: 0.18, rootMargin: '0px 0px -10% 0px' });
 
         elements.forEach(function (el) { observer.observe(el); });
+    })();
+
+    (function () {
+        var redirectTarget = <?php echo json_encode($loginRedirectTarget); ?>;
+        if (!redirectTarget) return;
+
+        var overlay = document.getElementById('login-success-overlay');
+        if (!overlay) {
+            window.location.href = redirectTarget;
+            return;
+        }
+
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+
+        var redirected = false;
+        var go = function () {
+            if (redirected) return;
+            redirected = true;
+            window.location.href = redirectTarget;
+        };
+
+        var lottie = document.getElementById('login-success-lottie');
+        if (lottie) {
+            lottie.addEventListener('complete', go, { once: true });
+        }
+
+        setTimeout(go, 1800);
     })();
 </script>
 
