@@ -44,7 +44,13 @@ $pn = isset($plan_name) ? (string) $plan_name : 'MyDental';
 $rs = isset($renewal_sidebar) ? (string) $renewal_sidebar : '';
 ?>
 <style>
+body.provider-shell .provider-logo-square {
+    display: none;
+}
 @media (min-width: 1024px) {
+    body.provider-shell .provider-logo-square {
+        display: block;
+    }
     body.provider-shell {
         --provider-collapse-duration: 460ms;
         --provider-collapse-ease: cubic-bezier(0.2, 0.85, 0.24, 1);
@@ -191,7 +197,7 @@ $rs = isset($renewal_sidebar) ? (string) $renewal_sidebar : '';
 </a>
 </div>
 </nav>
-<div class="px-4 mt-auto pt-4 shrink-0 border-t border-white/40">
+<div class="px-4 mt-auto pt-4 pb-6 lg:pb-0 shrink-0 border-t border-white/40">
 <div class="bg-white/40 backdrop-blur-md rounded-2xl p-4 border border-white/60 shadow-sm transition-all duration-300 hover:shadow-md hover:border-primary/20">
 <div class="provider-sidebar-profile-text min-w-0 flex-1 mb-3">
 <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-on-surface-variant/70 mb-1">Your Plan</p>
