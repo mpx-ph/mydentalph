@@ -2377,6 +2377,86 @@ try {
         $transactionsStmt = $pdo->prepare($transactionsSql);
         $transactionsStmt->execute([$tenantId]);
         $transactionCandidates = $transactionsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        // Installment selector must be treatment-centric. Add unpaid treatments directly
+        // from tbl_treatments so active plans are visible even when appointment-derived
+        // rows are incomplete or missing.
+        $existingInstallmentTreatmentIds = [];
+        foreach ($transactionCandidates as $candRow) {
+            $candType = strtolower(trim((string) ($candRow['service_type'] ?? '')));
+            if ($candType !== 'installment') {
+                continue;
+            }
+            $candTreatmentId = trim((string) ($candRow['treatment_id'] ?? ''));
+            if ($candTreatmentId !== '') {
+                $existingInstallmentTreatmentIds[$candTreatmentId] = true;
+            }
+        }
+        $unpaidTreatmentsSql = "
+            SELECT
+                t.treatment_id,
+                t.patient_id,
+                COALESCE(t.primary_service_name, '') AS primary_service_name,
+                COALESCE(t.total_cost, 0) AS treatment_total_cost,
+                COALESCE(t.amount_paid, 0) AS treatment_amount_paid,
+                COALESCE(t.remaining_balance, 0) AS treatment_remaining_balance,
+                COALESCE(a.booking_id, '') AS booking_id,
+                COALESCE(a.id, 0) AS appointment_id,
+                COALESCE(a.appointment_date, t.started_at, '') AS appointment_date,
+                COALESCE(a.appointment_time, '00:00:00') AS appointment_time,
+                COALESCE(a.visit_type, '') AS visit_type,
+                p.first_name AS patient_first_name,
+                p.last_name AS patient_last_name
+            FROM tbl_treatments t
+            LEFT JOIN tbl_patients p
+                ON p.tenant_id = t.tenant_id
+               AND p.patient_id = t.patient_id
+            LEFT JOIN tbl_appointments a
+                ON a.tenant_id = t.tenant_id
+               AND a.treatment_id = t.treatment_id
+               AND LOWER(COALESCE(a.status, '')) <> 'cancelled'
+               AND a.id = (
+                    SELECT a2.id
+                    FROM tbl_appointments a2
+                    WHERE a2.tenant_id = t.tenant_id
+                      AND a2.treatment_id = t.treatment_id
+                      AND LOWER(COALESCE(a2.status, '')) <> 'cancelled'
+                    ORDER BY a2.appointment_date DESC, a2.appointment_time DESC, a2.id DESC
+                    LIMIT 1
+               )
+            WHERE t.tenant_id = ?
+              AND COALESCE(t.remaining_balance, 0) > 0.009
+              AND LOWER(COALESCE(t.status, 'active')) = 'active'
+            ORDER BY t.updated_at DESC, t.created_at DESC
+            LIMIT 300
+        ";
+        $unpaidTreatmentsStmt = $pdo->prepare($unpaidTreatmentsSql);
+        $unpaidTreatmentsStmt->execute([$tenantId]);
+        foreach ($unpaidTreatmentsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $tr) {
+            $treatmentId = trim((string) ($tr['treatment_id'] ?? ''));
+            if ($treatmentId === '' || isset($existingInstallmentTreatmentIds[$treatmentId])) {
+                continue;
+            }
+            $existingInstallmentTreatmentIds[$treatmentId] = true;
+            $transactionCandidates[] = [
+                'booking_id' => trim((string) ($tr['booking_id'] ?? '')),
+                'appointment_id' => (int) ($tr['appointment_id'] ?? 0),
+                'treatment_id' => $treatmentId,
+                'patient_id' => trim((string) ($tr['patient_id'] ?? '')),
+                'appointment_date' => trim((string) ($tr['appointment_date'] ?? '')),
+                'appointment_time' => trim((string) ($tr['appointment_time'] ?? '')),
+                'service_type' => 'installment',
+                'visit_type' => trim((string) ($tr['visit_type'] ?? '')),
+                'is_installment_plan' => 1,
+                'transaction_type' => 'installment',
+                'total_treatment_cost' => round((float) ($tr['treatment_total_cost'] ?? 0), 2),
+                'total_paid' => round((float) ($tr['treatment_amount_paid'] ?? 0), 2),
+                'treatment_total_cost' => round((float) ($tr['treatment_total_cost'] ?? 0), 2),
+                'treatment_amount_paid' => round((float) ($tr['treatment_amount_paid'] ?? 0), 2),
+                'treatment_remaining_balance' => round((float) ($tr['treatment_remaining_balance'] ?? 0), 2),
+                'patient_first_name' => trim((string) ($tr['patient_first_name'] ?? '')),
+                'patient_last_name' => trim((string) ($tr['patient_last_name'] ?? '')),
+            ];
+        }
 
         $scheduleByBooking = [];
         if ($installmentsTableName !== null && $transactionCandidates !== []) {
