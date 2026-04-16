@@ -786,6 +786,7 @@ $supportsServiceEnableInstallmentColumn = false;
 $supportsPaymentsInstallmentNumberColumn = false;
 $formSelectedBookingId = trim((string) ($_POST['selected_booking_id'] ?? ''));
 $formSelectedTransactionType = strtolower(trim((string) ($_POST['selected_transaction_type'] ?? 'regular')));
+$formSelectedTreatmentId = trim((string) ($_POST['selected_treatment_id'] ?? ''));
 if (!in_array($formSelectedTransactionType, ['regular', 'installment'], true)) {
     $formSelectedTransactionType = 'regular';
 }
@@ -1134,6 +1135,7 @@ try {
         $patientQuery = trim((string) ($_POST['patient_query'] ?? ''));
         $selectedBookingId = trim((string) ($_POST['selected_booking_id'] ?? ''));
         $selectedTransactionType = strtolower(trim((string) ($_POST['selected_transaction_type'] ?? 'regular')));
+        $selectedTreatmentId = trim((string) ($_POST['selected_treatment_id'] ?? ''));
         if (!in_array($selectedTransactionType, ['regular', 'installment'], true)) {
             $selectedTransactionType = 'regular';
         }
@@ -1186,65 +1188,89 @@ try {
             $bookingTreatmentId = trim((string) ($bookingRow['treatment_id'] ?? ''));
             $totalCost = (float) ($bookingRow['total_treatment_cost'] ?? 0);
             $totalPaid = (float) ($bookingRow['total_paid'] ?? 0);
-            $serviceTypeTotals = [
-                'regular' => 0.0,
-                'installment' => 0.0,
-            ];
-            if ($supportsAppointmentServicesTable) {
-                $serviceTotalsStmt = $pdo->prepare("
+            $pendingBalance = 0.0;
+            if ($selectedTransactionType === 'installment' && $selectedTreatmentId !== '') {
+                $treatmentStmt = $pdo->prepare("
                     SELECT
-                        COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment') AS normalized_service_type,
-                        COALESCE(SUM(COALESCE(aps.price, 0)), 0) AS total_cost
-                    FROM tbl_appointment_services aps
-                    WHERE aps.tenant_id = ?
-                      AND aps.booking_id = ?
-                    GROUP BY COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment')
+                        patient_id,
+                        COALESCE(total_cost, 0) AS total_cost,
+                        COALESCE(amount_paid, 0) AS amount_paid,
+                        COALESCE(remaining_balance, 0) AS remaining_balance
+                    FROM tbl_treatments
+                    WHERE tenant_id = ?
+                      AND treatment_id = ?
+                    LIMIT 1
                 ");
-                $serviceTotalsStmt->execute([$tenantId, $selectedBookingId]);
-                foreach ($serviceTotalsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $serviceTotalRow) {
-                    $normalizedType = strtolower(trim((string) ($serviceTotalRow['normalized_service_type'] ?? '')));
-                    if ($normalizedType !== 'regular' && $normalizedType !== 'installment') {
-                        $normalizedType = 'installment';
-                    }
-                    $serviceTypeTotals[$normalizedType] += (float) ($serviceTotalRow['total_cost'] ?? 0);
+                $treatmentStmt->execute([$tenantId, $selectedTreatmentId]);
+                $treatmentRow = $treatmentStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+                if ($treatmentRow !== null) {
+                    $patientId = trim((string) ($treatmentRow['patient_id'] ?? $patientId));
+                    $bookingTreatmentId = $selectedTreatmentId;
+                    $totalCost = max(0, (float) ($treatmentRow['total_cost'] ?? 0));
+                    $totalPaid = max(0, (float) ($treatmentRow['amount_paid'] ?? 0));
+                    $pendingBalance = max(0, (float) ($treatmentRow['remaining_balance'] ?? 0));
                 }
-            }
-            $hasInstallmentEntry = $serviceTypeTotals['installment'] > 0.009 || $bookingTreatmentId !== '';
-            $hasRegularEntry = $serviceTypeTotals['regular'] > 0.009 || !$hasInstallmentEntry;
-            $regularCost = $serviceTypeTotals['regular'] > 0.009
-                ? (float) $serviceTypeTotals['regular']
-                : ($hasInstallmentEntry ? 0.0 : $totalCost);
-            $installmentCost = $serviceTypeTotals['installment'] > 0.009
-                ? (float) $serviceTypeTotals['installment']
-                : ($hasInstallmentEntry ? $totalCost : 0.0);
-            if ($selectedTransactionType === 'regular' && !$hasRegularEntry) {
-                $regularCost = 0.0;
-            }
-            if ($selectedTransactionType === 'installment' && !$hasInstallmentEntry) {
-                $installmentCost = 0.0;
-            }
-            $installmentPaidBySchedule = 0.0;
-            $scheduleRowsForSplit = staff_payment_recording_fetch_installments($pdo, $installmentsTableName, $tenantId, $selectedBookingId);
-            if ($scheduleRowsForSplit !== []) {
-                foreach ($scheduleRowsForSplit as $instRow) {
-                    if (staff_payment_recording_installment_is_paid((string) ($instRow['status'] ?? ''))) {
-                        $installmentPaidBySchedule += (float) ($instRow['amount_due'] ?? 0);
-                    }
-                }
-            }
-            $installmentPaidResolved = $installmentPaidBySchedule > 0
-                ? $installmentPaidBySchedule
-                : ($hasInstallmentEntry ? $totalPaid : 0.0);
-            $regularPaid = max(0, min($regularCost, $totalPaid - $installmentPaidResolved));
-            $installmentPaid = max(0, min($installmentCost, $installmentPaidResolved));
-            if ($selectedTransactionType === 'installment') {
-                $totalCost = $installmentCost;
-                $totalPaid = $installmentPaid;
             } else {
-                $totalCost = $regularCost;
-                $totalPaid = $regularPaid;
+                $serviceTypeTotals = [
+                    'regular' => 0.0,
+                    'installment' => 0.0,
+                ];
+                if ($supportsAppointmentServicesTable) {
+                    $serviceTotalsStmt = $pdo->prepare("
+                        SELECT
+                            COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment') AS normalized_service_type,
+                            COALESCE(SUM(COALESCE(aps.price, 0)), 0) AS total_cost
+                        FROM tbl_appointment_services aps
+                        WHERE aps.tenant_id = ?
+                          AND aps.booking_id = ?
+                        GROUP BY COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment')
+                    ");
+                    $serviceTotalsStmt->execute([$tenantId, $selectedBookingId]);
+                    foreach ($serviceTotalsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $serviceTotalRow) {
+                        $normalizedType = strtolower(trim((string) ($serviceTotalRow['normalized_service_type'] ?? '')));
+                        if ($normalizedType !== 'regular' && $normalizedType !== 'installment') {
+                            $normalizedType = 'installment';
+                        }
+                        $serviceTypeTotals[$normalizedType] += (float) ($serviceTotalRow['total_cost'] ?? 0);
+                    }
+                }
+                $hasInstallmentEntry = $serviceTypeTotals['installment'] > 0.009 || $bookingTreatmentId !== '';
+                $hasRegularEntry = $serviceTypeTotals['regular'] > 0.009 || !$hasInstallmentEntry;
+                $regularCost = $serviceTypeTotals['regular'] > 0.009
+                    ? (float) $serviceTypeTotals['regular']
+                    : ($hasInstallmentEntry ? 0.0 : $totalCost);
+                $installmentCost = $serviceTypeTotals['installment'] > 0.009
+                    ? (float) $serviceTypeTotals['installment']
+                    : ($hasInstallmentEntry ? $totalCost : 0.0);
+                if ($selectedTransactionType === 'regular' && !$hasRegularEntry) {
+                    $regularCost = 0.0;
+                }
+                if ($selectedTransactionType === 'installment' && !$hasInstallmentEntry) {
+                    $installmentCost = 0.0;
+                }
+                $installmentPaidBySchedule = 0.0;
+                $scheduleRowsForSplit = staff_payment_recording_fetch_installments($pdo, $installmentsTableName, $tenantId, $selectedBookingId);
+                if ($scheduleRowsForSplit !== []) {
+                    foreach ($scheduleRowsForSplit as $instRow) {
+                        if (staff_payment_recording_installment_is_paid((string) ($instRow['status'] ?? ''))) {
+                            $installmentPaidBySchedule += (float) ($instRow['amount_due'] ?? 0);
+                        }
+                    }
+                }
+                $installmentPaidResolved = $installmentPaidBySchedule > 0
+                    ? $installmentPaidBySchedule
+                    : ($hasInstallmentEntry ? $totalPaid : 0.0);
+                $regularPaid = max(0, min($regularCost, $totalPaid - $installmentPaidResolved));
+                $installmentPaid = max(0, min($installmentCost, $installmentPaidResolved));
+                if ($selectedTransactionType === 'installment') {
+                    $totalCost = $installmentCost;
+                    $totalPaid = $installmentPaid;
+                } else {
+                    $totalCost = $regularCost;
+                    $totalPaid = $regularPaid;
+                }
+                $pendingBalance = max(0, $totalCost - $totalPaid);
             }
-            $pendingBalance = max(0, $totalCost - $totalPaid);
 
             if ($patientId === '') {
                 $paymentError = 'Selected transaction was not found.';
@@ -1769,6 +1795,7 @@ try {
                         $selectedMethodForUi = '';
                         $formSelectedBookingId = '';
                         $formSelectedTransactionType = 'regular';
+                        $formSelectedTreatmentId = '';
                         $formPatientQuery = '';
                         $formAmount = '';
                         $formPaymentDate = date('Y-m-d');
@@ -1989,6 +2016,7 @@ try {
                     $selectedMethodForUi = '';
                     $formSelectedBookingId = '';
                     $formSelectedTransactionType = 'regular';
+                    $formSelectedTreatmentId = '';
                     $formPatientQuery = '';
                     $formAmount = '';
                     $formPaymentDate = date('Y-m-d');
@@ -3359,6 +3387,7 @@ if ($paymentError === 'Please select a payment method.') {
 <div class="relative group flex-1 min-w-0">
 <input name="selected_booking_id" id="selected_booking_id_input" type="hidden" value="<?php echo htmlspecialchars($formSelectedBookingId, ENT_QUOTES, 'UTF-8'); ?>"/>
 <input name="selected_transaction_type" id="selected_transaction_type_input" type="hidden" value="<?php echo htmlspecialchars($formSelectedTransactionType, ENT_QUOTES, 'UTF-8'); ?>"/>
+<input name="selected_treatment_id" id="selected_treatment_id_input" type="hidden" value="<?php echo htmlspecialchars($formSelectedTreatmentId, ENT_QUOTES, 'UTF-8'); ?>"/>
 <input name="patient_query" id="patient_query_input" type="hidden" value="<?php echo htmlspecialchars($formPatientQuery, ENT_QUOTES, 'UTF-8'); ?>"/>
 <button id="open-transaction-selector-modal" type="button" class="group w-full min-h-[3.25rem] px-5 py-3.5 rounded-2xl text-left text-base font-bold outline-none inline-flex items-center justify-between gap-3 border-2 border-primary/35 bg-gradient-to-br from-primary/[0.12] via-white to-sky-500/[0.08] text-slate-800 shadow-md shadow-primary/10 hover:border-primary hover:from-primary/[0.18] hover:shadow-lg hover:shadow-primary/15 focus-visible:ring-4 focus-visible:ring-primary/25 focus-visible:border-primary transition-all active:scale-[0.99]" aria-label="Select patient appointment">
 <span class="inline-flex items-center gap-3 min-w-0">
@@ -3599,6 +3628,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
         let transactionTypeFilter = 'regular';
         const selectedBookingIdInput = document.getElementById('selected_booking_id_input');
         const selectedTransactionTypeInput = document.getElementById('selected_transaction_type_input');
+        const selectedTreatmentIdInput = document.getElementById('selected_treatment_id_input');
         const patientQueryInput = document.getElementById('patient_query_input');
         const selectedTransactionLabel = document.getElementById('selected_transaction_label');
         const transactionForm = modal ? modal.querySelector('form[method="post"]') : null;
@@ -3653,6 +3683,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
             selectedTransaction = null;
             if (selectedBookingIdInput) {
                 selectedBookingIdInput.value = '';
+            }
+            if (selectedTreatmentIdInput) {
+                selectedTreatmentIdInput.value = '';
             }
             if (selectedTransactionTypeInput) {
                 selectedTransactionTypeInput.value = 'regular';
@@ -4864,6 +4897,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 if (selectedBookingIdInput) {
                     selectedBookingIdInput.value = selected.booking_id;
                 }
+                if (selectedTreatmentIdInput) {
+                    selectedTreatmentIdInput.value = String(selected.treatment_id || '').trim();
+                }
                 if (selectedTransactionTypeInput) {
                     selectedTransactionTypeInput.value = selected.is_installment_plan ? 'installment' : 'regular';
                 }
@@ -4945,16 +4981,23 @@ This booking is installment-priced, but no installment schedule rows exist in th
 
         (function restoreSelectionAfterPost() {
             const bid = String(selectedBookingIdInput ? selectedBookingIdInput.value : '').trim();
+            const tid = String(selectedTreatmentIdInput ? selectedTreatmentIdInput.value : '').trim();
             if (!bid) {
                 updateClearBookingButtonVisibility();
                 return;
             }
             const postedType = String(selectedTransactionTypeInput ? selectedTransactionTypeInput.value : '').toLowerCase().trim();
             const wantedType = postedType === 'installment' ? 'installment' : 'regular';
-            const pre = normalizeTransactions.find((x) => x.booking_id === bid && String(x.transaction_type || '') === wantedType)
+            const pre = (wantedType === 'installment' && tid !== ''
+                ? normalizeTransactions.find((x) => String(x.treatment_id || '').trim() === tid && String(x.transaction_type || '') === 'installment')
+                : null)
+                || normalizeTransactions.find((x) => x.booking_id === bid && String(x.transaction_type || '') === wantedType)
                 || normalizeTransactions.find((x) => x.booking_id === bid);
             if (pre) {
                 selectedTransaction = pre;
+                if (selectedTreatmentIdInput) {
+                    selectedTreatmentIdInput.value = String(pre.treatment_id || '').trim();
+                }
                 if (selectedTransactionTypeInput) {
                     selectedTransactionTypeInput.value = pre.is_installment_plan ? 'installment' : 'regular';
                 }
