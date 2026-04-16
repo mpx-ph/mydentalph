@@ -49,6 +49,11 @@ function staff_payment_recording_installment_is_paid(string $status): bool
     return $s === 'paid' || $s === 'completed';
 }
 
+function staff_payment_recording_money($value): float
+{
+    return round((float) $value, 2);
+}
+
 /**
  * Incrementally sync a treatment's financial fields when a payment is recorded.
  *
@@ -1040,8 +1045,8 @@ try {
                             if ($serviceName === '') {
                                 continue;
                             }
-                            $serviceAmount = (float) ($serviceRow['price'] ?? 0);
-                            $servicesTotalValue += $serviceAmount;
+                            $serviceAmount = staff_payment_recording_money($serviceRow['price'] ?? 0);
+                            $servicesTotalValue = staff_payment_recording_money($servicesTotalValue + $serviceAmount);
                             $serviceItems[] = [
                                 'name' => $serviceName,
                                 'amount' => '₱' . number_format($serviceAmount, 2),
@@ -1070,8 +1075,11 @@ try {
                     if ($serviceItems === []) {
                         $servicesTotalLabel = '₱' . number_format((float) ($receiptRow['total_treatment_cost'] ?? 0), 2);
                     }
-                    $amountPaid = (float) ($receiptRow['amount'] ?? 0);
-                    $balanceLeft = max(0, (float) ($receiptRow['total_treatment_cost'] ?? 0) - (float) ($receiptRow['booking_total_paid'] ?? 0));
+                    $amountPaid = staff_payment_recording_money($receiptRow['amount'] ?? 0);
+                    $balanceLeft = staff_payment_recording_money(max(
+                        0,
+                        staff_payment_recording_money($receiptRow['total_treatment_cost'] ?? 0) - staff_payment_recording_money($receiptRow['booking_total_paid'] ?? 0)
+                    ));
                     $paymentDateValue = trim((string) ($receiptRow['payment_date'] ?? ''));
                     $paymentDateLabel = $paymentDateValue !== '' ? date('F d, Y h:i A', strtotime($paymentDateValue)) : '-';
                     $referenceLabel = trim((string) ($receiptRow['reference_number'] ?? ''));
@@ -1135,7 +1143,7 @@ try {
         if (!in_array($selectedTransactionType, ['regular', 'installment'], true)) {
             $selectedTransactionType = 'regular';
         }
-        $amount = (float) ($_POST['amount'] ?? 0);
+        $amount = staff_payment_recording_money($_POST['amount'] ?? 0);
         $paymentDate = trim((string) ($_POST['payment_date'] ?? date('Y-m-d')));
         $notes = trim((string) ($_POST['notes'] ?? ''));
         $method = strtolower(trim((string) ($_POST['payment_method'] ?? '')));
@@ -1167,7 +1175,7 @@ try {
                     COALESCE(a.treatment_id, '') AS treatment_id,
                     COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
                     COALESCE(a.service_description, '') AS service_description,
-                    COALESCE(SUM(CASE WHEN py.status IN ('completed', 'paid') THEN py.amount ELSE 0 END), 0) AS total_paid
+                    ROUND(COALESCE(SUM(CASE WHEN py.status IN ('completed', 'paid') THEN py.amount ELSE 0 END), 0), 2) AS total_paid
                 FROM tbl_appointments a
                 LEFT JOIN tbl_payments py
                     ON py.tenant_id = a.tenant_id
@@ -1182,8 +1190,8 @@ try {
             $bookingRow = $bookingStmt->fetch(PDO::FETCH_ASSOC);
             $patientId = trim((string) ($bookingRow['patient_id'] ?? ''));
             $bookingTreatmentId = trim((string) ($bookingRow['treatment_id'] ?? ''));
-            $totalCost = (float) ($bookingRow['total_treatment_cost'] ?? 0);
-            $totalPaid = (float) ($bookingRow['total_paid'] ?? 0);
+            $totalCost = staff_payment_recording_money($bookingRow['total_treatment_cost'] ?? 0);
+            $totalPaid = staff_payment_recording_money($bookingRow['total_paid'] ?? 0);
             $serviceTypeTotals = [
                 'regular' => 0.0,
                 'installment' => 0.0,
@@ -1192,7 +1200,7 @@ try {
                 $serviceTotalsStmt = $pdo->prepare("
                     SELECT
                         COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment') AS normalized_service_type,
-                        COALESCE(SUM(COALESCE(aps.price, 0)), 0) AS total_cost
+                        ROUND(COALESCE(SUM(COALESCE(aps.price, 0)), 0), 2) AS total_cost
                     FROM tbl_appointment_services aps
                     WHERE aps.tenant_id = ?
                       AND aps.booking_id = ?
@@ -1204,7 +1212,9 @@ try {
                     if ($normalizedType !== 'regular' && $normalizedType !== 'installment') {
                         $normalizedType = 'installment';
                     }
-                    $serviceTypeTotals[$normalizedType] += (float) ($serviceTotalRow['total_cost'] ?? 0);
+                    $serviceTypeTotals[$normalizedType] = staff_payment_recording_money(
+                        $serviceTypeTotals[$normalizedType] + staff_payment_recording_money($serviceTotalRow['total_cost'] ?? 0)
+                    );
                 }
             }
             $hasInstallmentEntry = $serviceTypeTotals['installment'] > 0.009 || $bookingTreatmentId !== '';
@@ -1226,15 +1236,17 @@ try {
             if ($scheduleRowsForSplit !== []) {
                 foreach ($scheduleRowsForSplit as $instRow) {
                     if (staff_payment_recording_installment_is_paid((string) ($instRow['status'] ?? ''))) {
-                        $installmentPaidBySchedule += (float) ($instRow['amount_due'] ?? 0);
+                        $installmentPaidBySchedule = staff_payment_recording_money(
+                            $installmentPaidBySchedule + staff_payment_recording_money($instRow['amount_due'] ?? 0)
+                        );
                     }
                 }
             }
             $installmentPaidResolved = $installmentPaidBySchedule > 0
                 ? $installmentPaidBySchedule
                 : ($hasInstallmentEntry ? $totalPaid : 0.0);
-            $regularPaid = max(0, min($regularCost, $totalPaid - $installmentPaidResolved));
-            $installmentPaid = max(0, min($installmentCost, $installmentPaidResolved));
+            $regularPaid = staff_payment_recording_money(max(0, min($regularCost, $totalPaid - $installmentPaidResolved)));
+            $installmentPaid = staff_payment_recording_money(max(0, min($installmentCost, $installmentPaidResolved)));
             if ($selectedTransactionType === 'installment') {
                 $totalCost = $installmentCost;
                 $totalPaid = $installmentPaid;
@@ -1242,7 +1254,7 @@ try {
                 $totalCost = $regularCost;
                 $totalPaid = $regularPaid;
             }
-            $pendingBalance = max(0, $totalCost - $totalPaid);
+            $pendingBalance = staff_payment_recording_money(max(0, $totalCost - $totalPaid));
 
             if ($patientId === '') {
                 $paymentError = 'Selected transaction was not found.';
@@ -1366,7 +1378,7 @@ try {
                                 continue;
                             }
                             $serviceName = trim((string) ($service['service_name'] ?? 'Additional Service'));
-                            $servicePrice = (float) ($service['price'] ?? 0);
+                            $servicePrice = staff_payment_recording_money($service['price'] ?? 0);
                             $insertParams = [
                                 $tenantId,
                                 $selectedBookingId,
@@ -1385,13 +1397,13 @@ try {
                             }
                             $insertServiceStmt->execute($insertParams);
                             $existingLookup[$serviceId] = true;
-                            $addedCost += $servicePrice;
+                            $addedCost = staff_payment_recording_money($addedCost + $servicePrice);
                             $addedServiceLabels[] = $serviceName . ' (₱' . number_format($servicePrice, 2) . ')';
                         }
 
                         if ($addedCost > 0) {
-                            $totalCost += $addedCost;
-                            $pendingBalance += $addedCost;
+                            $totalCost = staff_payment_recording_money($totalCost + $addedCost);
+                            $pendingBalance = staff_payment_recording_money($pendingBalance + $addedCost);
                             $serviceDescription = trim((string) ($bookingRow['service_description'] ?? ''));
                             $addedServiceNote = implode('; ', $addedServiceLabels);
                             $newServiceDescription = $serviceDescription !== '' ? ($serviceDescription . '; ' . $addedServiceNote) : $addedServiceNote;
@@ -1403,7 +1415,7 @@ try {
                                   AND booking_id = ?
                                 LIMIT 1
                             ");
-                            $updateAppointmentCostStmt->execute([$totalCost, $newServiceDescription, $tenantId, $selectedBookingId]);
+                            $updateAppointmentCostStmt->execute([staff_payment_recording_money($totalCost), $newServiceDescription, $tenantId, $selectedBookingId]);
                         }
                     }
 
@@ -1454,9 +1466,9 @@ try {
 
                         $expected = 0.0;
                         foreach ($toPay as $tp) {
-                            $expected += (float) $tp['amount_due'];
+                            $expected = staff_payment_recording_money($expected + staff_payment_recording_money($tp['amount_due']));
                         }
-                        $expected = round($expected, 2);
+                        $expected = staff_payment_recording_money($expected);
                         if (abs($amount - $expected) > 0.05) {
                             throw new RuntimeException('Payment amount must be ₱' . number_format($expected, 2) . ' for the selected installment option.');
                         }
@@ -1506,7 +1518,7 @@ try {
                                 $patientId,
                                 $selectedBookingId,
                                 $firstInstNum > 0 ? $firstInstNum : null,
-                                $amount,
+                                staff_payment_recording_money($amount),
                                 $method,
                                 $paymentDate . ' ' . date('H:i:s'),
                                 $composedNotes !== '' ? $composedNotes : null,
@@ -1536,7 +1548,7 @@ try {
                                 $patientId,
                                 $selectedBookingId,
                                 $firstInstNum > 0 ? $firstInstNum : null,
-                                $amount,
+                                staff_payment_recording_money($amount),
                                 $method,
                                 $paymentDate . ' ' . date('H:i:s'),
                                 $composedNotes !== '' ? $composedNotes : null,
@@ -1564,7 +1576,7 @@ try {
                                 $paymentId,
                                 $patientId,
                                 $selectedBookingId,
-                                $amount,
+                                staff_payment_recording_money($amount),
                                 $method,
                                 $paymentDate . ' ' . date('H:i:s'),
                                 $composedNotes !== '' ? $composedNotes : null,
@@ -1592,7 +1604,7 @@ try {
                                 $paymentId,
                                 $patientId,
                                 $selectedBookingId,
-                                $amount,
+                                staff_payment_recording_money($amount),
                                 $method,
                                 $paymentDate . ' ' . date('H:i:s'),
                                 $composedNotes !== '' ? $composedNotes : null,
@@ -1637,7 +1649,7 @@ try {
                                 'credit_card' => 'card',
                             ];
                             $pmType = $paymongoTypeMap[$method] ?? 'gcash';
-                            $amountCentavos = (int) round($amount * 100);
+                            $amountCentavos = (int) round(staff_payment_recording_money($amount) * 100);
                             if ($amountCentavos < 100) {
                                 $del = $pdo->prepare('DELETE FROM tbl_payments WHERE tenant_id = ? AND payment_id = ? AND status = ?');
                                 $del->execute([$tenantId, $paymentId, 'pending']);
@@ -1810,7 +1822,7 @@ try {
                             $paymentId,
                             $patientId,
                             $selectedBookingId,
-                            $amount,
+                            staff_payment_recording_money($amount),
                             $method,
                             $paymentDate . ' ' . date('H:i:s'),
                             $notes !== '' ? $notes : null,
@@ -1838,7 +1850,7 @@ try {
                             $paymentId,
                             $patientId,
                             $selectedBookingId,
-                            $amount,
+                            staff_payment_recording_money($amount),
                             $method,
                             $paymentDate . ' ' . date('H:i:s'),
                             $notes !== '' ? $notes : null,
@@ -1875,7 +1887,7 @@ try {
                             'credit_card' => 'card',
                         ];
                         $pmType = $paymongoTypeMap[$method] ?? 'gcash';
-                        $amountCentavos = (int) round($amount * 100);
+                        $amountCentavos = (int) round(staff_payment_recording_money($amount) * 100);
                         if ($amountCentavos < 100) {
                             $del = $pdo->prepare('DELETE FROM tbl_payments WHERE tenant_id = ? AND payment_id = ? AND status = ?');
                             $del->execute([$tenantId, $paymentId, 'pending']);
@@ -3596,7 +3608,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
             if (booked.length) {
                 selectedAppointmentServicesList.innerHTML = booked.map((s) => {
                     const name = escapeHtml(s.service_name || 'Service');
-                    const pr = Number(s.price || 0).toFixed(2);
+                    const pr = formatCurrency(s.price || 0);
                     return '<li class="flex justify-between gap-3 border-b border-slate-200/80 pb-1.5 last:border-0 last:pb-0"><span class="min-w-0">' + name + '</span><span class="shrink-0 text-primary font-black">₱' + pr + '</span></li>';
                 }).join('');
                 selectedAppointmentServiceSummary.textContent = '';
@@ -3710,9 +3722,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 installmentFlowInput.value = hasSchedule ? 'schedule' : 'regular';
             }
 
-            const totalCost = Number(selectedTransaction.total_cost || 0);
-            const totalPaid = Number(selectedTransaction.total_paid || 0);
-            const pending = Math.max(0, totalCost - totalPaid);
+            const totalCost = roundCurrency(selectedTransaction.total_cost || 0);
+            const totalPaid = roundCurrency(selectedTransaction.total_paid || 0);
+            const pending = roundCurrency(Math.max(0, totalCost - totalPaid));
             const pct = totalCost > 0 ? Math.min(100, Math.round((totalPaid / totalCost) * 1000) / 10) : 0;
             if (installmentProgressBar) {
                 installmentProgressBar.style.width = pct + '%';
@@ -3721,10 +3733,10 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 installmentProgressPctLabel.textContent = pct + '% paid';
             }
             if (installmentProgressPaidLine) {
-                installmentProgressPaidLine.textContent = 'Paid ₱' + totalPaid.toFixed(2);
+                installmentProgressPaidLine.textContent = 'Paid ₱' + formatCurrency(totalPaid);
             }
             if (installmentProgressRemainLine) {
-                installmentProgressRemainLine.textContent = 'Remaining ₱' + pending.toFixed(2);
+                installmentProgressRemainLine.textContent = 'Remaining ₱' + formatCurrency(pending);
             }
             if (installmentProgressHint) {
                 if (hasSchedule) {
@@ -3903,18 +3915,17 @@ This booking is installment-priced, but no installment schedule rows exist in th
 
             let sum = 0;
             for (let i = 0; i < Math.min(slotCount, unpaidSched.length); i += 1) {
-                sum += Number(unpaidSched[i].amount_due || 0);
+                sum = roundCurrency(sum + roundCurrency(unpaidSched[i].amount_due || 0));
             }
-            sum = Math.round(sum * 100) / 100;
             if (amountInput) {
-                amountInput.value = sum.toFixed(2);
+                amountInput.value = formatCurrency(sum);
             }
         }
 
         const normalizeTransactions = transactionCandidates.flatMap((item) => {
-            const totalCost = Number(item.total_treatment_cost || 0);
-            const totalPaid = Number(item.total_paid || 0);
-            const pendingBalance = Math.max(0, totalCost - totalPaid);
+            const totalCost = roundCurrency(item.total_treatment_cost || 0);
+            const totalPaid = roundCurrency(item.total_paid || 0);
+            const pendingBalance = roundCurrency(Math.max(0, totalCost - totalPaid));
             const firstName = String(item.patient_first_name || '').trim();
             const lastName = String(item.patient_last_name || '').trim();
             const patientName = (firstName + ' ' + lastName).trim() || 'Unknown Patient';
@@ -3924,7 +3935,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const recordRef = (isInstallmentPlan && treatmentId !== '')
                 ? ('Treatment ' + treatmentId)
                 : ('Booking ' + (item.booking_id || '-'));
-            const label = patientName + ' | ' + recordRef + ' | Pending ₱' + pendingBalance.toFixed(2);
+            const label = patientName + ' | ' + recordRef + ' | Pending ₱' + formatCurrency(pendingBalance);
             const bookedServicesRaw = Array.isArray(item.booked_services) ? item.booked_services : [];
             const booked_service_ids = bookedServicesRaw
                 .map((s) => String((s && s.service_id) || '').trim())
@@ -3955,15 +3966,15 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 }
                 return true;
             });
-            const regularCostByLines = bookedRegular.reduce((sum, s) => sum + Number((s && s.price) || 0), 0);
+            const regularCostByLines = bookedRegular.reduce((sum, s) => roundCurrency(sum + roundCurrency((s && s.price) || 0)), 0);
             const hasInstallmentEntry = isInstallmentPlan || bookedInstallment.length > 0;
             const hasRegularEntry = bookedRegular.length > 0 || !hasInstallmentEntry;
             const installmentScheduleRaw = Array.isArray(item.installment_schedule) ? item.installment_schedule : [];
-            const installmentTotalBySchedule = installmentScheduleRaw.reduce((sum, r) => sum + Number((r && r.amount_due) || 0), 0);
+            const installmentTotalBySchedule = installmentScheduleRaw.reduce((sum, r) => roundCurrency(sum + roundCurrency((r && r.amount_due) || 0)), 0);
             const installmentPaidBySchedule = installmentScheduleRaw.reduce((sum, r) => {
                 const s = String((r && r.status) || '').toLowerCase();
                 if (s === 'paid' || s === 'completed') {
-                    return sum + Number((r && r.amount_due) || 0);
+                    return roundCurrency(sum + roundCurrency((r && r.amount_due) || 0));
                 }
                 return sum;
             }, 0);
@@ -3990,8 +4001,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
             };
             const rows = [];
             if (hasRegularEntry) {
-                const regularCost = regularCostByLines > 0 ? regularCostByLines : totalCost;
-                const regularPaid = Math.max(0, Math.min(regularCost, totalPaid - installmentPaidResolved));
+                const regularCost = roundCurrency(regularCostByLines > 0 ? regularCostByLines : totalCost);
+                const regularPaid = roundCurrency(Math.max(0, Math.min(regularCost, totalPaid - installmentPaidResolved)));
                 rows.push({
                     ...baseRow,
                     transaction_key: baseRow.booking_id + '::' + String(baseRow.appointment_id || 0) + '::regular',
@@ -4000,7 +4011,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     installment_schedule: [],
                     total_cost: regularCost,
                     total_paid: regularPaid,
-                    pending_balance: Math.max(0, regularCost - regularPaid),
+                    pending_balance: roundCurrency(Math.max(0, regularCost - regularPaid)),
                     booked_services: bookedRegular.length ? bookedRegular : bookedServicesRaw,
                     booked_service_ids: (bookedRegular.length ? bookedRegular : bookedServicesRaw)
                         .map((s) => String((s && s.service_id) || '').trim())
@@ -4008,9 +4019,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 });
             }
             if (hasInstallmentEntry) {
-                const installmentTotal = installmentTotalBySchedule > 0 ? installmentTotalBySchedule : totalCost;
-                const installmentPaid = Math.max(0, Math.min(installmentTotal, installmentPaidResolved));
-                const computedInstallmentRemainingBalance = Math.max(0, installmentTotal - installmentPaid);
+                const installmentTotal = roundCurrency(installmentTotalBySchedule > 0 ? installmentTotalBySchedule : totalCost);
+                const installmentPaid = roundCurrency(Math.max(0, Math.min(installmentTotal, installmentPaidResolved)));
+                const computedInstallmentRemainingBalance = roundCurrency(Math.max(0, installmentTotal - installmentPaid));
                 // Source remaining directly from resolved total/paid to avoid stale treatment snapshot values.
                 const installmentRemainingBalance = computedInstallmentRemainingBalance;
                 rows.push({
@@ -4204,7 +4215,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                                 '<p class="text-xs font-semibold text-slate-500 mt-1">Patient ID: ' + escapeHtml(item.patient_id) + ' | Appointment ID: ' + escapeHtml(item.appointment_id || '-') + ' | ' + (item.is_installment_plan && item.treatment_id ? ('Treatment ID: ' + escapeHtml(item.treatment_id)) : ('Booking ID: ' + escapeHtml(item.booking_id))) + '</p>' +
                                 '<p class="text-xs font-semibold text-slate-500 mt-1">Services: ' + svcLine + '</p>' +
                                 '<p class="text-xs font-semibold text-slate-500 mt-1">Date: ' + escapeHtml(item.appointment_date || '-') + ' ' + escapeHtml(item.appointment_time || '') + '</p>' +
-                                '<p class="text-xs font-semibold text-slate-700 mt-1">Total: ₱' + item.total_cost.toFixed(2) + ' | Paid: ₱' + item.total_paid.toFixed(2) + ' | Pending: ₱' + item.pending_balance.toFixed(2) + '</p>' +
+                                '<p class="text-xs font-semibold text-slate-700 mt-1">Total: ₱' + formatCurrency(item.total_cost) + ' | Paid: ₱' + formatCurrency(item.total_paid) + ' | Pending: ₱' + formatCurrency(item.pending_balance) + '</p>' +
                             '</div>' +
                             '<div class="shrink-0 flex items-center gap-2">' +
                                 '<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ' + typeMeta.cls + '">' + escapeHtml(typeMeta.label) + '</span>' +
@@ -4221,9 +4232,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 if (!checkbox.checked) {
                     return;
                 }
-                const servicePrice = Number(checkbox.getAttribute('data-service-price') || 0);
+                const servicePrice = roundCurrency(checkbox.getAttribute('data-service-price') || 0);
                 if (Number.isFinite(servicePrice)) {
-                    total += servicePrice;
+                    total = roundCurrency(total + servicePrice);
                 }
             });
             return total;
@@ -4233,9 +4244,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const servicesTotal = getAdditionalServicesTotal();
             if (additionalServicesTotalHint) {
                 if (selectedTransaction && getScheduleList(selectedTransaction).length > 0) {
-                    additionalServicesTotalHint.textContent = 'Add-on services total: ₱' + servicesTotal.toFixed(2) + ' (posted separately from the installment amount below).';
+                    additionalServicesTotalHint.textContent = 'Add-on services total: ₱' + formatCurrency(servicesTotal) + ' (posted separately from the installment amount below).';
                 } else {
-                    additionalServicesTotalHint.textContent = 'Added services total: ₱' + servicesTotal.toFixed(2);
+                    additionalServicesTotalHint.textContent = 'Added services total: ₱' + formatCurrency(servicesTotal);
                 }
             }
             if (selectedTransaction && amountInput) {
@@ -4243,8 +4254,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     refreshInstallmentPaymentUi();
                     return;
                 }
-                const basePending = Number(selectedTransaction.pending_balance || 0);
-                amountInput.value = Math.max(0, basePending + servicesTotal).toFixed(2);
+                const basePending = roundCurrency(selectedTransaction.pending_balance || 0);
+                amountInput.value = formatCurrency(Math.max(0, roundCurrency(basePending + servicesTotal)));
             }
         }
 
@@ -4314,12 +4325,25 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
         };
 
-        function formatPeso(value) {
+        function parseCurrencyNumber(value) {
             const amount = Number(value || 0);
             if (!Number.isFinite(amount)) {
-                return '₱0.00';
+                return 0;
             }
-            return '₱' + amount.toFixed(2);
+            return amount;
+        }
+
+        function roundCurrency(value) {
+            const amount = parseCurrencyNumber(value);
+            return Math.round((amount + Number.EPSILON) * 100) / 100;
+        }
+
+        function formatCurrency(value) {
+            return roundCurrency(value).toFixed(2);
+        }
+
+        function formatPeso(value) {
+            return '₱' + formatCurrency(value);
         }
 
         function formatReceiptDate(value) {
