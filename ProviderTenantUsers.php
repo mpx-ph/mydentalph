@@ -363,22 +363,74 @@ $team_total = count($team_members);
             font-variant-numeric: tabular-nums;
             text-indent: 0.15em;
         }
+        @media (max-width: 1023.98px) {
+            .provider-top-header {
+                left: 0 !important;
+                min-height: 5rem;
+            }
+            #provider-sidebar {
+                transform: translateX(-100%);
+                transition: transform 220ms ease;
+                z-index: 60;
+                background: #ffffff;
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+                border-right: 1px solid #e2e8f0;
+            }
+            body.provider-mobile-sidebar-open #provider-sidebar {
+                transform: translateX(0);
+            }
+            #provider-mobile-sidebar-toggle {
+                transition: left 220ms ease, background-color 220ms ease, color 220ms ease;
+            }
+            body.provider-mobile-sidebar-open #provider-mobile-sidebar-toggle {
+                left: calc(16rem - 3.25rem);
+                background: rgba(255, 255, 255, 0.98);
+                color: #0066ff;
+            }
+            #provider-mobile-sidebar-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(19, 28, 37, 0.45);
+                backdrop-filter: blur(2px);
+                -webkit-backdrop-filter: blur(2px);
+                z-index: 55;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 220ms ease;
+            }
+            body.provider-mobile-sidebar-open #provider-mobile-sidebar-backdrop {
+                opacity: 1;
+                pointer-events: auto;
+            }
+            .provider-users-table-wrap {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .provider-users-table-wrap table {
+                min-width: 56rem;
+            }
+        }
     </style>
 </head>
 <body class="mesh-bg font-body text-on-background min-h-screen selection:bg-primary/10">
 <?php include __DIR__ . '/provider_tenant_sidebar.inc.php'; ?>
 <?php include __DIR__ . '/provider_tenant_top_header.inc.php'; ?>
-<main class="ml-64 pt-[4.5rem] sm:pt-24 min-h-screen provider-page-enter">
+<button id="provider-mobile-sidebar-toggle" type="button" class="fixed top-6 left-4 z-[65] lg:hidden w-10 h-10 rounded-xl bg-white/90 border border-white text-primary shadow-md flex items-center justify-center" aria-controls="provider-sidebar" aria-expanded="false" aria-label="Open navigation menu">
+<span class="material-symbols-outlined text-[20px]">menu</span>
+</button>
+<div id="provider-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
+<main class="ml-0 lg:ml-64 pt-[4.75rem] sm:pt-24 min-h-screen provider-page-enter">
 <div class="pt-4 sm:pt-6 px-6 lg:px-10 pb-20 space-y-8">
 <section class="flex flex-col gap-6">
 <div class="flex flex-col gap-4">
 <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]"><span class="w-12 h-[1.5px] bg-primary"></span> Team Management</div>
 <div class="flex justify-between items-end">
 <div>
-<h2 class="font-headline font-extrabold tracking-tighter leading-tight text-on-background text-6xl">Team <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Management</span></h2>
-<p class="font-body text-xl font-medium text-slate-600 max-w-3xl leading-relaxed mt-6">Manage practitioner access and administrative permissions for your clinic.</p>
+<h2 class="font-headline font-extrabold tracking-tighter leading-tight text-on-background text-4xl sm:text-6xl">Team <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Management</span></h2>
+<p class="font-body text-base sm:text-xl font-medium text-slate-600 max-w-3xl leading-relaxed mt-4 sm:mt-6">Manage practitioner access and administrative permissions for your clinic.</p>
 </div>
-<button type="button" id="add-user-open" class="bg-primary text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:shadow-xl hover:shadow-primary/25 transition-all duration-300 active:scale-95 hover:scale-[1.02] flex items-center gap-2">
+<button type="button" id="add-user-open" class="bg-primary text-white px-5 sm:px-8 py-3 sm:py-4 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest hover:shadow-xl hover:shadow-primary/25 transition-all duration-300 active:scale-95 hover:scale-[1.02] flex items-center gap-2">
 <span class="material-symbols-outlined text-base">person_add</span>
                         Add New User
                     </button>
@@ -416,6 +468,7 @@ $team_total = count($team_members);
 </section>
 <!-- Table Card -->
 <div class="elevated-card provider-card-lift rounded-3xl overflow-hidden">
+<div class="provider-users-table-wrap">
 <table class="w-full text-left border-collapse">
 <thead>
 <tr class="bg-slate-50/50 border-b border-slate-100">
@@ -510,6 +563,7 @@ $team_total = count($team_members);
 <?php } ?>
 </tbody>
 </table>
+</div>
 <div class="px-10 py-6 bg-slate-50 border-t border-slate-100">
 <p class="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/70">
                     <span class="text-slate-900"><?php echo (int) $team_total; ?></span> team member<?php echo $team_total === 1 ? '' : 's'; ?> for this clinic
@@ -518,7 +572,7 @@ $team_total = count($team_members);
 </div>
 </div>
 <!-- Footer Status -->
-<footer class="mt-auto p-8 flex justify-center sticky bottom-0 z-10 pointer-events-none">
+<footer class="mt-auto p-8 hidden lg:flex justify-center sticky bottom-0 z-10 pointer-events-none">
 <div class="elevated-card pointer-events-auto px-10 py-4 rounded-full border border-slate-200/50 shadow-2xl flex items-center gap-10 text-[10px] font-black text-on-surface-variant/70 uppercase tracking-[0.2em]">
 <div class="flex items-center gap-3 text-primary">
 <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
@@ -1148,6 +1202,61 @@ Cancel
         });
     });
   });
+})();
+</script>
+<script>
+(function () {
+  var body = document.body;
+  var sidebar = document.getElementById('provider-sidebar');
+  var mobileToggle = document.getElementById('provider-mobile-sidebar-toggle');
+  var mobileBackdrop = document.getElementById('provider-mobile-sidebar-backdrop');
+  var desktopQuery = window.matchMedia('(min-width: 1024px)');
+
+  if (!body || !sidebar || !mobileToggle || !mobileBackdrop) {
+    return;
+  }
+
+  function setMobileSidebar(open) {
+    body.classList.toggle('provider-mobile-sidebar-open', open);
+    mobileToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    mobileToggle.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+    var icon = mobileToggle.querySelector('.material-symbols-outlined');
+    if (icon) {
+      icon.textContent = open ? 'close' : 'menu';
+    }
+  }
+
+  function closeOnDesktop() {
+    if (desktopQuery.matches) {
+      setMobileSidebar(false);
+    }
+  }
+
+  mobileToggle.addEventListener('click', function () {
+    setMobileSidebar(!body.classList.contains('provider-mobile-sidebar-open'));
+  });
+  mobileBackdrop.addEventListener('click', function () {
+    setMobileSidebar(false);
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && body.classList.contains('provider-mobile-sidebar-open')) {
+      setMobileSidebar(false);
+    }
+  });
+  sidebar.querySelectorAll('a').forEach(function (link) {
+    link.addEventListener('click', function () {
+      if (!desktopQuery.matches) {
+        setMobileSidebar(false);
+      }
+    });
+  });
+  if (typeof desktopQuery.addEventListener === 'function') {
+    desktopQuery.addEventListener('change', closeOnDesktop);
+  } else if (typeof desktopQuery.addListener === 'function') {
+    desktopQuery.addListener(closeOnDesktop);
+  }
+
+  setMobileSidebar(false);
 })();
 </script>
 </body></html>
