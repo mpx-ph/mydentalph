@@ -358,12 +358,57 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
         @supports not (aspect-ratio: 1) {
             .preview-canvas-shell--mobile { min-height: 560px; }
         }
+        @media (max-width: 1023.98px) {
+            .provider-top-header {
+                left: 0 !important;
+                min-height: 5rem;
+            }
+            #provider-sidebar {
+                transform: translateX(-100%);
+                transition: transform 220ms ease;
+                z-index: 60;
+                background: #ffffff;
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+                border-right: 1px solid #e2e8f0;
+            }
+            body.provider-mobile-sidebar-open #provider-sidebar {
+                transform: translateX(0);
+            }
+            #provider-mobile-sidebar-toggle {
+                transition: left 220ms ease, background-color 220ms ease, color 220ms ease;
+            }
+            body.provider-mobile-sidebar-open #provider-mobile-sidebar-toggle {
+                left: calc(16rem - 3.25rem);
+                background: rgba(255, 255, 255, 0.98);
+                color: #0066ff;
+            }
+            #provider-mobile-sidebar-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(19, 28, 37, 0.45);
+                backdrop-filter: blur(2px);
+                -webkit-backdrop-filter: blur(2px);
+                z-index: 55;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 220ms ease;
+            }
+            body.provider-mobile-sidebar-open #provider-mobile-sidebar-backdrop {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
     </style>
 </head>
 <body class="font-body text-on-background mesh-bg min-h-screen selection:bg-primary/10">
 <?php include __DIR__ . '/provider_tenant_sidebar.inc.php'; ?>
 <?php include __DIR__ . '/provider_tenant_top_header.inc.php'; ?>
-<main class="ml-64 pt-[4.5rem] sm:pt-24 min-h-screen provider-page-enter">
+<button id="provider-mobile-sidebar-toggle" type="button" class="fixed top-6 left-4 z-[65] lg:hidden w-10 h-10 rounded-xl bg-white/90 border border-white text-primary shadow-md flex items-center justify-center" aria-controls="provider-sidebar" aria-expanded="false" aria-label="Open navigation menu">
+<span class="material-symbols-outlined text-[20px]">menu</span>
+</button>
+<div id="provider-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
+<main class="ml-0 lg:ml-64 pt-[4.75rem] sm:pt-24 min-h-screen provider-page-enter">
 <div class="px-4 sm:px-6 lg:px-10 pb-16 max-w-[1920px] mx-auto w-full">
 <section class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 mb-8">
 <div>
@@ -408,7 +453,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <div class="p-4 rounded-2xl bg-slate-100 border border-slate-200 text-on-surface-variant text-sm font-medium">Set up your public clinic URL (slug) from subscription onboarding to enable the live preview canvas.</div>
 <?php endif; ?>
 
-<div class="section-card rounded-[2rem] bg-white p-6 sm:p-8 border border-white/90">
+<div class="section-card rounded-[2rem] bg-white p-4 sm:p-8 border border-white/90">
 <div class="flex flex-wrap gap-2 mb-6">
 <button type="button" class="builder-tab builder-tab--active px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent" data-tab="branding">Branding</button>
 <button type="button" class="builder-tab px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-transparent text-on-surface-variant" data-tab="colors">Colors</button>
@@ -431,7 +476,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <?php sb_file('logo', 'Footer logo (PNG / JPG / WebP)', $site_opts, $is_owner); ?>
 </div>
 
-<div id="panel-branding" class="builder-panel builder-panel--active space-y-6 max-h-[52vh] overflow-y-auto pr-1">
+<div id="panel-branding" class="builder-panel builder-panel--active space-y-6 lg:max-h-[52vh] lg:overflow-y-auto pr-1">
 <p class="text-xs text-on-surface-variant leading-relaxed sb-preview-scope" data-sb-preview-pages="all">Navigation and other images are stored under your tenant in <code class="text-[11px] bg-slate-100 px-1 rounded">clinic_customization_tenant</code>. Clinic name also updates your tenant profile. The <span class="font-bold text-on-background">footer logo</span> upload appears above when <span class="font-bold text-on-background">Home</span> is selected in the preview page picker.</p>
 <div class="sb-preview-scope space-y-5" data-sb-preview-pages="all">
 <?php sb_text('clinic_name', 'Clinic display name', $site_opts, $is_owner); ?>
@@ -445,7 +490,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </div>
 </div>
 
-<div id="panel-colors" class="builder-panel space-y-5 max-h-[52vh] overflow-y-auto pr-1">
+<div id="panel-colors" class="builder-panel space-y-5 lg:max-h-[52vh] lg:overflow-y-auto pr-1">
 <p class="text-xs text-on-surface-variant leading-relaxed">These colors also apply to the patient login screen. Preview it by choosing <span class="font-bold text-on-background">Login</span> in the page picker above.</p>
 <?php sb_field_row_open(); ?>
 <?php sb_color('color_primary', 'Primary', $site_opts, $is_owner); ?>
@@ -454,7 +499,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <?php sb_color('color_primary_light', 'Primary light', $site_opts, $is_owner, true); ?>
 </div>
 
-<div id="panel-type" class="builder-panel space-y-5 max-h-[52vh] overflow-y-auto pr-1">
+<div id="panel-type" class="builder-panel space-y-5 lg:max-h-[52vh] lg:overflow-y-auto pr-1">
 <?php sb_field_row_open(); ?>
 <?php sb_font_select('theme_font_headline', 'Headline font', $allowed_fonts, $site_opts, $is_owner); ?>
 <?php sb_font_select('theme_font_body', 'Body font', $allowed_fonts, $site_opts, $is_owner); ?>
@@ -473,7 +518,7 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 </div>
 </div>
 
-<div id="panel-layout" class="builder-panel space-y-8 max-h-[52vh] overflow-y-auto pr-1">
+<div id="panel-layout" class="builder-panel space-y-8 lg:max-h-[52vh] lg:overflow-y-auto pr-1">
 <div class="space-y-6">
 <p class="text-xs text-on-surface-variant leading-relaxed">Controls corner rounding for Tailwind radius tokens on patient pages (buttons, cards).</p>
 <?php sb_range('theme_radius_lg_px', 'Component rounding (px)', $site_opts, $is_owner, 6, 28, 1); ?>
@@ -806,6 +851,56 @@ $fhR3Dis = $is_owner ? '' : 'disabled';
 <?php include __DIR__ . '/provider_tenant_profile_modal.inc.php'; ?>
 <script>
 (function () {
+    var body = document.body;
+    var sidebar = document.getElementById('provider-sidebar');
+    var mobileToggle = document.getElementById('provider-mobile-sidebar-toggle');
+    var mobileBackdrop = document.getElementById('provider-mobile-sidebar-backdrop');
+    var desktopQuery = window.matchMedia('(min-width: 1024px)');
+
+    if (body && sidebar && mobileToggle && mobileBackdrop) {
+        function setMobileSidebar(open) {
+            body.classList.toggle('provider-mobile-sidebar-open', open);
+            mobileToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            mobileToggle.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+            var icon = mobileToggle.querySelector('.material-symbols-outlined');
+            if (icon) {
+                icon.textContent = open ? 'close' : 'menu';
+            }
+        }
+
+        function closeOnDesktop() {
+            if (desktopQuery.matches) {
+                setMobileSidebar(false);
+            }
+        }
+
+        mobileToggle.addEventListener('click', function () {
+            setMobileSidebar(!body.classList.contains('provider-mobile-sidebar-open'));
+        });
+        mobileBackdrop.addEventListener('click', function () {
+            setMobileSidebar(false);
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && body.classList.contains('provider-mobile-sidebar-open')) {
+                setMobileSidebar(false);
+            }
+        });
+        sidebar.querySelectorAll('a').forEach(function (link) {
+            link.addEventListener('click', function () {
+                if (!desktopQuery.matches) {
+                    setMobileSidebar(false);
+                }
+            });
+        });
+        if (typeof desktopQuery.addEventListener === 'function') {
+            desktopQuery.addEventListener('change', closeOnDesktop);
+        } else if (typeof desktopQuery.addListener === 'function') {
+            desktopQuery.addListener(closeOnDesktop);
+        }
+
+        setMobileSidebar(false);
+    }
+
     var previewUrls = <?php echo $preview_urls_json !== false ? $preview_urls_json : '{}'; ?>;
     var canEdit = <?php echo $is_owner ? 'true' : 'false'; ?>;
 
