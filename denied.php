@@ -106,7 +106,7 @@ http_response_code(403);
                 autoplay: true,
                 path: "denied.json",
                 rendererSettings: {
-                    preserveAspectRatio: "xMidYMid slice"
+                    preserveAspectRatio: "xMidYMid meet"
                 }
             });
         })();
