@@ -454,12 +454,11 @@ function provider_tenant_appt_format_date(?string $d): string
 <input type="search" id="q-search" name="q" value="<?php echo htmlspecialchars($q_search, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Patient, booking ID, doctor…" class="w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 py-3 text-sm font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary"/>
 </div>
 </div>
-</div>
-<div class="sm:col-span-2 lg:col-span-2 flex flex-col-reverse sm:flex-row lg:justify-end sm:items-center gap-2.5">
+<div class="sm:col-span-2 lg:col-span-2 flex flex-col-reverse sm:flex-row lg:justify-end gap-2.5">
 <?php if ($filter_status !== 'all' || $date_from !== '' || $date_to !== '' || $q_search !== '') { ?>
 <a class="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-[10px] font-black uppercase tracking-widest text-primary hover:border-primary/30 hover:bg-primary/5 transition-colors" href="<?php echo htmlspecialchars($self_php, ENT_QUOTES, 'UTF-8'); ?>">Reset</a>
 <?php } ?>
-<button type="submit" class="inline-flex items-center justify-center rounded-2xl bg-primary text-white px-6 py-3 text-[10px] font-black uppercase tracking-widest whitespace-nowrap hover:shadow-lg hover:shadow-primary/25 transition-all active:scale-[0.98]">Apply filters</button>
+<button type="submit" class="inline-flex items-center justify-center rounded-2xl bg-primary text-white px-8 py-3 text-[10px] font-black uppercase tracking-widest hover:shadow-lg hover:shadow-primary/25 transition-all active:scale-[0.98]">Apply filters</button>
 </div>
 </div>
 </form>
