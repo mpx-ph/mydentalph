@@ -39,5 +39,5 @@ if ($effectiveRole === 'superadmin') {
     return;
 }
 
-header('Location: ../denied.php');
+header('Location: ../denied');
 exit;

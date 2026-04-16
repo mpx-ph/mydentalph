@@ -22,6 +22,13 @@ RewriteRule ^undermaintenance\.php$ /maintenance [R=301,L]
 # Pretty route for maintenance page
 RewriteRule ^maintenance/?$ undermaintenance.php [L]
 
+# Canonical denied URL: redirect direct /denied.php requests to /denied
+RewriteCond %{THE_REQUEST} \s/+denied\.php[\s?] [NC]
+RewriteRule ^denied\.php$ /denied [R=301,L]
+
+# Pretty route for denied page
+RewriteRule ^denied/?$ denied.php [L]
+
 # Allow existing files and directories to be served normally
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
