@@ -2216,6 +2216,7 @@ try {
         $visitTypeGroupSql = $supportsAppointmentVisitTypeColumn ? "a.visit_type," : '';
 
         if ($supportsAppointmentServicesTable) {
+            $installmentTreatmentIdSql = "COALESCE(NULLIF(aps.treatment_id, ''), NULLIF(a.treatment_id, ''), '')";
             $appointmentServicesJoinSql = $supportsAppointmentServiceAppointmentIdColumn
                 ? "
                     LEFT JOIN tbl_appointment_services aps
@@ -2253,7 +2254,7 @@ try {
                     COALESCE(aps.appointment_id, a.id, 0) AS appointment_id,
                     CASE
                         WHEN {$normalizedServiceTypeSql} = 'installment'
-                            THEN COALESCE(NULLIF(aps.treatment_id, ''), NULLIF(a.treatment_id, ''), '')
+                            THEN {$installmentTreatmentIdSql}
                         ELSE ''
                     END AS treatment_id,
                     a.patient_id,
@@ -2269,6 +2270,9 @@ try {
                         ELSE COALESCE(SUM(aps.price), 0)
                     END AS total_treatment_cost,
                     COALESCE(py.total_paid, 0) AS total_paid,
+                    COALESCE(t.total_cost, 0) AS treatment_total_cost,
+                    COALESCE(t.amount_paid, 0) AS treatment_amount_paid,
+                    COALESCE(t.remaining_balance, 0) AS treatment_remaining_balance,
                     p.first_name AS patient_first_name,
                     p.last_name AS patient_last_name
                 FROM tbl_appointments a
@@ -2284,6 +2288,9 @@ try {
                 ) py
                     ON py.tenant_id = a.tenant_id
                    AND py.booking_id = a.booking_id
+                LEFT JOIN tbl_treatments t
+                    ON t.tenant_id = a.tenant_id
+                   AND t.treatment_id = {$installmentTreatmentIdSql}
                 LEFT JOIN tbl_patients p
                     ON p.tenant_id = a.tenant_id
                    AND p.patient_id = a.patient_id
@@ -2294,7 +2301,7 @@ try {
                     COALESCE(aps.appointment_id, a.id, 0),
                     CASE
                         WHEN {$normalizedServiceTypeSql} = 'installment'
-                            THEN COALESCE(NULLIF(aps.treatment_id, ''), NULLIF(a.treatment_id, ''), '')
+                            THEN {$installmentTreatmentIdSql}
                         ELSE ''
                     END,
                     a.patient_id,
@@ -2303,6 +2310,9 @@ try {
                     {$normalizedServiceTypeSql},
                     {$visitTypeGroupSql}
                     a.total_treatment_cost,
+                    t.total_cost,
+                    t.amount_paid,
+                    t.remaining_balance,
                     p.first_name,
                     p.last_name
                 ORDER BY a.appointment_date DESC, a.appointment_time DESC, a.created_at DESC
@@ -2323,6 +2333,9 @@ try {
                     {$transactionTypeSelectSql},
                     COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
                     COALESCE(py.total_paid, 0) AS total_paid,
+                    COALESCE(t.total_cost, 0) AS treatment_total_cost,
+                    COALESCE(t.amount_paid, 0) AS treatment_amount_paid,
+                    COALESCE(t.remaining_balance, 0) AS treatment_remaining_balance,
                     p.first_name AS patient_first_name,
                     p.last_name AS patient_last_name
                 FROM tbl_appointments a
@@ -2334,6 +2347,9 @@ try {
                 ) py
                     ON py.tenant_id = a.tenant_id
                    AND py.booking_id = a.booking_id
+                LEFT JOIN tbl_treatments t
+                    ON t.tenant_id = a.tenant_id
+                   AND t.treatment_id = COALESCE(a.treatment_id, '')
                 LEFT JOIN tbl_patients p
                     ON p.tenant_id = a.tenant_id
                    AND p.patient_id = a.patient_id
@@ -2349,6 +2365,9 @@ try {
                     a.service_type,
                     {$visitTypeGroupSql}
                     a.total_treatment_cost,
+                    t.total_cost,
+                    t.amount_paid,
+                    t.remaining_balance,
                     p.first_name,
                     p.last_name
                 ORDER BY a.appointment_date DESC, a.appointment_time DESC, a.created_at DESC
@@ -3958,12 +3977,29 @@ This booking is installment-priced, but no installment schedule rows exist in th
         const normalizeTransactions = transactionCandidates.flatMap((item) => {
             const totalCost = Number(item.total_treatment_cost || 0);
             const totalPaid = Number(item.total_paid || 0);
-            const pendingBalance = Math.max(0, totalCost - totalPaid);
             const firstName = String(item.patient_first_name || '').trim();
             const lastName = String(item.patient_last_name || '').trim();
             const patientName = (firstName + ' ' + lastName).trim() || 'Unknown Patient';
             const rawPlan = item.is_installment_plan;
             const isInstallmentPlan = rawPlan === true || rawPlan === 1 || rawPlan === '1' || String(rawPlan) === '1';
+            const rawTreatmentTotalCost = Number(item.treatment_total_cost);
+            const rawTreatmentAmountPaid = Number(item.treatment_amount_paid);
+            const rawTreatmentRemainingBalance = Number(item.treatment_remaining_balance);
+            const hasTreatmentTotalCost = Number.isFinite(rawTreatmentTotalCost) && rawTreatmentTotalCost >= 0;
+            const hasTreatmentAmountPaid = Number.isFinite(rawTreatmentAmountPaid) && rawTreatmentAmountPaid >= 0;
+            const hasTreatmentRemainingBalance = Number.isFinite(rawTreatmentRemainingBalance) && rawTreatmentRemainingBalance >= 0;
+            const effectiveInstallmentTotalCost = hasTreatmentTotalCost && rawTreatmentTotalCost > 0
+                ? rawTreatmentTotalCost
+                : totalCost;
+            const effectiveInstallmentPaid = hasTreatmentAmountPaid
+                ? Math.max(0, Math.min(effectiveInstallmentTotalCost > 0 ? effectiveInstallmentTotalCost : rawTreatmentAmountPaid, rawTreatmentAmountPaid))
+                : totalPaid;
+            const effectiveInstallmentPending = hasTreatmentRemainingBalance
+                ? Math.max(0, rawTreatmentRemainingBalance)
+                : Math.max(0, effectiveInstallmentTotalCost - effectiveInstallmentPaid);
+            const pendingBalance = isInstallmentPlan
+                ? effectiveInstallmentPending
+                : Math.max(0, totalCost - totalPaid);
             const treatmentId = String(item.treatment_id || '').trim();
             const recordRef = (isInstallmentPlan && treatmentId !== '')
                 ? ('Treatment ' + treatmentId)
@@ -4016,9 +4052,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 }
                 return sum;
             }, 0);
-            const installmentPaidResolved = installmentPaidBySchedule > 0 ? installmentPaidBySchedule : (hasInstallmentEntry ? totalPaid : 0);
-            const rawTreatmentRemainingBalance = Number(item.treatment_remaining_balance);
-            const hasTreatmentRemainingBalance = Number.isFinite(rawTreatmentRemainingBalance);
+            const installmentPaidResolved = hasTreatmentAmountPaid
+                ? effectiveInstallmentPaid
+                : (installmentPaidBySchedule > 0 ? installmentPaidBySchedule : (hasInstallmentEntry ? totalPaid : 0));
             const baseRow = {
                 booking_id: String(item.booking_id || ''),
                 appointment_id: Number(item.appointment_id || 0),
@@ -4057,30 +4093,20 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 });
             }
             if (hasInstallmentEntry) {
-                // Prefer stored totals to avoid centavo drift from summed schedule rows.
-                const installmentTotal = totalCost > 0 ? totalCost : installmentTotalBySchedule;
-                const installmentPaid = Math.max(0, Math.min(installmentTotal, installmentPaidResolved));
-                const computedInstallmentRemainingBalance = Math.max(0, installmentTotal - installmentPaid);
-                // For installment plans, treatment-level balance is authoritative because
-                // payments can span multiple bookings under the same treatment_id.
-                const treatmentRemainingBalance = hasTreatmentRemainingBalance
-                    ? Math.max(0, rawTreatmentRemainingBalance)
-                    : null;
-                const installmentRemainingBalance = treatmentRemainingBalance !== null
-                    ? treatmentRemainingBalance
-                    : computedInstallmentRemainingBalance;
-                const normalizedInstallmentTotal = treatmentRemainingBalance !== null
-                    ? Math.max(installmentTotal, installmentPaid + treatmentRemainingBalance)
-                    : installmentTotal;
+                const installmentTotal = effectiveInstallmentTotalCost > 0 ? effectiveInstallmentTotalCost : installmentTotalBySchedule;
+                const installmentPaid = Math.max(0, Math.min(installmentTotal > 0 ? installmentTotal : installmentPaidResolved, installmentPaidResolved));
+                const installmentRemainingBalance = hasTreatmentRemainingBalance
+                    ? effectiveInstallmentPending
+                    : Math.max(0, installmentTotal - installmentPaid);
                 rows.push({
                     ...baseRow,
                     transaction_key: (baseRow.treatment_id ? ('treatment:' + baseRow.treatment_id) : ('booking:' + baseRow.booking_id)) + '::installment',
                     transaction_type: 'installment',
                     is_installment_plan: true,
-                    total_cost: normalizedInstallmentTotal,
+                    total_cost: installmentTotal,
                     total_paid: installmentPaid,
                     pending_balance: installmentRemainingBalance,
-                    treatment_remaining_balance: hasTreatmentRemainingBalance ? installmentRemainingBalance : null,
+                    treatment_remaining_balance: hasTreatmentRemainingBalance ? effectiveInstallmentPending : null,
                     booked_services: bookedInstallment.length ? bookedInstallment : bookedServicesRaw,
                     booked_service_ids: (bookedInstallment.length ? bookedInstallment : bookedServicesRaw)
                         .map((s) => String((s && s.service_id) || '').trim())
