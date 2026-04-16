@@ -425,22 +425,22 @@ $team_total = count($team_members);
 <section class="flex flex-col gap-6">
 <div class="flex flex-col gap-4">
 <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]"><span class="w-12 h-[1.5px] bg-primary"></span> Team Management</div>
-<div class="flex flex-col items-start gap-4 sm:gap-6">
+<div class="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-end">
 <div>
 <h2 class="font-headline font-extrabold tracking-tighter leading-tight text-on-background text-4xl sm:text-6xl">Team <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Management</span></h2>
 <p class="font-body text-base sm:text-xl font-medium text-slate-600 max-w-3xl leading-relaxed mt-4 sm:mt-6">Manage practitioner access and administrative permissions for your clinic.</p>
 </div>
-<button type="button" id="add-user-open" class="bg-primary text-white px-5 sm:px-8 py-3 sm:py-4 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest hover:shadow-xl hover:shadow-primary/25 transition-all duration-300 active:scale-95 hover:scale-[1.02] inline-flex items-center gap-2">
+<button type="button" id="add-user-open" class="self-start sm:self-auto bg-primary text-white px-5 sm:px-8 py-3 sm:py-4 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest hover:shadow-xl hover:shadow-primary/25 transition-all duration-300 active:scale-95 hover:scale-[1.02] flex items-center gap-2">
 <span class="material-symbols-outlined text-base">person_add</span>
                         Add New User
                     </button>
 </div>
 </div>
-<form class="flex flex-wrap gap-4 items-center justify-between pt-8 border-t border-slate-100" method="get" action="">
-<div class="flex flex-wrap gap-4">
+<form class="pt-8 border-t border-slate-100" method="get" action="">
+<div class="flex items-center gap-3 sm:gap-4 flex-nowrap overflow-x-auto no-scrollbar w-full">
 <div class="relative">
 <label class="sr-only" for="filter-role">Role</label>
-<select id="filter-role" name="role" class="appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-8 py-3.5 pr-12 text-on-background text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all" onchange="this.form.submit()">
+<select id="filter-role" name="role" class="shrink-0 appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-8 py-3.5 pr-12 text-on-background text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all" onchange="this.form.submit()">
 <option value="all"<?php echo $filter_role === 'all' ? ' selected' : ''; ?>>All roles</option>
 <option value="tenant_owner"<?php echo $filter_role === 'tenant_owner' ? ' selected' : ''; ?>>Clinic owner</option>
 <option value="manager"<?php echo $filter_role === 'manager' ? ' selected' : ''; ?>>Manager</option>
@@ -451,18 +451,13 @@ $team_total = count($team_members);
 </div>
 <div class="relative">
 <label class="sr-only" for="filter-status">Status</label>
-<select id="filter-status" name="status" class="appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-8 py-3.5 pr-12 text-on-background text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all" onchange="this.form.submit()">
+<select id="filter-status" name="status" class="shrink-0 appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-8 py-3.5 pr-12 text-on-background text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all" onchange="this.form.submit()">
 <option value="all"<?php echo $filter_status === 'all' ? ' selected' : ''; ?>>All statuses</option>
 <option value="active"<?php echo $filter_status === 'active' ? ' selected' : ''; ?>>Active</option>
 <option value="suspended"<?php echo $filter_status === 'suspended' ? ' selected' : ''; ?>>Suspended</option>
 </select>
 <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-primary text-lg">filter_list</span>
 </div>
-</div>
-<div class="bg-primary/5 px-6 py-2.5 rounded-full border border-primary/10">
-<p class="text-primary text-[10px] font-black uppercase tracking-widest">
-                        Showing <span class="text-slate-900"><?php echo (int) $team_total; ?></span> of <span class="text-slate-900"><?php echo (int) $team_total_all; ?></span> · <span class="text-slate-900"><?php echo (int) $team_active_count; ?></span> active in view · <span class="text-slate-900"><?php echo (int) $team_active_all; ?></span> active clinic-wide
-                    </p>
 </div>
 </form>
 </section>
@@ -633,7 +628,10 @@ $team_total = count($team_members);
 </tbody>
 </table>
 </div>
-<div class="px-10 py-6 bg-slate-50 border-t border-slate-100">
+<div class="px-6 sm:px-10 py-6 bg-slate-50 border-t border-slate-100 space-y-2">
+<p class="text-primary text-[10px] font-black uppercase tracking-widest">
+                    Showing <span class="text-slate-900"><?php echo (int) $team_total; ?></span> of <span class="text-slate-900"><?php echo (int) $team_total_all; ?></span> · <span class="text-slate-900"><?php echo (int) $team_active_count; ?></span> active in view · <span class="text-slate-900"><?php echo (int) $team_active_all; ?></span> active clinic-wide
+                </p>
 <p class="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/70">
                     <span class="text-slate-900"><?php echo (int) $team_total; ?></span> team member<?php echo $team_total === 1 ? '' : 's'; ?> for this clinic
                 </p>
