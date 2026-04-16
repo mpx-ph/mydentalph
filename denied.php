@@ -99,7 +99,7 @@ http_response_code(403);
             var container = document.getElementById("deniedAnimation");
             if (!container) return;
 
-            lottie.loadAnimation({
+            var animation = lottie.loadAnimation({
                 container: container,
                 renderer: "svg",
                 loop: true,
@@ -107,6 +107,31 @@ http_response_code(403);
                 path: "denied.json",
                 rendererSettings: {
                     preserveAspectRatio: "xMidYMid meet"
+                }
+            });
+
+            animation.addEventListener("DOMLoaded", function () {
+                try {
+                    var svg = container.querySelector("svg");
+                    if (!svg) return;
+
+                    var graphicRoot = svg.querySelector("g");
+                    if (!graphicRoot) return;
+
+                    var box = graphicRoot.getBBox();
+                    if (!box || box.width <= 0 || box.height <= 0) return;
+
+                    var padX = box.width * 0.02;
+                    var padY = box.height * 0.02;
+                    var viewX = box.x - padX;
+                    var viewY = box.y - padY;
+                    var viewW = box.width + (padX * 2);
+                    var viewH = box.height + (padY * 2);
+
+                    svg.setAttribute("viewBox", viewX + " " + viewY + " " + viewW + " " + viewH);
+                    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+                } catch (e) {
+                    // Keep default rendering if SVG bounds cannot be calculated.
                 }
             });
         })();
