@@ -236,8 +236,8 @@ try {
 <span class="material-symbols-outlined text-[20px]">menu</span>
 </button>
 <div id="provider-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
-<main class="ml-0 lg:ml-64 pt-[4.75rem] sm:pt-24 min-h-screen provider-page-enter">
-<div class="pt-4 sm:pt-6 px-6 lg:px-10 pb-20 space-y-6">
+<main class="ml-0 lg:ml-64 pt-[5.1rem] sm:pt-24 min-h-screen provider-page-enter">
+<div class="pt-6 sm:pt-6 px-6 lg:px-10 pb-20 space-y-6">
 <!-- Editorial Header Section -->
 <section class="flex flex-col gap-4 mb-4">
 <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]"><span class="w-12 h-[1.5px] bg-primary"></span> Subscription &amp; Billing</div>
@@ -367,7 +367,106 @@ try {
 </div>
 </div>
 </div>
-<div class="ftl-table-wrap overflow-x-auto">
+<div class="md:hidden p-4 sm:p-5 space-y-4 bg-white">
+<?php if ($subscription_financial_log === []): ?>
+<div class="rounded-2xl border border-slate-200/80 bg-slate-50/60 px-4 py-8 text-center">
+<span class="inline-flex flex-col items-center gap-3 max-w-xs mx-auto">
+<span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-on-surface-variant/40 ring-1 ring-slate-200/80">
+<span class="material-symbols-outlined text-2xl">payments</span>
+</span>
+<span class="text-sm font-semibold text-on-surface-variant">No payment records yet.</span>
+<span class="text-xs text-on-surface-variant/55 leading-relaxed">Completed subscription payments will appear here.</span>
+</span>
+</div>
+<?php else: ?>
+<?php foreach ($subscription_financial_log as $logRow): ?>
+<?php
+    $logId = (int) ($logRow['id'] ?? 0);
+    $auditId = 'SUB-' . str_pad((string) max(1, $logId), 6, '0', STR_PAD_LEFT);
+    $logPlanName = trim((string) ($logRow['plan_name'] ?? ''));
+    if ($logPlanName === '') {
+        $slugBit = trim((string) ($logRow['plan_slug'] ?? ''));
+        $logPlanName = $slugBit !== '' ? ucwords(str_replace(['-', '_'], ' ', $slugBit)) : '—';
+    }
+    $logPlanUpper = strtoupper($logPlanName);
+    $logAmtRaw = $logRow['amount_paid'] ?? null;
+    $logAmt = is_numeric($logAmtRaw) ? (float) $logAmtRaw : null;
+    if ($logAmt === null || $logAmt <= 0) {
+        $pf = $logRow['price'] ?? null;
+        $logAmt = is_numeric($pf) ? (float) $pf : null;
+    }
+    $logAmountDisp = ($logAmt !== null && $logAmt > 0) ? ('₱' . number_format($logAmt, 2, '.', ',')) : '—';
+    $logCreated = trim((string) ($logRow['created_at'] ?? ''));
+    $logPaidTs = $logCreated !== '' ? strtotime($logCreated) : false;
+    if ($logPaidTs === false) {
+        $ss = trim((string) ($logRow['subscription_start'] ?? ''));
+        $logPaidTs = $ss !== '' ? strtotime($ss . ' 12:00:00') : false;
+    }
+    $logDateLine = $logPaidTs !== false ? date('M j, Y', $logPaidTs) : '—';
+    $logTimeLine = $logPaidTs !== false ? date('g:i A', $logPaidTs) : '';
+    $pm = strtolower(trim((string) ($logRow['payment_method'] ?? '')));
+    $refNum = trim((string) ($logRow['reference_number'] ?? ''));
+    if ($pm !== '') {
+        $refPill = $pm === 'paymaya' ? 'paymaya' : $pm;
+    } elseif ($refNum !== '') {
+        $refPill = strlen($refNum) > 24 ? (substr($refNum, 0, 12) . '…') : $refNum;
+    } else {
+        $refPill = '—';
+    }
+    $ps = strtolower(trim((string) ($logRow['payment_status'] ?? '')));
+    if (provider_dashboard_payment_means_paid($ps)) {
+        $statusLabel = 'PAID';
+        $statusClass = 'bg-emerald-50 text-emerald-800 ring-emerald-200/80';
+    } elseif ($ps === 'pending') {
+        $statusLabel = 'PENDING';
+        $statusClass = 'bg-amber-50 text-amber-900 ring-amber-200/80';
+    } elseif ($ps === 'failed') {
+        $statusLabel = 'FAILED';
+        $statusClass = 'bg-red-50 text-red-800 ring-red-200/80';
+    } elseif ($ps === 'cancelled' || $ps === 'canceled') {
+        $statusLabel = 'CANCELLED';
+        $statusClass = 'bg-slate-100 text-on-surface-variant ring-slate-200/80';
+    } else {
+        $statusLabel = $ps !== '' ? strtoupper($ps) : '—';
+        $statusClass = 'bg-slate-100 text-on-surface-variant ring-slate-200/80';
+    }
+?>
+<article class="rounded-2xl border border-slate-200 bg-white p-4 space-y-3 shadow-sm">
+<div class="flex items-start justify-between gap-3">
+<div class="min-w-0">
+<p class="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/60">Audit ID</p>
+<p class="font-mono text-xs font-semibold text-on-surface-variant mt-1"><?php echo htmlspecialchars($auditId, ENT_QUOTES, 'UTF-8'); ?></p>
+</div>
+<span class="inline-flex items-center rounded-full text-[10px] font-extrabold uppercase tracking-wider px-3 py-1 ring-1 <?php echo $statusClass; ?>"><?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div>
+<p class="text-[10px] font-bold uppercase tracking-[0.18em] text-on-surface-variant/60">Plan</p>
+<p class="text-sm font-extrabold text-on-background mt-1 leading-tight"><?php echo htmlspecialchars($logPlanUpper, ENT_QUOTES, 'UTF-8'); ?></p>
+</div>
+<div>
+<p class="text-[10px] font-bold uppercase tracking-[0.18em] text-on-surface-variant/60">Amount</p>
+<p class="text-sm font-bold text-on-background mt-1 tabular-nums"><?php echo htmlspecialchars($logAmountDisp, ENT_QUOTES, 'UTF-8'); ?></p>
+</div>
+<div>
+<p class="text-[10px] font-bold uppercase tracking-[0.18em] text-on-surface-variant/60">Date paid</p>
+<p class="text-sm font-semibold text-on-background mt-1"><?php echo htmlspecialchars($logDateLine, ENT_QUOTES, 'UTF-8'); ?></p>
+<?php if ($logTimeLine !== ''): ?><p class="text-xs text-on-surface-variant/65 mt-0.5 tabular-nums"><?php echo htmlspecialchars($logTimeLine, ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
+</div>
+<div>
+<p class="text-[10px] font-bold uppercase tracking-[0.18em] text-on-surface-variant/60">Ref ID</p>
+<?php if ($refPill !== '—'): ?>
+<span class="inline-flex items-center rounded-full bg-slate-100 text-on-surface-variant text-[11px] font-semibold px-3 py-1 ring-1 ring-slate-200/80 mt-1"><?php echo htmlspecialchars($refPill, ENT_QUOTES, 'UTF-8'); ?></span>
+<?php else: ?>
+<span class="text-on-surface-variant/50 text-sm mt-1 inline-block">—</span>
+<?php endif; ?>
+</div>
+</div>
+</article>
+<?php endforeach; ?>
+<?php endif; ?>
+</div>
+<div class="ftl-table-wrap hidden md:block overflow-x-auto">
 <table class="w-full min-w-[720px] text-left border-collapse">
 <thead>
 <tr class="border-b border-slate-200/80 bg-slate-50/90">
