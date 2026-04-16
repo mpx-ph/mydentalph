@@ -79,14 +79,15 @@ try {
             COALESCE(MAX(a.id), 0) AS appointment_id,
             a.booking_id,
             COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
-            COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0) AS total_paid
+            COALESCE(SUM(CASE WHEN py.status = 'completed' THEN py.amount ELSE 0 END), 0) AS total_paid,
+            COALESCE(a.treatment_id, '') AS treatment_id
         FROM tbl_appointments a
         LEFT JOIN tbl_payments py
             ON py.tenant_id = a.tenant_id
            AND py.booking_id = a.booking_id
         WHERE a.tenant_id = ?
           AND a.booking_id = ?
-        GROUP BY a.booking_id, a.total_treatment_cost
+        GROUP BY a.booking_id, a.total_treatment_cost, a.treatment_id
         LIMIT 1
     ";
     $bookingStmt = $pdo->prepare($bookingSql);
@@ -101,6 +102,7 @@ try {
     $totalPaid = (float) ($bookingRow['total_paid'] ?? 0);
     $pendingBalance = max(0, $totalCost - $totalPaid);
     $appointmentId = (int) ($bookingRow['appointment_id'] ?? 0);
+    $bookingTreatmentId = trim((string) ($bookingRow['treatment_id'] ?? ''));
 
     $storedDate = trim((string) ($stash['payment_date'] ?? ''));
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $storedDate)) {
@@ -130,6 +132,17 @@ try {
             $totalCost = (float) ($bookingRow['total_treatment_cost'] ?? 0);
             $totalPaid = (float) ($bookingRow['total_paid'] ?? 0);
             $pendingBalance = max(0, $totalCost - $totalPaid);
+            $bookingTreatmentId = trim((string) ($bookingRow['treatment_id'] ?? $bookingTreatmentId));
+        }
+
+        // Mirror the cash flow behavior: apply the completed PayMongo payment to the linked treatment.
+        if ($bookingTreatmentId !== '' && $amount > 0) {
+            staff_treatments_apply_payment(
+                $pdo,
+                $tenantId,
+                $bookingTreatmentId,
+                (float) $amount
+            );
         }
 
         $finalize = $stash['installment_finalize'] ?? null;

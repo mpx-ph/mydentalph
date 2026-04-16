@@ -3,6 +3,7 @@ $staff_nav_active = 'payments';
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/../mail_config.php';
 require_once __DIR__ . '/includes/appointment_db_tables.php';
+require_once __DIR__ . '/includes/staff_installment_helpers.php';
 
 /**
  * @return list<array{id:int, installment_number:int, amount_due:float, status:string, due_date:string}>
@@ -56,49 +57,8 @@ function staff_payment_recording_installment_is_paid(string $status): bool
  */
 function staff_payment_recording_apply_payment_to_treatment(PDO $pdo, string $tenantId, string $treatmentId, float $amount): void
 {
-    if ($tenantId === '' || $treatmentId === '' || $amount <= 0.0) {
-        return;
-    }
-
-    static $treatmentsTable = null;
-    if ($treatmentsTable === null) {
-        $treatTblStmt = $pdo->prepare("
-            SELECT TABLE_NAME
-            FROM information_schema.TABLES
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME IN ('tbl_treatments', 'treatments')
-            ORDER BY FIELD(TABLE_NAME, 'tbl_treatments', 'treatments')
-            LIMIT 1
-        ");
-        $treatTblStmt->execute();
-        $treatmentsTable = trim((string) ($treatTblStmt->fetchColumn() ?: ''));
-        if ($treatmentsTable === '') {
-            return;
-        }
-    }
-
-    $quotedTreat = '`' . str_replace('`', '``', $treatmentsTable) . '`';
-
-    // Use schema fields: amount_paid and remaining_balance.
-    $updSql = "
-        UPDATE {$quotedTreat}
-        SET
-            amount_paid = COALESCE(amount_paid, 0) + ?,
-            remaining_balance = GREATEST(
-                0,
-                COALESCE(total_cost, 0) - (COALESCE(amount_paid, 0) + ?)
-            )
-        WHERE tenant_id = ?
-          AND treatment_id = ?
-        LIMIT 1
-    ";
-    $updStmt = $pdo->prepare($updSql);
-    $updStmt->execute([
-        $amount,
-        $amount,
-        $tenantId,
-        $treatmentId,
-    ]);
+    // Delegate to shared helper so all payment entry points keep treatment progress in sync.
+    staff_treatments_apply_payment($pdo, $tenantId, $treatmentId, $amount);
 }
 
 function staff_payment_recording_financial_status(
@@ -1645,7 +1605,7 @@ try {
                         $insertStmt->execute($insertParams);
 
                         // Apply this successful payment to the linked treatment record when status is successful.
-                        if (!$usePayMongo && strtolower((string) $recordStatus) === 'completed') {
+                        if (strtolower((string) $recordStatus) === 'completed') {
                             staff_payment_recording_apply_payment_to_treatment(
                                 $pdo,
                                 $tenantId,
@@ -1891,7 +1851,7 @@ try {
                     $insertStmt->execute($insertParams);
 
                     // Apply this successful payment to the linked treatment record when status is successful.
-                    if (!$usePayMongo && strtolower((string) $recordStatus) === 'completed') {
+                    if (strtolower((string) $recordStatus) === 'completed') {
                         staff_payment_recording_apply_payment_to_treatment(
                             $pdo,
                             $tenantId,
