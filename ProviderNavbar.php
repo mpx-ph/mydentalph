@@ -93,15 +93,6 @@ if ($user_initial === '') {
         display: flex;
     }
 
-    .provider-login-transition__card {
-        width: min(520px, 100%);
-        border-radius: 1.5rem;
-        border: 1px solid rgba(19, 28, 37, 0.06);
-        background: rgba(255, 255, 255, 0.95);
-        box-shadow: 0 28px 60px -24px rgba(43, 139, 235, 0.28);
-        padding: 1.25rem 1.25rem 1.5rem;
-    }
-
     .provider-login-transition__anim {
         width: 100%;
         max-width: 420px;
@@ -229,10 +220,7 @@ Login
 })();
 </script>
 <div class="provider-login-transition" id="provider-login-transition" aria-hidden="true">
-    <div class="provider-login-transition__card">
-        <div class="provider-login-transition__anim" id="provider-login-transition-anim"></div>
-        <p class="text-center text-sm font-semibold tracking-wide text-slate-500">Preparing secure login...</p>
-    </div>
+    <div class="provider-login-transition__anim" id="provider-login-transition-anim"></div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
 <script>
