@@ -256,214 +256,22 @@ function provider_tenant_appt_format_date(?string $d): string
     $ts = strtotime($d);
     return $ts !== false ? date('M j, Y', $ts) : $d;
 }
-?>
-<!DOCTYPE html>
 
-<html class="light" lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>MyDental | Appointments</title>
-<link href="https://fonts.googleapis.com" rel="preconnect"/>
-<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Playfair+Display:ital,wght@1,400;1,700&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "surface-variant": "#f1f5f9",
-                        "on-background": "#101922",
-                        "surface": "#ffffff",
-                        "outline-variant": "#e2e8f0",
-                        "primary": "#2b8beb",
-                        "on-surface-variant": "#475569",
-                        "background": "#f8fafc",
-                        "surface-container-low": "#edf4ff",
-                        "surface-container-lowest": "#ffffff",
-                        "tertiary": "#8e4a00",
-                        "tertiary-container": "#ffdcc3",
-                        "error": "#ba1a1a"
-                    },
-                    fontFamily: {
-                        "headline": ["Manrope", "sans-serif"],
-                        "body": ["Manrope", "sans-serif"],
-                        "editorial": ["Playfair Display", "serif"]
-                    },
-                    borderRadius: {
-                        "DEFAULT": "0.25rem",
-                        "lg": "0.5rem",
-                        "xl": "1rem",
-                        "2xl": "1.5rem",
-                        "3xl": "2.5rem",
-                        "full": "9999px"
-                    },
-                },
-            },
-        }
-    </script>
-    <style>
-        html {
-            scrollbar-gutter: stable;
-        }
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-            vertical-align: middle;
-        }
-        .elevated-card {
-            background: #ffffff;
-            border: 1px solid rgba(226, 232, 240, 0.8);
-            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
-        }
-        .sidebar-glass {
-            background: rgba(252, 253, 255, 0.85);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border-right: 1px solid rgba(224, 233, 246, 0.5);
-        }
-        .mesh-bg {
-            background-color: #f7f9ff;
-            background-image:
-                radial-gradient(at 0% 0%, hsla(210, 100%, 98%, 1) 0, transparent 50%),
-                radial-gradient(at 50% 0%, hsla(217, 100%, 94%, 1) 0, transparent 50%),
-                radial-gradient(at 100% 0%, hsla(210, 100%, 98%, 1) 0, transparent 50%);
-        }
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .active-glow {
-            box-shadow: 0 0 20px -5px rgba(43, 139, 235, 0.4);
-        }
-        .provider-nav-link:not(.provider-nav-link--active):hover {
-            transform: translateX(4px);
-        }
-        @keyframes provider-page-in {
-            from { opacity: 0; transform: translateY(14px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .provider-page-enter {
-            animation: provider-page-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-        }
-        .provider-card-lift {
-            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
-        }
-        .provider-card-lift:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.12);
-        }
-        @media (max-width: 1023.98px) {
-            .provider-top-header {
-                left: 0 !important;
-                min-height: 5rem;
-            }
-            #provider-sidebar {
-                transform: translateX(-100%);
-                transition: transform 220ms ease;
-                z-index: 60;
-                background: #ffffff;
-                backdrop-filter: none;
-                -webkit-backdrop-filter: none;
-                border-right: 1px solid #e2e8f0;
-            }
-            body.provider-mobile-sidebar-open #provider-sidebar {
-                transform: translateX(0);
-            }
-            #provider-mobile-sidebar-toggle {
-                transition: left 220ms ease, background-color 220ms ease, color 220ms ease;
-            }
-            body.provider-mobile-sidebar-open #provider-mobile-sidebar-toggle {
-                left: calc(16rem - 3.25rem);
-                background: rgba(255, 255, 255, 0.98);
-                color: #0066ff;
-            }
-            #provider-mobile-sidebar-backdrop {
-                position: fixed;
-                inset: 0;
-                background: rgba(19, 28, 37, 0.45);
-                backdrop-filter: blur(2px);
-                -webkit-backdrop-filter: blur(2px);
-                z-index: 55;
-                opacity: 0;
-                pointer-events: none;
-                transition: opacity 220ms ease;
-            }
-            body.provider-mobile-sidebar-open #provider-mobile-sidebar-backdrop {
-                opacity: 1;
-                pointer-events: auto;
-            }
-        }
-        body { font-family: 'Manrope', sans-serif; }
-    </style>
-</head>
-<body class="mesh-bg font-body text-on-background min-h-screen selection:bg-primary/10">
-<?php include __DIR__ . '/provider_tenant_sidebar.inc.php'; ?>
-<?php include __DIR__ . '/provider_tenant_top_header.inc.php'; ?>
-<button id="provider-mobile-sidebar-toggle" type="button" class="fixed top-6 left-4 z-[65] lg:hidden w-10 h-10 rounded-xl bg-white/90 border border-white text-primary shadow-md flex items-center justify-center" aria-controls="provider-sidebar" aria-expanded="false" aria-label="Open navigation menu">
-<span class="material-symbols-outlined text-[20px]">menu</span>
-</button>
-<div id="provider-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
-<main class="ml-0 lg:ml-64 pt-[4.75rem] sm:pt-24 min-h-screen provider-page-enter">
-<div class="pt-4 sm:pt-6 px-6 lg:px-10 pb-20 space-y-8">
-<section class="flex flex-col gap-6">
-<div class="flex flex-col gap-4">
-<div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]"><span class="w-12 h-[1.5px] bg-primary"></span> Tenant management</div>
-<div class="flex flex-col xl:flex-row xl:justify-between xl:items-end gap-8">
-<div>
-<h2 class="font-headline font-extrabold tracking-tighter leading-tight text-on-background text-5xl sm:text-6xl">Appointment <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Journal</span></h2>
-<p class="font-body text-xl font-medium text-slate-600 max-w-3xl leading-relaxed mt-6">A running ledger of patient visits, assigned clinicians, and session outcomes for this clinic.</p>
-</div>
-<div class="flex flex-wrap items-center gap-3 shrink-0">
-<span class="material-symbols-outlined text-primary text-2xl">calendar_clock</span>
-<div class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80">
-<span class="text-slate-900"><?php echo (int) $total_filtered; ?></span> in view
-<span class="text-on-surface-variant/50 mx-1">·</span>
-<span class="text-slate-900"><?php echo (int) $total_all; ?></span> total stored
-</div>
-</div>
-</div>
-</div>
-<form class="pt-8 border-t border-slate-100" method="get" action="<?php echo htmlspecialchars($self_php, ENT_QUOTES, 'UTF-8'); ?>">
-<div class="rounded-2xl border border-slate-200 bg-white/80 p-4 sm:p-5">
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4 items-end">
-<div class="relative lg:col-span-2">
-<label class="sr-only" for="filter-status">Status</label>
-<select id="filter-status" name="status" class="w-full appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 pr-11 text-on-background text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all" onchange="this.form.submit()">
-<option value="all"<?php echo $filter_status === 'all' ? ' selected' : ''; ?>>All statuses</option>
-<option value="pending"<?php echo $filter_status === 'pending' ? ' selected' : ''; ?>>Pending</option>
-<option value="confirmed"<?php echo $filter_status === 'confirmed' ? ' selected' : ''; ?>>Confirmed</option>
-<option value="completed"<?php echo $filter_status === 'completed' ? ' selected' : ''; ?>>Completed</option>
-<option value="cancelled"<?php echo $filter_status === 'cancelled' ? ' selected' : ''; ?>>Cancelled</option>
-<option value="no_show"<?php echo $filter_status === 'no_show' ? ' selected' : ''; ?>>No-show</option>
-</select>
-<span class="material-symbols-outlined absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-primary text-lg">tune</span>
-</div>
-<div class="lg:col-span-2">
-<label class="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80 mb-2" for="date-from">From</label>
-<input type="date" id="date-from" name="date_from" value="<?php echo htmlspecialchars($date_from, ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-on-background focus:ring-2 focus:ring-primary/20 focus:border-primary"/>
-</div>
-<div class="lg:col-span-2">
-<label class="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80 mb-2" for="date-to">To</label>
-<input type="date" id="date-to" name="date_to" value="<?php echo htmlspecialchars($date_to, ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-on-background focus:ring-2 focus:ring-primary/20 focus:border-primary"/>
-</div>
-<div class="sm:col-span-2 lg:col-span-4">
-<label class="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80 mb-2" for="q-search">Search</label>
-<div class="relative">
-<span class="material-symbols-outlined pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/45 text-lg">search</span>
-<input type="search" id="q-search" name="q" value="<?php echo htmlspecialchars($q_search, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Patient, booking ID, doctor…" class="w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 py-3 text-sm font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary"/>
-</div>
-</div>
-<div class="sm:col-span-2 lg:col-span-2 flex flex-col-reverse sm:flex-row lg:justify-end gap-2.5">
-<?php if ($filter_status !== 'all' || $date_from !== '' || $date_to !== '' || $q_search !== '') { ?>
-<a class="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-[10px] font-black uppercase tracking-widest text-primary hover:border-primary/30 hover:bg-primary/5 transition-colors" href="<?php echo htmlspecialchars($self_php, ENT_QUOTES, 'UTF-8'); ?>">Reset</a>
-<?php } ?>
-<button type="submit" class="inline-flex items-center justify-center rounded-2xl bg-primary text-white px-8 py-3 text-[10px] font-black uppercase tracking-widest hover:shadow-lg hover:shadow-primary/25 transition-all active:scale-[0.98]">Apply filters</button>
-</div>
-</div>
-</form>
-</section>
-
+function provider_tenant_render_appointments_table(
+    string $self_php,
+    string $t_appts,
+    int $total_all,
+    int $total_filtered,
+    int $page,
+    int $total_pages,
+    array $appointments_rows,
+    string $filter_status,
+    string $date_from,
+    string $date_to,
+    string $q_search
+): string {
+    ob_start();
+    ?>
 <div class="elevated-card provider-card-lift rounded-3xl overflow-hidden">
 <div class="md:hidden p-4 space-y-3">
 <?php if ($t_appts === '') { ?>
@@ -632,14 +440,259 @@ Page <span class="text-slate-900"><?php echo (int) $page; ?></span> of <span cla
     };
 ?>
 <?php if ($page > 1) { ?>
-<a class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-on-background hover:border-primary/30 hover:text-primary transition-colors" href="<?php echo htmlspecialchars($qs($page - 1), ENT_QUOTES, 'UTF-8'); ?>">Previous</a>
+<a class="appt-pagination-link rounded-xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-on-background hover:border-primary/30 hover:text-primary transition-colors" href="<?php echo htmlspecialchars($qs($page - 1), ENT_QUOTES, 'UTF-8'); ?>">Previous</a>
 <?php } ?>
 <?php if ($page < $total_pages) { ?>
-<a class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-on-background hover:border-primary/30 hover:text-primary transition-colors" href="<?php echo htmlspecialchars($qs($page + 1), ENT_QUOTES, 'UTF-8'); ?>">Next</a>
+<a class="appt-pagination-link rounded-xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-on-background hover:border-primary/30 hover:text-primary transition-colors" href="<?php echo htmlspecialchars($qs($page + 1), ENT_QUOTES, 'UTF-8'); ?>">Next</a>
 <?php } ?>
 </div>
 </div>
 <?php } ?>
+</div>
+    <?php
+    return (string) ob_get_clean();
+}
+
+if (isset($_GET['ajax']) && (string) $_GET['ajax'] === 'appointments_table') {
+    echo provider_tenant_render_appointments_table(
+        $self_php,
+        $t_appts,
+        $total_all,
+        $total_filtered,
+        $page,
+        (int) ($total_pages ?? 1),
+        $appointments_rows,
+        $filter_status,
+        $date_from,
+        $date_to,
+        $q_search
+    );
+    exit;
+}
+?>
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MyDental | Appointments</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Playfair+Display:ital,wght@1,400;1,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-variant": "#f1f5f9",
+                        "on-background": "#101922",
+                        "surface": "#ffffff",
+                        "outline-variant": "#e2e8f0",
+                        "primary": "#2b8beb",
+                        "on-surface-variant": "#475569",
+                        "background": "#f8fafc",
+                        "surface-container-low": "#edf4ff",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary": "#8e4a00",
+                        "tertiary-container": "#ffdcc3",
+                        "error": "#ba1a1a"
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Manrope", "sans-serif"],
+                        "editorial": ["Playfair Display", "serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "1rem",
+                        "2xl": "1.5rem",
+                        "3xl": "2.5rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        html {
+            scrollbar-gutter: stable;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .elevated-card {
+            background: #ffffff;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+        }
+        .sidebar-glass {
+            background: rgba(252, 253, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-right: 1px solid rgba(224, 233, 246, 0.5);
+        }
+        .mesh-bg {
+            background-color: #f7f9ff;
+            background-image:
+                radial-gradient(at 0% 0%, hsla(210, 100%, 98%, 1) 0, transparent 50%),
+                radial-gradient(at 50% 0%, hsla(217, 100%, 94%, 1) 0, transparent 50%),
+                radial-gradient(at 100% 0%, hsla(210, 100%, 98%, 1) 0, transparent 50%);
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .active-glow {
+            box-shadow: 0 0 20px -5px rgba(43, 139, 235, 0.4);
+        }
+        .provider-nav-link:not(.provider-nav-link--active):hover {
+            transform: translateX(4px);
+        }
+        @keyframes provider-page-in {
+            from { opacity: 0; transform: translateY(14px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .provider-page-enter {
+            animation: provider-page-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        .provider-card-lift {
+            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+        }
+        .provider-card-lift:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.12);
+        }
+        @media (max-width: 1023.98px) {
+            .provider-top-header {
+                left: 0 !important;
+                min-height: 5rem;
+            }
+            #provider-sidebar {
+                transform: translateX(-100%);
+                transition: transform 220ms ease;
+                z-index: 60;
+                background: #ffffff;
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+                border-right: 1px solid #e2e8f0;
+            }
+            body.provider-mobile-sidebar-open #provider-sidebar {
+                transform: translateX(0);
+            }
+            #provider-mobile-sidebar-toggle {
+                transition: left 220ms ease, background-color 220ms ease, color 220ms ease;
+            }
+            body.provider-mobile-sidebar-open #provider-mobile-sidebar-toggle {
+                left: calc(16rem - 3.25rem);
+                background: rgba(255, 255, 255, 0.98);
+                color: #0066ff;
+            }
+            #provider-mobile-sidebar-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(19, 28, 37, 0.45);
+                backdrop-filter: blur(2px);
+                -webkit-backdrop-filter: blur(2px);
+                z-index: 55;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 220ms ease;
+            }
+            body.provider-mobile-sidebar-open #provider-mobile-sidebar-backdrop {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
+        body { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="mesh-bg font-body text-on-background min-h-screen selection:bg-primary/10">
+<?php include __DIR__ . '/provider_tenant_sidebar.inc.php'; ?>
+<?php include __DIR__ . '/provider_tenant_top_header.inc.php'; ?>
+<button id="provider-mobile-sidebar-toggle" type="button" class="fixed top-6 left-4 z-[65] lg:hidden w-10 h-10 rounded-xl bg-white/90 border border-white text-primary shadow-md flex items-center justify-center" aria-controls="provider-sidebar" aria-expanded="false" aria-label="Open navigation menu">
+<span class="material-symbols-outlined text-[20px]">menu</span>
+</button>
+<div id="provider-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
+<main class="ml-0 lg:ml-64 pt-[4.75rem] sm:pt-24 min-h-screen provider-page-enter">
+<div class="pt-4 sm:pt-6 px-6 lg:px-10 pb-20 space-y-8">
+<section class="flex flex-col gap-6">
+<div class="flex flex-col gap-4">
+<div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]"><span class="w-12 h-[1.5px] bg-primary"></span> Tenant management</div>
+<div class="flex flex-col xl:flex-row xl:justify-between xl:items-end gap-8">
+<div>
+<h2 class="font-headline font-extrabold tracking-tighter leading-tight text-on-background text-5xl sm:text-6xl">Appointment <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Journal</span></h2>
+<p class="font-body text-xl font-medium text-slate-600 max-w-3xl leading-relaxed mt-6">A running ledger of patient visits, assigned clinicians, and session outcomes for this clinic.</p>
+</div>
+<div class="flex flex-wrap items-center gap-3 shrink-0">
+<span class="material-symbols-outlined text-primary text-2xl">calendar_clock</span>
+<div class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80">
+<span class="text-slate-900"><?php echo (int) $total_filtered; ?></span> in view
+<span class="text-on-surface-variant/50 mx-1">·</span>
+<span class="text-slate-900"><?php echo (int) $total_all; ?></span> total stored
+</div>
+</div>
+</div>
+</div>
+<form id="appointments-filter-form" class="pt-8 border-t border-slate-100" method="get" action="<?php echo htmlspecialchars($self_php, ENT_QUOTES, 'UTF-8'); ?>">
+<div class="rounded-2xl border border-slate-200 bg-white/80 p-4 sm:p-5">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4 items-end">
+<div class="relative lg:col-span-2">
+<label class="sr-only" for="filter-status">Status</label>
+<select id="filter-status" name="status" class="w-full appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 pr-11 text-on-background text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all" onchange="this.form.submit()">
+<option value="all"<?php echo $filter_status === 'all' ? ' selected' : ''; ?>>All statuses</option>
+<option value="pending"<?php echo $filter_status === 'pending' ? ' selected' : ''; ?>>Pending</option>
+<option value="confirmed"<?php echo $filter_status === 'confirmed' ? ' selected' : ''; ?>>Confirmed</option>
+<option value="completed"<?php echo $filter_status === 'completed' ? ' selected' : ''; ?>>Completed</option>
+<option value="cancelled"<?php echo $filter_status === 'cancelled' ? ' selected' : ''; ?>>Cancelled</option>
+<option value="no_show"<?php echo $filter_status === 'no_show' ? ' selected' : ''; ?>>No-show</option>
+</select>
+<span class="material-symbols-outlined absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-primary text-lg">tune</span>
+</div>
+<div class="lg:col-span-2">
+<label class="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80 mb-2" for="date-from">From</label>
+<input type="date" id="date-from" name="date_from" value="<?php echo htmlspecialchars($date_from, ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-on-background focus:ring-2 focus:ring-primary/20 focus:border-primary"/>
+</div>
+<div class="lg:col-span-2">
+<label class="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80 mb-2" for="date-to">To</label>
+<input type="date" id="date-to" name="date_to" value="<?php echo htmlspecialchars($date_to, ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-on-background focus:ring-2 focus:ring-primary/20 focus:border-primary"/>
+</div>
+<div class="sm:col-span-2 lg:col-span-4">
+<label class="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80 mb-2" for="q-search">Search</label>
+<div class="relative">
+<span class="material-symbols-outlined pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/45 text-lg">search</span>
+<input type="search" id="q-search" name="q" value="<?php echo htmlspecialchars($q_search, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Patient, booking ID, doctor…" class="w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 py-3 text-sm font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary"/>
+</div>
+</div>
+<div class="sm:col-span-2 lg:col-span-2 flex flex-col-reverse sm:flex-row lg:justify-end gap-2.5">
+<?php if ($filter_status !== 'all' || $date_from !== '' || $date_to !== '' || $q_search !== '') { ?>
+<a class="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-[10px] font-black uppercase tracking-widest text-primary hover:border-primary/30 hover:bg-primary/5 transition-colors" href="<?php echo htmlspecialchars($self_php, ENT_QUOTES, 'UTF-8'); ?>">Reset</a>
+<?php } ?>
+<button type="submit" class="inline-flex items-center justify-center rounded-2xl bg-primary text-white px-8 py-3 text-[10px] font-black uppercase tracking-widest hover:shadow-lg hover:shadow-primary/25 transition-all active:scale-[0.98]">Apply filters</button>
+</div>
+</div>
+</form>
+</section>
+
+<div id="appointments-table-container">
+<?php
+echo provider_tenant_render_appointments_table(
+    $self_php,
+    $t_appts,
+    $total_all,
+    $total_filtered,
+    $page,
+    (int) ($total_pages ?? 1),
+    $appointments_rows,
+    $filter_status,
+    $date_from,
+    $date_to,
+    $q_search
+);
+?>
 </div>
 
 <footer class="mt-auto p-8 hidden lg:flex justify-center sticky bottom-0 z-10 pointer-events-none">
@@ -711,6 +764,124 @@ Page <span class="text-slate-900"><?php echo (int) $page; ?></span> of <span cla
   }
 
   setMobileSidebar(false);
+})();
+</script>
+<script>
+(function () {
+  var form = document.getElementById('appointments-filter-form');
+  var tableContainer = document.getElementById('appointments-table-container');
+  if (!form || !tableContainer) return;
+
+  var activeRequest = null;
+
+  function setLoading(isLoading) {
+    tableContainer.classList.toggle('opacity-60', isLoading);
+    tableContainer.classList.toggle('pointer-events-none', isLoading);
+  }
+
+  function buildAjaxUrlFromForm(extraParams) {
+    var formData = new FormData(form);
+    var params = new URLSearchParams(formData);
+    params.set('ajax', 'appointments_table');
+    if (extraParams) {
+      Object.keys(extraParams).forEach(function (key) {
+        params.set(key, extraParams[key]);
+      });
+    }
+    return form.getAttribute('action') + '?' + params.toString();
+  }
+
+  function updateBrowserUrlFromForm(extraParams) {
+    var formData = new FormData(form);
+    var params = new URLSearchParams(formData);
+    if (extraParams) {
+      Object.keys(extraParams).forEach(function (key) {
+        params.set(key, extraParams[key]);
+      });
+    }
+    params.delete('ajax');
+    var url = form.getAttribute('action');
+    var qs = params.toString();
+    if (qs !== '') {
+      url += '?' + qs;
+    }
+    window.history.replaceState({}, '', url);
+  }
+
+  function fetchAndRender(url, urlStateParams) {
+    if (activeRequest && typeof activeRequest.abort === 'function') {
+      activeRequest.abort();
+    }
+    activeRequest = new AbortController();
+    setLoading(true);
+    fetch(url, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin',
+      signal: activeRequest.signal
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error('Request failed');
+        return res.text();
+      })
+      .then(function (html) {
+        tableContainer.innerHTML = html;
+        updateBrowserUrlFromForm(urlStateParams || null);
+      })
+      .catch(function (err) {
+        if (err && err.name === 'AbortError') return;
+        form.submit();
+      })
+      .finally(function () {
+        setLoading(false);
+      });
+  }
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    fetchAndRender(buildAjaxUrlFromForm({ page: '1' }), { page: '1' });
+  });
+
+  var statusSelect = form.querySelector('#filter-status');
+  if (statusSelect) {
+    statusSelect.addEventListener('change', function () {
+      fetchAndRender(buildAjaxUrlFromForm({ page: '1' }), { page: '1' });
+    });
+  }
+
+  tableContainer.addEventListener('click', function (event) {
+    var link = event.target.closest('a');
+    if (!link) return;
+    var href = link.getAttribute('href') || '';
+    if (href === '' || href.indexOf('javascript:') === 0) return;
+    if (href.indexOf('ProviderTenantAppointments.php') === -1) return;
+    event.preventDefault();
+    var parsed = new URL(href, window.location.origin);
+    var paramsObj = {};
+    parsed.searchParams.forEach(function (value, key) {
+      paramsObj[key] = value;
+      var field = form.elements.namedItem(key);
+      if (field && 'value' in field) {
+        field.value = value;
+      }
+    });
+    if (!parsed.searchParams.has('status')) {
+      var st = form.elements.namedItem('status');
+      if (st && 'value' in st) st.value = 'all';
+    }
+    if (!parsed.searchParams.has('date_from')) {
+      var df = form.elements.namedItem('date_from');
+      if (df && 'value' in df) df.value = '';
+    }
+    if (!parsed.searchParams.has('date_to')) {
+      var dt = form.elements.namedItem('date_to');
+      if (dt && 'value' in dt) dt.value = '';
+    }
+    if (!parsed.searchParams.has('q')) {
+      var qs = form.elements.namedItem('q');
+      if (qs && 'value' in qs) qs.value = '';
+    }
+    fetchAndRender(buildAjaxUrlFromForm(paramsObj), paramsObj);
+  });
 })();
 </script>
 </body></html>
