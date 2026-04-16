@@ -780,6 +780,7 @@ $supportsAppointmentVisitTypeColumn = false;
 $supportsAppointmentServicesTable = false;
 $appointmentServiceColumns = [];
 $supportsAppointmentServiceTypeColumn = false;
+$supportsAppointmentServiceAppointmentIdColumn = false;
 $installmentsTableName = null;
 $supportsServiceEnableInstallmentColumn = false;
 $supportsPaymentsInstallmentNumberColumn = false;
@@ -910,6 +911,7 @@ try {
             $appointmentServicesColumnsStmt->execute();
             $appointmentServiceColumns = array_map('strval', $appointmentServicesColumnsStmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
             $supportsAppointmentServiceTypeColumn = in_array('service_type', $appointmentServiceColumns, true);
+            $supportsAppointmentServiceAppointmentIdColumn = in_array('appointment_id', $appointmentServiceColumns, true);
         }
 
         foreach (['tbl_installments', 'installments'] as $installmentsCandidate) {
@@ -2214,6 +2216,22 @@ try {
         $visitTypeGroupSql = $supportsAppointmentVisitTypeColumn ? "a.visit_type," : '';
 
         if ($supportsAppointmentServicesTable) {
+            $appointmentServicesJoinSql = $supportsAppointmentServiceAppointmentIdColumn
+                ? "
+                    LEFT JOIN tbl_appointment_services aps
+                        ON aps.tenant_id = a.tenant_id
+                       AND aps.booking_id = a.booking_id
+                       AND (
+                            aps.appointment_id IS NULL
+                            OR aps.appointment_id = 0
+                            OR aps.appointment_id = a.id
+                       )
+                "
+                : "
+                    LEFT JOIN tbl_appointment_services aps
+                        ON aps.tenant_id = a.tenant_id
+                       AND aps.booking_id = a.booking_id
+                ";
             $normalizedServiceTypeSql = $supportsAppointmentServiceTypeColumn
                 ? "CASE
                         WHEN LOWER(TRIM(COALESCE(NULLIF(aps.service_type, ''), NULLIF(a.service_type, ''), ''))) = 'regular' THEN 'regular'
@@ -2254,9 +2272,7 @@ try {
                     p.first_name AS patient_first_name,
                     p.last_name AS patient_last_name
                 FROM tbl_appointments a
-                LEFT JOIN tbl_appointment_services aps
-                    ON aps.tenant_id = a.tenant_id
-                   AND aps.booking_id = a.booking_id
+                {$appointmentServicesJoinSql}
                 LEFT JOIN tbl_services sv
                     ON sv.tenant_id = aps.tenant_id
                    AND sv.service_id = aps.service_id
@@ -2436,6 +2452,11 @@ try {
                     LEFT JOIN tbl_appointments a2
                       ON a2.tenant_id = aps.tenant_id
                      AND a2.booking_id = aps.booking_id
+                     AND (
+                        aps.appointment_id IS NULL
+                        OR aps.appointment_id = 0
+                        OR a2.id = aps.appointment_id
+                     )
                     LEFT JOIN tbl_services sv
                       ON sv.tenant_id = aps.tenant_id
                      AND sv.service_id = aps.service_id
