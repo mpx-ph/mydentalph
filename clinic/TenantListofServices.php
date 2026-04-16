@@ -98,6 +98,47 @@ $services_initial = tenant_public_services_fetch_for_tenant($pdo, (string) $tena
             transform: translateY(-4px);
             box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.12);
         }
+        @media (max-width: 1023.98px) {
+            .provider-top-header {
+                left: 0 !important;
+                min-height: 5rem;
+            }
+            #provider-sidebar {
+                transform: translateX(-100%);
+                transition: transform 220ms ease;
+                z-index: 60;
+                background: #ffffff;
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+                border-right: 1px solid #e2e8f0;
+            }
+            body.provider-mobile-sidebar-open #provider-sidebar {
+                transform: translateX(0);
+            }
+            #provider-mobile-sidebar-toggle {
+                transition: left 220ms ease, background-color 220ms ease, color 220ms ease;
+            }
+            body.provider-mobile-sidebar-open #provider-mobile-sidebar-toggle {
+                left: calc(16rem - 3.25rem);
+                background: rgba(255, 255, 255, 0.98);
+                color: #0066ff;
+            }
+            #provider-mobile-sidebar-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(19, 28, 37, 0.45);
+                backdrop-filter: blur(2px);
+                -webkit-backdrop-filter: blur(2px);
+                z-index: 55;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 220ms ease;
+            }
+            body.provider-mobile-sidebar-open #provider-mobile-sidebar-backdrop {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
         body { font-family: 'Manrope', sans-serif; }
         #svc-modal[hidden] { display: none !important; }
     </style>
@@ -105,7 +146,11 @@ $services_initial = tenant_public_services_fetch_for_tenant($pdo, (string) $tena
 <body class="mesh-bg font-body text-on-background min-h-screen selection:bg-primary/10">
 <?php include dirname(__DIR__) . '/provider_tenant_sidebar.inc.php'; ?>
 <?php include dirname(__DIR__) . '/provider_tenant_top_header.inc.php'; ?>
-<main class="ml-64 pt-[4.5rem] sm:pt-24 min-h-screen provider-page-enter">
+<button id="provider-mobile-sidebar-toggle" type="button" class="fixed top-6 left-4 z-[65] lg:hidden w-10 h-10 rounded-xl bg-white/90 border border-white text-primary shadow-md flex items-center justify-center" aria-controls="provider-sidebar" aria-expanded="false" aria-label="Open navigation menu">
+<span class="material-symbols-outlined text-[20px]">menu</span>
+</button>
+<div id="provider-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
+<main class="ml-0 lg:ml-64 pt-[4.75rem] sm:pt-24 min-h-screen provider-page-enter">
 <div class="pt-4 sm:pt-6 px-6 lg:px-10 pb-20 space-y-8">
 <section class="p-8 sm:p-10 flex flex-col gap-6">
 <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8">
@@ -116,7 +161,7 @@ $services_initial = tenant_public_services_fetch_for_tenant($pdo, (string) $tena
 </h2>
 <p class="font-body text-sm font-semibold text-on-surface-variant uppercase tracking-[0.2em] mt-3">Configure and price your clinical treatment offerings</p>
 </div>
-<button type="button" id="btn-open-add-service" class="inline-flex items-center justify-center gap-3 rounded-full bg-[#0f172a] text-white px-8 py-4 text-[11px] font-black uppercase tracking-[0.15em] shadow-lg shadow-slate-900/20 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all shrink-0">
+<button type="button" id="btn-open-add-service" class="self-start lg:self-auto inline-flex items-center justify-center gap-3 rounded-full bg-[#0f172a] text-white px-6 sm:px-8 py-3.5 sm:py-4 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.15em] shadow-lg shadow-slate-900/20 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all shrink-0">
 <span class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/30">
 <span class="material-symbols-outlined text-lg">add</span>
 </span>
@@ -187,6 +232,56 @@ $services_initial = tenant_public_services_fetch_for_tenant($pdo, (string) $tena
 
 <script>
 (function () {
+    var body = document.body;
+    var sidebar = document.getElementById('provider-sidebar');
+    var mobileToggle = document.getElementById('provider-mobile-sidebar-toggle');
+    var mobileBackdrop = document.getElementById('provider-mobile-sidebar-backdrop');
+    var desktopQuery = window.matchMedia('(min-width: 1024px)');
+
+    if (body && sidebar && mobileToggle && mobileBackdrop) {
+        function setMobileSidebar(open) {
+            body.classList.toggle('provider-mobile-sidebar-open', open);
+            mobileToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            mobileToggle.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+            var icon = mobileToggle.querySelector('.material-symbols-outlined');
+            if (icon) {
+                icon.textContent = open ? 'close' : 'menu';
+            }
+        }
+
+        function closeOnDesktop() {
+            if (desktopQuery.matches) {
+                setMobileSidebar(false);
+            }
+        }
+
+        mobileToggle.addEventListener('click', function () {
+            setMobileSidebar(!body.classList.contains('provider-mobile-sidebar-open'));
+        });
+        mobileBackdrop.addEventListener('click', function () {
+            setMobileSidebar(false);
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && body.classList.contains('provider-mobile-sidebar-open')) {
+                setMobileSidebar(false);
+            }
+        });
+        sidebar.querySelectorAll('a').forEach(function (link) {
+            link.addEventListener('click', function () {
+                if (!desktopQuery.matches) {
+                    setMobileSidebar(false);
+                }
+            });
+        });
+        if (typeof desktopQuery.addEventListener === 'function') {
+            desktopQuery.addEventListener('change', closeOnDesktop);
+        } else if (typeof desktopQuery.addListener === 'function') {
+            desktopQuery.addListener(closeOnDesktop);
+        }
+
+        setMobileSidebar(false);
+    }
+
     var apiUrl = <?php echo json_encode(BASE_URL . 'api/tenant_public_services.php', JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS); ?>;
     var modal = document.getElementById('svc-modal');
     var openBtn = document.getElementById('btn-open-add-service');
