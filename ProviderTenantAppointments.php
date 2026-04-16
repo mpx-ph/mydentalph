@@ -642,7 +642,7 @@ if (isset($_GET['ajax']) && (string) $_GET['ajax'] === 'appointments_table') {
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4 items-end">
 <div class="relative lg:col-span-2">
 <label class="sr-only" for="filter-status">Status</label>
-<select id="filter-status" name="status" class="w-full appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 pr-11 text-on-background text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all" onchange="this.form.submit()">
+<select id="filter-status" name="status" class="w-full appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 pr-11 text-on-background text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all">
 <option value="all"<?php echo $filter_status === 'all' ? ' selected' : ''; ?>>All statuses</option>
 <option value="pending"<?php echo $filter_status === 'pending' ? ' selected' : ''; ?>>Pending</option>
 <option value="confirmed"<?php echo $filter_status === 'confirmed' ? ' selected' : ''; ?>>Confirmed</option>
