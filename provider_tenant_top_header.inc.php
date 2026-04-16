@@ -9,7 +9,7 @@ $__email_hidden = ($user_email_display ?? '') === '' || trim((string) $user_emai
 $__avatar = htmlspecialchars((string) ($avatar_initials ?? 'MD'), ENT_QUOTES, 'UTF-8');
 ?>
 <header class="provider-top-header fixed top-0 right-0 left-64 z-30 min-h-[4.5rem] sm:h-20 sm:min-h-0 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 shadow-sm shadow-slate-200/30" data-purpose="top-header">
-<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-6 lg:px-10 py-3 sm:py-0 sm:h-full">
+<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pl-20 pr-4 sm:px-6 lg:px-10 py-3 sm:py-0 sm:h-full">
 <div class="min-w-0 flex-1">
 <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80 mb-0.5">Clinic</p>
 <h1 class="text-lg sm:text-xl font-extrabold font-headline text-on-background truncate tracking-tight"><?php echo $__clinic_title; ?></h1>
