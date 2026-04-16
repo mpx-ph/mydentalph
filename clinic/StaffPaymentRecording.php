@@ -48,6 +48,75 @@ function staff_payment_recording_installment_is_paid(string $status): bool
     return $s === 'paid' || $s === 'completed';
 }
 
+/**
+ * Incrementally sync a treatment's financial fields when a payment is recorded.
+ *
+ * This assumes that the payment is already marked as a successful transaction in tbl_payments
+ * (status = 'paid') and should not be called for pending, cancelled, or failed payments.
+ */
+function staff_payment_recording_apply_payment_to_treatment(PDO $pdo, string $tenantId, string $bookingId, float $amount): void
+{
+    if ($tenantId === '' || $bookingId === '' || $amount <= 0.0) {
+        return;
+    }
+
+    // Resolve treatments table name once per request.
+    static $treatmentsTable = null;
+    if ($treatmentsTable === null) {
+        $treatTblStmt = $pdo->prepare("
+            SELECT TABLE_NAME
+            FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME IN ('tbl_treatments', 'treatments')
+            ORDER BY FIELD(TABLE_NAME, 'tbl_treatments', 'treatments')
+            LIMIT 1
+        ");
+        $treatTblStmt->execute();
+        $treatmentsTable = trim((string) ($treatTblStmt->fetchColumn() ?: ''));
+        if ($treatmentsTable === '') {
+            return;
+        }
+    }
+
+    // Find the treatment linked to this booking.
+    $apptStmt = $pdo->prepare("
+        SELECT COALESCE(a.treatment_id, '') AS treatment_id
+        FROM tbl_appointments a
+        WHERE a.tenant_id = ?
+          AND a.booking_id = ?
+        LIMIT 1
+    ");
+    $apptStmt->execute([$tenantId, $bookingId]);
+    $apptRow = $apptStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $treatmentId = trim((string) ($apptRow['treatment_id'] ?? ''));
+    if ($treatmentId === '') {
+        return;
+    }
+
+    $quotedTreat = '`' . str_replace('`', '``', $treatmentsTable) . '`';
+
+    // Update total_paid and remaining_balance atomically based on the payment amount.
+    $updSql = "
+        UPDATE {$quotedTreat}
+        SET
+            total_paid = COALESCE(total_paid, 0) + ?,
+            remaining_balance = GREATEST(
+                0,
+                COALESCE(total_cost, 0) - (COALESCE(total_paid, 0) + ?)
+            )
+        WHERE tenant_id = ?
+          AND treatment_id = ?
+        LIMIT 1
+    ";
+    $updStmt = $pdo->prepare($updSql);
+    $updStmt->execute([
+        $amount,
+        $amount,
+        $tenantId,
+        $treatmentId,
+    ]);
+}
+
 function staff_payment_recording_financial_status(
     float $totalCost,
     float $totalPaid,
@@ -1456,7 +1525,9 @@ try {
                         $composedNotes = trim(($notes !== '' ? ($notes . ' ') : '') . $noteExtra);
 
                         $usePayMongo = in_array($method, ['gcash', 'bank_transfer', 'credit_card'], true);
-                        $recordStatus = $usePayMongo ? 'pending' : 'completed';
+                        // For non-online payments, mark as 'paid' immediately so downstream logic
+                        // can treat them as successful transactions.
+                        $recordStatus = $usePayMongo ? 'pending' : 'paid';
 
                         if ($mode === 'full') {
                             $paymentType = 'fullpayment';
@@ -1589,6 +1660,16 @@ try {
 
                         $insertStmt = $pdo->prepare($insertSql);
                         $insertStmt->execute($insertParams);
+
+                        // Apply this successful payment to the linked treatment record when status is 'paid'.
+                        if (!$usePayMongo && strtolower((string) $recordStatus) === 'paid') {
+                            staff_payment_recording_apply_payment_to_treatment(
+                                $pdo,
+                                $tenantId,
+                                $selectedBookingId,
+                                (float) $amount
+                            );
+                        }
 
                         $finalizeItems = [];
                         foreach ($toPay as $tp) {
@@ -1758,7 +1839,9 @@ try {
                     }
 
                     $usePayMongo = in_array($method, ['gcash', 'bank_transfer', 'credit_card'], true);
-                    $recordStatus = $usePayMongo ? 'pending' : 'completed';
+                    // For non-online payments, mark as 'paid' immediately so downstream logic
+                    // can treat them as successful transactions.
+                    $recordStatus = $usePayMongo ? 'pending' : 'paid';
 
                     $paymentId = 'PAY-' . date('YmdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
                     // Keep compatibility with deployments where payment_type enum only allows downpayment/fullpayment.
@@ -1824,6 +1907,16 @@ try {
 
                     $insertStmt = $pdo->prepare($insertSql);
                     $insertStmt->execute($insertParams);
+
+                    // Apply this successful payment to the linked treatment record when status is 'paid'.
+                    if (!$usePayMongo && strtolower((string) $recordStatus) === 'paid') {
+                        staff_payment_recording_apply_payment_to_treatment(
+                            $pdo,
+                            $tenantId,
+                            $selectedBookingId,
+                            (float) $amount
+                        );
+                    }
 
                     if ($usePayMongo) {
                         require_once dirname(__DIR__) . '/paymongo_config.php';
