@@ -77,6 +77,37 @@ if ($user_initial === '') {
     .dark .provider-nav-mobile__sheet a:not(.provider-nav-mobile__cta) {
         color: #f7f9ff;
     }
+
+    .provider-login-transition {
+        position: fixed;
+        inset: 0;
+        z-index: 999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        background: rgba(247, 249, 255, 0.96);
+    }
+
+    .provider-login-transition.is-visible {
+        display: flex;
+    }
+
+    .provider-login-transition__card {
+        width: min(520px, 100%);
+        border-radius: 1.5rem;
+        border: 1px solid rgba(19, 28, 37, 0.06);
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 28px 60px -24px rgba(43, 139, 235, 0.28);
+        padding: 1.25rem 1.25rem 1.5rem;
+    }
+
+    .provider-login-transition__anim {
+        width: 100%;
+        max-width: 420px;
+        aspect-ratio: 7 / 5;
+        margin: 0 auto;
+    }
 </style>
 <header class="provider-navbar fixed top-0 left-0 right-0 z-50 h-16 w-full overflow-visible border-b border-on-surface/5 bg-white/95 dark:bg-background-dark/95 transition-colors duration-200 ease-out">
 <div class="mx-auto max-w-[1800px] px-6 sm:px-8 lg:px-10 h-full overflow-visible">
@@ -130,7 +161,7 @@ if ($user_initial === '') {
 </details>
 </div>
 <?php else: ?>
-<a href="ProviderLoginTransition.php" class="px-8 py-3 leading-none bg-primary text-white font-black rounded-full overflow-hidden transition-transform hover:scale-[1.02] active:scale-95 text-[11px] uppercase tracking-[0.22em] text-center transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 shadow-lg shadow-primary/25">
+<a href="ProviderLogin.php" data-login-transition="true" class="px-8 py-3 leading-none bg-primary text-white font-black rounded-full overflow-hidden transition-transform hover:scale-[1.02] active:scale-95 text-[11px] uppercase tracking-[0.22em] text-center transform-gpu focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 shadow-lg shadow-primary/25">
 Login
 </a>
 <?php endif; ?>
@@ -194,6 +225,58 @@ Login
     }
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && root.open) closeNav();
+    });
+})();
+</script>
+<div class="provider-login-transition" id="provider-login-transition" aria-hidden="true">
+    <div class="provider-login-transition__card">
+        <div class="provider-login-transition__anim" id="provider-login-transition-anim"></div>
+        <p class="text-center text-sm font-semibold tracking-wide text-slate-500">Preparing secure login...</p>
+    </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+<script>
+(function () {
+    var trigger = document.querySelector('[data-login-transition="true"]');
+    var overlay = document.getElementById('provider-login-transition');
+    var animContainer = document.getElementById('provider-login-transition-anim');
+
+    if (!trigger || !overlay || !animContainer) return;
+
+    var redirected = false;
+    function go(url) {
+        if (redirected) return;
+        redirected = true;
+        window.location.href = url;
+    }
+
+    trigger.addEventListener('click', function (event) {
+        var destination = trigger.getAttribute('href') || 'ProviderLogin.php';
+        var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        event.preventDefault();
+        overlay.classList.add('is-visible');
+        document.documentElement.style.overflow = 'hidden';
+
+        if (prefersReduced || !window.lottie) {
+            setTimeout(function () { go(destination); }, 150);
+            return;
+        }
+
+        try {
+            var animation = window.lottie.loadAnimation({
+                container: animContainer,
+                renderer: 'svg',
+                loop: false,
+                autoplay: true,
+                path: 'flyingteeth1.json'
+            });
+
+            animation.addEventListener('complete', function () { go(destination); });
+            setTimeout(function () { go(destination); }, 7000);
+        } catch (err) {
+            setTimeout(function () { go(destination); }, 150);
+        }
     });
 })();
 </script>
