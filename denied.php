@@ -56,14 +56,14 @@ http_response_code(403);
     <main>
         <section class="relative overflow-hidden bg-surface-variant">
             <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(43,139,235,0.14),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(43,139,235,0.08),transparent_45%)]"></div>
-            <div class="relative mx-auto grid min-h-[82vh] w-full max-w-[1500px] grid-cols-1 items-center gap-10 px-6 py-14 sm:px-10 lg:grid-cols-[1.35fr_1fr] lg:gap-10 lg:px-16">
-                <div class="order-1 flex items-center justify-center">
+            <div class="relative mx-auto grid min-h-[82vh] w-full max-w-[1500px] grid-cols-1 items-center gap-6 px-6 py-14 sm:px-10 lg:grid-cols-[1.15fr_1fr] lg:gap-4 lg:px-16">
+                <div class="order-1 flex items-center justify-center lg:order-1">
                     <div class="w-full max-w-[1200px]">
                         <div id="deniedAnimation" class="aspect-[16/8] w-full bg-transparent"></div>
                     </div>
                 </div>
 
-                <div class="order-2 flex flex-col items-center text-center">
+                <div class="order-2 lg:order-2">
                     <img src="MyDental Logo.svg" alt="MyDental logo" class="mb-8 h-14 w-auto sm:h-16" />
                     <p class="mb-4 font-headline text-xs font-bold uppercase tracking-[0.28em] text-primary">Access Control</p>
                     <h1 class="font-headline text-[clamp(2rem,5.2vw,4.8rem)] font-extrabold leading-[0.95] tracking-tight text-on-surface">
@@ -77,7 +77,7 @@ http_response_code(403);
                         If you think this is a mistake, please contact your account administrator.
                     </p>
 
-                    <div class="mt-10 flex flex-wrap items-center justify-center gap-4">
+                    <div class="mt-10 flex flex-wrap items-center gap-4">
                         <a href="ProviderMain.php"
                             class="group inline-flex items-center justify-center rounded-full bg-primary px-8 py-3.5 font-headline text-xs font-bold uppercase tracking-[0.16em] text-white transition-all hover:pr-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
                             <span>Back to Home</span>
