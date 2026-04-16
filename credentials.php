@@ -462,6 +462,44 @@ git push</textarea>
         </section>
 
         <section class="card">
+            <h2>SISIG DENTALS <span class="new-badge">(NEW)</span></h2>
+            <div class="link-row">
+                Link:
+                <a href="https://mydentalph.ct.ws/sisigdentals" target="_blank">
+                    https://mydentalph.ct.ws/sisigdentals
+                </a>
+            </div>
+
+            <div class="credential">
+                <div class="role">PROVIDER</div>
+                <div class="row">
+                    <div class="label">Username</div>
+                    <div class="value">SISIG</div>
+                    <button class="copy-btn" data-copy="SISIG">Copy</button>
+                </div>
+                <div class="row">
+                    <div class="label">Password</div>
+                    <div class="value">123</div>
+                    <button class="copy-btn" data-copy="123">Copy</button>
+                </div>
+            </div>
+
+            <div class="credential">
+                <div class="role">STAFF</div>
+                <div class="row">
+                    <div class="label">Email</div>
+                    <div class="value">nelmanlapaz19@gmail.com</div>
+                    <button class="copy-btn" data-copy="nelmanlapaz19@gmail.com">Copy</button>
+                </div>
+                <div class="row">
+                    <div class="label">Password</div>
+                    <div class="value">Admin123456_</div>
+                    <button class="copy-btn" data-copy="Admin123456_">Copy</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
             <h2>Ilocos Empanada Dental Clinic</h2>
             <div class="link-row">
                 Link:
