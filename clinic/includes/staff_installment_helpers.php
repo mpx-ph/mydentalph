@@ -55,7 +55,8 @@ function staff_treatments_apply_payment(
     PDO $pdo,
     string $tenantId,
     string $treatmentId,
-    float $amount
+    float $amount,
+    int $monthsPaidIncrement = 0
 ): void {
     $tenantId = trim($tenantId);
     $treatmentId = trim($treatmentId);
@@ -113,6 +114,7 @@ function staff_treatments_apply_payment(
     $totalCost = max(0.0, (float) ($row['total_cost'] ?? 0));
     $currentPaid = max(0.0, (float) ($row['amount_paid'] ?? 0));
     $durationMonths = max(0, (int) ($row['duration_months'] ?? 0));
+    $currentMonthsPaid = max(0, (int) ($row['months_paid'] ?? 0));
 
     $newPaid = $currentPaid + $amount;
     if ($totalCost > 0 && $newPaid > $totalCost) {
@@ -120,21 +122,12 @@ function staff_treatments_apply_payment(
     }
     $newRemaining = $totalCost > 0 ? max(0.0, $totalCost - $newPaid) : 0.0;
 
-    // Derive simple month progress proportional to financial progress.
-    $monthsPaid = 0;
-    if ($durationMonths > 0 && $totalCost > 0) {
-        $ratio = $newPaid / $totalCost;
-        if ($ratio < 0) {
-            $ratio = 0.0;
-        } elseif ($ratio > 1) {
-            $ratio = 1.0;
-        }
-        $monthsPaid = (int) floor($ratio * $durationMonths + 1e-6);
-        if ($monthsPaid < 0) {
-            $monthsPaid = 0;
-        } elseif ($monthsPaid > $durationMonths) {
-            $monthsPaid = $durationMonths;
-        }
+    // Month progress must come from actual monthly installment payments only.
+    $monthsPaid = $currentMonthsPaid + max(0, $monthsPaidIncrement);
+    if ($monthsPaid < 0) {
+        $monthsPaid = 0;
+    } elseif ($durationMonths > 0 && $monthsPaid > $durationMonths) {
+        $monthsPaid = $durationMonths;
     }
     $monthsLeft = $durationMonths > 0 ? max(0, $durationMonths - $monthsPaid) : 0;
 

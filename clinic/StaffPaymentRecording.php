@@ -55,10 +55,16 @@ function staff_payment_recording_installment_is_paid(string $status): bool
  * This should only be called for successful payments (e.g. tbl_payments.status = 'completed' or 'paid')
  * and not for pending, cancelled, or failed payments.
  */
-function staff_payment_recording_apply_payment_to_treatment(PDO $pdo, string $tenantId, string $treatmentId, float $amount): void
+function staff_payment_recording_apply_payment_to_treatment(
+    PDO $pdo,
+    string $tenantId,
+    string $treatmentId,
+    float $amount,
+    int $monthsPaidIncrement = 0
+): void
 {
     // Delegate to shared helper so all payment entry points keep treatment progress in sync.
-    staff_treatments_apply_payment($pdo, $tenantId, $treatmentId, $amount);
+    staff_treatments_apply_payment($pdo, $tenantId, $treatmentId, $amount, $monthsPaidIncrement);
 }
 
 function staff_payment_recording_financial_status(
@@ -1632,22 +1638,30 @@ try {
                         $insertStmt = $pdo->prepare($insertSql);
                         $insertStmt->execute($insertParams);
 
-                        // Apply this successful payment to the linked treatment record when status is successful.
-                        if (strtolower((string) $recordStatus) === 'completed') {
-                            staff_payment_recording_apply_payment_to_treatment(
-                                $pdo,
-                                $tenantId,
-                                $bookingTreatmentId,
-                                (float) $amount
-                            );
-                        }
-
                         $finalizeItems = [];
                         foreach ($toPay as $tp) {
                             $finalizeItems[] = [
                                 'id' => (int) $tp['id'],
                                 'installment_number' => (int) $tp['installment_number'],
                             ];
+                        }
+                        $monthsPaidIncrement = 0;
+                        foreach ($toPay as $tp) {
+                            $installmentNumber = (int) ($tp['installment_number'] ?? 0);
+                            if ($installmentNumber > 1) {
+                                $monthsPaidIncrement++;
+                            }
+                        }
+
+                        // Apply this successful payment to the linked treatment record when status is successful.
+                        if (strtolower((string) $recordStatus) === 'completed') {
+                            staff_payment_recording_apply_payment_to_treatment(
+                                $pdo,
+                                $tenantId,
+                                $bookingTreatmentId,
+                                (float) $amount,
+                                $monthsPaidIncrement
+                            );
                         }
 
                         if ($usePayMongo) {
@@ -1685,6 +1699,7 @@ try {
                                 'installment_finalize' => [
                                     'installments_table' => $installmentsTableName,
                                     'paid_items' => $finalizeItems,
+                                    'months_paid_increment' => $monthsPaidIncrement,
                                 ],
                             ];
 

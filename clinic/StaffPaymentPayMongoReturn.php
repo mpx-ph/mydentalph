@@ -137,11 +137,17 @@ try {
 
         // Mirror the cash flow behavior: apply the completed PayMongo payment to the linked treatment.
         if ($bookingTreatmentId !== '' && $amount > 0) {
+            $monthsPaidIncrement = 0;
+            $finalize = $stash['installment_finalize'] ?? null;
+            if (is_array($finalize)) {
+                $monthsPaidIncrement = max(0, (int) ($finalize['months_paid_increment'] ?? 0));
+            }
             staff_treatments_apply_payment(
                 $pdo,
                 $tenantId,
                 $bookingTreatmentId,
-                (float) $amount
+                (float) $amount,
+                $monthsPaidIncrement
             );
         }
 
