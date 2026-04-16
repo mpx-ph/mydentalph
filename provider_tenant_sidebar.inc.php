@@ -164,7 +164,7 @@ $rs = isset($renewal_sidebar) ? (string) $renewal_sidebar : '';
 <img src="<?php echo htmlspecialchars($provider_portal_path_prefix . 'SQUARE MYDENTAL LOGO.svg', ENT_QUOTES, 'UTF-8'); ?>" alt="MyDental" class="provider-logo-square h-11 w-11 object-contain"/>
 </span>
 </a>
-<p class="provider-sidebar-tagline text-on-surface-variant text-[10px] font-bold tracking-[0.2em] mt-2 opacity-60 uppercase">Provider Console</p>
+<p class="provider-sidebar-tagline text-on-surface-variant text-[10px] font-bold tracking-[0.2em] mt-2 opacity-60 uppercase">Tenant Console</p>
 </div>
 <nav class="flex-1 min-h-0 space-y-1 overflow-y-auto no-scrollbar">
 <?php foreach ($nav as $key => $meta): ?>
