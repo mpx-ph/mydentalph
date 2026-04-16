@@ -468,7 +468,76 @@ $team_total = count($team_members);
 </section>
 <!-- Table Card -->
 <div class="elevated-card provider-card-lift rounded-3xl overflow-hidden">
-<div class="provider-users-table-wrap">
+<div class="md:hidden p-4 space-y-3">
+<?php if ($team_total_all === 0) { ?>
+<div class="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-on-surface-variant font-medium">No team members yet. Use <span class="text-primary font-bold">Add New User</span> to invite staff.</div>
+<?php } elseif ($team_total === 0) { ?>
+<div class="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-on-surface-variant font-medium">No team members match these filters. <a class="text-primary font-bold hover:underline" href="<?php echo htmlspecialchars($_SERVER['PHP_SELF'] ?? 'ProviderTenantUsers.php', ENT_QUOTES, 'UTF-8'); ?>">Clear filters</a></div>
+<?php } else { ?>
+<?php foreach ($team_members as $row) {
+    $uid = (string) ($row['user_id'] ?? '');
+    $email = (string) ($row['email'] ?? '');
+    $fullName = trim((string) ($row['full_name'] ?? ''));
+    if ($fullName === '') {
+        $sf = trim((string) ($row['staff_first'] ?? ''));
+        $sl = trim((string) ($row['staff_last'] ?? ''));
+        $fullName = trim($sf . ' ' . $sl) ?: '—';
+    }
+    $role = (string) ($row['role'] ?? '');
+    $roleLabel = provider_tenant_user_role_label($role);
+    $status = strtolower((string) ($row['status'] ?? ''));
+    $isActive = $status === 'active';
+    $lastLine = provider_tenant_format_last_activity(
+        isset($row['last_active']) ? (string) $row['last_active'] : null,
+        isset($row['last_login']) ? (string) $row['last_login'] : null,
+        isset($row['updated_at']) ? (string) $row['updated_at'] : null
+    );
+    $imgUrl = provider_tenant_profile_image_url(isset($row['profile_image']) ? (string) $row['profile_image'] : null);
+    $initials = provider_tenant_user_initials($fullName);
+    $roleBadgeClass = ($role === 'tenant_owner' || $role === 'dentist')
+        ? 'bg-primary/10 text-primary'
+        : 'bg-slate-100 text-on-surface-variant';
+    $statusDotClass = $isActive ? 'bg-green-500 animate-pulse' : ($status === 'suspended' ? 'bg-rose-500' : 'bg-amber-400');
+    $statusLabel = $isActive ? 'Active' : ucfirst($status !== '' ? $status : 'Unknown');
+    $canDeleteThis = !empty($is_owner) && $uid !== $user_id && $role !== 'tenant_owner';
+    ?>
+<article class="rounded-2xl border border-slate-200 bg-white p-4 space-y-3" data-user-id="<?php echo htmlspecialchars($uid, ENT_QUOTES, 'UTF-8'); ?>">
+<div class="flex items-center gap-3">
+<div class="w-11 h-11 rounded-2xl bg-primary/10 overflow-hidden ring-2 ring-primary/5 flex items-center justify-center shrink-0">
+<?php if ($imgUrl !== null) { ?>
+<img class="w-full h-full object-cover" src="<?php echo htmlspecialchars($imgUrl, ENT_QUOTES, 'UTF-8'); ?>" alt=""/>
+<?php } else { ?>
+<span class="text-xs font-black text-primary"><?php echo htmlspecialchars($initials, ENT_QUOTES, 'UTF-8'); ?></span>
+<?php } ?>
+</div>
+<div class="min-w-0">
+<p class="font-headline font-extrabold text-slate-900 truncate"><?php echo htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-[11px] font-medium text-on-surface-variant/80 truncate"><?php echo htmlspecialchars($email, ENT_QUOTES, 'UTF-8'); ?></p>
+</div>
+</div>
+<div class="flex items-center justify-between gap-2">
+<span class="<?php echo $roleBadgeClass; ?> text-[9px] font-black px-3 py-1.5 rounded-lg uppercase tracking-widest inline-block"><?php echo htmlspecialchars($roleLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="inline-flex items-center gap-2 text-[10px] font-black text-on-surface-variant/70 uppercase tracking-widest"><span class="w-2 h-2 rounded-full <?php echo $statusDotClass; ?>"></span><?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+</div>
+<div>
+<p class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Last Activity</p>
+<p class="text-xs font-semibold text-on-surface-variant mt-1"><?php echo htmlspecialchars($lastLine, ENT_QUOTES, 'UTF-8'); ?></p>
+</div>
+<div class="flex justify-end gap-2 pt-1">
+<button type="button" class="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 hover:border-primary/30 hover:text-primary flex items-center justify-center transition-all duration-200 shadow-sm" title="Edit (coming soon)" aria-label="Edit">
+<span class="material-symbols-outlined text-xl">edit</span>
+</button>
+<?php if ($canDeleteThis) { ?>
+<button type="button" class="provider-team-delete-btn w-10 h-10 rounded-xl bg-white border border-slate-200 text-rose-500 hover:bg-rose-50 hover:border-rose-200 flex items-center justify-center transition-all duration-200 shadow-sm disabled:opacity-50 disabled:pointer-events-none" title="Remove from team" aria-label="Remove from team" data-user-id="<?php echo htmlspecialchars($uid, ENT_QUOTES, 'UTF-8'); ?>">
+<span class="material-symbols-outlined text-xl">delete</span>
+</button>
+<?php } ?>
+</div>
+</article>
+<?php } ?>
+<?php } ?>
+</div>
+<div class="hidden md:block overflow-x-auto">
 <table class="w-full text-left border-collapse">
 <thead>
 <tr class="bg-slate-50/50 border-b border-slate-100">
