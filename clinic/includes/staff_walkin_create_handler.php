@@ -402,33 +402,39 @@ try {
             }
         }
 
+        $selectedInstallmentServiceIds = [];
+        foreach ($normalizedServices as $s) {
+            if (!empty($s['enable_installment'])) {
+                $selectedInstallmentServiceIds[] = trim((string) ($s['service_id'] ?? ''));
+            }
+        }
+        $selectedInstallmentServiceIds = array_values(array_unique(array_filter($selectedInstallmentServiceIds, static function ($v) {
+            return $v !== '';
+        })));
+
         if ($requestedTreatmentId !== '') {
-            if (!$activeTreatment || (string) ($activeTreatment['treatment_id'] ?? '') !== $requestedTreatmentId) {
+            if (
+                !$activeTreatment
+                || !$isActiveInstallmentTreatment
+                || (string) ($activeTreatment['treatment_id'] ?? '') !== $requestedTreatmentId
+            ) {
                 $pdo->rollBack();
                 echo json_encode(['success' => false, 'message' => 'Selected treatment is no longer active for this patient.']);
                 exit;
             }
-            $resolvedTreatmentId = $requestedTreatmentId;
-        } elseif ($activeTreatment && $isActiveInstallmentTreatment) {
             $activePrimaryServiceId = trim((string) ($activeTreatment['primary_service_id'] ?? ''));
-            $selectedInstallmentServiceIds = [];
-            foreach ($normalizedServices as $s) {
-                if (!empty($s['enable_installment'])) {
-                    $selectedInstallmentServiceIds[] = trim((string) ($s['service_id'] ?? ''));
+            foreach ($selectedInstallmentServiceIds as $selectedInstallmentServiceId) {
+                if ($activePrimaryServiceId !== '' && $selectedInstallmentServiceId !== $activePrimaryServiceId) {
+                    $pdo->rollBack();
+                    echo json_encode(['success' => false, 'message' => 'Only the ongoing installment service is allowed while treatment is active.']);
+                    exit;
                 }
             }
-            $selectedInstallmentServiceIds = array_values(array_unique(array_filter($selectedInstallmentServiceIds, static function ($v) {
-                return $v !== '';
-            })));
-            if (empty($selectedInstallmentServiceIds)) {
-                $resolvedTreatmentId = (string) ($activeTreatment['treatment_id'] ?? '');
-            } elseif ($activePrimaryServiceId !== '' && in_array($activePrimaryServiceId, $selectedInstallmentServiceIds, true)) {
-                $resolvedTreatmentId = (string) ($activeTreatment['treatment_id'] ?? '');
-            } else {
-                $pdo->rollBack();
-                echo json_encode(['success' => false, 'message' => 'Patient already has an active installment treatment. Continue the ongoing installment service first.']);
-                exit;
-            }
+            $resolvedTreatmentId = $requestedTreatmentId;
+        } elseif ($hasInstallmentService && $activeTreatment && $isActiveInstallmentTreatment) {
+            $pdo->rollBack();
+            echo json_encode(['success' => false, 'message' => 'Patient already has an active installment treatment. Continue the ongoing installment service first.']);
+            exit;
         }
 
         if ($resolvedTreatmentId !== '' && $activeTreatment) {
