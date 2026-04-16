@@ -2204,9 +2204,9 @@ try {
         if ($supportsAppointmentServicesTable) {
             $normalizedServiceTypeSql = $supportsAppointmentServiceTypeColumn
                 ? "CASE
-                        WHEN LOWER(TRIM(COALESCE(aps.service_type, ''))) = 'regular' THEN 'regular'
-                        WHEN LOWER(TRIM(COALESCE(aps.service_type, ''))) = 'installment' THEN 'installment'
-                        WHEN TRIM(COALESCE(aps.treatment_id, '')) <> '' THEN 'installment'
+                        WHEN LOWER(TRIM(COALESCE(NULLIF(aps.service_type, ''), NULLIF(a.service_type, ''), ''))) = 'regular' THEN 'regular'
+                        WHEN LOWER(TRIM(COALESCE(NULLIF(aps.service_type, ''), NULLIF(a.service_type, ''), ''))) = 'installment' THEN 'installment'
+                        WHEN TRIM(COALESCE(NULLIF(aps.treatment_id, ''), NULLIF(a.treatment_id, ''), '')) <> '' THEN 'installment'
                         ELSE 'regular'
                     END"
                 : ($supportsServiceEnableInstallmentColumn ? "CASE WHEN COALESCE(sv.enable_installment, 0) = 1 THEN 'installment' ELSE 'regular' END" : "'installment'");
@@ -2235,7 +2235,7 @@ try {
                     p.first_name AS patient_first_name,
                     p.last_name AS patient_last_name
                 FROM tbl_appointments a
-                INNER JOIN tbl_appointment_services aps
+                LEFT JOIN tbl_appointment_services aps
                     ON aps.tenant_id = a.tenant_id
                    AND aps.booking_id = a.booking_id
                 LEFT JOIN tbl_services sv
