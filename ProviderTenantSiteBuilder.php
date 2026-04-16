@@ -425,8 +425,8 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
 <span class="material-symbols-outlined text-[20px]">menu</span>
 </button>
 <div id="provider-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
-<main class="ml-0 lg:ml-64 pt-[4.75rem] sm:pt-24 min-h-screen provider-page-enter">
-<div class="px-4 sm:px-6 lg:px-10 pb-16 max-w-[1920px] mx-auto w-full">
+<main class="ml-0 lg:ml-64 pt-[5.6rem] sm:pt-24 min-h-screen provider-page-enter">
+<div class="pt-2 sm:pt-0 px-4 sm:px-6 lg:px-10 pb-16 max-w-[1920px] mx-auto w-full">
 <section class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 mb-8">
 <div>
 <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]"><span class="w-12 h-[1.5px] bg-primary"></span> Patient website</div>
