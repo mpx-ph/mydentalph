@@ -28,7 +28,7 @@ if ($__prof_json === false) {
 <div id="profile-account-modal" class="fixed inset-0 z-[100] hidden" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
 <div class="profile-modal-overlay absolute inset-0" data-profile-modal-dismiss="1"></div>
 <div class="absolute inset-0 flex items-end sm:items-center justify-center p-0 sm:p-6 pointer-events-none">
-<div class="profile-modal-panel pointer-events-auto w-full sm:max-w-3xl lg:max-w-4xl max-h-[100dvh] sm:max-h-[min(92vh,52rem)] overflow-hidden rounded-t-3xl sm:rounded-3xl bg-white flex flex-col">
+<div class="profile-modal-panel pointer-events-auto w-full sm:max-w-3xl lg:max-w-4xl h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[min(92vh,52rem)] overflow-hidden rounded-none sm:rounded-3xl bg-white flex flex-col">
 <div class="flex items-start justify-between gap-4 px-5 sm:px-8 pt-5 sm:pt-7 pb-4 border-b border-slate-100 shrink-0">
 <div>
 <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80">Account</p>
@@ -39,7 +39,7 @@ if ($__prof_json === false) {
 <span class="material-symbols-outlined text-2xl">close</span>
 </button>
 </div>
-<div class="overflow-y-auto flex-1 min-h-0 px-5 sm:px-8 py-5 sm:py-6">
+<div class="overflow-y-auto flex-1 min-h-0 px-4 sm:px-8 py-4 sm:py-6">
 <form id="profile-account-form" class="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
 <div class="lg:col-span-3 space-y-4">
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -116,7 +116,7 @@ if ($__prof_json === false) {
 <p class="text-sm text-on-surface-variant leading-relaxed">At least 12 characters with uppercase, lowercase, a number, and a special character.</p>
 </div>
 </div>
-<div class="lg:col-span-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2 border-t border-slate-100 mt-2">
+<div class="lg:col-span-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-slate-100 mt-2 bg-white">
 <button type="button" class="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-on-background hover:bg-slate-50 transition-colors" data-profile-modal-dismiss="1">Cancel</button>
 <button type="submit" id="profile-save-btn" class="rounded-xl bg-primary text-white px-8 py-3 text-sm font-bold primary-glow hover:brightness-105 transition-all disabled:opacity-50 disabled:pointer-events-none">Save profile</button>
 </div>
