@@ -2037,6 +2037,12 @@ try {
                 )
             ";
         }
+        $recentInstallmentPlanSqlParts[] = "
+            (
+                TRIM(COALESCE(a.treatment_id, '')) <> ''
+                OR LOWER(TRIM(COALESCE(a.service_type, ''))) = 'installment'
+            )
+        ";
         if ($supportsAppointmentServicesTable && $supportsAppointmentServiceTypeColumn) {
             $recentInstallmentPlanSqlParts[] = "
                 EXISTS (
@@ -2163,6 +2169,12 @@ try {
                 )
             ";
         }
+        $installmentPlanSqlParts[] = "
+            (
+                TRIM(COALESCE(a.treatment_id, '')) <> ''
+                OR LOWER(TRIM(COALESCE(a.service_type, ''))) = 'installment'
+            )
+        ";
         if ($supportsAppointmentServicesTable && $supportsAppointmentServiceTypeColumn) {
             $installmentPlanSqlParts[] = "
                 EXISTS (
@@ -2209,7 +2221,14 @@ try {
                         WHEN TRIM(COALESCE(NULLIF(aps.treatment_id, ''), NULLIF(a.treatment_id, ''), '')) <> '' THEN 'installment'
                         ELSE 'regular'
                     END"
-                : ($supportsServiceEnableInstallmentColumn ? "CASE WHEN COALESCE(sv.enable_installment, 0) = 1 THEN 'installment' ELSE 'regular' END" : "'installment'");
+                : ($supportsServiceEnableInstallmentColumn
+                    ? "CASE
+                            WHEN COALESCE(sv.enable_installment, 0) = 1 THEN 'installment'
+                            WHEN TRIM(COALESCE(a.treatment_id, '')) <> '' THEN 'installment'
+                            WHEN LOWER(TRIM(COALESCE(a.service_type, ''))) = 'installment' THEN 'installment'
+                            ELSE 'regular'
+                        END"
+                    : "'installment'");
             $transactionsSql = "
                 SELECT
                     a.booking_id,
@@ -3960,7 +3979,12 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 return true;
             });
             const regularCostByLines = bookedRegular.reduce((sum, s) => sum + Number((s && s.price) || 0), 0);
-            const hasInstallmentEntry = isInstallmentPlan || bookedInstallment.length > 0;
+            const normalizedServiceType = String(item.service_type || '').toLowerCase().trim();
+            const hasInstallmentEntry =
+                isInstallmentPlan ||
+                bookedInstallment.length > 0 ||
+                treatmentId !== '' ||
+                normalizedServiceType === 'installment';
             const hasRegularEntry = bookedRegular.length > 0 || !hasInstallmentEntry;
             const installmentScheduleRaw = Array.isArray(item.installment_schedule) ? item.installment_schedule : [];
             const installmentTotalBySchedule = installmentScheduleRaw.reduce((sum, r) => sum + Number((r && r.amount_due) || 0), 0);
