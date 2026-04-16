@@ -227,6 +227,26 @@ $loginPageUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugL
             100% { transform: translateY(0) scale(1); opacity: 1; }
         }
         .pop-up { animation: popIn 620ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+        .login-success-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.72);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            pointer-events: all;
+        }
+        .login-success-overlay.is-active { display: flex; }
+        .login-success-panel {
+            width: min(88vw, 440px);
+            height: min(88vw, 440px);
+            display: grid;
+            place-items: center;
+        }
+        .login-success-animation { width: 100%; height: 100%; }
     </style>
 </head>
 <body class="mesh-gradient min-h-screen flex flex-col items-center selection:bg-primary/20 text-on-surface font-body">
@@ -310,6 +330,12 @@ $loginPageUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugL
 <div class="fixed top-[-10%] right-[-5%] w-[40rem] h-[40rem] bg-primary/5 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
 <div class="fixed bottom-[-10%] left-[-5%] w-[30rem] h-[30rem] bg-primary/5 rounded-full blur-[100px] -z-10 pointer-events-none"></div>
 
+<div id="loginSuccessOverlay" class="login-success-overlay" aria-hidden="true">
+<div class="login-success-panel" role="status" aria-live="polite" aria-label="Login successful">
+<div id="loginSuccessAnimation" class="login-success-animation"></div>
+</div>
+</div>
+
 <!-- Forgot / Reset Password Modal -->
 <div id="forgotPasswordModal" class="hidden fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
 <div class="relative bg-white dark:bg-[#151f2b] rounded-2xl shadow-2xl max-w-md w-full overflow-hidden ring-1 ring-white/10 pop-up">
@@ -353,6 +379,7 @@ $loginPageUrl = ($clinic_slug !== '') ? (PROVIDER_BASE_URL . rawurlencode($slugL
 </button>
 </div>
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" defer></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     (function () {
@@ -382,6 +409,53 @@ document.addEventListener('DOMContentLoaded', function() {
     const passwordToggle = document.getElementById('passwordToggle');
     const errorMessage = document.getElementById('errorMessage');
     const successMessage = document.getElementById('successMessage');
+
+    function playLoginSuccessOverlayAndRedirect(redirectUrl) {
+        if (!redirectUrl) return;
+
+        var overlay = document.getElementById('loginSuccessOverlay');
+        var animationContainer = document.getElementById('loginSuccessAnimation');
+        if (!overlay || !animationContainer) {
+            window.location.href = redirectUrl;
+            return;
+        }
+
+        overlay.classList.add('is-active');
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+
+        var finished = false;
+        var maxWaitTimer = null;
+        var goNext = function () {
+            if (finished) return;
+            finished = true;
+            if (maxWaitTimer) clearTimeout(maxWaitTimer);
+            window.location.href = redirectUrl;
+        };
+
+        var waitForLottie = function (attempt) {
+            if (window.lottie && typeof window.lottie.loadAnimation === 'function') {
+                var animation = window.lottie.loadAnimation({
+                    container: animationContainer,
+                    renderer: 'svg',
+                    loop: false,
+                    autoplay: true,
+                    path: '../loginsuccess.json'
+                });
+                maxWaitTimer = window.setTimeout(goNext, 10000);
+                animation.addEventListener('complete', goNext);
+                return;
+            }
+
+            if (attempt >= 40) {
+                window.setTimeout(goNext, 900);
+                return;
+            }
+            window.setTimeout(function () { waitForLottie(attempt + 1); }, 50);
+        };
+
+        waitForLottie(0);
+    }
     
     // Show success message if redirected from verification or password reset
     const urlParams = new URLSearchParams(window.location.search);
@@ -470,11 +544,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 if (data.success) {
-                    showSuccess('Login successful! Redirecting...');
                     var nextUrl = (data.data && data.data.redirect_url) ? data.data.redirect_url : '<?php echo addslashes($redirectAfterLogin); ?>';
-                    setTimeout(function() {
-                        window.location.href = nextUrl;
-                    }, 500);
+                    playLoginSuccessOverlayAndRedirect(nextUrl);
                 } else {
                     // Check if user needs email verification
                     if (data.requires_verification && data.email) {
