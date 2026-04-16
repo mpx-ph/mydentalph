@@ -398,6 +398,23 @@ function sb_file(string $key, string $label, array $site_opts, bool $is_owner): 
                 opacity: 1;
                 pointer-events: auto;
             }
+            #previewColumn {
+                min-height: 34rem;
+                height: auto;
+            }
+            #previewFrameWrap {
+                min-height: 30rem;
+                height: auto;
+            }
+            .preview-canvas-scroll {
+                min-height: 22rem;
+                height: auto;
+                flex: 1 1 auto;
+            }
+            .preview-scale-host {
+                min-height: 22rem;
+                height: auto;
+            }
         }
     </style>
 </head>
