@@ -425,12 +425,12 @@ $team_total = count($team_members);
 <section class="flex flex-col gap-6">
 <div class="flex flex-col gap-4">
 <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]"><span class="w-12 h-[1.5px] bg-primary"></span> Team Management</div>
-<div class="flex justify-between items-end">
+<div class="flex flex-col items-start gap-4 sm:gap-6">
 <div>
 <h2 class="font-headline font-extrabold tracking-tighter leading-tight text-on-background text-4xl sm:text-6xl">Team <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Management</span></h2>
 <p class="font-body text-base sm:text-xl font-medium text-slate-600 max-w-3xl leading-relaxed mt-4 sm:mt-6">Manage practitioner access and administrative permissions for your clinic.</p>
 </div>
-<button type="button" id="add-user-open" class="bg-primary text-white px-5 sm:px-8 py-3 sm:py-4 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest hover:shadow-xl hover:shadow-primary/25 transition-all duration-300 active:scale-95 hover:scale-[1.02] flex items-center gap-2">
+<button type="button" id="add-user-open" class="bg-primary text-white px-5 sm:px-8 py-3 sm:py-4 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest hover:shadow-xl hover:shadow-primary/25 transition-all duration-300 active:scale-95 hover:scale-[1.02] inline-flex items-center gap-2">
 <span class="material-symbols-outlined text-base">person_add</span>
                         Add New User
                     </button>
