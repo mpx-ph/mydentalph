@@ -135,8 +135,13 @@ try {
             $bookingTreatmentId = trim((string) ($bookingRow['treatment_id'] ?? $bookingTreatmentId));
         }
 
-        // Mirror the cash flow behavior: apply the completed PayMongo payment to the linked treatment.
-        if ($bookingTreatmentId !== '' && $amount > 0) {
+        $selectedTransactionType = strtolower(trim((string) ($stash['selected_transaction_type'] ?? '')));
+        if ($selectedTransactionType !== 'regular' && $selectedTransactionType !== 'installment') {
+            $selectedTransactionType = is_array($stash['installment_finalize'] ?? null) ? 'installment' : 'regular';
+        }
+
+        // Apply to treatment progress only for installment transactions.
+        if ($selectedTransactionType === 'installment' && $bookingTreatmentId !== '' && $amount > 0) {
             $monthsPaidIncrement = 0;
             $finalize = $stash['installment_finalize'] ?? null;
             if (is_array($finalize)) {

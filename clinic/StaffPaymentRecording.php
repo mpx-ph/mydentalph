@@ -1696,8 +1696,11 @@ try {
                             }
                         }
 
-                        // Apply this successful payment to the linked treatment record when status is successful.
-                        if (strtolower((string) $recordStatus) === 'completed') {
+                        // Apply to treatment progress only for installment transactions.
+                        if (
+                            strtolower((string) $recordStatus) === 'completed'
+                            && $selectedTransactionType === 'installment'
+                        ) {
                             staff_payment_recording_apply_payment_to_treatment(
                                 $pdo,
                                 $tenantId,
@@ -1739,6 +1742,7 @@ try {
                                 'tenant_id' => $tenantId,
                                 'payment_date' => $paymentDate,
                                 'booking_id' => $selectedBookingId,
+                                'selected_transaction_type' => $selectedTransactionType,
                                 'installment_finalize' => [
                                     'installments_table' => $installmentsTableName,
                                     'paid_items' => $finalizeItems,
@@ -1937,8 +1941,11 @@ try {
                     $insertStmt = $pdo->prepare($insertSql);
                     $insertStmt->execute($insertParams);
 
-                    // Apply this successful payment to the linked treatment record when status is successful.
-                    if (strtolower((string) $recordStatus) === 'completed') {
+                    // Apply to treatment progress only for installment transactions.
+                    if (
+                        strtolower((string) $recordStatus) === 'completed'
+                        && $selectedTransactionType === 'installment'
+                    ) {
                         staff_payment_recording_apply_payment_to_treatment(
                             $pdo,
                             $tenantId,
@@ -1979,6 +1986,7 @@ try {
                             'tenant_id' => $tenantId,
                             'payment_date' => $paymentDate,
                             'booking_id' => $selectedBookingId,
+                            'selected_transaction_type' => $selectedTransactionType,
                         ];
 
                         $patStmt = $pdo->prepare("SELECT first_name, last_name FROM tbl_patients WHERE tenant_id = ? AND patient_id = ? LIMIT 1");
@@ -2660,7 +2668,6 @@ try {
             }
         }
         $bookedServicesByBucket = [];
-        $bookedServicesByAppointment = [];
         if ($supportsAppointmentServicesTable && $transactionCandidates !== []) {
             $bookedBidKeys = [];
             foreach ($transactionCandidates as $candRow) {
@@ -2721,19 +2728,13 @@ try {
                     if (!isset($bookedServicesByBucket[$bucketKey])) {
                         $bookedServicesByBucket[$bucketKey] = [];
                     }
-                    $serviceEntry = [
+                    $bookedServicesByBucket[$bucketKey][] = [
                         'service_id' => trim((string) ($brow['service_id'] ?? '')),
                         'service_name' => trim((string) ($brow['service_name'] ?? '')),
                         'service_type' => $stype,
                         'category' => trim((string) ($brow['category'] ?? '')),
                         'price' => round((float) ($brow['price'] ?? 0), 2),
                     ];
-                    $bookedServicesByBucket[$bucketKey][] = $serviceEntry;
-                    $allBucketKey = $bb . '::' . $apptId;
-                    if (!isset($bookedServicesByAppointment[$allBucketKey])) {
-                        $bookedServicesByAppointment[$allBucketKey] = [];
-                    }
-                    $bookedServicesByAppointment[$allBucketKey][] = $serviceEntry;
                 }
             }
         }
@@ -2795,10 +2796,8 @@ try {
                 $stype = 'installment';
             }
             $bucketKey = $b . '::' . $appointmentId . '::' . $stype;
-            $allBucketKey = $b . '::' . $appointmentId;
             $transactionCandidates[$ic]['installment_schedule'] = $scheduleByBooking[$b] ?? [];
             $transactionCandidates[$ic]['booked_services'] = $bookedServicesByBucket[$bucketKey] ?? [];
-            $transactionCandidates[$ic]['booked_services_all'] = $bookedServicesByAppointment[$allBucketKey] ?? [];
             $primaryInstallmentMeta = $tid !== '' ? ($primaryInstallmentServiceByTreatment[$tid] ?? null) : null;
             $transactionCandidates[$ic]['primary_installment_service_id'] = is_array($primaryInstallmentMeta)
                 ? trim((string) ($primaryInstallmentMeta['primary_service_id'] ?? ''))
@@ -4366,14 +4365,11 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 : ('Booking ' + (item.booking_id || '-'));
             const label = patientName + ' | ' + recordRef + ' | Pending ₱' + pendingBalance.toFixed(2);
             const bookedServicesRaw = Array.isArray(item.booked_services) ? item.booked_services : [];
-            const bookedServicesAllRaw = Array.isArray(item.booked_services_all) && item.booked_services_all.length
-                ? item.booked_services_all
-                : bookedServicesRaw;
             const booked_service_ids = bookedServicesRaw
                 .map((s) => String((s && s.service_id) || '').trim())
                 .filter((id) => id !== '');
             const primaryInstallmentServiceId = String(item.primary_installment_service_id || '').trim();
-            const bookedInstallment = bookedServicesAllRaw.filter((s) => {
+            const bookedInstallment = bookedServicesRaw.filter((s) => {
                 let serviceType = String((s && s.service_type) || '').toLowerCase().trim();
                 if (!serviceType) {
                     serviceType = 'installment';
@@ -4384,7 +4380,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 const sid = String((s && s.service_id) || '').trim();
                 return primaryInstallmentServiceId !== '' && sid === primaryInstallmentServiceId;
             });
-            const bookedRegular = bookedServicesAllRaw.filter((s) => {
+            const bookedRegular = bookedServicesRaw.filter((s) => {
                 const sid = String((s && s.service_id) || '').trim();
                 let serviceType = String((s && s.service_type) || '').toLowerCase().trim();
                 if (!serviceType) {
@@ -4415,9 +4411,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 }
                 return sum;
             }, 0);
-            const installmentPaidResolved = installmentPaidBySchedule > 0
-                ? installmentPaidBySchedule
-                : (hasTreatmentAmountPaid ? effectiveInstallmentPaid : (hasInstallmentEntry ? totalPaid : 0));
+            const installmentPaidResolved = hasTreatmentAmountPaid
+                ? effectiveInstallmentPaid
+                : (installmentPaidBySchedule > 0 ? installmentPaidBySchedule : (hasInstallmentEntry ? totalPaid : 0));
             const baseRow = {
                 booking_id: String(item.booking_id || ''),
                 appointment_id: Number(item.appointment_id || 0),
@@ -4449,9 +4445,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     total_cost: regularCost,
                     total_paid: regularPaid,
                     pending_balance: Math.max(0, regularCost - regularPaid),
-                    booked_services: bookedRegular.length ? bookedRegular : bookedServicesAllRaw,
-                    booked_services_all: bookedServicesAllRaw,
-                    booked_service_ids: (bookedRegular.length ? bookedRegular : bookedServicesAllRaw)
+                    booked_services: bookedRegular.length ? bookedRegular : bookedServicesRaw,
+                    booked_service_ids: (bookedRegular.length ? bookedRegular : bookedServicesRaw)
                         .map((s) => String((s && s.service_id) || '').trim())
                         .filter((id) => id !== '')
                 });
@@ -4471,9 +4466,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     total_paid: installmentPaid,
                     pending_balance: installmentRemainingBalance,
                     treatment_remaining_balance: hasTreatmentRemainingBalance ? effectiveInstallmentPending : null,
-                    booked_services: bookedInstallment.length ? bookedInstallment : bookedServicesAllRaw,
-                    booked_services_all: bookedServicesAllRaw,
-                    booked_service_ids: bookedServicesAllRaw
+                    booked_services: bookedInstallment.length ? bookedInstallment : bookedServicesRaw,
+                    booked_service_ids: (bookedInstallment.length ? bookedInstallment : bookedServicesRaw)
                         .map((s) => String((s && s.service_id) || '').trim())
                         .filter((id) => id !== '')
                 });
