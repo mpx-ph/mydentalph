@@ -5,6 +5,7 @@ require_once __DIR__ . '/db.php';
 $error = '';
 $success = '';
 $postLoginRedirect = '';
+$ajaxResponse = null;
 
 function providerNormalizeStatus($status): string {
     return strtolower(trim((string) $status));
@@ -40,6 +41,24 @@ function providerWriteAuditLog($pdo, $tenantId, $userId, $action, $description =
     }
 }
 
+function providerResolvePostLoginRedirect(array $user): string {
+    $redirect = isset($_GET['redirect']) ? trim((string) $_GET['redirect']) : '';
+    $isValidRedirect = $redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect);
+
+    if (($user['role'] ?? '') === 'superadmin') {
+        if ($isValidRedirect && strpos($redirect, 'superadmin/') === 0) {
+            return $redirect;
+        }
+        return 'superadmin/dashboard.php';
+    }
+
+    if ($isValidRedirect) {
+        return $redirect;
+    }
+
+    return '/';
+}
+
 // Already logged in -> redirect to home or requested redirect
 // user_id can be 0 for hardcoded superadmin; empty() treats 0 as empty
 if (isset($_SESSION['user_id'])) {
@@ -60,6 +79,10 @@ if (isset($_SESSION['user_id'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $requestedWith = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+    $expectsJson = strpos(strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? '')), 'application/json') !== false;
+    $isAjax = ($requestedWith === 'xmlhttprequest') || $expectsJson;
+
     $login_identifier = trim($_POST['login_identifier'] ?? '');
     $password = $_POST['password'] ?? '';
 
@@ -209,18 +232,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
 
-                    $redirect = isset($_GET['redirect']) ? trim($_GET['redirect']) : '';
-                    if (($user['role'] ?? '') === 'superadmin') {
-                        if ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)
-                            && strpos($redirect, 'superadmin/') === 0) {
-                            $postLoginRedirect = $redirect;
-                        } else {
-                            $postLoginRedirect = 'superadmin/dashboard.php';
-                        }
-                    } elseif ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)) {
-                        $postLoginRedirect = $redirect;
-                    } else {
-                        $postLoginRedirect = '/';
+                    $postLoginRedirect = providerResolvePostLoginRedirect($user);
+                    if ($isAjax) {
+                        $ajaxResponse = [
+                            'ok' => true,
+                            'redirect' => $postLoginRedirect
+                        ];
                     }
                 }
             }
@@ -231,6 +248,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (PDOException $e) {
             $error = 'A temporary error occurred. Please try again.';
         }
+    }
+
+    if ($isAjax) {
+        if ($ajaxResponse === null) {
+            $ajaxResponse = [
+                'ok' => false,
+                'error' => $error !== '' ? $error : 'Invalid email/username or password.'
+            ];
+        }
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($ajaxResponse);
+        exit;
     }
 }
 
@@ -363,7 +392,7 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
             </div>
 
             <?php if ($error): ?>
-                <div class="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+                <div id="loginErrorBox" class="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
                     <?php echo htmlspecialchars($error); ?>
                 </div>
             <?php endif; ?>
@@ -374,7 +403,7 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
             <?php endif; ?>
 
             <!-- Form -->
-            <form class="space-y-6 sm:space-y-8" method="post" action="">
+            <form id="providerLoginForm" class="space-y-6 sm:space-y-8" method="post" action="">
                 <div class="space-y-5 sm:space-y-6">
                     <!-- Login identifier Field -->
                     <div class="space-y-2.5">
@@ -421,7 +450,7 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
                 </div>
 
                 <!-- Action Button -->
-                <button class="w-full py-4 sm:py-5 px-6 bg-primary text-white font-black text-sm uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 active:scale-[0.98] transition-all duration-200" type="submit">
+                <button id="providerLoginSubmit" class="w-full py-4 sm:py-5 px-6 bg-primary text-white font-black text-sm uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 active:scale-[0.98] transition-all duration-200" type="submit">
                     Login
                 </button>
             </form>
@@ -467,31 +496,7 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" defer></script>
 <script>
-    (function () {
-        var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        var elements = document.querySelectorAll('[data-reveal="section"]');
-
-        if (!elements || !elements.length) return;
-        if (prefersReduced || !('IntersectionObserver' in window)) {
-            elements.forEach(function (el) { el.classList.add('is-visible'); });
-            return;
-        }
-
-        var observer = new IntersectionObserver(function (entries) {
-            entries.forEach(function (entry) {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('is-visible');
-                } else {
-                    entry.target.classList.remove('is-visible');
-                }
-            });
-        }, { threshold: 0.18, rootMargin: '0px 0px -10% 0px' });
-
-        elements.forEach(function (el) { observer.observe(el); });
-    })();
-
-    (function () {
-        var redirectUrl = <?php echo json_encode($postLoginRedirect); ?>;
+    function playLoginSuccessOverlayAndRedirect(redirectUrl) {
         if (!redirectUrl) {
             return;
         }
@@ -544,6 +549,100 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
         };
 
         waitForLottie(0);
+    }
+
+    function renderLoginError(message) {
+        var form = document.getElementById('providerLoginForm');
+        if (!form) return;
+
+        var existing = document.getElementById('loginErrorBox');
+        if (!existing) {
+            existing = document.createElement('div');
+            existing.id = 'loginErrorBox';
+            existing.className = 'rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700';
+            var card = form.parentElement;
+            if (card) {
+                card.insertBefore(existing, form);
+            }
+        }
+        existing.textContent = message || 'Invalid email/username or password.';
+    }
+
+    (function () {
+        var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var elements = document.querySelectorAll('[data-reveal="section"]');
+
+        if (!elements || !elements.length) return;
+        if (prefersReduced || !('IntersectionObserver' in window)) {
+            elements.forEach(function (el) { el.classList.add('is-visible'); });
+            return;
+        }
+
+        var observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                } else {
+                    entry.target.classList.remove('is-visible');
+                }
+            });
+        }, { threshold: 0.18, rootMargin: '0px 0px -10% 0px' });
+
+        elements.forEach(function (el) { observer.observe(el); });
+    })();
+
+    (function () {
+        var form = document.getElementById('providerLoginForm');
+        if (form && window.fetch && window.FormData) {
+            var submitButton = document.getElementById('providerLoginSubmit');
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+
+                if (submitButton) {
+                    submitButton.disabled = true;
+                    submitButton.classList.add('opacity-70', 'cursor-not-allowed');
+                }
+
+                var formData = new FormData(form);
+                fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                }).then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                }).then(function (data) {
+                    if (data && data.ok && data.redirect) {
+                        playLoginSuccessOverlayAndRedirect(data.redirect);
+                        return;
+                    }
+
+                    renderLoginError((data && data.error) ? data.error : 'Invalid email/username or password.');
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.classList.remove('opacity-70', 'cursor-not-allowed');
+                    }
+                }).catch(function () {
+                    renderLoginError('A temporary error occurred. Please try again.');
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.classList.remove('opacity-70', 'cursor-not-allowed');
+                    }
+                });
+            });
+        }
+
+        var redirectUrl = <?php echo json_encode($postLoginRedirect); ?>;
+        if (!redirectUrl) {
+            return;
+        }
+        playLoginSuccessOverlayAndRedirect(redirectUrl);
     })();
 </script>
 
