@@ -236,6 +236,10 @@ require_once __DIR__ . '/provider_tenant_header_context.inc.php';
                 transform: translateX(-100%);
                 transition: transform 220ms ease;
                 z-index: 60;
+                background: #ffffff;
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+                border-right: 1px solid #e2e8f0;
             }
             body.provider-mobile-sidebar-open #provider-sidebar {
                 transform: translateX(0);
