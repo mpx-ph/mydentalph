@@ -4182,6 +4182,10 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 sum += Number(unpaidSched[i].amount_due || 0);
             }
             sum = Math.round(sum * 100) / 100;
+            if (slotCount >= unpaidSched.length && unpaidSched.length > 0) {
+                // Avoid cumulative rounding drift when all remaining installments are selected.
+                sum = pending;
+            }
             if (mode === 'full') {
                 // For full payment, display the persisted remaining balance.
                 sum = pending;
