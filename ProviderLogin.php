@@ -4,7 +4,7 @@ require_once __DIR__ . '/db.php';
 
 $error = '';
 $success = '';
-$loginRedirectTarget = '';
+$postLoginRedirect = '';
 
 function providerNormalizeStatus($status): string {
     return strtolower(trim((string) $status));
@@ -213,14 +213,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (($user['role'] ?? '') === 'superadmin') {
                         if ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)
                             && strpos($redirect, 'superadmin/') === 0) {
-                            $loginRedirectTarget = $redirect;
+                            $postLoginRedirect = $redirect;
                         } else {
-                            $loginRedirectTarget = 'superadmin/dashboard.php';
+                            $postLoginRedirect = 'superadmin/dashboard.php';
                         }
                     } elseif ($redirect !== '' && preg_match('#^([a-zA-Z0-9_\-\.]+/)?[a-zA-Z0-9_\-\.]+\.php(\?.*)?$#', $redirect)) {
-                        $loginRedirectTarget = $redirect;
+                        $postLoginRedirect = $redirect;
                     } else {
-                        $loginRedirectTarget = '/';
+                        $postLoginRedirect = '/';
                     }
                 }
             }
@@ -245,7 +245,6 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,400;1,700&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -308,6 +307,30 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
             opacity: 1;
             transform: translateY(0) scale(1);
             filter: blur(0);
+        }
+        .login-success-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.72);
+            backdrop-filter: blur(3px);
+            pointer-events: all;
+        }
+        .login-success-overlay.is-active {
+            display: flex;
+        }
+        .login-success-panel {
+            width: min(88vw, 440px);
+            height: min(88vw, 440px);
+            display: grid;
+            place-items: center;
+        }
+        .login-success-animation {
+            width: 100%;
+            height: 100%;
         }
         @media (prefers-reduced-motion: reduce) {
             .reveal {
@@ -432,24 +455,17 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
     <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Secure AES-256 Encryption</span>
 </div>
 
-<?php if ($loginRedirectTarget !== ''): ?>
-<div id="login-success-overlay" class="fixed inset-0 z-[120] hidden items-center justify-center bg-white/80 backdrop-blur-sm">
-    <div class="w-[220px] sm:w-[280px]">
-        <lottie-player
-            id="login-success-lottie"
-            src="loginsuccess.json"
-            background="transparent"
-            speed="1"
-            autoplay
-            loop="false"></lottie-player>
+<div id="loginSuccessOverlay" class="login-success-overlay" aria-hidden="true">
+    <div class="login-success-panel" role="status" aria-live="polite" aria-label="Login successful">
+        <div id="loginSuccessAnimation" class="login-success-animation"></div>
     </div>
 </div>
-<?php endif; ?>
 
 <!-- Decorative Background Accents -->
 <div class="fixed top-[-10%] right-[-5%] w-[40rem] h-[40rem] bg-primary/5 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
 <div class="fixed bottom-[-10%] left-[-5%] w-[30rem] h-[30rem] bg-primary/5 rounded-full blur-[100px] -z-10 pointer-events-none"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" defer></script>
 <script>
     (function () {
         var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -475,32 +491,59 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
     })();
 
     (function () {
-        var redirectTarget = <?php echo json_encode($loginRedirectTarget); ?>;
-        if (!redirectTarget) return;
-
-        var overlay = document.getElementById('login-success-overlay');
-        if (!overlay) {
-            window.location.href = redirectTarget;
+        var redirectUrl = <?php echo json_encode($postLoginRedirect); ?>;
+        if (!redirectUrl) {
             return;
         }
 
-        overlay.classList.remove('hidden');
-        overlay.classList.add('flex');
-        document.body.classList.add('overflow-hidden');
-
-        var redirected = false;
-        var go = function () {
-            if (redirected) return;
-            redirected = true;
-            window.location.href = redirectTarget;
-        };
-
-        var lottie = document.getElementById('login-success-lottie');
-        if (lottie) {
-            lottie.addEventListener('complete', go, { once: true });
+        var overlay = document.getElementById('loginSuccessOverlay');
+        var animationContainer = document.getElementById('loginSuccessAnimation');
+        if (!overlay || !animationContainer) {
+            window.location.assign(redirectUrl);
+            return;
         }
 
-        setTimeout(go, 1800);
+        overlay.classList.add('is-active');
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+
+        var maxWaitTimer = null;
+        var completed = false;
+        var goNext = function () {
+            if (completed) return;
+            completed = true;
+            if (maxWaitTimer) {
+                clearTimeout(maxWaitTimer);
+            }
+            window.location.assign(redirectUrl);
+        };
+
+        var waitForLottie = function (attempt) {
+            if (window.lottie && typeof window.lottie.loadAnimation === 'function') {
+                var animation = window.lottie.loadAnimation({
+                    container: animationContainer,
+                    renderer: 'svg',
+                    loop: false,
+                    autoplay: true,
+                    path: 'loginsuccess.json'
+                });
+
+                maxWaitTimer = window.setTimeout(goNext, 10000);
+                animation.addEventListener('complete', goNext);
+                return;
+            }
+
+            if (attempt >= 40) {
+                window.setTimeout(goNext, 900);
+                return;
+            }
+
+            window.setTimeout(function () {
+                waitForLottie(attempt + 1);
+            }, 50);
+        };
+
+        waitForLottie(0);
     })();
 </script>
 
