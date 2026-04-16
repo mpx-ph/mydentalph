@@ -3486,7 +3486,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
 </label>
 <label class="installment-option-card flex items-start gap-3 p-4 rounded-2xl border-2 border-slate-100 bg-white/80 cursor-pointer hover:border-primary/40 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5" id="inst_opt_combined_wrap">
 <input type="radio" name="installment_pay_mode_ui" value="combined" class="mt-1 text-primary focus:ring-primary/30" id="inst_opt_combined"/>
-<span class="min-w-0"><span class="block text-sm font-extrabold text-slate-900">Down + months ahead</span><span class="block text-xs text-slate-500 mt-0.5">Pay down payment plus one or more monthly installments.</span></span>
+<span class="min-w-0"><span class="block text-sm font-extrabold text-slate-900">Down + months ahead</span><span class="block text-xs text-slate-500 mt-0.5">Pay down payment plus month 1 or more months ahead.</span></span>
 </label>
 <label class="installment-option-card flex items-start gap-3 p-4 rounded-2xl border-2 border-slate-100 bg-white/80 cursor-pointer hover:border-primary/40 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5" id="inst_opt_monthly_wrap">
 <input type="radio" name="installment_pay_mode_ui" value="monthly" class="mt-1 text-primary focus:ring-primary/30" id="inst_opt_monthly"/>
@@ -3494,7 +3494,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
 </label>
 </div>
 <div class="flex flex-col sm:flex-row sm:items-center gap-3 pt-1" id="installment_slot_row">
-<label class="text-[11px] font-black uppercase tracking-widest text-slate-500 sm:min-w-[10rem]">Installments to pay</label>
+<label class="text-[11px] font-black uppercase tracking-widest text-slate-500 sm:min-w-[10rem]" id="installment_slot_label">Installments to pay</label>
 <div class="flex items-center gap-2">
 <input type="number" min="1" step="1" id="installment_slot_stepper" class="w-24 px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 bg-white"/>
 <span class="text-xs font-semibold text-slate-500" id="installment_slot_range_hint"></span>
@@ -3681,6 +3681,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
         const installmentProgressRemainLine = document.getElementById('installment_progress_remain_line');
         const installmentProgressHint = document.getElementById('installment_progress_hint');
         const installmentSlotRow = document.getElementById('installment_slot_row');
+        const installmentSlotLabel = document.getElementById('installment_slot_label');
         const installmentSlotStepper = document.getElementById('installment_slot_stepper');
         const installmentSlotRangeHint = document.getElementById('installment_slot_range_hint');
         const instOptFull = document.getElementById('inst_opt_full');
@@ -3957,6 +3958,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 if (additionalServicesInstallmentNote) {
                     additionalServicesInstallmentNote.classList.add('hidden');
                 }
+                if (installmentSlotLabel) {
+                    installmentSlotLabel.textContent = 'Installments to pay';
+                }
                 return;
             }
             const sched = getScheduleList(selectedTransaction);
@@ -4138,8 +4142,10 @@ This booking is installment-priced, but no installment schedule rows exist in th
             } else if (mode === 'down') {
                 slotCount = 1;
             } else if (mode === 'combined') {
-                slotCount = Math.max(2, parseInt(String(installmentSlotStepper ? installmentSlotStepper.value : '2'), 10) || 2);
-                slotCount = Math.min(maxSlots, Math.max(2, slotCount));
+                const monthsAheadMax = Math.max(1, maxSlots - 1);
+                const monthsAheadRaw = parseInt(String(installmentSlotStepper ? installmentSlotStepper.value : '1'), 10) || 1;
+                const monthsAhead = Math.min(monthsAheadMax, Math.max(1, monthsAheadRaw));
+                slotCount = Math.min(maxSlots, Math.max(2, monthsAhead + 1));
             } else if (mode === 'monthly') {
                 slotCount = Math.max(1, parseInt(String(installmentSlotStepper ? installmentSlotStepper.value : '1'), 10) || 1);
                 slotCount = Math.min(maxSlots, Math.max(1, slotCount));
@@ -4160,13 +4166,20 @@ This booking is installment-priced, but no installment schedule rows exist in th
                         installmentSlotRow.classList.remove('hidden');
                     }
                     if (mode === 'combined') {
-                        installmentSlotStepper.min = '2';
-                        installmentSlotStepper.max = String(Math.max(2, maxSlots));
+                        const monthsAheadMax = Math.max(1, maxSlots - 1);
+                        installmentSlotStepper.min = '1';
+                        installmentSlotStepper.max = String(monthsAheadMax);
                         if (installmentSlotRangeHint) {
-                            installmentSlotRangeHint.textContent = '(2 – ' + maxSlots + ' installments)';
+                            installmentSlotRangeHint.textContent = '(1 – ' + monthsAheadMax + ' months ahead)';
                         }
-                        installmentSlotStepper.value = String(Math.min(maxSlots, Math.max(2, slotCount)));
+                        if (installmentSlotLabel) {
+                            installmentSlotLabel.textContent = 'Months ahead to pay';
+                        }
+                        installmentSlotStepper.value = String(Math.min(monthsAheadMax, Math.max(1, slotCount - 1)));
                     } else {
+                        if (installmentSlotLabel) {
+                            installmentSlotLabel.textContent = 'Installments to pay';
+                        }
                         installmentSlotStepper.min = '1';
                         installmentSlotStepper.max = String(maxSlots);
                         if (installmentSlotRangeHint) {
