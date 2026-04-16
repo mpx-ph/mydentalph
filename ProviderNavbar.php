@@ -99,6 +99,15 @@ if ($user_initial === '') {
         aspect-ratio: 7 / 5;
         margin: 0 auto;
     }
+
+    .provider-login-transition__label {
+        margin-top: 0.75rem;
+        text-align: center;
+        font-size: 0.875rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        color: #64748b;
+    }
 </style>
 <header class="provider-navbar fixed top-0 left-0 right-0 z-50 h-16 w-full overflow-visible border-b border-on-surface/5 bg-white/95 dark:bg-background-dark/95 transition-colors duration-200 ease-out">
 <div class="mx-auto max-w-[1800px] px-6 sm:px-8 lg:px-10 h-full overflow-visible">
@@ -220,7 +229,10 @@ Login
 })();
 </script>
 <div class="provider-login-transition" id="provider-login-transition" aria-hidden="true">
-    <div class="provider-login-transition__anim" id="provider-login-transition-anim"></div>
+    <div>
+        <div class="provider-login-transition__anim" id="provider-login-transition-anim"></div>
+        <p class="provider-login-transition__label">Preparing secure login...</p>
+    </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
 <script>
