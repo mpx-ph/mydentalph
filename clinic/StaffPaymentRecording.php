@@ -1444,9 +1444,28 @@ try {
                     if ($runSchedulePayment) {
                         require_once __DIR__ . '/includes/staff_installment_helpers.php';
 
+                        $inst1Row = null;
+                        foreach ($scheduleRows as $sr) {
+                            if ((int) ($sr['installment_number'] ?? 0) === 1) {
+                                $inst1Row = $sr;
+                                break;
+                            }
+                        }
+                        $downpaymentCoveredByAmount = false;
+                        if (is_array($inst1Row)) {
+                            $inst1AmountDue = round((float) ($inst1Row['amount_due'] ?? 0), 2);
+                            $downpaymentCoveredByAmount = $inst1AmountDue > 0
+                                && ((float) $totalPaid + 0.009 >= $inst1AmountDue);
+                        }
+
                         $unpaid = [];
                         foreach ($scheduleRows as $sr) {
-                            if (!staff_payment_recording_installment_is_paid($sr['status'])) {
+                            $isPaid = staff_payment_recording_installment_is_paid((string) ($sr['status'] ?? ''));
+                            $isDownpaymentSlot = ((int) ($sr['installment_number'] ?? 0) === 1);
+                            if (!$isPaid && $isDownpaymentSlot && $downpaymentCoveredByAmount) {
+                                $isPaid = true;
+                            }
+                            if (!$isPaid) {
                                 $unpaid[] = $sr;
                             }
                         }
@@ -3971,10 +3990,13 @@ This booking is installment-priced, but no installment schedule rows exist in th
             if (installmentProgressHint) {
                 if (hasSchedule) {
                     const inst1 = sched.find((r) => Number(r.installment_number) === 1);
+                    const inst1AmountDue = inst1 ? Number(inst1.amount_due || 0) : 0;
+                    const downpaymentCoveredByAmount = !!(inst1 && totalPaid + 0.009 >= inst1AmountDue);
+                    const inst1Paid = !!(inst1 && (installmentStatusPaid(inst1.status) || downpaymentCoveredByAmount));
                     let downLabel = '';
-                    if (inst1 && !installmentStatusPaid(inst1.status)) {
+                    if (inst1 && !inst1Paid) {
                         downLabel = 'Down payment (installment 1) is pending.';
-                    } else if (inst1 && installmentStatusPaid(inst1.status)) {
+                    } else if (inst1 && inst1Paid) {
                         downLabel = 'Down payment (installment 1) is paid.';
                     }
                     const unpaidSched = sched.filter((r) => !installmentStatusPaid(r.status));
@@ -3982,7 +4004,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     const hasSeparateDownpayment = !!(inst1 && sched.length > 1);
                     const monthlyTotal = hasSeparateDownpayment ? Math.max(0, sched.length - 1) : sched.length;
                     const monthlySettled = hasSeparateDownpayment
-                        ? Math.max(0, settled - (installmentStatusPaid(inst1.status) ? 1 : 0))
+                        ? Math.max(0, settled - (inst1Paid ? 1 : 0))
                         : settled;
                     installmentProgressHint.textContent = downLabel
                         ? (downLabel + ' ' + monthlySettled + ' of ' + monthlyTotal + ' monthly installment(s) settled.')
@@ -4037,7 +4059,19 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 instOptFull.checked = true;
             }
 
-            const unpaidSched = sched.filter((r) => !installmentStatusPaid(r.status));
+            const inst1 = sched.find((r) => Number(r.installment_number) === 1);
+            const inst1AmountDue = inst1 ? Number(inst1.amount_due || 0) : 0;
+            const downpaymentCoveredByAmount = !!(inst1 && totalPaid + 0.009 >= inst1AmountDue);
+            const inst1Paid = !!(inst1 && (installmentStatusPaid(inst1.status) || downpaymentCoveredByAmount));
+            const unpaidSched = sched.filter((r) => {
+                if (installmentStatusPaid(r.status)) {
+                    return false;
+                }
+                if (Number(r.installment_number) === 1 && inst1Paid) {
+                    return false;
+                }
+                return true;
+            });
             const firstUnpaid = unpaidSched.length ? unpaidSched[0] : null;
             const fn = firstUnpaid ? Number(firstUnpaid.installment_number) : 0;
 
