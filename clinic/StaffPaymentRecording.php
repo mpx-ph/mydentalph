@@ -4040,14 +4040,23 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 const installmentTotal = totalCost > 0 ? totalCost : installmentTotalBySchedule;
                 const installmentPaid = Math.max(0, Math.min(installmentTotal, installmentPaidResolved));
                 const computedInstallmentRemainingBalance = Math.max(0, installmentTotal - installmentPaid);
-                // Source remaining directly from resolved total/paid to avoid stale treatment snapshot values.
-                const installmentRemainingBalance = computedInstallmentRemainingBalance;
+                // For installment plans, treatment-level balance is authoritative because
+                // payments can span multiple bookings under the same treatment_id.
+                const treatmentRemainingBalance = hasTreatmentRemainingBalance
+                    ? Math.max(0, rawTreatmentRemainingBalance)
+                    : null;
+                const installmentRemainingBalance = treatmentRemainingBalance !== null
+                    ? treatmentRemainingBalance
+                    : computedInstallmentRemainingBalance;
+                const normalizedInstallmentTotal = treatmentRemainingBalance !== null
+                    ? Math.max(installmentTotal, installmentPaid + treatmentRemainingBalance)
+                    : installmentTotal;
                 rows.push({
                     ...baseRow,
                     transaction_key: (baseRow.treatment_id ? ('treatment:' + baseRow.treatment_id) : ('booking:' + baseRow.booking_id)) + '::installment',
                     transaction_type: 'installment',
                     is_installment_plan: true,
-                    total_cost: installmentTotal,
+                    total_cost: normalizedInstallmentTotal,
                     total_paid: installmentPaid,
                     pending_balance: installmentRemainingBalance,
                     treatment_remaining_balance: hasTreatmentRemainingBalance ? installmentRemainingBalance : null,
