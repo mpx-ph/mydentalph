@@ -56,7 +56,7 @@ http_response_code(403);
     <main>
         <section class="relative overflow-hidden bg-surface-variant">
             <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(43,139,235,0.14),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(43,139,235,0.08),transparent_45%)]"></div>
-            <div class="relative mx-auto grid min-h-[82vh] w-full max-w-[1500px] grid-cols-1 items-center gap-6 px-6 py-14 sm:px-10 lg:grid-cols-[1.15fr_1fr] lg:gap-4 lg:px-16">
+            <div class="relative mx-auto grid min-h-[82vh] w-full max-w-[1500px] grid-cols-1 items-center gap-6 px-6 py-14 sm:px-10 lg:grid-cols-[1.15fr_1fr] lg:gap-6 lg:px-16">
                 <div class="order-1 flex items-center justify-center lg:order-1">
                     <div class="w-full max-w-[1200px]">
                         <div id="deniedAnimation" class="aspect-[16/8] w-full bg-transparent"></div>
