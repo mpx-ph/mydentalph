@@ -1331,8 +1331,17 @@ try {
                         }
 
                         $placeholders = implode(',', array_fill(0, count($additionalServiceIds), '?'));
+                        $hasActiveInstallmentTreatment = (
+                            $selectedTransactionType === 'installment'
+                            || $bookingTreatmentId !== ''
+                            || ($serviceTypeTotals['installment'] ?? 0) > 0.009
+                        );
+                        $selectedServiceTypeSql = "'regular' AS normalized_service_type";
+                        if ($supportsServiceEnableInstallmentColumn) {
+                            $selectedServiceTypeSql = "CASE WHEN COALESCE(enable_installment, 0) = 1 THEN 'installment' ELSE 'regular' END AS normalized_service_type";
+                        }
                         $servicesSql = "
-                            SELECT service_id, service_name, category, price
+                            SELECT service_id, service_name, category, price, {$selectedServiceTypeSql}
                             FROM tbl_services
                             WHERE tenant_id = ?
                               AND status = 'active'
@@ -1343,6 +1352,21 @@ try {
                         $servicesToAdd = $servicesStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
                         if (empty($servicesToAdd)) {
                             throw new RuntimeException('No valid additional services were selected.');
+                        }
+                        if ($hasActiveInstallmentTreatment) {
+                            $blockedInstallmentSelections = [];
+                            foreach ($servicesToAdd as $serviceToValidate) {
+                                $svcType = strtolower(trim((string) ($serviceToValidate['normalized_service_type'] ?? 'regular')));
+                                if ($svcType !== 'regular') {
+                                    $blockedInstallmentSelections[] = trim((string) ($serviceToValidate['service_name'] ?? 'Installment service'));
+                                }
+                            }
+                            if ($blockedInstallmentSelections !== []) {
+                                throw new RuntimeException(
+                                    'This patient has an active installment treatment. Only Regular Services can be added in Additional Services. Remove these installment services: '
+                                    . implode(', ', array_unique($blockedInstallmentSelections)) . '.'
+                                );
+                            }
                         }
                         $appointmentCategoriesStmt = $pdo->prepare("
                             SELECT COALESCE(NULLIF(sv.category, ''), '') AS category
@@ -2842,8 +2866,12 @@ try {
             ];
         }
 
+        $serviceTypeSelectSql = "'regular' AS normalized_service_type";
+        if ($supportsServiceEnableInstallmentColumn) {
+            $serviceTypeSelectSql = "CASE WHEN COALESCE(enable_installment, 0) = 1 THEN 'installment' ELSE 'regular' END AS normalized_service_type";
+        }
         $servicesStmt = $pdo->prepare("
-            SELECT service_id, service_name, category, price
+            SELECT service_id, service_name, category, price, {$serviceTypeSelectSql}
             FROM tbl_services
             WHERE tenant_id = ?
               AND status = 'active'
@@ -3519,15 +3547,37 @@ This booking is installment-priced, but no installment schedule rows exist in th
 </div>
 </div>
 <div class="hidden space-y-4" id="additional-services-section">
-<label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Additional Services</label>
+<label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Additional Services (Regular Add-ons)</label>
 <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 space-y-3">
-<p class="text-[11px] font-semibold text-slate-500">Optional: add on-the-spot services. Selected services are added to treatment cost and reflected in schedule services. Services already on this appointment cannot be selected again.</p>
-<p class="text-[11px] font-semibold text-slate-500 hidden" id="additional_services_installment_note">For installment schedules, the amount below matches the installment option; add-ons still update the appointment when you post.</p>
-<div class="max-h-52 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/40 p-2 space-y-1.5">
+<p class="text-[11px] font-semibold text-slate-500">Choose only Regular Services here for same-visit add-ons. Installment Services are for ongoing treatment plans and are not billable as add-ons during an active installment treatment.</p>
+<p class="text-[11px] font-semibold text-slate-500 hidden" id="additional_services_installment_note">Active installment treatment detected: Installment Services are locked. You may only select Regular Services add-ons.</p>
+<div class="max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/40 p-2 space-y-2">
 <?php if (empty($availableServices)): ?>
 <p class="px-2 py-2 text-sm font-semibold text-slate-500">No active services available.</p>
 <?php else: ?>
-<?php foreach ($availableServices as $service): ?>
+<?php
+    $installmentServices = [];
+    $regularServices = [];
+    foreach ($availableServices as $service) {
+        $normalizedServiceType = strtolower(trim((string) ($service['normalized_service_type'] ?? 'regular')));
+        if ($normalizedServiceType !== 'installment') {
+            $normalizedServiceType = 'regular';
+            $regularServices[] = $service;
+            continue;
+        }
+        $installmentServices[] = $service;
+    }
+?>
+<div class="rounded-lg border border-rose-100 bg-rose-50/70 p-2.5 space-y-1.5" id="additional_services_installment_group">
+<div class="flex items-center justify-between gap-3 px-1">
+<p class="text-[11px] font-black uppercase tracking-widest text-rose-700">Installment Services</p>
+<span class="text-[10px] font-bold text-rose-600 hidden" id="additional_services_installment_locked_badge">Locked for active installment treatment</span>
+</div>
+<p class="px-1 text-[11px] font-semibold text-rose-700/90">For ongoing treatment plans only.</p>
+<?php if (empty($installmentServices)): ?>
+<p class="px-2 py-1 text-xs font-semibold text-rose-600/80">No installment services in catalog.</p>
+<?php else: ?>
+<?php foreach ($installmentServices as $service): ?>
 <?php
     $serviceId = trim((string) ($service['service_id'] ?? ''));
     if ($serviceId === '') {
@@ -3538,20 +3588,52 @@ This booking is installment-priced, but no installment schedule rows exist in th
     $servicePrice = (float) ($service['price'] ?? 0);
     $isChecked = in_array($serviceId, $formServiceIds, true);
 ?>
-<label class="flex items-center justify-between gap-3 p-2.5 rounded-lg hover:bg-white border border-transparent hover:border-slate-200">
+<label class="additional-service-option flex items-center justify-between gap-3 p-2.5 rounded-lg border border-transparent hover:border-rose-200">
 <span class="flex items-start gap-3 min-w-0">
-<input class="additional-service-checkbox mt-1 rounded border-slate-300 text-primary focus:ring-primary/30" data-service-price="<?php echo htmlspecialchars((string) $servicePrice, ENT_QUOTES, 'UTF-8'); ?>" data-service-category="<?php echo htmlspecialchars($serviceCategory, ENT_QUOTES, 'UTF-8'); ?>" name="additional_service_ids[]" type="checkbox" value="<?php echo htmlspecialchars($serviceId, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $isChecked ? ' checked' : ''; ?>/>
+<input class="additional-service-checkbox mt-1 rounded border-slate-300 text-primary focus:ring-primary/30" data-service-price="<?php echo htmlspecialchars((string) $servicePrice, ENT_QUOTES, 'UTF-8'); ?>" data-service-category="<?php echo htmlspecialchars($serviceCategory, ENT_QUOTES, 'UTF-8'); ?>" data-service-type="installment" name="additional_service_ids[]" type="checkbox" value="<?php echo htmlspecialchars($serviceId, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $isChecked ? ' checked' : ''; ?>/>
 <span class="min-w-0">
 <span class="block text-sm font-bold text-slate-800 truncate"><?php echo htmlspecialchars($serviceName, ENT_QUOTES, 'UTF-8'); ?></span>
 <span class="block text-xs text-slate-500"><?php echo htmlspecialchars($serviceCategory, ENT_QUOTES, 'UTF-8'); ?></span>
 </span>
 </span>
-<span class="text-sm font-black text-primary">₱<?php echo htmlspecialchars(number_format($servicePrice, 2), ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="text-sm font-black text-rose-700">₱<?php echo htmlspecialchars(number_format($servicePrice, 2), ENT_QUOTES, 'UTF-8'); ?></span>
 </label>
 <?php endforeach; ?>
 <?php endif; ?>
 </div>
-<p id="additional_services_total_hint" class="text-xs font-bold text-slate-600">Added services total: ₱0.00</p>
+<div class="rounded-lg border border-emerald-100 bg-emerald-50/70 p-2.5 space-y-1.5" id="additional_services_regular_group">
+<p class="px-1 text-[11px] font-black uppercase tracking-widest text-emerald-700">Regular Services</p>
+<p class="px-1 text-[11px] font-semibold text-emerald-700/90">Selectable add-ons for this payment.</p>
+<?php if (empty($regularServices)): ?>
+<p class="px-2 py-1 text-xs font-semibold text-emerald-700/80">No regular services in catalog.</p>
+<?php else: ?>
+<?php foreach ($regularServices as $service): ?>
+<?php
+    $serviceId = trim((string) ($service['service_id'] ?? ''));
+    if ($serviceId === '') {
+        continue;
+    }
+    $serviceName = (string) ($service['service_name'] ?? 'Service');
+    $serviceCategory = (string) ($service['category'] ?? 'General');
+    $servicePrice = (float) ($service['price'] ?? 0);
+    $isChecked = in_array($serviceId, $formServiceIds, true);
+?>
+<label class="additional-service-option flex items-center justify-between gap-3 p-2.5 rounded-lg border border-transparent hover:border-emerald-200 hover:bg-white">
+<span class="flex items-start gap-3 min-w-0">
+<input class="additional-service-checkbox mt-1 rounded border-slate-300 text-primary focus:ring-primary/30" data-service-price="<?php echo htmlspecialchars((string) $servicePrice, ENT_QUOTES, 'UTF-8'); ?>" data-service-category="<?php echo htmlspecialchars($serviceCategory, ENT_QUOTES, 'UTF-8'); ?>" data-service-type="regular" name="additional_service_ids[]" type="checkbox" value="<?php echo htmlspecialchars($serviceId, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $isChecked ? ' checked' : ''; ?>/>
+<span class="min-w-0">
+<span class="block text-sm font-bold text-slate-800 truncate"><?php echo htmlspecialchars($serviceName, ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="block text-xs text-slate-500"><?php echo htmlspecialchars($serviceCategory, ENT_QUOTES, 'UTF-8'); ?></span>
+</span>
+</span>
+<span class="text-sm font-black text-emerald-700">₱<?php echo htmlspecialchars(number_format($servicePrice, 2), ENT_QUOTES, 'UTF-8'); ?></span>
+</label>
+<?php endforeach; ?>
+<?php endif; ?>
+</div>
+<?php endif; ?>
+</div>
+<p id="additional_services_total_hint" class="text-xs font-bold text-slate-600">Selected regular services total: ₱0.00</p>
 </div>
 </div>
 <div class="space-y-4">
@@ -3693,6 +3775,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
         const instOptMonthlyWrap = document.getElementById('inst_opt_monthly_wrap');
         const additionalServicesSection = document.getElementById('additional-services-section');
         const additionalServicesInstallmentNote = document.getElementById('additional_services_installment_note');
+        const additionalServicesInstallmentLockedBadge = document.getElementById('additional_services_installment_locked_badge');
+        const additionalServicesInstallmentGroup = document.getElementById('additional_services_installment_group');
         const clearBookingBtn = document.getElementById('clear-selected-booking-btn');
         const selectedAppointmentDetailPanel = document.getElementById('selected-appointment-detail-panel');
         const selectedAppointmentServicesList = document.getElementById('selected-appointment-services-list');
@@ -3735,12 +3819,21 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 checkbox.checked = false;
                 checkbox.disabled = false;
                 checkbox.removeAttribute('aria-disabled');
-                const label = checkbox.closest('label');
+                const label = checkbox.closest('label.additional-service-option');
                 if (label) {
                     label.classList.remove('opacity-50', 'cursor-not-allowed');
                     label.removeAttribute('title');
                 }
             });
+            if (additionalServicesInstallmentLockedBadge) {
+                additionalServicesInstallmentLockedBadge.classList.add('hidden');
+            }
+            if (additionalServicesInstallmentNote) {
+                additionalServicesInstallmentNote.classList.add('hidden');
+            }
+            if (additionalServicesInstallmentGroup) {
+                additionalServicesInstallmentGroup.classList.remove('opacity-70');
+            }
             if (modal) {
                 const payDate = modal.querySelector('input[name="payment_date"]');
                 if (payDate) {
@@ -3803,8 +3896,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
             renderSelectedAppointmentServices(null);
             updateClearBookingButtonVisibility();
             updateAdditionalServicesVisibility();
-            syncAmountWithAdditionalServices();
             refreshInstallmentPaymentUi();
+            syncAmountWithAdditionalServices();
         }
 
         function installmentStatusPaid(status) {
@@ -3826,6 +3919,23 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
             const v = tx.is_installment_plan;
             return v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true';
+        }
+
+        function hasActiveInstallmentTreatment(tx) {
+            if (!tx) {
+                return false;
+            }
+            const txType = String(tx.transaction_type || '').toLowerCase().trim();
+            const treatmentId = String(tx.treatment_id || '').trim();
+            return txType === 'installment' || treatmentId !== '' || isInstallmentPlanBooking(tx);
+        }
+
+        function getAdditionalServiceType(checkbox) {
+            if (!checkbox) {
+                return 'regular';
+            }
+            const rawType = String(checkbox.getAttribute('data-service-type') || '').toLowerCase().trim();
+            return rawType === 'installment' ? 'installment' : 'regular';
         }
 
         function updateClearBookingButtonVisibility() {
@@ -3877,9 +3987,20 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 ? selectedTransaction.booked_service_ids
                 : [];
             const bookedSet = new Set(ids.map((x) => String(x)));
+            const installmentTreatmentActive = hasActiveInstallmentTreatment(selectedTransaction);
+            if (additionalServicesInstallmentLockedBadge) {
+                additionalServicesInstallmentLockedBadge.classList.toggle('hidden', !installmentTreatmentActive);
+            }
+            if (additionalServicesInstallmentNote) {
+                additionalServicesInstallmentNote.classList.toggle('hidden', !installmentTreatmentActive);
+            }
+            if (additionalServicesInstallmentGroup) {
+                additionalServicesInstallmentGroup.classList.toggle('opacity-70', installmentTreatmentActive);
+            }
             additionalServiceCheckboxes.forEach((checkbox) => {
-                const label = checkbox.closest('label');
+                const label = checkbox.closest('label.additional-service-option');
                 const id = String(checkbox.value || '');
+                const serviceType = getAdditionalServiceType(checkbox);
                 if (bookedSet.has(id)) {
                     checkbox.checked = false;
                     checkbox.disabled = true;
@@ -3887,6 +4008,14 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     if (label) {
                         label.classList.add('opacity-50', 'cursor-not-allowed');
                         label.setAttribute('title', 'Already on this appointment');
+                    }
+                } else if (installmentTreatmentActive && serviceType === 'installment') {
+                    checkbox.checked = false;
+                    checkbox.disabled = true;
+                    checkbox.setAttribute('aria-disabled', 'true');
+                    if (label) {
+                        label.classList.add('opacity-50', 'cursor-not-allowed');
+                        label.setAttribute('title', 'Locked while installment treatment is active');
                     }
                 } else {
                     checkbox.disabled = false;
@@ -3954,9 +4083,6 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 }
                 if (additionalServicesSection) {
                     additionalServicesSection.classList.remove('opacity-50', 'pointer-events-none');
-                }
-                if (additionalServicesInstallmentNote) {
-                    additionalServicesInstallmentNote.classList.add('hidden');
                 }
                 if (installmentSlotLabel) {
                     installmentSlotLabel.textContent = 'Installments to pay';
@@ -4030,9 +4156,6 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 if (additionalServicesSection) {
                     additionalServicesSection.classList.remove('opacity-50', 'pointer-events-none');
                 }
-                if (additionalServicesInstallmentNote) {
-                    additionalServicesInstallmentNote.classList.remove('hidden');
-                }
             } else {
                 if (installmentAdvancedOptions) {
                     installmentAdvancedOptions.classList.add('hidden');
@@ -4047,15 +4170,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 if (additionalServicesSection) {
                     additionalServicesSection.classList.remove('opacity-50', 'pointer-events-none');
                 }
-                if (additionalServicesInstallmentNote) {
-                    additionalServicesInstallmentNote.classList.add('hidden');
-                }
             }
 
             if (!hasSchedule) {
-                if (additionalServicesInstallmentNote) {
-                    additionalServicesInstallmentNote.classList.add('hidden');
-                }
                 return;
             }
 
@@ -4483,6 +4600,17 @@ This booking is installment-priced, but no installment schedule rows exist in th
             if (!selectedTransaction) {
                 return { valid: true, message: '' };
             }
+            if (hasActiveInstallmentTreatment(selectedTransaction)) {
+                let hasInstallmentSelection = false;
+                additionalServiceCheckboxes.forEach((checkbox) => {
+                    if (checkbox.checked && !checkbox.disabled && getAdditionalServiceType(checkbox) === 'installment') {
+                        hasInstallmentSelection = true;
+                    }
+                });
+                if (hasInstallmentSelection) {
+                    return { valid: false, message: 'This patient has an active installment treatment. Only Regular Services can be selected as Additional Services.' };
+                }
+            }
             const categories = [];
             const booked = Array.isArray(selectedTransaction.booked_services) ? selectedTransaction.booked_services : [];
             booked.forEach((service) => {
@@ -4537,7 +4665,10 @@ This booking is installment-priced, but no installment schedule rows exist in th
         function getAdditionalServicesTotal() {
             let total = 0;
             additionalServiceCheckboxes.forEach((checkbox) => {
-                if (!checkbox.checked) {
+                if (!checkbox.checked || checkbox.disabled) {
+                    return;
+                }
+                if (getAdditionalServiceType(checkbox) !== 'regular') {
                     return;
                 }
                 const servicePrice = Number(checkbox.getAttribute('data-service-price') || 0);
@@ -4551,19 +4682,17 @@ This booking is installment-priced, but no installment schedule rows exist in th
         function syncAmountWithAdditionalServices() {
             const servicesTotal = getAdditionalServicesTotal();
             if (additionalServicesTotalHint) {
-                if (selectedTransaction && getScheduleList(selectedTransaction).length > 0) {
-                    additionalServicesTotalHint.textContent = 'Add-on services total: ₱' + servicesTotal.toFixed(2) + ' (posted separately from the installment amount below).';
-                } else {
-                    additionalServicesTotalHint.textContent = 'Added services total: ₱' + servicesTotal.toFixed(2);
-                }
+                additionalServicesTotalHint.textContent = 'Selected regular services total: ₱' + servicesTotal.toFixed(2);
             }
             if (selectedTransaction && amountInput) {
-                if (getScheduleList(selectedTransaction).length > 0) {
+                const hasSchedule = getScheduleList(selectedTransaction).length > 0;
+                if (hasSchedule) {
                     refreshInstallmentPaymentUi();
-                    return;
                 }
-                const basePending = Number(selectedTransaction.pending_balance || 0);
-                amountInput.value = Math.max(0, basePending + servicesTotal).toFixed(2);
+                const baseAmount = hasSchedule
+                    ? Number(amountInput.value || 0)
+                    : Number(selectedTransaction.pending_balance || 0);
+                amountInput.value = Math.max(0, baseAmount + servicesTotal).toFixed(2);
             }
         }
 
@@ -4983,8 +5112,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     } else {
                         syncMainAndSelectorFilter('regular');
                     }
-                    syncAmountWithAdditionalServices();
                     refreshInstallmentPaymentUi();
+                    syncAmountWithAdditionalServices();
                 }
                 updateAdditionalServiceEligibility();
                 renderSelectedAppointmentServices(selected);
@@ -5031,18 +5160,20 @@ This booking is installment-priced, but no installment schedule rows exist in th
         document.querySelectorAll('input[name="installment_pay_mode_ui"]').forEach((radio) => {
             radio.addEventListener('change', () => {
                 refreshInstallmentPaymentUi();
+                syncAmountWithAdditionalServices();
             });
         });
         if (installmentSlotStepper) {
             installmentSlotStepper.addEventListener('input', () => {
                 refreshInstallmentPaymentUi();
+                syncAmountWithAdditionalServices();
             });
         }
         if (clearBookingBtn) {
             clearBookingBtn.addEventListener('click', clearSelectedBooking);
         }
-        syncAmountWithAdditionalServices();
         refreshInstallmentPaymentUi();
+        syncAmountWithAdditionalServices();
         updateAdditionalServicesVisibility();
 
         (function restoreSelectionAfterPost() {
@@ -5073,8 +5204,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 } else {
                     syncMainAndSelectorFilter('regular');
                 }
-                syncAmountWithAdditionalServices();
                 refreshInstallmentPaymentUi();
+                syncAmountWithAdditionalServices();
                 updateAdditionalServiceEligibility();
                 renderSelectedAppointmentServices(pre);
             }
