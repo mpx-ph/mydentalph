@@ -425,9 +425,9 @@ function provider_tenant_appt_format_date(?string $d): string
 </div>
 </div>
 <form class="pt-8 border-t border-slate-100" method="get" action="<?php echo htmlspecialchars($self_php, ENT_QUOTES, 'UTF-8'); ?>">
-<div class="rounded-2xl border border-slate-200 bg-white/80 p-4 sm:p-5 space-y-4">
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 items-end">
-<div class="relative sm:col-span-1">
+<div class="rounded-2xl border border-slate-200 bg-white/80 p-4 sm:p-5">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4 items-end">
+<div class="relative lg:col-span-2">
 <label class="sr-only" for="filter-status">Status</label>
 <select id="filter-status" name="status" class="w-full appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 pr-11 text-on-background text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all" onchange="this.form.submit()">
 <option value="all"<?php echo $filter_status === 'all' ? ' selected' : ''; ?>>All statuses</option>
@@ -439,15 +439,15 @@ function provider_tenant_appt_format_date(?string $d): string
 </select>
 <span class="material-symbols-outlined absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-primary text-lg">tune</span>
 </div>
-<div>
+<div class="lg:col-span-2">
 <label class="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80 mb-2" for="date-from">From</label>
 <input type="date" id="date-from" name="date_from" value="<?php echo htmlspecialchars($date_from, ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-on-background focus:ring-2 focus:ring-primary/20 focus:border-primary"/>
 </div>
-<div>
+<div class="lg:col-span-2">
 <label class="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80 mb-2" for="date-to">To</label>
 <input type="date" id="date-to" name="date_to" value="<?php echo htmlspecialchars($date_to, ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-on-background focus:ring-2 focus:ring-primary/20 focus:border-primary"/>
 </div>
-<div class="sm:col-span-2 lg:col-span-1">
+<div class="sm:col-span-2 lg:col-span-4">
 <label class="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80 mb-2" for="q-search">Search</label>
 <div class="relative">
 <span class="material-symbols-outlined pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/45 text-lg">search</span>
@@ -455,11 +455,11 @@ function provider_tenant_appt_format_date(?string $d): string
 </div>
 </div>
 </div>
-<div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-1">
+<div class="sm:col-span-2 lg:col-span-2 flex flex-col-reverse sm:flex-row lg:justify-end sm:items-center gap-2.5">
 <?php if ($filter_status !== 'all' || $date_from !== '' || $date_to !== '' || $q_search !== '') { ?>
 <a class="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-[10px] font-black uppercase tracking-widest text-primary hover:border-primary/30 hover:bg-primary/5 transition-colors" href="<?php echo htmlspecialchars($self_php, ENT_QUOTES, 'UTF-8'); ?>">Reset</a>
 <?php } ?>
-<button type="submit" class="inline-flex items-center justify-center rounded-2xl bg-primary text-white px-8 py-3 text-[10px] font-black uppercase tracking-widest hover:shadow-lg hover:shadow-primary/25 transition-all active:scale-[0.98]">Apply filters</button>
+<button type="submit" class="inline-flex items-center justify-center rounded-2xl bg-primary text-white px-6 py-3 text-[10px] font-black uppercase tracking-widest whitespace-nowrap hover:shadow-lg hover:shadow-primary/25 transition-all active:scale-[0.98]">Apply filters</button>
 </div>
 </div>
 </form>
