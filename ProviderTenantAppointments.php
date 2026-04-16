@@ -353,13 +353,58 @@ function provider_tenant_appt_format_date(?string $d): string
             transform: translateY(-4px);
             box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.12);
         }
+        @media (max-width: 1023.98px) {
+            .provider-top-header {
+                left: 0 !important;
+                min-height: 5rem;
+            }
+            #provider-sidebar {
+                transform: translateX(-100%);
+                transition: transform 220ms ease;
+                z-index: 60;
+                background: #ffffff;
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+                border-right: 1px solid #e2e8f0;
+            }
+            body.provider-mobile-sidebar-open #provider-sidebar {
+                transform: translateX(0);
+            }
+            #provider-mobile-sidebar-toggle {
+                transition: left 220ms ease, background-color 220ms ease, color 220ms ease;
+            }
+            body.provider-mobile-sidebar-open #provider-mobile-sidebar-toggle {
+                left: calc(16rem - 3.25rem);
+                background: rgba(255, 255, 255, 0.98);
+                color: #0066ff;
+            }
+            #provider-mobile-sidebar-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(19, 28, 37, 0.45);
+                backdrop-filter: blur(2px);
+                -webkit-backdrop-filter: blur(2px);
+                z-index: 55;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 220ms ease;
+            }
+            body.provider-mobile-sidebar-open #provider-mobile-sidebar-backdrop {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
         body { font-family: 'Manrope', sans-serif; }
     </style>
 </head>
 <body class="mesh-bg font-body text-on-background min-h-screen selection:bg-primary/10">
 <?php include __DIR__ . '/provider_tenant_sidebar.inc.php'; ?>
 <?php include __DIR__ . '/provider_tenant_top_header.inc.php'; ?>
-<main class="ml-64 pt-[4.5rem] sm:pt-24 min-h-screen provider-page-enter">
+<button id="provider-mobile-sidebar-toggle" type="button" class="fixed top-6 left-4 z-[65] lg:hidden w-10 h-10 rounded-xl bg-white/90 border border-white text-primary shadow-md flex items-center justify-center" aria-controls="provider-sidebar" aria-expanded="false" aria-label="Open navigation menu">
+<span class="material-symbols-outlined text-[20px]">menu</span>
+</button>
+<div id="provider-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
+<main class="ml-0 lg:ml-64 pt-[4.75rem] sm:pt-24 min-h-screen provider-page-enter">
 <div class="pt-4 sm:pt-6 px-6 lg:px-10 pb-20 space-y-8">
 <section class="flex flex-col gap-6">
 <div class="flex flex-col gap-4">
@@ -417,6 +462,71 @@ function provider_tenant_appt_format_date(?string $d): string
 </section>
 
 <div class="elevated-card provider-card-lift rounded-3xl overflow-hidden">
+<div class="md:hidden p-4 space-y-3">
+<?php if ($t_appts === '') { ?>
+<div class="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-on-surface-variant font-medium text-center">Appointment storage is not connected for this environment. Once your clinic database is linked, visits will appear here.</div>
+<?php } elseif ($total_all === 0) { ?>
+<div class="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-on-surface-variant font-medium text-center">No appointment records found for this clinic yet. Bookings from your clinic console will show up in this journal.</div>
+<?php } elseif ($total_filtered === 0) { ?>
+<div class="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-on-surface-variant font-medium text-center">No records match these filters. <a class="text-primary font-bold hover:underline" href="<?php echo htmlspecialchars($self_php, ENT_QUOTES, 'UTF-8'); ?>">Clear filters</a></div>
+<?php } else { ?>
+<?php foreach ($appointments_rows as $row) {
+    $pf = trim((string) ($row['pf'] ?? ''));
+    $pl = trim((string) ($row['pl'] ?? ''));
+    $patient_line = trim($pf . ' ' . $pl);
+    if ($patient_line === '') {
+        $patient_line = trim((string) ($row['patient_id'] ?? '')) !== '' ? (string) $row['patient_id'] : '—';
+    }
+    $phone = trim((string) ($row['p_phone'] ?? ''));
+    $dentistDisp = trim((string) ($row['dentist_display'] ?? ''));
+    $bookedBy = trim((string) ($row['booked_by_name'] ?? ''));
+    $practitioner = $dentistDisp !== '' ? $dentistDisp : ($bookedBy !== '' ? $bookedBy : '—');
+    $service = trim((string) ($row['service_display'] ?? ''));
+    if ($service === '') {
+        $service = '—';
+    }
+    $statusRaw = (string) ($row['status'] ?? '');
+    [$badgeClass, $statusLabel] = provider_tenant_appt_status_badge($statusRaw);
+    ?>
+<article class="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+<div class="flex items-start justify-between gap-3">
+<div class="min-w-0">
+<p class="font-headline font-extrabold text-slate-900 truncate"><?php echo htmlspecialchars($patient_line, ENT_QUOTES, 'UTF-8'); ?></p>
+<?php if ($phone !== '') { ?>
+<p class="text-[11px] font-medium text-on-surface-variant/75 mt-0.5 truncate"><?php echo htmlspecialchars($phone, ENT_QUOTES, 'UTF-8'); ?></p>
+<?php } ?>
+<?php $bid = trim((string) ($row['booking_id'] ?? '')); if ($bid !== '') { ?>
+<p class="text-[10px] font-black uppercase tracking-wider text-primary/80 mt-1"><?php echo htmlspecialchars($bid, ENT_QUOTES, 'UTF-8'); ?></p>
+<?php } ?>
+</div>
+<span class="<?php echo $badgeClass; ?> text-[9px] font-black px-3 py-1.5 rounded-lg uppercase tracking-widest inline-block shrink-0"><?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div>
+<p class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Date</p>
+<p class="text-xs font-semibold text-on-surface-variant mt-1"><?php echo htmlspecialchars(provider_tenant_appt_format_date(isset($row['appointment_date']) ? (string) $row['appointment_date'] : null), ENT_QUOTES, 'UTF-8'); ?></p>
+</div>
+<div>
+<p class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Time</p>
+<p class="text-xs font-semibold text-on-surface-variant mt-1"><?php echo htmlspecialchars(provider_tenant_appt_format_time(isset($row['appointment_time']) ? (string) $row['appointment_time'] : null), ENT_QUOTES, 'UTF-8'); ?></p>
+</div>
+</div>
+<div>
+<p class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Practitioner</p>
+<p class="text-sm font-semibold text-slate-800 mt-1"><?php echo htmlspecialchars($practitioner, ENT_QUOTES, 'UTF-8'); ?></p>
+<?php if ($dentistDisp !== '' && $bookedBy !== '' && strcasecmp($dentistDisp, $bookedBy) !== 0) { ?>
+<p class="text-[10px] font-semibold text-on-surface-variant/65 mt-1">Booked by <?php echo htmlspecialchars($bookedBy, ENT_QUOTES, 'UTF-8'); ?></p>
+<?php } ?>
+</div>
+<div>
+<p class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Service type</p>
+<p class="text-sm font-medium text-on-surface-variant leading-snug mt-1"><?php echo htmlspecialchars($service, ENT_QUOTES, 'UTF-8'); ?></p>
+</div>
+</article>
+<?php } ?>
+<?php } ?>
+</div>
+<div class="hidden md:block overflow-x-auto">
 <table class="w-full text-left border-collapse">
 <thead>
 <tr class="bg-slate-50/50 border-b border-slate-100">
@@ -493,6 +603,7 @@ function provider_tenant_appt_format_date(?string $d): string
 <?php } ?>
 </tbody>
 </table>
+</div>
 <?php if ($t_appts !== '' && $total_filtered > 0) { ?>
 <div class="px-10 py-6 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4">
 <p class="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/70">
@@ -528,7 +639,7 @@ Page <span class="text-slate-900"><?php echo (int) $page; ?></span> of <span cla
 <?php } ?>
 </div>
 
-<footer class="mt-auto p-8 flex justify-center sticky bottom-0 z-10 pointer-events-none">
+<footer class="mt-auto p-8 hidden lg:flex justify-center sticky bottom-0 z-10 pointer-events-none">
 <div class="elevated-card pointer-events-auto px-10 py-4 rounded-full border border-slate-200/50 shadow-2xl flex items-center gap-10 text-[10px] font-black text-on-surface-variant/70 uppercase tracking-[0.2em]">
 <div class="flex items-center gap-3 text-primary">
 <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
@@ -544,4 +655,59 @@ Page <span class="text-slate-900"><?php echo (int) $page; ?></span> of <span cla
 </div>
 </main>
 <?php include __DIR__ . '/provider_tenant_profile_modal.inc.php'; ?>
+<script>
+(function () {
+  var body = document.body;
+  var sidebar = document.getElementById('provider-sidebar');
+  var mobileToggle = document.getElementById('provider-mobile-sidebar-toggle');
+  var mobileBackdrop = document.getElementById('provider-mobile-sidebar-backdrop');
+  var desktopQuery = window.matchMedia('(min-width: 1024px)');
+
+  if (!body || !sidebar || !mobileToggle || !mobileBackdrop) {
+    return;
+  }
+
+  function setMobileSidebar(open) {
+    body.classList.toggle('provider-mobile-sidebar-open', open);
+    mobileToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    mobileToggle.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+    var icon = mobileToggle.querySelector('.material-symbols-outlined');
+    if (icon) {
+      icon.textContent = open ? 'close' : 'menu';
+    }
+  }
+
+  function closeOnDesktop() {
+    if (desktopQuery.matches) {
+      setMobileSidebar(false);
+    }
+  }
+
+  mobileToggle.addEventListener('click', function () {
+    setMobileSidebar(!body.classList.contains('provider-mobile-sidebar-open'));
+  });
+  mobileBackdrop.addEventListener('click', function () {
+    setMobileSidebar(false);
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && body.classList.contains('provider-mobile-sidebar-open')) {
+      setMobileSidebar(false);
+    }
+  });
+  sidebar.querySelectorAll('a').forEach(function (link) {
+    link.addEventListener('click', function () {
+      if (!desktopQuery.matches) {
+        setMobileSidebar(false);
+      }
+    });
+  });
+  if (typeof desktopQuery.addEventListener === 'function') {
+    desktopQuery.addEventListener('change', closeOnDesktop);
+  } else if (typeof desktopQuery.addListener === 'function') {
+    desktopQuery.addListener(closeOnDesktop);
+  }
+
+  setMobileSidebar(false);
+})();
+</script>
 </body></html>
