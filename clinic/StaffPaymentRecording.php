@@ -101,6 +101,66 @@ function staff_payment_recording_installment_is_paid(string $status): bool
 }
 
 /**
+ * @return list<array{name:string, amount:float}>
+ */
+function staff_payment_recording_fetch_regular_services_for_booking(
+    PDO $pdo,
+    string $tenantId,
+    string $bookingId,
+    bool $supportsAppointmentServicesTable,
+    bool $supportsAppointmentServiceTypeColumn,
+    bool $supportsServiceEnableInstallmentColumn
+): array {
+    if (!$supportsAppointmentServicesTable || $bookingId === '') {
+        return [];
+    }
+
+    $sql = '';
+    if ($supportsAppointmentServiceTypeColumn) {
+        $sql = "
+            SELECT COALESCE(aps.service_name, '') AS service_name, COALESCE(aps.price, 0) AS price
+            FROM tbl_appointment_services aps
+            WHERE aps.tenant_id = ?
+              AND aps.booking_id = ?
+              AND LOWER(TRIM(COALESCE(aps.service_type, ''))) = 'regular'
+            ORDER BY aps.id ASC
+        ";
+    } elseif ($supportsServiceEnableInstallmentColumn) {
+        $sql = "
+            SELECT COALESCE(aps.service_name, '') AS service_name, COALESCE(aps.price, 0) AS price
+            FROM tbl_appointment_services aps
+            INNER JOIN tbl_services sv
+                ON sv.tenant_id = aps.tenant_id
+               AND sv.service_id = aps.service_id
+            WHERE aps.tenant_id = ?
+              AND aps.booking_id = ?
+              AND COALESCE(sv.enable_installment, 0) = 0
+            ORDER BY aps.id ASC
+        ";
+    } else {
+        return [];
+    }
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$tenantId, $bookingId]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $out = [];
+    foreach ($rows as $row) {
+        $serviceName = trim((string) ($row['service_name'] ?? ''));
+        $serviceName = preg_replace('/\[[^\]]*\]/', '', $serviceName);
+        $serviceName = trim((string) preg_replace('/\s+/', ' ', (string) $serviceName));
+        if ($serviceName === '') {
+            continue;
+        }
+        $out[] = [
+            'name' => $serviceName,
+            'amount' => round(max(0.0, (float) ($row['price'] ?? 0)), 2),
+        ];
+    }
+    return $out;
+}
+
+/**
  * Incrementally sync a treatment's financial fields when a payment is recorded.
  *
  * This should only be called for successful payments (e.g. tbl_payments.status = 'completed' or 'paid')
@@ -366,11 +426,27 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
     $serviceHint = preg_replace('/\[[^\]]*\]/', '', $serviceHint);
     $serviceHint = trim((string) preg_replace('/\s+/', ' ', (string) $serviceHint));
     $paymentNotes = trim((string) ($payment['notes'] ?? ''));
+    $regularServiceItems = [];
+    if (isset($payment['regular_service_items']) && is_array($payment['regular_service_items'])) {
+        foreach ($payment['regular_service_items'] as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $rowName = trim((string) ($row['name'] ?? ''));
+            $rowName = preg_replace('/\[[^\]]*\]/', '', $rowName);
+            $rowName = trim((string) preg_replace('/\s+/', ' ', (string) $rowName));
+            if ($rowName === '') {
+                continue;
+            }
+            $regularServiceItems[] = [
+                'name' => $rowName,
+                'amount' => round(max(0.0, (float) ($row['amount'] ?? 0)), 2),
+            ];
+        }
+    }
 
     $addOnItemsFromNotes = [];
-    $hasAddOnTag = false;
     if ($paymentNotes !== '' && preg_match('/\[Add-on Services:\s*(.*?)\]/i', $paymentNotes, $addOnMatch) === 1) {
-        $hasAddOnTag = true;
         $rawItems = array_filter(array_map('trim', explode(';', (string) ($addOnMatch[1] ?? ''))));
         foreach ($rawItems as $rawItem) {
             $itemName = $rawItem;
@@ -390,33 +466,6 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
         }
     }
 
-    // Transaction-level add-on metadata is authoritative for the receipt breakdown.
-    // When present, do not mix in installment/base treatment labels.
-    if ($hasAddOnTag) {
-        if ($addOnItemsFromNotes !== []) {
-            $servicesTotal = 0.0;
-            foreach ($addOnItemsFromNotes as $addOnItem) {
-                $servicesTotal += (float) ($addOnItem['amount'] ?? 0);
-            }
-            if ($servicesTotal <= 0.009 || abs($servicesTotal - $amountPaid) > 0.05) {
-                $servicesTotal = $amountPaid;
-            }
-            return [
-                'service_label' => 'Add-on Services',
-                'service_items' => $addOnItemsFromNotes,
-                'services_total' => round($servicesTotal, 2),
-            ];
-        }
-        return [
-            'service_label' => 'Add-on Services',
-            'service_items' => [[
-                'name' => 'Add-on Services',
-                'amount' => $amountPaid,
-            ]],
-            'services_total' => $amountPaid,
-        ];
-    }
-
     $transactionLabel = 'Payment';
     if ($installmentNumber > 0 || $serviceType === 'installment') {
         if ($installmentNumber === 1 || $paymentType === 'downpayment') {
@@ -430,14 +479,34 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
         $transactionLabel = 'Add-on Services';
     }
 
-    if ($transactionLabel === 'Add-on Services' && $serviceHint !== '') {
+    if ($transactionLabel === 'Add-on Services' && $addOnItemsFromNotes !== []) {
+        $servicesTotal = 0.0;
+        foreach ($addOnItemsFromNotes as $addOnItem) {
+            $servicesTotal += (float) ($addOnItem['amount'] ?? 0);
+        }
+        // If legacy note values are missing/partial, keep receipt totals consistent with posted amount.
+        if ($servicesTotal <= 0.009 || abs($servicesTotal - $amountPaid) > 0.05) {
+            $servicesTotal = $amountPaid;
+        }
         return [
             'service_label' => 'Add-on Services',
-            'service_items' => [[
-                'name' => $serviceHint,
-                'amount' => $amountPaid,
-            ]],
-            'services_total' => $amountPaid,
+            'service_items' => $addOnItemsFromNotes,
+            'services_total' => round($servicesTotal, 2),
+        ];
+    }
+
+    if ($transactionLabel === 'Add-on Services' && $regularServiceItems !== []) {
+        $regularServicesTotal = 0.0;
+        foreach ($regularServiceItems as $regularServiceItem) {
+            $regularServicesTotal += (float) ($regularServiceItem['amount'] ?? 0);
+        }
+        if ($regularServicesTotal <= 0.009 || abs($regularServicesTotal - $amountPaid) > 0.05) {
+            $regularServicesTotal = $amountPaid;
+        }
+        return [
+            'service_label' => 'Add-on Services',
+            'service_items' => $regularServiceItems,
+            'services_total' => round($regularServicesTotal, 2),
         ];
     }
 
@@ -1200,6 +1269,19 @@ try {
                 } elseif ($patientEmail === '') {
                     $paymentError = 'Patient has no registered email address.';
                 } else {
+                    $receiptBookingId = trim((string) ($receiptRow['booking_id'] ?? ''));
+                    if ($receiptBookingId !== '' && isset($pdo) && $pdo instanceof PDO) {
+                        $receiptRow['regular_service_items'] = staff_payment_recording_fetch_regular_services_for_booking(
+                            $pdo,
+                            $tenantId,
+                            $receiptBookingId,
+                            $supportsAppointmentServicesTable,
+                            $supportsAppointmentServiceTypeColumn,
+                            $supportsServiceEnableInstallmentColumn
+                        );
+                    } else {
+                        $receiptRow['regular_service_items'] = [];
+                    }
                     $patientFullName = trim(trim((string) ($receiptRow['patient_first_name'] ?? '')) . ' ' . trim((string) ($receiptRow['patient_last_name'] ?? '')));
                     if ($patientFullName === '') {
                         $patientFullName = 'Patient';
@@ -3475,6 +3557,19 @@ if ($paymentError === 'Please select a payment method.') {
         $referenceLabel = trim((string) ($payment['payment_id'] ?? ''));
     }
     $patientEmail = trim((string) ($payment['patient_email'] ?? ''));
+    $paymentBookingId = trim((string) ($payment['booking_id'] ?? ''));
+    if ($paymentBookingId !== '' && isset($pdo) && $pdo instanceof PDO) {
+        $payment['regular_service_items'] = staff_payment_recording_fetch_regular_services_for_booking(
+            $pdo,
+            $tenantId,
+            $paymentBookingId,
+            $supportsAppointmentServicesTable,
+            $supportsAppointmentServiceTypeColumn,
+            $supportsServiceEnableInstallmentColumn
+        );
+    } else {
+        $payment['regular_service_items'] = [];
+    }
     $receiptBreakdown = staff_payment_recording_build_transaction_breakdown($payment);
     $receiptServiceItems = isset($receiptBreakdown['service_items']) && is_array($receiptBreakdown['service_items'])
         ? $receiptBreakdown['service_items']
