@@ -101,6 +101,68 @@ function staff_payment_recording_installment_is_paid(string $status): bool
 }
 
 /**
+ * @return list<int>
+ */
+function staff_payment_recording_extract_installment_numbers_from_notes(string $notes): array
+{
+    $rawNotes = trim($notes);
+    if ($rawNotes === '') {
+        return [];
+    }
+    if (preg_match('/\[Installments:\s*([^\]]+)\]/i', $rawNotes, $match) !== 1) {
+        return [];
+    }
+    if (preg_match_all('/#\s*(\d+)/', (string) ($match[1] ?? ''), $numMatches) !== 1) {
+        return [];
+    }
+    $out = [];
+    foreach (($numMatches[1] ?? []) as $numRaw) {
+        $n = max(0, (int) $numRaw);
+        if ($n > 0) {
+            $out[] = $n;
+        }
+    }
+    return array_values(array_unique($out));
+}
+
+/**
+ * @return list<array{installment_number:int, amount:float}>
+ */
+function staff_payment_recording_build_installment_payment_items(
+    PDO $pdo,
+    ?string $installmentsTableName,
+    string $tenantId,
+    string $bookingId,
+    string $notes,
+    int $fallbackInstallmentNumber = 0
+): array {
+    $installmentNumbers = staff_payment_recording_extract_installment_numbers_from_notes($notes);
+    if ($installmentNumbers === [] && $fallbackInstallmentNumber > 0) {
+        $installmentNumbers = [$fallbackInstallmentNumber];
+    }
+    if ($installmentNumbers === [] || $bookingId === '') {
+        return [];
+    }
+    $schedule = staff_payment_recording_fetch_installments($pdo, $installmentsTableName, $tenantId, $bookingId);
+    $amountByInstallment = [];
+    foreach ($schedule as $row) {
+        $instNum = max(0, (int) ($row['installment_number'] ?? 0));
+        if ($instNum <= 0) {
+            continue;
+        }
+        $amountByInstallment[$instNum] = round(max(0.0, (float) ($row['amount_due'] ?? 0)), 2);
+    }
+    $items = [];
+    foreach ($installmentNumbers as $num) {
+        $items[] = [
+            'installment_number' => $num,
+            'amount' => isset($amountByInstallment[$num]) ? (float) $amountByInstallment[$num] : 0.0,
+        ];
+    }
+    return $items;
+}
+
+/**
  * @return list<array{name:string, amount:float}>
  */
 function staff_payment_recording_fetch_regular_services_for_booking(
@@ -427,6 +489,9 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
     $serviceHint = preg_replace('/\[[^\]]*\]/', '', $serviceHint);
     $serviceHint = trim((string) preg_replace('/\s+/', ' ', (string) $serviceHint));
     $paymentNotes = trim((string) ($payment['notes'] ?? ''));
+    $installmentPaymentItems = isset($payment['installment_payment_items']) && is_array($payment['installment_payment_items'])
+        ? $payment['installment_payment_items']
+        : [];
     $regularServiceItems = [];
     if (isset($payment['regular_service_items']) && is_array($payment['regular_service_items'])) {
         foreach ($payment['regular_service_items'] as $row) {
@@ -469,6 +534,71 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
 
     $transactionLabel = 'Payment';
     if ($installmentNumber > 0 || $serviceType === 'installment') {
+        if ($installmentPaymentItems !== []) {
+            $resolvedItems = [];
+            $missingAmountCount = 0;
+            $knownAmountSum = 0.0;
+            foreach ($installmentPaymentItems as $entry) {
+                if (!is_array($entry)) {
+                    continue;
+                }
+                $entryNum = max(0, (int) ($entry['installment_number'] ?? 0));
+                if ($entryNum <= 0) {
+                    continue;
+                }
+                $entryAmount = round(max(0.0, (float) ($entry['amount'] ?? 0)), 2);
+                if ($entryAmount > 0.009) {
+                    $knownAmountSum += $entryAmount;
+                } else {
+                    $missingAmountCount++;
+                }
+                $resolvedItems[] = [
+                    'installment_number' => $entryNum,
+                    'amount' => $entryAmount,
+                ];
+            }
+            if ($resolvedItems !== []) {
+                if ($missingAmountCount > 0) {
+                    $remainingSplit = max(0.0, $amountPaid - $knownAmountSum);
+                    $splitAmount = $missingAmountCount > 0 ? round($remainingSplit / $missingAmountCount, 2) : 0.0;
+                    $assigned = 0.0;
+                    $remainingSlots = $missingAmountCount;
+                    foreach ($resolvedItems as $idx => $entry) {
+                        if ((float) ($entry['amount'] ?? 0) > 0.009) {
+                            continue;
+                        }
+                        $remainingSlots--;
+                        if ($remainingSlots <= 0) {
+                            $entryAmount = round(max(0.0, $remainingSplit - $assigned), 2);
+                        } else {
+                            $entryAmount = $splitAmount;
+                            $assigned += $entryAmount;
+                        }
+                        $resolvedItems[$idx]['amount'] = $entryAmount;
+                    }
+                }
+                $serviceItems = [];
+                $serviceTotal = 0.0;
+                foreach ($resolvedItems as $entry) {
+                    $entryNum = (int) ($entry['installment_number'] ?? 0);
+                    $entryAmount = round(max(0.0, (float) ($entry['amount'] ?? 0)), 2);
+                    $entryLabel = $entryNum === 1 ? 'Downpayment' : ('Monthly Payment #' . $entryNum);
+                    $serviceItems[] = [
+                        'name' => $entryLabel,
+                        'amount' => $entryAmount,
+                    ];
+                    $serviceTotal += $entryAmount;
+                }
+                if ($serviceTotal <= 0.009 || abs($serviceTotal - $amountPaid) > 0.05) {
+                    $serviceTotal = $amountPaid;
+                }
+                return [
+                    'service_label' => count($serviceItems) > 1 ? 'Installment Payments' : (string) ($serviceItems[0]['name'] ?? 'Installment Payment'),
+                    'service_items' => $serviceItems,
+                    'services_total' => round($serviceTotal, 2),
+                ];
+            }
+        }
         if ($installmentNumber === 1 || $paymentType === 'downpayment') {
             $transactionLabel = 'Downpayment';
         } else {
@@ -1278,6 +1408,7 @@ try {
                     $paymentError = 'Patient has no registered email address.';
                 } else {
                     $receiptBookingId = trim((string) ($receiptRow['booking_id'] ?? ''));
+                    $receiptNotes = trim((string) ($receiptRow['notes'] ?? ''));
                     if ($receiptBookingId !== '' && isset($pdo) && $pdo instanceof PDO) {
                         $receiptRow['regular_service_items'] = staff_payment_recording_fetch_regular_services_for_booking(
                             $pdo,
@@ -1287,8 +1418,17 @@ try {
                             $supportsAppointmentServiceTypeColumn,
                             $supportsServiceEnableInstallmentColumn
                         );
+                        $receiptRow['installment_payment_items'] = staff_payment_recording_build_installment_payment_items(
+                            $pdo,
+                            $installmentsTableName,
+                            $tenantId,
+                            $receiptBookingId,
+                            $receiptNotes,
+                            (int) ($receiptRow['installment_number'] ?? 0)
+                        );
                     } else {
                         $receiptRow['regular_service_items'] = [];
+                        $receiptRow['installment_payment_items'] = [];
                     }
                     $patientFullName = trim(trim((string) ($receiptRow['patient_first_name'] ?? '')) . ' ' . trim((string) ($receiptRow['patient_last_name'] ?? '')));
                     if ($patientFullName === '') {
@@ -3574,6 +3714,7 @@ if ($paymentError === 'Please select a payment method.') {
     }
     $patientEmail = trim((string) ($payment['patient_email'] ?? ''));
     $paymentBookingId = trim((string) ($payment['booking_id'] ?? ''));
+    $paymentNotes = trim((string) ($payment['notes'] ?? ''));
     if ($paymentBookingId !== '' && isset($pdo) && $pdo instanceof PDO) {
         $payment['regular_service_items'] = staff_payment_recording_fetch_regular_services_for_booking(
             $pdo,
@@ -3583,8 +3724,17 @@ if ($paymentError === 'Please select a payment method.') {
             $supportsAppointmentServiceTypeColumn,
             $supportsServiceEnableInstallmentColumn
         );
+        $payment['installment_payment_items'] = staff_payment_recording_build_installment_payment_items(
+            $pdo,
+            $installmentsTableName,
+            $tenantId,
+            $paymentBookingId,
+            $paymentNotes,
+            (int) ($payment['installment_number'] ?? 0)
+        );
     } else {
         $payment['regular_service_items'] = [];
+        $payment['installment_payment_items'] = [];
     }
     $receiptBreakdown = staff_payment_recording_build_transaction_breakdown($payment);
     $isRegularAddOnReceipt = strcasecmp((string) ($receiptBreakdown['service_label'] ?? ''), 'Add-on Services') === 0;
