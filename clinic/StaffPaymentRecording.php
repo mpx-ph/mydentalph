@@ -455,16 +455,23 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
         foreach ($rawItems as $rawItem) {
             $itemName = $rawItem;
             $itemAmount = null;
-            if (preg_match('/^(.*?)\s*\(₱?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)\)\s*$/u', $rawItem, $itemMatch) === 1) {
+            if (preg_match('/^(.*?)\s*\((?:₱|PHP|Php|php)?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)\)\s*$/u', $rawItem, $itemMatch) === 1) {
                 $itemName = trim((string) ($itemMatch[1] ?? ''));
                 $itemAmount = (float) str_replace(',', '', (string) ($itemMatch[2] ?? '0'));
+            } elseif (preg_match('/^(.*?)\s*\(([^)]*)\)\s*$/u', $rawItem, $fallbackMatch) === 1) {
+                // Fallback for legacy notes where the peso symbol may be stripped/encoded differently.
+                $itemName = trim((string) ($fallbackMatch[1] ?? ''));
+                $numericPart = preg_replace('/[^0-9.,]/', '', (string) ($fallbackMatch[2] ?? ''));
+                if (is_string($numericPart) && $numericPart !== '') {
+                    $itemAmount = (float) str_replace(',', '', $numericPart);
+                }
             }
             $itemName = trim((string) preg_replace('/\s+/', ' ', $itemName));
             if ($itemName === '') {
                 continue;
             }
             $addOnItemsFromNotes[] = [
-                'name' => $itemName,
+                'name' => 'Add-on: ' . $itemName,
                 'amount' => round(max(0.0, (float) ($itemAmount ?? 0.0)), 2),
             ];
         }
@@ -511,8 +518,39 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
             if ($installmentItems !== []) {
                 if ($addOnItemsFromNotes !== []) {
                     $addOnTotal = 0.0;
+                    $addOnMissingAmountCount = 0;
                     foreach ($addOnItemsFromNotes as $addOnItem) {
-                        $addOnTotal += (float) ($addOnItem['amount'] ?? 0);
+                        $lineAmount = (float) ($addOnItem['amount'] ?? 0);
+                        if ($lineAmount <= 0.0) {
+                            $addOnMissingAmountCount++;
+                        }
+                        $addOnTotal += $lineAmount;
+                    }
+                    if ($addOnMissingAmountCount > 0) {
+                        $inferredAddOnTotal = round(max(0.0, $amountPaid - $installmentTotal), 2);
+                        if ($inferredAddOnTotal > 0.0 && abs($inferredAddOnTotal - $addOnTotal) > 0.05) {
+                            $distributable = $inferredAddOnTotal;
+                            $updatedItems = [];
+                            foreach ($addOnItemsFromNotes as $index => $addOnItem) {
+                                $currentAmount = round(max(0.0, (float) ($addOnItem['amount'] ?? 0)), 2);
+                                if ($currentAmount > 0.0 || $addOnMissingAmountCount <= 0) {
+                                    $updatedItems[] = $addOnItem;
+                                    continue;
+                                }
+                                $fillAmount = $index === (count($addOnItemsFromNotes) - 1)
+                                    ? $distributable
+                                    : round($inferredAddOnTotal / $addOnMissingAmountCount, 2);
+                                $fillAmount = max(0.0, min($distributable, $fillAmount));
+                                $distributable = round($distributable - $fillAmount, 2);
+                                $addOnItem['amount'] = $fillAmount;
+                                $updatedItems[] = $addOnItem;
+                            }
+                            $addOnItemsFromNotes = $updatedItems;
+                            $addOnTotal = 0.0;
+                            foreach ($addOnItemsFromNotes as $addOnItem) {
+                                $addOnTotal += (float) ($addOnItem['amount'] ?? 0);
+                            }
+                        }
                     }
                     $mergedItems = array_merge($installmentItems, $addOnItemsFromNotes);
                     $mergedTotal = round($installmentTotal + $addOnTotal, 2);
