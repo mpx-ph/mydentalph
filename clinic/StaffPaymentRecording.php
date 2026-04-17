@@ -1621,6 +1621,7 @@ try {
                         && $scheduleRows !== []
                     );
                     $addedServiceLabels = [];
+                    $addedServicesTotal = 0.0;
 
                     if (!empty($additionalServiceIds)) {
                         if (!$supportsAppointmentServicesTable) {
@@ -1767,6 +1768,7 @@ try {
                         }
 
                         if ($addedCost > 0) {
+                            $addedServicesTotal += $addedCost;
                             $totalCost += $addedCost;
                             $pendingBalance += $addedCost;
                             $serviceDescription = trim((string) ($bookingRow['service_description'] ?? ''));
@@ -1858,7 +1860,11 @@ try {
                             $expected += (float) $tp['amount_due'];
                         }
                         $expected = round($expected, 2);
-                        if (abs($amount - $expected) > 0.05) {
+                        $installmentPaymentAmount = round(max(0.0, (float) $amount - (float) $addedServicesTotal), 2);
+                        if ($installmentPaymentAmount <= 0.0) {
+                            throw new RuntimeException('Payment amount must include at least the selected installment amount.');
+                        }
+                        if (abs($installmentPaymentAmount - $expected) > 0.05) {
                             throw new RuntimeException('Payment amount must be ₱' . number_format($expected, 2) . ' for the selected installment option.');
                         }
 
@@ -2033,7 +2039,7 @@ try {
                                 $pdo,
                                 $tenantId,
                                 $bookingTreatmentId,
-                                (float) $amount,
+                                (float) $installmentPaymentAmount,
                                 $monthsPaidIncrement
                             );
                         }
