@@ -1254,6 +1254,22 @@ try {
                 if ($selectedTransactionType === 'installment' && !$hasInstallmentEntry) {
                     $installmentCost = 0.0;
                 }
+                $explicitRegularPaid = 0.0;
+                $explicitInstallmentPaid = 0.0;
+                if ($supportsPaymentsInstallmentNumberColumn) {
+                    $splitPaidStmt = $pdo->prepare("
+                        SELECT
+                            COALESCE(SUM(CASE WHEN status IN ('completed', 'paid') AND COALESCE(installment_number, 0) <= 0 THEN amount ELSE 0 END), 0) AS regular_paid_amount,
+                            COALESCE(SUM(CASE WHEN status IN ('completed', 'paid') AND COALESCE(installment_number, 0) > 0 THEN amount ELSE 0 END), 0) AS installment_paid_amount
+                        FROM tbl_payments
+                        WHERE tenant_id = ?
+                          AND booking_id = ?
+                    ");
+                    $splitPaidStmt->execute([$tenantId, $selectedBookingId]);
+                    $splitPaidRow = $splitPaidStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+                    $explicitRegularPaid = (float) ($splitPaidRow['regular_paid_amount'] ?? 0);
+                    $explicitInstallmentPaid = (float) ($splitPaidRow['installment_paid_amount'] ?? 0);
+                }
                 $installmentPaidBySchedule = 0.0;
                 $scheduleRowsForSplit = staff_payment_recording_fetch_installments($pdo, $installmentsTableName, $tenantId, $selectedBookingId);
                 if ($scheduleRowsForSplit !== []) {
@@ -1263,11 +1279,15 @@ try {
                         }
                     }
                 }
-                $installmentPaidResolved = $installmentPaidBySchedule > 0
-                    ? $installmentPaidBySchedule
-                    : ($hasInstallmentEntry ? $totalPaid : 0.0);
+                $installmentPaidResolved = $explicitInstallmentPaid > 0
+                    ? $explicitInstallmentPaid
+                    : ($installmentPaidBySchedule > 0
+                        ? $installmentPaidBySchedule
+                        : ($hasInstallmentEntry ? $totalPaid : 0.0));
                 $installmentPaidResolved = max(0.0, min($installmentCost, $installmentPaidResolved));
-                $regularPaidRaw = $totalPaid - $installmentPaidResolved;
+                $regularPaidRaw = $explicitRegularPaid > 0
+                    ? $explicitRegularPaid
+                    : ($totalPaid - $installmentPaidResolved);
                 // Protect regular-service pending balance from tiny split/rounding drift.
                 // Example: 0.01-0.05 residual from installment math should not mark regular rows partially paid.
                 if ($regularPaidRaw > 0 && $regularPaidRaw < 0.05) {
@@ -2484,6 +2504,59 @@ try {
         $transactionsStmt->execute([$tenantId]);
         $transactionCandidates = $transactionsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
+        $paymentSplitByBooking = [];
+        if ($transactionCandidates !== []) {
+            $bookingIdsForSplit = [];
+            foreach ($transactionCandidates as $candRow) {
+                $splitBookingId = trim((string) ($candRow['booking_id'] ?? ''));
+                if ($splitBookingId !== '') {
+                    $bookingIdsForSplit[$splitBookingId] = true;
+                }
+            }
+            $bookingIdListForSplit = array_keys($bookingIdsForSplit);
+            if ($bookingIdListForSplit !== []) {
+                $splitPlaceholders = implode(',', array_fill(0, count($bookingIdListForSplit), '?'));
+                if ($supportsPaymentsInstallmentNumberColumn) {
+                    $splitSql = "
+                        SELECT
+                            booking_id,
+                            COALESCE(SUM(CASE WHEN status IN ('completed', 'paid') THEN amount ELSE 0 END), 0) AS total_paid_amount,
+                            COALESCE(SUM(CASE WHEN status IN ('completed', 'paid') AND COALESCE(installment_number, 0) > 0 THEN amount ELSE 0 END), 0) AS installment_paid_amount,
+                            COALESCE(SUM(CASE WHEN status IN ('completed', 'paid') AND COALESCE(installment_number, 0) <= 0 THEN amount ELSE 0 END), 0) AS regular_paid_amount
+                        FROM tbl_payments
+                        WHERE tenant_id = ?
+                          AND booking_id IN ({$splitPlaceholders})
+                        GROUP BY booking_id
+                    ";
+                } else {
+                    $splitSql = "
+                        SELECT
+                            booking_id,
+                            COALESCE(SUM(CASE WHEN status IN ('completed', 'paid') THEN amount ELSE 0 END), 0) AS total_paid_amount,
+                            0 AS installment_paid_amount,
+                            COALESCE(SUM(CASE WHEN status IN ('completed', 'paid') THEN amount ELSE 0 END), 0) AS regular_paid_amount
+                        FROM tbl_payments
+                        WHERE tenant_id = ?
+                          AND booking_id IN ({$splitPlaceholders})
+                        GROUP BY booking_id
+                    ";
+                }
+                $splitStmt = $pdo->prepare($splitSql);
+                $splitStmt->execute(array_merge([$tenantId], $bookingIdListForSplit));
+                foreach ($splitStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $splitRow) {
+                    $splitBookingId = trim((string) ($splitRow['booking_id'] ?? ''));
+                    if ($splitBookingId === '') {
+                        continue;
+                    }
+                    $paymentSplitByBooking[$splitBookingId] = [
+                        'total_paid_amount' => round((float) ($splitRow['total_paid_amount'] ?? 0), 2),
+                        'installment_paid_amount' => round((float) ($splitRow['installment_paid_amount'] ?? 0), 2),
+                        'regular_paid_amount' => round((float) ($splitRow['regular_paid_amount'] ?? 0), 2),
+                    ];
+                }
+            }
+        }
+
         // Installment rows must be authoritative from tbl_treatments to avoid
         // mismatched patient/treatment pairings from appointment-side joins.
         $installmentTreatmentsById = [];
@@ -2814,6 +2887,16 @@ try {
             $transactionCandidates[$ic]['primary_installment_service_id'] = is_array($primaryInstallmentMeta)
                 ? trim((string) ($primaryInstallmentMeta['primary_service_id'] ?? ''))
                 : '';
+            $splitMeta = $paymentSplitByBooking[$b] ?? null;
+            $transactionCandidates[$ic]['regular_paid_amount'] = is_array($splitMeta)
+                ? (float) ($splitMeta['regular_paid_amount'] ?? 0)
+                : 0.0;
+            $transactionCandidates[$ic]['installment_paid_amount'] = is_array($splitMeta)
+                ? (float) ($splitMeta['installment_paid_amount'] ?? 0)
+                : 0.0;
+            $transactionCandidates[$ic]['payment_total_paid_amount'] = is_array($splitMeta)
+                ? (float) ($splitMeta['total_paid_amount'] ?? 0)
+                : (float) ($candRow['total_paid'] ?? 0);
             $transactionCandidates[$ic]['treatment_remaining_balance'] = is_array($primaryInstallmentMeta)
                 ? (isset($primaryInstallmentMeta['remaining_balance']) ? (float) $primaryInstallmentMeta['remaining_balance'] : null)
                 : null;
@@ -4434,9 +4517,15 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 }
                 return sum;
             }, 0);
+            const rawRegularPaidAmount = Number(item.regular_paid_amount || 0);
+            const rawInstallmentPaidAmount = Number(item.installment_paid_amount || 0);
+            const hasExplicitRegularPaid = Number.isFinite(rawRegularPaidAmount) && rawRegularPaidAmount > 0;
+            const hasExplicitInstallmentPaid = Number.isFinite(rawInstallmentPaidAmount) && rawInstallmentPaidAmount > 0;
             const installmentPaidResolved = hasTreatmentAmountPaid
                 ? effectiveInstallmentPaid
-                : (installmentPaidBySchedule > 0 ? installmentPaidBySchedule : (hasInstallmentEntry ? totalPaid : 0));
+                : (hasExplicitInstallmentPaid
+                    ? rawInstallmentPaidAmount
+                    : (installmentPaidBySchedule > 0 ? installmentPaidBySchedule : (hasInstallmentEntry ? totalPaid : 0)));
             const baseRow = {
                 booking_id: String(item.booking_id || ''),
                 appointment_id: Number(item.appointment_id || 0),
@@ -4458,7 +4547,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const rows = [];
             if (hasRegularEntry) {
                 const regularCost = regularCostByLines > 0 ? regularCostByLines : totalCost;
-                let regularPaidRaw = totalPaid - installmentPaidResolved;
+                let regularPaidRaw = hasExplicitRegularPaid ? rawRegularPaidAmount : (totalPaid - installmentPaidResolved);
                 // Keep UI aligned with backend: ignore tiny rounding drift in mixed plan splits.
                 if (regularPaidRaw > 0 && regularPaidRaw < 0.05) {
                     regularPaidRaw = 0;
