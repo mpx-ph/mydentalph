@@ -509,6 +509,23 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
                 $installmentTotal += $amountForInstallment;
             }
             if ($installmentItems !== []) {
+                if ($addOnItemsFromNotes !== []) {
+                    $addOnTotal = 0.0;
+                    foreach ($addOnItemsFromNotes as $addOnItem) {
+                        $addOnTotal += (float) ($addOnItem['amount'] ?? 0);
+                    }
+                    $mergedItems = array_merge($installmentItems, $addOnItemsFromNotes);
+                    $mergedTotal = round($installmentTotal + $addOnTotal, 2);
+                    // Keep the receipt aligned with the posted amount if there are legacy note mismatches.
+                    if ($mergedTotal <= 0.009 || abs($mergedTotal - $amountPaid) > 0.05) {
+                        $mergedTotal = $amountPaid;
+                    }
+                    return [
+                        'service_label' => 'Installment Payments + Add-on Services',
+                        'service_items' => $mergedItems,
+                        'services_total' => round($mergedTotal, 2),
+                    ];
+                }
                 return [
                     'service_label' => 'Installment Payments',
                     'service_items' => $installmentItems,
