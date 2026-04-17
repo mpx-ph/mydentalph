@@ -5,6 +5,9 @@ require_once __DIR__ . '/../mail_config.php';
 require_once __DIR__ . '/includes/appointment_db_tables.php';
 require_once __DIR__ . '/includes/staff_installment_helpers.php';
 
+// Ensure all generated timestamps in this page use Philippine Standard Time.
+date_default_timezone_set('Asia/Manila');
+
 /**
  * @return list<array{id:int, installment_number:int, amount_due:float, status:string, due_date:string}>
  */
