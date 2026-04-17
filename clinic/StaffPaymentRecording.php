@@ -413,6 +413,7 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
 {
     $amountPaid = round(max(0.0, (float) ($payment['amount'] ?? 0)), 2);
     $installmentNumber = max(0, (int) ($payment['installment_number'] ?? 0));
+    $monthsPaid = max(0, (int) ($payment['months_paid'] ?? 0));
     $paymentType = strtolower(trim((string) ($payment['payment_type'] ?? '')));
     $serviceType = strtolower(trim((string) ($payment['service_type'] ?? '')));
 
@@ -471,8 +472,11 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
         if ($installmentNumber === 1 || $paymentType === 'downpayment') {
             $transactionLabel = 'Downpayment';
         } else {
-            $transactionLabel = $installmentNumber > 1
-                ? ('Monthly Payment #' . $installmentNumber)
+            $monthlyPaymentNumber = $monthsPaid > 0
+                ? $monthsPaid
+                : ($installmentNumber > 1 ? ($installmentNumber - 1) : 0);
+            $transactionLabel = $monthlyPaymentNumber > 0
+                ? ('Monthly Payment #' . $monthlyPaymentNumber)
                 : 'Monthly Payment';
         }
     } elseif ($serviceType === 'regular' || $serviceType === '') {
@@ -1229,6 +1233,7 @@ try {
                         py.status,
                         {$receiptInstallmentNumberSelectSql} AS installment_number,
                         {$receiptPaymentTypeSelectSql} AS payment_type,
+                        COALESCE(t.months_paid, 0) AS months_paid,
                         COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
                         COALESCE((
                             SELECT SUM(py2.amount)
@@ -1249,6 +1254,9 @@ try {
                     LEFT JOIN tbl_patients p
                         ON p.tenant_id = py.tenant_id
                        AND p.patient_id = py.patient_id
+                    LEFT JOIN tbl_treatments t
+                        ON t.tenant_id = py.tenant_id
+                       AND t.treatment_id = COALESCE(a.treatment_id, '')
                     LEFT JOIN tbl_users u_linked
                         ON u_linked.user_id = p.linked_user_id
                     LEFT JOIN tbl_users u_owner
@@ -2465,6 +2473,7 @@ try {
                 py.status,
                 {$recentInstallmentNumberSelectSql} AS installment_number,
                 {$recentPaymentTypeSelectSql} AS payment_type,
+                COALESCE(t.months_paid, 0) AS months_paid,
                 {$recentInstallmentPlanSelectSql},
                 COALESCE(a.appointment_date, '') AS appointment_date,
                 COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
@@ -2490,6 +2499,9 @@ try {
             LEFT JOIN tbl_appointments a
                 ON a.tenant_id = py.tenant_id
                AND a.booking_id = py.booking_id
+            LEFT JOIN tbl_treatments t
+                ON t.tenant_id = py.tenant_id
+               AND t.treatment_id = COALESCE(a.treatment_id, '')
             {$recentServiceJoinSql}
             WHERE py.tenant_id = ?
             ORDER BY py.id DESC, py.payment_date DESC
