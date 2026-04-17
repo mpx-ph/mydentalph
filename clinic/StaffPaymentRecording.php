@@ -2182,6 +2182,10 @@ try {
             ";
         }
 
+        $recentInstallmentNumberSelectSql = $supportsPaymentsInstallmentNumberColumn
+            ? 'COALESCE(py.installment_number, 0)'
+            : '0';
+
         $recentSql = "
             SELECT
                 py.payment_id,
@@ -2192,6 +2196,7 @@ try {
                 py.payment_method,
                 py.reference_number,
                 py.status,
+                {$recentInstallmentNumberSelectSql} AS installment_number,
                 {$recentInstallmentPlanSelectSql},
                 COALESCE(a.appointment_date, '') AS appointment_date,
                 COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
@@ -3197,13 +3202,24 @@ if ($paymentError === 'Please select a payment method.') {
     $timeLabel = $paymentDateRaw !== '' ? date('h:i A', strtotime($paymentDateRaw)) : '-';
     $methodKey = strtolower(trim((string) ($payment['payment_method'] ?? 'cash')));
     $methodLabel = $allowedMethods[$methodKey] ?? ucfirst(str_replace('_', ' ', $methodKey));
-    $financialStatus = staff_payment_recording_financial_status(
-        (float) ($payment['total_treatment_cost'] ?? 0),
-        (float) ($payment['booking_total_paid'] ?? 0),
-        trim((string) ($payment['appointment_date'] ?? '')),
-        !empty($payment['is_installment_plan']),
-        (array) ($payment['installment_schedule'] ?? [])
-    );
+    $isBookingInstallmentPlan = !empty($payment['is_installment_plan']);
+    $installmentNumber = (int) ($payment['installment_number'] ?? 0);
+    $paymentLifecycleStatus = strtolower(trim((string) ($payment['status'] ?? '')));
+    $isCompletedPayment = in_array($paymentLifecycleStatus, ['completed', 'paid'], true);
+    $isExplicitInstallmentPayment = $installmentNumber > 0;
+    // A completed regular add-on payment under an installment booking is fully settled immediately.
+    // Do not downgrade it to PARTIAL using booking-level installment remaining balance.
+    if ($isCompletedPayment && $isBookingInstallmentPlan && !$isExplicitInstallmentPayment) {
+        $financialStatus = 'PAID';
+    } else {
+        $financialStatus = staff_payment_recording_financial_status(
+            (float) ($payment['total_treatment_cost'] ?? 0),
+            (float) ($payment['booking_total_paid'] ?? 0),
+            trim((string) ($payment['appointment_date'] ?? '')),
+            $isBookingInstallmentPlan,
+            (array) ($payment['installment_schedule'] ?? [])
+        );
+    }
     $serviceLabel = trim((string) ($payment['service_list'] ?? ''));
     if ($serviceLabel === '') {
         $serviceLabel = 'Dental treatment';
