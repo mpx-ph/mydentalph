@@ -368,7 +368,9 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
     $paymentNotes = trim((string) ($payment['notes'] ?? ''));
 
     $addOnItemsFromNotes = [];
+    $hasAddOnTag = false;
     if ($paymentNotes !== '' && preg_match('/\[Add-on Services:\s*(.*?)\]/i', $paymentNotes, $addOnMatch) === 1) {
+        $hasAddOnTag = true;
         $rawItems = array_filter(array_map('trim', explode(';', (string) ($addOnMatch[1] ?? ''))));
         foreach ($rawItems as $rawItem) {
             $itemName = $rawItem;
@@ -388,6 +390,33 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
         }
     }
 
+    // Transaction-level add-on metadata is authoritative for the receipt breakdown.
+    // When present, do not mix in installment/base treatment labels.
+    if ($hasAddOnTag) {
+        if ($addOnItemsFromNotes !== []) {
+            $servicesTotal = 0.0;
+            foreach ($addOnItemsFromNotes as $addOnItem) {
+                $servicesTotal += (float) ($addOnItem['amount'] ?? 0);
+            }
+            if ($servicesTotal <= 0.009 || abs($servicesTotal - $amountPaid) > 0.05) {
+                $servicesTotal = $amountPaid;
+            }
+            return [
+                'service_label' => 'Add-on Services',
+                'service_items' => $addOnItemsFromNotes,
+                'services_total' => round($servicesTotal, 2),
+            ];
+        }
+        return [
+            'service_label' => 'Add-on Services',
+            'service_items' => [[
+                'name' => 'Add-on Services',
+                'amount' => $amountPaid,
+            ]],
+            'services_total' => $amountPaid,
+        ];
+    }
+
     $transactionLabel = 'Payment';
     if ($installmentNumber > 0 || $serviceType === 'installment') {
         if ($installmentNumber === 1 || $paymentType === 'downpayment') {
@@ -399,22 +428,6 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
         }
     } elseif ($serviceType === 'regular' || $serviceType === '') {
         $transactionLabel = 'Add-on Services';
-    }
-
-    if ($transactionLabel === 'Add-on Services' && $addOnItemsFromNotes !== []) {
-        $servicesTotal = 0.0;
-        foreach ($addOnItemsFromNotes as $addOnItem) {
-            $servicesTotal += (float) ($addOnItem['amount'] ?? 0);
-        }
-        // If legacy note values are missing/partial, keep receipt totals consistent with posted amount.
-        if ($servicesTotal <= 0.009 || abs($servicesTotal - $amountPaid) > 0.05) {
-            $servicesTotal = $amountPaid;
-        }
-        return [
-            'service_label' => 'Add-on Services',
-            'service_items' => $addOnItemsFromNotes,
-            'services_total' => round($servicesTotal, 2),
-        ];
     }
 
     if ($transactionLabel === 'Add-on Services' && $serviceHint !== '') {
