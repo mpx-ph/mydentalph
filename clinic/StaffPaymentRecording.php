@@ -2305,7 +2305,7 @@ try {
                AND a.booking_id = py.booking_id
             {$recentServiceJoinSql}
             WHERE py.tenant_id = ?
-            ORDER BY py.payment_date DESC, py.id DESC
+            ORDER BY py.id DESC, py.payment_date DESC
             LIMIT 20
         ";
         $recentStmt = $pdo->prepare($recentSql);
