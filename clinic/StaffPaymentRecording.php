@@ -1507,6 +1507,12 @@ try {
                     'installment' => 0.0,
                 ];
                 if ($supportsAppointmentServicesTable) {
+                    $serviceTotalsAddonFilter = '';
+                    if (in_array('is_original', $appointmentServiceColumns, true)) {
+                        // Additional services posted during payment are tagged as non-original
+                        // and must not generate future pending balances.
+                        $serviceTotalsAddonFilter = ' AND COALESCE(aps.is_original, 1) = 1';
+                    }
                     $serviceTotalsStmt = $pdo->prepare("
                         SELECT
                             COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment') AS normalized_service_type,
@@ -1514,6 +1520,7 @@ try {
                         FROM tbl_appointment_services aps
                         WHERE aps.tenant_id = ?
                           AND aps.booking_id = ?
+                          {$serviceTotalsAddonFilter}
                         GROUP BY COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment')
                     ");
                     $serviceTotalsStmt->execute([$tenantId, $selectedBookingId]);
@@ -2682,6 +2689,11 @@ try {
                             ELSE 'regular'
                         END"
                     : "'installment'");
+            $transactionsRegularCostExpr = 'COALESCE(SUM(aps.price), 0)';
+            if (in_array('is_original', $appointmentServiceColumns, true)) {
+                // Exclude paid add-ons from future pending transaction totals.
+                $transactionsRegularCostExpr = 'COALESCE(SUM(CASE WHEN COALESCE(aps.is_original, 1) = 1 THEN aps.price ELSE 0 END), 0)';
+            }
             $transactionsSql = "
                 SELECT
                     a.booking_id,
@@ -2700,8 +2712,8 @@ try {
                     CASE WHEN {$normalizedServiceTypeSql} = 'installment' THEN 'installment' ELSE 'regular' END AS transaction_type,
                     CASE
                         WHEN {$normalizedServiceTypeSql} = 'installment'
-                            THEN COALESCE(NULLIF(a.total_treatment_cost, 0), COALESCE(SUM(aps.price), 0))
-                        ELSE COALESCE(SUM(aps.price), 0)
+                            THEN COALESCE(NULLIF(a.total_treatment_cost, 0), {$transactionsRegularCostExpr})
+                        ELSE {$transactionsRegularCostExpr}
                     END AS total_treatment_cost,
                     COALESCE(py.total_paid, 0) AS total_paid,
                     COALESCE(t.total_cost, 0) AS treatment_total_cost,
@@ -3087,6 +3099,7 @@ try {
                         aps.service_id,
                         aps.service_name,
                         aps.price,
+                        " . (in_array('is_original', $appointmentServiceColumns, true) ? "CASE WHEN COALESCE(aps.is_original, 1) = 0 THEN 1 ELSE 0 END" : "0") . " AS is_addon,
                         {$bookedServiceTypeSelectSql} AS service_type,
                         COALESCE(NULLIF(sv.category, ''), '') AS category
                     FROM tbl_appointment_services aps
@@ -3125,6 +3138,7 @@ try {
                         'service_id' => trim((string) ($brow['service_id'] ?? '')),
                         'service_name' => trim((string) ($brow['service_name'] ?? '')),
                         'service_type' => $stype,
+                        'is_addon' => ((int) ($brow['is_addon'] ?? 0) === 1),
                         'category' => trim((string) ($brow['category'] ?? '')),
                         'price' => round((float) ($brow['price'] ?? 0), 2),
                     ];
@@ -4799,7 +4813,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 }
                 return true;
             });
-            const regularCostByLines = bookedRegular.reduce((sum, s) => sum + Number((s && s.price) || 0), 0);
+            const bookedRegularOriginal = bookedRegular.filter((s) => !(s && (s.is_addon === true || s.is_addon === 1 || s.is_addon === '1')));
+            const regularCostByLines = bookedRegularOriginal.reduce((sum, s) => sum + Number((s && s.price) || 0), 0);
             const normalizedServiceType = String(item.service_type || '').toLowerCase().trim();
             const hasInstallmentEntry =
                 isInstallmentPlan ||
