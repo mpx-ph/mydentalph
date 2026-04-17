@@ -365,6 +365,28 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
     }
     $serviceHint = preg_replace('/\[[^\]]*\]/', '', $serviceHint);
     $serviceHint = trim((string) preg_replace('/\s+/', ' ', (string) $serviceHint));
+    $paymentNotes = trim((string) ($payment['notes'] ?? ''));
+
+    $addOnItemsFromNotes = [];
+    if ($paymentNotes !== '' && preg_match('/\[Add-on Services:\s*(.*?)\]/i', $paymentNotes, $addOnMatch) === 1) {
+        $rawItems = array_filter(array_map('trim', explode(';', (string) ($addOnMatch[1] ?? ''))));
+        foreach ($rawItems as $rawItem) {
+            $itemName = $rawItem;
+            $itemAmount = null;
+            if (preg_match('/^(.*?)\s*\(₱?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)\)\s*$/u', $rawItem, $itemMatch) === 1) {
+                $itemName = trim((string) ($itemMatch[1] ?? ''));
+                $itemAmount = (float) str_replace(',', '', (string) ($itemMatch[2] ?? '0'));
+            }
+            $itemName = trim((string) preg_replace('/\s+/', ' ', $itemName));
+            if ($itemName === '') {
+                continue;
+            }
+            $addOnItemsFromNotes[] = [
+                'name' => $itemName,
+                'amount' => round(max(0.0, (float) ($itemAmount ?? 0.0)), 2),
+            ];
+        }
+    }
 
     $transactionLabel = 'Payment';
     if ($installmentNumber > 0 || $serviceType === 'installment') {
@@ -377,6 +399,33 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
         }
     } elseif ($serviceType === 'regular' || $serviceType === '') {
         $transactionLabel = 'Add-on Services';
+    }
+
+    if ($transactionLabel === 'Add-on Services' && $addOnItemsFromNotes !== []) {
+        $servicesTotal = 0.0;
+        foreach ($addOnItemsFromNotes as $addOnItem) {
+            $servicesTotal += (float) ($addOnItem['amount'] ?? 0);
+        }
+        // If legacy note values are missing/partial, keep receipt totals consistent with posted amount.
+        if ($servicesTotal <= 0.009 || abs($servicesTotal - $amountPaid) > 0.05) {
+            $servicesTotal = $amountPaid;
+        }
+        return [
+            'service_label' => 'Add-on Services',
+            'service_items' => $addOnItemsFromNotes,
+            'services_total' => round($servicesTotal, 2),
+        ];
+    }
+
+    if ($transactionLabel === 'Add-on Services' && $serviceHint !== '') {
+        return [
+            'service_label' => 'Add-on Services',
+            'service_items' => [[
+                'name' => $serviceHint,
+                'amount' => $amountPaid,
+            ]],
+            'services_total' => $amountPaid,
+        ];
     }
 
     $serviceLabel = $serviceHint !== '' ? $serviceHint : $transactionLabel;
@@ -1094,6 +1143,7 @@ try {
                         py.payment_date,
                         py.payment_method,
                         py.reference_number,
+                        COALESCE(py.notes, '') AS notes,
                         py.status,
                         {$receiptInstallmentNumberSelectSql} AS installment_number,
                         {$receiptPaymentTypeSelectSql} AS payment_type,
@@ -1400,6 +1450,7 @@ try {
                         && $postedInstallFlow === 'schedule'
                         && $scheduleRows !== []
                     );
+                    $addedServiceLabels = [];
 
                     if (!empty($additionalServiceIds)) {
                         if (!$supportsAppointmentServicesTable) {
@@ -1515,7 +1566,6 @@ try {
                         ";
                         $insertServiceStmt = $pdo->prepare($insertServiceSql);
 
-                        $addedServiceLabels = [];
                         $addedCost = 0.0;
                         foreach ($servicesToAdd as $service) {
                             $serviceId = trim((string) ($service['service_id'] ?? ''));
@@ -1562,6 +1612,11 @@ try {
                             ");
                             $updateAppointmentCostStmt->execute([$totalCost, $newServiceDescription, $tenantId, $selectedBookingId]);
                         }
+                    }
+
+                    $addOnNoteExtra = '';
+                    if ($addedServiceLabels !== []) {
+                        $addOnNoteExtra = '[Add-on Services: ' . implode('; ', $addedServiceLabels) . ']';
                     }
 
                     if ($runSchedulePayment) {
@@ -1641,8 +1696,12 @@ try {
                         foreach ($toPay as $tp) {
                             $instLabels[] = '#' . (int) $tp['installment_number'];
                         }
-                        $noteExtra = '[Installments: ' . implode(', ', $instLabels) . ']';
-                        $composedNotes = trim(($notes !== '' ? ($notes . ' ') : '') . $noteExtra);
+                        $noteExtras = [];
+                        if ($addOnNoteExtra !== '') {
+                            $noteExtras[] = $addOnNoteExtra;
+                        }
+                        $noteExtras[] = '[Installments: ' . implode(', ', $instLabels) . ']';
+                        $composedNotes = trim(($notes !== '' ? ($notes . ' ') : '') . implode(' ', $noteExtras));
 
                         $usePayMongo = in_array($method, ['gcash', 'bank_transfer', 'credit_card'], true);
                         // For non-online payments, use 'completed' which matches the schema for tbl_payments.status.
@@ -1979,6 +2038,11 @@ try {
                     // Keep compatibility with deployments where payment_type enum only allows downpayment/fullpayment.
                     $paymentType = ($amount + 0.009 >= $pendingBalance) ? 'fullpayment' : 'downpayment';
 
+                    $recordNotes = $notes;
+                    if ($addOnNoteExtra !== '') {
+                        $recordNotes = trim(($recordNotes !== '' ? ($recordNotes . ' ') : '') . $addOnNoteExtra);
+                    }
+
                     if ($supportsPaymentTypeColumn) {
                         $insertSql = "
                             INSERT INTO tbl_payments (
@@ -2003,7 +2067,7 @@ try {
                             $amount,
                             $method,
                             $paymentDate . ' ' . gmdate('H:i:s'),
-                            $notes !== '' ? $notes : null,
+                            $recordNotes !== '' ? $recordNotes : null,
                             $recordStatus,
                             $userId !== '' ? $userId : null,
                             $paymentType,
@@ -2031,7 +2095,7 @@ try {
                             $amount,
                             $method,
                             $paymentDate . ' ' . gmdate('H:i:s'),
-                            $notes !== '' ? $notes : null,
+                            $recordNotes !== '' ? $recordNotes : null,
                             $recordStatus,
                             $userId !== '' ? $userId : null,
                         ];
@@ -2297,6 +2361,7 @@ try {
                 py.payment_date,
                 py.payment_method,
                 py.reference_number,
+                COALESCE(py.notes, '') AS notes,
                 py.status,
                 {$recentInstallmentNumberSelectSql} AS installment_number,
                 {$recentPaymentTypeSelectSql} AS payment_type,
