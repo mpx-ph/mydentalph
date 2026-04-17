@@ -9,6 +9,54 @@ require_once __DIR__ . '/includes/staff_installment_helpers.php';
 date_default_timezone_set('Asia/Manila');
 
 /**
+ * Parse a stored payment datetime and normalize it to Philippine Standard Time.
+ *
+ * Stored payment datetimes are treated as UTC when no explicit timezone is present.
+ */
+function staff_payment_recording_to_manila_datetime(string $rawValue): ?DateTimeImmutable
+{
+    $raw = trim($rawValue);
+    if ($raw === '') {
+        return null;
+    }
+
+    $utc = new DateTimeZone('UTC');
+    $manila = new DateTimeZone('Asia/Manila');
+
+    // If the timestamp already has timezone information, respect it.
+    if (preg_match('/(?:Z|[+\-]\d{2}:\d{2}|[+\-]\d{4})$/', $raw) === 1) {
+        try {
+            $dt = new DateTimeImmutable($raw);
+            return $dt->setTimezone($manila);
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    $formats = [
+        'Y-m-d H:i:s',
+        'Y-m-d H:i',
+        'Y-m-d\TH:i:s',
+        'Y-m-d\TH:i',
+        'Y-m-d',
+    ];
+
+    foreach ($formats as $format) {
+        $dt = DateTimeImmutable::createFromFormat('!' . $format, $raw, $utc);
+        if ($dt instanceof DateTimeImmutable) {
+            return $dt->setTimezone($manila);
+        }
+    }
+
+    try {
+        $dt = new DateTimeImmutable($raw, $utc);
+        return $dt->setTimezone($manila);
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/**
  * @return list<array{id:int, installment_number:int, amount_due:float, status:string, due_date:string}>
  */
 function staff_payment_recording_fetch_installments(PDO $pdo, ?string $installmentsTableName, string $tenantId, string $bookingId): array
@@ -1085,7 +1133,10 @@ try {
                     $amountPaid = (float) ($receiptRow['amount'] ?? 0);
                     $balanceLeft = max(0, (float) ($receiptRow['total_treatment_cost'] ?? 0) - (float) ($receiptRow['booking_total_paid'] ?? 0));
                     $paymentDateValue = trim((string) ($receiptRow['payment_date'] ?? ''));
-                    $paymentDateLabel = $paymentDateValue !== '' ? date('F d, Y h:i A', strtotime($paymentDateValue)) : '-';
+                    $paymentDateObj = staff_payment_recording_to_manila_datetime($paymentDateValue);
+                    $paymentDateLabel = $paymentDateObj instanceof DateTimeImmutable
+                        ? $paymentDateObj->format('F d, Y h:i A')
+                        : '-';
                     $referenceLabel = trim((string) ($receiptRow['reference_number'] ?? ''));
                     if ($referenceLabel === '') {
                         $referenceLabel = trim((string) ($receiptRow['payment_id'] ?? ''));
@@ -3291,8 +3342,9 @@ if ($paymentError === 'Please select a payment method.') {
     $initials = strtoupper(substr($patientFirst !== '' ? $patientFirst : $patientName, 0, 1) . substr($patientLast !== '' ? $patientLast : 'X', 0, 1));
     $amountLabel = '₱' . number_format((float) ($payment['amount'] ?? 0), 2);
     $paymentDateRaw = trim((string) ($payment['payment_date'] ?? ''));
-    $dateLabel = $paymentDateRaw !== '' ? date('M d, Y', strtotime($paymentDateRaw)) : '-';
-    $timeLabel = $paymentDateRaw !== '' ? date('h:i A', strtotime($paymentDateRaw)) : '-';
+    $paymentDateObj = staff_payment_recording_to_manila_datetime($paymentDateRaw);
+    $dateLabel = $paymentDateObj instanceof DateTimeImmutable ? $paymentDateObj->format('M d, Y') : '-';
+    $timeLabel = $paymentDateObj instanceof DateTimeImmutable ? $paymentDateObj->format('h:i A') : '-';
     $methodKey = strtolower(trim((string) ($payment['payment_method'] ?? 'cash')));
     $methodLabel = $allowedMethods[$methodKey] ?? ucfirst(str_replace('_', ' ', $methodKey));
     $isBookingInstallmentPlan = !empty($payment['is_installment_plan']);
@@ -3368,7 +3420,9 @@ if ($paymentError === 'Please select a payment method.') {
         'services_total' => round($receiptServicesTotal, 2),
         'amount_paid' => round((float) ($payment['amount'] ?? 0), 2),
         'remaining_balance' => round($remainingBalance, 2),
-        'payment_date' => $paymentDateRaw,
+        'payment_date' => $paymentDateObj instanceof DateTimeImmutable
+            ? $paymentDateObj->format('Y-m-d H:i:s')
+            : $paymentDateRaw,
         'payment_method' => $methodLabel,
         'reference_number' => $referenceLabel,
         'booking_id' => (string) ($payment['booking_id'] ?? ''),
@@ -4912,7 +4966,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 month: 'short',
                 day: '2-digit',
                 hour: '2-digit',
-                minute: '2-digit'
+                minute: '2-digit',
+                hour12: true,
+                timeZone: 'Asia/Manila'
             });
         }
 
