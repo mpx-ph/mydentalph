@@ -1266,7 +1266,14 @@ try {
                 $installmentPaidResolved = $installmentPaidBySchedule > 0
                     ? $installmentPaidBySchedule
                     : ($hasInstallmentEntry ? $totalPaid : 0.0);
-                $regularPaid = max(0, min($regularCost, $totalPaid - $installmentPaidResolved));
+                $installmentPaidResolved = max(0.0, min($installmentCost, $installmentPaidResolved));
+                $regularPaidRaw = $totalPaid - $installmentPaidResolved;
+                // Protect regular-service pending balance from tiny split/rounding drift.
+                // Example: 0.01-0.05 residual from installment math should not mark regular rows partially paid.
+                if ($regularPaidRaw > 0 && $regularPaidRaw < 0.05) {
+                    $regularPaidRaw = 0.0;
+                }
+                $regularPaid = max(0, min($regularCost, $regularPaidRaw));
                 $installmentPaid = max(0, min($installmentCost, $installmentPaidResolved));
                 if ($selectedTransactionType === 'installment') {
                     $totalCost = $installmentCost;
@@ -4451,7 +4458,12 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const rows = [];
             if (hasRegularEntry) {
                 const regularCost = regularCostByLines > 0 ? regularCostByLines : totalCost;
-                const regularPaid = Math.max(0, Math.min(regularCost, totalPaid - installmentPaidResolved));
+                let regularPaidRaw = totalPaid - installmentPaidResolved;
+                // Keep UI aligned with backend: ignore tiny rounding drift in mixed plan splits.
+                if (regularPaidRaw > 0 && regularPaidRaw < 0.05) {
+                    regularPaidRaw = 0;
+                }
+                const regularPaid = Math.max(0, Math.min(regularCost, regularPaidRaw));
                 rows.push({
                     ...baseRow,
                     transaction_key: baseRow.booking_id + '::' + String(baseRow.appointment_id || 0) + '::regular',
