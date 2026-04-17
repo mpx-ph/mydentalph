@@ -344,6 +344,56 @@ function staff_payment_recording_absolute_asset_url(string $rawPath): string
     return $scheme . '://' . $host . '/' . $path;
 }
 
+/**
+ * Build receipt breakdown from the current payment transaction only.
+ *
+ * @return array{service_label:string, service_items:list<array{name:string, amount:float}>, services_total:float}
+ */
+function staff_payment_recording_build_transaction_breakdown(array $payment): array
+{
+    $amountPaid = round(max(0.0, (float) ($payment['amount'] ?? 0)), 2);
+    $installmentNumber = max(0, (int) ($payment['installment_number'] ?? 0));
+    $paymentType = strtolower(trim((string) ($payment['payment_type'] ?? '')));
+    $serviceType = strtolower(trim((string) ($payment['service_type'] ?? '')));
+
+    $serviceHint = trim((string) ($payment['service_description'] ?? ''));
+    if ($serviceHint === '') {
+        $serviceHint = trim((string) ($payment['service_list'] ?? ''));
+    }
+    if ($serviceHint === '') {
+        $serviceHint = trim((string) ($payment['service'] ?? ''));
+    }
+    $serviceHint = preg_replace('/\[[^\]]*\]/', '', $serviceHint);
+    $serviceHint = trim((string) preg_replace('/\s+/', ' ', (string) $serviceHint));
+
+    $transactionLabel = 'Payment';
+    if ($installmentNumber > 0 || $serviceType === 'installment') {
+        if ($installmentNumber === 1 || $paymentType === 'downpayment') {
+            $transactionLabel = 'Downpayment';
+        } else {
+            $transactionLabel = $installmentNumber > 1
+                ? ('Monthly Payment #' . $installmentNumber)
+                : 'Monthly Payment';
+        }
+    } elseif ($serviceType === 'regular' || $serviceType === '') {
+        $transactionLabel = 'Add-on Services';
+    }
+
+    $serviceLabel = $serviceHint !== '' ? $serviceHint : $transactionLabel;
+    if ($transactionLabel !== 'Add-on Services' && $serviceHint !== '' && $serviceHint !== $transactionLabel) {
+        $serviceLabel = $transactionLabel . ' - ' . $serviceHint;
+    }
+
+    return [
+        'service_label' => $serviceLabel,
+        'service_items' => [[
+            'name' => $transactionLabel,
+            'amount' => $amountPaid,
+        ]],
+        'services_total' => $amountPaid,
+    ];
+}
+
 function staff_payment_recording_build_receipt_email_html(array $receipt): string
 {
     $clinicName = htmlspecialchars((string) ($receipt['clinic_name'] ?? 'MyDental Philippines'), ENT_QUOTES, 'UTF-8');
@@ -365,7 +415,11 @@ function staff_payment_recording_build_receipt_email_html(array $receipt): strin
             continue;
         }
         $itemName = htmlspecialchars(trim((string) ($item['name'] ?? '')), ENT_QUOTES, 'UTF-8');
-        $itemAmount = htmlspecialchars(trim((string) ($item['amount'] ?? '')), ENT_QUOTES, 'UTF-8');
+        $itemAmountRaw = $item['amount'] ?? '';
+        if (is_int($itemAmountRaw) || is_float($itemAmountRaw) || (is_string($itemAmountRaw) && is_numeric($itemAmountRaw))) {
+            $itemAmountRaw = '₱' . number_format((float) $itemAmountRaw, 2);
+        }
+        $itemAmount = htmlspecialchars(trim((string) $itemAmountRaw), ENT_QUOTES, 'UTF-8');
         if ($itemName === '' && $itemAmount === '') {
             continue;
         }
@@ -1025,6 +1079,12 @@ try {
                 if ($recentPaymentId === $receiptPaymentId && $recentTimestamp > 0 && (time() - $recentTimestamp) <= 45) {
                     $receiptEmailSuccess = 'The receipt has been sent to the patient’s email.';
                 } else {
+                $receiptInstallmentNumberSelectSql = $supportsPaymentsInstallmentNumberColumn
+                    ? 'COALESCE(py.installment_number, 0)'
+                    : '0';
+                $receiptPaymentTypeSelectSql = $supportsPaymentTypeColumn
+                    ? "COALESCE(py.payment_type, '')"
+                    : "''";
                 $receiptSql = "
                     SELECT
                         py.payment_id,
@@ -1035,6 +1095,8 @@ try {
                         py.payment_method,
                         py.reference_number,
                         py.status,
+                        {$receiptInstallmentNumberSelectSql} AS installment_number,
+                        {$receiptPaymentTypeSelectSql} AS payment_type,
                         COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
                         COALESCE((
                             SELECT SUM(py2.amount)
@@ -1079,57 +1141,13 @@ try {
                     if ($patientFullName === '') {
                         $patientFullName = 'Patient';
                     }
-                    $servicesLabel = '';
-                    $serviceItems = [];
-                    $servicesTotalValue = 0.0;
-                    $receiptBookingId = trim((string) ($receiptRow['booking_id'] ?? ''));
-                    if ($receiptBookingId !== '') {
-                        $receiptServicesStmt = $pdo->prepare("
-                            SELECT service_name, price
-                            FROM tbl_appointment_services
-                            WHERE tenant_id = ?
-                              AND booking_id = ?
-                            ORDER BY id ASC
-                        ");
-                        $receiptServicesStmt->execute([$tenantId, $receiptBookingId]);
-                        $receiptServicesRows = $receiptServicesStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-                        foreach ($receiptServicesRows as $serviceRow) {
-                            $serviceName = trim((string) ($serviceRow['service_name'] ?? ''));
-                            $serviceName = preg_replace('/\[[^\]]*\]/', '', $serviceName);
-                            $serviceName = trim((string) preg_replace('/\s+/', ' ', (string) $serviceName));
-                            if ($serviceName === '') {
-                                continue;
-                            }
-                            $serviceAmount = (float) ($serviceRow['price'] ?? 0);
-                            $servicesTotalValue += $serviceAmount;
-                            $serviceItems[] = [
-                                'name' => $serviceName,
-                                'amount' => '₱' . number_format($serviceAmount, 2),
-                            ];
-                        }
-                    }
-                    if ($serviceItems !== []) {
-                        $serviceSummaryParts = [];
-                        foreach ($serviceItems as $item) {
-                            $serviceSummaryParts[] = $item['name'] . ' (' . $item['amount'] . ')';
-                        }
-                        $servicesLabel = implode('; ', $serviceSummaryParts);
-                    }
-                    if ($servicesLabel === '') {
-                        $servicesLabel = trim((string) ($receiptRow['service_description'] ?? ''));
-                        if ($servicesLabel === '') {
-                            $servicesLabel = trim((string) ($receiptRow['service_type'] ?? ''));
-                        }
-                        $servicesLabel = preg_replace('/\[[^\]]*\]/', '', $servicesLabel);
-                        $servicesLabel = trim((string) preg_replace('/\s+/', ' ', (string) $servicesLabel));
-                    }
-                    if ($servicesLabel === '') {
-                        $servicesLabel = 'Dental treatment';
-                    }
+                    $receiptBreakdown = staff_payment_recording_build_transaction_breakdown($receiptRow);
+                    $servicesLabel = (string) ($receiptBreakdown['service_label'] ?? 'Payment');
+                    $serviceItems = isset($receiptBreakdown['service_items']) && is_array($receiptBreakdown['service_items'])
+                        ? $receiptBreakdown['service_items']
+                        : [];
+                    $servicesTotalValue = (float) ($receiptBreakdown['services_total'] ?? 0);
                     $servicesTotalLabel = '₱' . number_format($servicesTotalValue, 2);
-                    if ($serviceItems === []) {
-                        $servicesTotalLabel = '₱' . number_format((float) ($receiptRow['total_treatment_cost'] ?? 0), 2);
-                    }
                     $amountPaid = (float) ($receiptRow['amount'] ?? 0);
                     $balanceLeft = max(0, (float) ($receiptRow['total_treatment_cost'] ?? 0) - (float) ($receiptRow['booking_total_paid'] ?? 0));
                     $paymentDateValue = trim((string) ($receiptRow['payment_date'] ?? ''));
@@ -2266,6 +2284,9 @@ try {
         $recentInstallmentNumberSelectSql = $supportsPaymentsInstallmentNumberColumn
             ? 'COALESCE(py.installment_number, 0)'
             : '0';
+        $recentPaymentTypeSelectSql = $supportsPaymentTypeColumn
+            ? "COALESCE(py.payment_type, '')"
+            : "''";
 
         $recentSql = "
             SELECT
@@ -2278,6 +2299,7 @@ try {
                 py.reference_number,
                 py.status,
                 {$recentInstallmentNumberSelectSql} AS installment_number,
+                {$recentPaymentTypeSelectSql} AS payment_type,
                 {$recentInstallmentPlanSelectSql},
                 COALESCE(a.appointment_date, '') AS appointment_date,
                 COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
@@ -3375,47 +3397,17 @@ if ($paymentError === 'Please select a payment method.') {
         $referenceLabel = trim((string) ($payment['payment_id'] ?? ''));
     }
     $patientEmail = trim((string) ($payment['patient_email'] ?? ''));
-    $receiptServiceItems = [];
-    $receiptServicesTotal = 0.0;
-    if (isset($pdo) && $pdo instanceof PDO) {
-        static $receiptServicesByBookingStmt = null;
-        if (!($receiptServicesByBookingStmt instanceof PDOStatement)) {
-            $receiptServicesByBookingStmt = $pdo->prepare("
-                SELECT service_name, price
-                FROM tbl_appointment_services
-                WHERE tenant_id = ?
-                  AND booking_id = ?
-                ORDER BY id ASC
-            ");
-        }
-        if ($receiptServicesByBookingStmt) {
-            $receiptServicesByBookingStmt->execute([$tenantId, (string) ($payment['booking_id'] ?? '')]);
-            $receiptServiceRows = $receiptServicesByBookingStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-            foreach ($receiptServiceRows as $receiptServiceRow) {
-                $itemName = trim((string) ($receiptServiceRow['service_name'] ?? ''));
-                $itemName = preg_replace('/\[[^\]]*\]/', '', $itemName);
-                $itemName = trim((string) preg_replace('/\s+/', ' ', (string) $itemName));
-                if ($itemName === '') {
-                    continue;
-                }
-                $itemAmount = (float) ($receiptServiceRow['price'] ?? 0);
-                $receiptServicesTotal += $itemAmount;
-                $receiptServiceItems[] = [
-                    'name' => $itemName,
-                    'amount' => round($itemAmount, 2),
-                ];
-            }
-        }
-    }
-    if ($receiptServiceItems === []) {
-        $receiptServicesTotal = (float) ($payment['total_treatment_cost'] ?? 0);
-    }
+    $receiptBreakdown = staff_payment_recording_build_transaction_breakdown($payment);
+    $receiptServiceItems = isset($receiptBreakdown['service_items']) && is_array($receiptBreakdown['service_items'])
+        ? $receiptBreakdown['service_items']
+        : [];
+    $receiptServicesTotal = (float) ($receiptBreakdown['services_total'] ?? 0);
     $receiptPayload = [
         'payment_id' => (string) ($payment['payment_id'] ?? ''),
         'patient_name' => $patientName,
         'patient_id' => $patientIdLabel,
         'patient_email' => $patientEmail,
-        'service' => $serviceLabel,
+        'service' => (string) ($receiptBreakdown['service_label'] ?? $serviceLabel),
         'service_items' => $receiptServiceItems,
         'services_total' => round($receiptServicesTotal, 2),
         'amount_paid' => round((float) ($payment['amount'] ?? 0), 2),
