@@ -1294,7 +1294,12 @@ try {
                     $servicesTotalValue = (float) ($receiptBreakdown['services_total'] ?? 0);
                     $servicesTotalLabel = '₱' . number_format($servicesTotalValue, 2);
                     $amountPaid = (float) ($receiptRow['amount'] ?? 0);
-                    $balanceLeft = max(0, (float) ($receiptRow['total_treatment_cost'] ?? 0) - (float) ($receiptRow['booking_total_paid'] ?? 0));
+                    $isRegularAddOnReceipt = strcasecmp($servicesLabel, 'Add-on Services') === 0;
+                    if ($isRegularAddOnReceipt) {
+                        $balanceLeft = 0.0;
+                    } else {
+                        $balanceLeft = max(0, (float) ($receiptRow['total_treatment_cost'] ?? 0) - (float) ($receiptRow['booking_total_paid'] ?? 0));
+                    }
                     $paymentDateValue = trim((string) ($receiptRow['payment_date'] ?? ''));
                     $paymentDateObj = staff_payment_recording_to_manila_datetime($paymentDateValue);
                     $paymentDateLabel = $paymentDateObj instanceof DateTimeImmutable
@@ -3551,7 +3556,6 @@ if ($paymentError === 'Please select a payment method.') {
     if ($serviceLabel === '') {
         $serviceLabel = 'Dental treatment';
     }
-    $remainingBalance = max(0, (float) ($payment['total_treatment_cost'] ?? 0) - (float) ($payment['booking_total_paid'] ?? 0));
     $referenceLabel = trim((string) ($payment['reference_number'] ?? ''));
     if ($referenceLabel === '') {
         $referenceLabel = trim((string) ($payment['payment_id'] ?? ''));
@@ -3571,6 +3575,12 @@ if ($paymentError === 'Please select a payment method.') {
         $payment['regular_service_items'] = [];
     }
     $receiptBreakdown = staff_payment_recording_build_transaction_breakdown($payment);
+    $isRegularAddOnReceipt = strcasecmp((string) ($receiptBreakdown['service_label'] ?? ''), 'Add-on Services') === 0;
+    if ($isRegularAddOnReceipt) {
+        $remainingBalance = 0.0;
+    } else {
+        $remainingBalance = max(0, (float) ($payment['total_treatment_cost'] ?? 0) - (float) ($payment['booking_total_paid'] ?? 0));
+    }
     $receiptServiceItems = isset($receiptBreakdown['service_items']) && is_array($receiptBreakdown['service_items'])
         ? $receiptBreakdown['service_items']
         : [];
