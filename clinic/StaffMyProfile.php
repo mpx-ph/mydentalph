@@ -105,54 +105,39 @@ if (!isset($currentTenantSlug)) {
         }
     </script>
     <style>
-        body { font-family: 'Manrope', sans-serif; -webkit-font-smoothing: antialiased; }
+        body { font-family: 'Manrope', sans-serif; }
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
             vertical-align: middle;
         }
-        .profile-page-bg {
-            background-color: #f1f5f9;
+        .mesh-bg {
+            background-color: #f8fafc;
             background-image:
-                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(43, 139, 235, 0.14), transparent),
-                radial-gradient(ellipse 60% 40% at 100% 0%, rgba(59, 130, 246, 0.06), transparent),
-                linear-gradient(180deg, #f8fafc 0%, #f1f5f9 40%, #eef2f7 100%);
+                radial-gradient(at 0% 0%, rgba(43, 139, 235, 0.03) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(43, 139, 235, 0.01) 0px, transparent 50%);
         }
-        .profile-hero-gradient {
-            background: linear-gradient(135deg, #0b3463 0%, #1e5a9e 42%, #2b8beb 100%);
+        .profile-hero-banner {
+            background: linear-gradient(120deg, #1e3a5f 0%, #2b8beb 42%, #5ab0ff 100%);
+            box-shadow: 0 20px 50px -24px rgba(43, 139, 235, 0.45);
         }
-        .profile-glass {
-            background: rgba(255, 255, 255, 0.92);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.65);
-            box-shadow:
-                0 4px 24px -4px rgba(15, 23, 42, 0.12),
-                0 0 0 1px rgba(15, 23, 42, 0.04);
+        .profile-section-card {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(165deg, rgba(255, 255, 255, 0.99) 0%, rgba(248, 250, 252, 0.96) 100%);
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.95), 0 10px 40px -12px rgba(15, 23, 42, 0.08);
         }
-        .profile-card {
-            background: #ffffff;
-            border: 1px solid rgba(226, 232, 240, 0.95);
-            box-shadow:
-                0 1px 2px rgba(15, 23, 42, 0.04),
-                0 12px 40px -16px rgba(15, 23, 42, 0.12);
-            border-radius: 1.25rem;
+        .profile-section-card::before {
+            content: "";
+            position: absolute;
+            inset: 0 0 auto 0;
+            height: 3px;
+            border-radius: 1.5rem 1.5rem 0 0;
+            background: linear-gradient(90deg, #2b8beb, #60a5fa);
+            opacity: 0.95;
+            pointer-events: none;
         }
-        .profile-input {
-            width: 100%;
-            border-radius: 0.75rem;
-            border: 1px solid rgba(226, 232, 240, 0.95);
-            background: #fff;
-            padding: 0.75rem 1rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: #1e293b;
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-            transition: border-color 0.15s ease, box-shadow 0.15s ease;
-            outline: none;
-        }
-        .profile-input:focus {
-            border-color: rgba(43, 139, 235, 0.45);
-            box-shadow: 0 0 0 3px rgba(43, 139, 235, 0.15);
+        .profile-section-card--security::before {
+            background: linear-gradient(90deg, #1e3a5f, #2b8beb);
         }
         .provider-page-enter {
             animation: provider-page-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
@@ -165,162 +150,169 @@ if (!isset($currentTenantSlug)) {
         .cropper-modal-wrap .cropper-face { border-radius: 50%; }
     </style>
 </head>
-<body class="text-on-background profile-page-bg min-h-screen flex">
+<body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
 <main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
     <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
 
-    <div class="flex-1 pb-12">
-        <div id="toast" class="hidden fixed bottom-8 right-8 z-[60] max-w-sm rounded-2xl border px-4 py-3.5 shadow-lg text-sm font-semibold" role="status"></div>
+    <div class="p-6 sm:p-10 space-y-10 max-w-7xl mx-auto w-full">
+        <div id="toast" class="hidden fixed bottom-8 right-8 z-[60] max-w-sm rounded-2xl border px-4 py-3 shadow-xl text-sm font-semibold" role="status"></div>
 
-        <!-- Hero -->
-        <div class="profile-hero-gradient relative overflow-hidden">
-            <div class="absolute inset-0 opacity-30 pointer-events-none" style="background-image: url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.07\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');"></div>
-            <div class="relative max-w-6xl mx-auto px-5 sm:px-8 py-10 sm:py-12">
-                <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-white/70 mb-4">Account</p>
-                <div class="profile-glass rounded-2xl p-6 sm:p-8">
-                    <div class="flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-10">
-                        <div class="relative shrink-0 mx-auto sm:mx-0">
-                            <div class="relative w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-gradient-to-br from-primary to-blue-600 text-white flex items-center justify-center text-2xl sm:text-3xl font-bold shadow-xl shadow-slate-900/20 ring-4 ring-white overflow-hidden bg-cover bg-center" id="profileAvatar">
-                                <span id="profileAvatarInitials" class="select-none">—</span>
-                                <input type="file" id="profilePhotoInput" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden"/>
-                                <button type="button" id="profilePhotoEditBtn" class="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-white text-primary flex items-center justify-center border-2 border-slate-100 shadow-md hover:bg-slate-50 transition-colors" aria-label="Change profile photo">
-                                    <span class="material-symbols-outlined text-[20px]">photo_camera</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="flex-1 text-center sm:text-left min-w-0">
-                            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 font-headline" id="profileDisplayName">Loading…</h1>
-                            <p class="mt-1 text-sm font-semibold text-primary" id="profileStaffIdLine">Staff ID: —</p>
-                            <p class="mt-2 text-sm text-slate-500 truncate max-w-xl mx-auto sm:mx-0" id="profileHeroEmail"></p>
-                        </div>
-                    </div>
+        <section class="flex flex-col gap-4">
+            <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
+                <span class="w-12 h-[1.5px] bg-primary"></span> MY PROFILE
+            </div>
+            <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+                <div>
+                    <h2 class="font-headline text-4xl sm:text-5xl font-extrabold tracking-tighter leading-tight text-on-background">
+                        Your <span class="font-editorial italic font-normal text-primary">profile</span>
+                    </h2>
+                    <p class="font-body text-base sm:text-lg font-medium text-on-surface-variant max-w-xl leading-relaxed mt-3">
+                        Keep your clinic identity accurate. Changes here sync with your staff account across the portal.
+                    </p>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <!-- Asymmetric layout: intro left (lg) · Personal + Security stacked on the right -->
-        <div class="max-w-6xl mx-auto px-5 sm:px-8 -mt-6 relative z-10">
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 lg:items-start">
-                <aside class="lg:col-span-5 space-y-4 pt-2 order-2 lg:order-1">
-                    <h2 class="text-xl font-extrabold text-slate-900 font-headline tracking-tight">Your profile</h2>
-                    <p class="text-sm text-slate-600 leading-relaxed">Update how you appear in the staff portal, keep your email current, and rotate your password when needed.</p>
-                    <ul class="text-sm text-slate-500 space-y-2 pt-2">
-                        <li class="flex gap-2"><span class="text-primary font-bold">·</span> Photo syncs across your session</li>
-                        <li class="flex gap-2"><span class="text-primary font-bold">·</span> Password changes need email verification</li>
-                    </ul>
-                </aside>
-                <div class="lg:col-span-7 space-y-6 order-1 lg:order-2">
-                <!-- Personal Details -->
-                <section class="profile-card p-6 sm:p-8">
-                    <div class="flex items-start gap-4 mb-6">
-                        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                            <span class="material-symbols-outlined text-[22px]">badge</span>
-                        </div>
-                        <div>
-                            <h2 class="text-lg font-extrabold text-slate-900 font-headline tracking-tight">Personal details</h2>
-                            <p class="text-sm text-slate-500 mt-0.5">Name, username, and contact email for this clinic.</p>
-                        </div>
+        <section class="profile-hero-banner rounded-3xl px-6 sm:px-10 py-8 sm:py-9 text-white relative overflow-hidden">
+            <div class="absolute inset-0 opacity-[0.12] pointer-events-none" style="background-image: radial-gradient(circle at 20% 120%, #fff 0, transparent 55%), radial-gradient(circle at 90% -20%, #fff 0, transparent 45%);" aria-hidden="true"></div>
+            <div class="relative flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-10">
+                <div class="shrink-0 flex justify-center sm:justify-start">
+                    <div class="relative w-[7.25rem] h-[7.25rem] rounded-full bg-white/15 flex items-center justify-center text-2xl font-bold ring-4 ring-white/40 overflow-hidden bg-cover bg-center shadow-lg" id="profileAvatar">
+                        <span id="profileAvatarInitials" class="select-none text-white">—</span>
+                        <input type="file" id="profilePhotoInput" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden"/>
+                        <button type="button" id="profilePhotoEditBtn" class="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-white text-primary flex items-center justify-center border-2 border-white shadow-md hover:bg-surface-container-low transition-all" aria-label="Change profile photo">
+                            <span class="material-symbols-outlined text-[20px]">photo_camera</span>
+                        </button>
                     </div>
-                    <form id="personalForm" class="space-y-5">
-                        <div class="grid grid-cols-1 gap-5">
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-600 mb-1.5" for="fieldUsername">Username</label>
-                                <input id="fieldUsername" name="username" class="profile-input" type="text" autocomplete="username" required/>
+                </div>
+                <div class="flex-1 min-w-0 text-center sm:text-left">
+                    <p class="text-white/75 text-[11px] font-bold uppercase tracking-[0.22em] mb-2">Signed in as</p>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold font-headline tracking-tight text-white" id="profileDisplayName">Loading…</h1>
+                    <p class="mt-2 text-sm font-bold text-white/85 uppercase tracking-wider" id="profileStaffIdLine">Staff ID: —</p>
+                    <p class="mt-3 text-sm text-white/80 max-w-md mx-auto sm:mx-0 leading-relaxed">
+                        Use the camera button to upload a new photo. It appears here and in your workspace header where supported.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            <div class="lg:col-span-7 order-1">
+                <section class="profile-section-card rounded-3xl border border-slate-200/70 p-8 sm:p-9">
+                    <header class="flex flex-col sm:flex-row sm:items-start gap-4 pb-6 mb-6 border-b border-slate-100">
+                        <div class="w-12 h-12 rounded-2xl bg-surface-container-low border border-primary/10 flex items-center justify-center text-primary shrink-0">
+                            <span class="material-symbols-outlined text-2xl">badge</span>
+                        </div>
+                        <div class="min-w-0">
+                            <h2 class="text-xl sm:text-2xl font-bold font-headline text-on-background">Personal details</h2>
+                            <p class="text-sm text-on-surface-variant mt-1.5 leading-relaxed">
+                                Username, email, and name are stored for sign-in and how you appear to your team.
+                            </p>
+                        </div>
+                    </header>
+                    <form id="personalForm" class="space-y-6">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <div class="sm:col-span-2">
+                                <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldUsername">Username</label>
+                                <input id="fieldUsername" name="username" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="text" autocomplete="username" required/>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldEmail">Email address</label>
+                                <input id="fieldEmail" name="email" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="email" autocomplete="email" required/>
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-slate-600 mb-1.5" for="fieldEmail">Email address</label>
-                                <input id="fieldEmail" name="email" class="profile-input" type="email" autocomplete="email" required/>
+                                <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldFirst">First name</label>
+                                <input id="fieldFirst" name="first_name" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="text" autocomplete="given-name" required/>
                             </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <div>
-                                    <label class="block text-xs font-semibold text-slate-600 mb-1.5" for="fieldFirst">First name</label>
-                                    <input id="fieldFirst" name="first_name" class="profile-input" type="text" autocomplete="given-name" required/>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-semibold text-slate-600 mb-1.5" for="fieldLast">Last name</label>
-                                    <input id="fieldLast" name="last_name" class="profile-input" type="text" autocomplete="family-name" required/>
-                                </div>
+                            <div>
+                                <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldLast">Last name</label>
+                                <input id="fieldLast" name="last_name" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="text" autocomplete="family-name" required/>
                             </div>
                         </div>
-                        <p id="personalFormError" class="hidden text-sm text-rose-600 font-medium"></p>
+                        <p id="personalFormError" class="hidden text-sm text-rose-600 font-semibold"></p>
                         <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
-                            <button class="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors" type="button" id="personalCancelBtn">Cancel</button>
-                            <button class="px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold shadow-md shadow-primary/25 hover:bg-primary/90 transition-colors disabled:opacity-50" type="submit" id="personalSaveBtn">Save changes</button>
+                            <button class="w-full sm:w-auto px-6 py-3 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200/90 text-xs font-black uppercase tracking-widest transition-all border border-slate-200/80" type="button" id="personalCancelBtn">Cancel</button>
+                            <button class="w-full sm:w-auto px-8 py-3 rounded-xl bg-primary text-white hover:bg-primary/90 text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/25 disabled:opacity-50" type="submit" id="personalSaveBtn">Save changes</button>
                         </div>
                     </form>
                 </section>
+            </div>
 
-                <!-- Security — right -->
-                <section class="profile-card p-6 sm:p-8">
-                    <div class="flex items-start gap-4 mb-6">
-                        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
-                            <span class="material-symbols-outlined text-[22px]">shield_lock</span>
+            <div class="lg:col-span-5 order-2">
+                <section class="profile-section-card profile-section-card--security rounded-3xl border border-slate-200/70 p-8 sm:p-9 lg:sticky lg:top-24">
+                    <header class="flex flex-col sm:flex-row sm:items-start gap-4 pb-6 mb-6 border-b border-slate-100">
+                        <div class="w-12 h-12 rounded-2xl bg-[#0b3463]/10 border border-[#0b3463]/15 flex items-center justify-center text-[#0b3463] shrink-0">
+                            <span class="material-symbols-outlined text-2xl">shield_lock</span>
                         </div>
-                        <div>
-                            <h2 class="text-lg font-extrabold text-slate-900 font-headline tracking-tight">Security</h2>
-                            <p class="text-sm text-slate-500 mt-0.5">Change your password. We will email a 6-digit code to confirm.</p>
+                        <div class="min-w-0">
+                            <h2 class="text-xl sm:text-2xl font-bold font-headline text-on-background">Security</h2>
+                            <p class="text-sm text-on-surface-variant mt-1.5 leading-relaxed">
+                                Password updates require a 6-digit code sent to your registered email.
+                            </p>
                         </div>
-                    </div>
+                    </header>
                     <form id="passwordForm" class="space-y-5">
                         <div>
-                            <label class="block text-xs font-semibold text-slate-600 mb-1.5" for="pwCurrent">Current password</label>
-                            <input id="pwCurrent" class="profile-input" type="password" autocomplete="current-password"/>
+                            <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="pwCurrent">Current password</label>
+                            <input id="pwCurrent" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="password" autocomplete="current-password"/>
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold text-slate-600 mb-1.5" for="pwNew">New password</label>
-                            <input id="pwNew" class="profile-input" type="password" autocomplete="new-password"/>
+                            <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="pwNew">New password</label>
+                            <input id="pwNew" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="password" autocomplete="new-password"/>
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold text-slate-600 mb-1.5" for="pwConfirm">Confirm new password</label>
-                            <input id="pwConfirm" class="profile-input" type="password" autocomplete="new-password"/>
+                            <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="pwConfirm">Confirm new password</label>
+                            <input id="pwConfirm" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="password" autocomplete="new-password"/>
                         </div>
-                        <p class="text-xs text-slate-500 leading-relaxed rounded-xl bg-slate-50 border border-slate-100 px-3 py-2">Use at least 8 characters with letters and numbers.</p>
-                        <p id="passwordFormError" class="hidden text-sm text-rose-600 font-medium"></p>
-                        <div class="flex flex-col gap-4 pt-1">
-                            <button class="w-full sm:w-auto sm:ml-auto px-5 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors disabled:opacity-50" type="submit" id="passwordSubmitBtn">Update password</button>
-                            <a class="inline-flex items-center justify-center sm:justify-start gap-2 text-sm font-semibold text-rose-600 hover:text-rose-700 transition-colors" href="<?php echo htmlspecialchars($findAccountUrl, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer">
-                                <span class="material-symbols-outlined text-[18px]">mark_email_unread</span>
-                                Forgot password? Reset via email
-                            </a>
-                        </div>
+                        <p class="text-xs text-on-surface-variant leading-relaxed rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
+                            Use at least 8 characters with both letters and numbers.
+                        </p>
+                        <p id="passwordFormError" class="hidden text-sm text-rose-600 font-semibold"></p>
+                        <button class="w-full px-7 py-3.5 rounded-xl bg-primary text-white hover:bg-primary/90 text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/25 disabled:opacity-50" type="submit" id="passwordSubmitBtn">Update password</button>
+                        <a class="flex items-center justify-center gap-2 w-full py-2 text-rose-600 hover:text-rose-700 text-[11px] font-black uppercase tracking-wider transition-colors" href="<?php echo htmlspecialchars($findAccountUrl, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer">
+                            <span class="material-symbols-outlined text-base">mark_email_unread</span>
+                            Reset password via email
+                        </a>
                     </form>
                 </section>
-                </div>
             </div>
         </div>
     </div>
 </main>
 
 <!-- OTP Modal -->
-<div id="otpModal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/45 backdrop-blur-md" aria-modal="true" role="dialog">
-    <div class="profile-glass rounded-2xl max-w-md w-full p-7 sm:p-8 shadow-2xl">
-        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15 text-primary mb-4">
-            <span class="material-symbols-outlined text-[26px]">mark_email_read</span>
+<div id="otpModal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" aria-modal="true" role="dialog">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200/90">
+        <div class="h-1.5 w-full bg-gradient-to-r from-[#1e3a5f] via-primary to-[#5ab0ff]"></div>
+        <div class="p-8">
+        <h3 class="text-xl font-extrabold text-on-background font-headline">Enter verification code</h3>
+        <p class="text-sm text-on-surface-variant mt-2">We sent a 6-digit code to your clinic email. Enter it below to finish updating your password.</p>
+        <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mt-6 mb-2" for="otpInput">6-digit code</label>
+        <input id="otpInput" type="text" inputmode="numeric" maxlength="6" pattern="[0-9]*" class="w-full tracking-[0.4em] text-center text-2xl font-bold bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-primary/30" placeholder="000000" autocomplete="one-time-code"/>
+        <p id="otpError" class="hidden text-sm text-rose-600 font-semibold mt-3"></p>
+        <div class="flex gap-3 mt-6">
+            <button type="button" id="otpCancelBtn" class="flex-1 px-4 py-3 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-black uppercase tracking-widest border border-slate-200/80">Cancel</button>
+            <button type="button" id="otpConfirmBtn" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white hover:bg-primary/90 text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/25">Verify</button>
         </div>
-        <h3 class="text-xl font-extrabold text-slate-900 font-headline tracking-tight">Verification code</h3>
-        <p class="text-sm text-slate-600 mt-2 leading-relaxed">We emailed a 6-digit code to your registered address. Enter it to finish updating your password.</p>
-        <label class="block text-xs font-semibold text-slate-600 mt-6 mb-1.5" for="otpInput">Code</label>
-        <input id="otpInput" type="text" inputmode="numeric" maxlength="6" pattern="[0-9]*" class="profile-input tracking-[0.35em] text-center text-2xl font-bold py-3.5" placeholder="••••••" autocomplete="one-time-code"/>
-        <p id="otpError" class="hidden text-sm text-rose-600 font-medium mt-3"></p>
-        <div class="flex flex-col-reverse sm:flex-row gap-3 mt-6">
-            <button type="button" id="otpCancelBtn" class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50">Cancel</button>
-            <button type="button" id="otpConfirmBtn" class="flex-1 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold shadow-md shadow-primary/25 hover:bg-primary/90">Verify</button>
         </div>
     </div>
 </div>
 
 <!-- Photo crop modal -->
-<div id="cropModal" class="hidden fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-md">
-    <div class="profile-glass rounded-2xl max-w-lg w-full p-6 sm:p-7 shadow-2xl">
-        <h3 class="text-lg font-extrabold text-slate-900 font-headline">Crop photo</h3>
-        <p class="text-sm text-slate-600 mt-1">Drag to reposition. Pinch or scroll to zoom.</p>
-        <div class="mt-4 max-h-[58vh] cropper-modal-wrap rounded-xl overflow-hidden bg-slate-100">
-            <img id="cropImage" src="" alt="" class="block max-w-full"/>
+<div id="cropModal" class="hidden fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200/90">
+        <div class="h-1.5 w-full bg-gradient-to-r from-primary to-[#5ab0ff]"></div>
+        <div class="p-6">
+        <h3 class="text-lg font-extrabold text-on-background font-headline">Adjust profile photo</h3>
+        <p class="text-sm text-on-surface-variant mt-1">Drag to reposition, scroll to zoom.</p>
+        <div class="mt-4 max-h-[60vh] cropper-modal-wrap">
+            <img id="cropImage" src="" alt="" class="block max-w-full rounded-2xl"/>
         </div>
-        <div class="flex flex-col-reverse sm:flex-row gap-3 mt-6">
-            <button type="button" id="cropCancelBtn" class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50">Cancel</button>
-            <button type="button" id="cropSaveBtn" class="flex-1 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold shadow-md shadow-primary/25 hover:bg-primary/90">Save photo</button>
+        <div class="flex gap-3 mt-6">
+            <button type="button" id="cropCancelBtn" class="flex-1 px-4 py-3 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-black uppercase tracking-widest border border-slate-200/80">Cancel</button>
+            <button type="button" id="cropSaveBtn" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white hover:bg-primary/90 text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/25">Save photo</button>
+        </div>
         </div>
     </div>
 </div>
@@ -379,11 +371,6 @@ if (!isset($currentTenantSlug)) {
 
     var sid = d.staff_display_id || SESSION_STAFF_ID;
     document.getElementById('profileStaffIdLine').textContent = sid ? ('Staff ID: ' + sid) : 'Staff profile';
-
-    var heroEmail = document.getElementById('profileHeroEmail');
-    if (heroEmail) {
-      heroEmail.textContent = d.email ? d.email : '';
-    }
 
     var imgUrl = d.profile_image_url || '';
     applyAvatar(imgUrl, d.first_name, d.last_name);
