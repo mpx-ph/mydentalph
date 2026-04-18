@@ -1174,9 +1174,17 @@ try {
             applyServiceFilters();
         }
 
+        function syncModalBodyScrollLock() {
+            const hasOpenModal = [choosePatientModal, chooseDentistModal, chooseServiceModal].some(function (modalEl) {
+                return modalEl && !modalEl.classList.contains('hidden');
+            });
+            document.body.classList.toggle('overflow-hidden', hasOpenModal);
+        }
+
         function openChoosePatientModal() {
             if (!choosePatientModal) return;
             choosePatientModal.classList.remove('hidden');
+            syncModalBodyScrollLock();
             if (patientSearchInput) patientSearchInput.value = '';
             loadAllPatients();
         }
@@ -1184,23 +1192,26 @@ try {
         function closeChoosePatientModal() {
             if (!choosePatientModal) return;
             choosePatientModal.classList.add('hidden');
+            syncModalBodyScrollLock();
         }
 
         function openChooseDentistModal() {
             if (!chooseDentistModal) return;
             chooseDentistModal.classList.remove('hidden');
+            syncModalBodyScrollLock();
             renderDentistsList();
         }
 
         function closeChooseDentistModal() {
             if (!chooseDentistModal) return;
             chooseDentistModal.classList.add('hidden');
+            syncModalBodyScrollLock();
         }
 
         function openChooseServiceModal() {
             if (!chooseServiceModal) return;
             chooseServiceModal.classList.remove('hidden');
-            document.body.classList.add('overflow-hidden');
+            syncModalBodyScrollLock();
             if (serviceSearchInput) serviceSearchInput.value = '';
             selectedServiceCategoryFilter = 'all';
             renderServiceCategoryFilters();
@@ -1210,7 +1221,7 @@ try {
         function closeChooseServiceModal() {
             if (!chooseServiceModal) return;
             chooseServiceModal.classList.add('hidden');
-            document.body.classList.remove('overflow-hidden');
+            syncModalBodyScrollLock();
         }
 
         function setSelectedPatient(patientId, patientName) {
