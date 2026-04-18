@@ -89,9 +89,10 @@ try {
                 $stmt = $pdo->prepare("
                     SELECT
                         d.dentist_id,
+                        COALESCE(d.dentist_display_id, '') AS dentist_display_id,
                         COALESCE(d.first_name, '') AS first_name,
                         COALESCE(d.last_name, '') AS last_name,
-                        '' AS profile_image,
+                        COALESCE(d.profile_image, '') AS profile_image,
                         COALESCE(d.status, 'active') AS status
                     FROM {$wiQDent} d
                     WHERE d.tenant_id = ?
@@ -580,6 +581,7 @@ try {
         const appointmentsApiUrl = <?php echo json_encode($walkinCreateApiPath, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const clinicSlug = <?php echo json_encode((string) $currentTenantSlug, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const stockDentistImage = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=60';
+        const clinicAssetBaseUrl = <?php echo json_encode(rtrim(BASE_URL, '/') . '/', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         let allPatients = [];
         let allServices = [];
         let selectedServices = [];
@@ -1084,6 +1086,17 @@ try {
             return { valid: true, message: '' };
         }
 
+        function resolveDentistProfileImageUrl(raw) {
+            const path = String(raw || '').trim();
+            if (!path) {
+                return stockDentistImage;
+            }
+            if (/^https?:\/\//i.test(path)) {
+                return path;
+            }
+            return clinicAssetBaseUrl.replace(/\/?$/, '/') + path.replace(/^\/+/, '');
+        }
+
         function renderDentistsList() {
             if (!dentistListContainer || !dentistListEmptyState) return;
             if (!dentistsSeedData.length) {
@@ -1099,14 +1112,28 @@ try {
                 const lastName = String(dentist.last_name || '').trim();
                 const fullNameText = (firstName + ' ' + lastName).trim() || 'Unnamed Dentist';
                 const fullName = escapeHtml(fullNameText);
-                const availability = String(dentist.status || '').toLowerCase() === 'active' ? 'Available today' : 'Unavailable';
-                const imageSrc = escapeHtml(dentist.profile_image || stockDentistImage);
+                const isAvailable = String(dentist.status || '').toLowerCase() === 'active';
+                const statusLabel = isAvailable ? 'Available' : 'Not available';
+                const statusTitle = escapeHtml(statusLabel);
+                const statusDotClass = isAvailable ? 'bg-emerald-500' : 'bg-red-500';
+                const statusTextClass = isAvailable ? 'text-emerald-700' : 'text-red-700';
+                const imageSrc = escapeHtml(resolveDentistProfileImageUrl(dentist.profile_image));
                 const dentistId = escapeHtml(dentist.dentist_id || '');
+                const displayId = String(dentist.dentist_display_id || '').trim();
+                const idLineRaw = displayId !== '' ? displayId : ('ID #' + String(dentist.dentist_id || '').trim());
+                const idLine = escapeHtml(idLineRaw);
                 return '' +
                     '<div class="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 flex flex-col items-center text-center">' +
-                        '<img src="' + imageSrc + '" alt="' + fullName + '" class="w-24 h-24 rounded-full object-cover border border-slate-200 bg-white"/>' +
+                        '<div class="relative shrink-0">' +
+                            '<img src="' + imageSrc + '" alt="" class="w-24 h-24 rounded-full object-cover border border-slate-200 bg-white"/>' +
+                            '<span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-white ' + statusDotClass + '" title="' + statusTitle + '" role="img" aria-label="' + statusTitle + '"></span>' +
+                        '</div>' +
                         '<p class="mt-3 text-sm font-extrabold text-slate-900">' + fullName + '</p>' +
-                        '<p class="mt-1 text-xs font-semibold text-slate-500">' + escapeHtml(availability) + '</p>' +
+                        '<p class="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">' + idLine + '</p>' +
+                        '<p class="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold ' + statusTextClass + '">' +
+                            '<span class="w-2.5 h-2.5 rounded-full shrink-0 ' + statusDotClass + '" title="' + statusTitle + '" aria-hidden="true"></span>' +
+                            '<span>' + escapeHtml(statusLabel) + '</span>' +
+                        '</p>' +
                         '<button type="button" data-action="select-dentist" data-dentist-id="' + dentistId + '" data-dentist-name="' + fullName + '" class="mt-3 rounded-lg bg-primary text-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide hover:bg-primary/90 transition-colors">Select</button>' +
                     '</div>';
             }).join('');
