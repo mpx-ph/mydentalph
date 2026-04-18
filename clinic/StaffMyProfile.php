@@ -51,7 +51,6 @@ requireClinicTenantId();
 $clinicWebRoot = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
 $staffProfileApiUrl = $clinicWebRoot . '/api/admin_profile.php';
 $sessionStaffDisplayId = trim((string) ($_SESSION['staff_id'] ?? ''));
-$findAccountUrl = rtrim(PROVIDER_BASE_URL, '/') . '/ProviderFindAccount.php';
 
 if (!isset($currentTenantSlug)) {
     $currentTenantSlug = '';
@@ -275,6 +274,12 @@ if (!isset($currentTenantSlug)) {
                                     <span class="material-symbols-outlined text-[20px] icon-hidden hidden">visibility_off</span>
                                 </button>
                             </div>
+                            <div id="pwStrengthWrap" class="mt-2.5 hidden">
+                                <div class="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
+                                    <div id="pwStrengthBar" class="h-full w-0 bg-rose-500 transition-all duration-200"></div>
+                                </div>
+                                <p id="pwStrengthLabel" class="mt-1.5 text-[11px] font-semibold text-on-surface-variant">Password strength: Very weak</p>
+                            </div>
                         </div>
                         <div>
                             <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="pwConfirm">Confirm new password</label>
@@ -291,10 +296,6 @@ if (!isset($currentTenantSlug)) {
                         </p>
                         <p id="passwordFormError" class="hidden text-sm text-rose-600 font-semibold"></p>
                         <button class="w-full px-7 py-3.5 rounded-xl bg-primary text-white hover:bg-primary/90 text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/25 disabled:opacity-50" type="submit" id="passwordSubmitBtn">Update password</button>
-                        <a class="flex items-center justify-center gap-2 w-full py-2 text-rose-600 hover:text-rose-700 text-[11px] font-black uppercase tracking-wider transition-colors" href="<?php echo htmlspecialchars($findAccountUrl, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer">
-                            <span class="material-symbols-outlined text-base">mark_email_unread</span>
-                            Reset password via email
-                        </a>
                     </form>
                 </section>
             </div>
@@ -546,6 +547,57 @@ if (!isset($currentTenantSlug)) {
   var otpModal = document.getElementById('otpModal');
   var otpInput = document.getElementById('otpInput');
   var otpError = document.getElementById('otpError');
+  var pwNewInput = document.getElementById('pwNew');
+  var pwStrengthWrap = document.getElementById('pwStrengthWrap');
+  var pwStrengthBar = document.getElementById('pwStrengthBar');
+  var pwStrengthLabel = document.getElementById('pwStrengthLabel');
+
+  function evaluatePasswordStrength(password) {
+    var score = 0;
+    if (password.length >= 8) score += 1;
+    if (password.length >= 12) score += 1;
+    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1;
+    if (/[0-9]/.test(password)) score += 1;
+    if (/[^A-Za-z0-9]/.test(password)) score += 1;
+    return score;
+  }
+
+  function updatePasswordStrengthUi(password) {
+    if (!pwStrengthWrap || !pwStrengthBar || !pwStrengthLabel) return;
+    if (!password) {
+      pwStrengthWrap.classList.add('hidden');
+      pwStrengthBar.style.width = '0%';
+      pwStrengthBar.className = 'h-full w-0 bg-rose-500 transition-all duration-200';
+      pwStrengthLabel.textContent = 'Password strength: Very weak';
+      return;
+    }
+    pwStrengthWrap.classList.remove('hidden');
+    var score = evaluatePasswordStrength(password);
+    var width = Math.min(100, Math.max(15, score * 20));
+    var label = 'Weak';
+    var barClass = 'bg-rose-500';
+
+    if (score >= 4) {
+      label = 'Strong';
+      barClass = 'bg-emerald-500';
+    } else if (score === 3) {
+      label = 'Good';
+      barClass = 'bg-amber-500';
+    } else if (score === 2) {
+      label = 'Fair';
+      barClass = 'bg-orange-500';
+    }
+
+    pwStrengthBar.style.width = width + '%';
+    pwStrengthBar.className = 'h-full transition-all duration-200 ' + barClass;
+    pwStrengthLabel.textContent = 'Password strength: ' + label;
+  }
+
+  if (pwNewInput) {
+    pwNewInput.addEventListener('input', function () {
+      updatePasswordStrengthUi(pwNewInput.value || '');
+    });
+  }
 
   function closeOtpModal() {
     otpModal.classList.add('hidden');
@@ -620,6 +672,7 @@ if (!isset($currentTenantSlug)) {
         document.getElementById('pwCurrent').value = '';
         document.getElementById('pwNew').value = '';
         document.getElementById('pwConfirm').value = '';
+        updatePasswordStrengthUi('');
         showConfirmModal('Your password has been changed.');
       })
       .catch(function (ex) {
