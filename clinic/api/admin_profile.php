@@ -4,24 +4,62 @@
  * Handles profile data retrieval and updates for logged-in admin/staff/doctor users
  */
 
+declare(strict_types=1);
+
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../config/database.php';
 
+if (!defined('PASSWORD_MIN_LENGTH')) {
+    define('PASSWORD_MIN_LENGTH', 8);
+}
+
+$__mailCfg = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'mail_config.php';
+if (is_file($__mailCfg)) {
+    require_once $__mailCfg;
+}
+
 header('Content-Type: application/json');
 
-$method = $_SERVER['REQUEST_METHOD'];
+/**
+ * @return string|null Error message or null if valid
+ */
+function admin_profile_validate_new_password(string $pw): ?string
+{
+    if (strlen($pw) < PASSWORD_MIN_LENGTH) {
+        return 'Password must be at least ' . PASSWORD_MIN_LENGTH . ' characters.';
+    }
+    if (!preg_match('/[A-Za-z]/', $pw)) {
+        return 'Password must include at least one letter.';
+    }
+    if (!preg_match('/[0-9]/', $pw)) {
+        return 'Password must include at least one number.';
+    }
+    return null;
+}
+
+function admin_profile_image_public_url(?string $relative): string
+{
+    $relative = trim((string) $relative);
+    if ($relative === '') {
+        return '';
+    }
+    if (preg_match('#^https?://#i', $relative)) {
+        return $relative;
+    }
+    return rtrim(BASE_URL, '/') . '/' . ltrim(str_replace('\\', '/', $relative), '/');
+}
+
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $pdo = getDBConnection();
 
-// Require admin/staff/doctor authentication
 $userType = $_SESSION['user_type'] ?? '';
-if (!in_array($userType, ['admin', 'staff', 'doctor', 'manager'])) {
+if (!in_array($userType, ['admin', 'staff', 'doctor', 'manager'], true)) {
     jsonResponse(false, 'Unauthorized. Admin, Staff, Doctor, or Manager access required.');
 }
 
-// Route based on method and action
-$action = $_GET['action'] ?? '';
+$action = isset($_GET['action']) ? (string) $_GET['action'] : '';
 
 switch ($method) {
     case 'GET':
@@ -33,6 +71,10 @@ switch ($method) {
     case 'POST':
         if ($action === 'upload_photo') {
             uploadPhoto();
+        } elseif ($action === 'request_password_otp') {
+            requestPasswordChangeOtp();
+        } elseif ($action === 'confirm_password_otp') {
+            confirmPasswordChangeOtp();
         } else {
             jsonResponse(false, 'Invalid action.');
         }
@@ -44,125 +86,176 @@ switch ($method) {
 /**
  * Get profile data for logged-in admin/staff/doctor
  */
-function getProfile() {
+function getProfile(): void
+{
     global $pdo;
-    
-    $userId = getCurrentUserId(); // schema: session holds user_id (string)
-    
+
+    $userId = getCurrentUserId();
     if (!$userId) {
         jsonResponse(false, 'User not logged in.');
     }
-    
+
+    $tenantId = trim((string) ($_SESSION['tenant_id'] ?? ''));
+    if ($tenantId === '') {
+        jsonResponse(false, 'Tenant context missing.');
+    }
+
     try {
-        // Get user from tbl_users (PK is user_id)
-        $stmt = $pdo->prepare("SELECT user_id, username, email FROM tbl_users WHERE user_id = ?");
-        $stmt->execute([$userId]);
-        $user = $stmt->fetch();
-        
+        $stmt = $pdo->prepare('SELECT user_id, username, email, full_name, photo FROM tbl_users WHERE user_id = ? AND tenant_id = ? LIMIT 1');
+        $stmt->execute([$userId, $tenantId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$user) {
             jsonResponse(false, 'User not found.');
         }
-        
-        $userUserId = $user['user_id'];
-        
-        // Get staff profile from tbl_staffs (schema)
-        $stmt = $pdo->prepare("SELECT * FROM tbl_staffs WHERE user_id = ?");
-        $stmt->execute([$userUserId]);
-        $staff = $stmt->fetch();
-        
-        if ($staff) {
-            // Staff record exists - return staff data with user account info
-            jsonResponse(true, 'Profile retrieved successfully.', [
-                'staff_id' => $staff['id'],
-                'staff_display_id' => $staff['staff_id'],
-                'first_name' => $staff['first_name'] ?? '',
-                'last_name' => $staff['last_name'] ?? '',
-                'contact_number' => $staff['contact_number'] ?? '',
-                'date_of_birth' => $staff['date_of_birth'] ?? '',
-                'gender' => $staff['gender'] ?? '',
-                'house_street' => $staff['house_street'] ?? '',
-                'barangay' => $staff['barangay'] ?? '',
-                'city_municipality' => $staff['city_municipality'] ?? '',
-                'province' => $staff['province'] ?? '',
-                'profile_image' => $staff['profile_image'] ?? '',
-                'employee_id' => $staff['employee_id'] ?? '',
-                'department' => $staff['department'] ?? '',
-                'position' => $staff['position'] ?? '',
-                'hire_date' => $staff['hire_date'] ?? '',
-                // Account info from users table
-                'username' => $user['username'],
-                'email' => $user['email'],
-                'source' => 'staffs'
-            ]);
-        } else {
-            // No staff record yet - return minimal data from users table
-            jsonResponse(true, 'Profile retrieved successfully.', [
-                'user_id' => $userUserId,
-                'first_name' => '',
-                'last_name' => '',
-                'email' => $user['email'] ?? '',
-                'contact_number' => '',
-                'date_of_birth' => '',
-                'gender' => '',
-                'house_street' => '',
-                'barangay' => '',
-                'city_municipality' => '',
-                'province' => '',
-                'profile_image' => '',
-                'employee_id' => '',
-                'department' => '',
-                'position' => '',
-                'hire_date' => '',
-                'username' => $user['username'],
-                'source' => 'users'
-            ]);
+
+        $stmt = $pdo->prepare('SELECT * FROM tbl_staffs WHERE user_id = ? AND tenant_id = ? LIMIT 1');
+        $stmt->execute([$userId, $tenantId]);
+        $staff = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $firstName = '';
+        $lastName = '';
+        if (is_array($staff)) {
+            $firstName = (string) ($staff['first_name'] ?? '');
+            $lastName = (string) ($staff['last_name'] ?? '');
         }
-        
-    } catch (Exception $e) {
+        if ($firstName === '' && $lastName === '') {
+            $full = trim((string) ($user['full_name'] ?? ''));
+            if ($full !== '') {
+                $parts = preg_split('/\s+/', $full, 2, PREG_SPLIT_NO_EMPTY);
+                $firstName = (string) ($parts[0] ?? '');
+                $lastName = (string) ($parts[1] ?? '');
+            }
+        }
+
+        $staffRel = is_array($staff) ? (string) ($staff['profile_image'] ?? '') : '';
+        $userPhoto = trim((string) ($user['photo'] ?? ''));
+        $primaryImg = $staffRel !== '' ? $staffRel : $userPhoto;
+        $photoUrl = admin_profile_image_public_url($primaryImg !== '' ? $primaryImg : null);
+
+        $payload = [
+            'staff_table_id' => is_array($staff) ? (int) ($staff['id'] ?? 0) : 0,
+            'staff_display_id' => is_array($staff) ? (string) ($staff['staff_id'] ?? '') : '',
+            'first_name' => $firstName,
+            'last_name' => $lastName,
+            'contact_number' => is_array($staff) ? (string) ($staff['contact_number'] ?? '') : '',
+            'gender' => is_array($staff) ? (string) ($staff['gender'] ?? '') : '',
+            'house_street' => is_array($staff) ? (string) ($staff['house_street'] ?? '') : '',
+            'barangay' => is_array($staff) ? (string) ($staff['barangay'] ?? '') : '',
+            'city_municipality' => is_array($staff) ? (string) ($staff['city_municipality'] ?? '') : '',
+            'province' => is_array($staff) ? (string) ($staff['province'] ?? '') : '',
+            'profile_image' => $primaryImg,
+            'profile_image_url' => $photoUrl,
+            'username' => (string) ($user['username'] ?? ''),
+            'email' => (string) ($user['email'] ?? ''),
+            'full_name' => trim((string) ($user['full_name'] ?? '')),
+            'user_photo' => $userPhoto,
+            'source' => is_array($staff) ? 'staffs' : 'users',
+        ];
+
+        jsonResponse(true, 'Profile retrieved successfully.', $payload);
+    } catch (Throwable $e) {
         error_log('Get Admin Profile Error: ' . $e->getMessage());
         jsonResponse(false, 'Failed to retrieve profile.');
     }
 }
 
 /**
- * Update profile
- * Handles both personal details (staffs table) and password (users table)
+ * Update profile (personal details only — password uses email OTP flow)
  */
-function updateProfile() {
-    global $pdo;
-    
-    $userId = getCurrentUserId(); // This is users.id (int)
-    
+function updateProfile(): void
+{
+    $userId = getCurrentUserId();
     if (!$userId) {
         jsonResponse(false, 'User not logged in.');
     }
-    
-    $input = json_decode(file_get_contents('php://input'), true);
-    
-    // Determine update type
+
+    $raw = file_get_contents('php://input');
+    $input = json_decode((string) $raw, true);
+    if (!is_array($input)) {
+        $input = [];
+    }
+
     if (isset($input['update_type']) && $input['update_type'] === 'password') {
-        updatePassword($userId, $input);
-    } else {
-        updatePersonalDetails($userId, $input);
+        updatePasswordDirect($userId, $input);
+        return;
+    }
+
+    updatePersonalDetails($userId, $input);
+}
+
+/**
+ * Legacy direct password change (used by AdminMyProfile.php PUT).
+ * Staff portal uses request_password_otp + confirm_password_otp instead.
+ */
+function updatePasswordDirect(string $userId, array $input): void
+{
+    global $pdo;
+
+    $tenantId = trim((string) ($_SESSION['tenant_id'] ?? ''));
+    if ($tenantId === '') {
+        jsonResponse(false, 'Tenant context missing.');
+    }
+
+    $currentPassword = (string) ($input['current_password'] ?? '');
+    $newPassword = (string) ($input['new_password'] ?? '');
+    $confirmPassword = (string) ($input['confirm_password'] ?? '');
+
+    if ($currentPassword === '') {
+        jsonResponse(false, 'Current password is required.');
+    }
+    if ($newPassword === '') {
+        jsonResponse(false, 'New password is required.');
+    }
+    $pwErr = admin_profile_validate_new_password($newPassword);
+    if ($pwErr !== null) {
+        jsonResponse(false, $pwErr);
+    }
+    if ($newPassword !== $confirmPassword) {
+        jsonResponse(false, 'New password and confirm password do not match.');
+    }
+
+    try {
+        $stmt = $pdo->prepare('SELECT password_hash FROM tbl_users WHERE user_id = ? AND tenant_id = ? LIMIT 1');
+        $stmt->execute([$userId, $tenantId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$user) {
+            jsonResponse(false, 'User not found.');
+        }
+        if (!password_verify($currentPassword, (string) ($user['password_hash'] ?? ''))) {
+            jsonResponse(false, 'Current password is incorrect.');
+        }
+
+        $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+        $stmt = $pdo->prepare('UPDATE tbl_users SET password_hash = ?, updated_at = NOW() WHERE user_id = ? AND tenant_id = ?');
+        $stmt->execute([$hashedPassword, $userId, $tenantId]);
+
+        jsonResponse(true, 'Password updated successfully.');
+    } catch (Throwable $e) {
+        error_log('updatePasswordDirect: ' . $e->getMessage());
+        jsonResponse(false, 'Failed to update password.');
     }
 }
 
 /**
- * Update personal details in staffs table
+ * Update personal details in tbl_staffs and tbl_users
  */
-function updatePersonalDetails($userId, $input) {
+function updatePersonalDetails(string $userId, array $input): void
+{
     global $pdo;
-    
+
+    $tenantId = trim((string) ($_SESSION['tenant_id'] ?? ''));
+    if ($tenantId === '') {
+        jsonResponse(false, 'Tenant context missing.');
+    }
+
     try {
-        // Schema: session/userId is user_id (string); verify user exists
-        $stmt = $pdo->prepare("SELECT user_id FROM tbl_users WHERE user_id = ?");
-        $stmt->execute([$userId]);
-        if (!$stmt->fetch()) {
+        $stmt = $pdo->prepare('SELECT user_id, username, email FROM tbl_users WHERE user_id = ? AND tenant_id = ? LIMIT 1');
+        $stmt->execute([$userId, $tenantId]);
+        $existingUserRow = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$existingUserRow) {
             jsonResponse(false, 'User not found.');
         }
-        $userUserId = $userId;
-        
-        // Extract and sanitize staff data
+
         $staffData = [
             'first_name' => sanitize($input['first_name'] ?? ''),
             'last_name' => sanitize($input['last_name'] ?? ''),
@@ -171,272 +264,402 @@ function updatePersonalDetails($userId, $input) {
             'house_street' => sanitize($input['house_street'] ?? ''),
             'barangay' => sanitize($input['barangay'] ?? ''),
             'city_municipality' => sanitize($input['city_municipality'] ?? ''),
-            'province' => sanitize($input['province'] ?? '')
+            'province' => sanitize($input['province'] ?? ''),
         ];
-        
-        // Extract account data
+
+        $emailIn = isset($input['email']) ? trim(sanitize($input['email'])) : '';
+        $usernameIn = isset($input['username']) ? trim(sanitize($input['username'])) : '';
         $accountData = [
-            'email' => sanitize($input['email'] ?? '')
+            'email' => $emailIn !== '' ? $emailIn : trim((string) ($existingUserRow['email'] ?? '')),
+            'username' => $usernameIn !== '' ? $usernameIn : trim((string) ($existingUserRow['username'] ?? '')),
         ];
-        
-        // Validation
-        if (empty($staffData['first_name'])) {
+
+        if ($staffData['first_name'] === '') {
             jsonResponse(false, 'First name is required.');
         }
-        
-        if (empty($staffData['last_name'])) {
+        if ($staffData['last_name'] === '') {
             jsonResponse(false, 'Last name is required.');
         }
-        
-        if (empty($accountData['email'])) {
-            jsonResponse(false, 'Email is required.');
-        } elseif (!filter_var($accountData['email'], FILTER_VALIDATE_EMAIL)) {
-            jsonResponse(false, 'Invalid email format.');
+        if ($accountData['email'] === '' || !filter_var($accountData['email'], FILTER_VALIDATE_EMAIL)) {
+            jsonResponse(false, 'A valid email address is required.');
         }
-        
-        // Check if email already exists for another user
-        $stmt = $pdo->prepare("SELECT user_id FROM tbl_users WHERE email = ? AND user_id != ?");
-        $stmt->execute([$accountData['email'], $userId]);
+        if ($accountData['username'] === '') {
+            jsonResponse(false, 'Username is required.');
+        }
+
+        $stmt = $pdo->prepare('SELECT user_id FROM tbl_users WHERE tenant_id = ? AND LOWER(TRIM(username)) = LOWER(TRIM(?)) AND user_id != ? LIMIT 1');
+        $stmt->execute([$tenantId, $accountData['username'], $userId]);
         if ($stmt->fetch()) {
-            jsonResponse(false, 'Email already registered to another account.');
+            jsonResponse(false, 'That username is already taken in this clinic.');
         }
-        
-        // Check if staff record exists
-        $stmt = $pdo->prepare("SELECT id FROM tbl_staffs WHERE user_id = ?");
-        $stmt->execute([$userUserId]);
-        $existingStaff = $stmt->fetch();
-        
+
+        $stmt = $pdo->prepare('SELECT user_id FROM tbl_users WHERE tenant_id = ? AND LOWER(TRIM(email)) = LOWER(TRIM(?)) AND user_id != ? LIMIT 1');
+        $stmt->execute([$tenantId, $accountData['email'], $userId]);
+        if ($stmt->fetch()) {
+            jsonResponse(false, 'That email is already registered to another account in this clinic.');
+        }
+
+        $fullName = trim($staffData['first_name'] . ' ' . $staffData['last_name']);
+        if (strlen($fullName) > 255) {
+            jsonResponse(false, 'Full name is too long.');
+        }
+
+        $stmt = $pdo->prepare('SELECT id FROM tbl_staffs WHERE user_id = ? AND tenant_id = ? LIMIT 1');
+        $stmt->execute([$userId, $tenantId]);
+        $existingStaff = $stmt->fetch(PDO::FETCH_ASSOC);
+
         if ($existingStaff) {
-            // UPDATE existing staff record
-            $updateFields = [];
-            $updateParams = [];
-            
-            if (isset($staffData['first_name'])) {
-                $updateFields[] = "first_name = ?";
-                $updateParams[] = $staffData['first_name'];
-            }
-            if (isset($staffData['last_name'])) {
-                $updateFields[] = "last_name = ?";
-                $updateParams[] = $staffData['last_name'];
-            }
-            if (isset($staffData['contact_number'])) {
-                $updateFields[] = "contact_number = ?";
-                $updateParams[] = $staffData['contact_number'] ?: null;
-            }
-            if (isset($staffData['gender'])) {
-                $updateFields[] = "gender = ?";
-                $updateParams[] = $staffData['gender'] ?: null;
-            }
-            if (isset($staffData['house_street'])) {
-                $updateFields[] = "house_street = ?";
-                $updateParams[] = $staffData['house_street'] ?: null;
-            }
-            if (isset($staffData['barangay'])) {
-                $updateFields[] = "barangay = ?";
-                $updateParams[] = $staffData['barangay'] ?: null;
-            }
-            if (isset($staffData['city_municipality'])) {
-                $updateFields[] = "city_municipality = ?";
-                $updateParams[] = $staffData['city_municipality'] ?: null;
-            }
-            if (isset($staffData['province'])) {
-                $updateFields[] = "province = ?";
-                $updateParams[] = $staffData['province'] ?: null;
-            }
-            
-            if (!empty($updateFields)) {
-                $updateFields[] = "updated_at = NOW()";
-                $updateParams[] = $existingStaff['id'];
-                
-                $stmt = $pdo->prepare("
-                    UPDATE tbl_staffs SET " . implode(', ', $updateFields) . " WHERE id = ?
-                ");
-                $stmt->execute($updateParams);
-            }
-            
-            // Also update account info in users table (email only)
-            $stmt = $pdo->prepare("
-                UPDATE tbl_users SET
-                    email = ?,
+            $stmt = $pdo->prepare('
+                UPDATE tbl_staffs SET
+                    first_name = ?,
+                    last_name = ?,
+                    contact_number = ?,
+                    gender = ?,
+                    house_street = ?,
+                    barangay = ?,
+                    city_municipality = ?,
+                    province = ?,
                     updated_at = NOW()
-                WHERE id = ?
-            ");
-            
+                WHERE id = ? AND tenant_id = ?
+            ');
             $stmt->execute([
-                $accountData['email'],
-                $userId
-            ]);
-            
-            jsonResponse(true, 'Profile updated successfully.');
-        } else {
-            // INSERT new staff record
-            // Generate staff_id display code
-            $year = date('Y');
-            $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM tbl_staffs WHERE staff_id LIKE ?");
-            $stmt->execute(["S-{$year}-%"]);
-            $result = $stmt->fetch();
-            $sequence = str_pad((int)$result['count'] + 1, 5, '0', STR_PAD_LEFT);
-            $staffDisplayId = "S-{$year}-{$sequence}";
-            
-            $stmt = $pdo->prepare("
-                INSERT INTO tbl_staffs (
-                    staff_id, user_id, first_name, last_name, contact_number,
-                    gender, house_street, barangay, city_municipality, province, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-            ");
-            
-            $stmt->execute([
-                $staffDisplayId,
-                $userUserId,
                 $staffData['first_name'],
                 $staffData['last_name'],
-                $staffData['contact_number'] ?: null,
-                $staffData['gender'] ?: null,
-                $staffData['house_street'] ?: null,
-                $staffData['barangay'] ?: null,
-                $staffData['city_municipality'] ?: null,
-                $staffData['province'] ?: null
+                $staffData['contact_number'] !== '' ? $staffData['contact_number'] : null,
+                $staffData['gender'] !== '' ? $staffData['gender'] : null,
+                $staffData['house_street'] !== '' ? $staffData['house_street'] : null,
+                $staffData['barangay'] !== '' ? $staffData['barangay'] : null,
+                $staffData['city_municipality'] !== '' ? $staffData['city_municipality'] : null,
+                $staffData['province'] !== '' ? $staffData['province'] : null,
+                (int) $existingStaff['id'],
+                $tenantId,
             ]);
-            
-            // Also update account info in users table (email only)
-            $stmt = $pdo->prepare("
-                UPDATE tbl_users SET
-                    email = ?,
-                    updated_at = NOW()
-                WHERE id = ?
-            ");
-            
+        } else {
+            $year = date('Y');
+            $stmt = $pdo->prepare('SELECT COUNT(*) AS c FROM tbl_staffs WHERE tenant_id = ? AND staff_id LIKE ?');
+            $stmt->execute([$tenantId, 'S-' . $year . '-%']);
+            $countRow = $stmt->fetch(PDO::FETCH_ASSOC);
+            $sequence = str_pad((string) (((int) ($countRow['c'] ?? 0)) + 1), 5, '0', STR_PAD_LEFT);
+            $staffDisplayId = 'S-' . $year . '-' . $sequence;
+
+            $stmt = $pdo->prepare('
+                INSERT INTO tbl_staffs (
+                    tenant_id, staff_id, user_id, first_name, last_name, contact_number,
+                    gender, house_street, barangay, city_municipality, province, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            ');
             $stmt->execute([
-                $accountData['email'],
-                $userId
+                $tenantId,
+                $staffDisplayId,
+                $userId,
+                $staffData['first_name'],
+                $staffData['last_name'],
+                $staffData['contact_number'] !== '' ? $staffData['contact_number'] : null,
+                $staffData['gender'] !== '' ? $staffData['gender'] : null,
+                $staffData['house_street'] !== '' ? $staffData['house_street'] : null,
+                $staffData['barangay'] !== '' ? $staffData['barangay'] : null,
+                $staffData['city_municipality'] !== '' ? $staffData['city_municipality'] : null,
+                $staffData['province'] !== '' ? $staffData['province'] : null,
             ]);
-            
-            jsonResponse(true, 'Profile saved successfully.');
         }
-        
-    } catch (Exception $e) {
+
+        $stmt = $pdo->prepare('
+            UPDATE tbl_users SET
+                email = ?,
+                username = ?,
+                full_name = ?,
+                updated_at = NOW()
+            WHERE user_id = ? AND tenant_id = ?
+        ');
+        $stmt->execute([
+            $accountData['email'],
+            $accountData['username'],
+            $fullName,
+            $userId,
+            $tenantId,
+        ]);
+
+        $_SESSION['user_name'] = $fullName;
+        $_SESSION['user_email'] = $accountData['email'];
+
+        jsonResponse(true, 'Profile updated successfully.');
+    } catch (Throwable $e) {
         error_log('Update Admin Profile Error: ' . $e->getMessage());
         jsonResponse(false, 'Failed to update profile.');
     }
 }
 
 /**
- * Update password in users table
+ * Step 1: verify current password & new password rules, store new hash in session, email 6-digit OTP
  */
-function updatePassword($userId, $input) {
+function requestPasswordChangeOtp(): void
+{
     global $pdo;
-    
-    $currentPassword = $input['current_password'] ?? '';
-    $newPassword = $input['new_password'] ?? '';
-    $confirmPassword = $input['confirm_password'] ?? '';
-    
-    // Validation
-    if (empty($currentPassword)) {
+
+    $userId = getCurrentUserId();
+    if (!$userId) {
+        jsonResponse(false, 'User not logged in.');
+    }
+
+    $tenantId = trim((string) ($_SESSION['tenant_id'] ?? ''));
+    if ($tenantId === '') {
+        jsonResponse(false, 'Tenant context missing.');
+    }
+
+    if (!function_exists('send_otp_email')) {
+        jsonResponse(false, 'Email is not configured on this server.');
+    }
+
+    $raw = file_get_contents('php://input');
+    $input = json_decode((string) $raw, true);
+    if (!is_array($input)) {
+        $input = [];
+    }
+
+    $currentPassword = (string) ($input['current_password'] ?? '');
+    $newPassword = (string) ($input['new_password'] ?? '');
+    $confirmPassword = (string) ($input['confirm_password'] ?? '');
+
+    if ($currentPassword === '') {
         jsonResponse(false, 'Current password is required.');
     }
-    
-    if (empty($newPassword)) {
+    if ($newPassword === '') {
         jsonResponse(false, 'New password is required.');
     }
-    
-    if (strlen($newPassword) < PASSWORD_MIN_LENGTH) {
-        jsonResponse(false, 'Password must be at least ' . PASSWORD_MIN_LENGTH . ' characters.');
+    $pwErr = admin_profile_validate_new_password($newPassword);
+    if ($pwErr !== null) {
+        jsonResponse(false, $pwErr);
     }
-    
     if ($newPassword !== $confirmPassword) {
-        jsonResponse(false, 'New password and confirm password do not match.');
+        jsonResponse(false, 'New password and confirmation do not match.');
     }
-    
+
     try {
-        // Get current password hash (schema: password_hash)
-        $stmt = $pdo->prepare("SELECT password_hash FROM tbl_users WHERE user_id = ?");
-        $stmt->execute([$userId]);
-        $user = $stmt->fetch();
-        
+        $stmt = $pdo->prepare('SELECT user_id, email, password_hash FROM tbl_users WHERE user_id = ? AND tenant_id = ? LIMIT 1');
+        $stmt->execute([$userId, $tenantId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$user) {
             jsonResponse(false, 'User not found.');
         }
-        
-        // Verify current password
-        if (!password_verify($currentPassword, $user['password_hash'] ?? '')) {
+        if (!password_verify($currentPassword, (string) ($user['password_hash'] ?? ''))) {
             jsonResponse(false, 'Current password is incorrect.');
         }
-        
-        // Update password
-        $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
-        $stmt = $pdo->prepare("UPDATE tbl_users SET password_hash = ?, updated_at = NOW() WHERE user_id = ?");
-        $stmt->execute([$hashedPassword, $userId]);
-        
-        jsonResponse(true, 'Password updated successfully.');
-        
-    } catch (Exception $e) {
-        error_log('Update Password Error: ' . $e->getMessage());
-        jsonResponse(false, 'Failed to update password.');
+
+        $emailTo = trim((string) ($user['email'] ?? ''));
+        if ($emailTo === '' || !filter_var($emailTo, FILTER_VALIDATE_EMAIL)) {
+            jsonResponse(false, 'Your account does not have a valid email address for verification.');
+        }
+
+        $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
+        $_SESSION['staff_profile_pw_change'] = [
+            'user_id' => $userId,
+            'tenant_id' => $tenantId,
+            'new_hash' => $newHash,
+            'expires_at' => time() + 900,
+        ];
+
+        $otp_code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $otp_hash = password_hash($otp_code, PASSWORD_DEFAULT);
+        $otp_expires = date('Y-m-d H:i:s', time() + 900);
+
+        $stmt = $pdo->prepare('SELECT id FROM tbl_email_verifications WHERE user_id = ? AND verified_at IS NULL ORDER BY id DESC LIMIT 1');
+        $stmt->execute([$userId]);
+        $otp_row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($otp_row) {
+            $stmt = $pdo->prepare('
+                UPDATE tbl_email_verifications
+                SET otp_hash = ?, otp_expires_at = ?, attempts = 0, last_sent_at = NOW(), token_hash = NULL, token_expires_at = NULL
+                WHERE id = ?
+            ');
+            $stmt->execute([$otp_hash, $otp_expires, (int) $otp_row['id']]);
+        } else {
+            $stmt = $pdo->prepare('
+                INSERT INTO tbl_email_verifications (tenant_id, user_id, otp_hash, otp_expires_at, attempts, last_sent_at)
+                VALUES (?, ?, ?, ?, 0, NOW())
+            ');
+            $stmt->execute([$tenantId, $userId, $otp_hash, $otp_expires]);
+        }
+
+        if (!send_otp_email($emailTo, $otp_code)) {
+            unset($_SESSION['staff_profile_pw_change']);
+            jsonResponse(false, 'Could not send the verification email. Please try again later.');
+        }
+
+        jsonResponse(true, 'We sent a 6-digit code to your registered email.', [
+            'email_masked' => preg_replace('/(^.).*(@.*$)/', '$1***$2', $emailTo),
+        ]);
+    } catch (Throwable $e) {
+        error_log('requestPasswordChangeOtp: ' . $e->getMessage());
+        unset($_SESSION['staff_profile_pw_change']);
+        jsonResponse(false, 'Could not start password verification. Please try again.');
     }
 }
 
 /**
- * Upload profile photo
- * Handles photo upload for admin/staff/doctor profiles
+ * Step 2: verify OTP and apply password hash from session
  */
-function uploadPhoto() {
+function confirmPasswordChangeOtp(): void
+{
     global $pdo;
-    
-    $userId = getCurrentUserId(); // schema: session holds user_id (string)
-    
+
+    $userId = getCurrentUserId();
     if (!$userId) {
         jsonResponse(false, 'User not logged in.');
     }
-    
-    $input = json_decode(file_get_contents('php://input'), true);
-    
-    if (empty($input['photo'])) {
+
+    $raw = file_get_contents('php://input');
+    $input = json_decode((string) $raw, true);
+    if (!is_array($input)) {
+        $input = [];
+    }
+
+    $otp_code = trim((string) ($input['otp_code'] ?? ''));
+    if (strlen($otp_code) !== 6 || !ctype_digit($otp_code)) {
+        jsonResponse(false, 'Enter the 6-digit code from your email.');
+    }
+
+    $pending = $_SESSION['staff_profile_pw_change'] ?? null;
+    if (!is_array($pending)
+        || ($pending['user_id'] ?? '') !== $userId
+        || empty($pending['new_hash'])
+        || (int) ($pending['expires_at'] ?? 0) < time()) {
+        jsonResponse(false, 'Your verification session expired. Request a new code from Update Password.');
+    }
+
+    $matched_id = null;
+    $matched = false;
+
+    try {
+        $stmt = $pdo->prepare('
+            SELECT id, otp_hash, otp_expires_at FROM tbl_email_verifications
+            WHERE user_id = ? AND verified_at IS NULL
+            ORDER BY id DESC LIMIT 8
+        ');
+        $stmt->execute([$userId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $row) {
+            $exp = strtotime((string) ($row['otp_expires_at'] ?? ''));
+            if ($exp !== false && $exp >= time() && password_verify($otp_code, (string) ($row['otp_hash'] ?? ''))) {
+                $matched = true;
+                $matched_id = (int) $row['id'];
+                break;
+            }
+        }
+
+        if (!$matched) {
+            $pdo->prepare('UPDATE tbl_email_verifications SET attempts = attempts + 1 WHERE user_id = ? AND verified_at IS NULL')
+                ->execute([$userId]);
+            jsonResponse(false, 'Invalid or expired code.');
+        }
+
+        if ($matched_id !== null) {
+            $pdo->prepare('UPDATE tbl_email_verifications SET verified_at = NOW() WHERE id = ?')->execute([$matched_id]);
+        }
+
+        $tenantId = trim((string) ($pending['tenant_id'] ?? ''));
+        $newHash = (string) ($pending['new_hash'] ?? '');
+        if ($tenantId === '' || $newHash === '') {
+            unset($_SESSION['staff_profile_pw_change']);
+            jsonResponse(false, 'Verification data was lost. Please start again.');
+        }
+
+        $stmt = $pdo->prepare('UPDATE tbl_users SET password_hash = ?, updated_at = NOW() WHERE user_id = ? AND tenant_id = ?');
+        $stmt->execute([$newHash, $userId, $tenantId]);
+
+        unset($_SESSION['staff_profile_pw_change']);
+
+        jsonResponse(true, 'Your password was updated successfully.');
+    } catch (Throwable $e) {
+        error_log('confirmPasswordChangeOtp: ' . $e->getMessage());
+        jsonResponse(false, 'Could not update your password. Please try again.');
+    }
+}
+
+/**
+ * Upload profile photo (also syncs tbl_users.photo)
+ */
+function uploadPhoto(): void
+{
+    global $pdo;
+
+    $userId = getCurrentUserId();
+    if (!$userId) {
+        jsonResponse(false, 'User not logged in.');
+    }
+
+    $tenantId = trim((string) ($_SESSION['tenant_id'] ?? ''));
+    if ($tenantId === '') {
+        jsonResponse(false, 'Tenant context missing.');
+    }
+
+    $raw = file_get_contents('php://input');
+    $input = json_decode((string) $raw, true);
+    if (!is_array($input) || empty($input['photo'])) {
         jsonResponse(false, 'No photo data provided.');
     }
-    
+
     try {
-        $userUserId = $userId;
-        
-        // Save the photo using saveBase64Image function
+        $stmt = $pdo->prepare('SELECT id, profile_image FROM tbl_staffs WHERE user_id = ? AND tenant_id = ? LIMIT 1');
+        $stmt->execute([$userId, $tenantId]);
+        $existingStaff = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $oldPath = '';
+        if ($existingStaff && !empty($existingStaff['profile_image'])) {
+            $oldPath = (string) $existingStaff['profile_image'];
+        }
+        if ($oldPath === '') {
+            $stmt = $pdo->prepare('SELECT photo FROM tbl_users WHERE user_id = ? AND tenant_id = ? LIMIT 1');
+            $stmt->execute([$userId, $tenantId]);
+            $urow = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($urow && !empty($urow['photo'])) {
+                $oldPath = (string) $urow['photo'];
+            }
+        }
+
         $photoResult = saveBase64Image($input['photo'], 'uploads/staffs/', 'staff_');
-        
         if (!$photoResult['success']) {
             jsonResponse(false, !empty($photoResult['message']) ? $photoResult['message'] : 'Failed to upload photo.');
         }
-        
-        $profileImagePath = $photoResult['filepath'];
-        
-        // Check if staff record exists
-        $stmt = $pdo->prepare("SELECT id FROM tbl_staffs WHERE user_id = ?");
-        $stmt->execute([$userUserId]);
-        $existingStaff = $stmt->fetch();
-        
-        if ($existingStaff) {
-            // Update existing staff record with profile image
-            $stmt = $pdo->prepare("UPDATE tbl_staffs SET profile_image = ?, updated_at = NOW() WHERE id = ?");
-            $stmt->execute([$profileImagePath, $existingStaff['id']]);
-        } else {
-            // Create a minimal staff record if it doesn't exist
-            $year = date('Y');
-            $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM tbl_staffs WHERE staff_id LIKE ?");
-            $stmt->execute(["S-{$year}-%"]);
-            $result = $stmt->fetch();
-            $sequence = str_pad((int)$result['count'] + 1, 5, '0', STR_PAD_LEFT);
-            $staffDisplayId = "S-{$year}-{$sequence}";
-            
-            $stmt = $pdo->prepare("
-                INSERT INTO tbl_staffs (
-                    staff_id, user_id, profile_image, created_at
-                ) VALUES (?, ?, ?, NOW())
-            ");
-            $stmt->execute([$staffDisplayId, $userUserId, $profileImagePath]);
+
+        $profileImagePath = (string) ($photoResult['filepath'] ?? '');
+        if ($profileImagePath === '') {
+            jsonResponse(false, 'Failed to save image.');
         }
-        
+
+        if ($oldPath !== '' && strpos($oldPath, 'http') !== 0) {
+            $abs = ROOT_PATH . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, ltrim($oldPath, '/\\'));
+            if (is_file($abs)) {
+                @unlink($abs);
+            }
+        }
+
+        if ($existingStaff) {
+            $stmt = $pdo->prepare('UPDATE tbl_staffs SET profile_image = ?, updated_at = NOW() WHERE id = ? AND tenant_id = ?');
+            $stmt->execute([$profileImagePath, (int) $existingStaff['id'], $tenantId]);
+        } else {
+            $year = date('Y');
+            $stmt = $pdo->prepare('SELECT COUNT(*) AS c FROM tbl_staffs WHERE tenant_id = ? AND staff_id LIKE ?');
+            $stmt->execute([$tenantId, 'S-' . $year . '-%']);
+            $countRow = $stmt->fetch(PDO::FETCH_ASSOC);
+            $sequence = str_pad((string) (((int) ($countRow['c'] ?? 0)) + 1), 5, '0', STR_PAD_LEFT);
+            $staffDisplayId = 'S-' . $year . '-' . $sequence;
+
+            $stmt = $pdo->prepare('
+                INSERT INTO tbl_staffs (tenant_id, staff_id, user_id, profile_image, created_at)
+                VALUES (?, ?, ?, ?, NOW())
+            ');
+            $stmt->execute([$tenantId, $staffDisplayId, $userId, $profileImagePath]);
+        }
+
+        $stmt = $pdo->prepare('UPDATE tbl_users SET photo = ?, updated_at = NOW() WHERE user_id = ? AND tenant_id = ?');
+        $stmt->execute([$profileImagePath, $userId, $tenantId]);
+
         jsonResponse(true, 'Photo uploaded successfully.', [
-            'profile_image' => $profileImagePath
+            'profile_image' => $profileImagePath,
+            'profile_image_url' => admin_profile_image_public_url($profileImagePath),
         ]);
-        
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         error_log('Upload Photo Error: ' . $e->getMessage());
         jsonResponse(false, 'Failed to upload photo.');
     }
