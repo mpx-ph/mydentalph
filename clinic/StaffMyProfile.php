@@ -148,40 +148,43 @@ if (!isset($currentTenantSlug)) {
         }
         .cropper-modal-wrap .cropper-view-box,
         .cropper-modal-wrap .cropper-face { border-radius: 50%; }
+        #confirmModal[aria-hidden="true"] { pointer-events: none; }
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
+<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-[4.75rem] provider-page-enter">
     <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
 
-    <div class="p-6 sm:p-10 space-y-10 max-w-7xl mx-auto w-full">
+    <div class="px-4 sm:px-6 pb-6 sm:pb-8 pt-3 sm:pt-4 space-y-5 sm:space-y-6 max-w-7xl mx-auto w-full">
         <div id="toast" class="hidden fixed bottom-8 right-8 z-[60] max-w-sm rounded-2xl border px-4 py-3 shadow-xl text-sm font-semibold" role="status"></div>
 
-        <section class="flex flex-col gap-4">
-            <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
-                <span class="w-12 h-[1.5px] bg-primary"></span> MY PROFILE
+        <section class="flex flex-col gap-2 sm:gap-3">
+            <div class="text-primary font-bold text-xs uppercase flex items-center gap-3 tracking-[0.3em]">
+                <span class="w-10 sm:w-12 h-[1.5px] bg-primary"></span> MY PROFILE
             </div>
-            <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
-                <div>
-                    <h2 class="font-headline text-4xl sm:text-5xl font-extrabold tracking-tighter leading-tight text-on-background">
-                        Your <span class="font-editorial italic font-normal text-primary">profile</span>
-                    </h2>
-                    <p class="font-body text-base sm:text-lg font-medium text-on-surface-variant max-w-xl leading-relaxed mt-3">
-                        Keep your clinic identity accurate. Changes here sync with your staff account across the portal.
-                    </p>
-                </div>
+            <div>
+                <h2 class="font-headline text-3xl sm:text-4xl font-extrabold tracking-tighter leading-tight text-on-background">
+                    Your <span class="font-editorial italic font-normal text-primary">profile</span>
+                </h2>
+                <p class="font-body text-sm sm:text-base font-medium text-on-surface-variant max-w-xl leading-relaxed mt-2">
+                    Keep your clinic identity accurate. Changes here sync with your staff account across the portal.
+                </p>
             </div>
         </section>
 
-        <section class="profile-hero-banner rounded-3xl px-6 sm:px-10 py-8 sm:py-9 text-white relative overflow-hidden">
-            <div class="absolute inset-0 opacity-[0.12] pointer-events-none" style="background-image: radial-gradient(circle at 20% 120%, #fff 0, transparent 55%), radial-gradient(circle at 90% -20%, #fff 0, transparent 45%);" aria-hidden="true"></div>
-            <div class="relative flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-10">
+        <section class="profile-hero-banner rounded-3xl text-white relative">
+            <div class="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none" aria-hidden="true">
+                <div class="absolute inset-0 opacity-[0.12]" style="background-image: radial-gradient(circle at 20% 120%, #fff 0, transparent 55%), radial-gradient(circle at 90% -20%, #fff 0, transparent 45%);"></div>
+            </div>
+            <div class="relative px-5 sm:px-8 py-6 sm:py-7 flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-8">
                 <div class="shrink-0 flex justify-center sm:justify-start">
-                    <div class="relative w-[7.25rem] h-[7.25rem] rounded-full bg-white/15 flex items-center justify-center text-2xl font-bold ring-4 ring-white/40 overflow-hidden bg-cover bg-center shadow-lg" id="profileAvatar">
-                        <span id="profileAvatarInitials" class="select-none text-white">—</span>
-                        <input type="file" id="profilePhotoInput" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden"/>
-                        <button type="button" id="profilePhotoEditBtn" class="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-white text-primary flex items-center justify-center border-2 border-white shadow-md hover:bg-surface-container-low transition-all" aria-label="Change profile photo">
+                    <input type="file" id="profilePhotoInput" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden"/>
+                    <div class="relative h-[7.5rem] w-[7.5rem] sm:h-[7.25rem] sm:w-[7.25rem]">
+                        <div id="profileAvatar" class="absolute left-0 top-0 h-[7.25rem] w-[7.25rem] rounded-full overflow-hidden bg-white/15 flex items-center justify-center text-2xl font-bold ring-4 ring-white/40 bg-cover bg-center shadow-lg">
+                            <span id="profileAvatarInitials" class="select-none text-white">—</span>
+                        </div>
+                        <button type="button" id="profilePhotoEditBtn" class="absolute z-20 bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-white text-primary shadow-lg ring-2 ring-white hover:bg-surface-container-low transition-all" aria-label="Change profile photo">
                             <span class="material-symbols-outlined text-[20px]">photo_camera</span>
                         </button>
                     </div>
@@ -197,7 +200,7 @@ if (!isset($currentTenantSlug)) {
             </div>
         </section>
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
             <div class="lg:col-span-7 order-1">
                 <section class="profile-section-card rounded-3xl border border-slate-200/70 p-8 sm:p-9">
                     <header class="flex flex-col sm:flex-row sm:items-start gap-4 pb-6 mb-6 border-b border-slate-100">
@@ -255,15 +258,33 @@ if (!isset($currentTenantSlug)) {
                     <form id="passwordForm" class="space-y-5">
                         <div>
                             <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="pwCurrent">Current password</label>
-                            <input id="pwCurrent" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="password" autocomplete="current-password"/>
+                            <div class="relative">
+                                <input id="pwCurrent" class="w-full bg-white border border-slate-200 rounded-xl py-3 pl-4 pr-11 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="password" autocomplete="current-password"/>
+                                <button type="button" class="profile-pw-toggle absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors" data-pw-target="pwCurrent" aria-label="Show password" aria-pressed="false">
+                                    <span class="material-symbols-outlined text-[20px] icon-visible">visibility</span>
+                                    <span class="material-symbols-outlined text-[20px] icon-hidden hidden">visibility_off</span>
+                                </button>
+                            </div>
                         </div>
                         <div>
                             <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="pwNew">New password</label>
-                            <input id="pwNew" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="password" autocomplete="new-password"/>
+                            <div class="relative">
+                                <input id="pwNew" class="w-full bg-white border border-slate-200 rounded-xl py-3 pl-4 pr-11 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="password" autocomplete="new-password"/>
+                                <button type="button" class="profile-pw-toggle absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors" data-pw-target="pwNew" aria-label="Show password" aria-pressed="false">
+                                    <span class="material-symbols-outlined text-[20px] icon-visible">visibility</span>
+                                    <span class="material-symbols-outlined text-[20px] icon-hidden hidden">visibility_off</span>
+                                </button>
+                            </div>
                         </div>
                         <div>
                             <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="pwConfirm">Confirm new password</label>
-                            <input id="pwConfirm" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="password" autocomplete="new-password"/>
+                            <div class="relative">
+                                <input id="pwConfirm" class="w-full bg-white border border-slate-200 rounded-xl py-3 pl-4 pr-11 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="password" autocomplete="new-password"/>
+                                <button type="button" class="profile-pw-toggle absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors" data-pw-target="pwConfirm" aria-label="Show password" aria-pressed="false">
+                                    <span class="material-symbols-outlined text-[20px] icon-visible">visibility</span>
+                                    <span class="material-symbols-outlined text-[20px] icon-hidden hidden">visibility_off</span>
+                                </button>
+                            </div>
                         </div>
                         <p class="text-xs text-on-surface-variant leading-relaxed rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
                             Use at least 8 characters with both letters and numbers.
@@ -280,6 +301,21 @@ if (!isset($currentTenantSlug)) {
         </div>
     </div>
 </main>
+
+<!-- Centered confirmation (profile / password success) -->
+<div id="confirmModal" class="hidden fixed inset-0 z-[65] flex items-center justify-center p-4 bg-slate-900/45 backdrop-blur-sm" aria-modal="true" role="dialog" aria-labelledby="confirmModalTitle" aria-hidden="true">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200/90 text-center">
+        <div class="h-1.5 w-full bg-gradient-to-r from-[#1e3a5f] via-primary to-[#5ab0ff]"></div>
+        <div class="p-8 sm:p-10">
+            <div class="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <span class="material-symbols-outlined text-3xl" id="confirmModalIcon">check_circle</span>
+            </div>
+            <h3 id="confirmModalTitle" class="text-lg sm:text-xl font-extrabold font-headline text-on-background">Success</h3>
+            <p id="confirmModalMessage" class="mt-3 text-sm sm:text-base text-on-surface-variant leading-relaxed"></p>
+            <button type="button" id="confirmModalOk" class="mt-8 w-full rounded-xl bg-primary px-6 py-3.5 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-primary/25 hover:bg-primary/90 transition-colors">OK</button>
+        </div>
+    </div>
+</div>
 
 <!-- OTP Modal -->
 <div id="otpModal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" aria-modal="true" role="dialog">
@@ -337,6 +373,78 @@ if (!isset($currentTenantSlug)) {
     showToast._t = setTimeout(function () { el.classList.add('hidden'); }, 4200);
   }
 
+  var confirmModal = document.getElementById('confirmModal');
+  var confirmModalMessage = document.getElementById('confirmModalMessage');
+
+  function showConfirmModal(message) {
+    if (!confirmModal || !confirmModalMessage) return;
+    confirmModalMessage.textContent = message;
+    confirmModal.classList.remove('hidden');
+    confirmModal.setAttribute('aria-hidden', 'false');
+    var okBtn = document.getElementById('confirmModalOk');
+    if (okBtn) okBtn.focus();
+  }
+
+  function closeConfirmModal() {
+    if (!confirmModal) return;
+    confirmModal.classList.add('hidden');
+    confirmModal.setAttribute('aria-hidden', 'true');
+  }
+
+  var confirmOk = document.getElementById('confirmModalOk');
+  if (confirmOk) confirmOk.addEventListener('click', closeConfirmModal);
+  if (confirmModal) {
+    confirmModal.addEventListener('click', function (e) {
+      if (e.target === confirmModal) closeConfirmModal();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && confirmModal && !confirmModal.classList.contains('hidden')) {
+        closeConfirmModal();
+      }
+    });
+  }
+
+  function syncHeaderAvatar(imageUrl, firstName, lastName) {
+    var box = document.getElementById('staff-header-avatar');
+    var initialsEl = document.getElementById('staff-header-avatar-initials');
+    if (!box || !initialsEl) return;
+    var url = (imageUrl || '').trim();
+    if (url) {
+      box.style.backgroundImage = 'url("' + url.replace(/"/g, '%22') + '")';
+      box.classList.remove('bg-primary/15');
+      initialsEl.classList.add('sr-only');
+    } else {
+      box.style.backgroundImage = '';
+      box.classList.add('bg-primary/15');
+      initialsEl.classList.remove('sr-only');
+      initialsEl.textContent = initialsFromName(firstName, lastName);
+    }
+  }
+
+  function syncHeaderDisplayName(fullName) {
+    var nameEl = document.getElementById('staff-header-user-name');
+    if (nameEl && fullName) nameEl.textContent = fullName;
+  }
+
+  document.querySelectorAll('.profile-pw-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var id = btn.getAttribute('data-pw-target');
+      var input = id ? document.getElementById(id) : null;
+      if (!input) return;
+      var showPlain = input.type === 'password';
+      input.type = showPlain ? 'text' : 'password';
+      var isPlain = input.type === 'text';
+      btn.setAttribute('aria-pressed', isPlain ? 'true' : 'false');
+      btn.setAttribute('aria-label', isPlain ? 'Hide password' : 'Show password');
+      var showEye = btn.querySelector('.icon-visible');
+      var hideEye = btn.querySelector('.icon-hidden');
+      if (showEye && hideEye) {
+        showEye.classList.toggle('hidden', isPlain);
+        hideEye.classList.toggle('hidden', !isPlain);
+      }
+    });
+  });
+
   function initialsFromName(first, last) {
     var a = (first || '').trim().charAt(0);
     var b = (last || '').trim().charAt(0);
@@ -358,6 +466,7 @@ if (!isset($currentTenantSlug)) {
       ini.classList.remove('hidden');
       ini.textContent = initialsFromName(first, last);
     }
+    syncHeaderAvatar(url, first, last);
   }
 
   function fillForm(d) {
@@ -374,6 +483,7 @@ if (!isset($currentTenantSlug)) {
 
     var imgUrl = d.profile_image_url || '';
     applyAvatar(imgUrl, d.first_name, d.last_name);
+    syncHeaderDisplayName(displayName);
 
     personalSnapshot = {
       username: d.username || '',
@@ -421,8 +531,10 @@ if (!isset($currentTenantSlug)) {
       .then(function (r) { return r.json(); })
       .then(function (j) {
         if (!j.success) throw new Error(j.message || 'Save failed.');
-        showToast(j.message || 'Saved.', true);
         return loadProfile();
+      })
+      .then(function () {
+        showConfirmModal('Your profile has been changed.');
       })
       .catch(function (ex) {
         err.textContent = ex.message || 'Save failed.';
@@ -477,7 +589,6 @@ if (!isset($currentTenantSlug)) {
         if (!j.success) throw new Error(j.message || 'Could not send code.');
         otpModal.classList.remove('hidden');
         otpInput.focus();
-        showToast(j.message || 'Code sent.', true);
       })
       .catch(function (ex) {
         err.textContent = ex.message || 'Request failed.';
@@ -509,7 +620,7 @@ if (!isset($currentTenantSlug)) {
         document.getElementById('pwCurrent').value = '';
         document.getElementById('pwNew').value = '';
         document.getElementById('pwConfirm').value = '';
-        showToast(j.message || 'Password updated.', true);
+        showConfirmModal('Your password has been changed.');
       })
       .catch(function (ex) {
         otpError.textContent = ex.message || 'Verification failed.';
@@ -592,7 +703,6 @@ if (!isset($currentTenantSlug)) {
         var first = document.getElementById('fieldFirst').value;
         var last = document.getElementById('fieldLast').value;
         applyAvatar(url, first, last);
-        showToast(j.message || 'Photo updated.', true);
       })
       .catch(function (ex) {
         showToast(ex.message || 'Upload failed.', false);

@@ -38,6 +38,36 @@ if ($__avatar === '') {
     $__avatar = 'ST';
 }
 
+$__header_avatar_url = '';
+if (function_exists('getDBConnection') && defined('BASE_URL') && !empty($_SESSION['user_id']) && !empty($_SESSION['tenant_id'])) {
+    try {
+        $pdoHdr = getDBConnection();
+        $uid = (string) $_SESSION['user_id'];
+        $tid = (string) $_SESSION['tenant_id'];
+        $st = $pdoHdr->prepare(
+            'SELECT COALESCE(NULLIF(TRIM(s.profile_image), \'\'), NULLIF(TRIM(u.photo), \'\')) AS img
+             FROM tbl_users u
+             LEFT JOIN tbl_staffs s ON s.user_id = u.user_id AND s.tenant_id = u.tenant_id
+             WHERE u.user_id = ? AND u.tenant_id = ?
+             LIMIT 1'
+        );
+        $st->execute([$uid, $tid]);
+        $hdrRow = $st->fetch(PDO::FETCH_ASSOC);
+        if (is_array($hdrRow) && !empty($hdrRow['img'])) {
+            $p = trim((string) $hdrRow['img']);
+            if ($p !== '') {
+                if (preg_match('#^https?://#i', $p)) {
+                    $__header_avatar_url = $p;
+                } else {
+                    $__header_avatar_url = rtrim(BASE_URL, '/') . '/' . ltrim(str_replace('\\', '/', $p), '/');
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        // Header must always render
+    }
+}
+
 $__staff_profile_url = 'StaffMyProfile.php';
 if ($__slug_title !== '') {
     $__staff_profile_url .= '?clinic_slug=' . rawurlencode($__slug_title);
@@ -81,9 +111,11 @@ if (isset($_SESSION['user_role']) && strtolower(trim((string) $_SESSION['user_ro
       </button>
       <div class="relative">
         <button id="staff-user-menu-trigger" type="button" class="group flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/80 pl-1 pr-2.5 py-1 shadow-sm text-left cursor-pointer hover:border-primary/35 hover:bg-white hover:shadow-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2" aria-label="Open account menu" aria-expanded="false" aria-haspopup="menu" aria-controls="staff-user-menu">
-          <div class="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center text-primary text-xs font-bold border border-primary/10 shrink-0"><?php echo htmlspecialchars($__avatar, ENT_QUOTES, 'UTF-8'); ?></div>
+          <div id="staff-header-avatar" class="w-10 h-10 rounded-xl flex items-center justify-center text-primary text-xs font-bold border border-primary/10 shrink-0 bg-cover bg-center overflow-hidden <?php echo $__header_avatar_url === '' ? 'bg-primary/15' : ''; ?>"<?php echo $__header_avatar_url !== '' ? ' style="background-image:url(\'' . htmlspecialchars($__header_avatar_url, ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>>
+            <span id="staff-header-avatar-initials" class="flex h-full w-full items-center justify-center <?php echo $__header_avatar_url !== '' ? 'sr-only' : ''; ?>"><?php echo htmlspecialchars($__avatar, ENT_QUOTES, 'UTF-8'); ?></span>
+          </div>
           <div class="min-w-0 text-left">
-            <p class="text-xs font-bold text-on-background truncate max-w-[10rem] sm:max-w-[14rem]"><?php echo htmlspecialchars($__staff_name, ENT_QUOTES, 'UTF-8'); ?></p>
+            <p id="staff-header-user-name" class="text-xs font-bold text-on-background truncate max-w-[10rem] sm:max-w-[14rem]"><?php echo htmlspecialchars($__staff_name, ENT_QUOTES, 'UTF-8'); ?></p>
             <p class="text-[11px] leading-tight text-on-surface-variant truncate max-w-[10rem] sm:max-w-[14rem]"><?php echo htmlspecialchars($__staff_role, ENT_QUOTES, 'UTF-8'); ?></p>
           </div>
           <span class="material-symbols-outlined text-slate-400 text-[18px]">expand_more</span>
