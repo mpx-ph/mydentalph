@@ -217,16 +217,20 @@ function _auth_resolve_staff_portal_profile(PDO $pdo, string $tenantId, array $u
  */
 function _loginPortalUnified(PDO $pdo, $tenantId, $login, $password) {
     $tenantId = trim((string) $tenantId);
-    $loginNormalized = strtolower(trim((string) $login));
+    $loginInput = trim((string) $login);
+    $loginNormalized = strtolower($loginInput);
     $stmt = $pdo->prepare("
         SELECT user_id, tenant_id, email, username, full_name, password_hash, role, status
         FROM tbl_users
-        WHERE (LOWER(TRIM(COALESCE(email, ''))) = ? OR LOWER(TRIM(COALESCE(username, ''))) = ?)
+        WHERE (
+                LOWER(TRIM(COALESCE(email, ''))) = ?
+                OR BINARY TRIM(COALESCE(username, '')) = ?
+              )
           AND status = 'active'
           AND tenant_id = ?
         LIMIT 1
     ");
-    $stmt->execute([$loginNormalized, $loginNormalized, $tenantId]);
+    $stmt->execute([$loginNormalized, $loginInput, $tenantId]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     $fail = ['success' => false, 'message' => 'Invalid credentials.', 'user' => null, 'portal' => null];
@@ -379,17 +383,22 @@ function loginUser($login, $password, $userType) {
         return _loginPortalUnified($pdo, $tenantId, $login, $password);
     }
 
-    // Find by email or username (case-insensitive and trimmed)
-    $loginNormalized = strtolower(trim((string) $login));
+    // Find by email or username.
+    // Email remains case-insensitive; username must match exact casing.
+    $loginInput = trim((string) $login);
+    $loginNormalized = strtolower($loginInput);
     $stmt = $pdo->prepare("
         SELECT user_id, email, username, full_name, password_hash, role, status
         FROM tbl_users
-        WHERE (LOWER(TRIM(COALESCE(email, ''))) = ? OR LOWER(TRIM(COALESCE(username, ''))) = ?)
+        WHERE (
+                LOWER(TRIM(COALESCE(email, ''))) = ?
+                OR BINARY TRIM(COALESCE(username, '')) = ?
+              )
           AND status = 'active'
           AND tenant_id = ?
         LIMIT 1
     ");
-    $stmt->execute([$loginNormalized, $loginNormalized, $tenantId]);
+    $stmt->execute([$loginNormalized, $loginInput, $tenantId]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$user) {

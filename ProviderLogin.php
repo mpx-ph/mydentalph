@@ -90,7 +90,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please enter your email/username and password.';
     } else {
         try {
-            $stmt = $pdo->prepare("SELECT user_id, tenant_id, username, email, full_name, role, status, password_hash FROM tbl_users WHERE username = ? OR email = ? LIMIT 1");
+            $stmt = $pdo->prepare("
+                SELECT user_id, tenant_id, username, email, full_name, role, status, password_hash
+                FROM tbl_users
+                WHERE BINARY TRIM(COALESCE(username, '')) = ?
+                   OR LOWER(TRIM(COALESCE(email, ''))) = LOWER(?)
+                LIMIT 1
+            ");
             $stmt->execute([$login_identifier, $login_identifier]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
