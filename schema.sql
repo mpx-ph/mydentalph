@@ -226,6 +226,7 @@ CREATE TABLE IF NOT EXISTS tbl_patient_files (
 CREATE TABLE IF NOT EXISTS tbl_dentists (
     dentist_id INT AUTO_INCREMENT,
     tenant_id VARCHAR(20) NOT NULL,
+    dentist_display_id VARCHAR(32) DEFAULT NULL,
     first_name VARCHAR(100),
     last_name VARCHAR(100),
     specialization VARCHAR(150),
@@ -233,9 +234,11 @@ CREATE TABLE IF NOT EXISTS tbl_dentists (
     years_of_experience INT,
     contact_number VARCHAR(20),
     email VARCHAR(255),
+    profile_image VARCHAR(500) DEFAULT NULL,
     status ENUM('active','inactive') DEFAULT 'active',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (dentist_id),
+    UNIQUE KEY unique_tenant_dentist_display (tenant_id, dentist_display_id),
     FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id)
 );
 

@@ -51,6 +51,8 @@ requireClinicTenantId();
 $clinicWebRoot = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
 $staffProfileApiUrl = $clinicWebRoot . '/api/admin_profile.php';
 $sessionStaffDisplayId = trim((string) ($_SESSION['staff_id'] ?? ''));
+$isDentistPortal = (strtolower(trim((string) ($_SESSION['user_role'] ?? ''))) === 'dentist')
+    || (($_SESSION['user_type'] ?? '') === 'doctor');
 
 if (!isset($currentTenantSlug)) {
     $currentTenantSlug = '';
@@ -166,8 +168,8 @@ if (!isset($currentTenantSlug)) {
                 <h2 class="font-headline text-3xl sm:text-4xl font-extrabold tracking-tighter leading-tight text-on-background">
                     Your <span class="font-editorial italic font-normal text-primary">profile</span>
                 </h2>
-                <p class="font-body text-sm sm:text-base font-medium text-on-surface-variant max-w-xl leading-relaxed mt-2">
-                    Keep your clinic identity accurate. Changes here sync with your staff account across the portal.
+                <p class="font-body text-sm sm:text-base font-medium text-on-surface-variant max-w-xl leading-relaxed mt-2" id="profileIntroCopy">
+                    Keep your clinic identity accurate. Changes here sync with your clinic account across the portal.
                 </p>
             </div>
         </section>
@@ -191,7 +193,7 @@ if (!isset($currentTenantSlug)) {
                 <div class="flex-1 min-w-0 text-center sm:text-left">
                     <p class="text-white/75 text-[11px] font-bold uppercase tracking-[0.22em] mb-2">Signed in as</p>
                     <h1 class="text-2xl sm:text-3xl font-extrabold font-headline tracking-tight text-white" id="profileDisplayName">Loading…</h1>
-                    <p class="mt-2 text-sm font-bold text-white/85 uppercase tracking-wider" id="profileStaffIdLine">Staff ID: —</p>
+                    <p class="mt-2 text-sm font-bold text-white/85 uppercase tracking-wider" id="profileStaffIdLine">ID: —</p>
                     <p class="mt-3 text-sm text-white/80 max-w-md mx-auto sm:mx-0 leading-relaxed">
                         Use the camera button to upload a new photo. It appears here and in your workspace header where supported.
                     </p>
@@ -359,6 +361,7 @@ if (!isset($currentTenantSlug)) {
 (function () {
   var API = <?php echo json_encode($staffProfileApiUrl, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
   var SESSION_STAFF_ID = <?php echo json_encode($sessionStaffDisplayId, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+  var IS_DENTIST_PORTAL = <?php echo $isDentistPortal ? 'true' : 'false'; ?>;
 
   var personalSnapshot = {};
   var cropper = null;
@@ -479,8 +482,17 @@ if (!isset($currentTenantSlug)) {
     var displayName = ((d.first_name || '') + ' ' + (d.last_name || '')).trim() || (d.full_name || 'Staff');
     document.getElementById('profileDisplayName').textContent = displayName;
 
-    var sid = d.staff_display_id || SESSION_STAFF_ID;
-    document.getElementById('profileStaffIdLine').textContent = sid ? ('Staff ID: ' + sid) : 'Staff profile';
+    var isDentist = IS_DENTIST_PORTAL || (d.profile_kind === 'dentist');
+    var intro = document.getElementById('profileIntroCopy');
+    if (intro) {
+      intro.textContent = isDentist
+        ? 'Keep your professional details accurate. Updates apply to your dentist profile only.'
+        : 'Keep your clinic identity accurate. Changes here sync with your staff account across the portal.';
+    }
+
+    var sid = isDentist ? (d.dentist_display_id || '') : (d.staff_display_id || SESSION_STAFF_ID);
+    var idLabel = isDentist ? 'Dentist ID: ' : 'Staff ID: ';
+    document.getElementById('profileStaffIdLine').textContent = sid ? (idLabel + sid) : (isDentist ? 'Dentist profile' : 'Staff profile');
 
     var imgUrl = d.profile_image_url || '';
     applyAvatar(imgUrl, d.first_name, d.last_name);

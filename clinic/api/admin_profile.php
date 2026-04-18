@@ -51,6 +51,59 @@ function admin_profile_image_public_url(?string $relative): string
     return rtrim(BASE_URL, '/') . '/' . ltrim(str_replace('\\', '/', $relative), '/');
 }
 
+function admin_profile_is_dentist_session(): bool
+{
+    $role = strtolower(trim((string) ($_SESSION['user_role'] ?? '')));
+    if ($role === 'dentist') {
+        return true;
+    }
+    return ($_SESSION['user_type'] ?? '') === 'doctor';
+}
+
+/**
+ * @return array<string, mixed>|null
+ */
+function admin_profile_resolve_dentist_row(PDO $pdo, string $tenantId, string $lookupEmail): ?array
+{
+    $lookupEmail = strtolower(trim($lookupEmail));
+    if ($lookupEmail === '') {
+        return null;
+    }
+    $stmt = $pdo->prepare('
+        SELECT * FROM tbl_dentists
+        WHERE tenant_id = ? AND LOWER(TRIM(COALESCE(email, \'\'))) = ?
+        ORDER BY dentist_id ASC
+        LIMIT 1
+    ');
+    $stmt->execute([$tenantId, $lookupEmail]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return is_array($row) ? $row : null;
+}
+
+/**
+ * @param array<string, mixed> $dentistRow
+ */
+function admin_profile_ensure_dentist_display_id(PDO $pdo, string $tenantId, array $dentistRow): string
+{
+    $existing = trim((string) ($dentistRow['dentist_display_id'] ?? ''));
+    if ($existing !== '') {
+        return $existing;
+    }
+    $pk = (int) ($dentistRow['dentist_id'] ?? 0);
+    if ($pk < 1) {
+        return '';
+    }
+    $newId = tenant_next_dentist_display_id($pdo, $tenantId);
+    $stmt = $pdo->prepare('
+        UPDATE tbl_dentists
+        SET dentist_display_id = ?
+        WHERE dentist_id = ? AND tenant_id = ?
+          AND (dentist_display_id IS NULL OR dentist_display_id = \'\')
+    ');
+    $stmt->execute([$newId, $pk, $tenantId]);
+    return $newId;
+}
+
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $pdo = getDBConnection();
 
@@ -108,6 +161,60 @@ function getProfile(): void
             jsonResponse(false, 'User not found.');
         }
 
+        $isDentist = admin_profile_is_dentist_session();
+
+        if ($isDentist) {
+            $dentist = admin_profile_resolve_dentist_row($pdo, $tenantId, (string) ($user['email'] ?? ''));
+            if (!$dentist) {
+                jsonResponse(false, 'Dentist profile is not linked to this account. Contact your clinic administrator.');
+            }
+            $displayId = admin_profile_ensure_dentist_display_id($pdo, $tenantId, $dentist);
+            if ($displayId !== '') {
+                $dentist['dentist_display_id'] = $displayId;
+            }
+
+            $firstName = (string) ($dentist['first_name'] ?? '');
+            $lastName = (string) ($dentist['last_name'] ?? '');
+            if ($firstName === '' && $lastName === '') {
+                $full = trim((string) ($user['full_name'] ?? ''));
+                if ($full !== '') {
+                    $parts = preg_split('/\s+/', $full, 2, PREG_SPLIT_NO_EMPTY);
+                    $firstName = (string) ($parts[0] ?? '');
+                    $lastName = (string) ($parts[1] ?? '');
+                }
+            }
+
+            $dentRel = trim((string) ($dentist['profile_image'] ?? ''));
+            $userPhoto = trim((string) ($user['photo'] ?? ''));
+            $primaryImg = $dentRel !== '' ? $dentRel : $userPhoto;
+            $photoUrl = admin_profile_image_public_url($primaryImg !== '' ? $primaryImg : null);
+
+            $payload = [
+                'profile_kind' => 'dentist',
+                'dentist_table_pk' => (int) ($dentist['dentist_id'] ?? 0),
+                'dentist_display_id' => trim((string) ($dentist['dentist_display_id'] ?? '')),
+                'staff_table_id' => 0,
+                'staff_display_id' => '',
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'contact_number' => (string) ($dentist['contact_number'] ?? ''),
+                'gender' => '',
+                'house_street' => '',
+                'barangay' => '',
+                'city_municipality' => '',
+                'province' => '',
+                'profile_image' => $primaryImg,
+                'profile_image_url' => $photoUrl,
+                'username' => (string) ($user['username'] ?? ''),
+                'email' => (string) ($user['email'] ?? ''),
+                'full_name' => trim((string) ($user['full_name'] ?? '')),
+                'user_photo' => $userPhoto,
+                'source' => 'dentists',
+            ];
+
+            jsonResponse(true, 'Profile retrieved successfully.', $payload);
+        }
+
         $stmt = $pdo->prepare('SELECT * FROM tbl_staffs WHERE user_id = ? AND tenant_id = ? LIMIT 1');
         $stmt->execute([$userId, $tenantId]);
         $staff = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -133,6 +240,9 @@ function getProfile(): void
         $photoUrl = admin_profile_image_public_url($primaryImg !== '' ? $primaryImg : null);
 
         $payload = [
+            'profile_kind' => 'staff',
+            'dentist_table_pk' => 0,
+            'dentist_display_id' => '',
             'staff_table_id' => is_array($staff) ? (int) ($staff['id'] ?? 0) : 0,
             'staff_display_id' => is_array($staff) ? (string) ($staff['staff_id'] ?? '') : '',
             'first_name' => $firstName,
@@ -302,6 +412,55 @@ function updatePersonalDetails(string $userId, array $input): void
         $fullName = trim($staffData['first_name'] . ' ' . $staffData['last_name']);
         if (strlen($fullName) > 255) {
             jsonResponse(false, 'Full name is too long.');
+        }
+
+        if (admin_profile_is_dentist_session()) {
+            $dentist = admin_profile_resolve_dentist_row($pdo, $tenantId, (string) ($existingUserRow['email'] ?? ''));
+            if (!$dentist) {
+                jsonResponse(false, 'Dentist profile is not linked to this account.');
+            }
+            $dentistPk = (int) ($dentist['dentist_id'] ?? 0);
+            if ($dentistPk < 1) {
+                jsonResponse(false, 'Invalid dentist profile.');
+            }
+            admin_profile_ensure_dentist_display_id($pdo, $tenantId, $dentist);
+
+            $dentistEmail = trim($accountData['email']);
+            $stmt = $pdo->prepare('
+                UPDATE tbl_dentists SET
+                    first_name = ?,
+                    last_name = ?,
+                    email = ?
+                WHERE dentist_id = ? AND tenant_id = ?
+            ');
+            $stmt->execute([
+                $staffData['first_name'],
+                $staffData['last_name'],
+                $dentistEmail,
+                $dentistPk,
+                $tenantId,
+            ]);
+
+            $stmt = $pdo->prepare('
+                UPDATE tbl_users SET
+                    email = ?,
+                    username = ?,
+                    full_name = ?,
+                    updated_at = NOW()
+                WHERE user_id = ? AND tenant_id = ?
+            ');
+            $stmt->execute([
+                $accountData['email'],
+                $accountData['username'],
+                $fullName,
+                $userId,
+                $tenantId,
+            ]);
+
+            $_SESSION['user_name'] = $fullName;
+            $_SESSION['user_email'] = $accountData['email'];
+
+            jsonResponse(true, 'Profile updated successfully.');
         }
 
         $stmt = $pdo->prepare('SELECT id FROM tbl_staffs WHERE user_id = ? AND tenant_id = ? LIMIT 1');
@@ -600,24 +759,40 @@ function uploadPhoto(): void
     }
 
     try {
-        $stmt = $pdo->prepare('SELECT id, profile_image FROM tbl_staffs WHERE user_id = ? AND tenant_id = ? LIMIT 1');
+        $stmt = $pdo->prepare('SELECT email, photo FROM tbl_users WHERE user_id = ? AND tenant_id = ? LIMIT 1');
         $stmt->execute([$userId, $tenantId]);
-        $existingStaff = $stmt->fetch(PDO::FETCH_ASSOC);
+        $userRow = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$userRow) {
+            jsonResponse(false, 'User not found.');
+        }
 
         $oldPath = '';
-        if ($existingStaff && !empty($existingStaff['profile_image'])) {
-            $oldPath = (string) $existingStaff['profile_image'];
-        }
-        if ($oldPath === '') {
-            $stmt = $pdo->prepare('SELECT photo FROM tbl_users WHERE user_id = ? AND tenant_id = ? LIMIT 1');
+        $isDentist = admin_profile_is_dentist_session();
+
+        if ($isDentist) {
+            $dentist = admin_profile_resolve_dentist_row($pdo, $tenantId, (string) ($userRow['email'] ?? ''));
+            if (!$dentist) {
+                jsonResponse(false, 'Dentist profile is not linked to this account.');
+            }
+            if (!empty($dentist['profile_image'])) {
+                $oldPath = (string) $dentist['profile_image'];
+            }
+        } else {
+            $stmt = $pdo->prepare('SELECT id, profile_image FROM tbl_staffs WHERE user_id = ? AND tenant_id = ? LIMIT 1');
             $stmt->execute([$userId, $tenantId]);
-            $urow = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($urow && !empty($urow['photo'])) {
-                $oldPath = (string) $urow['photo'];
+            $existingStaff = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($existingStaff && !empty($existingStaff['profile_image'])) {
+                $oldPath = (string) $existingStaff['profile_image'];
             }
         }
 
-        $photoResult = saveBase64Image($input['photo'], 'uploads/staffs/', 'staff_');
+        if ($oldPath === '' && !empty($userRow['photo'])) {
+            $oldPath = (string) $userRow['photo'];
+        }
+
+        $uploadDir = $isDentist ? 'uploads/dentists/' : 'uploads/staffs/';
+        $uploadPrefix = $isDentist ? 'dentist_' : 'staff_';
+        $photoResult = saveBase64Image($input['photo'], $uploadDir, $uploadPrefix);
         if (!$photoResult['success']) {
             jsonResponse(false, !empty($photoResult['message']) ? $photoResult['message'] : 'Failed to upload photo.');
         }
@@ -634,22 +809,33 @@ function uploadPhoto(): void
             }
         }
 
-        if ($existingStaff) {
-            $stmt = $pdo->prepare('UPDATE tbl_staffs SET profile_image = ?, updated_at = NOW() WHERE id = ? AND tenant_id = ?');
-            $stmt->execute([$profileImagePath, (int) $existingStaff['id'], $tenantId]);
+        if ($isDentist) {
+            $dentistPk = (int) ($dentist['dentist_id'] ?? 0);
+            admin_profile_ensure_dentist_display_id($pdo, $tenantId, $dentist);
+            $stmt = $pdo->prepare('UPDATE tbl_dentists SET profile_image = ? WHERE dentist_id = ? AND tenant_id = ?');
+            $stmt->execute([$profileImagePath, $dentistPk, $tenantId]);
         } else {
-            $year = date('Y');
-            $stmt = $pdo->prepare('SELECT COUNT(*) AS c FROM tbl_staffs WHERE tenant_id = ? AND staff_id LIKE ?');
-            $stmt->execute([$tenantId, 'S-' . $year . '-%']);
-            $countRow = $stmt->fetch(PDO::FETCH_ASSOC);
-            $sequence = str_pad((string) (((int) ($countRow['c'] ?? 0)) + 1), 5, '0', STR_PAD_LEFT);
-            $staffDisplayId = 'S-' . $year . '-' . $sequence;
+            $stmt = $pdo->prepare('SELECT id, profile_image FROM tbl_staffs WHERE user_id = ? AND tenant_id = ? LIMIT 1');
+            $stmt->execute([$userId, $tenantId]);
+            $existingStaff = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            $stmt = $pdo->prepare('
-                INSERT INTO tbl_staffs (tenant_id, staff_id, user_id, profile_image, created_at)
-                VALUES (?, ?, ?, ?, NOW())
-            ');
-            $stmt->execute([$tenantId, $staffDisplayId, $userId, $profileImagePath]);
+            if ($existingStaff) {
+                $stmt = $pdo->prepare('UPDATE tbl_staffs SET profile_image = ?, updated_at = NOW() WHERE id = ? AND tenant_id = ?');
+                $stmt->execute([$profileImagePath, (int) $existingStaff['id'], $tenantId]);
+            } else {
+                $year = date('Y');
+                $stmt = $pdo->prepare('SELECT COUNT(*) AS c FROM tbl_staffs WHERE tenant_id = ? AND staff_id LIKE ?');
+                $stmt->execute([$tenantId, 'S-' . $year . '-%']);
+                $countRow = $stmt->fetch(PDO::FETCH_ASSOC);
+                $sequence = str_pad((string) (((int) ($countRow['c'] ?? 0)) + 1), 5, '0', STR_PAD_LEFT);
+                $staffDisplayId = 'S-' . $year . '-' . $sequence;
+
+                $stmt = $pdo->prepare('
+                    INSERT INTO tbl_staffs (tenant_id, staff_id, user_id, profile_image, created_at)
+                    VALUES (?, ?, ?, ?, NOW())
+                ');
+                $stmt->execute([$tenantId, $staffDisplayId, $userId, $profileImagePath]);
+            }
         }
 
         $stmt = $pdo->prepare('UPDATE tbl_users SET photo = ?, updated_at = NOW() WHERE user_id = ? AND tenant_id = ?');

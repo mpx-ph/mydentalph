@@ -95,6 +95,17 @@ function tenant_staff_invite_next_staff_display_id(PDO $pdo, string $tenant_id):
     return 'S-' . $year . '-' . $sequence;
 }
 
+function tenant_staff_invite_next_dentist_display_id(PDO $pdo, string $tenant_id): string
+{
+    $year = date('Y');
+    $stmt = $pdo->prepare('SELECT COUNT(*) AS c FROM tbl_dentists WHERE tenant_id = ? AND dentist_display_id LIKE ?');
+    $stmt->execute([$tenant_id, 'D-' . $year . '-%']);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $count = (int) ($row['c'] ?? 0);
+    $sequence = str_pad((string) ($count + 1), 5, '0', STR_PAD_LEFT);
+    return 'D-' . $year . '-' . $sequence;
+}
+
 function tenant_staff_invite_insert_dentist_profile(
     PDO $pdo,
     string $tenant_id,
@@ -102,11 +113,12 @@ function tenant_staff_invite_insert_dentist_profile(
     string $last_name,
     string $email
 ): void {
+    $display_id = tenant_staff_invite_next_dentist_display_id($pdo, $tenant_id);
     $stmt = $pdo->prepare('
-        INSERT INTO tbl_dentists (tenant_id, first_name, last_name, email, status, created_at)
-        VALUES (?, ?, ?, ?, \'active\', NOW())
+        INSERT INTO tbl_dentists (tenant_id, dentist_display_id, first_name, last_name, email, status, created_at)
+        VALUES (?, ?, ?, ?, ?, \'active\', NOW())
     ');
-    $stmt->execute([$tenant_id, $first_name, $last_name, strtolower(trim($email))]);
+    $stmt->execute([$tenant_id, $display_id, $first_name, $last_name, strtolower(trim($email))]);
 }
 
 function tenant_staff_invite_read_session(): ?array

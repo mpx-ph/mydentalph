@@ -33,6 +33,21 @@ function sanitizeArray($data) {
 }
 
 /**
+ * Next formatted dentist display id for a tenant (D-YYYY-XXXXX), same sequencing approach as staff IDs.
+ */
+function tenant_next_dentist_display_id(PDO $pdo, string $tenantId): string
+{
+    $tenantId = trim($tenantId);
+    $year = date('Y');
+    $stmt = $pdo->prepare('SELECT COUNT(*) AS c FROM tbl_dentists WHERE tenant_id = ? AND dentist_display_id LIKE ?');
+    $stmt->execute([$tenantId, 'D-' . $year . '-%']);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $n = (int) ($row['c'] ?? 0) + 1;
+    $sequence = str_pad((string) $n, 5, '0', STR_PAD_LEFT);
+    return 'D-' . $year . '-' . $sequence;
+}
+
+/**
  * Format date
  * @param string $date
  * @param string $format

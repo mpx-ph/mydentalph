@@ -45,9 +45,16 @@ if (function_exists('getDBConnection') && defined('BASE_URL') && !empty($_SESSIO
         $uid = (string) $_SESSION['user_id'];
         $tid = (string) $_SESSION['tenant_id'];
         $st = $pdoHdr->prepare(
-            'SELECT COALESCE(NULLIF(TRIM(s.profile_image), \'\'), NULLIF(TRIM(u.photo), \'\')) AS img
+            'SELECT COALESCE(
+                NULLIF(TRIM(d.profile_image), \'\'),
+                NULLIF(TRIM(s.profile_image), \'\'),
+                NULLIF(TRIM(u.photo), \'\')
+             ) AS img
              FROM tbl_users u
              LEFT JOIN tbl_staffs s ON s.user_id = u.user_id AND s.tenant_id = u.tenant_id
+             LEFT JOIN tbl_dentists d ON d.tenant_id = u.tenant_id
+               AND u.role = \'dentist\'
+               AND LOWER(TRIM(COALESCE(d.email, \'\'))) = LOWER(TRIM(COALESCE(u.email, \'\')))
              WHERE u.user_id = ? AND u.tenant_id = ?
              LIMIT 1'
         );

@@ -387,9 +387,10 @@ function updateUser() {
     }
     
     $userUserId = $userId;
-    $stmt = $pdo->prepare("SELECT role FROM tbl_users WHERE user_id = ?");
-    $stmt->execute([$userId]);
+    $stmt = $pdo->prepare("SELECT role, email FROM tbl_users WHERE user_id = ? AND tenant_id = ?");
+    $stmt->execute([$userId, $tenantId]);
     $user = $stmt->fetch();
+    $profileLookupEmail = strtolower(trim((string) ($user['email'] ?? '')));
     $currentUserType = ($user && function_exists('_authRoleToUserType')) ? _authRoleToUserType($user['role'] ?? 'client') : ($user['role'] ?? 'client');
     // If user_type is being updated, use the new value, otherwise use current
     $targetUserType = isset($input['user_type']) ? $input['user_type'] : $currentUserType;
@@ -498,8 +499,7 @@ function updateUser() {
         }
         
         // Update profile table based on user_type
-        // ONLY clients get patient records
-        // Admin, staff, doctor, manager get staff records
+        // Clients → tbl_patients; dentists → tbl_dentists; other roles → tbl_staffs
         if (!empty($profileUpdates)) {
             if (strtolower($targetUserType) === 'client') {
                 // Update/create patient profile for clients only
@@ -538,8 +538,31 @@ function updateUser() {
                         $contact_number
                     ]);
                 }
+            } elseif (strtolower($targetUserType) === 'doctor') {
+                $stmt = $pdo->prepare("
+                    SELECT dentist_id FROM tbl_dentists
+                    WHERE tenant_id = ? AND LOWER(TRIM(COALESCE(email, ''))) = ?
+                    ORDER BY dentist_id ASC
+                    LIMIT 1
+                ");
+                $stmt->execute([$tenantId, $profileLookupEmail]);
+                $dent = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$dent) {
+                    jsonResponse(false, 'Dentist profile not found for this user.');
+                }
+                $dentistSets = $profileUpdates;
+                $dentistParams = $profileParams;
+                $dentistSets[] = 'email = ?';
+                $stmt = $pdo->prepare("SELECT email FROM tbl_users WHERE user_id = ? AND tenant_id = ?");
+                $stmt->execute([$userUserId, $tenantId]);
+                $dentistParams[] = trim((string) $stmt->fetchColumn());
+                $dentistParams[] = (int) $dent['dentist_id'];
+                $dentistParams[] = $tenantId;
+                $sql = 'UPDATE tbl_dentists SET ' . implode(', ', $dentistSets) . ' WHERE dentist_id = ? AND tenant_id = ?';
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute($dentistParams);
             } else {
-                // Update/create staff profile for non-clients
+                // Update/create staff profile for non-clients (not dentists)
                 $stmt = $pdo->prepare("SELECT id FROM tbl_staffs WHERE user_id = ? AND tenant_id = ?");
                 $stmt->execute([$userUserId, $tenantId]);
                 $staff = $stmt->fetch();
@@ -577,6 +600,27 @@ function updateUser() {
                         $last_name,
                         $contact_number
                     ]);
+                }
+            }
+        }
+
+        // Dentist directory email must follow tbl_users (e.g. manager changes email only)
+        if ($user && strtolower((string) ($user['role'] ?? '')) === 'dentist') {
+            $stmt = $pdo->prepare("SELECT email FROM tbl_users WHERE user_id = ? AND tenant_id = ?");
+            $stmt->execute([$userUserId, $tenantId]);
+            $syncEmail = trim((string) $stmt->fetchColumn());
+            if ($syncEmail !== '') {
+                $stmt = $pdo->prepare("
+                    SELECT dentist_id FROM tbl_dentists
+                    WHERE tenant_id = ? AND LOWER(TRIM(COALESCE(email, ''))) = ?
+                    ORDER BY dentist_id ASC
+                    LIMIT 1
+                ");
+                $stmt->execute([$tenantId, $profileLookupEmail]);
+                $dentSync = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($dentSync) {
+                    $pdo->prepare('UPDATE tbl_dentists SET email = ? WHERE dentist_id = ? AND tenant_id = ?')
+                        ->execute([$syncEmail, (int) $dentSync['dentist_id'], $tenantId]);
                 }
             }
         }
