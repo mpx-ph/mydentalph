@@ -58,7 +58,18 @@ function provider_tenant_fetch_team_members(PDO $pdo, string $tenant_id): array
         // appear as current team members (same expectation as a hard-deleted account).
         $st = $pdo->prepare(
             'SELECT u.user_id, u.email, u.full_name, u.role, u.status, u.last_active, u.last_login, u.updated_at,
-                    s.profile_image,
+                    COALESCE(
+                        NULLIF(TRIM(s.profile_image), \'\'),
+                        NULLIF(TRIM((
+                            SELECT d.profile_image FROM tbl_dentists d
+                            WHERE d.tenant_id = u.tenant_id
+                              AND u.role = \'dentist\'
+                              AND LOWER(TRIM(COALESCE(d.email, \'\'))) = LOWER(TRIM(COALESCE(u.email, \'\')))
+                            ORDER BY d.dentist_id ASC
+                            LIMIT 1
+                        )), \'\'),
+                        NULLIF(TRIM(u.photo), \'\')
+                    ) AS profile_image,
                     COALESCE(
                         NULLIF(TRIM(s.first_name), \'\'),
                         NULLIF(TRIM((
