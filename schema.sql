@@ -221,12 +221,13 @@ CREATE TABLE IF NOT EXISTS tbl_patient_files (
 );
 
 -- ============================================
--- DENTISTS
+-- DENTISTS (dentist profiles linked to tbl_users)
 -- ============================================
 CREATE TABLE IF NOT EXISTS tbl_dentists (
     dentist_id INT AUTO_INCREMENT,
     tenant_id VARCHAR(20) NOT NULL,
     dentist_display_id VARCHAR(32) DEFAULT NULL,
+    user_id VARCHAR(20) NOT NULL,
     first_name VARCHAR(100),
     last_name VARCHAR(100),
     specialization VARCHAR(150),
@@ -239,7 +240,12 @@ CREATE TABLE IF NOT EXISTS tbl_dentists (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (dentist_id),
     UNIQUE KEY unique_tenant_dentist_display (tenant_id, dentist_display_id),
-    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id)
+    UNIQUE KEY unique_tenant_dentist_user_id (tenant_id, user_id),
+    KEY idx_dentists_tenant (tenant_id),
+    CONSTRAINT fk_dentists_tenant
+        FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id) ON DELETE CASCADE,
+    CONSTRAINT fk_dentists_user
+        FOREIGN KEY (user_id) REFERENCES tbl_users(user_id) ON DELETE CASCADE
 );
 
 -- ============================================
