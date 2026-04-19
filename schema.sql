@@ -272,6 +272,38 @@ CREATE TABLE IF NOT EXISTS tbl_staffs (
 );
 
 -- ============================================
+-- MANAGERS (manager profiles linked to tbl_users)
+-- manager_id format: M-YYYY-XXXXX (e.g., M-2026-00001)
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_managers (
+    id INT AUTO_INCREMENT,
+    tenant_id VARCHAR(20) NOT NULL,
+    manager_id VARCHAR(50) NOT NULL,
+    user_id VARCHAR(20) NOT NULL,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    contact_number VARCHAR(20),
+    gender ENUM('Male','Female','Other','Prefer not to say'),
+    house_street VARCHAR(255),
+    barangay VARCHAR(100),
+    city_municipality VARCHAR(100),
+    province VARCHAR(100),
+    profile_image VARCHAR(500),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY unique_tenant_manager_id (tenant_id, manager_id),
+    UNIQUE KEY unique_tenant_manager_user_id (tenant_id, user_id),
+    KEY idx_managers_tenant (tenant_id),
+    CONSTRAINT chk_manager_id_format
+        CHECK (manager_id REGEXP '^M-[0-9]{4}-[0-9]{5}$'),
+    CONSTRAINT fk_managers_tenant
+        FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id) ON DELETE CASCADE,
+    CONSTRAINT fk_managers_user
+        FOREIGN KEY (user_id) REFERENCES tbl_users(user_id) ON DELETE CASCADE
+);
+
+-- ============================================
 -- APPOINTMENTS
 -- ============================================
 CREATE TABLE IF NOT EXISTS tbl_appointments (
