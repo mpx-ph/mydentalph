@@ -99,8 +99,12 @@ if ($__clinic_name === '') {
 }
 
 $__portal_label = 'Staff Workspace';
-if (isset($_SESSION['user_role']) && strtolower(trim((string) $_SESSION['user_role'])) === 'dentist') {
+$__hdr_role = isset($_SESSION['user_role']) ? strtolower(trim((string) $_SESSION['user_role'])) : '';
+$__hdr_type = isset($_SESSION['user_type']) ? strtolower(trim((string) $_SESSION['user_type'])) : '';
+if ($__hdr_role === 'dentist') {
     $__portal_label = 'Dentist Workspace';
+} elseif ($__hdr_role === 'manager' || $__hdr_type === 'manager') {
+    $__portal_label = 'Manager Workspace';
 }
 ?>
 <header class="sticky top-0 z-30 min-h-[4.5rem] sm:h-20 sm:min-h-0 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 shadow-sm shadow-slate-200/30" data-purpose="top-header">

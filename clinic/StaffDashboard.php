@@ -30,7 +30,14 @@ if ($staffFullName === '') {
     $staffFullName = 'Staff';
 }
 $staffRole = strtolower(trim((string) ($_SESSION['user_role'] ?? 'staff')));
-$portalLabel = $staffRole === 'dentist' ? 'Dentist Portal' : 'Staff Portal';
+$userTypeSession = strtolower(trim((string) ($_SESSION['user_type'] ?? '')));
+if ($staffRole === 'dentist') {
+    $portalLabel = 'Dentist Portal';
+} elseif ($staffRole === 'manager' || $userTypeSession === 'manager') {
+    $portalLabel = 'Manager Portal';
+} else {
+    $portalLabel = 'Staff Portal';
+}
 $staffRoleMessage = 'Here&rsquo;s what&rsquo;s happening at your practice today. Invite staff and manage roles anytime.';
 if ($staffRole === 'dentist') {
     $staffRoleMessage = 'Here&rsquo;s your chairside snapshot today. Review appointments and keep patient care on track.';

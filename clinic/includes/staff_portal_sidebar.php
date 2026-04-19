@@ -114,7 +114,14 @@ $allNavItems = [
 // Dentist role: only these pages are accessible
 $dentistAllowedKeys = ['dashboard', 'patients', 'appointments', 'block_schedule', 'profile'];
 $currentUserRole = isset($_SESSION['user_role']) ? strtolower(trim((string) $_SESSION['user_role'])) : '';
-$portalLabel = $currentUserRole === 'dentist' ? 'Dentist Portal' : 'Staff Portal';
+$currentUserType = isset($_SESSION['user_type']) ? strtolower(trim((string) $_SESSION['user_type'])) : '';
+if ($currentUserRole === 'dentist') {
+    $portalLabel = 'Dentist Portal';
+} elseif ($currentUserRole === 'manager' || $currentUserType === 'manager') {
+    $portalLabel = 'Manager Portal';
+} else {
+    $portalLabel = 'Staff Portal';
+}
 
 if ($currentUserRole === 'dentist') {
     $navItems = array_values(array_filter($allNavItems, function ($item) use ($dentistAllowedKeys) {
