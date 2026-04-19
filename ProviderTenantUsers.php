@@ -2,6 +2,12 @@
 declare(strict_types=1);
 require_once __DIR__ . '/provider_tenant_lite_bootstrap.php';
 
+// Same absolute asset base as clinic pages (MainPageClient, StaffWalkIn, APIs). Without BASE_URL,
+// profile paths like uploads/... become site-root /uploads/... and 404 — avatars fall back to initials.
+if (!defined('BASE_URL')) {
+    require_once __DIR__ . '/clinic/config/config.php';
+}
+
 // Dynamic roster must always reflect the database; avoid cached HTML after adds/removals.
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
@@ -184,37 +190,24 @@ function provider_tenant_profile_image_url(?string $path): ?string
         return $path;
     }
 
-    $normalizedPath = ltrim($path, '/');
-    // Some rows store absolute filesystem paths; convert to web path segments.
-    if (preg_match('#^[a-zA-Z]:/#', $normalizedPath) === 1) {
-        $uploadsPos = stripos($normalizedPath, '/uploads/');
+    // DB sometimes stores a full Windows path; web-servable part usually contains /uploads/
+    if (preg_match('#^[a-zA-Z]:/#', ltrim($path, '/')) === 1) {
+        $uploadsPos = stripos($path, '/uploads/');
         if ($uploadsPos !== false) {
-            $normalizedPath = ltrim(substr($normalizedPath, $uploadsPos), '/');
+            $path = ltrim(substr($path, $uploadsPos), '/');
         }
+    }
+
+    // Match clinic pages: BASE_URL + relative path (see AdminPatientRecords.php, StaffWalkIn.php).
+    $rel = ltrim($path, '/');
+    if ($rel === '') {
+        return null;
     }
     if (defined('BASE_URL') && trim((string) BASE_URL) !== '') {
-        $base = rtrim((string) BASE_URL, '/');
-        $basePath = (string) (parse_url($base, PHP_URL_PATH) ?? '');
-        $basePath = trim($basePath, '/');
-        if ($basePath !== '') {
-            $baseNeedle = '/' . strtolower($basePath) . '/';
-            $normalizedLower = '/' . strtolower($normalizedPath);
-            $basePos = strpos($normalizedLower, $baseNeedle);
-            if ($basePos !== false) {
-                $normalizedPath = ltrim(substr($normalizedPath, $basePos + strlen($baseNeedle) - 1), '/');
-            }
-        }
-        if ($basePath !== '' && strncmp($normalizedPath, $basePath . '/', strlen($basePath) + 1) === 0) {
-            $normalizedPath = ltrim(substr($normalizedPath, strlen($basePath)), '/');
-        }
-        return $base . '/' . $normalizedPath;
+        return rtrim((string) BASE_URL, '/') . '/' . $rel;
     }
 
-    if ($path[0] === '/') {
-        return $path;
-    }
-
-    return '/' . $normalizedPath;
+    return '/' . $rel;
 }
 
 $team_members_all = provider_tenant_fetch_team_members($pdo, $tenant_id);
