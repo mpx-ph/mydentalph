@@ -51,6 +51,25 @@ requireClinicTenantId();
 $clinicWebRoot = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
 $staffProfileApiUrl = $clinicWebRoot . '/api/admin_profile.php';
 $sessionStaffDisplayId = trim((string) ($_SESSION['staff_id'] ?? ''));
+$isManagerPortal = (($_SESSION['user_type'] ?? '') === 'manager');
+$sessionManagerDisplayId = '';
+if ($isManagerPortal) {
+    $tenantIdForMgr = trim((string) getClinicTenantId());
+    $userIdForMgr = trim((string) ($_SESSION['user_id'] ?? ''));
+    if ($tenantIdForMgr !== '' && $userIdForMgr !== '') {
+        try {
+            $pdoMgr = getDBConnection();
+            $stmtMgr = $pdoMgr->prepare('SELECT manager_id FROM tbl_managers WHERE tenant_id = ? AND user_id = ? LIMIT 1');
+            $stmtMgr->execute([$tenantIdForMgr, $userIdForMgr]);
+            $mgrRow = $stmtMgr->fetch(PDO::FETCH_ASSOC);
+            if (is_array($mgrRow)) {
+                $sessionManagerDisplayId = trim((string) ($mgrRow['manager_id'] ?? ''));
+            }
+        } catch (Throwable $e) {
+            error_log('StaffMyProfile manager_id: ' . $e->getMessage());
+        }
+    }
+}
 $isDentistPortal = (strtolower(trim((string) ($_SESSION['user_role'] ?? ''))) === 'dentist')
     || (($_SESSION['user_type'] ?? '') === 'doctor');
 
@@ -361,6 +380,8 @@ if (!isset($currentTenantSlug)) {
 (function () {
   var API = <?php echo json_encode($staffProfileApiUrl, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
   var SESSION_STAFF_ID = <?php echo json_encode($sessionStaffDisplayId, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+  var IS_MANAGER_PORTAL = <?php echo $isManagerPortal ? 'true' : 'false'; ?>;
+  var SESSION_MANAGER_ID = <?php echo json_encode($sessionManagerDisplayId, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
   var IS_DENTIST_PORTAL = <?php echo $isDentistPortal ? 'true' : 'false'; ?>;
 
   var personalSnapshot = {};
@@ -487,12 +508,28 @@ if (!isset($currentTenantSlug)) {
     if (intro) {
       intro.textContent = isDentist
         ? 'Keep your professional details accurate. Updates apply to your dentist profile only.'
-        : 'Keep your clinic identity accurate. Changes here sync with your staff account across the portal.';
+        : (IS_MANAGER_PORTAL
+          ? 'Keep your clinic identity accurate. Changes here sync with your manager account across the portal.'
+          : 'Keep your clinic identity accurate. Changes here sync with your staff account across the portal.');
     }
 
-    var sid = isDentist ? (d.dentist_display_id || '') : (d.staff_display_id || SESSION_STAFF_ID);
-    var idLabel = isDentist ? 'Dentist ID: ' : 'Staff ID: ';
-    document.getElementById('profileStaffIdLine').textContent = sid ? (idLabel + sid) : (isDentist ? 'Dentist profile' : 'Staff profile');
+    var sid;
+    var idLabel;
+    var idFallback;
+    if (isDentist) {
+      sid = d.dentist_display_id || '';
+      idLabel = 'Dentist ID: ';
+      idFallback = 'Dentist profile';
+    } else if (IS_MANAGER_PORTAL) {
+      sid = SESSION_MANAGER_ID || '';
+      idLabel = 'Manager ID: ';
+      idFallback = 'Manager profile';
+    } else {
+      sid = d.staff_display_id || SESSION_STAFF_ID;
+      idLabel = 'Staff ID: ';
+      idFallback = 'Staff profile';
+    }
+    document.getElementById('profileStaffIdLine').textContent = sid ? (idLabel + sid) : idFallback;
 
     var imgUrl = d.profile_image_url || '';
     applyAvatar(imgUrl, d.first_name, d.last_name);
