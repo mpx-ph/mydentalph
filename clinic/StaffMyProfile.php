@@ -49,6 +49,13 @@ if ($clinicSlugBoot !== '' && preg_match('/^[a-z0-9\-]+$/', strtolower($clinicSl
 requireClinicTenantId();
 
 $clinicWebRoot = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
+$cwPath = rtrim(str_replace('\\', '/', $clinicWebRoot), '/');
+$parentWebPath = ($cwPath !== '' && $cwPath !== '/') ? dirname($cwPath) : '';
+if ($parentWebPath === '/' || $parentWebPath === '.' || $parentWebPath === '') {
+    $philippineGeoJsonUrl = '/philippine_provinces_cities_municipalities_and_barangays_2019v2.json';
+} else {
+    $philippineGeoJsonUrl = rtrim(str_replace('\\', '/', $parentWebPath), '/') . '/philippine_provinces_cities_municipalities_and_barangays_2019v2.json';
+}
 $staffProfileApiUrl = $clinicWebRoot . '/api/admin_profile.php';
 $sessionStaffDisplayId = trim((string) ($_SESSION['staff_id'] ?? ''));
 $isManagerPortal = (($_SESSION['user_type'] ?? '') === 'manager');
@@ -252,6 +259,45 @@ if (!isset($currentTenantSlug)) {
                                 <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldLast">Last name</label>
                                 <input id="fieldLast" name="last_name" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="text" autocomplete="family-name" required/>
                             </div>
+                            <div class="sm:col-span-2">
+                                <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldContact">Contact number</label>
+                                <input id="fieldContact" name="contact_number" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="tel" autocomplete="tel" placeholder="e.g. 09XX XXX XXXX"/>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <span class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2">Gender</span>
+                                <div class="flex flex-wrap gap-6 items-center" role="radiogroup" aria-label="Gender">
+                                    <label class="inline-flex items-center gap-2.5 cursor-pointer text-sm font-semibold text-slate-700">
+                                        <input type="radio" name="gender" value="Male" id="genderMale" class="h-4 w-4 border-slate-300 text-primary focus:ring-primary/30"/>
+                                        <span>Male</span>
+                                    </label>
+                                    <label class="inline-flex items-center gap-2.5 cursor-pointer text-sm font-semibold text-slate-700">
+                                        <input type="radio" name="gender" value="Female" id="genderFemale" class="h-4 w-4 border-slate-300 text-primary focus:ring-primary/30"/>
+                                        <span>Female</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldStreet">Street no. / street name</label>
+                                <input id="fieldStreet" name="house_street" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="text" autocomplete="street-address" placeholder="House / building / street"/>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldProvince">Province</label>
+                                <select id="fieldProvince" name="province" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm">
+                                    <option value="">Select province</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldCity">City / Municipality</label>
+                                <select id="fieldCity" name="city_municipality" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" disabled>
+                                    <option value="">Select city or municipality</option>
+                                </select>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldBarangay">Barangay</label>
+                                <select id="fieldBarangay" name="barangay" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" disabled>
+                                    <option value="">Select barangay</option>
+                                </select>
+                            </div>
                         </div>
                         <p id="personalFormError" class="hidden text-sm text-rose-600 font-semibold"></p>
                         <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
@@ -379,6 +425,7 @@ if (!isset($currentTenantSlug)) {
 <script>
 (function () {
   var API = <?php echo json_encode($staffProfileApiUrl, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+  var PH_GEO_JSON_URL = <?php echo json_encode($philippineGeoJsonUrl, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
   var SESSION_STAFF_ID = <?php echo json_encode($sessionStaffDisplayId, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
   var IS_MANAGER_PORTAL = <?php echo $isManagerPortal ? 'true' : 'false'; ?>;
   var SESSION_MANAGER_ID = <?php echo json_encode($sessionManagerDisplayId, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
@@ -386,6 +433,219 @@ if (!isset($currentTenantSlug)) {
 
   var personalSnapshot = {};
   var cropper = null;
+  var geoIndexes = null;
+
+  function cityKey(prov, muni) {
+    return prov + '\t' + muni;
+  }
+
+  function buildGeoIndexes(raw) {
+    var provSet = {};
+    var provToMunis = {};
+    var pmToBrgy = {};
+    for (var reg in raw) {
+      if (!Object.prototype.hasOwnProperty.call(raw, reg) || !raw[reg].province_list) continue;
+      var plist = raw[reg].province_list;
+      for (var prov in plist) {
+        if (!Object.prototype.hasOwnProperty.call(plist, prov)) continue;
+        provSet[prov] = true;
+        var mlist = plist[prov].municipality_list || {};
+        for (var muni in mlist) {
+          if (!Object.prototype.hasOwnProperty.call(mlist, muni)) continue;
+          if (!provToMunis[prov]) provToMunis[prov] = [];
+          if (provToMunis[prov].indexOf(muni) === -1) provToMunis[prov].push(muni);
+          var key = cityKey(prov, muni);
+          var bars = mlist[muni].barangay_list || [];
+          if (!pmToBrgy[key]) pmToBrgy[key] = [];
+          for (var bi = 0; bi < bars.length; bi++) {
+            if (pmToBrgy[key].indexOf(bars[bi]) === -1) pmToBrgy[key].push(bars[bi]);
+          }
+        }
+      }
+    }
+    var provinces = Object.keys(provSet);
+    provinces.sort(function (a, b) { return a.localeCompare(b); });
+    var pi;
+    for (pi = 0; pi < provinces.length; pi++) {
+      var p = provinces[pi];
+      if (provToMunis[p]) provToMunis[p].sort(function (a, b) { return a.localeCompare(b); });
+    }
+    var k;
+    for (k in pmToBrgy) {
+      if (Object.prototype.hasOwnProperty.call(pmToBrgy, k)) {
+        pmToBrgy[k].sort(function (a, b) { return a.localeCompare(b); });
+      }
+    }
+    geoIndexes = { provinces: provinces, provToMunis: provToMunis, pmToBrgy: pmToBrgy };
+  }
+
+  function optionExists(select, val) {
+    if (!val) return false;
+    var i;
+    for (i = 0; i < select.options.length; i++) {
+      if (select.options[i].value === val) return true;
+    }
+    return false;
+  }
+
+  function ensureOption(select, val, suffix) {
+    if (!val) return;
+    if (optionExists(select, val)) return;
+    var o = document.createElement('option');
+    o.value = val;
+    o.textContent = suffix ? (val + suffix) : val;
+    select.appendChild(o);
+  }
+
+  function fillProvinceOptions() {
+    var sel = document.getElementById('fieldProvince');
+    if (!sel || !geoIndexes) return;
+    var cur = sel.value;
+    sel.innerHTML = '<option value="">Select province</option>';
+    var idx;
+    for (idx = 0; idx < geoIndexes.provinces.length; idx++) {
+      var p = geoIndexes.provinces[idx];
+      var opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p;
+      sel.appendChild(opt);
+    }
+    if (cur && optionExists(sel, cur)) sel.value = cur;
+  }
+
+  function refreshBarangaySelect(brgyPreset) {
+    var p = document.getElementById('fieldProvince').value;
+    var m = document.getElementById('fieldCity').value;
+    var brgySel = document.getElementById('fieldBarangay');
+    if (!brgySel || !geoIndexes) return;
+    var wantBrgy = brgyPreset !== undefined && brgyPreset !== null ? String(brgyPreset) : '';
+    brgySel.innerHTML = '<option value="">Select barangay</option>';
+    if (!p || !m) {
+      brgySel.disabled = true;
+      brgySel.value = '';
+      return;
+    }
+    brgySel.disabled = false;
+    var key = cityKey(p, m);
+    var list = geoIndexes.pmToBrgy[key] || [];
+    for (var i = 0; i < list.length; i++) {
+      var b = list[i];
+      var o = document.createElement('option');
+      o.value = b;
+      o.textContent = b;
+      brgySel.appendChild(o);
+    }
+    if (wantBrgy) {
+      ensureOption(brgySel, wantBrgy, ' (saved)');
+      brgySel.value = wantBrgy;
+    } else {
+      brgySel.value = '';
+    }
+  }
+
+  function refreshCitySelect(cityPreset, brgyPreset) {
+    var p = document.getElementById('fieldProvince').value;
+    var citySel = document.getElementById('fieldCity');
+    if (!citySel || !geoIndexes) return;
+    var wantCity = cityPreset !== undefined && cityPreset !== null ? String(cityPreset) : '';
+    citySel.innerHTML = '<option value="">Select city or municipality</option>';
+    if (!p) {
+      citySel.disabled = true;
+      citySel.value = '';
+      refreshBarangaySelect(brgyPreset !== undefined ? brgyPreset : '');
+      return;
+    }
+    citySel.disabled = false;
+    var list = geoIndexes.provToMunis[p] || [];
+    for (var j = 0; j < list.length; j++) {
+      var mn = list[j];
+      var o2 = document.createElement('option');
+      o2.value = mn;
+      o2.textContent = mn;
+      citySel.appendChild(o2);
+    }
+    if (wantCity) {
+      ensureOption(citySel, wantCity, ' (saved)');
+      citySel.value = wantCity;
+    } else {
+      citySel.value = '';
+    }
+    refreshBarangaySelect(brgyPreset !== undefined ? brgyPreset : '');
+  }
+
+  function wireLocationSelectors() {
+    var prov = document.getElementById('fieldProvince');
+    var city = document.getElementById('fieldCity');
+    if (!prov || !city) return;
+    if (prov._locWired) return;
+    prov._locWired = true;
+    prov.addEventListener('change', function () {
+      refreshCitySelect('', '');
+    });
+    city.addEventListener('change', function () {
+      refreshBarangaySelect('');
+    });
+  }
+
+  function applySavedLocation(d) {
+    if (!geoIndexes) return;
+    wireLocationSelectors();
+    fillProvinceOptions();
+    var prov = (d && d.province) ? String(d.province).trim() : '';
+    var city = (d && d.city_municipality) ? String(d.city_municipality).trim() : '';
+    var brgy = (d && d.barangay) ? String(d.barangay).trim() : '';
+    var provEl = document.getElementById('fieldProvince');
+    ensureOption(provEl, prov, ' (saved)');
+    provEl.value = prov || '';
+    refreshCitySelect(city, brgy);
+  }
+
+  function setGenderRadio(g) {
+    var gm = document.getElementById('genderMale');
+    var gf = document.getElementById('genderFemale');
+    if (!gm || !gf) return;
+    var v = (g || '').trim();
+    gm.checked = (v === 'Male');
+    gf.checked = (v === 'Female');
+    if (v !== 'Male' && v !== 'Female') {
+      gm.checked = false;
+      gf.checked = false;
+    }
+  }
+
+  function loadGeoOnce() {
+    if (geoIndexes) return Promise.resolve();
+    return fetch(PH_GEO_JSON_URL)
+      .then(function (r) {
+        if (!r.ok) throw new Error('Could not load location list.');
+        return r.json();
+      })
+      .then(function (raw) {
+        buildGeoIndexes(raw);
+      });
+  }
+
+  function loadProfileData() {
+    return fetch(API, { credentials: 'same-origin' }).then(function (r) { return r.json(); });
+  }
+
+  function loadEverything() {
+    return loadGeoOnce().then(function () {
+      return loadProfileData();
+    }).then(function (prof) {
+      if (!prof.success) throw new Error(prof.message || 'Could not load profile.');
+      fillForm(prof.data || {});
+      applySavedLocation(prof.data || {});
+    });
+  }
+
+  function reloadProfileAfterSave() {
+    return loadProfileData().then(function (prof) {
+      if (!prof.success) throw new Error(prof.message || 'Could not load profile.');
+      fillForm(prof.data || {});
+      applySavedLocation(prof.data || {});
+    });
+  }
 
   function showToast(message, ok) {
     var el = document.getElementById('toast');
@@ -499,16 +759,22 @@ if (!isset($currentTenantSlug)) {
     document.getElementById('fieldEmail').value = d.email || '';
     document.getElementById('fieldFirst').value = d.first_name || '';
     document.getElementById('fieldLast').value = d.last_name || '';
+    var fc = document.getElementById('fieldContact');
+    if (fc) fc.value = d.contact_number || '';
+    var fs = document.getElementById('fieldStreet');
+    if (fs) fs.value = d.house_street || '';
+    setGenderRadio(d.gender || '');
 
     var displayName = ((d.first_name || '') + ' ' + (d.last_name || '')).trim() || (d.full_name || 'Staff');
     document.getElementById('profileDisplayName').textContent = displayName;
 
     var isDentist = IS_DENTIST_PORTAL || (d.profile_kind === 'dentist');
+    var isManager = IS_MANAGER_PORTAL || (d.profile_kind === 'manager');
     var intro = document.getElementById('profileIntroCopy');
     if (intro) {
       intro.textContent = isDentist
         ? 'Keep your professional details accurate. Updates apply to your dentist profile only.'
-        : (IS_MANAGER_PORTAL
+        : (isManager
           ? 'Keep your clinic identity accurate. Changes here sync with your manager account across the portal.'
           : 'Keep your clinic identity accurate. Changes here sync with your staff account across the portal.');
     }
@@ -520,8 +786,8 @@ if (!isset($currentTenantSlug)) {
       sid = d.dentist_display_id || '';
       idLabel = 'Dentist ID: ';
       idFallback = 'Dentist profile';
-    } else if (IS_MANAGER_PORTAL) {
-      sid = SESSION_MANAGER_ID || '';
+    } else if (isManager) {
+      sid = d.manager_display_id || SESSION_MANAGER_ID || '';
       idLabel = 'Manager ID: ';
       idFallback = 'Manager profile';
     } else {
@@ -539,17 +805,14 @@ if (!isset($currentTenantSlug)) {
       username: d.username || '',
       email: d.email || '',
       first_name: d.first_name || '',
-      last_name: d.last_name || ''
+      last_name: d.last_name || '',
+      contact_number: d.contact_number || '',
+      house_street: d.house_street || '',
+      gender: d.gender || '',
+      province: d.province || '',
+      city_municipality: d.city_municipality || '',
+      barangay: d.barangay || ''
     };
-  }
-
-  function loadProfile() {
-    return fetch(API, { credentials: 'same-origin' })
-      .then(function (r) { return r.json(); })
-      .then(function (j) {
-        if (!j.success) throw new Error(j.message || 'Could not load profile.');
-        fillForm(j.data || {});
-      });
   }
 
   document.getElementById('personalCancelBtn').addEventListener('click', function () {
@@ -557,6 +820,18 @@ if (!isset($currentTenantSlug)) {
     document.getElementById('fieldEmail').value = personalSnapshot.email;
     document.getElementById('fieldFirst').value = personalSnapshot.first_name;
     document.getElementById('fieldLast').value = personalSnapshot.last_name;
+    var fc = document.getElementById('fieldContact');
+    if (fc) fc.value = personalSnapshot.contact_number;
+    var fs = document.getElementById('fieldStreet');
+    if (fs) fs.value = personalSnapshot.house_street;
+    setGenderRadio(personalSnapshot.gender);
+    if (geoIndexes) {
+      applySavedLocation({
+        province: personalSnapshot.province,
+        city_municipality: personalSnapshot.city_municipality,
+        barangay: personalSnapshot.barangay
+      });
+    }
     document.getElementById('personalFormError').classList.add('hidden');
   });
 
@@ -566,11 +841,22 @@ if (!isset($currentTenantSlug)) {
     err.classList.add('hidden');
     var btn = document.getElementById('personalSaveBtn');
     btn.disabled = true;
+    var gMale = document.getElementById('genderMale');
+    var gFemale = document.getElementById('genderFemale');
+    var gVal = '';
+    if (gMale && gMale.checked) gVal = 'Male';
+    else if (gFemale && gFemale.checked) gVal = 'Female';
     var body = {
       username: document.getElementById('fieldUsername').value.trim(),
       email: document.getElementById('fieldEmail').value.trim(),
       first_name: document.getElementById('fieldFirst').value.trim(),
-      last_name: document.getElementById('fieldLast').value.trim()
+      last_name: document.getElementById('fieldLast').value.trim(),
+      contact_number: document.getElementById('fieldContact') ? document.getElementById('fieldContact').value.trim() : '',
+      gender: gVal,
+      house_street: document.getElementById('fieldStreet') ? document.getElementById('fieldStreet').value.trim() : '',
+      province: document.getElementById('fieldProvince') ? document.getElementById('fieldProvince').value.trim() : '',
+      city_municipality: document.getElementById('fieldCity') ? document.getElementById('fieldCity').value.trim() : '',
+      barangay: document.getElementById('fieldBarangay') ? document.getElementById('fieldBarangay').value.trim() : ''
     };
     fetch(API, {
       method: 'PUT',
@@ -581,7 +867,7 @@ if (!isset($currentTenantSlug)) {
       .then(function (r) { return r.json(); })
       .then(function (j) {
         if (!j.success) throw new Error(j.message || 'Save failed.');
-        return loadProfile();
+        return reloadProfileAfterSave();
       })
       .then(function () {
         showConfirmModal('Your profile has been changed.');
@@ -812,7 +1098,7 @@ if (!isset($currentTenantSlug)) {
       .finally(function () { btn.disabled = false; });
   });
 
-  loadProfile().catch(function (ex) {
+  loadEverything().catch(function (ex) {
     showToast(ex.message || 'Could not load profile.', false);
     document.getElementById('profileDisplayName').textContent = 'Profile';
   });

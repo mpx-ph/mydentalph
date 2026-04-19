@@ -60,6 +60,11 @@ function admin_profile_is_dentist_session(): bool
     return ($_SESSION['user_type'] ?? '') === 'doctor';
 }
 
+function admin_profile_is_manager_session(): bool
+{
+    return ($_SESSION['user_type'] ?? '') === 'manager';
+}
+
 /**
  * @return array<string, mixed>|null
  */
@@ -195,14 +200,16 @@ function getProfile(): void
                 'dentist_display_id' => trim((string) ($dentist['dentist_display_id'] ?? '')),
                 'staff_table_id' => 0,
                 'staff_display_id' => '',
+                'manager_table_id' => 0,
+                'manager_display_id' => '',
                 'first_name' => $firstName,
                 'last_name' => $lastName,
                 'contact_number' => (string) ($dentist['contact_number'] ?? ''),
-                'gender' => '',
-                'house_street' => '',
-                'barangay' => '',
-                'city_municipality' => '',
-                'province' => '',
+                'gender' => (string) ($dentist['gender'] ?? ''),
+                'house_street' => (string) ($dentist['house_street'] ?? ''),
+                'barangay' => (string) ($dentist['barangay'] ?? ''),
+                'city_municipality' => (string) ($dentist['city_municipality'] ?? ''),
+                'province' => (string) ($dentist['province'] ?? ''),
                 'profile_image' => $primaryImg,
                 'profile_image_url' => $photoUrl,
                 'username' => (string) ($user['username'] ?? ''),
@@ -210,6 +217,58 @@ function getProfile(): void
                 'full_name' => trim((string) ($user['full_name'] ?? '')),
                 'user_photo' => $userPhoto,
                 'source' => 'dentists',
+            ];
+
+            jsonResponse(true, 'Profile retrieved successfully.', $payload);
+        }
+
+        if (admin_profile_is_manager_session()) {
+            $stmt = $pdo->prepare('SELECT * FROM tbl_managers WHERE user_id = ? AND tenant_id = ? LIMIT 1');
+            $stmt->execute([$userId, $tenantId]);
+            $manager = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($manager)) {
+                jsonResponse(false, 'Manager profile is not linked to this account. Contact your clinic administrator.');
+            }
+
+            $firstName = (string) ($manager['first_name'] ?? '');
+            $lastName = (string) ($manager['last_name'] ?? '');
+            if ($firstName === '' && $lastName === '') {
+                $full = trim((string) ($user['full_name'] ?? ''));
+                if ($full !== '') {
+                    $parts = preg_split('/\s+/', $full, 2, PREG_SPLIT_NO_EMPTY);
+                    $firstName = (string) ($parts[0] ?? '');
+                    $lastName = (string) ($parts[1] ?? '');
+                }
+            }
+
+            $mgrRel = trim((string) ($manager['profile_image'] ?? ''));
+            $userPhoto = trim((string) ($user['photo'] ?? ''));
+            $primaryImg = $mgrRel !== '' ? $mgrRel : $userPhoto;
+            $photoUrl = admin_profile_image_public_url($primaryImg !== '' ? $primaryImg : null);
+
+            $payload = [
+                'profile_kind' => 'manager',
+                'dentist_table_pk' => 0,
+                'dentist_display_id' => '',
+                'staff_table_id' => 0,
+                'staff_display_id' => '',
+                'manager_table_id' => (int) ($manager['id'] ?? 0),
+                'manager_display_id' => trim((string) ($manager['manager_id'] ?? '')),
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'contact_number' => (string) ($manager['contact_number'] ?? ''),
+                'gender' => (string) ($manager['gender'] ?? ''),
+                'house_street' => (string) ($manager['house_street'] ?? ''),
+                'barangay' => (string) ($manager['barangay'] ?? ''),
+                'city_municipality' => (string) ($manager['city_municipality'] ?? ''),
+                'province' => (string) ($manager['province'] ?? ''),
+                'profile_image' => $primaryImg,
+                'profile_image_url' => $photoUrl,
+                'username' => (string) ($user['username'] ?? ''),
+                'email' => (string) ($user['email'] ?? ''),
+                'full_name' => trim((string) ($user['full_name'] ?? '')),
+                'user_photo' => $userPhoto,
+                'source' => 'managers',
             ];
 
             jsonResponse(true, 'Profile retrieved successfully.', $payload);
@@ -243,6 +302,8 @@ function getProfile(): void
             'profile_kind' => 'staff',
             'dentist_table_pk' => 0,
             'dentist_display_id' => '',
+            'manager_table_id' => 0,
+            'manager_display_id' => '',
             'staff_table_id' => is_array($staff) ? (int) ($staff['id'] ?? 0) : 0,
             'staff_display_id' => is_array($staff) ? (string) ($staff['staff_id'] ?? '') : '',
             'first_name' => $firstName,
@@ -366,11 +427,16 @@ function updatePersonalDetails(string $userId, array $input): void
             jsonResponse(false, 'User not found.');
         }
 
+        $genderIn = trim((string) ($input['gender'] ?? ''));
+        if ($genderIn !== '' && $genderIn !== 'Male' && $genderIn !== 'Female') {
+            jsonResponse(false, 'Gender must be Male or Female.');
+        }
+
         $staffData = [
             'first_name' => sanitize($input['first_name'] ?? ''),
             'last_name' => sanitize($input['last_name'] ?? ''),
             'contact_number' => sanitize($input['contact_number'] ?? ''),
-            'gender' => sanitize($input['gender'] ?? ''),
+            'gender' => $genderIn,
             'house_street' => sanitize($input['house_street'] ?? ''),
             'barangay' => sanitize($input['barangay'] ?? ''),
             'city_municipality' => sanitize($input['city_municipality'] ?? ''),
@@ -430,14 +496,83 @@ function updatePersonalDetails(string $userId, array $input): void
                 UPDATE tbl_dentists SET
                     first_name = ?,
                     last_name = ?,
-                    email = ?
+                    email = ?,
+                    contact_number = ?,
+                    gender = ?,
+                    house_street = ?,
+                    barangay = ?,
+                    city_municipality = ?,
+                    province = ?,
+                    updated_at = NOW()
                 WHERE dentist_id = ? AND tenant_id = ?
             ');
             $stmt->execute([
                 $staffData['first_name'],
                 $staffData['last_name'],
                 $dentistEmail,
+                $staffData['contact_number'] !== '' ? $staffData['contact_number'] : null,
+                $staffData['gender'] !== '' ? $staffData['gender'] : null,
+                $staffData['house_street'] !== '' ? $staffData['house_street'] : null,
+                $staffData['barangay'] !== '' ? $staffData['barangay'] : null,
+                $staffData['city_municipality'] !== '' ? $staffData['city_municipality'] : null,
+                $staffData['province'] !== '' ? $staffData['province'] : null,
                 $dentistPk,
+                $tenantId,
+            ]);
+
+            $stmt = $pdo->prepare('
+                UPDATE tbl_users SET
+                    email = ?,
+                    username = ?,
+                    full_name = ?,
+                    updated_at = NOW()
+                WHERE user_id = ? AND tenant_id = ?
+            ');
+            $stmt->execute([
+                $accountData['email'],
+                $accountData['username'],
+                $fullName,
+                $userId,
+                $tenantId,
+            ]);
+
+            $_SESSION['user_name'] = $fullName;
+            $_SESSION['user_email'] = $accountData['email'];
+
+            jsonResponse(true, 'Profile updated successfully.');
+        }
+
+        if (admin_profile_is_manager_session()) {
+            $stmt = $pdo->prepare('SELECT id FROM tbl_managers WHERE user_id = ? AND tenant_id = ? LIMIT 1');
+            $stmt->execute([$userId, $tenantId]);
+            $existingManager = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$existingManager) {
+                jsonResponse(false, 'Manager profile is not linked to this account.');
+            }
+
+            $stmt = $pdo->prepare('
+                UPDATE tbl_managers SET
+                    first_name = ?,
+                    last_name = ?,
+                    contact_number = ?,
+                    gender = ?,
+                    house_street = ?,
+                    barangay = ?,
+                    city_municipality = ?,
+                    province = ?,
+                    updated_at = NOW()
+                WHERE id = ? AND tenant_id = ?
+            ');
+            $stmt->execute([
+                $staffData['first_name'],
+                $staffData['last_name'],
+                $staffData['contact_number'] !== '' ? $staffData['contact_number'] : null,
+                $staffData['gender'] !== '' ? $staffData['gender'] : null,
+                $staffData['house_street'] !== '' ? $staffData['house_street'] : null,
+                $staffData['barangay'] !== '' ? $staffData['barangay'] : null,
+                $staffData['city_municipality'] !== '' ? $staffData['city_municipality'] : null,
+                $staffData['province'] !== '' ? $staffData['province'] : null,
+                (int) $existingManager['id'],
                 $tenantId,
             ]);
 
@@ -777,6 +912,16 @@ function uploadPhoto(): void
             if (!empty($dentist['profile_image'])) {
                 $oldPath = (string) $dentist['profile_image'];
             }
+        } elseif (admin_profile_is_manager_session()) {
+            $stmt = $pdo->prepare('SELECT id, profile_image FROM tbl_managers WHERE user_id = ? AND tenant_id = ? LIMIT 1');
+            $stmt->execute([$userId, $tenantId]);
+            $existingManager = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$existingManager) {
+                jsonResponse(false, 'Manager profile is not linked to this account.');
+            }
+            if (!empty($existingManager['profile_image'])) {
+                $oldPath = (string) $existingManager['profile_image'];
+            }
         } else {
             $stmt = $pdo->prepare('SELECT id, profile_image FROM tbl_staffs WHERE user_id = ? AND tenant_id = ? LIMIT 1');
             $stmt->execute([$userId, $tenantId]);
@@ -790,8 +935,16 @@ function uploadPhoto(): void
             $oldPath = (string) $userRow['photo'];
         }
 
-        $uploadDir = $isDentist ? 'uploads/dentists/' : 'uploads/staffs/';
-        $uploadPrefix = $isDentist ? 'dentist_' : 'staff_';
+        if ($isDentist) {
+            $uploadDir = 'uploads/dentists/';
+            $uploadPrefix = 'dentist_';
+        } elseif (admin_profile_is_manager_session()) {
+            $uploadDir = 'uploads/managers/';
+            $uploadPrefix = 'manager_';
+        } else {
+            $uploadDir = 'uploads/staffs/';
+            $uploadPrefix = 'staff_';
+        }
         $photoResult = saveBase64Image($input['photo'], $uploadDir, $uploadPrefix);
         if (!$photoResult['success']) {
             jsonResponse(false, !empty($photoResult['message']) ? $photoResult['message'] : 'Failed to upload photo.');
@@ -814,6 +967,15 @@ function uploadPhoto(): void
             admin_profile_ensure_dentist_display_id($pdo, $tenantId, $dentist);
             $stmt = $pdo->prepare('UPDATE tbl_dentists SET profile_image = ? WHERE dentist_id = ? AND tenant_id = ?');
             $stmt->execute([$profileImagePath, $dentistPk, $tenantId]);
+        } elseif (admin_profile_is_manager_session()) {
+            $stmt = $pdo->prepare('SELECT id FROM tbl_managers WHERE user_id = ? AND tenant_id = ? LIMIT 1');
+            $stmt->execute([$userId, $tenantId]);
+            $mgrRow = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$mgrRow) {
+                jsonResponse(false, 'Manager profile is not linked to this account.');
+            }
+            $stmt = $pdo->prepare('UPDATE tbl_managers SET profile_image = ?, updated_at = NOW() WHERE id = ? AND tenant_id = ?');
+            $stmt->execute([$profileImagePath, (int) $mgrRow['id'], $tenantId]);
         } else {
             $stmt = $pdo->prepare('SELECT id, profile_image FROM tbl_staffs WHERE user_id = ? AND tenant_id = ? LIMIT 1');
             $stmt->execute([$userId, $tenantId]);
