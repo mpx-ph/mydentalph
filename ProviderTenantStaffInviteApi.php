@@ -95,6 +95,17 @@ function tenant_staff_invite_next_staff_display_id(PDO $pdo, string $tenant_id):
     return 'S-' . $year . '-' . $sequence;
 }
 
+function tenant_staff_invite_next_manager_display_id(PDO $pdo, string $tenant_id): string
+{
+    $year = date('Y');
+    $stmt = $pdo->prepare('SELECT COUNT(*) AS c FROM tbl_managers WHERE tenant_id = ? AND manager_id LIKE ?');
+    $stmt->execute([$tenant_id, 'M-' . $year . '-%']);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $count = (int) ($row['c'] ?? 0);
+    $sequence = str_pad((string) ($count + 1), 5, '0', STR_PAD_LEFT);
+    return 'M-' . $year . '-' . $sequence;
+}
+
 function tenant_staff_invite_next_dentist_display_id(PDO $pdo, string $tenant_id): string
 {
     $year = date('Y');
@@ -262,6 +273,14 @@ if ($action === 'send_code' || $action === 'resend') {
                     echo json_encode(['ok' => false, 'error' => 'You already have a dentist profile for this clinic.']);
                     exit;
                 }
+            } elseif ($role_db === 'manager') {
+                $stmt = $pdo->prepare('SELECT 1 FROM tbl_managers WHERE tenant_id = ? AND user_id = ? LIMIT 1');
+                $stmt->execute([$tenant_id, $inviter_user_id]);
+                if ((bool) $stmt->fetchColumn()) {
+                    http_response_code(400);
+                    echo json_encode(['ok' => false, 'error' => 'You already have a manager profile for this clinic.']);
+                    exit;
+                }
             } else {
                 $stmt = $pdo->prepare('SELECT 1 FROM tbl_staffs WHERE tenant_id = ? AND user_id = ? LIMIT 1');
                 $stmt->execute([$tenant_id, $inviter_user_id]);
@@ -380,6 +399,28 @@ if ($action === 'verify') {
                     (string) $payload['last'],
                     $owner_email
                 );
+            } elseif ($invite_role === 'manager') {
+                $stmt = $pdo->prepare('SELECT 1 FROM tbl_managers WHERE tenant_id = ? AND user_id = ? LIMIT 1');
+                $stmt->execute([$tenant_id, $uid]);
+                if ((bool) $stmt->fetchColumn()) {
+                    $pdo->rollBack();
+                    tenant_staff_invite_clear_session();
+                    echo json_encode(['ok' => true, 'message' => 'Your manager profile was already active.']);
+                    exit;
+                }
+
+                $manager_display = tenant_staff_invite_next_manager_display_id($pdo, $tenant_id);
+                $stmt = $pdo->prepare('
+                    INSERT INTO tbl_managers (tenant_id, manager_id, user_id, first_name, last_name, created_at)
+                    VALUES (?, ?, ?, ?, ?, NOW())
+                ');
+                $stmt->execute([
+                    $tenant_id,
+                    $manager_display,
+                    $uid,
+                    $payload['first'],
+                    $payload['last'],
+                ]);
             } else {
                 $stmt = $pdo->prepare('SELECT 1 FROM tbl_staffs WHERE tenant_id = ? AND user_id = ? LIMIT 1');
                 $stmt->execute([$tenant_id, $uid]);
@@ -442,6 +483,19 @@ if ($action === 'verify') {
                     (string) $payload['last'],
                     $email
                 );
+            } elseif ($role === 'manager') {
+                $manager_display = tenant_staff_invite_next_manager_display_id($pdo, $tenant_id);
+                $stmt = $pdo->prepare('
+                    INSERT INTO tbl_managers (tenant_id, manager_id, user_id, first_name, last_name, created_at)
+                    VALUES (?, ?, ?, ?, ?, NOW())
+                ');
+                $stmt->execute([
+                    $tenant_id,
+                    $manager_display,
+                    $new_user_id,
+                    $payload['first'],
+                    $payload['last'],
+                ]);
             } else {
                 $staff_display = tenant_staff_invite_next_staff_display_id($pdo, $tenant_id);
                 $stmt = $pdo->prepare('
@@ -473,6 +527,8 @@ if ($action === 'verify') {
     $ownerMsg = 'Your staff profile is ready. You can use the clinic portal with your existing login.';
     if ($owner_mode && (string) ($payload['role'] ?? '') === 'dentist') {
         $ownerMsg = 'Your dentist profile is ready. You can use the clinic portal with your existing login.';
+    } elseif ($owner_mode && (string) ($payload['role'] ?? '') === 'manager') {
+        $ownerMsg = 'Your manager profile is ready. You can use the clinic portal with your existing login.';
     }
     echo json_encode([
         'ok' => true,

@@ -65,6 +65,7 @@ function provider_tenant_fetch_team_members(PDO $pdo, string $tenant_id): array
         $st = $pdo->prepare(
             'SELECT u.user_id, u.email, u.full_name, u.role, u.status, u.last_active, u.last_login, u.updated_at,
                     COALESCE(
+                        NULLIF(TRIM(m.profile_image), \'\'),
                         NULLIF(TRIM(s.profile_image), \'\'),
                         NULLIF(TRIM((
                             SELECT d.profile_image FROM tbl_dentists d
@@ -77,6 +78,7 @@ function provider_tenant_fetch_team_members(PDO $pdo, string $tenant_id): array
                         NULLIF(TRIM(u.photo), \'\')
                     ) AS profile_image,
                     COALESCE(
+                        NULLIF(TRIM(m.first_name), \'\'),
                         NULLIF(TRIM(s.first_name), \'\'),
                         NULLIF(TRIM((
                             SELECT d.first_name FROM tbl_dentists d
@@ -88,6 +90,7 @@ function provider_tenant_fetch_team_members(PDO $pdo, string $tenant_id): array
                         )), \'\')
                     ) AS staff_first,
                     COALESCE(
+                        NULLIF(TRIM(m.last_name), \'\'),
                         NULLIF(TRIM(s.last_name), \'\'),
                         NULLIF(TRIM((
                             SELECT d.last_name FROM tbl_dentists d
@@ -99,6 +102,7 @@ function provider_tenant_fetch_team_members(PDO $pdo, string $tenant_id): array
                         )), \'\')
                     ) AS staff_last
              FROM tbl_users u
+             LEFT JOIN tbl_managers m ON m.tenant_id = u.tenant_id AND m.user_id = u.user_id
              LEFT JOIN tbl_staffs s ON s.tenant_id = u.tenant_id AND s.user_id = u.user_id
              WHERE u.tenant_id = ?
                AND u.role NOT IN (\'client\', \'superadmin\')
