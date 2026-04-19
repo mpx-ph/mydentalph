@@ -175,13 +175,27 @@ function provider_tenant_profile_image_url(?string $path): ?string
     if ($path === '') {
         return null;
     }
+    $path = str_replace('\\', '/', $path);
+    $path = preg_replace('#/+#', '/', $path) ?? $path;
+    if ($path === '') {
+        return null;
+    }
     if (preg_match('#^https?://#i', $path) === 1) {
         return $path;
     }
+
+    $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+    $baseDir = trim((string) dirname($scriptName));
+    $baseDir = $baseDir === '.' ? '' : rtrim($baseDir, '/');
+
     if ($path[0] === '/') {
+        if ($baseDir !== '' && strncmp($path, $baseDir . '/', strlen($baseDir) + 1) !== 0 && $path !== $baseDir) {
+            return $baseDir . $path;
+        }
         return $path;
     }
-    return '/' . ltrim($path, '/');
+
+    return ($baseDir !== '' ? $baseDir : '') . '/' . ltrim($path, '/');
 }
 
 $team_members_all = provider_tenant_fetch_team_members($pdo, $tenant_id);
