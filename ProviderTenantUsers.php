@@ -184,18 +184,37 @@ function provider_tenant_profile_image_url(?string $path): ?string
         return $path;
     }
 
-    $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
-    $baseDir = trim((string) dirname($scriptName));
-    $baseDir = $baseDir === '.' ? '' : rtrim($baseDir, '/');
+    $normalizedPath = ltrim($path, '/');
+    // Some rows store absolute filesystem paths; convert to web path segments.
+    if (preg_match('#^[a-zA-Z]:/#', $normalizedPath) === 1) {
+        $uploadsPos = stripos($normalizedPath, '/uploads/');
+        if ($uploadsPos !== false) {
+            $normalizedPath = ltrim(substr($normalizedPath, $uploadsPos), '/');
+        }
+    }
+    if (defined('BASE_URL') && trim((string) BASE_URL) !== '') {
+        $base = rtrim((string) BASE_URL, '/');
+        $basePath = (string) (parse_url($base, PHP_URL_PATH) ?? '');
+        $basePath = trim($basePath, '/');
+        if ($basePath !== '') {
+            $baseNeedle = '/' . strtolower($basePath) . '/';
+            $normalizedLower = '/' . strtolower($normalizedPath);
+            $basePos = strpos($normalizedLower, $baseNeedle);
+            if ($basePos !== false) {
+                $normalizedPath = ltrim(substr($normalizedPath, $basePos + strlen($baseNeedle) - 1), '/');
+            }
+        }
+        if ($basePath !== '' && strncmp($normalizedPath, $basePath . '/', strlen($basePath) + 1) === 0) {
+            $normalizedPath = ltrim(substr($normalizedPath, strlen($basePath)), '/');
+        }
+        return $base . '/' . $normalizedPath;
+    }
 
     if ($path[0] === '/') {
-        if ($baseDir !== '' && strncmp($path, $baseDir . '/', strlen($baseDir) + 1) !== 0 && $path !== $baseDir) {
-            return $baseDir . $path;
-        }
         return $path;
     }
 
-    return ($baseDir !== '' ? $baseDir : '') . '/' . ltrim($path, '/');
+    return '/' . $normalizedPath;
 }
 
 $team_members_all = provider_tenant_fetch_team_members($pdo, $tenant_id);
@@ -525,7 +544,8 @@ $team_total = count($team_members);
 <div class="flex items-center gap-3">
 <div class="w-11 h-11 rounded-2xl bg-primary/10 overflow-hidden ring-2 ring-primary/5 flex items-center justify-center shrink-0">
 <?php if ($imgUrl !== null) { ?>
-<img class="w-full h-full object-cover" src="<?php echo htmlspecialchars($imgUrl, ENT_QUOTES, 'UTF-8'); ?>" alt=""/>
+<img class="w-full h-full object-cover" src="<?php echo htmlspecialchars($imgUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="" onerror="this.style.display='none';if(this.nextElementSibling){this.nextElementSibling.style.display='inline-flex';}"/>
+<span class="text-xs font-black text-primary hidden items-center justify-center w-full h-full"><?php echo htmlspecialchars($initials, ENT_QUOTES, 'UTF-8'); ?></span>
 <?php } else { ?>
 <span class="text-xs font-black text-primary"><?php echo htmlspecialchars($initials, ENT_QUOTES, 'UTF-8'); ?></span>
 <?php } ?>
@@ -610,7 +630,8 @@ $team_total = count($team_members);
 <div class="flex items-center gap-4">
 <div class="w-12 h-12 rounded-2xl bg-primary/10 overflow-hidden ring-2 ring-primary/5 transition-transform duration-300 group-hover:scale-105 group-hover:ring-primary/20 flex items-center justify-center shrink-0">
 <?php if ($imgUrl !== null) { ?>
-<img class="w-full h-full object-cover" src="<?php echo htmlspecialchars($imgUrl, ENT_QUOTES, 'UTF-8'); ?>" alt=""/>
+<img class="w-full h-full object-cover" src="<?php echo htmlspecialchars($imgUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="" onerror="this.style.display='none';if(this.nextElementSibling){this.nextElementSibling.style.display='inline-flex';}"/>
+<span class="text-sm font-black text-primary hidden items-center justify-center w-full h-full"><?php echo htmlspecialchars($initials, ENT_QUOTES, 'UTF-8'); ?></span>
 <?php } else { ?>
 <span class="text-sm font-black text-primary"><?php echo htmlspecialchars($initials, ENT_QUOTES, 'UTF-8'); ?></span>
 <?php } ?>
