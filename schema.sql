@@ -487,39 +487,38 @@ CREATE TABLE IF NOT EXISTS tbl_reports (
 );
 
 -- ============================================
--- DENTIST SCHEDULES
+-- SCHEDULE BLOCKS (unified shifts/breaks/blocks for staff + dentists)
 -- ============================================
-CREATE TABLE IF NOT EXISTS tbl_dentist_schedules (
-    schedule_id INT AUTO_INCREMENT,
+-- Migration note for existing environments:
+-- If legacy schedule tables are still unused, drop and replace them:
+--   DROP TABLE IF EXISTS tbl_blocked_schedules;
+--   DROP TABLE IF EXISTS tbl_dentist_schedules;
+CREATE TABLE IF NOT EXISTS tbl_schedule_blocks (
+    schedule_block_id INT AUTO_INCREMENT,
     tenant_id VARCHAR(20) NOT NULL,
-    dentist_id INT NOT NULL,
-    day_of_week ENUM('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),
-    start_time TIME,
-    end_time TIME,
-    status ENUM('available','unavailable') DEFAULT 'available',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (schedule_id),
-    FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id),
-    FOREIGN KEY (dentist_id) REFERENCES tbl_dentists(dentist_id)
-);
-
--- ============================================
--- BLOCKED SCHEDULES
--- ============================================
-CREATE TABLE IF NOT EXISTS tbl_blocked_schedules (
-    block_id INT AUTO_INCREMENT PRIMARY KEY,
-    tenant_id VARCHAR(20) NOT NULL,
-    dentist_id INT DEFAULT NULL,
-    block_date DATE NOT NULL,
+    user_id VARCHAR(20) NOT NULL,
+    block_date DATE DEFAULT NULL COMMENT 'One-off schedule date',
+    day_of_week ENUM('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') DEFAULT NULL COMMENT 'Recurring weekly schedule',
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
-    reason TEXT,
-    created_by VARCHAR(20),
+    block_type ENUM('shift','break','blocked') NOT NULL DEFAULT 'shift',
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    notes TEXT,
+    created_by VARCHAR(20) DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_blocked_schedules_tenant (tenant_id),
-    KEY idx_blocked_schedules_date (tenant_id, block_date),
-    KEY idx_blocked_schedules_dentist (dentist_id),
-    KEY idx_blocked_schedules_created_by (created_by)
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (schedule_block_id),
+    KEY idx_schedule_blocks_tenant (tenant_id),
+    KEY idx_schedule_blocks_user_date (tenant_id, user_id, block_date),
+    KEY idx_schedule_blocks_user_day (tenant_id, user_id, day_of_week),
+    KEY idx_schedule_blocks_type (tenant_id, block_type),
+    KEY idx_schedule_blocks_created_by (created_by),
+    CONSTRAINT fk_schedule_blocks_tenant
+        FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id) ON DELETE CASCADE,
+    CONSTRAINT fk_schedule_blocks_user
+        FOREIGN KEY (user_id) REFERENCES tbl_users(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_schedule_blocks_created_by
+        FOREIGN KEY (created_by) REFERENCES tbl_users(user_id) ON DELETE SET NULL
 );
 
 -- ============================================
