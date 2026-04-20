@@ -9,6 +9,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/tenant.php';
+require_once __DIR__ . '/../includes/availability.php';
 
 header('Content-Type: application/json');
 
@@ -196,6 +197,8 @@ function createAppointment() {
     // Extract and sanitize data
     $data = [
         'patient_id' => isset($input['patient_id']) ? sanitize($input['patient_id']) : null,
+        'dentist_id' => isset($input['dentist_id']) ? sanitize($input['dentist_id']) : null,
+        'dentist_user_id' => isset($input['dentist_user_id']) ? sanitize($input['dentist_user_id']) : null,
         'appointment_date' => sanitize($input['appointment_date'] ?? ''),
         'appointment_time' => sanitize($input['appointment_time'] ?? ''),
         'procedure' => sanitize($input['procedure'] ?? ''), // Legacy support
@@ -210,6 +213,7 @@ function createAppointment() {
     
     // Validation
     $errors = [];
+    $availabilityDentistUserId = '';
     
     // Validate patient_id is provided
     if (empty($data['patient_id'])) {
@@ -287,6 +291,37 @@ function createAppointment() {
     if (empty($data['appointment_time'])) {
         $errors[] = 'Appointment time is required.';
     }
+
+    // Optional provider availability enforcement for booking pages that pass dentist info.
+    if (empty($errors) && (!empty($data['dentist_user_id']) || !empty($data['dentist_id']))) {
+        $dentistUserId = trim((string) ($data['dentist_user_id'] ?? ''));
+        if ($dentistUserId === '' && !empty($data['dentist_id'])) {
+            $dentistLookupStmt = $pdo->prepare("
+                SELECT user_id
+                FROM tbl_dentists
+                WHERE tenant_id = ?
+                  AND dentist_id = ?
+                LIMIT 1
+            ");
+            $dentistLookupStmt->execute([$tenantId, (int) $data['dentist_id']]);
+            $dentistLookup = $dentistLookupStmt->fetch(PDO::FETCH_ASSOC);
+            $dentistUserId = trim((string) ($dentistLookup['user_id'] ?? ''));
+        }
+        if ($dentistUserId === '') {
+            $errors[] = 'Selected staff/dentist is not available at this time';
+        } else {
+            $availabilityDentistUserId = $dentistUserId;
+            $slotStart = $data['appointment_date'] . ' ' . $data['appointment_time'];
+            try {
+                $slotEnd = (new DateTime($slotStart))->modify('+1 hour')->format('Y-m-d H:i:s');
+            } catch (Exception $e) {
+                $slotEnd = '';
+            }
+            if ($slotEnd === '' || !isUserAvailable($dentistUserId, $slotStart, $slotEnd)) {
+                $errors[] = 'Selected staff/dentist is not available at this time';
+            }
+        }
+    }
     
     // Validate services (new format) or procedure (legacy format)
     // Skip validation for follow-up appointments
@@ -314,6 +349,25 @@ function createAppointment() {
     
     try {
         $pdo->beginTransaction();
+
+        // Atomic re-check before any write to reduce double-booking races.
+        if ($availabilityDentistUserId !== '' && !empty($data['appointment_date']) && !empty($data['appointment_time'])) {
+            $slotStartAtomic = $data['appointment_date'] . ' ' . $data['appointment_time'];
+            try {
+                $slotEndAtomic = (new DateTime($slotStartAtomic))->modify('+1 hour')->format('Y-m-d H:i:s');
+            } catch (Exception $e) {
+                $slotEndAtomic = '';
+            }
+            if ($slotEndAtomic === '') {
+                $pdo->rollBack();
+                jsonResponse(false, 'Selected staff/dentist is not available at this time');
+            }
+            $atomicCheck = clinic_assert_user_available_atomic($pdo, $tenantId, $availabilityDentistUserId, $slotStartAtomic, $slotEndAtomic);
+            if (empty($atomicCheck['available'])) {
+                $pdo->rollBack();
+                jsonResponse(false, 'Selected staff/dentist is not available at this time');
+            }
+        }
         
         // Handle follow-up appointments differently
         if ($isFollowup && $followupBookingId && $followupInstallmentNumber) {

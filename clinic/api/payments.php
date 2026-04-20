@@ -9,6 +9,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/tenant.php';
+require_once __DIR__ . '/../includes/availability.php';
 
 header('Content-Type: application/json');
 
@@ -153,6 +154,7 @@ function createPayment() {
         jsonResponse(false, 'Patient not found.');
     }
     
+    $availabilitySafetyWarning = null;
     try {
         $pdo->beginTransaction();
         
@@ -189,6 +191,38 @@ function createPayment() {
                 jsonResponse(false, 'Booking not found.');
             }
             $bookingTreatmentId = trim((string) ($bookingRow['treatment_id'] ?? ''));
+
+            // Read-only safety check: if provider schedule is now incompatible with the booked slot,
+            // keep payment flow working but return a warning for downstream UI/ops visibility.
+            try {
+                $apptProviderStmt = $pdo->prepare("
+                    SELECT a.appointment_date, a.appointment_time, d.user_id
+                    FROM appointments a
+                    LEFT JOIN tbl_dentists d
+                      ON d.tenant_id = a.tenant_id
+                     AND d.dentist_id = a.dentist_id
+                    WHERE a.tenant_id = ?
+                      AND a.booking_id = ?
+                    LIMIT 1
+                ");
+                $apptProviderStmt->execute([$tenantId, $data['booking_id']]);
+                $apptProviderRow = $apptProviderStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+                if ($apptProviderRow) {
+                    $dentistUserId = trim((string) ($apptProviderRow['user_id'] ?? ''));
+                    $apptDate = trim((string) ($apptProviderRow['appointment_date'] ?? ''));
+                    $apptTime = trim((string) ($apptProviderRow['appointment_time'] ?? ''));
+                    if ($dentistUserId !== '' && $apptDate !== '' && $apptTime !== '') {
+                        $slotStart = $apptDate . ' ' . $apptTime;
+                        $slotEnd = (new DateTime($slotStart))->modify('+1 hour')->format('Y-m-d H:i:s');
+                        if (!isUserAvailable($dentistUserId, $slotStart, $slotEnd)) {
+                            $availabilitySafetyWarning = 'Assigned staff/dentist is currently unavailable for this booking timeslot.';
+                        }
+                    }
+                }
+            } catch (Throwable $availabilityProbeError) {
+                // Never interrupt payment flow for optional safety read.
+                $availabilitySafetyWarning = null;
+            }
 
             if ($bookingTreatmentId !== '') {
                 $treatStmt = $pdo->prepare("
@@ -344,7 +378,8 @@ function createPayment() {
         
         jsonResponse(true, 'Payment recorded successfully.', [
             'payment_id' => $paymentId,
-            'installment_number' => $installmentNumber
+            'installment_number' => $installmentNumber,
+            'availability_warning' => $availabilitySafetyWarning
         ]);
         
     } catch (Exception $e) {

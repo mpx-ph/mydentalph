@@ -3,6 +3,8 @@
  * Walk-in create: included from StaffWalkIn.php (action=create_walkin) or clinic/api/walkin_create.php.
  */
 
+require_once __DIR__ . '/availability.php';
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate');
 
@@ -117,13 +119,14 @@ try {
 
     $quotedDentists = clinic_quote_identifier($dentistsTable);
     $dentistCheckStmt = $pdo->prepare("
-        SELECT dentist_id
+        SELECT dentist_id, user_id
         FROM {$quotedDentists}
         WHERE tenant_id = ? AND dentist_id = ?
         LIMIT 1
     ");
     $dentistCheckStmt->execute([$tenantId, $dentistId]);
-    if (!$dentistCheckStmt->fetch(PDO::FETCH_ASSOC)) {
+    $dentistRow = $dentistCheckStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$dentistRow) {
         echo json_encode(['success' => false, 'message' => 'Selected dentist was not found for this clinic.']);
         exit;
     }
@@ -149,7 +152,23 @@ try {
         }
     }
 
+    $dentistUserId = trim((string) ($dentistRow['user_id'] ?? ''));
+    $slotStart = $appointmentDate . ' ' . $appointmentTime;
+    $slotEnd = (new DateTimeImmutable($slotStart, $clinicTz))->modify('+1 hour')->format('Y-m-d H:i:s');
+    if ($dentistUserId === '' || !isUserAvailable($dentistUserId, $slotStart, $slotEnd)) {
+        echo json_encode(['success' => false, 'message' => 'Selected staff/dentist is not available at this time']);
+        exit;
+    }
+
     $pdo->beginTransaction();
+    $atomicAvailability = clinic_assert_user_available_atomic($pdo, $tenantId, $dentistUserId, $slotStart, $slotEnd);
+    if (empty($atomicAvailability['available'])) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        echo json_encode(['success' => false, 'message' => 'Selected staff/dentist is not available at this time']);
+        exit;
+    }
 
     $bookingPrefix = 'BK-' . $nowClinic->format('Y') . '-';
     $sequence = 0;
