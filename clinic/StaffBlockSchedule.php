@@ -1,6 +1,78 @@
 <?php
 $staff_nav_active = 'block_schedule';
 require_once __DIR__ . '/config/config.php';
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+$pdo = getDBConnection();
+$tenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
+$selectedDate = isset($_GET['selected_date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $_GET['selected_date'])
+    ? (string) $_GET['selected_date']
+    : date('Y-m-d');
+
+$staffUsers = [];
+$selectedUserId = '';
+$scheduleBlocks = [];
+$usingFallbackRecurring = false;
+
+if ($tenantId !== '') {
+    $usersStmt = $pdo->prepare("
+        SELECT user_id, full_name, role
+        FROM tbl_users
+        WHERE tenant_id = ?
+          AND status = 'active'
+          AND role IN ('staff', 'dentist')
+        ORDER BY role ASC, full_name ASC
+    ");
+    $usersStmt->execute([$tenantId]);
+    $staffUsers = $usersStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!empty($staffUsers)) {
+        $requestedUserId = isset($_GET['user_id']) ? trim((string) $_GET['user_id']) : '';
+        $validUserIds = array_column($staffUsers, 'user_id');
+        $selectedUserId = in_array($requestedUserId, $validUserIds, true) ? $requestedUserId : $staffUsers[0]['user_id'];
+
+        $dateSpecificStmt = $pdo->prepare("
+            SELECT start_time, end_time, block_type
+            FROM tbl_schedule_blocks
+            WHERE tenant_id = ?
+              AND user_id = ?
+              AND is_active = 1
+              AND block_date = ?
+            ORDER BY start_time ASC
+        ");
+        $dateSpecificStmt->execute([$tenantId, $selectedUserId, $selectedDate]);
+        $scheduleBlocks = $dateSpecificStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($scheduleBlocks)) {
+            $dayOfWeek = date('l', strtotime($selectedDate));
+            $recurringStmt = $pdo->prepare("
+                SELECT start_time, end_time, block_type
+                FROM tbl_schedule_blocks
+                WHERE tenant_id = ?
+                  AND user_id = ?
+                  AND is_active = 1
+                  AND day_of_week = ?
+                  AND (block_date IS NULL OR block_date = '0000-00-00')
+                ORDER BY start_time ASC
+            ");
+            $recurringStmt->execute([$tenantId, $selectedUserId, $dayOfWeek]);
+            $scheduleBlocks = $recurringStmt->fetchAll(PDO::FETCH_ASSOC);
+            $usingFallbackRecurring = !empty($scheduleBlocks);
+        }
+    }
+}
+
+function formatScheduleTime($timeValue)
+{
+    $dateTime = DateTime::createFromFormat('H:i:s', (string) $timeValue);
+    if (!$dateTime) {
+        $dateTime = DateTime::createFromFormat('H:i', (string) $timeValue);
+    }
+    return $dateTime ? $dateTime->format('h:i A') : (string) $timeValue;
+}
 ?>
 <!DOCTYPE html>
 <html class="light" lang="en">
@@ -105,17 +177,27 @@ require_once __DIR__ . '/config/config.php';
         <section class="elevated-card p-7 rounded-3xl">
             <div class="flex items-center justify-between gap-4 mb-5">
                 <h2 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em]">Top Controls</h2>
-                <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Placeholder UI Only</div>
+                <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Live Schedule Filter</div>
             </div>
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <form method="get" class="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 <div class="lg:col-span-4">
                     <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Select Staff / Dentist</label>
                     <div class="relative">
                         <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">person</span>
-                        <select class="schedule-input w-full py-3 pl-10 pr-10 appearance-none">
-                            <option selected>Dr. Samantha Cruz</option>
-                            <option>Dr. Adrian Santos</option>
-                            <option>Staff Maria Lopez</option>
+                        <select name="user_id" class="schedule-input w-full py-3 pl-10 pr-10 appearance-none">
+                            <?php if (empty($staffUsers)): ?>
+                                <option value="">No active staff/dentist</option>
+                            <?php else: ?>
+                                <?php foreach ($staffUsers as $user): ?>
+                                    <?php
+                                    $isSelected = $selectedUserId === (string) $user['user_id'];
+                                    $roleLabel = ((string) $user['role'] === 'dentist') ? 'Dr.' : 'Staff';
+                                    ?>
+                                    <option value="<?php echo htmlspecialchars((string) $user['user_id'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isSelected ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($roleLabel . ' ' . (string) $user['full_name'], ENT_QUOTES, 'UTF-8'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </select>
                         <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none">expand_more</span>
                     </div>
@@ -124,13 +206,16 @@ require_once __DIR__ . '/config/config.php';
                     <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Date</label>
                     <div class="relative">
                         <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">calendar_today</span>
-                        <input type="date" class="schedule-input w-full py-3 pl-10 pr-4"/>
+                        <input type="date" name="selected_date" value="<?php echo htmlspecialchars($selectedDate, ENT_QUOTES, 'UTF-8'); ?>" class="schedule-input w-full py-3 pl-10 pr-4"/>
                     </div>
                 </div>
                 <div class="lg:col-span-5 flex flex-wrap items-end gap-3">
-                    <button type="button" class="px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-xs uppercase tracking-widest hover:border-primary/30 hover:text-primary transition-colors">
-                        Today
+                    <button type="submit" class="px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-xs uppercase tracking-widest hover:border-primary/30 hover:text-primary transition-colors">
+                        Apply
                     </button>
+                    <a href="?selected_date=<?php echo urlencode(date('Y-m-d')); ?>&user_id=<?php echo urlencode($selectedUserId); ?>" class="px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-xs uppercase tracking-widest hover:border-primary/30 hover:text-primary transition-colors">
+                        Today
+                    </a>
                     <button type="button" data-open-modal="addBreakModal" class="px-5 py-3 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs uppercase tracking-widest transition-colors shadow-sm">
                         Add Break
                     </button>
@@ -141,40 +226,49 @@ require_once __DIR__ . '/config/config.php';
                         Manager Only
                     </span>
                 </div>
-            </div>
+            </form>
         </section>
 
         <section class="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start">
             <div class="xl:col-span-3 elevated-card rounded-3xl p-7">
                 <div class="flex items-center justify-between gap-4 mb-6">
                     <h3 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em]">Daily Timeline</h3>
-                    <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Static Dummy Blocks</div>
+                    <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        <?php echo $usingFallbackRecurring ? 'Recurring Schedule' : 'Date-Specific Schedule'; ?>
+                    </div>
                 </div>
                 <div class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-6 gap-3 md:gap-4 items-center">
-                        <div class="md:col-span-2 text-sm font-bold text-slate-700">08:00 AM - 10:00 AM</div>
-                        <div class="md:col-span-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 px-4 py-3 font-bold text-xs uppercase tracking-[0.15em]">
-                            Available Block
+                    <?php if (empty($scheduleBlocks)): ?>
+                        <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-600">
+                            No schedule available for this date
                         </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-6 gap-3 md:gap-4 items-center">
-                        <div class="md:col-span-2 text-sm font-bold text-slate-700">10:00 AM - 11:00 AM</div>
-                        <div class="md:col-span-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 px-4 py-3 font-bold text-xs uppercase tracking-[0.15em]">
-                            Break Block
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-6 gap-3 md:gap-4 items-center">
-                        <div class="md:col-span-2 text-sm font-bold text-slate-700">11:00 AM - 01:00 PM</div>
-                        <div class="md:col-span-4 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 px-4 py-3 font-bold text-xs uppercase tracking-[0.15em]">
-                            Appointment Block
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-6 gap-3 md:gap-4 items-center">
-                        <div class="md:col-span-2 text-sm font-bold text-slate-700">01:00 PM - 05:00 PM</div>
-                        <div class="md:col-span-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 px-4 py-3 font-bold text-xs uppercase tracking-[0.15em]">
-                            Available Block
-                        </div>
-                    </div>
+                    <?php else: ?>
+                        <?php foreach ($scheduleBlocks as $block): ?>
+                            <?php
+                            $normalizedType = strtolower((string) ($block['block_type'] ?? ''));
+                            $isBreakBlock = ($normalizedType === 'break');
+                            $isWorkBlock = ($normalizedType === 'work' || $normalizedType === 'shift');
+                            if ($isBreakBlock) {
+                                $styleClass = 'border-rose-200 bg-rose-50 text-rose-700';
+                                $typeLabel = 'Break';
+                            } elseif ($isWorkBlock) {
+                                $styleClass = 'border-emerald-200 bg-emerald-50 text-emerald-700';
+                                $typeLabel = 'Available';
+                            } else {
+                                $styleClass = 'border-slate-200 bg-slate-50 text-slate-700';
+                                $typeLabel = ucfirst($normalizedType !== '' ? $normalizedType : 'Block');
+                            }
+                            ?>
+                            <div class="grid grid-cols-1 md:grid-cols-6 gap-3 md:gap-4 items-center">
+                                <div class="md:col-span-2 text-sm font-bold text-slate-700">
+                                    <?php echo htmlspecialchars(formatScheduleTime($block['start_time']) . ' - ' . formatScheduleTime($block['end_time']), ENT_QUOTES, 'UTF-8'); ?>
+                                </div>
+                                <div class="md:col-span-4 rounded-xl border px-4 py-3 font-bold text-xs uppercase tracking-[0.15em] <?php echo $styleClass; ?>">
+                                    <?php echo htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8'); ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -188,10 +282,6 @@ require_once __DIR__ . '/config/config.php';
                     <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2.5">
                         <span class="w-3 h-3 rounded-full bg-rose-500"></span>
                         <span class="text-sm font-semibold text-slate-700">Break</span>
-                    </div>
-                    <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2.5">
-                        <span class="w-3 h-3 rounded-full bg-blue-500"></span>
-                        <span class="text-sm font-semibold text-slate-700">Appointment</span>
                     </div>
                 </div>
             </aside>
