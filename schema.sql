@@ -489,10 +489,6 @@ CREATE TABLE IF NOT EXISTS tbl_reports (
 -- ============================================
 -- SCHEDULE BLOCKS (unified shifts/breaks/blocks for staff + dentists)
 -- ============================================
--- Migration note for existing environments:
--- If legacy schedule tables are still unused, drop and replace them:
---   DROP TABLE IF EXISTS tbl_blocked_schedules;
---   DROP TABLE IF EXISTS tbl_dentist_schedules;
 CREATE TABLE IF NOT EXISTS tbl_schedule_blocks (
     schedule_block_id INT AUTO_INCREMENT,
     tenant_id VARCHAR(20) NOT NULL,

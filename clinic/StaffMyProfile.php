@@ -245,23 +245,23 @@ if (!isset($currentTenantSlug)) {
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                             <div class="sm:col-span-2">
                                 <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldUsername">Username</label>
-                                <input id="fieldUsername" name="username" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="text" autocomplete="username" required/>
+                                <input id="fieldUsername" name="username" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="text" autocomplete="username" minlength="3" maxlength="50" pattern="[A-Za-z0-9._-]+" title="Use 3 to 50 characters. Letters, numbers, dot, underscore, and hyphen only." required/>
                             </div>
                             <div class="sm:col-span-2">
                                 <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldEmail">Email address</label>
-                                <input id="fieldEmail" name="email" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="email" autocomplete="email" required/>
+                                <input id="fieldEmail" name="email" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="email" autocomplete="email" maxlength="120" required/>
                             </div>
                             <div>
                                 <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldFirst">First name</label>
-                                <input id="fieldFirst" name="first_name" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="text" autocomplete="given-name" required/>
+                                <input id="fieldFirst" name="first_name" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="text" autocomplete="given-name" minlength="2" maxlength="60" pattern="[A-Za-z .'-]+" title="Use 2 to 60 characters. Letters, spaces, apostrophe, period, and hyphen only." required/>
                             </div>
                             <div>
                                 <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldLast">Last name</label>
-                                <input id="fieldLast" name="last_name" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="text" autocomplete="family-name" required/>
+                                <input id="fieldLast" name="last_name" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="text" autocomplete="family-name" minlength="2" maxlength="60" pattern="[A-Za-z .'-]+" title="Use 2 to 60 characters. Letters, spaces, apostrophe, period, and hyphen only." required/>
                             </div>
                             <div class="sm:col-span-2">
                                 <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldContact">Contact number</label>
-                                <input id="fieldContact" name="contact_number" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="tel" autocomplete="tel" placeholder="e.g. 09XX XXX XXXX"/>
+                                <input id="fieldContact" name="contact_number" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="tel" autocomplete="tel" inputmode="numeric" maxlength="11" pattern="^(09\d{9})?$" title="Use 11 digits starting with 09, or leave blank." placeholder="e.g. 09XX XXX XXXX"/>
                             </div>
                             <div class="sm:col-span-2">
                                 <span class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2">Gender</span>
@@ -278,23 +278,23 @@ if (!isset($currentTenantSlug)) {
                             </div>
                             <div class="sm:col-span-2">
                                 <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldStreet">Street no. / street name</label>
-                                <input id="fieldStreet" name="house_street" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="text" autocomplete="street-address" placeholder="House / building / street"/>
+                                <input id="fieldStreet" name="house_street" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="text" autocomplete="street-address" maxlength="120" placeholder="House / building / street"/>
                             </div>
                             <div>
                                 <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldProvince">Province</label>
-                                <select id="fieldProvince" name="province" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm">
+                                <select id="fieldProvince" name="province" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" required>
                                     <option value="">Select province</option>
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldCity">City / Municipality</label>
-                                <select id="fieldCity" name="city_municipality" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" disabled>
+                                <select id="fieldCity" name="city_municipality" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" disabled required>
                                     <option value="">Select city or municipality</option>
                                 </select>
                             </div>
                             <div class="sm:col-span-2">
                                 <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldBarangay">Barangay</label>
-                                <select id="fieldBarangay" name="barangay" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" disabled>
+                                <select id="fieldBarangay" name="barangay" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" disabled required>
                                     <option value="">Select barangay</option>
                                 </select>
                             </div>
@@ -858,6 +858,63 @@ if (!isset($currentTenantSlug)) {
       city_municipality: document.getElementById('fieldCity') ? document.getElementById('fieldCity').value.trim() : '',
       barangay: document.getElementById('fieldBarangay') ? document.getElementById('fieldBarangay').value.trim() : ''
     };
+
+    var usernamePattern = /^[A-Za-z0-9._-]{3,50}$/;
+    var namePattern = /^[A-Za-z .'-]{2,60}$/;
+    var emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    var contactPattern = /^09\d{9}$/;
+
+    function showPersonalError(message, fieldId) {
+      err.textContent = message;
+      err.classList.remove('hidden');
+      btn.disabled = false;
+      if (fieldId) {
+        var field = document.getElementById(fieldId);
+        if (field && typeof field.focus === 'function') field.focus();
+      }
+    }
+
+    if (!usernamePattern.test(body.username)) {
+      showPersonalError('Username must be 3 to 50 characters and can only use letters, numbers, dot, underscore, and hyphen.', 'fieldUsername');
+      return;
+    }
+    if (!emailPattern.test(body.email) || body.email.length > 120) {
+      showPersonalError('Please enter a valid email address (maximum 120 characters).', 'fieldEmail');
+      return;
+    }
+    if (!namePattern.test(body.first_name)) {
+      showPersonalError('First name must be 2 to 60 characters and may include letters, spaces, apostrophe, period, and hyphen.', 'fieldFirst');
+      return;
+    }
+    if (!namePattern.test(body.last_name)) {
+      showPersonalError('Last name must be 2 to 60 characters and may include letters, spaces, apostrophe, period, and hyphen.', 'fieldLast');
+      return;
+    }
+    if (body.contact_number && !contactPattern.test(body.contact_number)) {
+      showPersonalError('Contact number must be 11 digits and start with 09.', 'fieldContact');
+      return;
+    }
+    if (!body.gender) {
+      showPersonalError('Please select your gender.', 'genderMale');
+      return;
+    }
+    if (body.house_street.length > 120) {
+      showPersonalError('Street address must not exceed 120 characters.', 'fieldStreet');
+      return;
+    }
+    if (!body.province) {
+      showPersonalError('Please select a province.', 'fieldProvince');
+      return;
+    }
+    if (!body.city_municipality) {
+      showPersonalError('Please select a city or municipality.', 'fieldCity');
+      return;
+    }
+    if (!body.barangay) {
+      showPersonalError('Please select a barangay.', 'fieldBarangay');
+      return;
+    }
+
     fetch(API, {
       method: 'PUT',
       credentials: 'same-origin',
