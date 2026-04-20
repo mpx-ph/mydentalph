@@ -482,7 +482,7 @@ try {
                     <span class="material-symbols-outlined text-[18px]">close</span>
                 </button>
             </div>
-            <div id="dentistListContainer" class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 justify-items-center"></div>
+            <div id="dentistListContainer" class="p-5 flex flex-wrap justify-center gap-4"></div>
             <div id="dentistListEmptyState" class="hidden px-5 pb-5 text-sm font-semibold text-slate-500"></div>
         </div>
     </div>
@@ -1123,7 +1123,7 @@ try {
                 const idLineRaw = displayId !== '' ? displayId : ('ID #' + String(dentist.dentist_id || '').trim());
                 const idLine = escapeHtml(idLineRaw);
                 return '' +
-                    '<div class="w-full max-w-[19rem] rounded-2xl border border-slate-200 bg-slate-50/50 p-4 flex flex-col items-center text-center">' +
+                    '<div class="w-full sm:w-[19rem] rounded-2xl border border-slate-200 bg-slate-50/50 p-4 flex flex-col items-center text-center">' +
                         '<div class="relative shrink-0">' +
                             '<img src="' + imageSrc + '" alt="" class="w-24 h-24 rounded-full object-cover border border-slate-200 bg-white"/>' +
                             '<span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-white ' + statusDotClass + '" title="' + statusTitle + '" role="img" aria-label="' + statusTitle + '"></span>' +
