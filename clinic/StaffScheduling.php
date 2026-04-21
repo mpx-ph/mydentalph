@@ -34,6 +34,15 @@ function formatDisplayTime($timeValue)
     return $dt ? $dt->format('H:i') : (string) $timeValue;
 }
 
+function formatTimeForUi($timeValue)
+{
+    $dt = DateTime::createFromFormat('H:i:s', (string) $timeValue);
+    if (!$dt) {
+        $dt = DateTime::createFromFormat('H:i', (string) $timeValue);
+    }
+    return $dt ? $dt->format('g:i A') : (string) $timeValue;
+}
+
 function mapAppointmentClass($serviceType)
 {
     $normalized = strtolower(trim((string) $serviceType));
@@ -57,9 +66,10 @@ $monthLabel = $selectedDate->format('F Y');
 $weekLabel = $startOfWeek->format('M j') . '-' . $endOfWeek->format('j, Y');
 
 $gridStartMinutes = 8 * 60;
-$gridEndMinutes = 20 * 60;
+$gridEndMinutes = 28 * 60; // 4:00 AM next day
 $pixelsPerHour = 64;
 $gridHeightPx = (int) ((($gridEndMinutes - $gridStartMinutes) / 60) * $pixelsPerHour);
+$gridHourSegments = (int) (($gridEndMinutes - $gridStartMinutes) / 60);
 
 $weekDays = [];
 $dayNameMap = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -74,8 +84,9 @@ for ($i = 0; $i < 7; $i++) {
 }
 
 $timeSlots = [];
-for ($hour = 8; $hour <= 20; $hour++) {
-    $timeSlots[] = sprintf('%02d:00', $hour);
+for ($hour = 8; $hour <= 28; $hour++) {
+    $slotHour24 = $hour % 24;
+    $timeSlots[] = formatTimeForUi(sprintf('%02d:00', $slotHour24));
 }
 
 $miniCalendar = [];
@@ -194,8 +205,14 @@ try {
                 $endTime = formatDisplayTime((string) ($row['end_time'] ?? ''));
                 $startMin = toMinutes($startTime);
                 $endMin = toMinutes($endTime);
+                if ($startMin < $gridStartMinutes) {
+                    $startMin += 24 * 60;
+                }
+                if ($endMin < $gridStartMinutes) {
+                    $endMin += 24 * 60;
+                }
                 if ($endMin <= $startMin) {
-                    continue;
+                    $endMin += 24 * 60;
                 }
 
                 $targetDateKey = '';
@@ -258,6 +275,9 @@ try {
                     }
                     $startTime = formatDisplayTime((string) ($row['appointment_time'] ?? ''));
                     $startMin = toMinutes($startTime);
+                    if ($startMin < $gridStartMinutes) {
+                        $startMin += 24 * 60;
+                    }
                     $endMin = $startMin + 60;
                     $mapped = mapAppointmentClass((string) ($row['service_type'] ?? ''));
                     $appointmentStatus = strtolower(trim((string) ($row['appointment_status'] ?? 'pending')));
@@ -538,7 +558,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                 <?php foreach ($weekDays as $weekDay): ?>
                                     <?php $dayEntries = $entriesByDate[$weekDay['date_key']] ?? []; ?>
                                     <div class="relative border-l border-slate-100" style="height: <?php echo (int) $gridHeightPx; ?>px;">
-                                        <?php for ($line = 1; $line <= 12; $line++): ?>
+                                        <?php for ($line = 1; $line <= $gridHourSegments; $line++): ?>
                                             <div class="absolute left-0 right-0 border-t border-slate-100" style="top: <?php echo (int) ($line * $pixelsPerHour); ?>px;"></div>
                                         <?php endfor; ?>
                                         <?php foreach ($dayEntries as $entry): ?>
@@ -556,7 +576,17 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                             <div class="schedule-block absolute left-1.5 right-1.5 rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-primary' : 'text-white'; ?>" style="top: <?php echo $topPx; ?>px; height: <?php echo $heightPx; ?>px;">
                                                 <p class="text-[10px] font-black uppercase tracking-[0.12em]"><?php echo htmlspecialchars((string) $entry['label'], ENT_QUOTES, 'UTF-8'); ?></p>
                                                 <p class="text-[10px] font-semibold opacity-95">
-                                                    <?php echo htmlspecialchars(sprintf('%s - %s', formatDisplayTime(sprintf('%02d:%02d', intdiv((int) $entry['start_min'], 60), ((int) $entry['start_min']) % 60)), formatDisplayTime(sprintf('%02d:%02d', intdiv((int) $entry['end_min'], 60), ((int) $entry['end_min']) % 60))), ENT_QUOTES, 'UTF-8'); ?>
+                                                    <?php
+                                                    $displayStartHour = intdiv((int) $entry['start_min'], 60) % 24;
+                                                    $displayStartMin = ((int) $entry['start_min']) % 60;
+                                                    $displayEndHour = intdiv((int) $entry['end_min'], 60) % 24;
+                                                    $displayEndMin = ((int) $entry['end_min']) % 60;
+                                                    echo htmlspecialchars(sprintf(
+                                                        '%s - %s',
+                                                        formatTimeForUi(sprintf('%02d:%02d', $displayStartHour, $displayStartMin)),
+                                                        formatTimeForUi(sprintf('%02d:%02d', $displayEndHour, $displayEndMin))
+                                                    ), ENT_QUOTES, 'UTF-8');
+                                                    ?>
                                                 </p>
                                             </div>
                                         <?php endforeach; ?>
