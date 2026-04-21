@@ -1,6 +1,7 @@
 <?php
 $staff_nav_active = 'my_schedule';
 require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/includes/appointment_db_tables.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -101,37 +102,47 @@ foreach ($weekDays as $day) {
 
 try {
     $pdo = getDBConnection();
-    if ($tenantId === '' && $currentTenantSlug !== '') {
-        $tenantStmt = $pdo->prepare('SELECT tenant_id FROM tbl_tenants WHERE clinic_slug = ? LIMIT 1');
-        $tenantStmt->execute([$currentTenantSlug]);
-        $tenantRow = $tenantStmt->fetch(PDO::FETCH_ASSOC);
-        if ($tenantRow && isset($tenantRow['tenant_id'])) {
-            $tenantId = (string) $tenantRow['tenant_id'];
+    if ($tenantId === '') {
+        $resolvedTenantId = clinic_resolve_walkin_tenant_id($pdo);
+        if (is_string($resolvedTenantId) && $resolvedTenantId !== '') {
+            $tenantId = $resolvedTenantId;
         }
     }
 
     if ($tenantId !== '') {
-        $dentistStmt = $pdo->prepare("
-            SELECT
-                COALESCE(d.user_id, '') AS user_id,
-                COALESCE(
-                    NULLIF(TRIM(u.full_name), ''),
-                    NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''),
-                    NULLIF(TRIM(CONCAT(COALESCE(d.first_name, ''), ' ', COALESCE(d.last_name, ''))), ''),
-                    'Dentist'
-                ) AS full_name,
-                COALESCE(d.dentist_id, '') AS dentist_id
-            FROM tbl_dentists d
-            LEFT JOIN tbl_users u
-                ON u.tenant_id = d.tenant_id
-               AND u.user_id = d.user_id
-            WHERE d.tenant_id = ?
-              AND LOWER(COALESCE(d.status, 'active')) = 'active'
-              AND COALESCE(d.user_id, '') <> ''
-            ORDER BY full_name ASC
-        ");
-        $dentistStmt->execute([$tenantId]);
-        $dentists = $dentistStmt->fetchAll(PDO::FETCH_ASSOC);
+        $tables = clinic_resolve_appointment_db_tables($pdo);
+        $dentistsTable = $tables['dentists'] ?? null;
+        $usersTable = $tables['users'] ?? null;
+        if (is_string($dentistsTable) && $dentistsTable !== '') {
+            $qDentists = clinic_quote_identifier($dentistsTable);
+            $qUsers = (is_string($usersTable) && $usersTable !== '') ? clinic_quote_identifier($usersTable) : null;
+            $dentistSql = "
+                SELECT
+                    COALESCE(d.user_id, '') AS user_id,
+                    COALESCE(
+                        NULLIF(TRIM(" . ($qUsers ? "u.full_name" : "''") . "), ''),
+                        NULLIF(TRIM(CONCAT(" . ($qUsers ? "COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')" : "'', ''") . ")), ''),
+                        NULLIF(TRIM(CONCAT(COALESCE(d.first_name, ''), ' ', COALESCE(d.last_name, ''))), ''),
+                        'Dentist'
+                    ) AS full_name,
+                    COALESCE(d.dentist_id, '') AS dentist_id
+                FROM {$qDentists} d
+            ";
+            if ($qUsers) {
+                $dentistSql .= "
+                    LEFT JOIN {$qUsers} u
+                        ON u.tenant_id = d.tenant_id
+                       AND u.user_id = d.user_id
+                ";
+            }
+            $dentistSql .= "
+                WHERE d.tenant_id = ?
+                ORDER BY d.first_name ASC, d.last_name ASC
+            ";
+            $dentistStmt = $pdo->prepare($dentistSql);
+            $dentistStmt->execute([$tenantId]);
+            $dentists = $dentistStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        }
 
         if (!empty($dentists)) {
             $validDentistUserIds = array_column($dentists, 'user_id');
