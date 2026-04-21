@@ -470,20 +470,19 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 <div class="elevated-card rounded-3xl p-6">
                     <h3 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Legend</h3>
                     <div class="space-y-2.5">
+                        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Schedule Status</p>
                         <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2.5">
-                            <span class="w-3 h-3 rounded-full bg-violet-500"></span><span class="text-sm font-semibold text-slate-700">Treatment</span>
+                            <span class="w-3 h-3 rounded-full bg-primary"></span><span class="text-sm font-semibold text-slate-700">Appointment (all services)</span>
                         </div>
                         <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2.5">
-                            <span class="w-3 h-3 rounded-full bg-teal-500"></span><span class="text-sm font-semibold text-slate-700">Hygiene</span>
+                            <span class="w-3 h-3 rounded-full bg-slate-700"></span><span class="text-sm font-semibold text-slate-700">Blocked / Personal Time</span>
                         </div>
                         <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2.5">
-                            <span class="w-3 h-3 rounded-full bg-orange-500"></span><span class="text-sm font-semibold text-slate-700">Consultation</span>
-                        </div>
-                        <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2.5">
-                            <span class="w-3 h-3 rounded-full bg-slate-500"></span><span class="text-sm font-semibold text-slate-700">Blocked / Personal</span>
+                            <span class="w-3 h-3 rounded-full bg-emerald-500"></span><span class="text-sm font-semibold text-slate-700">Available Slot</span>
                         </div>
                     </div>
                     <div class="mt-5 pt-5 border-t border-slate-100 space-y-2">
+                        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Entry Type</p>
                         <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
                             <span class="material-symbols-outlined text-base text-primary">event_available</span> Appointment
                         </div>
