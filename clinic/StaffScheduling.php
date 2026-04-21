@@ -93,6 +93,7 @@ $tenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']
 $dentists = [];
 $selectedDentistUserId = isset($_GET['user_id']) ? trim((string) $_GET['user_id']) : '';
 $selectedDentistId = '';
+$selectedDentistName = 'Select dentist';
 $entriesByDate = [];
 foreach ($weekDays as $day) {
     $entriesByDate[$day['date_key']] = [];
@@ -135,6 +136,7 @@ try {
             foreach ($dentists as $dentistRow) {
                 if ((string) $dentistRow['user_id'] === $selectedDentistUserId) {
                     $selectedDentistId = trim((string) ($dentistRow['dentist_id'] ?? ''));
+                    $selectedDentistName = trim((string) ($dentistRow['full_name'] ?? 'Dentist'));
                     break;
                 }
             }
@@ -256,6 +258,12 @@ foreach ($entriesByDate as $dayKey => $entries) {
     });
     $entriesByDate[$dayKey] = $entries;
 }
+$dentistsSeedData = array_map(static function ($dentist) {
+    return [
+        'user_id' => (string) ($dentist['user_id'] ?? ''),
+        'full_name' => trim((string) ($dentist['full_name'] ?? 'Dentist')),
+    ];
+}, $dentists);
 ?>
 <!DOCTYPE html>
 <html class="light" lang="en">
@@ -321,6 +329,20 @@ foreach ($entriesByDate as $dayKey => $entries) {
             transform: translateY(-1px);
             box-shadow: 0 10px 18px -10px rgba(15, 23, 42, 0.6);
         }
+        .schedule-input {
+            border: none;
+            background: #f8fafc;
+            border-radius: 0.9rem;
+            font-size: 0.86rem;
+            font-weight: 700;
+            color: #0f172a;
+            transition: box-shadow 0.25s ease, background-color 0.25s ease;
+        }
+        .schedule-input:focus {
+            outline: none;
+            background: #f1f5f9;
+            box-shadow: 0 0 0 2px rgba(43, 139, 235, 0.18);
+        }
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
@@ -365,20 +387,14 @@ foreach ($entriesByDate as $dayKey => $entries) {
         </section>
 
         <section class="elevated-card p-6 rounded-3xl">
-            <form method="get" class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <form method="get" id="scheduleFilterForm" class="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 <div class="lg:col-span-5">
                     <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Dentist</label>
-                    <select name="user_id" class="w-full py-3 px-4 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                        <?php if (empty($dentists)): ?>
-                            <option value="">No active dentists</option>
-                        <?php else: ?>
-                            <?php foreach ($dentists as $dentist): ?>
-                                <option value="<?php echo htmlspecialchars((string) $dentist['user_id'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedDentistUserId === (string) $dentist['user_id'] ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars(trim((string) ($dentist['full_name'] ?? 'Dentist')), ENT_QUOTES, 'UTF-8'); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </select>
+                    <input id="selectedDentistUserId" type="hidden" name="user_id" value="<?php echo htmlspecialchars($selectedDentistUserId, ENT_QUOTES, 'UTF-8'); ?>"/>
+                    <button id="chooseDentistBtn" type="button" class="schedule-input w-full py-3 px-4 text-left inline-flex items-center justify-between">
+                        <span id="selectedDentistLabel"><?php echo htmlspecialchars($selectedDentistName, ENT_QUOTES, 'UTF-8'); ?></span>
+                        <span class="material-symbols-outlined text-[18px] text-slate-500">keyboard_arrow_down</span>
+                    </button>
                 </div>
                 <div class="lg:col-span-4">
                     <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Week Reference Date</label>
@@ -512,5 +528,127 @@ foreach ($entriesByDate as $dayKey => $entries) {
         </section>
     </div>
 </main>
+<div id="chooseDentistModal" class="hidden fixed inset-0 z-[70]">
+    <div class="absolute inset-0 bg-slate-900/45"></div>
+    <div class="relative h-full w-full flex items-center justify-center p-4">
+        <div class="w-full max-w-5xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Dentist Selection</p>
+                    <h3 class="text-lg font-extrabold text-slate-900">Choose Dentist</h3>
+                </div>
+                <button id="closeChooseDentistModalBtn" type="button" class="w-9 h-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center justify-center">
+                    <span class="material-symbols-outlined text-[18px]">close</span>
+                </button>
+            </div>
+            <div id="dentistListContainer" class="p-5 flex flex-wrap justify-center gap-4"></div>
+            <div id="dentistListEmptyState" class="hidden px-5 pb-5 text-sm font-semibold text-slate-500"></div>
+        </div>
+    </div>
+</div>
+<script>
+    (function () {
+        const chooseDentistBtn = document.getElementById('chooseDentistBtn');
+        const selectedDentistLabel = document.getElementById('selectedDentistLabel');
+        const selectedDentistUserIdInput = document.getElementById('selectedDentistUserId');
+        const chooseDentistModal = document.getElementById('chooseDentistModal');
+        const closeChooseDentistModalBtn = document.getElementById('closeChooseDentistModalBtn');
+        const dentistListContainer = document.getElementById('dentistListContainer');
+        const dentistListEmptyState = document.getElementById('dentistListEmptyState');
+        const scheduleFilterForm = document.getElementById('scheduleFilterForm');
+        const dentistsSeedData = <?php echo json_encode($dentistsSeedData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function getInitials(fullName) {
+            const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+            if (!parts.length) return 'DR';
+            if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+
+        function syncModalBodyScrollLock() {
+            const hasOpenModal = chooseDentistModal && !chooseDentistModal.classList.contains('hidden');
+            document.body.classList.toggle('overflow-hidden', Boolean(hasOpenModal));
+        }
+
+        function openChooseDentistModal() {
+            if (!chooseDentistModal) return;
+            chooseDentistModal.classList.remove('hidden');
+            syncModalBodyScrollLock();
+            renderDentistsList();
+        }
+
+        function closeChooseDentistModal() {
+            if (!chooseDentistModal) return;
+            chooseDentistModal.classList.add('hidden');
+            syncModalBodyScrollLock();
+        }
+
+        function setSelectedDentist(userId, dentistName) {
+            if (selectedDentistUserIdInput) selectedDentistUserIdInput.value = userId || '';
+            if (selectedDentistLabel) selectedDentistLabel.textContent = dentistName || 'Select dentist';
+        }
+
+        function renderDentistsList() {
+            if (!dentistListContainer || !dentistListEmptyState) return;
+            if (!dentistsSeedData.length) {
+                dentistListEmptyState.textContent = 'No dentists available.';
+                dentistListEmptyState.classList.remove('hidden');
+                dentistListContainer.innerHTML = '';
+                return;
+            }
+
+            dentistListEmptyState.classList.add('hidden');
+            dentistListContainer.innerHTML = dentistsSeedData.map(function (dentist) {
+                const dentistId = escapeHtml(dentist.user_id || '');
+                const fullNameText = String(dentist.full_name || 'Dentist').trim() || 'Dentist';
+                const fullName = escapeHtml(fullNameText);
+                const initials = escapeHtml(getInitials(fullNameText));
+                return '' +
+                    '<div class="w-full sm:w-[19rem] rounded-2xl border border-slate-200 bg-slate-50/50 p-4 flex flex-col items-center text-center">' +
+                        '<div class="w-24 h-24 rounded-full border border-slate-200 bg-white flex items-center justify-center text-primary text-2xl font-extrabold">' + initials + '</div>' +
+                        '<p class="mt-3 text-sm font-extrabold text-slate-900">' + fullName + '</p>' +
+                        '<p class="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Active Dentist</p>' +
+                        '<button type="button" data-action="select-dentist" data-user-id="' + dentistId + '" data-dentist-name="' + fullName + '" class="mt-3 rounded-lg px-3 py-2 text-xs font-extrabold uppercase tracking-wide transition-colors bg-primary text-white hover:bg-primary/90">Select</button>' +
+                    '</div>';
+            }).join('');
+        }
+
+        if (chooseDentistBtn) {
+            chooseDentistBtn.addEventListener('click', openChooseDentistModal);
+        }
+        if (closeChooseDentistModalBtn) {
+            closeChooseDentistModalBtn.addEventListener('click', closeChooseDentistModal);
+        }
+        if (chooseDentistModal) {
+            chooseDentistModal.addEventListener('click', function (event) {
+                if (event.target === chooseDentistModal || event.target === chooseDentistModal.firstElementChild) {
+                    closeChooseDentistModal();
+                }
+            });
+        }
+        if (dentistListContainer) {
+            dentistListContainer.addEventListener('click', function (event) {
+                const button = event.target.closest('button[data-action="select-dentist"]');
+                if (!button) return;
+                const userId = button.getAttribute('data-user-id') || '';
+                const dentistName = button.getAttribute('data-dentist-name') || '';
+                setSelectedDentist(userId, dentistName);
+                closeChooseDentistModal();
+                if (scheduleFilterForm) {
+                    scheduleFilterForm.submit();
+                }
+            });
+        }
+    })();
+</script>
 </body>
 </html>
