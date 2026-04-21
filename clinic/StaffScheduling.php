@@ -116,7 +116,9 @@ try {
                 NULLIF(TRIM(CONCAT(COALESCE(d.first_name, ''), ' ', COALESCE(d.last_name, ''))), ''),
                 'Dentist'
             ) AS full_name,
-            COALESCE(d.dentist_id, '') AS dentist_id
+            COALESCE(d.dentist_id, '') AS dentist_id,
+            COALESCE(d.dentist_display_id, '') AS dentist_display_id,
+            COALESCE(d.profile_image, '') AS profile_image
         FROM tbl_dentists d
     ";
     $dentistParams = [];
@@ -277,6 +279,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
     return [
         'user_id' => (string) ($dentist['user_id'] ?? ''),
         'full_name' => trim((string) ($dentist['full_name'] ?? 'Dentist')),
+        'dentist_display_id' => trim((string) ($dentist['dentist_display_id'] ?? '')),
+        'dentist_id' => trim((string) ($dentist['dentist_id'] ?? '')),
+        'profile_image' => trim((string) ($dentist['profile_image'] ?? '')),
     ];
 }, $dentists);
 ?>
@@ -572,6 +577,8 @@ $dentistsSeedData = array_map(static function ($dentist) {
         const dentistListEmptyState = document.getElementById('dentistListEmptyState');
         const scheduleFilterForm = document.getElementById('scheduleFilterForm');
         const dentistsSeedData = <?php echo json_encode($dentistsSeedData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const stockDentistImage = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=60';
+        const clinicAssetBaseUrl = <?php echo json_encode(rtrim(BASE_URL, '/') . '/', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
         function escapeHtml(value) {
             return String(value || '')
@@ -587,6 +594,13 @@ $dentistsSeedData = array_map(static function ($dentist) {
             if (!parts.length) return 'DR';
             if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
             return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+
+        function resolveDentistProfileImageUrl(raw) {
+            const path = String(raw || '').trim();
+            if (!path) return stockDentistImage;
+            if (/^https?:\/\//i.test(path)) return path;
+            return clinicAssetBaseUrl.replace(/\/?$/, '/') + path.replace(/^\/+/, '');
         }
 
         function syncModalBodyScrollLock() {
@@ -626,12 +640,15 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 const dentistId = escapeHtml(dentist.user_id || '');
                 const fullNameText = String(dentist.full_name || 'Dentist').trim() || 'Dentist';
                 const fullName = escapeHtml(fullNameText);
-                const initials = escapeHtml(getInitials(fullNameText));
+                const imageSrc = escapeHtml(resolveDentistProfileImageUrl(dentist.profile_image));
+                const displayId = String(dentist.dentist_display_id || '').trim();
+                const rawId = String(dentist.dentist_id || '').trim();
+                const idLine = escapeHtml(displayId !== '' ? displayId : (rawId !== '' ? ('ID #' + rawId) : 'ID not set'));
                 return '' +
                     '<div class="w-full sm:w-[19rem] rounded-2xl border border-slate-200 bg-slate-50/50 p-4 flex flex-col items-center text-center">' +
-                        '<div class="w-24 h-24 rounded-full border border-slate-200 bg-white flex items-center justify-center text-primary text-2xl font-extrabold">' + initials + '</div>' +
+                        '<img src="' + imageSrc + '" alt="" class="w-24 h-24 rounded-full object-cover border border-slate-200 bg-white"/>' +
                         '<p class="mt-3 text-sm font-extrabold text-slate-900">' + fullName + '</p>' +
-                        '<p class="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Active Dentist</p>' +
+                        '<p class="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">' + idLine + '</p>' +
                         '<button type="button" data-action="select-dentist" data-user-id="' + dentistId + '" data-dentist-name="' + fullName + '" class="mt-3 rounded-lg px-3 py-2 text-xs font-extrabold uppercase tracking-wide transition-colors bg-primary text-white hover:bg-primary/90">Select</button>' +
                     '</div>';
             }).join('');
