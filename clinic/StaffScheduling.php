@@ -109,54 +109,53 @@ try {
         }
     }
 
+    $dentistSql = "
+        SELECT
+            COALESCE(d.user_id, '') AS user_id,
+            COALESCE(
+                NULLIF(TRIM(CONCAT(COALESCE(d.first_name, ''), ' ', COALESCE(d.last_name, ''))), ''),
+                'Dentist'
+            ) AS full_name,
+            COALESCE(d.dentist_id, '') AS dentist_id
+        FROM tbl_dentists d
+    ";
+    $dentistParams = [];
     if ($tenantId !== '') {
-        $tables = clinic_resolve_appointment_db_tables($pdo);
-        $dentistsTable = $tables['dentists'] ?? null;
-        $usersTable = $tables['users'] ?? null;
-        if (is_string($dentistsTable) && $dentistsTable !== '') {
-            $qDentists = clinic_quote_identifier($dentistsTable);
-            $qUsers = (is_string($usersTable) && $usersTable !== '') ? clinic_quote_identifier($usersTable) : null;
-            $dentistSql = "
-                SELECT
-                    COALESCE(d.user_id, '') AS user_id,
-                    COALESCE(
-                        NULLIF(TRIM(" . ($qUsers ? "u.full_name" : "''") . "), ''),
-                        NULLIF(TRIM(CONCAT(" . ($qUsers ? "COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')" : "'', ''") . ")), ''),
-                        NULLIF(TRIM(CONCAT(COALESCE(d.first_name, ''), ' ', COALESCE(d.last_name, ''))), ''),
-                        'Dentist'
-                    ) AS full_name,
-                    COALESCE(d.dentist_id, '') AS dentist_id
-                FROM {$qDentists} d
-            ";
-            if ($qUsers) {
-                $dentistSql .= "
-                    LEFT JOIN {$qUsers} u
-                        ON u.tenant_id = d.tenant_id
-                       AND u.user_id = d.user_id
-                ";
-            }
-            $dentistSql .= "
-                WHERE d.tenant_id = ?
-                ORDER BY d.first_name ASC, d.last_name ASC
-            ";
-            $dentistStmt = $pdo->prepare($dentistSql);
-            $dentistStmt->execute([$tenantId]);
-            $dentists = $dentistStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $dentistSql .= " WHERE d.tenant_id = ? ";
+        $dentistParams[] = $tenantId;
+    }
+    $dentistSql .= " ORDER BY d.first_name ASC, d.last_name ASC ";
+    $dentistStmt = $pdo->prepare($dentistSql);
+    $dentistStmt->execute($dentistParams);
+    $dentists = $dentistStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    if (!empty($dentists)) {
+        $validDentistUserIds = array_values(array_filter(array_column($dentists, 'user_id'), static function ($id) {
+            return trim((string) $id) !== '';
+        }));
+        if (!empty($validDentistUserIds) && !in_array($selectedDentistUserId, $validDentistUserIds, true)) {
+            $selectedDentistUserId = (string) $validDentistUserIds[0];
         }
+        foreach ($dentists as $dentistRow) {
+            if ($selectedDentistUserId !== '' && (string) $dentistRow['user_id'] === $selectedDentistUserId) {
+                $selectedDentistId = trim((string) ($dentistRow['dentist_id'] ?? ''));
+                $selectedDentistName = trim((string) ($dentistRow['full_name'] ?? 'Dentist'));
+                break;
+            }
+        }
+        if ($selectedDentistName === 'Select dentist') {
+            $selectedDentistName = trim((string) ($dentists[0]['full_name'] ?? 'Dentist'));
+            if ($selectedDentistUserId === '') {
+                $selectedDentistUserId = trim((string) ($dentists[0]['user_id'] ?? ''));
+            }
+            if ($selectedDentistId === '') {
+                $selectedDentistId = trim((string) ($dentists[0]['dentist_id'] ?? ''));
+            }
+        }
+    }
 
+    if ($tenantId !== '' && $selectedDentistUserId !== '') {
         if (!empty($dentists)) {
-            $validDentistUserIds = array_column($dentists, 'user_id');
-            if (!in_array($selectedDentistUserId, $validDentistUserIds, true)) {
-                $selectedDentistUserId = (string) $dentists[0]['user_id'];
-            }
-            foreach ($dentists as $dentistRow) {
-                if ((string) $dentistRow['user_id'] === $selectedDentistUserId) {
-                    $selectedDentistId = trim((string) ($dentistRow['dentist_id'] ?? ''));
-                    $selectedDentistName = trim((string) ($dentistRow['full_name'] ?? 'Dentist'));
-                    break;
-                }
-            }
-
             $weekDayNames = array_values(array_map(static function ($d) {
                 return (string) $d['day_name'];
             }, $weekDays));
@@ -262,8 +261,8 @@ try {
                     ];
                 }
             }
-        }
     }
+}
 } catch (Throwable $e) {
     // Keep empty-state UI when data is unavailable.
 }
