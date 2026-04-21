@@ -102,6 +102,7 @@ $allNavItems = [
     ['key' => 'patients',         'label' => 'Patients',          'icon' => 'group',             'href' => $buildStaffHref('StaffManagePatient.php')],
     ['key' => 'appointments',     'label' => 'Appointments',      'icon' => 'calendar_month',   'href' => $buildStaffHref('StaffAppointments.php')],
     ['key' => 'block_schedule',   'label' => 'Block Schedule',    'icon' => 'event_busy',        'href' => $buildStaffHref('StaffBlockSchedule.php')],
+    ['key' => 'my_schedule',      'label' => 'My Schedule',       'icon' => 'view_week',         'href' => $buildStaffHref('StaffScheduling.php')],
     ['key' => 'services',         'label' => 'Services & Pricing','icon' => 'medical_services',  'href' => $buildStaffHref('StaffManageServices.php')],
     ['key' => 'payments',         'label' => 'Payments',          'icon' => 'payments',          'href' => $buildStaffHref('StaffPaymentRecording.php')],
     ['key' => 'payment_settings', 'label' => 'Payment Settings',  'icon' => 'settings',          'href' => $buildStaffHref('StaffPaymentSetting.php')],
@@ -112,7 +113,7 @@ $allNavItems = [
 ];
 
 // Dentist role: only these pages are accessible
-$dentistAllowedKeys = ['dashboard', 'patients', 'appointments', 'block_schedule', 'profile'];
+$dentistAllowedKeys = ['dashboard', 'patients', 'appointments', 'block_schedule', 'my_schedule', 'profile'];
 $currentUserRole = isset($_SESSION['user_role']) ? strtolower(trim((string) $_SESSION['user_role'])) : '';
 $currentUserType = isset($_SESSION['user_type']) ? strtolower(trim((string) $_SESSION['user_type'])) : '';
 if ($currentUserRole === 'dentist') {

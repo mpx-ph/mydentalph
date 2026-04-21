@@ -1,5 +1,5 @@
 <?php
-$staff_nav_active = 'block_schedule';
+$staff_nav_active = 'my_schedule';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
