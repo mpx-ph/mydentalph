@@ -134,20 +134,7 @@ try {
     $dentists = $dentistStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     if (!empty($dentists)) {
-        $validDentistUserIds = array_values(array_filter(array_column($dentists, 'user_id'), static function ($id) {
-            return trim((string) $id) !== '';
-        }));
-        $validDentistIds = array_values(array_filter(array_column($dentists, 'dentist_id'), static function ($id) {
-            return trim((string) $id) !== '';
-        }));
-        if (
-            !$hasUserFilterParam &&
-            !$hasDentistIdFilterParam &&
-            !empty($validDentistUserIds) &&
-            !in_array($selectedDentistUserId, $validDentistUserIds, true)
-        ) {
-            $selectedDentistUserId = (string) $validDentistUserIds[0];
-        }
+        $selectionMatchedDentist = false;
         foreach ($dentists as $dentistRow) {
             $rowUserId = trim((string) ($dentistRow['user_id'] ?? ''));
             $rowDentistId = trim((string) ($dentistRow['dentist_id'] ?? ''));
@@ -156,24 +143,20 @@ try {
             if ($matchesUser || $matchesDentist) {
                 $selectedDentistUserId = $rowUserId;
                 $selectedDentistId = $rowDentistId;
-                $selectedDentistId = trim((string) ($dentistRow['dentist_id'] ?? ''));
                 $selectedDentistName = trim((string) ($dentistRow['full_name'] ?? 'Dentist'));
+                $selectionMatchedDentist = true;
                 break;
             }
         }
-        if (!$hasUserFilterParam && !$hasDentistIdFilterParam && $selectedDentistName === 'Select dentist') {
-            $selectedDentistName = trim((string) ($dentists[0]['full_name'] ?? 'Dentist'));
-            if ($selectedDentistUserId === '') {
-                $selectedDentistUserId = trim((string) ($dentists[0]['user_id'] ?? ''));
-            }
-            if ($selectedDentistId === '') {
-                $selectedDentistId = trim((string) ($dentists[0]['dentist_id'] ?? ''));
-            }
+        if (($hasUserFilterParam || $hasDentistIdFilterParam) && !$selectionMatchedDentist) {
+            $selectedDentistUserId = '';
+            $selectedDentistId = '';
+            $selectedDentistName = 'Select dentist';
         }
     }
 
     if ($selectedDentistUserId === '' && $selectedDentistId === '') {
-        $selectedDentistName = 'No dentist selected';
+        $selectedDentistName = 'Select dentist';
     }
 
     if ($tenantId !== '' && ($selectedDentistUserId !== '' || $selectedDentistId !== '')) {
@@ -253,7 +236,7 @@ try {
 
             if ($selectedDentistId !== '') {
                 $apptStmt = $pdo->prepare("
-                    SELECT appointment_date, appointment_time, service_type
+                    SELECT appointment_date, appointment_time, service_type, COALESCE(status, 'pending') AS appointment_status
                     FROM tbl_appointments
                     WHERE tenant_id = ?
                       AND dentist_id = ?
@@ -277,12 +260,16 @@ try {
                     $startMin = toMinutes($startTime);
                     $endMin = $startMin + 60;
                     $mapped = mapAppointmentClass((string) ($row['service_type'] ?? ''));
+                    $appointmentStatus = strtolower(trim((string) ($row['appointment_status'] ?? 'pending')));
+                    $appointmentDate = trim((string) ($row['appointment_date'] ?? ''));
+                    $appointmentDateTime = DateTimeImmutable::createFromFormat('Y-m-d H:i', $appointmentDate . ' ' . $startTime, $tz);
+                    $isPastAppointment = ($appointmentDateTime instanceof DateTimeImmutable) && $appointmentDateTime < new DateTimeImmutable('now', $tz);
                     $entriesByDate[$dateKey][] = [
                         'start_min' => $startMin,
                         'end_min' => $endMin,
-                        'label' => $mapped['label'],
-                        'class' => $mapped['class'],
-                        'kind' => 'appointment',
+                        'label' => $isPastAppointment ? ($mapped['label'] . ' (Completed)') : $mapped['label'],
+                        'class' => $isPastAppointment ? 'bg-slate-400 border-slate-500' : $mapped['class'],
+                        'kind' => ($appointmentStatus === 'completed' || $isPastAppointment) ? 'appointment_past' : 'appointment',
                     ];
                 }
             }
@@ -524,53 +511,60 @@ $dentistsSeedData = array_map(static function ($dentist) {
 
             <div class="2xl:col-span-9 elevated-card rounded-3xl p-5 lg:p-6 overflow-hidden">
                 <div class="overflow-x-auto">
-                    <div class="min-w-[900px] border border-slate-200 rounded-2xl overflow-hidden bg-white">
-                        <div class="grid grid-cols-[84px_repeat(7,minmax(0,1fr))] bg-slate-50 border-b border-slate-200">
-                            <div class="px-3 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Time</div>
-                            <?php foreach ($weekDays as $weekDay): ?>
-                                <div class="px-3 py-3 border-l border-slate-200">
-                                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400"><?php echo htmlspecialchars($weekDay['short'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                    <p class="text-sm font-bold text-slate-700 mt-1"><?php echo htmlspecialchars((string) $weekDay['date'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                </div>
-                            <?php endforeach; ?>
+                    <?php if ($selectedDentistUserId === '' && $selectedDentistId === ''): ?>
+                        <div class="min-w-[900px] border border-dashed border-slate-300 rounded-2xl bg-slate-50/80 p-12 text-center">
+                            <p class="text-sm font-black uppercase tracking-[0.2em] text-slate-500">Select a dentist</p>
+                            <p class="mt-2 text-sm font-semibold text-slate-600">Choose a dentist to load appointments and schedule blocks.</p>
                         </div>
-                        <div class="grid grid-cols-[84px_repeat(7,minmax(0,1fr))]">
-                            <div class="border-r border-slate-100">
-                                <?php foreach ($timeSlots as $slotTime): ?>
-                                    <div class="h-16 px-3 py-3 text-xs font-bold text-slate-500 border-b border-slate-100 last:border-b-0 bg-slate-50/70">
-                                        <?php echo htmlspecialchars($slotTime, ENT_QUOTES, 'UTF-8'); ?>
+                    <?php else: ?>
+                        <div class="min-w-[900px] border border-slate-200 rounded-2xl overflow-hidden bg-white">
+                            <div class="grid grid-cols-[84px_repeat(7,minmax(0,1fr))] bg-slate-50 border-b border-slate-200">
+                                <div class="px-3 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Time</div>
+                                <?php foreach ($weekDays as $weekDay): ?>
+                                    <div class="px-3 py-3 border-l border-slate-200">
+                                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400"><?php echo htmlspecialchars($weekDay['short'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                        <p class="text-sm font-bold text-slate-700 mt-1"><?php echo htmlspecialchars((string) $weekDay['date'], ENT_QUOTES, 'UTF-8'); ?></p>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
-                            <?php foreach ($weekDays as $weekDay): ?>
-                                <?php $dayEntries = $entriesByDate[$weekDay['date_key']] ?? []; ?>
-                                <div class="relative border-l border-slate-100" style="height: <?php echo (int) $gridHeightPx; ?>px;">
-                                    <?php for ($line = 1; $line <= 12; $line++): ?>
-                                        <div class="absolute left-0 right-0 border-t border-slate-100" style="top: <?php echo (int) ($line * $pixelsPerHour); ?>px;"></div>
-                                    <?php endfor; ?>
-                                    <?php foreach ($dayEntries as $entry): ?>
-                                        <?php
-                                        $entryStart = max((int) $entry['start_min'], $gridStartMinutes);
-                                        $entryEnd = min((int) $entry['end_min'], $gridEndMinutes);
-                                        if ($entryEnd <= $entryStart) {
-                                            continue;
-                                        }
-                                        $topPx = (int) round((($entryStart - $gridStartMinutes) / 60) * $pixelsPerHour);
-                                        $heightPx = max(18, (int) round((($entryEnd - $entryStart) / 60) * $pixelsPerHour));
-                                        $isWork = (string) ($entry['kind'] ?? '') === 'work';
-                                        $entryClass = (string) ($entry['class'] ?? 'bg-slate-500 border-slate-600');
-                                        ?>
-                                        <div class="schedule-block absolute left-1.5 right-1.5 rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-primary' : 'text-white'; ?>" style="top: <?php echo $topPx; ?>px; height: <?php echo $heightPx; ?>px;">
-                                            <p class="text-[10px] font-black uppercase tracking-[0.12em]"><?php echo htmlspecialchars((string) $entry['label'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                            <p class="text-[10px] font-semibold opacity-95">
-                                                <?php echo htmlspecialchars(sprintf('%s - %s', formatDisplayTime(sprintf('%02d:%02d', intdiv((int) $entry['start_min'], 60), ((int) $entry['start_min']) % 60)), formatDisplayTime(sprintf('%02d:%02d', intdiv((int) $entry['end_min'], 60), ((int) $entry['end_min']) % 60))), ENT_QUOTES, 'UTF-8'); ?>
-                                            </p>
+                            <div class="grid grid-cols-[84px_repeat(7,minmax(0,1fr))]">
+                                <div class="border-r border-slate-100">
+                                    <?php foreach ($timeSlots as $slotTime): ?>
+                                        <div class="h-16 px-3 py-3 text-xs font-bold text-slate-500 border-b border-slate-100 last:border-b-0 bg-slate-50/70">
+                                            <?php echo htmlspecialchars($slotTime, ENT_QUOTES, 'UTF-8'); ?>
                                         </div>
                                     <?php endforeach; ?>
                                 </div>
-                            <?php endforeach; ?>
+                                <?php foreach ($weekDays as $weekDay): ?>
+                                    <?php $dayEntries = $entriesByDate[$weekDay['date_key']] ?? []; ?>
+                                    <div class="relative border-l border-slate-100" style="height: <?php echo (int) $gridHeightPx; ?>px;">
+                                        <?php for ($line = 1; $line <= 12; $line++): ?>
+                                            <div class="absolute left-0 right-0 border-t border-slate-100" style="top: <?php echo (int) ($line * $pixelsPerHour); ?>px;"></div>
+                                        <?php endfor; ?>
+                                        <?php foreach ($dayEntries as $entry): ?>
+                                            <?php
+                                            $entryStart = max((int) $entry['start_min'], $gridStartMinutes);
+                                            $entryEnd = min((int) $entry['end_min'], $gridEndMinutes);
+                                            if ($entryEnd <= $entryStart) {
+                                                continue;
+                                            }
+                                            $topPx = (int) round((($entryStart - $gridStartMinutes) / 60) * $pixelsPerHour);
+                                            $heightPx = max(18, (int) round((($entryEnd - $entryStart) / 60) * $pixelsPerHour));
+                                            $isWork = (string) ($entry['kind'] ?? '') === 'work';
+                                            $entryClass = (string) ($entry['class'] ?? 'bg-slate-500 border-slate-600');
+                                            ?>
+                                            <div class="schedule-block absolute left-1.5 right-1.5 rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-primary' : 'text-white'; ?>" style="top: <?php echo $topPx; ?>px; height: <?php echo $heightPx; ?>px;">
+                                                <p class="text-[10px] font-black uppercase tracking-[0.12em]"><?php echo htmlspecialchars((string) $entry['label'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                                <p class="text-[10px] font-semibold opacity-95">
+                                                    <?php echo htmlspecialchars(sprintf('%s - %s', formatDisplayTime(sprintf('%02d:%02d', intdiv((int) $entry['start_min'], 60), ((int) $entry['start_min']) % 60)), formatDisplayTime(sprintf('%02d:%02d', intdiv((int) $entry['end_min'], 60), ((int) $entry['end_min']) % 60))), ENT_QUOTES, 'UTF-8'); ?>
+                                                </p>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
                         </div>
-                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </section>
@@ -696,7 +690,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     selectedDentistIdInput.value = '';
                 }
                 if (selectedDentistLabel) {
-                    selectedDentistLabel.textContent = 'No dentist selected';
+                    selectedDentistLabel.textContent = 'Select dentist';
                 }
                 scheduleFilterForm.submit();
             });
