@@ -113,16 +113,21 @@ try {
     if ($tenantId !== '') {
         $dentistStmt = $pdo->prepare("
             SELECT
-                u.user_id,
-                COALESCE(NULLIF(TRIM(u.full_name), ''), CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS full_name,
+                COALESCE(d.user_id, '') AS user_id,
+                COALESCE(
+                    NULLIF(TRIM(u.full_name), ''),
+                    NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''),
+                    NULLIF(TRIM(CONCAT(COALESCE(d.first_name, ''), ' ', COALESCE(d.last_name, ''))), ''),
+                    'Dentist'
+                ) AS full_name,
                 COALESCE(d.dentist_id, '') AS dentist_id
-            FROM tbl_users u
-            LEFT JOIN tbl_dentists d
-                ON d.tenant_id = u.tenant_id
-               AND d.user_id = u.user_id
-            WHERE u.tenant_id = ?
-              AND u.status = 'active'
-              AND u.role = 'dentist'
+            FROM tbl_dentists d
+            LEFT JOIN tbl_users u
+                ON u.tenant_id = d.tenant_id
+               AND u.user_id = d.user_id
+            WHERE d.tenant_id = ?
+              AND LOWER(COALESCE(d.status, 'active')) = 'active'
+              AND COALESCE(d.user_id, '') <> ''
             ORDER BY full_name ASC
         ");
         $dentistStmt->execute([$tenantId]);
