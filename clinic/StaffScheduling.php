@@ -93,6 +93,7 @@ for ($week = 0; $week < 5; $week++) {
 $tenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
 $dentists = [];
 $selectedDentistUserId = isset($_GET['user_id']) ? trim((string) $_GET['user_id']) : '';
+$hasUserFilterParam = array_key_exists('user_id', $_GET);
 $selectedDentistId = '';
 $selectedDentistName = 'Select dentist';
 $entriesByDate = [];
@@ -135,7 +136,11 @@ try {
         $validDentistUserIds = array_values(array_filter(array_column($dentists, 'user_id'), static function ($id) {
             return trim((string) $id) !== '';
         }));
-        if (!empty($validDentistUserIds) && !in_array($selectedDentistUserId, $validDentistUserIds, true)) {
+        if (
+            !$hasUserFilterParam &&
+            !empty($validDentistUserIds) &&
+            !in_array($selectedDentistUserId, $validDentistUserIds, true)
+        ) {
             $selectedDentistUserId = (string) $validDentistUserIds[0];
         }
         foreach ($dentists as $dentistRow) {
@@ -145,7 +150,7 @@ try {
                 break;
             }
         }
-        if ($selectedDentistName === 'Select dentist') {
+        if (!$hasUserFilterParam && $selectedDentistName === 'Select dentist') {
             $selectedDentistName = trim((string) ($dentists[0]['full_name'] ?? 'Dentist'));
             if ($selectedDentistUserId === '') {
                 $selectedDentistUserId = trim((string) ($dentists[0]['user_id'] ?? ''));
@@ -154,6 +159,10 @@ try {
                 $selectedDentistId = trim((string) ($dentists[0]['dentist_id'] ?? ''));
             }
         }
+    }
+
+    if ($selectedDentistUserId === '') {
+        $selectedDentistName = 'No dentist selected';
     }
 
     if ($tenantId !== '' && $selectedDentistUserId !== '') {
@@ -411,10 +420,15 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 <div class="lg:col-span-5">
                     <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Dentist</label>
                     <input id="selectedDentistUserId" type="hidden" name="user_id" value="<?php echo htmlspecialchars($selectedDentistUserId, ENT_QUOTES, 'UTF-8'); ?>"/>
-                    <button id="chooseDentistBtn" type="button" class="schedule-input w-full py-3 px-4 text-left inline-flex items-center justify-between">
-                        <span id="selectedDentistLabel"><?php echo htmlspecialchars($selectedDentistName, ENT_QUOTES, 'UTF-8'); ?></span>
-                        <span class="material-symbols-outlined text-[18px] text-slate-500">keyboard_arrow_down</span>
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button id="chooseDentistBtn" type="button" class="schedule-input w-full py-3 px-4 text-left inline-flex items-center justify-between">
+                            <span id="selectedDentistLabel"><?php echo htmlspecialchars($selectedDentistName, ENT_QUOTES, 'UTF-8'); ?></span>
+                            <span class="material-symbols-outlined text-[18px] text-slate-500">keyboard_arrow_down</span>
+                        </button>
+                        <button id="clearDentistBtn" type="button" class="px-3 py-3 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-bold uppercase tracking-wider hover:text-primary hover:border-primary/30 transition-colors <?php echo $selectedDentistUserId === '' ? 'opacity-50 cursor-not-allowed' : ''; ?>" <?php echo $selectedDentistUserId === '' ? 'disabled' : ''; ?>>
+                            Clear
+                        </button>
+                    </div>
                 </div>
                 <div class="lg:col-span-4">
                     <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Week Reference Date</label>
@@ -568,6 +582,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
 <script>
     (function () {
         const chooseDentistBtn = document.getElementById('chooseDentistBtn');
+        const clearDentistBtn = document.getElementById('clearDentistBtn');
         const selectedDentistLabel = document.getElementById('selectedDentistLabel');
         const selectedDentistUserIdInput = document.getElementById('selectedDentistUserId');
         const chooseDentistModal = document.getElementById('chooseDentistModal');
@@ -655,6 +670,16 @@ $dentistsSeedData = array_map(static function ($dentist) {
 
         if (chooseDentistBtn) {
             chooseDentistBtn.addEventListener('click', openChooseDentistModal);
+        }
+        if (clearDentistBtn) {
+            clearDentistBtn.addEventListener('click', function () {
+                if (!selectedDentistUserIdInput || !scheduleFilterForm) return;
+                selectedDentistUserIdInput.value = '';
+                if (selectedDentistLabel) {
+                    selectedDentistLabel.textContent = 'No dentist selected';
+                }
+                scheduleFilterForm.submit();
+            });
         }
         if (closeChooseDentistModalBtn) {
             closeChooseDentistModalBtn.addEventListener('click', closeChooseDentistModal);
