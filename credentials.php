@@ -459,6 +459,20 @@ git push</textarea>
                     <button class="copy-btn" data-copy="Admin123456_">Copy</button>
                 </div>
             </div>
+
+            <div class="credential">
+                <div class="role">PATIENT</div>
+                <div class="row">
+                    <div class="label">Email</div>
+                    <div class="value">soxoro6763@dwseal.com</div>
+                    <button class="copy-btn" data-copy="soxoro6763@dwseal.com">Copy</button>
+                </div>
+                <div class="row">
+                    <div class="label">Password</div>
+                    <div class="value">Admin123456_</div>
+                    <button class="copy-btn" data-copy="Admin123456_">Copy</button>
+                </div>
+            </div>
         </section>
 
         <section class="card">
