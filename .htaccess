@@ -36,19 +36,19 @@ RewriteRule ^ - [L]
 
 # Admin routes (slug-based, shared templates in /clinic)
 # Example: /{slug}/AdminLoginPage.php -> clinic/AdminLoginPage.php?clinic_slug={slug}
-RewriteRule ^([a-z0-9\-]+)/(Admin[A-Za-z0-9_\-]*\.php|Dentist_Dashboard\.php|Staff_Dashboard\.php|StaffDashboard\.php|StaffManagePatient\.php|StaffAppointments\.php|StaffWalkIn\.php|StaffBlockSchedule\.php|StaffManageServices\.php|StaffPaymentRecording\.php|StaffPaymentSetting\.php|StaffReports\.php|StaffManageUsers\.php|StaffManageReview\.php|StaffMyProfile\.php)$ clinic/$2?clinic_slug=$1 [L,QSA]
+RewriteRule ^([a-z0-9\-]+)/(Admin[A-Za-z0-9_\-]*\.php|Dentist_Dashboard\.php|Staff_Dashboard\.php|StaffDashboard\.php|StaffManagePatient\.php|StaffAppointments\.php|StaffWalkIn\.php|StaffBlockSchedule\.php|StaffScheduling\.php|StaffManageServices\.php|StaffPaymentRecording\.php|StaffPaymentSetting\.php|StaffReports\.php|StaffManageUsers\.php|StaffManageReview\.php|StaffMyProfile\.php)$ clinic/$2?clinic_slug=$1 [L,QSA]
 
 # Direct staff routes (non-slug URL) -> shared templates in /clinic
 # Example: /StaffAppointments.php -> clinic/StaffAppointments.php
-RewriteRule ^(StaffDashboard\.php|StaffManagePatient\.php|StaffAppointments\.php|StaffWalkIn\.php|StaffBlockSchedule\.php|StaffManageServices\.php|StaffPaymentRecording\.php|StaffPaymentSetting\.php|StaffReports\.php|StaffManageUsers\.php|StaffManageReview\.php|StaffMyProfile\.php)$ clinic/$1 [L,QSA]
+RewriteRule ^(StaffDashboard\.php|StaffManagePatient\.php|StaffAppointments\.php|StaffWalkIn\.php|StaffBlockSchedule\.php|StaffScheduling\.php|StaffManageServices\.php|StaffPaymentRecording\.php|StaffPaymentSetting\.php|StaffReports\.php|StaffManageUsers\.php|StaffManageReview\.php|StaffMyProfile\.php)$ clinic/$1 [L,QSA]
 
 # Staff routes under /sign/details/ prefix
 # Example: /sign/details/StaffAppointments.php -> clinic/StaffAppointments.php
-RewriteRule ^sign/details/(StaffDashboard\.php|StaffManagePatient\.php|StaffAppointments\.php|StaffWalkIn\.php|StaffBlockSchedule\.php|StaffManageServices\.php|StaffPaymentRecording\.php|StaffPaymentSetting\.php|StaffReports\.php|StaffManageUsers\.php|StaffManageReview\.php|StaffMyProfile\.php)$ clinic/$1 [L,QSA]
+RewriteRule ^sign/details/(StaffDashboard\.php|StaffManagePatient\.php|StaffAppointments\.php|StaffWalkIn\.php|StaffBlockSchedule\.php|StaffScheduling\.php|StaffManageServices\.php|StaffPaymentRecording\.php|StaffPaymentSetting\.php|StaffReports\.php|StaffManageUsers\.php|StaffManageReview\.php|StaffMyProfile\.php)$ clinic/$1 [L,QSA]
 
 # Slug-based staff routes under /sign/details/ prefix
 # Example: /sign/details/{slug}/StaffAppointments.php -> clinic/StaffAppointments.php?clinic_slug={slug}
-RewriteRule ^sign/details/([a-z0-9\-]+)/(StaffDashboard\.php|StaffManagePatient\.php|StaffAppointments\.php|StaffWalkIn\.php|StaffBlockSchedule\.php|StaffManageServices\.php|StaffPaymentRecording\.php|StaffPaymentSetting\.php|StaffReports\.php|StaffManageUsers\.php|StaffManageReview\.php|StaffMyProfile\.php)$ clinic/$2?clinic_slug=$1 [L,QSA]
+RewriteRule ^sign/details/([a-z0-9\-]+)/(StaffDashboard\.php|StaffManagePatient\.php|StaffAppointments\.php|StaffWalkIn\.php|StaffBlockSchedule\.php|StaffScheduling\.php|StaffManageServices\.php|StaffPaymentRecording\.php|StaffPaymentSetting\.php|StaffReports\.php|StaffManageUsers\.php|StaffManageReview\.php|StaffMyProfile\.php)$ clinic/$2?clinic_slug=$1 [L,QSA]
 
 # Public clinic routes (slug-based, shared templates in /clinic)
 
