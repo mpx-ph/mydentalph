@@ -93,8 +93,9 @@ for ($week = 0; $week < 5; $week++) {
 $tenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
 $dentists = [];
 $selectedDentistUserId = isset($_GET['user_id']) ? trim((string) $_GET['user_id']) : '';
+$selectedDentistId = isset($_GET['dentist_id']) ? trim((string) $_GET['dentist_id']) : '';
 $hasUserFilterParam = array_key_exists('user_id', $_GET);
-$selectedDentistId = '';
+$hasDentistIdFilterParam = array_key_exists('dentist_id', $_GET);
 $selectedDentistName = 'Select dentist';
 $entriesByDate = [];
 foreach ($weekDays as $day) {
@@ -136,21 +137,31 @@ try {
         $validDentistUserIds = array_values(array_filter(array_column($dentists, 'user_id'), static function ($id) {
             return trim((string) $id) !== '';
         }));
+        $validDentistIds = array_values(array_filter(array_column($dentists, 'dentist_id'), static function ($id) {
+            return trim((string) $id) !== '';
+        }));
         if (
             !$hasUserFilterParam &&
+            !$hasDentistIdFilterParam &&
             !empty($validDentistUserIds) &&
             !in_array($selectedDentistUserId, $validDentistUserIds, true)
         ) {
             $selectedDentistUserId = (string) $validDentistUserIds[0];
         }
         foreach ($dentists as $dentistRow) {
-            if ($selectedDentistUserId !== '' && (string) $dentistRow['user_id'] === $selectedDentistUserId) {
+            $rowUserId = trim((string) ($dentistRow['user_id'] ?? ''));
+            $rowDentistId = trim((string) ($dentistRow['dentist_id'] ?? ''));
+            $matchesUser = ($selectedDentistUserId !== '' && $rowUserId === $selectedDentistUserId);
+            $matchesDentist = ($selectedDentistId !== '' && $rowDentistId === $selectedDentistId);
+            if ($matchesUser || $matchesDentist) {
+                $selectedDentistUserId = $rowUserId;
+                $selectedDentistId = $rowDentistId;
                 $selectedDentistId = trim((string) ($dentistRow['dentist_id'] ?? ''));
                 $selectedDentistName = trim((string) ($dentistRow['full_name'] ?? 'Dentist'));
                 break;
             }
         }
-        if (!$hasUserFilterParam && $selectedDentistName === 'Select dentist') {
+        if (!$hasUserFilterParam && !$hasDentistIdFilterParam && $selectedDentistName === 'Select dentist') {
             $selectedDentistName = trim((string) ($dentists[0]['full_name'] ?? 'Dentist'));
             if ($selectedDentistUserId === '') {
                 $selectedDentistUserId = trim((string) ($dentists[0]['user_id'] ?? ''));
@@ -161,35 +172,38 @@ try {
         }
     }
 
-    if ($selectedDentistUserId === '') {
+    if ($selectedDentistUserId === '' && $selectedDentistId === '') {
         $selectedDentistName = 'No dentist selected';
     }
 
-    if ($tenantId !== '' && $selectedDentistUserId !== '') {
+    if ($tenantId !== '' && ($selectedDentistUserId !== '' || $selectedDentistId !== '')) {
         if (!empty($dentists)) {
             $weekDayNames = array_values(array_map(static function ($d) {
                 return (string) $d['day_name'];
             }, $weekDays));
             $weekdayPlaceholders = implode(',', array_fill(0, count($weekDayNames), '?'));
 
-            $blocksSql = "
-                SELECT block_date, day_of_week, start_time, end_time, block_type
-                FROM tbl_schedule_blocks
-                WHERE tenant_id = ?
-                  AND user_id = ?
-                  AND is_active = 1
-                  AND (
-                    (block_date BETWEEN ? AND ?)
-                    OR (day_of_week IN ($weekdayPlaceholders) AND (block_date IS NULL OR block_date = '0000-00-00'))
-                  )
-            ";
-            $blocksParams = array_merge(
-                [$tenantId, $selectedDentistUserId, $startOfWeek->format('Y-m-d'), $endOfWeek->format('Y-m-d')],
-                $weekDayNames
-            );
-            $blockStmt = $pdo->prepare($blocksSql);
-            $blockStmt->execute($blocksParams);
-            $scheduleRows = $blockStmt->fetchAll(PDO::FETCH_ASSOC);
+            $scheduleRows = [];
+            if ($selectedDentistUserId !== '') {
+                $blocksSql = "
+                    SELECT block_date, day_of_week, start_time, end_time, block_type
+                    FROM tbl_schedule_blocks
+                    WHERE tenant_id = ?
+                      AND user_id = ?
+                      AND is_active = 1
+                      AND (
+                        (block_date BETWEEN ? AND ?)
+                        OR (day_of_week IN ($weekdayPlaceholders) AND (block_date IS NULL OR block_date = '0000-00-00'))
+                      )
+                ";
+                $blocksParams = array_merge(
+                    [$tenantId, $selectedDentistUserId, $startOfWeek->format('Y-m-d'), $endOfWeek->format('Y-m-d')],
+                    $weekDayNames
+                );
+                $blockStmt = $pdo->prepare($blocksSql);
+                $blockStmt->execute($blocksParams);
+                $scheduleRows = $blockStmt->fetchAll(PDO::FETCH_ASSOC);
+            }
 
             foreach ($scheduleRows as $row) {
                 $blockType = strtolower(trim((string) ($row['block_type'] ?? '')));
@@ -420,12 +434,13 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 <div class="lg:col-span-5">
                     <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Dentist</label>
                     <input id="selectedDentistUserId" type="hidden" name="user_id" value="<?php echo htmlspecialchars($selectedDentistUserId, ENT_QUOTES, 'UTF-8'); ?>"/>
+                    <input id="selectedDentistId" type="hidden" name="dentist_id" value="<?php echo htmlspecialchars($selectedDentistId, ENT_QUOTES, 'UTF-8'); ?>"/>
                     <div class="flex items-center gap-2">
                         <button id="chooseDentistBtn" type="button" class="schedule-input w-full py-3 px-4 text-left inline-flex items-center justify-between">
                             <span id="selectedDentistLabel"><?php echo htmlspecialchars($selectedDentistName, ENT_QUOTES, 'UTF-8'); ?></span>
                             <span class="material-symbols-outlined text-[18px] text-slate-500">keyboard_arrow_down</span>
                         </button>
-                        <button id="clearDentistBtn" type="button" class="px-3 py-3 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-bold uppercase tracking-wider hover:text-primary hover:border-primary/30 transition-colors <?php echo $selectedDentistUserId === '' ? 'opacity-50 cursor-not-allowed' : ''; ?>" <?php echo $selectedDentistUserId === '' ? 'disabled' : ''; ?>>
+                        <button id="clearDentistBtn" type="button" class="px-3 py-3 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-bold uppercase tracking-wider hover:text-primary hover:border-primary/30 transition-colors <?php echo ($selectedDentistUserId === '' && $selectedDentistId === '') ? 'opacity-50 cursor-not-allowed' : ''; ?>" <?php echo ($selectedDentistUserId === '' && $selectedDentistId === '') ? 'disabled' : ''; ?>>
                             Clear
                         </button>
                     </div>
@@ -585,6 +600,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
         const clearDentistBtn = document.getElementById('clearDentistBtn');
         const selectedDentistLabel = document.getElementById('selectedDentistLabel');
         const selectedDentistUserIdInput = document.getElementById('selectedDentistUserId');
+        const selectedDentistIdInput = document.getElementById('selectedDentistId');
         const chooseDentistModal = document.getElementById('chooseDentistModal');
         const closeChooseDentistModalBtn = document.getElementById('closeChooseDentistModalBtn');
         const dentistListContainer = document.getElementById('dentistListContainer');
@@ -635,8 +651,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
             syncModalBodyScrollLock();
         }
 
-        function setSelectedDentist(userId, dentistName) {
+        function setSelectedDentist(userId, dentistId, dentistName) {
             if (selectedDentistUserIdInput) selectedDentistUserIdInput.value = userId || '';
+            if (selectedDentistIdInput) selectedDentistIdInput.value = dentistId || '';
             if (selectedDentistLabel) selectedDentistLabel.textContent = dentistName || 'Select dentist';
         }
 
@@ -663,7 +680,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                         '<img src="' + imageSrc + '" alt="" class="w-24 h-24 rounded-full object-cover border border-slate-200 bg-white"/>' +
                         '<p class="mt-3 text-sm font-extrabold text-slate-900">' + fullName + '</p>' +
                         '<p class="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">' + idLine + '</p>' +
-                        '<button type="button" data-action="select-dentist" data-user-id="' + dentistId + '" data-dentist-name="' + fullName + '" class="mt-3 rounded-lg px-3 py-2 text-xs font-extrabold uppercase tracking-wide transition-colors bg-primary text-white hover:bg-primary/90">Select</button>' +
+                        '<button type="button" data-action="select-dentist" data-user-id="' + dentistId + '" data-dentist-id="' + escapeHtml(dentist.dentist_id || '') + '" data-dentist-name="' + fullName + '" class="mt-3 rounded-lg px-3 py-2 text-xs font-extrabold uppercase tracking-wide transition-colors bg-primary text-white hover:bg-primary/90">Select</button>' +
                     '</div>';
             }).join('');
         }
@@ -675,6 +692,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
             clearDentistBtn.addEventListener('click', function () {
                 if (!selectedDentistUserIdInput || !scheduleFilterForm) return;
                 selectedDentistUserIdInput.value = '';
+                if (selectedDentistIdInput) {
+                    selectedDentistIdInput.value = '';
+                }
                 if (selectedDentistLabel) {
                     selectedDentistLabel.textContent = 'No dentist selected';
                 }
@@ -696,8 +716,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 const button = event.target.closest('button[data-action="select-dentist"]');
                 if (!button) return;
                 const userId = button.getAttribute('data-user-id') || '';
+                const dentistId = button.getAttribute('data-dentist-id') || '';
                 const dentistName = button.getAttribute('data-dentist-name') || '';
-                setSelectedDentist(userId, dentistName);
+                setSelectedDentist(userId, dentistId, dentistName);
                 closeChooseDentistModal();
                 if (scheduleFilterForm) {
                     scheduleFilterForm.submit();
