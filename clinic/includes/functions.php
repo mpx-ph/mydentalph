@@ -344,6 +344,65 @@ function generatePatientId() {
 }
 
 /**
+ * Generate a wallet account number.
+ * Format: WAL-YYYYMMDD-XXXXXX
+ * @return string
+ */
+function generateWalletId(): string
+{
+    return 'WAL-' . date('Ymd') . '-' . str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+}
+
+/**
+ * Ensure a wallet account exists for a tenant + patient pair.
+ * Returns existing wallet_id when already created.
+ *
+ * @param PDO $pdo
+ * @param string $tenantId
+ * @param string $patientId
+ * @return string
+ * @throws Exception
+ */
+function ensureWalletAccount(PDO $pdo, string $tenantId, string $patientId): string
+{
+    $tenantId = trim($tenantId);
+    $patientId = trim($patientId);
+
+    if ($tenantId === '' || $patientId === '') {
+        throw new Exception('Tenant ID and patient ID are required for wallet creation.');
+    }
+
+    $stmt = $pdo->prepare('SELECT wallet_id FROM tbl_wallet_accounts WHERE tenant_id = ? AND patient_id = ? LIMIT 1');
+    $stmt->execute([$tenantId, $patientId]);
+    $existingWalletId = $stmt->fetchColumn();
+    if ($existingWalletId) {
+        return (string) $existingWalletId;
+    }
+
+    $maxAttempts = 8;
+    for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+        $walletId = generateWalletId();
+        try {
+            $stmt = $pdo->prepare("
+                INSERT INTO tbl_wallet_accounts (
+                    tenant_id, wallet_id, patient_id, balance, status, created_at, updated_at
+                ) VALUES (?, ?, ?, 0.00, 'active', NOW(), NOW())
+            ");
+            $stmt->execute([$tenantId, $walletId, $patientId]);
+            return $walletId;
+        } catch (PDOException $e) {
+            $driverCode = isset($e->errorInfo[1]) ? (int) $e->errorInfo[1] : 0;
+            if ($driverCode === 1062 && $attempt < $maxAttempts) {
+                continue;
+            }
+            throw $e;
+        }
+    }
+
+    throw new Exception('Failed to generate a unique wallet account ID.');
+}
+
+/**
  * Save base64 image to file
  * @param string $base64Data Base64 encoded image data (with or without data URI prefix)
  * @param string $destination Destination directory (relative to ROOT_PATH)

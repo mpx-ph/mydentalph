@@ -295,6 +295,9 @@ function registerPublicClient(array $data) {
             ]);
         }
 
+        // Every client account gets a wallet account at registration.
+        ensureWalletAccount($pdo, $tenantId, $patientDisplayId);
+
         $pdo->commit();
 
         // Insert into clinic users and patients so client can log in (no email verification)

@@ -110,6 +110,8 @@ function createUser() {
     }
     
     try {
+        $pdo->beginTransaction();
+
         // Hash password
         $hashedPassword = password_hash($data['password'], PASSWORD_DEFAULT);
         
@@ -152,62 +154,66 @@ function createUser() {
         // Create profile based on user_type
         // ONLY clients get patient records
         // Admin, staff, doctor, manager get staff records
-        try {
-            if (strtolower($data['user_type']) === 'client') {
-                // Create patient profile for clients only
-                // Generate patient_id using thread-safe function
-                require_once __DIR__ . '/../includes/functions.php';
-                $patientDisplayId = generatePatientId();
-                
-                // Create patient profile (owner_user_id = linked_user_id = user_id for self profile)
-                $stmt = $pdo->prepare("
-                    INSERT INTO tbl_patients (
-                        tenant_id, patient_id, owner_user_id, linked_user_id, first_name, last_name, contact_number, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-                ");
-                
-                $stmt->execute([
-                    $tenantId,
-                    $patientDisplayId,
-                    $userId, // owner_user_id
-                    $userId, // linked_user_id (self profile)
-                    $data['first_name'],
-                    $data['last_name'],
-                    !empty($data['mobile']) ? $data['mobile'] : (!empty($data['contact_number']) ? $data['contact_number'] : null)
-                ]);
-            } else {
-                // Create staff profile for admin, staff, doctor, manager
-                $year = date('Y');
-                $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM tbl_staffs WHERE tenant_id = ? AND staff_id LIKE ?");
-                $stmt->execute([$tenantId, "S-{$year}-%"]);
-                $result = $stmt->fetch();
-                $sequence = str_pad((int)$result['count'] + 1, 5, '0', STR_PAD_LEFT);
-                $staffDisplayId = "S-{$year}-{$sequence}";
-                
-                // Create staff profile
-                $stmt = $pdo->prepare("
-                    INSERT INTO tbl_staffs (
-                        tenant_id, staff_id, user_id, first_name, last_name, contact_number, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, NOW())
-                ");
-                
-                $stmt->execute([
-                    $tenantId,
-                    $staffDisplayId,
-                    $userId,
-                    $data['first_name'],
-                    $data['last_name'],
-                    !empty($data['mobile']) ? $data['mobile'] : (!empty($data['contact_number']) ? $data['contact_number'] : null)
-                ]);
-            }
-        } catch (Exception $e) {
-            // Log error but don't fail user creation if profile creation fails
-            error_log('Auto-create profile error: ' . $e->getMessage());
+        if (strtolower($data['user_type']) === 'client') {
+            // Create patient profile for clients only
+            // Generate patient_id using thread-safe function
+            require_once __DIR__ . '/../includes/functions.php';
+            $patientDisplayId = generatePatientId();
+            
+            // Create patient profile (owner_user_id = linked_user_id = user_id for self profile)
+            $stmt = $pdo->prepare("
+                INSERT INTO tbl_patients (
+                    tenant_id, patient_id, owner_user_id, linked_user_id, first_name, last_name, contact_number, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+            ");
+            
+            $stmt->execute([
+                $tenantId,
+                $patientDisplayId,
+                $userId, // owner_user_id
+                $userId, // linked_user_id (self profile)
+                $data['first_name'],
+                $data['last_name'],
+                !empty($data['mobile']) ? $data['mobile'] : (!empty($data['contact_number']) ? $data['contact_number'] : null)
+            ]);
+
+            // Every client account gets a wallet account at creation.
+            ensureWalletAccount($pdo, $tenantId, $patientDisplayId);
+        } else {
+            // Create staff profile for admin, staff, doctor, manager
+            $year = date('Y');
+            $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM tbl_staffs WHERE tenant_id = ? AND staff_id LIKE ?");
+            $stmt->execute([$tenantId, "S-{$year}-%"]);
+            $result = $stmt->fetch();
+            $sequence = str_pad((int)$result['count'] + 1, 5, '0', STR_PAD_LEFT);
+            $staffDisplayId = "S-{$year}-{$sequence}";
+            
+            // Create staff profile
+            $stmt = $pdo->prepare("
+                INSERT INTO tbl_staffs (
+                    tenant_id, staff_id, user_id, first_name, last_name, contact_number, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, NOW())
+            ");
+            
+            $stmt->execute([
+                $tenantId,
+                $staffDisplayId,
+                $userId,
+                $data['first_name'],
+                $data['last_name'],
+                !empty($data['mobile']) ? $data['mobile'] : (!empty($data['contact_number']) ? $data['contact_number'] : null)
+            ]);
         }
+
+        $pdo->commit();
         
         jsonResponse(true, 'User created successfully.', ['user_id' => $userId]);
         
     } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log('Create user failed: ' . $e->getMessage());
         jsonResponse(false, 'Failed to create user. Please try again.');
     }
 }

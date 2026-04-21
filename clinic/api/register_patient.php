@@ -248,6 +248,9 @@ function registerPatientWithFullDetails($data) {
             !empty($data['city_municipality']) ? $data['city_municipality'] : null,
             !empty($data['province']) ? $data['province'] : null
         ]);
+
+        // Every client account gets a wallet account at creation.
+        ensureWalletAccount($pdo, $tenantId, $patientDisplayId);
         
         $patientId = $pdo->lastInsertId();
         

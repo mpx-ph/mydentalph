@@ -52,6 +52,10 @@ function provider_signup_finalize_from_pending(PDO $pdo, int $pendingId): array
                 $p['password_hash'],
             ]);
 
+            // Create a wallet account for every newly created tenant owner.
+            // We store owner user_id as the wallet subject key in patient_id.
+            provider_ensure_wallet_account($pdo, $tenant_id, $user_id);
+
             $stmt = $pdo->prepare('UPDATE tbl_tenants SET owner_user_id = ? WHERE tenant_id = ?');
             $stmt->execute([$user_id, $tenant_id]);
 
@@ -122,4 +126,47 @@ function provider_table_has_column(PDO $pdo, string $tableName, string $columnNa
     );
     $stmt->execute([$tableName, $columnName]);
     return (bool) $stmt->fetchColumn();
+}
+
+function provider_generate_wallet_id(): string
+{
+    return 'WAL-' . date('Ymd') . '-' . str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+}
+
+function provider_ensure_wallet_account(PDO $pdo, string $tenantId, string $subjectId): string
+{
+    $tenantId = trim($tenantId);
+    $subjectId = trim($subjectId);
+    if ($tenantId === '' || $subjectId === '') {
+        throw new RuntimeException('Tenant ID and subject ID are required for wallet creation.');
+    }
+
+    $stmt = $pdo->prepare('SELECT wallet_id FROM tbl_wallet_accounts WHERE tenant_id = ? AND patient_id = ? LIMIT 1');
+    $stmt->execute([$tenantId, $subjectId]);
+    $existingWalletId = $stmt->fetchColumn();
+    if ($existingWalletId) {
+        return (string) $existingWalletId;
+    }
+
+    $maxAttempts = 8;
+    for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+        $walletId = provider_generate_wallet_id();
+        try {
+            $stmt = $pdo->prepare("
+                INSERT INTO tbl_wallet_accounts (
+                    tenant_id, wallet_id, patient_id, balance, status, created_at, updated_at
+                ) VALUES (?, ?, ?, 0.00, 'active', NOW(), NOW())
+            ");
+            $stmt->execute([$tenantId, $walletId, $subjectId]);
+            return $walletId;
+        } catch (PDOException $e) {
+            $driverCode = isset($e->errorInfo[1]) ? (int) $e->errorInfo[1] : 0;
+            if ($driverCode === 1062 && $attempt < $maxAttempts) {
+                continue;
+            }
+            throw $e;
+        }
+    }
+
+    throw new RuntimeException('Failed to generate a unique wallet account ID.');
 }
