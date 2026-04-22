@@ -15,6 +15,47 @@ $clinicHoursRows = [
     ['day' => 'Friday', 'open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false],
     ['day' => 'Saturday', 'open_time' => '09:00 AM', 'close_time' => '03:00 PM', 'is_closed' => false],
 ];
+
+$rowsByDay = [];
+foreach ($clinicHoursRows as $row) {
+    $rowsByDay[$row['day']] = $row;
+}
+
+$today = new DateTimeImmutable('today');
+$weekStartInput = isset($_GET['week_start']) ? trim((string) $_GET['week_start']) : '';
+$selectedDate = null;
+if ($weekStartInput !== '') {
+    $selectedDate = DateTimeImmutable::createFromFormat('Y-m-d', $weekStartInput);
+    if (!($selectedDate instanceof DateTimeImmutable)) {
+        $selectedDate = null;
+    }
+}
+if (!($selectedDate instanceof DateTimeImmutable)) {
+    $selectedDate = $today;
+}
+
+$selectedWeekStart = $selectedDate->modify('last sunday');
+if ((int) $selectedDate->format('w') === 0) {
+    $selectedWeekStart = $selectedDate;
+}
+$selectedWeekEnd = $selectedWeekStart->modify('+6 days');
+$prevWeekStart = $selectedWeekStart->modify('-7 days')->format('Y-m-d');
+$nextWeekStart = $selectedWeekStart->modify('+7 days')->format('Y-m-d');
+$currentWeekStart = $today->modify('last sunday');
+if ((int) $today->format('w') === 0) {
+    $currentWeekStart = $today;
+}
+
+$weekOptions = [];
+for ($offset = -8; $offset <= 8; $offset++) {
+    $optionStart = $currentWeekStart->modify(($offset * 7) . ' days');
+    $optionEnd = $optionStart->modify('+6 days');
+    $optionValue = $optionStart->format('Y-m-d');
+    $weekOptions[] = [
+        'value' => $optionValue,
+        'label' => $optionStart->format('M j') . ' - ' . $optionEnd->format('M j, Y'),
+    ];
+}
 ?>
 <!DOCTYPE html>
 <html class="light" lang="en">
@@ -112,12 +153,41 @@ $clinicHoursRows = [
         </section>
 
         <section class="elevated-card rounded-3xl p-7">
-            <div class="flex items-center justify-between gap-4 mb-6">
-                <h2 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em]">Weekly Hours</h2>
-                <span class="inline-flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-[11px] font-extrabold uppercase tracking-[0.16em] text-primary">
-                    <span class="material-symbols-outlined text-base">schedule</span>
-                    UI Preview
-                </span>
+            <div class="flex flex-col gap-4 mb-6 lg:flex-row lg:items-center lg:justify-between">
+                <div class="space-y-2">
+                    <h2 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em]">Weekly Hours</h2>
+                    <p class="text-sm font-semibold text-slate-600">
+                        <?php echo htmlspecialchars($selectedWeekStart->format('F j, Y') . ' - ' . $selectedWeekEnd->format('F j, Y'), ENT_QUOTES, 'UTF-8'); ?>
+                    </p>
+                </div>
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <div class="inline-flex items-center rounded-xl border border-slate-200 bg-white p-1">
+                        <a
+                            href="?week_start=<?php echo htmlspecialchars($prevWeekStart, ENT_QUOTES, 'UTF-8'); ?>"
+                            class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-600 hover:text-primary hover:bg-primary/10 transition-colors"
+                            aria-label="Previous week"
+                        >
+                            <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+                        </a>
+                        <a
+                            href="?week_start=<?php echo htmlspecialchars($nextWeekStart, ENT_QUOTES, 'UTF-8'); ?>"
+                            class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-600 hover:text-primary hover:bg-primary/10 transition-colors"
+                            aria-label="Next week"
+                        >
+                            <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+                        </a>
+                    </div>
+                    <form method="get" class="flex items-center gap-2">
+                        <label for="week_start" class="text-[10px] font-black text-on-surface-variant/70 uppercase tracking-[0.2em]">Week Range</label>
+                        <select id="week_start" name="week_start" class="schedule-input py-2.5 pl-3 pr-9 text-xs min-w-[190px]" onchange="this.form.submit()">
+                            <?php foreach ($weekOptions as $option): ?>
+                                <option value="<?php echo htmlspecialchars($option['value'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo $option['value'] === $selectedWeekStart->format('Y-m-d') ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($option['label'], ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </form>
+                </div>
             </div>
 
             <div class="overflow-x-auto">
@@ -133,8 +203,12 @@ $clinicHoursRows = [
                         </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
-                        <?php foreach ($clinicHoursRows as $row): ?>
+                        <?php for ($dayOffset = 0; $dayOffset < 7; $dayOffset++): ?>
                             <?php
+                            $dayDate = $selectedWeekStart->modify('+' . $dayOffset . ' days');
+                            $dayName = $dayDate->format('l');
+                            $row = isset($rowsByDay[$dayName]) ? $rowsByDay[$dayName] : ['open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false];
+                            $fullDayLabel = $dayDate->format('F j, Y') . ' (' . $dayName . ')';
                             $statusLabel = $row['is_closed'] ? 'Closed' : 'Open';
                             $statusClass = $row['is_closed']
                                 ? 'border-rose-200 bg-rose-50 text-rose-700'
@@ -142,7 +216,7 @@ $clinicHoursRows = [
                             ?>
                             <tr class="hover:bg-slate-50/70 transition-colors">
                                 <td class="px-5 py-4 text-sm font-bold text-slate-800">
-                                    <?php echo htmlspecialchars($row['day'], ENT_QUOTES, 'UTF-8'); ?>
+                                    <?php echo htmlspecialchars($fullDayLabel, ENT_QUOTES, 'UTF-8'); ?>
                                 </td>
                                 <td class="px-5 py-4 text-sm font-semibold text-slate-700">
                                     <?php echo htmlspecialchars($row['open_time'], ENT_QUOTES, 'UTF-8'); ?>
@@ -159,7 +233,7 @@ $clinicHoursRows = [
                                     <button
                                         type="button"
                                         data-open-modal="editClinicHoursModal"
-                                        data-day="<?php echo htmlspecialchars($row['day'], ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-day="<?php echo htmlspecialchars($fullDayLabel, ENT_QUOTES, 'UTF-8'); ?>"
                                         data-open-time="<?php echo htmlspecialchars($row['open_time'], ENT_QUOTES, 'UTF-8'); ?>"
                                         data-close-time="<?php echo htmlspecialchars($row['close_time'], ENT_QUOTES, 'UTF-8'); ?>"
                                         data-is-closed="<?php echo $row['is_closed'] ? '1' : '0'; ?>"
@@ -170,7 +244,7 @@ $clinicHoursRows = [
                                     </button>
                                 </td>
                             </tr>
-                        <?php endforeach; ?>
+                        <?php endfor; ?>
                         </tbody>
                     </table>
                 </div>
