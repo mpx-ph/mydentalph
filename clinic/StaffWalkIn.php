@@ -4,7 +4,6 @@ $staff_nav_active = 'appointments';
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/includes/tenant.php';
 require_once __DIR__ . '/includes/appointment_db_tables.php';
-require_once __DIR__ . '/includes/availability.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -102,25 +101,9 @@ try {
                 ");
                 $stmt->execute([$tenantId]);
                 $walkInDentists = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-                $walkInStart = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
-                $walkInEnd = $walkInStart->modify('+1 hour');
-                $walkInStartStr = $walkInStart->format('Y-m-d H:i:s');
-                $walkInEndStr = $walkInEnd->format('Y-m-d H:i:s');
                 foreach ($walkInDentists as &$dentistRow) {
-                    $profileActive = strtolower((string) ($dentistRow['status'] ?? 'active')) === 'active';
-                    $dentistUserId = trim((string) ($dentistRow['user_id'] ?? ''));
-                    if (!$profileActive || $dentistUserId === '') {
-                        $dentistRow['is_available_for_slot'] = 0;
-                        $dentistRow['availability_reason'] = 'Unavailable (Outside Shift)';
-                        continue;
-                    }
-                    $availability = clinic_get_availability_details($dentistUserId, $walkInStartStr, $walkInEndStr, (string) $tenantId);
-                    $dentistRow['is_available_for_slot'] = !empty($availability['available']) ? 1 : 0;
-                    if (!empty($availability['available'])) {
-                        $dentistRow['availability_reason'] = 'Available';
-                    } else {
-                        $dentistRow['availability_reason'] = 'Unavailable (' . (string) ($availability['reason'] ?? 'Outside Shift') . ')';
-                    }
+                    $dentistRow['is_available_for_slot'] = 1;
+                    $dentistRow['availability_reason'] = 'Available';
                 }
                 unset($dentistRow);
             }
@@ -1135,9 +1118,7 @@ try {
                 const lastName = String(dentist.last_name || '').trim();
                 const fullNameText = (firstName + ' ' + lastName).trim() || 'Unnamed Dentist';
                 const fullName = escapeHtml(fullNameText);
-                const profileIsActive = String(dentist.status || '').toLowerCase() === 'active';
-                const slotAvailable = Number(dentist.is_available_for_slot || 0) === 1;
-                const isAvailable = profileIsActive && slotAvailable;
+                const isAvailable = true;
                 const statusLabelRaw = String(dentist.availability_reason || '').trim();
                 const statusLabel = statusLabelRaw !== ''
                     ? statusLabelRaw
@@ -1162,7 +1143,7 @@ try {
                             '<span class="w-2.5 h-2.5 rounded-full shrink-0 ' + statusDotClass + '" title="' + statusTitle + '" aria-hidden="true"></span>' +
                             '<span>' + escapeHtml(statusLabel) + '</span>' +
                         '</p>' +
-                        '<button type="button" data-action="select-dentist" data-dentist-id="' + dentistId + '" data-dentist-name="' + fullName + '" ' + (isAvailable ? '' : 'disabled data-unavailable="1" data-unavailable-reason="' + escapeHtml(statusLabel) + '"') + ' class="mt-3 rounded-lg px-3 py-2 text-xs font-extrabold uppercase tracking-wide transition-colors ' + (isAvailable ? 'bg-primary text-white hover:bg-primary/90' : 'bg-slate-200 text-slate-500 cursor-not-allowed') + '">' + (isAvailable ? 'Select' : 'Unavailable') + '</button>' +
+                        '<button type="button" data-action="select-dentist" data-dentist-id="' + dentistId + '" data-dentist-name="' + fullName + '" class="mt-3 rounded-lg px-3 py-2 text-xs font-extrabold uppercase tracking-wide transition-colors bg-primary text-white hover:bg-primary/90">Select</button>' +
                     '</div>';
             }).join('');
         }
@@ -1409,17 +1390,6 @@ try {
                 void staffUiAlert({ message: 'Please select an assigned dentist.', variant: 'warning', title: 'Dentist required' });
                 return;
             }
-            const selectedDentist = dentistsSeedData.find(function (item) {
-                return String(item && item.dentist_id ? item.dentist_id : '') === dentistId;
-            }) || null;
-            if (selectedDentist && Number(selectedDentist.is_available_for_slot || 0) !== 1) {
-                void staffUiAlert({
-                    message: 'Selected staff/dentist is not available at this time',
-                    variant: 'warning',
-                    title: 'Dentist unavailable'
-                });
-                return;
-            }
             if (!selectedServices.length) {
                 void staffUiAlert({ message: 'Please add at least one service.', variant: 'warning', title: 'Services required' });
                 return;
@@ -1617,14 +1587,6 @@ try {
             dentistListContainer.addEventListener('click', function (event) {
                 const button = event.target.closest('button[data-action="select-dentist"]');
                 if (!button) return;
-                if (button.disabled || button.getAttribute('data-unavailable') === '1') {
-                    void staffUiAlert({
-                        title: 'Dentist unavailable',
-                        message: button.getAttribute('data-unavailable-reason') || 'Unavailable (Outside Shift)',
-                        variant: 'warning'
-                    });
-                    return;
-                }
                 setSelectedDentist(button.getAttribute('data-dentist-id') || '', button.getAttribute('data-dentist-name') || '');
                 closeChooseDentistModal();
             });
