@@ -38,16 +38,23 @@ $selectedWeekStart = $selectedDate->modify('last sunday');
 if ((int) $selectedDate->format('w') === 0) {
     $selectedWeekStart = $selectedDate;
 }
-$selectedWeekEnd = $selectedWeekStart->modify('+6 days');
-$prevWeekStart = $selectedWeekStart->modify('-7 days')->format('Y-m-d');
-$nextWeekStart = $selectedWeekStart->modify('+7 days')->format('Y-m-d');
 $currentWeekStart = $today->modify('last sunday');
 if ((int) $today->format('w') === 0) {
     $currentWeekStart = $today;
 }
+$currentWeekStartTs = (int) $currentWeekStart->format('U');
+$selectedWeekStartTs = (int) $selectedWeekStart->format('U');
+if ($selectedWeekStartTs < $currentWeekStartTs) {
+    $selectedWeekStart = $currentWeekStart;
+}
+
+$selectedWeekEnd = $selectedWeekStart->modify('+6 days');
+$prevWeekStart = $selectedWeekStart->modify('-7 days')->format('Y-m-d');
+$nextWeekStart = $selectedWeekStart->modify('+7 days')->format('Y-m-d');
+$isCurrentWeek = $selectedWeekStart->format('Y-m-d') === $currentWeekStart->format('Y-m-d');
 
 $weekOptions = [];
-for ($offset = -8; $offset <= 8; $offset++) {
+for ($offset = 0; $offset <= 16; $offset++) {
     $optionStart = $currentWeekStart->modify(($offset * 7) . ' days');
     $optionEnd = $optionStart->modify('+6 days');
     $optionValue = $optionStart->format('Y-m-d');
@@ -162,13 +169,24 @@ for ($offset = -8; $offset <= 8; $offset++) {
                 </div>
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
                     <div class="inline-flex items-center rounded-xl border border-slate-200 bg-white p-1">
-                        <a
-                            href="?week_start=<?php echo htmlspecialchars($prevWeekStart, ENT_QUOTES, 'UTF-8'); ?>"
-                            class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-600 hover:text-primary hover:bg-primary/10 transition-colors"
-                            aria-label="Previous week"
-                        >
-                            <span class="material-symbols-outlined text-[20px]">chevron_left</span>
-                        </a>
+                        <?php if ($isCurrentWeek): ?>
+                            <button
+                                type="button"
+                                class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-300 cursor-not-allowed"
+                                aria-label="Previous week unavailable"
+                                disabled
+                            >
+                                <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+                            </button>
+                        <?php else: ?>
+                            <a
+                                href="?week_start=<?php echo htmlspecialchars($prevWeekStart, ENT_QUOTES, 'UTF-8'); ?>"
+                                class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-600 hover:text-primary hover:bg-primary/10 transition-colors"
+                                aria-label="Previous week"
+                            >
+                                <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+                            </a>
+                        <?php endif; ?>
                         <a
                             href="?week_start=<?php echo htmlspecialchars($nextWeekStart, ENT_QUOTES, 'UTF-8'); ?>"
                             class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-600 hover:text-primary hover:bg-primary/10 transition-colors"
