@@ -447,7 +447,24 @@ try {
                             $dateKey = $dayDate->format('Y-m-d');
                             $dayOfWeekIndex = (int) $dayDate->format('w');
                             $dayName = $dayDate->format('l');
-                            $row = isset($clinicHoursRowsByDate[$dateKey]) ? $clinicHoursRowsByDate[$dateKey] : (isset($fallbackRowsByDayIndex[$dayOfWeekIndex]) ? $fallbackRowsByDayIndex[$dayOfWeekIndex] : ['open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false, 'notes' => '']);
+                            $hasSavedClinicHours = isset($clinicHoursRowsByDate[$dateKey]);
+                            $isFutureDateWithoutSchedule = !$hasSavedClinicHours && $dateKey > $today->format('Y-m-d');
+                            if ($hasSavedClinicHours) {
+                                $row = $clinicHoursRowsByDate[$dateKey];
+                            } elseif ($isFutureDateWithoutSchedule) {
+                                $row = [
+                                    'open_time' => '-',
+                                    'close_time' => '-',
+                                    'is_closed' => false,
+                                    'open_time_raw' => '',
+                                    'close_time_raw' => '',
+                                    'notes' => '',
+                                ];
+                            } else {
+                                $row = isset($fallbackRowsByDayIndex[$dayOfWeekIndex])
+                                    ? $fallbackRowsByDayIndex[$dayOfWeekIndex]
+                                    : ['open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false, 'notes' => ''];
+                            }
                             $fullDayLabel = $dayDate->format('F j, Y') . ' (' . $dayName . ')';
                             $statusLabel = $row['is_closed'] ? 'Closed' : 'Open';
                             $statusClass = $row['is_closed']
