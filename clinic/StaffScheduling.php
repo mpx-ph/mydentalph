@@ -634,60 +634,70 @@ $dentistsSeedData = array_map(static function ($dentist) {
 <div id="setShiftModal" class="hidden fixed inset-0 z-[70]">
     <div class="absolute inset-0 bg-slate-900/45"></div>
     <div class="relative h-full w-full flex items-center justify-center p-4">
-        <div class="w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
+        <div class="w-full max-w-3xl rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-primary/10 via-white to-white flex items-center justify-between gap-4">
                 <div>
                     <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Dentist Scheduling</p>
-                    <h3 class="text-lg font-extrabold text-slate-900">Set Dentist Shift</h3>
+                    <h3 class="text-2xl font-extrabold text-slate-900 tracking-tight">Set Dentist Shift</h3>
+                    <p class="mt-1 text-xs font-semibold text-slate-500">Define a one-day or weekly working schedule.</p>
                 </div>
                 <button id="closeSetShiftModalBtn" type="button" class="w-9 h-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center justify-center">
                     <span class="material-symbols-outlined text-[18px]">close</span>
                 </button>
             </div>
-            <div class="px-6 py-5">
+            <div class="px-6 py-6 bg-slate-50/40">
                 <form id="setShiftForm" class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-3 md:items-center">
-                        <label for="setShiftDentistId" class="text-sm font-bold text-slate-700">Dentist:</label>
-                        <select id="setShiftDentistId" class="schedule-input w-full py-3 px-4">
-                            <?php foreach ($dentists as $dentist): ?>
-                                <?php
-                                $shiftDentistId = trim((string) ($dentist['dentist_id'] ?? ''));
-                                $shiftDentistName = trim((string) ($dentist['full_name'] ?? 'Dentist'));
-                                ?>
-                                <option value="<?php echo htmlspecialchars($shiftDentistId, ENT_QUOTES, 'UTF-8'); ?>" <?php echo ($selectedDentistId !== '' && $selectedDentistId === $shiftDentistId) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($shiftDentistName, ENT_QUOTES, 'UTF-8'); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-3 md:items-center">
-                        <label for="setShiftDateDisplay" class="text-sm font-bold text-slate-700">Date:</label>
-                        <input id="setShiftDateDisplay" type="text" class="schedule-input w-full py-3 px-4" value="<?php echo htmlspecialchars($selectedDate->format('F j, Y'), ENT_QUOTES, 'UTF-8'); ?>" readonly/>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-3 md:items-center">
-                        <label for="setShiftStartTime" class="text-sm font-bold text-slate-700">Start Time:</label>
-                        <select id="setShiftStartTime" class="schedule-input w-full py-3 px-4"></select>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-3 md:items-center">
-                        <label for="setShiftEndTime" class="text-sm font-bold text-slate-700">End Time:</label>
-                        <select id="setShiftEndTime" class="schedule-input w-full py-3 px-4"></select>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-3">
-                        <span class="text-sm font-bold text-slate-700 md:pt-2">Repeat:</span>
-                        <div class="space-y-2 py-1">
-                            <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                                <input type="radio" name="setShiftRepeat" value="one_day" checked class="h-4 w-4 border-slate-300 text-primary focus:ring-primary/30"/>
-                                One Day
-                            </label>
-                            <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                                <input type="radio" name="setShiftRepeat" value="weekly" class="h-4 w-4 border-slate-300 text-primary focus:ring-primary/30"/>
-                                Weekly
-                            </label>
+                    <div class="rounded-2xl border border-slate-200 bg-white p-5 space-y-4 shadow-sm">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="setShiftDentistId" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Dentist</label>
+                                <select id="setShiftDentistId" class="schedule-input w-full py-3 px-4">
+                                    <?php foreach ($dentists as $dentist): ?>
+                                        <?php
+                                        $shiftDentistId = trim((string) ($dentist['dentist_id'] ?? ''));
+                                        $shiftDentistName = trim((string) ($dentist['full_name'] ?? 'Dentist'));
+                                        ?>
+                                        <option value="<?php echo htmlspecialchars($shiftDentistId, ENT_QUOTES, 'UTF-8'); ?>" <?php echo ($selectedDentistId !== '' && $selectedDentistId === $shiftDentistId) ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($shiftDentistName, ENT_QUOTES, 'UTF-8'); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="setShiftDateDisplay" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Date</label>
+                                <div class="schedule-input w-full py-3 px-4 inline-flex items-center gap-2.5">
+                                    <span class="material-symbols-outlined text-[18px] text-primary">event</span>
+                                    <input id="setShiftDateDisplay" type="text" class="w-full bg-transparent p-0 border-0 text-sm font-extrabold text-slate-900 focus:ring-0" value="<?php echo htmlspecialchars($selectedDate->format('F j, Y'), ENT_QUOTES, 'UTF-8'); ?>" readonly/>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-3">
-                        <label for="setShiftNotes" class="text-sm font-bold text-slate-700 md:pt-2">Notes:</label>
-                        <textarea id="setShiftNotes" rows="3" class="schedule-input w-full py-3 px-4 resize-y" placeholder="Optional text"></textarea>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="setShiftStartTime" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Start Time</label>
+                                <select id="setShiftStartTime" class="schedule-input w-full py-3 px-4"></select>
+                            </div>
+                            <div>
+                                <label for="setShiftEndTime" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">End Time</label>
+                                <select id="setShiftEndTime" class="schedule-input w-full py-3 px-4"></select>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Repeat</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                <label class="inline-flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 hover:border-primary/30 cursor-pointer">
+                                    <input type="radio" name="setShiftRepeat" value="one_day" checked class="h-4 w-4 border-slate-300 text-primary focus:ring-primary/30"/>
+                                    One Day
+                                </label>
+                                <label class="inline-flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 hover:border-primary/30 cursor-pointer">
+                                    <input type="radio" name="setShiftRepeat" value="weekly" class="h-4 w-4 border-slate-300 text-primary focus:ring-primary/30"/>
+                                    Weekly
+                                </label>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="setShiftNotes" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Notes</label>
+                            <textarea id="setShiftNotes" rows="3" class="schedule-input w-full py-3 px-4 resize-y" placeholder="Optional text"></textarea>
+                        </div>
                     </div>
                     <div class="pt-4 border-t border-slate-200 flex items-center justify-end gap-2.5">
                         <button id="cancelSetShiftBtn" type="button" class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs uppercase tracking-widest transition-colors">
@@ -754,6 +764,16 @@ $dentistsSeedData = array_map(static function ($dentist) {
             document.body.classList.toggle('overflow-hidden', Boolean(hasOpenModal));
         }
 
+        function toTwelveHourLabel(timeValue) {
+            const parts = String(timeValue || '').split(':');
+            const hour24 = Number(parts[0] || 0);
+            const minute = Number(parts[1] || 0);
+            const period = hour24 >= 12 ? 'PM' : 'AM';
+            const hour12 = (hour24 % 12) || 12;
+            const minuteLabel = String(minute).padStart(2, '0');
+            return hour12 + ':' + minuteLabel + ' ' + period;
+        }
+
         function buildTimeOptions(selectEl, selectedValue) {
             if (!selectEl) return;
             const options = [];
@@ -762,7 +782,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     const hh = String(hour).padStart(2, '0');
                     const mm = String(minute).padStart(2, '0');
                     const value = hh + ':' + mm;
-                    options.push('<option value="' + value + '"' + (value === selectedValue ? ' selected' : '') + '>' + value + '</option>');
+                    options.push('<option value="' + value + '"' + (value === selectedValue ? ' selected' : '') + '>' + toTwelveHourLabel(value) + '</option>');
                 }
             }
             selectEl.innerHTML = options.join('');
