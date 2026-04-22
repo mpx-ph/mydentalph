@@ -747,11 +747,11 @@ $dentistsSeedData = array_map(static function ($dentist) {
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label for="setShiftStartTime" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Start Time</label>
-                                <select id="setShiftStartTime" class="schedule-input w-full py-3 px-4"></select>
+                                <input id="setShiftStartTime" type="time" step="60" value="09:00" class="schedule-input w-full py-3 px-4"/>
                             </div>
                             <div>
                                 <label for="setShiftEndTime" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">End Time</label>
-                                <select id="setShiftEndTime" class="schedule-input w-full py-3 px-4"></select>
+                                <input id="setShiftEndTime" type="time" step="60" value="17:00" class="schedule-input w-full py-3 px-4"/>
                             </div>
                         </div>
                         <div>
@@ -848,30 +848,6 @@ $dentistsSeedData = array_map(static function ($dentist) {
             document.body.classList.toggle('overflow-hidden', Boolean(hasOpenModal));
         }
 
-        function toTwelveHourLabel(timeValue) {
-            const parts = String(timeValue || '').split(':');
-            const hour24 = Number(parts[0] || 0);
-            const minute = Number(parts[1] || 0);
-            const period = hour24 >= 12 ? 'PM' : 'AM';
-            const hour12 = (hour24 % 12) || 12;
-            const minuteLabel = String(minute).padStart(2, '0');
-            return hour12 + ':' + minuteLabel + ' ' + period;
-        }
-
-        function buildTimeOptions(selectEl, selectedValue) {
-            if (!selectEl) return;
-            const options = [];
-            for (let hour = 0; hour < 24; hour++) {
-                for (let minute = 0; minute < 60; minute += 30) {
-                    const hh = String(hour).padStart(2, '0');
-                    const mm = String(minute).padStart(2, '0');
-                    const value = hh + ':' + mm;
-                    options.push('<option value="' + value + '"' + (value === selectedValue ? ' selected' : '') + '>' + toTwelveHourLabel(value) + '</option>');
-                }
-            }
-            selectEl.innerHTML = options.join('');
-        }
-
         function toMinutes(timeValue) {
             const parts = String(timeValue || '').split(':');
             const hour = Number(parts[0] || 0);
@@ -944,8 +920,12 @@ $dentistsSeedData = array_map(static function ($dentist) {
 
         function openSetShiftModal() {
             if (!setShiftModal) return;
-            buildTimeOptions(setShiftStartTime, '09:00');
-            buildTimeOptions(setShiftEndTime, '17:00');
+            if (setShiftStartTime && !setShiftStartTime.value) {
+                setShiftStartTime.value = '09:00';
+            }
+            if (setShiftEndTime && !setShiftEndTime.value) {
+                setShiftEndTime.value = '17:00';
+            }
             if (setShiftDate) {
                 if (!setShiftDate.value || setShiftDate.value < todayDateOnly) {
                     setShiftDate.value = todayDateOnly;
