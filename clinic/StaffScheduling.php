@@ -441,6 +441,10 @@ $dentistsSeedData = array_map(static function ($dentist) {
                         <span class="material-symbols-outlined text-base">add</span>
                         Block Time
                     </button>
+                    <button id="openSetShiftModalBtn" type="button" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 font-bold text-xs uppercase tracking-widest transition-colors shadow-sm">
+                        <span class="material-symbols-outlined text-base">schedule</span>
+                        Set Shift
+                    </button>
                 </div>
             </div>
         </section>
@@ -627,8 +631,86 @@ $dentistsSeedData = array_map(static function ($dentist) {
         </div>
     </div>
 </div>
+<div id="setShiftModal" class="hidden fixed inset-0 z-[70]">
+    <div class="absolute inset-0 bg-slate-900/45"></div>
+    <div class="relative h-full w-full flex items-center justify-center p-4">
+        <div class="w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Dentist Scheduling</p>
+                    <h3 class="text-lg font-extrabold text-slate-900">Set Dentist Shift</h3>
+                </div>
+                <button id="closeSetShiftModalBtn" type="button" class="w-9 h-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center justify-center">
+                    <span class="material-symbols-outlined text-[18px]">close</span>
+                </button>
+            </div>
+            <div class="px-6 py-5">
+                <form id="setShiftForm" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-3 md:items-center">
+                        <label for="setShiftDentistId" class="text-sm font-bold text-slate-700">Dentist:</label>
+                        <select id="setShiftDentistId" class="schedule-input w-full py-3 px-4">
+                            <?php foreach ($dentists as $dentist): ?>
+                                <?php
+                                $shiftDentistId = trim((string) ($dentist['dentist_id'] ?? ''));
+                                $shiftDentistName = trim((string) ($dentist['full_name'] ?? 'Dentist'));
+                                ?>
+                                <option value="<?php echo htmlspecialchars($shiftDentistId, ENT_QUOTES, 'UTF-8'); ?>" <?php echo ($selectedDentistId !== '' && $selectedDentistId === $shiftDentistId) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($shiftDentistName, ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-3 md:items-center">
+                        <label for="setShiftDateDisplay" class="text-sm font-bold text-slate-700">Date:</label>
+                        <input id="setShiftDateDisplay" type="text" class="schedule-input w-full py-3 px-4" value="<?php echo htmlspecialchars($selectedDate->format('F j, Y'), ENT_QUOTES, 'UTF-8'); ?>" readonly/>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-3 md:items-center">
+                        <label for="setShiftStartTime" class="text-sm font-bold text-slate-700">Start Time:</label>
+                        <select id="setShiftStartTime" class="schedule-input w-full py-3 px-4"></select>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-3 md:items-center">
+                        <label for="setShiftEndTime" class="text-sm font-bold text-slate-700">End Time:</label>
+                        <select id="setShiftEndTime" class="schedule-input w-full py-3 px-4"></select>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-3">
+                        <span class="text-sm font-bold text-slate-700 md:pt-2">Repeat:</span>
+                        <div class="space-y-2 py-1">
+                            <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                                <input type="radio" name="setShiftRepeat" value="one_day" checked class="h-4 w-4 border-slate-300 text-primary focus:ring-primary/30"/>
+                                One Day
+                            </label>
+                            <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                                <input type="radio" name="setShiftRepeat" value="weekly" class="h-4 w-4 border-slate-300 text-primary focus:ring-primary/30"/>
+                                Weekly
+                            </label>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-3">
+                        <label for="setShiftNotes" class="text-sm font-bold text-slate-700 md:pt-2">Notes:</label>
+                        <textarea id="setShiftNotes" rows="3" class="schedule-input w-full py-3 px-4 resize-y" placeholder="Optional text"></textarea>
+                    </div>
+                    <div class="pt-4 border-t border-slate-200 flex items-center justify-end gap-2.5">
+                        <button id="cancelSetShiftBtn" type="button" class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs uppercase tracking-widest transition-colors">
+                            Cancel
+                        </button>
+                        <button id="saveSetShiftBtn" type="button" class="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs uppercase tracking-widest transition-colors shadow-sm">
+                            Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 <script>
     (function () {
+        const openSetShiftModalBtn = document.getElementById('openSetShiftModalBtn');
+        const setShiftModal = document.getElementById('setShiftModal');
+        const closeSetShiftModalBtn = document.getElementById('closeSetShiftModalBtn');
+        const cancelSetShiftBtn = document.getElementById('cancelSetShiftBtn');
+        const saveSetShiftBtn = document.getElementById('saveSetShiftBtn');
+        const setShiftStartTime = document.getElementById('setShiftStartTime');
+        const setShiftEndTime = document.getElementById('setShiftEndTime');
         const chooseDentistBtn = document.getElementById('chooseDentistBtn');
         const clearDentistBtn = document.getElementById('clearDentistBtn');
         const selectedDentistLabel = document.getElementById('selectedDentistLabel');
@@ -667,8 +749,37 @@ $dentistsSeedData = array_map(static function ($dentist) {
         }
 
         function syncModalBodyScrollLock() {
-            const hasOpenModal = chooseDentistModal && !chooseDentistModal.classList.contains('hidden');
+            const hasOpenModal = (chooseDentistModal && !chooseDentistModal.classList.contains('hidden'))
+                || (setShiftModal && !setShiftModal.classList.contains('hidden'));
             document.body.classList.toggle('overflow-hidden', Boolean(hasOpenModal));
+        }
+
+        function buildTimeOptions(selectEl, selectedValue) {
+            if (!selectEl) return;
+            const options = [];
+            for (let hour = 0; hour < 24; hour++) {
+                for (let minute = 0; minute < 60; minute += 30) {
+                    const hh = String(hour).padStart(2, '0');
+                    const mm = String(minute).padStart(2, '0');
+                    const value = hh + ':' + mm;
+                    options.push('<option value="' + value + '"' + (value === selectedValue ? ' selected' : '') + '>' + value + '</option>');
+                }
+            }
+            selectEl.innerHTML = options.join('');
+        }
+
+        function openSetShiftModal() {
+            if (!setShiftModal) return;
+            buildTimeOptions(setShiftStartTime, '09:00');
+            buildTimeOptions(setShiftEndTime, '17:00');
+            setShiftModal.classList.remove('hidden');
+            syncModalBodyScrollLock();
+        }
+
+        function closeSetShiftModal() {
+            if (!setShiftModal) return;
+            setShiftModal.classList.add('hidden');
+            syncModalBodyScrollLock();
         }
 
         function openChooseDentistModal() {
@@ -718,6 +829,27 @@ $dentistsSeedData = array_map(static function ($dentist) {
             }).join('');
         }
 
+        if (openSetShiftModalBtn) {
+            openSetShiftModalBtn.addEventListener('click', openSetShiftModal);
+        }
+        if (closeSetShiftModalBtn) {
+            closeSetShiftModalBtn.addEventListener('click', closeSetShiftModal);
+        }
+        if (cancelSetShiftBtn) {
+            cancelSetShiftBtn.addEventListener('click', closeSetShiftModal);
+        }
+        if (setShiftModal) {
+            setShiftModal.addEventListener('click', function (event) {
+                if (event.target === setShiftModal || event.target === setShiftModal.firstElementChild) {
+                    closeSetShiftModal();
+                }
+            });
+        }
+        if (saveSetShiftBtn) {
+            saveSetShiftBtn.addEventListener('click', function () {
+                closeSetShiftModal();
+            });
+        }
         if (chooseDentistBtn) {
             chooseDentistBtn.addEventListener('click', openChooseDentistModal);
         }
