@@ -232,28 +232,28 @@ try {
             $shiftRepeat = 'one_day';
         }
 
-        $dentistLookupStmt = $pdo->prepare("
-            SELECT tenant_id, user_id, dentist_id
-            FROM tbl_dentists
-            WHERE tenant_id = ?
-              AND (
-                    (? <> '' AND user_id = ?)
-                 OR (? <> '' AND dentist_id = ?)
-              )
-            LIMIT 1
-        ");
-        $dentistLookupStmt->execute([
-            $tenantId,
-            $shiftDentistUserId,
-            $shiftDentistUserId,
-            $shiftDentistId,
-            $shiftDentistId,
-        ]);
-        $dentistRow = $dentistLookupStmt->fetch(PDO::FETCH_ASSOC);
+        $shiftUserId = '';
+        $resolvedShiftDentistId = $shiftDentistId;
+        $resolvedDentistTenantId = '';
 
-        // Fallback: when tenant resolution above is stale/mismatched, resolve by identifier globally.
-        if ((!is_array($dentistRow) || empty($dentistRow)) && ($shiftDentistUserId !== '' || $shiftDentistId !== '')) {
-            $dentistFallbackStmt = $pdo->prepare("
+        if ($shiftDentistUserId !== '') {
+            $usersLookupStmt = $pdo->prepare("
+                SELECT tenant_id, user_id
+                FROM tbl_users
+                WHERE user_id = ?
+                LIMIT 1
+            ");
+            $usersLookupStmt->execute([$shiftDentistUserId]);
+            $userRow = $usersLookupStmt->fetch(PDO::FETCH_ASSOC);
+            if (is_array($userRow) && !empty($userRow)) {
+                $shiftUserId = trim((string) ($userRow['user_id'] ?? ''));
+                $resolvedDentistTenantId = trim((string) ($userRow['tenant_id'] ?? ''));
+            }
+        }
+
+        // Resolve missing pieces from dentist table when possible.
+        if ($shiftUserId === '' || $resolvedShiftDentistId === '') {
+            $dentistLookupStmt = $pdo->prepare("
                 SELECT tenant_id, user_id, dentist_id
                 FROM tbl_dentists
                 WHERE
@@ -262,18 +262,26 @@ try {
                 ORDER BY tenant_id ASC
                 LIMIT 1
             ");
-            $dentistFallbackStmt->execute([
+            $dentistLookupStmt->execute([
                 $shiftDentistUserId,
                 $shiftDentistUserId,
                 $shiftDentistId,
                 $shiftDentistId,
             ]);
-            $dentistRow = $dentistFallbackStmt->fetch(PDO::FETCH_ASSOC);
+            $dentistRow = $dentistLookupStmt->fetch(PDO::FETCH_ASSOC);
+            if (is_array($dentistRow) && !empty($dentistRow)) {
+                if ($shiftUserId === '') {
+                    $shiftUserId = trim((string) ($dentistRow['user_id'] ?? ''));
+                }
+                if ($resolvedShiftDentistId === '') {
+                    $resolvedShiftDentistId = trim((string) ($dentistRow['dentist_id'] ?? ''));
+                }
+                if ($resolvedDentistTenantId === '') {
+                    $resolvedDentistTenantId = trim((string) ($dentistRow['tenant_id'] ?? ''));
+                }
+            }
         }
 
-        $shiftUserId = is_array($dentistRow) ? trim((string) ($dentistRow['user_id'] ?? '')) : '';
-        $resolvedShiftDentistId = is_array($dentistRow) ? trim((string) ($dentistRow['dentist_id'] ?? '')) : '';
-        $resolvedDentistTenantId = is_array($dentistRow) ? trim((string) ($dentistRow['tenant_id'] ?? '')) : '';
         if ($shiftUserId === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Selected dentist could not be resolved.']);
