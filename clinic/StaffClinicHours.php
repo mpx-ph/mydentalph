@@ -45,9 +45,41 @@ if (isset($_SESSION['clinic_hours_message']) && is_array($_SESSION['clinic_hours
 }
 
 $clinicHoursRowsByIndex = $defaultClinicHoursRows;
+$dateSpecificRows = [];
 
 try {
     $pdo = getDBConnection();
+    $pdo->exec('ALTER TABLE tbl_clinic_hours ADD COLUMN clinic_date DATE NULL AFTER day_of_week');
+} catch (Throwable $e) {
+    // Column may already exist or ALTER may be restricted; continue safely.
+}
+
+try {
+    $pdo = isset($pdo) ? $pdo : getDBConnection();
+    $indexRows = $pdo->query('SHOW INDEX FROM tbl_clinic_hours')->fetchAll(PDO::FETCH_ASSOC);
+    $hasUniqueDay = false;
+    $hasUniqueDayDate = false;
+    foreach ($indexRows as $indexRow) {
+        $keyName = isset($indexRow['Key_name']) ? (string) $indexRow['Key_name'] : '';
+        if ($keyName === 'unique_day') {
+            $hasUniqueDay = true;
+        }
+        if ($keyName === 'unique_day_date') {
+            $hasUniqueDayDate = true;
+        }
+    }
+    if ($hasUniqueDay) {
+        $pdo->exec('ALTER TABLE tbl_clinic_hours DROP INDEX unique_day');
+    }
+    if (!$hasUniqueDayDate) {
+        $pdo->exec('ALTER TABLE tbl_clinic_hours ADD UNIQUE KEY unique_day_date (day_of_week, clinic_date)');
+    }
+} catch (Throwable $e) {
+    // Keep compatibility if index migration is not allowed.
+}
+
+try {
+    $pdo = isset($pdo) ? $pdo : getDBConnection();
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_clinic_hours'])) {
         $weekStartForRedirect = isset($_POST['week_start']) ? trim((string) $_POST['week_start']) : '';
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $weekStartForRedirect)) {
@@ -55,6 +87,7 @@ try {
         }
 
         $dayOfWeek = isset($_POST['day_of_week']) ? (int) $_POST['day_of_week'] : -1;
+        $clinicDateInput = isset($_POST['clinic_date']) ? trim((string) $_POST['clinic_date']) : '';
         $openTimeRaw = isset($_POST['open_time']) ? trim((string) $_POST['open_time']) : '';
         $closeTimeRaw = isset($_POST['close_time']) ? trim((string) $_POST['close_time']) : '';
         $notesInput = isset($_POST['notes']) ? trim((string) $_POST['notes']) : '';
@@ -80,10 +113,13 @@ try {
         if ($dayOfWeek < 0 || $dayOfWeek > 6) {
             throw new RuntimeException('Invalid day selected for clinic hours.');
         }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $clinicDateInput)) {
+            throw new RuntimeException('Invalid clinic date selected.');
+        }
 
         $upsertSql = "
-            INSERT INTO tbl_clinic_hours (day_of_week, open_time, close_time, is_closed, notes)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO tbl_clinic_hours (day_of_week, clinic_date, open_time, close_time, is_closed, notes)
+            VALUES (?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 open_time = VALUES(open_time),
                 close_time = VALUES(close_time),
@@ -94,6 +130,7 @@ try {
         $upsertStmt = $pdo->prepare($upsertSql);
         $upsertStmt->execute([
             $dayOfWeek,
+            $clinicDateInput,
             $isClosed ? null : $openTime,
             $isClosed ? null : $closeTime,
             $isClosed ? 1 : 0,
@@ -112,27 +149,36 @@ try {
         exit;
     }
 
-    $hoursStmt = $pdo->query('SELECT day_of_week, open_time, close_time, is_closed, notes FROM tbl_clinic_hours');
+    $hoursStmt = $pdo->query('SELECT day_of_week, clinic_date, open_time, close_time, is_closed, notes FROM tbl_clinic_hours');
     $dbRows = $hoursStmt->fetchAll(PDO::FETCH_ASSOC);
+    $weeklyTemplateRows = [];
+    $dateSpecificRows = [];
     foreach ($dbRows as $dbRow) {
         $dayIndex = isset($dbRow['day_of_week']) ? (int) $dbRow['day_of_week'] : -1;
         if (!isset($clinicHoursRowsByIndex[$dayIndex])) {
             continue;
         }
 
-        $fallbackOpen = $defaultClinicHoursRows[$dayIndex]['open_time'];
-        $fallbackClose = $defaultClinicHoursRows[$dayIndex]['close_time'];
-        $isClosedFromDb = isset($dbRow['is_closed']) && (int) $dbRow['is_closed'] === 1;
-
-        $clinicHoursRowsByIndex[$dayIndex] = [
+        $normalizedRow = [
             'day' => $defaultClinicHoursRows[$dayIndex]['day'],
-            'open_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($dbRow['open_time'], $fallbackOpen),
-            'close_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($dbRow['close_time'], $fallbackClose),
-            'is_closed' => $isClosedFromDb,
-            'open_time_raw' => $isClosedFromDb ? '' : substr((string) $dbRow['open_time'], 0, 5),
-            'close_time_raw' => $isClosedFromDb ? '' : substr((string) $dbRow['close_time'], 0, 5),
+            'open_time' => isset($dbRow['is_closed']) && (int) $dbRow['is_closed'] === 1 ? '--' : $formatTimeForDisplay($dbRow['open_time'], $defaultClinicHoursRows[$dayIndex]['open_time']),
+            'close_time' => isset($dbRow['is_closed']) && (int) $dbRow['is_closed'] === 1 ? '--' : $formatTimeForDisplay($dbRow['close_time'], $defaultClinicHoursRows[$dayIndex]['close_time']),
+            'is_closed' => isset($dbRow['is_closed']) && (int) $dbRow['is_closed'] === 1,
+            'open_time_raw' => isset($dbRow['is_closed']) && (int) $dbRow['is_closed'] === 1 ? '' : substr((string) $dbRow['open_time'], 0, 5),
+            'close_time_raw' => isset($dbRow['is_closed']) && (int) $dbRow['is_closed'] === 1 ? '' : substr((string) $dbRow['close_time'], 0, 5),
             'notes' => isset($dbRow['notes']) ? trim((string) $dbRow['notes']) : '',
         ];
+
+        $clinicDate = isset($dbRow['clinic_date']) ? trim((string) $dbRow['clinic_date']) : '';
+        if ($clinicDate === '') {
+            $weeklyTemplateRows[$dayIndex] = $normalizedRow;
+        } else {
+            $dateSpecificRows[$clinicDate . '#' . $dayIndex] = $normalizedRow;
+        }
+    }
+
+    foreach ($weeklyTemplateRows as $templateDayIndex => $templateRow) {
+        $clinicHoursRowsByIndex[$templateDayIndex] = $templateRow;
     }
 } catch (Throwable $e) {
     error_log('Staff clinic hours load/save error: ' . $e->getMessage());
@@ -391,9 +437,14 @@ for ($offset = 0; $offset <= 16; $offset++) {
                         <?php for ($dayOffset = 0; $dayOffset < 7; $dayOffset++): ?>
                             <?php
                             $dayDate = $selectedWeekStart->modify('+' . $dayOffset . ' days');
+                            $dayDateKey = $dayDate->format('Y-m-d');
                             $dayOfWeekIndex = (int) $dayDate->format('w');
                             $dayName = $dayDate->format('l');
                             $row = isset($clinicHoursRowsByIndex[$dayOfWeekIndex]) ? $clinicHoursRowsByIndex[$dayOfWeekIndex] : ['open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false];
+                            $dateSpecificKey = $dayDateKey . '#' . $dayOfWeekIndex;
+                            if (isset($dateSpecificRows[$dateSpecificKey])) {
+                                $row = $dateSpecificRows[$dateSpecificKey];
+                            }
                             $fullDayLabel = $dayDate->format('F j, Y') . ' (' . $dayName . ')';
                             $statusLabel = $row['is_closed'] ? 'Closed' : 'Open';
                             $statusClass = $row['is_closed']
@@ -420,6 +471,7 @@ for ($offset = 0; $offset <= 16; $offset++) {
                                         type="button"
                                         data-open-modal="editClinicHoursModal"
                                         data-day="<?php echo htmlspecialchars($fullDayLabel, ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-clinic-date="<?php echo htmlspecialchars($dayDateKey, ENT_QUOTES, 'UTF-8'); ?>"
                                         data-day-index="<?php echo htmlspecialchars((string) $dayOfWeekIndex, ENT_QUOTES, 'UTF-8'); ?>"
                                         data-open-time="<?php echo htmlspecialchars($row['open_time'], ENT_QUOTES, 'UTF-8'); ?>"
                                         data-close-time="<?php echo htmlspecialchars($row['close_time'], ENT_QUOTES, 'UTF-8'); ?>"
@@ -461,6 +513,7 @@ for ($offset = 0; $offset <= 16; $offset++) {
         <form method="post">
             <input type="hidden" name="save_clinic_hours" value="1"/>
             <input type="hidden" id="modalDayOfWeekInput" name="day_of_week" value="1"/>
+            <input type="hidden" id="modalClinicDateInput" name="clinic_date" value="<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
             <input type="hidden" name="week_start" value="<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
             <div class="p-6 sm:p-7 space-y-5">
                 <div class="rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5">
@@ -567,6 +620,7 @@ for ($offset = 0; $offset <= 16; $offset++) {
                 const openTimeRaw = button.getAttribute('data-open-time-raw') || '';
                 const closeTimeRaw = button.getAttribute('data-close-time-raw') || '';
                 const notes = button.getAttribute('data-notes') || '';
+                const clinicDate = button.getAttribute('data-clinic-date') || '';
                 const isClosed = button.getAttribute('data-is-closed') === '1';
                 const dayIndex = button.getAttribute('data-day-index') || '1';
 
@@ -575,6 +629,7 @@ for ($offset = 0; $offset <= 16; $offset++) {
                 const closeEl = document.getElementById('modalCloseTime');
                 const closedEl = document.getElementById('modalClosedCheckbox');
                 const dayOfWeekEl = document.getElementById('modalDayOfWeekInput');
+                const clinicDateEl = document.getElementById('modalClinicDateInput');
                 const notesEl = document.getElementById('modalNotes');
 
                 if (dayEl) dayEl.textContent = day;
@@ -582,6 +637,7 @@ for ($offset = 0; $offset <= 16; $offset++) {
                 if (closeEl) closeEl.value = closeTimeRaw || twelveHourToTwentyFour(closeTime);
                 if (closedEl) closedEl.checked = isClosed;
                 if (dayOfWeekEl) dayOfWeekEl.value = dayIndex;
+                if (clinicDateEl) clinicDateEl.value = clinicDate;
                 if (notesEl) notesEl.value = notes;
                 setClosedState(isClosed);
             }
