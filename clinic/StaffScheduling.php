@@ -176,6 +176,205 @@ try {
         exit;
     }
 
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_set_shift']) && (string) $_POST['save_set_shift'] === '1') {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($tenantId === '') {
+            $resolvedTenantId = clinic_resolve_walkin_tenant_id($pdo);
+            if (is_string($resolvedTenantId) && $resolvedTenantId !== '') {
+                $tenantId = $resolvedTenantId;
+            }
+        }
+        if ($tenantId === '') {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Unable to resolve tenant for shift saving.',
+            ]);
+            exit;
+        }
+
+        $shiftDentistId = isset($_POST['dentist_id']) ? trim((string) $_POST['dentist_id']) : '';
+        $shiftDate = isset($_POST['shift_date']) ? trim((string) $_POST['shift_date']) : '';
+        $shiftStart = isset($_POST['start_time']) ? trim((string) $_POST['start_time']) : '';
+        $shiftEnd = isset($_POST['end_time']) ? trim((string) $_POST['end_time']) : '';
+        $shiftRepeat = isset($_POST['repeat']) ? trim((string) $_POST['repeat']) : 'one_day';
+        $shiftNotesInput = isset($_POST['notes']) ? trim((string) $_POST['notes']) : '';
+        $shiftNotes = $shiftNotesInput !== '' ? $shiftNotesInput : null;
+
+        if ($shiftDentistId === '') {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Please select a dentist.']);
+            exit;
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $shiftDate)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Please select a valid shift date.']);
+            exit;
+        }
+        if ($shiftDate < $todayDateOnly) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Shift date must be today or a future date.']);
+            exit;
+        }
+        if (!preg_match('/^\d{2}:\d{2}$/', $shiftStart) || !preg_match('/^\d{2}:\d{2}$/', $shiftEnd)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Please select valid start and end times.']);
+            exit;
+        }
+        if (toMinutes($shiftEnd) <= toMinutes($shiftStart)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Shift end time must be later than start time.']);
+            exit;
+        }
+        if (!in_array($shiftRepeat, ['one_day', 'weekly'], true)) {
+            $shiftRepeat = 'one_day';
+        }
+
+        $dentistLookupStmt = $pdo->prepare("
+            SELECT user_id
+            FROM tbl_dentists
+            WHERE tenant_id = ?
+              AND dentist_id = ?
+            LIMIT 1
+        ");
+        $dentistLookupStmt->execute([$tenantId, $shiftDentistId]);
+        $dentistRow = $dentistLookupStmt->fetch(PDO::FETCH_ASSOC);
+        $shiftUserId = is_array($dentistRow) ? trim((string) ($dentistRow['user_id'] ?? '')) : '';
+        if ($shiftUserId === '') {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Selected dentist could not be resolved.']);
+            exit;
+        }
+
+        $clinicHoursStmt = $pdo->prepare("
+            SELECT open_time, close_time, is_closed
+            FROM tbl_clinic_hours
+            WHERE clinic_date = ?
+            LIMIT 1
+        ");
+        $clinicHoursStmt->execute([$shiftDate]);
+        $clinicHoursRow = $clinicHoursStmt->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($clinicHoursRow) || empty($clinicHoursRow)) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Clinic hours are not set for the selected date.',
+            ]);
+            exit;
+        }
+        if (isset($clinicHoursRow['is_closed']) && (int) $clinicHoursRow['is_closed'] === 1) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'The clinic is marked closed for this date.',
+            ]);
+            exit;
+        }
+
+        $clinicOpen = substr((string) ($clinicHoursRow['open_time'] ?? ''), 0, 5);
+        $clinicClose = substr((string) ($clinicHoursRow['close_time'] ?? ''), 0, 5);
+        if ($clinicOpen === '' || $clinicClose === '') {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Clinic opening and closing times are incomplete for this date.',
+            ]);
+            exit;
+        }
+        $clinicOpenMinutes = toMinutes($clinicOpen);
+        $clinicCloseMinutes = toMinutes($clinicClose);
+        $shiftStartMinutes = toMinutes($shiftStart);
+        $shiftEndMinutes = toMinutes($shiftEnd);
+        if ($shiftStartMinutes < $clinicOpenMinutes || $shiftEndMinutes > $clinicCloseMinutes) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Shift time must be within clinic operating hours for the selected day.',
+            ]);
+            exit;
+        }
+
+        $shiftDateObj = DateTimeImmutable::createFromFormat('Y-m-d', $shiftDate, $tz);
+        $shiftDayName = $shiftDateObj instanceof DateTimeImmutable ? $shiftDateObj->format('l') : null;
+        $createdByUserId = isset($_SESSION['user_id']) ? trim((string) $_SESSION['user_id']) : null;
+        if ($createdByUserId === '') {
+            $createdByUserId = null;
+        }
+
+        if ($shiftRepeat === 'one_day') {
+            $disableExistingStmt = $pdo->prepare("
+                UPDATE tbl_schedule_blocks
+                SET is_active = 0
+                WHERE tenant_id = ?
+                  AND user_id = ?
+                  AND block_type = 'shift'
+                  AND block_date = ?
+            ");
+            $disableExistingStmt->execute([$tenantId, $shiftUserId, $shiftDate]);
+
+            $insertShiftStmt = $pdo->prepare("
+                INSERT INTO tbl_schedule_blocks
+                    (tenant_id, user_id, block_date, day_of_week, start_time, end_time, block_type, is_active, notes, created_by)
+                VALUES
+                    (?, ?, ?, NULL, ?, ?, 'shift', 1, ?, ?)
+            ");
+            $insertShiftStmt->execute([
+                $tenantId,
+                $shiftUserId,
+                $shiftDate,
+                $shiftStart . ':00',
+                $shiftEnd . ':00',
+                $shiftNotes,
+                $createdByUserId,
+            ]);
+        } else {
+            if (!in_array($shiftDayName, $dayNameMap, true)) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Unable to determine weekly repeat day.',
+                ]);
+                exit;
+            }
+
+            $disableExistingWeeklyStmt = $pdo->prepare("
+                UPDATE tbl_schedule_blocks
+                SET is_active = 0
+                WHERE tenant_id = ?
+                  AND user_id = ?
+                  AND block_type = 'shift'
+                  AND day_of_week = ?
+                  AND (block_date IS NULL OR block_date = '0000-00-00')
+            ");
+            $disableExistingWeeklyStmt->execute([$tenantId, $shiftUserId, $shiftDayName]);
+
+            $insertWeeklyShiftStmt = $pdo->prepare("
+                INSERT INTO tbl_schedule_blocks
+                    (tenant_id, user_id, block_date, day_of_week, start_time, end_time, block_type, is_active, notes, created_by)
+                VALUES
+                    (?, ?, NULL, ?, ?, ?, 'shift', 1, ?, ?)
+            ");
+            $insertWeeklyShiftStmt->execute([
+                $tenantId,
+                $shiftUserId,
+                $shiftDayName,
+                $shiftStart . ':00',
+                $shiftEnd . ':00',
+                $shiftNotes,
+                $createdByUserId,
+            ]);
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Shift saved successfully.',
+            'selected_date' => $shiftDate,
+            'dentist_id' => $shiftDentistId,
+        ]);
+        exit;
+    }
+
     if ($tenantId === '') {
         $resolvedTenantId = clinic_resolve_walkin_tenant_id($pdo);
         if (is_string($resolvedTenantId) && $resolvedTenantId !== '') {
@@ -792,6 +991,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
         const closeSetShiftModalBtn = document.getElementById('closeSetShiftModalBtn');
         const cancelSetShiftBtn = document.getElementById('cancelSetShiftBtn');
         const saveSetShiftBtn = document.getElementById('saveSetShiftBtn');
+        const setShiftDentistId = document.getElementById('setShiftDentistId');
+        const setShiftForm = document.getElementById('setShiftForm');
+        const setShiftNotes = document.getElementById('setShiftNotes');
         const setShiftStartTime = document.getElementById('setShiftStartTime');
         const setShiftEndTime = document.getElementById('setShiftEndTime');
         const setShiftDate = document.getElementById('setShiftDate');
@@ -1006,15 +1208,23 @@ $dentistsSeedData = array_map(static function ($dentist) {
             });
         }
         if (saveSetShiftBtn) {
-            saveSetShiftBtn.addEventListener('click', function () {
-                if (!setShiftStartTime || !setShiftEndTime || !setShiftDate) return;
+            saveSetShiftBtn.addEventListener('click', async function () {
+                if (!setShiftStartTime || !setShiftEndTime || !setShiftDate || !setShiftDentistId || !setShiftForm) return;
 
                 const selectedDate = String(setShiftDate.value || '');
                 const selectedStart = String(setShiftStartTime.value || '');
                 const selectedEnd = String(setShiftEndTime.value || '');
+                const selectedDentistId = String(setShiftDentistId.value || '');
+                const selectedRepeatInput = setShiftForm.querySelector('input[name="setShiftRepeat"]:checked');
+                const selectedRepeat = selectedRepeatInput ? String(selectedRepeatInput.value || 'one_day') : 'one_day';
+                const notesValue = setShiftNotes ? String(setShiftNotes.value || '').trim() : '';
 
                 if (!selectedDate || selectedDate < todayDateOnly) {
                     window.alert('Please select today or a future date.');
+                    return;
+                }
+                if (!selectedDentistId) {
+                    window.alert('Please select a dentist.');
                     return;
                 }
                 if (!selectedStart || !selectedEnd) {
@@ -1042,8 +1252,44 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     window.alert('Shift time must fall within clinic operating hours for the selected day.');
                     return;
                 }
+                const originalButtonLabel = saveSetShiftBtn.textContent;
+                saveSetShiftBtn.disabled = true;
+                saveSetShiftBtn.textContent = 'Saving...';
+                try {
+                    const payload = new URLSearchParams();
+                    payload.append('save_set_shift', '1');
+                    payload.append('dentist_id', selectedDentistId);
+                    payload.append('shift_date', selectedDate);
+                    payload.append('start_time', selectedStart);
+                    payload.append('end_time', selectedEnd);
+                    payload.append('repeat', selectedRepeat);
+                    payload.append('notes', notesValue);
 
-                closeSetShiftModal();
+                    const response = await fetch(window.location.pathname + window.location.search, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                            'Accept': 'application/json'
+                        },
+                        credentials: 'same-origin',
+                        body: payload.toString()
+                    });
+                    const result = await response.json();
+                    if (!response.ok || !result || result.success !== true) {
+                        throw new Error((result && result.message) ? result.message : 'Failed to save shift.');
+                    }
+
+                    closeSetShiftModal();
+                    const refreshedUrl = new URL(window.location.href);
+                    refreshedUrl.searchParams.set('selected_date', selectedDate);
+                    refreshedUrl.searchParams.set('dentist_id', selectedDentistId);
+                    window.location.href = refreshedUrl.toString();
+                } catch (error) {
+                    window.alert((error && error.message) ? error.message : 'Failed to save shift.');
+                } finally {
+                    saveSetShiftBtn.disabled = false;
+                    saveSetShiftBtn.textContent = originalButtonLabel;
+                }
             });
         }
         if (setShiftDate) {
