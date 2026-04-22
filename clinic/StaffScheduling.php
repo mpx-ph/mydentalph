@@ -233,7 +233,7 @@ try {
         }
 
         $dentistLookupStmt = $pdo->prepare("
-            SELECT user_id, dentist_id
+            SELECT tenant_id, user_id, dentist_id
             FROM tbl_dentists
             WHERE tenant_id = ?
               AND (
@@ -250,12 +250,37 @@ try {
             $shiftDentistId,
         ]);
         $dentistRow = $dentistLookupStmt->fetch(PDO::FETCH_ASSOC);
+
+        // Fallback: when tenant resolution above is stale/mismatched, resolve by identifier globally.
+        if ((!is_array($dentistRow) || empty($dentistRow)) && ($shiftDentistUserId !== '' || $shiftDentistId !== '')) {
+            $dentistFallbackStmt = $pdo->prepare("
+                SELECT tenant_id, user_id, dentist_id
+                FROM tbl_dentists
+                WHERE
+                    (? <> '' AND user_id = ?)
+                    OR (? <> '' AND dentist_id = ?)
+                ORDER BY tenant_id ASC
+                LIMIT 1
+            ");
+            $dentistFallbackStmt->execute([
+                $shiftDentistUserId,
+                $shiftDentistUserId,
+                $shiftDentistId,
+                $shiftDentistId,
+            ]);
+            $dentistRow = $dentistFallbackStmt->fetch(PDO::FETCH_ASSOC);
+        }
+
         $shiftUserId = is_array($dentistRow) ? trim((string) ($dentistRow['user_id'] ?? '')) : '';
         $resolvedShiftDentistId = is_array($dentistRow) ? trim((string) ($dentistRow['dentist_id'] ?? '')) : '';
+        $resolvedDentistTenantId = is_array($dentistRow) ? trim((string) ($dentistRow['tenant_id'] ?? '')) : '';
         if ($shiftUserId === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Selected dentist could not be resolved.']);
             exit;
+        }
+        if ($resolvedDentistTenantId !== '') {
+            $tenantId = $resolvedDentistTenantId;
         }
 
         $clinicHoursStmt = $pdo->prepare("
