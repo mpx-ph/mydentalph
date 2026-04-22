@@ -570,6 +570,7 @@ CREATE TABLE IF NOT EXISTS tbl_schedule_blocks (
 -- ============================================
 CREATE TABLE IF NOT EXISTS tbl_clinic_hours (
     clinic_hours_id INT AUTO_INCREMENT PRIMARY KEY,
+    clinic_date DATE NULL COMMENT 'Specific calendar date for weekly view entries',
     day_of_week TINYINT NOT NULL COMMENT '0=Sunday, 1=Monday, ..., 6=Saturday',
     open_time TIME NULL,
     close_time TIME NULL,
@@ -577,7 +578,7 @@ CREATE TABLE IF NOT EXISTS tbl_clinic_hours (
     notes VARCHAR(255) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_day (day_of_week)
+    UNIQUE KEY unique_clinic_date (clinic_date)
 );
 
 -- ============================================

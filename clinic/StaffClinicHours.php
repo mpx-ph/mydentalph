@@ -16,178 +16,6 @@ $defaultClinicHoursRows = [
     6 => ['day' => 'Saturday', 'open_time' => '09:00 AM', 'close_time' => '03:00 PM', 'is_closed' => false],
 ];
 
-$formatTimeForDisplay = static function ($timeValue, $fallback) {
-    $raw = trim((string) $timeValue);
-    if ($raw === '') {
-        return $fallback;
-    }
-    $dt = DateTimeImmutable::createFromFormat('H:i:s', $raw);
-    if (!($dt instanceof DateTimeImmutable)) {
-        $dt = DateTimeImmutable::createFromFormat('H:i', $raw);
-    }
-    if (!($dt instanceof DateTimeImmutable)) {
-        return $fallback;
-    }
-    return $dt->format('h:i A');
-};
-
-$formMessage = '';
-$formMessageType = 'success';
-if (isset($_SESSION['clinic_hours_message']) && is_array($_SESSION['clinic_hours_message'])) {
-    $flashMessage = $_SESSION['clinic_hours_message'];
-    if (isset($flashMessage['text']) && is_string($flashMessage['text'])) {
-        $formMessage = $flashMessage['text'];
-    }
-    if (isset($flashMessage['type']) && in_array($flashMessage['type'], ['success', 'error'], true)) {
-        $formMessageType = $flashMessage['type'];
-    }
-    unset($_SESSION['clinic_hours_message']);
-}
-
-$clinicHoursRowsByIndex = $defaultClinicHoursRows;
-$dateSpecificRows = [];
-
-try {
-    $pdo = getDBConnection();
-    $pdo->exec('ALTER TABLE tbl_clinic_hours ADD COLUMN clinic_date DATE NULL AFTER day_of_week');
-} catch (Throwable $e) {
-    // Column may already exist or ALTER may be restricted; continue safely.
-}
-
-try {
-    $pdo = isset($pdo) ? $pdo : getDBConnection();
-    $indexRows = $pdo->query('SHOW INDEX FROM tbl_clinic_hours')->fetchAll(PDO::FETCH_ASSOC);
-    $hasUniqueDay = false;
-    $hasUniqueDayDate = false;
-    foreach ($indexRows as $indexRow) {
-        $keyName = isset($indexRow['Key_name']) ? (string) $indexRow['Key_name'] : '';
-        if ($keyName === 'unique_day') {
-            $hasUniqueDay = true;
-        }
-        if ($keyName === 'unique_day_date') {
-            $hasUniqueDayDate = true;
-        }
-    }
-    if ($hasUniqueDay) {
-        $pdo->exec('ALTER TABLE tbl_clinic_hours DROP INDEX unique_day');
-    }
-    if (!$hasUniqueDayDate) {
-        $pdo->exec('ALTER TABLE tbl_clinic_hours ADD UNIQUE KEY unique_day_date (day_of_week, clinic_date)');
-    }
-} catch (Throwable $e) {
-    // Keep compatibility if index migration is not allowed.
-}
-
-try {
-    $pdo = isset($pdo) ? $pdo : getDBConnection();
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_clinic_hours'])) {
-        $weekStartForRedirect = isset($_POST['week_start']) ? trim((string) $_POST['week_start']) : '';
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $weekStartForRedirect)) {
-            $weekStartForRedirect = '';
-        }
-
-        $dayOfWeek = isset($_POST['day_of_week']) ? (int) $_POST['day_of_week'] : -1;
-        $clinicDateInput = isset($_POST['clinic_date']) ? trim((string) $_POST['clinic_date']) : '';
-        $openTimeRaw = isset($_POST['open_time']) ? trim((string) $_POST['open_time']) : '';
-        $closeTimeRaw = isset($_POST['close_time']) ? trim((string) $_POST['close_time']) : '';
-        $notesInput = isset($_POST['notes']) ? trim((string) $_POST['notes']) : '';
-        $notes = $notesInput !== '' ? substr($notesInput, 0, 255) : null;
-        $isClosed = isset($_POST['is_closed']) && $_POST['is_closed'] === '1';
-
-        $openTime = null;
-        $closeTime = null;
-        if (!$isClosed) {
-            $openTimeDt = DateTimeImmutable::createFromFormat('H:i', $openTimeRaw);
-            $closeTimeDt = DateTimeImmutable::createFromFormat('H:i', $closeTimeRaw);
-
-            if (!($openTimeDt instanceof DateTimeImmutable) || !($closeTimeDt instanceof DateTimeImmutable)) {
-                throw new RuntimeException('Please select valid opening and closing times.');
-            }
-            if ($openTimeRaw >= $closeTimeRaw) {
-                throw new RuntimeException('Closing time must be later than opening time.');
-            }
-            $openTime = $openTimeDt->format('H:i:s');
-            $closeTime = $closeTimeDt->format('H:i:s');
-        }
-
-        if ($dayOfWeek < 0 || $dayOfWeek > 6) {
-            throw new RuntimeException('Invalid day selected for clinic hours.');
-        }
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $clinicDateInput)) {
-            throw new RuntimeException('Invalid clinic date selected.');
-        }
-
-        $upsertSql = "
-            INSERT INTO tbl_clinic_hours (day_of_week, clinic_date, open_time, close_time, is_closed, notes)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                open_time = VALUES(open_time),
-                close_time = VALUES(close_time),
-                is_closed = VALUES(is_closed),
-                notes = VALUES(notes),
-                updated_at = CURRENT_TIMESTAMP
-        ";
-        $upsertStmt = $pdo->prepare($upsertSql);
-        $upsertStmt->execute([
-            $dayOfWeek,
-            $clinicDateInput,
-            $isClosed ? null : $openTime,
-            $isClosed ? null : $closeTime,
-            $isClosed ? 1 : 0,
-            $notes,
-        ]);
-
-        $_SESSION['clinic_hours_message'] = [
-            'type' => 'success',
-            'text' => 'Clinic hours updated successfully.',
-        ];
-        $redirectUrl = 'StaffClinicHours.php';
-        if ($weekStartForRedirect !== '') {
-            $redirectUrl .= '?week_start=' . rawurlencode($weekStartForRedirect);
-        }
-        header('Location: ' . $redirectUrl);
-        exit;
-    }
-
-    $hoursStmt = $pdo->query('SELECT day_of_week, clinic_date, open_time, close_time, is_closed, notes FROM tbl_clinic_hours');
-    $dbRows = $hoursStmt->fetchAll(PDO::FETCH_ASSOC);
-    $weeklyTemplateRows = [];
-    $dateSpecificRows = [];
-    foreach ($dbRows as $dbRow) {
-        $dayIndex = isset($dbRow['day_of_week']) ? (int) $dbRow['day_of_week'] : -1;
-        if (!isset($clinicHoursRowsByIndex[$dayIndex])) {
-            continue;
-        }
-
-        $normalizedRow = [
-            'day' => $defaultClinicHoursRows[$dayIndex]['day'],
-            'open_time' => isset($dbRow['is_closed']) && (int) $dbRow['is_closed'] === 1 ? '--' : $formatTimeForDisplay($dbRow['open_time'], $defaultClinicHoursRows[$dayIndex]['open_time']),
-            'close_time' => isset($dbRow['is_closed']) && (int) $dbRow['is_closed'] === 1 ? '--' : $formatTimeForDisplay($dbRow['close_time'], $defaultClinicHoursRows[$dayIndex]['close_time']),
-            'is_closed' => isset($dbRow['is_closed']) && (int) $dbRow['is_closed'] === 1,
-            'open_time_raw' => isset($dbRow['is_closed']) && (int) $dbRow['is_closed'] === 1 ? '' : substr((string) $dbRow['open_time'], 0, 5),
-            'close_time_raw' => isset($dbRow['is_closed']) && (int) $dbRow['is_closed'] === 1 ? '' : substr((string) $dbRow['close_time'], 0, 5),
-            'notes' => isset($dbRow['notes']) ? trim((string) $dbRow['notes']) : '',
-        ];
-
-        $clinicDate = isset($dbRow['clinic_date']) ? trim((string) $dbRow['clinic_date']) : '';
-        if ($clinicDate === '') {
-            $weeklyTemplateRows[$dayIndex] = $normalizedRow;
-        } else {
-            $dateSpecificRows[$clinicDate . '#' . $dayIndex] = $normalizedRow;
-        }
-    }
-
-    foreach ($weeklyTemplateRows as $templateDayIndex => $templateRow) {
-        $clinicHoursRowsByIndex[$templateDayIndex] = $templateRow;
-    }
-} catch (Throwable $e) {
-    error_log('Staff clinic hours load/save error: ' . $e->getMessage());
-    $formMessage = $e instanceof RuntimeException
-        ? $e->getMessage()
-        : 'An unexpected error occurred while loading clinic hours.';
-    $formMessageType = 'error';
-}
-
 $today = new DateTimeImmutable('today');
 $weekStartInput = isset($_GET['week_start']) ? trim((string) $_GET['week_start']) : '';
 $selectedDate = null;
@@ -229,6 +57,185 @@ for ($offset = 0; $offset <= 16; $offset++) {
         'value' => $optionValue,
         'label' => $optionStart->format('M j') . ' - ' . $optionEnd->format('M j, Y'),
     ];
+}
+
+$formatTimeForDisplay = static function ($timeValue, $fallback) {
+    $raw = trim((string) $timeValue);
+    if ($raw === '') {
+        return $fallback;
+    }
+    $dt = DateTimeImmutable::createFromFormat('H:i:s', $raw);
+    if (!($dt instanceof DateTimeImmutable)) {
+        $dt = DateTimeImmutable::createFromFormat('H:i', $raw);
+    }
+    if (!($dt instanceof DateTimeImmutable)) {
+        return $fallback;
+    }
+    return $dt->format('h:i A');
+};
+
+$formMessage = '';
+$formMessageType = 'success';
+if (isset($_SESSION['clinic_hours_message']) && is_array($_SESSION['clinic_hours_message'])) {
+    $flashMessage = $_SESSION['clinic_hours_message'];
+    if (isset($flashMessage['text']) && is_string($flashMessage['text'])) {
+        $formMessage = $flashMessage['text'];
+    }
+    if (isset($flashMessage['type']) && in_array($flashMessage['type'], ['success', 'error'], true)) {
+        $formMessageType = $flashMessage['type'];
+    }
+    unset($_SESSION['clinic_hours_message']);
+}
+
+$fallbackRowsByDayIndex = $defaultClinicHoursRows;
+$clinicHoursRowsByDate = [];
+
+try {
+    $pdo = getDBConnection();
+    try {
+        $pdo->exec("ALTER TABLE tbl_clinic_hours ADD COLUMN clinic_date DATE NULL AFTER clinic_hours_id");
+    } catch (Throwable $e) {
+        // Column may already exist.
+    }
+    try {
+        $pdo->exec("ALTER TABLE tbl_clinic_hours DROP INDEX unique_day");
+    } catch (Throwable $e) {
+        // Index may not exist or already dropped.
+    }
+    try {
+        $pdo->exec("ALTER TABLE tbl_clinic_hours ADD UNIQUE KEY unique_clinic_date (clinic_date)");
+    } catch (Throwable $e) {
+        // Index may already exist.
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_clinic_hours'])) {
+        $weekStartForRedirect = isset($_POST['week_start']) ? trim((string) $_POST['week_start']) : '';
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $weekStartForRedirect)) {
+            $weekStartForRedirect = '';
+        }
+
+        $dayOfWeek = isset($_POST['day_of_week']) ? (int) $_POST['day_of_week'] : -1;
+        $clinicDate = isset($_POST['clinic_date']) ? trim((string) $_POST['clinic_date']) : '';
+        $openTimeRaw = isset($_POST['open_time']) ? trim((string) $_POST['open_time']) : '';
+        $closeTimeRaw = isset($_POST['close_time']) ? trim((string) $_POST['close_time']) : '';
+        $notesInput = isset($_POST['notes']) ? trim((string) $_POST['notes']) : '';
+        $notes = $notesInput !== '' ? substr($notesInput, 0, 255) : null;
+        $isClosed = isset($_POST['is_closed']) && $_POST['is_closed'] === '1';
+
+        $openTime = null;
+        $closeTime = null;
+        if (!$isClosed) {
+            $openTimeDt = DateTimeImmutable::createFromFormat('H:i', $openTimeRaw);
+            $closeTimeDt = DateTimeImmutable::createFromFormat('H:i', $closeTimeRaw);
+
+            if (!($openTimeDt instanceof DateTimeImmutable) || !($closeTimeDt instanceof DateTimeImmutable)) {
+                throw new RuntimeException('Please select valid opening and closing times.');
+            }
+            if ($openTimeRaw >= $closeTimeRaw) {
+                throw new RuntimeException('Closing time must be later than opening time.');
+            }
+            $openTime = $openTimeDt->format('H:i:s');
+            $closeTime = $closeTimeDt->format('H:i:s');
+        }
+
+        if ($dayOfWeek < 0 || $dayOfWeek > 6) {
+            throw new RuntimeException('Invalid day selected for clinic hours.');
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $clinicDate)) {
+            throw new RuntimeException('Invalid clinic date selected for clinic hours.');
+        }
+
+        $upsertSql = "
+            INSERT INTO tbl_clinic_hours (clinic_date, day_of_week, open_time, close_time, is_closed, notes)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                day_of_week = VALUES(day_of_week),
+                open_time = VALUES(open_time),
+                close_time = VALUES(close_time),
+                is_closed = VALUES(is_closed),
+                notes = VALUES(notes),
+                updated_at = CURRENT_TIMESTAMP
+        ";
+        $upsertStmt = $pdo->prepare($upsertSql);
+        $upsertStmt->execute([
+            $clinicDate,
+            $dayOfWeek,
+            $isClosed ? null : $openTime,
+            $isClosed ? null : $closeTime,
+            $isClosed ? 1 : 0,
+            $notes,
+        ]);
+
+        $_SESSION['clinic_hours_message'] = [
+            'type' => 'success',
+            'text' => 'Clinic hours updated successfully.',
+        ];
+        $redirectUrl = 'StaffClinicHours.php';
+        if ($weekStartForRedirect !== '') {
+            $redirectUrl .= '?week_start=' . rawurlencode($weekStartForRedirect);
+        }
+        header('Location: ' . $redirectUrl);
+        exit;
+    }
+
+    $legacyStmt = $pdo->query('SELECT day_of_week, open_time, close_time, is_closed, notes FROM tbl_clinic_hours WHERE clinic_date IS NULL');
+    $legacyRows = $legacyStmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($legacyRows as $dbRow) {
+        $dayIndex = isset($dbRow['day_of_week']) ? (int) $dbRow['day_of_week'] : -1;
+        if (!isset($fallbackRowsByDayIndex[$dayIndex])) {
+            continue;
+        }
+
+        $fallbackOpen = $defaultClinicHoursRows[$dayIndex]['open_time'];
+        $fallbackClose = $defaultClinicHoursRows[$dayIndex]['close_time'];
+        $isClosedFromDb = isset($dbRow['is_closed']) && (int) $dbRow['is_closed'] === 1;
+
+        $fallbackRowsByDayIndex[$dayIndex] = [
+            'day' => $defaultClinicHoursRows[$dayIndex]['day'],
+            'open_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($dbRow['open_time'], $fallbackOpen),
+            'close_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($dbRow['close_time'], $fallbackClose),
+            'is_closed' => $isClosedFromDb,
+            'open_time_raw' => $isClosedFromDb ? '' : substr((string) $dbRow['open_time'], 0, 5),
+            'close_time_raw' => $isClosedFromDb ? '' : substr((string) $dbRow['close_time'], 0, 5),
+            'notes' => isset($dbRow['notes']) ? trim((string) $dbRow['notes']) : '',
+        ];
+    }
+
+    $weekHoursStmt = $pdo->prepare("
+        SELECT clinic_date, day_of_week, open_time, close_time, is_closed, notes
+        FROM tbl_clinic_hours
+        WHERE clinic_date IS NOT NULL
+          AND clinic_date BETWEEN ? AND ?
+    ");
+    $weekHoursStmt->execute([
+        $selectedWeekStart->format('Y-m-d'),
+        $selectedWeekEnd->format('Y-m-d'),
+    ]);
+    $weekRows = $weekHoursStmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($weekRows as $weekRow) {
+        $dateKey = isset($weekRow['clinic_date']) ? trim((string) $weekRow['clinic_date']) : '';
+        if ($dateKey === '') {
+            continue;
+        }
+        $dayIndex = isset($weekRow['day_of_week']) ? (int) $weekRow['day_of_week'] : -1;
+        $dayFallback = isset($fallbackRowsByDayIndex[$dayIndex]) ? $fallbackRowsByDayIndex[$dayIndex] : ['open_time' => '08:00 AM', 'close_time' => '05:00 PM'];
+        $isClosedFromDb = isset($weekRow['is_closed']) && (int) $weekRow['is_closed'] === 1;
+
+        $clinicHoursRowsByDate[$dateKey] = [
+            'open_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($weekRow['open_time'], $dayFallback['open_time']),
+            'close_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($weekRow['close_time'], $dayFallback['close_time']),
+            'is_closed' => $isClosedFromDb,
+            'open_time_raw' => $isClosedFromDb ? '' : substr((string) $weekRow['open_time'], 0, 5),
+            'close_time_raw' => $isClosedFromDb ? '' : substr((string) $weekRow['close_time'], 0, 5),
+            'notes' => isset($weekRow['notes']) ? trim((string) $weekRow['notes']) : '',
+        ];
+    }
+} catch (Throwable $e) {
+    error_log('Staff clinic hours load/save error: ' . $e->getMessage());
+    $formMessage = $e instanceof RuntimeException
+        ? $e->getMessage()
+        : 'An unexpected error occurred while loading clinic hours.';
+    $formMessageType = 'error';
 }
 ?>
 <!DOCTYPE html>
@@ -437,14 +444,10 @@ for ($offset = 0; $offset <= 16; $offset++) {
                         <?php for ($dayOffset = 0; $dayOffset < 7; $dayOffset++): ?>
                             <?php
                             $dayDate = $selectedWeekStart->modify('+' . $dayOffset . ' days');
-                            $dayDateKey = $dayDate->format('Y-m-d');
+                            $dateKey = $dayDate->format('Y-m-d');
                             $dayOfWeekIndex = (int) $dayDate->format('w');
                             $dayName = $dayDate->format('l');
-                            $row = isset($clinicHoursRowsByIndex[$dayOfWeekIndex]) ? $clinicHoursRowsByIndex[$dayOfWeekIndex] : ['open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false];
-                            $dateSpecificKey = $dayDateKey . '#' . $dayOfWeekIndex;
-                            if (isset($dateSpecificRows[$dateSpecificKey])) {
-                                $row = $dateSpecificRows[$dateSpecificKey];
-                            }
+                            $row = isset($clinicHoursRowsByDate[$dateKey]) ? $clinicHoursRowsByDate[$dateKey] : (isset($fallbackRowsByDayIndex[$dayOfWeekIndex]) ? $fallbackRowsByDayIndex[$dayOfWeekIndex] : ['open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false, 'notes' => '']);
                             $fullDayLabel = $dayDate->format('F j, Y') . ' (' . $dayName . ')';
                             $statusLabel = $row['is_closed'] ? 'Closed' : 'Open';
                             $statusClass = $row['is_closed']
@@ -471,8 +474,8 @@ for ($offset = 0; $offset <= 16; $offset++) {
                                         type="button"
                                         data-open-modal="editClinicHoursModal"
                                         data-day="<?php echo htmlspecialchars($fullDayLabel, ENT_QUOTES, 'UTF-8'); ?>"
-                                        data-clinic-date="<?php echo htmlspecialchars($dayDateKey, ENT_QUOTES, 'UTF-8'); ?>"
                                         data-day-index="<?php echo htmlspecialchars((string) $dayOfWeekIndex, ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-date="<?php echo htmlspecialchars($dateKey, ENT_QUOTES, 'UTF-8'); ?>"
                                         data-open-time="<?php echo htmlspecialchars($row['open_time'], ENT_QUOTES, 'UTF-8'); ?>"
                                         data-close-time="<?php echo htmlspecialchars($row['close_time'], ENT_QUOTES, 'UTF-8'); ?>"
                                         data-open-time-raw="<?php echo htmlspecialchars(isset($row['open_time_raw']) ? (string) $row['open_time_raw'] : '', ENT_QUOTES, 'UTF-8'); ?>"
@@ -620,9 +623,9 @@ for ($offset = 0; $offset <= 16; $offset++) {
                 const openTimeRaw = button.getAttribute('data-open-time-raw') || '';
                 const closeTimeRaw = button.getAttribute('data-close-time-raw') || '';
                 const notes = button.getAttribute('data-notes') || '';
-                const clinicDate = button.getAttribute('data-clinic-date') || '';
                 const isClosed = button.getAttribute('data-is-closed') === '1';
                 const dayIndex = button.getAttribute('data-day-index') || '1';
+                const clinicDate = button.getAttribute('data-date') || '';
 
                 const dayEl = document.getElementById('modalDayLabel');
                 const openEl = document.getElementById('modalOpenTime');
