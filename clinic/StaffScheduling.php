@@ -107,7 +107,8 @@ $selectedDentistUserId = isset($_GET['user_id']) ? trim((string) $_GET['user_id'
 $selectedDentistId = isset($_GET['dentist_id']) ? trim((string) $_GET['dentist_id']) : '';
 $hasUserFilterParam = array_key_exists('user_id', $_GET);
 $hasDentistIdFilterParam = array_key_exists('dentist_id', $_GET);
-$selectedDentistName = 'Select dentist';
+$selectedDentistName = 'All dentists';
+$isDentistFiltered = false;
 $entriesByDate = [];
 foreach ($weekDays as $day) {
     $entriesByDate[$day['date_key']] = [];
@@ -162,42 +163,49 @@ try {
         if (($hasUserFilterParam || $hasDentistIdFilterParam) && !$selectionMatchedDentist) {
             $selectedDentistUserId = '';
             $selectedDentistId = '';
-            $selectedDentistName = 'Select dentist';
+            $selectedDentistName = 'All dentists';
         }
     }
 
     if ($selectedDentistUserId === '' && $selectedDentistId === '') {
-        $selectedDentistName = 'Select dentist';
+        $selectedDentistName = 'All dentists';
+        $isDentistFiltered = false;
+    } else {
+        $isDentistFiltered = true;
     }
 
-    if ($tenantId !== '' && ($selectedDentistUserId !== '' || $selectedDentistId !== '')) {
-        if (!empty($dentists)) {
+    if ($tenantId !== '') {
             $weekDayNames = array_values(array_map(static function ($d) {
                 return (string) $d['day_name'];
             }, $weekDays));
             $weekdayPlaceholders = implode(',', array_fill(0, count($weekDayNames), '?'));
 
             $scheduleRows = [];
+            $blocksSql = "
+                SELECT block_date, day_of_week, start_time, end_time, block_type
+                FROM tbl_schedule_blocks
+                WHERE tenant_id = ?
+                  AND is_active = 1
+            ";
+            $blocksParams = [$tenantId];
             if ($selectedDentistUserId !== '') {
-                $blocksSql = "
-                    SELECT block_date, day_of_week, start_time, end_time, block_type
-                    FROM tbl_schedule_blocks
-                    WHERE tenant_id = ?
-                      AND user_id = ?
-                      AND is_active = 1
-                      AND (
-                        (block_date BETWEEN ? AND ?)
-                        OR (day_of_week IN ($weekdayPlaceholders) AND (block_date IS NULL OR block_date = '0000-00-00'))
-                      )
-                ";
-                $blocksParams = array_merge(
-                    [$tenantId, $selectedDentistUserId, $startOfWeek->format('Y-m-d'), $endOfWeek->format('Y-m-d')],
-                    $weekDayNames
-                );
-                $blockStmt = $pdo->prepare($blocksSql);
-                $blockStmt->execute($blocksParams);
-                $scheduleRows = $blockStmt->fetchAll(PDO::FETCH_ASSOC);
+                $blocksSql .= " AND user_id = ? ";
+                $blocksParams[] = $selectedDentistUserId;
             }
+            $blocksSql .= "
+                AND (
+                    (block_date BETWEEN ? AND ?)
+                    OR (day_of_week IN ($weekdayPlaceholders) AND (block_date IS NULL OR block_date = '0000-00-00'))
+                )
+            ";
+            $blocksParams = array_merge(
+                $blocksParams,
+                [$startOfWeek->format('Y-m-d'), $endOfWeek->format('Y-m-d')],
+                $weekDayNames
+            );
+            $blockStmt = $pdo->prepare($blocksSql);
+            $blockStmt->execute($blocksParams);
+            $scheduleRows = $blockStmt->fetchAll(PDO::FETCH_ASSOC);
 
             foreach ($scheduleRows as $row) {
                 $blockType = strtolower(trim((string) ($row['block_type'] ?? '')));
@@ -251,50 +259,51 @@ try {
                 }
             }
 
+            $appointmentsSql = "
+                SELECT appointment_date, appointment_time, service_type, COALESCE(status, 'pending') AS appointment_status
+                FROM tbl_appointments
+                WHERE tenant_id = ?
+                  AND appointment_date BETWEEN ? AND ?
+                  AND LOWER(COALESCE(status, 'pending')) <> 'cancelled'
+            ";
+            $appointmentsParams = [
+                $tenantId,
+                $startOfWeek->format('Y-m-d'),
+                $endOfWeek->format('Y-m-d'),
+            ];
             if ($selectedDentistId !== '') {
-                $apptStmt = $pdo->prepare("
-                    SELECT appointment_date, appointment_time, service_type, COALESCE(status, 'pending') AS appointment_status
-                    FROM tbl_appointments
-                    WHERE tenant_id = ?
-                      AND dentist_id = ?
-                      AND appointment_date BETWEEN ? AND ?
-                      AND LOWER(COALESCE(status, 'pending')) <> 'cancelled'
-                ");
-                $apptStmt->execute([
-                    $tenantId,
-                    $selectedDentistId,
-                    $startOfWeek->format('Y-m-d'),
-                    $endOfWeek->format('Y-m-d'),
-                ]);
-                $appointmentRows = $apptStmt->fetchAll(PDO::FETCH_ASSOC);
+                $appointmentsSql .= " AND dentist_id = ? ";
+                $appointmentsParams[] = $selectedDentistId;
+            }
+            $apptStmt = $pdo->prepare($appointmentsSql);
+            $apptStmt->execute($appointmentsParams);
+            $appointmentRows = $apptStmt->fetchAll(PDO::FETCH_ASSOC);
 
-                foreach ($appointmentRows as $row) {
-                    $dateKey = (string) ($row['appointment_date'] ?? '');
-                    if (!isset($entriesByDate[$dateKey])) {
-                        continue;
-                    }
-                    $startTime = formatDisplayTime((string) ($row['appointment_time'] ?? ''));
-                    $startMin = toMinutes($startTime);
-                    if ($startMin < $gridStartMinutes) {
-                        $startMin += 24 * 60;
-                    }
-                    $endMin = $startMin + 60;
-                    $mapped = mapAppointmentClass((string) ($row['service_type'] ?? ''));
-                    $appointmentStatus = strtolower(trim((string) ($row['appointment_status'] ?? 'pending')));
-                    $appointmentDate = trim((string) ($row['appointment_date'] ?? ''));
-                    $appointmentDateTime = DateTimeImmutable::createFromFormat('Y-m-d H:i', $appointmentDate . ' ' . $startTime, $tz);
-                    $isPastAppointment = ($appointmentDateTime instanceof DateTimeImmutable) && $appointmentDateTime < new DateTimeImmutable('now', $tz);
-                    $entriesByDate[$dateKey][] = [
-                        'start_min' => $startMin,
-                        'end_min' => $endMin,
-                        'label' => $isPastAppointment ? ($mapped['label'] . ' (Completed)') : $mapped['label'],
-                        'class' => $isPastAppointment ? 'bg-slate-400 border-slate-500' : $mapped['class'],
-                        'kind' => ($appointmentStatus === 'completed' || $isPastAppointment) ? 'appointment_past' : 'appointment',
-                    ];
+            foreach ($appointmentRows as $row) {
+                $dateKey = (string) ($row['appointment_date'] ?? '');
+                if (!isset($entriesByDate[$dateKey])) {
+                    continue;
                 }
+                $startTime = formatDisplayTime((string) ($row['appointment_time'] ?? ''));
+                $startMin = toMinutes($startTime);
+                if ($startMin < $gridStartMinutes) {
+                    $startMin += 24 * 60;
+                }
+                $endMin = $startMin + 60;
+                $mapped = mapAppointmentClass((string) ($row['service_type'] ?? ''));
+                $appointmentStatus = strtolower(trim((string) ($row['appointment_status'] ?? 'pending')));
+                $appointmentDate = trim((string) ($row['appointment_date'] ?? ''));
+                $appointmentDateTime = DateTimeImmutable::createFromFormat('Y-m-d H:i', $appointmentDate . ' ' . $startTime, $tz);
+                $isPastAppointment = ($appointmentDateTime instanceof DateTimeImmutable) && $appointmentDateTime < new DateTimeImmutable('now', $tz);
+                $entriesByDate[$dateKey][] = [
+                    'start_min' => $startMin,
+                    'end_min' => $endMin,
+                    'label' => $isPastAppointment ? ($mapped['label'] . ' (Completed)') : $mapped['label'],
+                    'class' => $isPastAppointment ? 'bg-slate-400 border-slate-500' : $mapped['class'],
+                    'kind' => ($appointmentStatus === 'completed' || $isPastAppointment) ? 'appointment_past' : 'appointment',
+                ];
             }
     }
-}
 } catch (Throwable $e) {
     // Keep empty-state UI when data is unavailable.
 }
@@ -451,6 +460,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
                             Clear
                         </button>
                     </div>
+                    <p class="mt-2 text-xs font-semibold text-slate-500">
+                        <?php echo $isDentistFiltered ? 'Showing filtered view for selected dentist.' : 'Showing overall view for all dentists.'; ?>
+                    </p>
                 </div>
                 <div class="lg:col-span-4">
                     <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Week Reference Date</label>
@@ -530,71 +542,68 @@ $dentistsSeedData = array_map(static function ($dentist) {
             </aside>
 
             <div class="2xl:col-span-9 elevated-card rounded-3xl p-5 lg:p-6 overflow-hidden">
+                <div class="mb-4 inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-extrabold uppercase tracking-[0.15em] <?php echo $isDentistFiltered ? 'border-primary/30 bg-primary/10 text-primary' : 'border-slate-200 bg-slate-50 text-slate-600'; ?>">
+                    <span class="material-symbols-outlined text-base"><?php echo $isDentistFiltered ? 'filter_alt' : 'groups'; ?></span>
+                    <?php echo htmlspecialchars($isDentistFiltered ? ('Filtered: ' . $selectedDentistName) : 'Overall View: All Dentists', ENT_QUOTES, 'UTF-8'); ?>
+                </div>
                 <div class="overflow-x-auto">
-                    <?php if ($selectedDentistUserId === '' && $selectedDentistId === ''): ?>
-                        <div class="min-w-[900px] border border-dashed border-slate-300 rounded-2xl bg-slate-50/80 p-12 text-center">
-                            <p class="text-sm font-black uppercase tracking-[0.2em] text-slate-500">Select a dentist</p>
-                            <p class="mt-2 text-sm font-semibold text-slate-600">Choose a dentist to load appointments and schedule blocks.</p>
+                    <div class="min-w-[900px] border border-slate-200 rounded-2xl overflow-hidden bg-white">
+                        <div class="grid grid-cols-[84px_repeat(7,minmax(0,1fr))] bg-slate-50 border-b border-slate-200">
+                            <div class="px-3 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Time</div>
+                            <?php foreach ($weekDays as $weekDay): ?>
+                                <div class="px-3 py-3 border-l border-slate-200">
+                                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400"><?php echo htmlspecialchars($weekDay['short'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                    <p class="text-sm font-bold text-slate-700 mt-1"><?php echo htmlspecialchars((string) $weekDay['date'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                </div>
+                            <?php endforeach; ?>
                         </div>
-                    <?php else: ?>
-                        <div class="min-w-[900px] border border-slate-200 rounded-2xl overflow-hidden bg-white">
-                            <div class="grid grid-cols-[84px_repeat(7,minmax(0,1fr))] bg-slate-50 border-b border-slate-200">
-                                <div class="px-3 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Time</div>
-                                <?php foreach ($weekDays as $weekDay): ?>
-                                    <div class="px-3 py-3 border-l border-slate-200">
-                                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400"><?php echo htmlspecialchars($weekDay['short'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                        <p class="text-sm font-bold text-slate-700 mt-1"><?php echo htmlspecialchars((string) $weekDay['date'], ENT_QUOTES, 'UTF-8'); ?></p>
+                        <div class="grid grid-cols-[84px_repeat(7,minmax(0,1fr))]">
+                            <div class="border-r border-slate-100">
+                                <?php foreach ($timeSlots as $slotTime): ?>
+                                    <div class="h-16 px-3 py-3 text-xs font-bold text-slate-500 border-b border-slate-100 last:border-b-0 bg-slate-50/70">
+                                        <?php echo htmlspecialchars($slotTime, ENT_QUOTES, 'UTF-8'); ?>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
-                            <div class="grid grid-cols-[84px_repeat(7,minmax(0,1fr))]">
-                                <div class="border-r border-slate-100">
-                                    <?php foreach ($timeSlots as $slotTime): ?>
-                                        <div class="h-16 px-3 py-3 text-xs font-bold text-slate-500 border-b border-slate-100 last:border-b-0 bg-slate-50/70">
-                                            <?php echo htmlspecialchars($slotTime, ENT_QUOTES, 'UTF-8'); ?>
+                            <?php foreach ($weekDays as $weekDay): ?>
+                                <?php $dayEntries = $entriesByDate[$weekDay['date_key']] ?? []; ?>
+                                <div class="relative border-l border-slate-100" style="height: <?php echo (int) $gridHeightPx; ?>px;">
+                                    <?php for ($line = 1; $line <= $gridHourSegments; $line++): ?>
+                                        <div class="absolute left-0 right-0 border-t border-slate-100" style="top: <?php echo (int) ($line * $pixelsPerHour); ?>px;"></div>
+                                    <?php endfor; ?>
+                                    <?php foreach ($dayEntries as $entry): ?>
+                                        <?php
+                                        $entryStart = max((int) $entry['start_min'], $gridStartMinutes);
+                                        $entryEnd = min((int) $entry['end_min'], $gridEndMinutes);
+                                        if ($entryEnd <= $entryStart) {
+                                            continue;
+                                        }
+                                        $topPx = (int) round((($entryStart - $gridStartMinutes) / 60) * $pixelsPerHour);
+                                        $heightPx = max(18, (int) round((($entryEnd - $entryStart) / 60) * $pixelsPerHour));
+                                        $isWork = (string) ($entry['kind'] ?? '') === 'work';
+                                        $entryClass = (string) ($entry['class'] ?? 'bg-slate-500 border-slate-600');
+                                        ?>
+                                        <div class="schedule-block absolute left-1.5 right-1.5 rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-primary' : 'text-white'; ?>" style="top: <?php echo $topPx; ?>px; height: <?php echo $heightPx; ?>px;">
+                                            <p class="text-[10px] font-black uppercase tracking-[0.12em]"><?php echo htmlspecialchars((string) $entry['label'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                            <p class="text-[10px] font-semibold opacity-95">
+                                                <?php
+                                                $displayStartHour = intdiv((int) $entry['start_min'], 60) % 24;
+                                                $displayStartMin = ((int) $entry['start_min']) % 60;
+                                                $displayEndHour = intdiv((int) $entry['end_min'], 60) % 24;
+                                                $displayEndMin = ((int) $entry['end_min']) % 60;
+                                                echo htmlspecialchars(sprintf(
+                                                    '%s - %s',
+                                                    formatTimeForUi(sprintf('%02d:%02d', $displayStartHour, $displayStartMin)),
+                                                    formatTimeForUi(sprintf('%02d:%02d', $displayEndHour, $displayEndMin))
+                                                ), ENT_QUOTES, 'UTF-8');
+                                                ?>
+                                            </p>
                                         </div>
                                     <?php endforeach; ?>
                                 </div>
-                                <?php foreach ($weekDays as $weekDay): ?>
-                                    <?php $dayEntries = $entriesByDate[$weekDay['date_key']] ?? []; ?>
-                                    <div class="relative border-l border-slate-100" style="height: <?php echo (int) $gridHeightPx; ?>px;">
-                                        <?php for ($line = 1; $line <= $gridHourSegments; $line++): ?>
-                                            <div class="absolute left-0 right-0 border-t border-slate-100" style="top: <?php echo (int) ($line * $pixelsPerHour); ?>px;"></div>
-                                        <?php endfor; ?>
-                                        <?php foreach ($dayEntries as $entry): ?>
-                                            <?php
-                                            $entryStart = max((int) $entry['start_min'], $gridStartMinutes);
-                                            $entryEnd = min((int) $entry['end_min'], $gridEndMinutes);
-                                            if ($entryEnd <= $entryStart) {
-                                                continue;
-                                            }
-                                            $topPx = (int) round((($entryStart - $gridStartMinutes) / 60) * $pixelsPerHour);
-                                            $heightPx = max(18, (int) round((($entryEnd - $entryStart) / 60) * $pixelsPerHour));
-                                            $isWork = (string) ($entry['kind'] ?? '') === 'work';
-                                            $entryClass = (string) ($entry['class'] ?? 'bg-slate-500 border-slate-600');
-                                            ?>
-                                            <div class="schedule-block absolute left-1.5 right-1.5 rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-primary' : 'text-white'; ?>" style="top: <?php echo $topPx; ?>px; height: <?php echo $heightPx; ?>px;">
-                                                <p class="text-[10px] font-black uppercase tracking-[0.12em]"><?php echo htmlspecialchars((string) $entry['label'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                                <p class="text-[10px] font-semibold opacity-95">
-                                                    <?php
-                                                    $displayStartHour = intdiv((int) $entry['start_min'], 60) % 24;
-                                                    $displayStartMin = ((int) $entry['start_min']) % 60;
-                                                    $displayEndHour = intdiv((int) $entry['end_min'], 60) % 24;
-                                                    $displayEndMin = ((int) $entry['end_min']) % 60;
-                                                    echo htmlspecialchars(sprintf(
-                                                        '%s - %s',
-                                                        formatTimeForUi(sprintf('%02d:%02d', $displayStartHour, $displayStartMin)),
-                                                        formatTimeForUi(sprintf('%02d:%02d', $displayEndHour, $displayEndMin))
-                                                    ), ENT_QUOTES, 'UTF-8');
-                                                    ?>
-                                                </p>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
+                            <?php endforeach; ?>
                         </div>
-                    <?php endif; ?>
+                    </div>
                 </div>
             </div>
         </section>
@@ -678,7 +687,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
         function setSelectedDentist(userId, dentistId, dentistName) {
             if (selectedDentistUserIdInput) selectedDentistUserIdInput.value = userId || '';
             if (selectedDentistIdInput) selectedDentistIdInput.value = dentistId || '';
-            if (selectedDentistLabel) selectedDentistLabel.textContent = dentistName || 'Select dentist';
+            if (selectedDentistLabel) selectedDentistLabel.textContent = dentistName || 'All dentists';
         }
 
         function renderDentistsList() {
@@ -720,7 +729,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     selectedDentistIdInput.value = '';
                 }
                 if (selectedDentistLabel) {
-                    selectedDentistLabel.textContent = 'Select dentist';
+                    selectedDentistLabel.textContent = 'All dentists';
                 }
                 scheduleFilterForm.submit();
             });
