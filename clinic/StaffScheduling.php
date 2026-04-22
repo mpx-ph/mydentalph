@@ -102,6 +102,11 @@ for ($week = 0; $week < 5; $week++) {
 }
 
 $tenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
+$todayDateOnly = (new DateTimeImmutable('today', $tz))->format('Y-m-d');
+$setShiftDefaultDate = $selectedDate->format('Y-m-d');
+if ($setShiftDefaultDate < $todayDateOnly) {
+    $setShiftDefaultDate = $todayDateOnly;
+}
 $dentists = [];
 $selectedDentistUserId = isset($_GET['user_id']) ? trim((string) $_GET['user_id']) : '';
 $selectedDentistId = isset($_GET['dentist_id']) ? trim((string) $_GET['dentist_id']) : '';
@@ -116,6 +121,61 @@ foreach ($weekDays as $day) {
 
 try {
     $pdo = getDBConnection();
+
+    if (isset($_GET['clinic_hours_lookup']) && (string) $_GET['clinic_hours_lookup'] === '1') {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $lookupDate = isset($_GET['date']) ? trim((string) $_GET['date']) : '';
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $lookupDate)) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Invalid date supplied.',
+            ]);
+            exit;
+        }
+
+        $hoursStmt = $pdo->prepare("
+            SELECT open_time, close_time, is_closed
+            FROM tbl_clinic_hours
+            WHERE clinic_date = ?
+            LIMIT 1
+        ");
+        $hoursStmt->execute([$lookupDate]);
+        $hoursRow = $hoursStmt->fetch(PDO::FETCH_ASSOC);
+
+        $hasRecord = is_array($hoursRow) && !empty($hoursRow);
+        $isClosed = $hasRecord && isset($hoursRow['is_closed']) && (int) $hoursRow['is_closed'] === 1;
+        $openTimeRaw = null;
+        $closeTimeRaw = null;
+        $openTimeLabel = '-';
+        $closeTimeLabel = '-';
+
+        if ($hasRecord && !$isClosed) {
+            $openTimeRaw = substr((string) ($hoursRow['open_time'] ?? ''), 0, 5);
+            $closeTimeRaw = substr((string) ($hoursRow['close_time'] ?? ''), 0, 5);
+            if ($openTimeRaw !== '' && $closeTimeRaw !== '') {
+                $openTimeLabel = formatTimeForUi($openTimeRaw);
+                $closeTimeLabel = formatTimeForUi($closeTimeRaw);
+            }
+        } elseif ($isClosed) {
+            $openTimeLabel = '--';
+            $closeTimeLabel = '--';
+        }
+
+        echo json_encode([
+            'success' => true,
+            'date' => $lookupDate,
+            'has_record' => $hasRecord,
+            'is_closed' => $isClosed,
+            'open_time' => $openTimeLabel,
+            'close_time' => $closeTimeLabel,
+            'open_time_raw' => $openTimeRaw,
+            'close_time_raw' => $closeTimeRaw,
+        ]);
+        exit;
+    }
+
     if ($tenantId === '') {
         $resolvedTenantId = clinic_resolve_walkin_tenant_id($pdo);
         if (is_string($resolvedTenantId) && $resolvedTenantId !== '') {
@@ -664,10 +724,23 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                 </select>
                             </div>
                             <div>
-                                <label for="setShiftDateDisplay" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Date</label>
+                                <label for="setShiftDate" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Date</label>
                                 <div class="schedule-input w-full py-3 px-4 inline-flex items-center gap-2.5">
                                     <span class="material-symbols-outlined text-[18px] text-primary">event</span>
-                                    <input id="setShiftDateDisplay" type="text" class="w-full bg-transparent p-0 border-0 text-sm font-extrabold text-slate-900 focus:ring-0" value="<?php echo htmlspecialchars($selectedDate->format('F j, Y'), ENT_QUOTES, 'UTF-8'); ?>" readonly/>
+                                    <input id="setShiftDate" type="date" min="<?php echo htmlspecialchars($todayDateOnly, ENT_QUOTES, 'UTF-8'); ?>" value="<?php echo htmlspecialchars($setShiftDefaultDate, ENT_QUOTES, 'UTF-8'); ?>" class="w-full bg-transparent p-0 border-0 text-sm font-extrabold text-slate-900 focus:ring-0"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+                            <p id="setShiftClinicHoursLabel" class="text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em]">Clinic Hours for the day <?php echo htmlspecialchars((new DateTimeImmutable($setShiftDefaultDate, $tz))->format('F j, Y'), ENT_QUOTES, 'UTF-8'); ?></p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="setShiftClinicOpenTime" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Open Time (Read Only)</label>
+                                    <input id="setShiftClinicOpenTime" type="text" value="-" readonly class="w-full py-3 px-4 rounded-xl border border-slate-200 bg-slate-100 text-sm font-bold text-slate-500 cursor-not-allowed"/>
+                                </div>
+                                <div>
+                                    <label for="setShiftClinicCloseTime" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Close Time (Read Only)</label>
+                                    <input id="setShiftClinicCloseTime" type="text" value="-" readonly class="w-full py-3 px-4 rounded-xl border border-slate-200 bg-slate-100 text-sm font-bold text-slate-500 cursor-not-allowed"/>
                                 </div>
                             </div>
                         </div>
@@ -721,6 +794,10 @@ $dentistsSeedData = array_map(static function ($dentist) {
         const saveSetShiftBtn = document.getElementById('saveSetShiftBtn');
         const setShiftStartTime = document.getElementById('setShiftStartTime');
         const setShiftEndTime = document.getElementById('setShiftEndTime');
+        const setShiftDate = document.getElementById('setShiftDate');
+        const setShiftClinicHoursLabel = document.getElementById('setShiftClinicHoursLabel');
+        const setShiftClinicOpenTime = document.getElementById('setShiftClinicOpenTime');
+        const setShiftClinicCloseTime = document.getElementById('setShiftClinicCloseTime');
         const chooseDentistBtn = document.getElementById('chooseDentistBtn');
         const clearDentistBtn = document.getElementById('clearDentistBtn');
         const selectedDentistLabel = document.getElementById('selectedDentistLabel');
@@ -734,6 +811,13 @@ $dentistsSeedData = array_map(static function ($dentist) {
         const dentistsSeedData = <?php echo json_encode($dentistsSeedData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const stockDentistImage = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=60';
         const clinicAssetBaseUrl = <?php echo json_encode(rtrim(BASE_URL, '/') . '/', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const todayDateOnly = <?php echo json_encode($todayDateOnly, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        let selectedClinicHoursForShift = {
+            hasRecord: false,
+            isClosed: false,
+            openTimeRaw: '',
+            closeTimeRaw: ''
+        };
 
         function escapeHtml(value) {
             return String(value || '')
@@ -788,10 +872,86 @@ $dentistsSeedData = array_map(static function ($dentist) {
             selectEl.innerHTML = options.join('');
         }
 
+        function toMinutes(timeValue) {
+            const parts = String(timeValue || '').split(':');
+            const hour = Number(parts[0] || 0);
+            const minute = Number(parts[1] || 0);
+            return (hour * 60) + minute;
+        }
+
+        function formatDateForUiLabel(dateValue) {
+            if (!dateValue || !/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+                return '';
+            }
+            const parsedDate = new Date(dateValue + 'T00:00:00');
+            if (Number.isNaN(parsedDate.getTime())) {
+                return dateValue;
+            }
+            return parsedDate.toLocaleDateString('en-US', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric'
+            });
+        }
+
+        async function loadClinicHoursForDate(dateValue) {
+            const normalizedDate = String(dateValue || '').trim();
+            if (!setShiftClinicOpenTime || !setShiftClinicCloseTime || !setShiftClinicHoursLabel) return;
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) return;
+
+            setShiftClinicHoursLabel.textContent = 'Clinic Hours for the day ' + formatDateForUiLabel(normalizedDate);
+            setShiftClinicOpenTime.value = 'Loading...';
+            setShiftClinicCloseTime.value = 'Loading...';
+            selectedClinicHoursForShift = {
+                hasRecord: false,
+                isClosed: false,
+                openTimeRaw: '',
+                closeTimeRaw: ''
+            };
+
+            try {
+                const params = new URLSearchParams({
+                    clinic_hours_lookup: '1',
+                    date: normalizedDate
+                });
+                const response = await fetch(window.location.pathname + '?' + params.toString(), {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin'
+                });
+                if (!response.ok) {
+                    throw new Error('Unable to load clinic hours.');
+                }
+                const payload = await response.json();
+                if (!payload || payload.success !== true) {
+                    throw new Error((payload && payload.message) ? payload.message : 'Unable to load clinic hours.');
+                }
+
+                setShiftClinicOpenTime.value = String(payload.open_time || '-');
+                setShiftClinicCloseTime.value = String(payload.close_time || '-');
+                selectedClinicHoursForShift = {
+                    hasRecord: Boolean(payload.has_record),
+                    isClosed: Boolean(payload.is_closed),
+                    openTimeRaw: String(payload.open_time_raw || ''),
+                    closeTimeRaw: String(payload.close_time_raw || '')
+                };
+            } catch (error) {
+                setShiftClinicOpenTime.value = '-';
+                setShiftClinicCloseTime.value = '-';
+                window.alert((error && error.message) ? error.message : 'Unable to fetch clinic hours for the selected date.');
+            }
+        }
+
         function openSetShiftModal() {
             if (!setShiftModal) return;
             buildTimeOptions(setShiftStartTime, '09:00');
             buildTimeOptions(setShiftEndTime, '17:00');
+            if (setShiftDate) {
+                if (!setShiftDate.value || setShiftDate.value < todayDateOnly) {
+                    setShiftDate.value = todayDateOnly;
+                }
+                loadClinicHoursForDate(setShiftDate.value);
+            }
             setShiftModal.classList.remove('hidden');
             syncModalBodyScrollLock();
         }
@@ -867,7 +1027,51 @@ $dentistsSeedData = array_map(static function ($dentist) {
         }
         if (saveSetShiftBtn) {
             saveSetShiftBtn.addEventListener('click', function () {
+                if (!setShiftStartTime || !setShiftEndTime || !setShiftDate) return;
+
+                const selectedDate = String(setShiftDate.value || '');
+                const selectedStart = String(setShiftStartTime.value || '');
+                const selectedEnd = String(setShiftEndTime.value || '');
+
+                if (!selectedDate || selectedDate < todayDateOnly) {
+                    window.alert('Please select today or a future date.');
+                    return;
+                }
+                if (!selectedStart || !selectedEnd) {
+                    window.alert('Please select both shift start and end times.');
+                    return;
+                }
+                if (toMinutes(selectedEnd) <= toMinutes(selectedStart)) {
+                    window.alert('Shift end time must be later than shift start time.');
+                    return;
+                }
+                if (!selectedClinicHoursForShift.hasRecord || !selectedClinicHoursForShift.openTimeRaw || !selectedClinicHoursForShift.closeTimeRaw) {
+                    window.alert('Clinic hours are not set for this day. Please set clinic hours first before assigning shifts.');
+                    return;
+                }
+                if (selectedClinicHoursForShift.isClosed) {
+                    window.alert('The clinic is marked closed for this date. Shift scheduling is not allowed.');
+                    return;
+                }
+
+                const clinicOpenMinutes = toMinutes(selectedClinicHoursForShift.openTimeRaw);
+                const clinicCloseMinutes = toMinutes(selectedClinicHoursForShift.closeTimeRaw);
+                const shiftStartMinutes = toMinutes(selectedStart);
+                const shiftEndMinutes = toMinutes(selectedEnd);
+                if (shiftStartMinutes < clinicOpenMinutes || shiftEndMinutes > clinicCloseMinutes) {
+                    window.alert('Shift time must fall within clinic operating hours for the selected day.');
+                    return;
+                }
+
                 closeSetShiftModal();
+            });
+        }
+        if (setShiftDate) {
+            setShiftDate.addEventListener('change', function () {
+                if (setShiftDate.value < todayDateOnly) {
+                    setShiftDate.value = todayDateOnly;
+                }
+                loadClinicHoursForDate(setShiftDate.value);
             });
         }
         if (chooseDentistBtn) {
