@@ -284,7 +284,7 @@ try {
 
         if ($shiftUserId === '') {
             http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Selected dentist could not be resolved.']);
+            echo json_encode(['success' => false, 'message' => 'Selected dentist has no linked user account. Please update dentist account linkage first.']);
             exit;
         }
         if ($resolvedDentistTenantId !== '') {
@@ -962,8 +962,14 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                         $shiftDentistUserId = trim((string) ($dentist['user_id'] ?? ''));
                                         $shiftDentistName = trim((string) ($dentist['full_name'] ?? 'Dentist'));
                                         ?>
-                                        <option value="<?php echo htmlspecialchars($shiftDentistUserId, ENT_QUOTES, 'UTF-8'); ?>" data-dentist-id="<?php echo htmlspecialchars($shiftDentistId, ENT_QUOTES, 'UTF-8'); ?>" <?php echo (($selectedDentistId !== '' && $selectedDentistId === $shiftDentistId) || ($selectedDentistUserId !== '' && $selectedDentistUserId === $shiftDentistUserId)) ? 'selected' : ''; ?>>
-                                            <?php echo htmlspecialchars($shiftDentistName, ENT_QUOTES, 'UTF-8'); ?>
+                                        <option
+                                            value="<?php echo htmlspecialchars($shiftDentistUserId, ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-dentist-id="<?php echo htmlspecialchars($shiftDentistId, ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-has-user-id="<?php echo $shiftDentistUserId !== '' ? '1' : '0'; ?>"
+                                            <?php echo (($selectedDentistId !== '' && $selectedDentistId === $shiftDentistId) || ($selectedDentistUserId !== '' && $selectedDentistUserId === $shiftDentistUserId)) ? 'selected' : ''; ?>
+                                            <?php echo $shiftDentistUserId === '' ? 'disabled' : ''; ?>
+                                        >
+                                            <?php echo htmlspecialchars($shiftDentistName . ($shiftDentistUserId === '' ? ' (No linked account)' : ''), ENT_QUOTES, 'UTF-8'); ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -1263,6 +1269,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 const selectedDentistUserId = String(setShiftDentistId.value || '');
                 const selectedDentistOption = setShiftDentistId.options[setShiftDentistId.selectedIndex] || null;
                 const selectedDentistId = selectedDentistOption ? String(selectedDentistOption.getAttribute('data-dentist-id') || '') : '';
+                const selectedDentistHasUserId = selectedDentistOption ? selectedDentistOption.getAttribute('data-has-user-id') === '1' : false;
                 const selectedRepeatInput = setShiftForm.querySelector('input[name="setShiftRepeat"]:checked');
                 const selectedRepeat = selectedRepeatInput ? String(selectedRepeatInput.value || 'one_day') : 'one_day';
                 const notesValue = setShiftNotes ? String(setShiftNotes.value || '').trim() : '';
@@ -1273,6 +1280,10 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 }
                 if (!selectedDentistUserId && !selectedDentistId) {
                     window.alert('Please select a dentist.');
+                    return;
+                }
+                if (!selectedDentistHasUserId) {
+                    window.alert('The selected dentist has no linked account. Please link the dentist to a user account first.');
                     return;
                 }
                 if (!selectedStart || !selectedEnd) {
