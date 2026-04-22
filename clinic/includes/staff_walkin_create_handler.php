@@ -152,23 +152,7 @@ try {
         }
     }
 
-    $dentistUserId = trim((string) ($dentistRow['user_id'] ?? ''));
-    $slotStart = $appointmentDate . ' ' . $appointmentTime;
-    $slotEnd = (new DateTimeImmutable($slotStart, $clinicTz))->modify('+1 hour')->format('Y-m-d H:i:s');
-    if ($dentistUserId === '' || !isUserAvailable($dentistUserId, $slotStart, $slotEnd)) {
-        echo json_encode(['success' => false, 'message' => 'Selected staff/dentist is not available at this time']);
-        exit;
-    }
-
     $pdo->beginTransaction();
-    $atomicAvailability = clinic_assert_user_available_atomic($pdo, $tenantId, $dentistUserId, $slotStart, $slotEnd);
-    if (empty($atomicAvailability['available'])) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-        echo json_encode(['success' => false, 'message' => 'Selected staff/dentist is not available at this time']);
-        exit;
-    }
 
     $bookingPrefix = 'BK-' . $nowClinic->format('Y') . '-';
     $sequence = 0;
