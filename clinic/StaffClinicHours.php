@@ -57,6 +57,8 @@ try {
         $dayOfWeek = isset($_POST['day_of_week']) ? (int) $_POST['day_of_week'] : -1;
         $openTimeRaw = isset($_POST['open_time']) ? trim((string) $_POST['open_time']) : '';
         $closeTimeRaw = isset($_POST['close_time']) ? trim((string) $_POST['close_time']) : '';
+        $notesInput = isset($_POST['notes']) ? trim((string) $_POST['notes']) : '';
+        $notes = $notesInput !== '' ? substr($notesInput, 0, 255) : null;
         $isClosed = isset($_POST['is_closed']) && $_POST['is_closed'] === '1';
 
         $openTime = null;
@@ -80,12 +82,13 @@ try {
         }
 
         $upsertSql = "
-            INSERT INTO tbl_clinic_hours (day_of_week, open_time, close_time, is_closed)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO tbl_clinic_hours (day_of_week, open_time, close_time, is_closed, notes)
+            VALUES (?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 open_time = VALUES(open_time),
                 close_time = VALUES(close_time),
                 is_closed = VALUES(is_closed),
+                notes = VALUES(notes),
                 updated_at = CURRENT_TIMESTAMP
         ";
         $upsertStmt = $pdo->prepare($upsertSql);
@@ -94,6 +97,7 @@ try {
             $isClosed ? null : $openTime,
             $isClosed ? null : $closeTime,
             $isClosed ? 1 : 0,
+            $notes,
         ]);
 
         $_SESSION['clinic_hours_message'] = [
@@ -108,7 +112,7 @@ try {
         exit;
     }
 
-    $hoursStmt = $pdo->query('SELECT day_of_week, open_time, close_time, is_closed FROM tbl_clinic_hours');
+    $hoursStmt = $pdo->query('SELECT day_of_week, open_time, close_time, is_closed, notes FROM tbl_clinic_hours');
     $dbRows = $hoursStmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($dbRows as $dbRow) {
         $dayIndex = isset($dbRow['day_of_week']) ? (int) $dbRow['day_of_week'] : -1;
@@ -127,6 +131,7 @@ try {
             'is_closed' => $isClosedFromDb,
             'open_time_raw' => $isClosedFromDb ? '' : substr((string) $dbRow['open_time'], 0, 5),
             'close_time_raw' => $isClosedFromDb ? '' : substr((string) $dbRow['close_time'], 0, 5),
+            'notes' => isset($dbRow['notes']) ? trim((string) $dbRow['notes']) : '',
         ];
     }
 } catch (Throwable $e) {
@@ -414,6 +419,7 @@ for ($offset = 0; $offset <= 16; $offset++) {
                                         data-close-time="<?php echo htmlspecialchars($row['close_time'], ENT_QUOTES, 'UTF-8'); ?>"
                                         data-open-time-raw="<?php echo htmlspecialchars(isset($row['open_time_raw']) ? (string) $row['open_time_raw'] : '', ENT_QUOTES, 'UTF-8'); ?>"
                                         data-close-time-raw="<?php echo htmlspecialchars(isset($row['close_time_raw']) ? (string) $row['close_time_raw'] : '', ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-notes="<?php echo htmlspecialchars(isset($row['notes']) ? (string) $row['notes'] : '', ENT_QUOTES, 'UTF-8'); ?>"
                                         data-is-closed="<?php echo $row['is_closed'] ? '1' : '0'; ?>"
                                         class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 transition-colors"
                                         aria-label="Edit clinic hours"
@@ -472,6 +478,10 @@ for ($offset = 0; $offset <= 16; $offset++) {
                         <input id="modalClosedCheckbox" name="is_closed" type="checkbox" value="1" class="rounded-md border-slate-300 text-primary focus:ring-primary/20"/>
                         Mark as Closed
                     </label>
+                </div>
+                <div class="rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5">
+                    <label for="modalNotes" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Notes (Optional)</label>
+                    <textarea id="modalNotes" name="notes" rows="3" maxlength="255" class="modal-time-input w-full px-4 py-3 resize-none" placeholder="Add optional clinic-hours notes for this day..."></textarea>
                 </div>
             </div>
             <div class="px-6 sm:px-7 py-4 border-t border-slate-200/80 bg-slate-50/70 flex justify-end gap-2">
@@ -550,6 +560,7 @@ for ($offset = 0; $offset <= 16; $offset++) {
                 const closeTime = button.getAttribute('data-close-time') || '05:00 PM';
                 const openTimeRaw = button.getAttribute('data-open-time-raw') || '';
                 const closeTimeRaw = button.getAttribute('data-close-time-raw') || '';
+                const notes = button.getAttribute('data-notes') || '';
                 const isClosed = button.getAttribute('data-is-closed') === '1';
                 const dayIndex = button.getAttribute('data-day-index') || '1';
 
@@ -558,12 +569,14 @@ for ($offset = 0; $offset <= 16; $offset++) {
                 const closeEl = document.getElementById('modalCloseTime');
                 const closedEl = document.getElementById('modalClosedCheckbox');
                 const dayOfWeekEl = document.getElementById('modalDayOfWeekInput');
+                const notesEl = document.getElementById('modalNotes');
 
                 if (dayEl) dayEl.textContent = day;
                 if (openEl) openEl.value = openTimeRaw || twelveHourToTwentyFour(openTime);
                 if (closeEl) closeEl.value = closeTimeRaw || twelveHourToTwentyFour(closeTime);
                 if (closedEl) closedEl.checked = isClosed;
                 if (dayOfWeekEl) dayOfWeekEl.value = dayIndex;
+                if (notesEl) notesEl.value = notes;
                 setClosedState(isClosed);
             }
             openModal(targetModal);
@@ -609,7 +622,6 @@ for ($offset = 0; $offset <= 16; $offset++) {
                 dismissSuccessModal();
             }
         });
-        setTimeout(dismissSuccessModal, 3200);
     }
 </script>
 </body>
