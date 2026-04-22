@@ -566,6 +566,21 @@ CREATE TABLE IF NOT EXISTS tbl_schedule_blocks (
 );
 
 -- ============================================
+-- CLINIC HOURS
+-- ============================================
+CREATE TABLE IF NOT EXISTS tbl_clinic_hours (
+    clinic_hours_id INT AUTO_INCREMENT PRIMARY KEY,
+    day_of_week TINYINT NOT NULL COMMENT '0=Sunday, 1=Monday, ..., 6=Saturday',
+    open_time TIME NULL,
+    close_time TIME NULL,
+    is_closed TINYINT(1) DEFAULT 0 COMMENT '1 = closed, 0 = open',
+    notes VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_day (day_of_week)
+);
+
+-- ============================================
 -- PATIENT QUEUE
 -- ============================================
 CREATE TABLE IF NOT EXISTS tbl_patient_queue (
