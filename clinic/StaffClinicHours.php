@@ -6,19 +6,135 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-$clinicHoursRows = [
-    ['day' => 'Sunday', 'open_time' => '09:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false],
-    ['day' => 'Monday', 'open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false],
-    ['day' => 'Tuesday', 'open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false],
-    ['day' => 'Wednesday', 'open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false],
-    ['day' => 'Thursday', 'open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false],
-    ['day' => 'Friday', 'open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false],
-    ['day' => 'Saturday', 'open_time' => '09:00 AM', 'close_time' => '03:00 PM', 'is_closed' => false],
+$defaultClinicHoursRows = [
+    0 => ['day' => 'Sunday', 'open_time' => '09:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false],
+    1 => ['day' => 'Monday', 'open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false],
+    2 => ['day' => 'Tuesday', 'open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false],
+    3 => ['day' => 'Wednesday', 'open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false],
+    4 => ['day' => 'Thursday', 'open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false],
+    5 => ['day' => 'Friday', 'open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false],
+    6 => ['day' => 'Saturday', 'open_time' => '09:00 AM', 'close_time' => '03:00 PM', 'is_closed' => false],
 ];
 
-$rowsByDay = [];
-foreach ($clinicHoursRows as $row) {
-    $rowsByDay[$row['day']] = $row;
+$formatTimeForDisplay = static function ($timeValue, $fallback) {
+    $raw = trim((string) $timeValue);
+    if ($raw === '') {
+        return $fallback;
+    }
+    $dt = DateTimeImmutable::createFromFormat('H:i:s', $raw);
+    if (!($dt instanceof DateTimeImmutable)) {
+        $dt = DateTimeImmutable::createFromFormat('H:i', $raw);
+    }
+    if (!($dt instanceof DateTimeImmutable)) {
+        return $fallback;
+    }
+    return $dt->format('h:i A');
+};
+
+$formMessage = '';
+$formMessageType = 'success';
+if (isset($_SESSION['clinic_hours_message']) && is_array($_SESSION['clinic_hours_message'])) {
+    $flashMessage = $_SESSION['clinic_hours_message'];
+    if (isset($flashMessage['text']) && is_string($flashMessage['text'])) {
+        $formMessage = $flashMessage['text'];
+    }
+    if (isset($flashMessage['type']) && in_array($flashMessage['type'], ['success', 'error'], true)) {
+        $formMessageType = $flashMessage['type'];
+    }
+    unset($_SESSION['clinic_hours_message']);
+}
+
+$clinicHoursRowsByIndex = $defaultClinicHoursRows;
+
+try {
+    $pdo = getDBConnection();
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_clinic_hours'])) {
+        $weekStartForRedirect = isset($_POST['week_start']) ? trim((string) $_POST['week_start']) : '';
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $weekStartForRedirect)) {
+            $weekStartForRedirect = '';
+        }
+
+        $dayOfWeek = isset($_POST['day_of_week']) ? (int) $_POST['day_of_week'] : -1;
+        $openTimeRaw = isset($_POST['open_time']) ? trim((string) $_POST['open_time']) : '';
+        $closeTimeRaw = isset($_POST['close_time']) ? trim((string) $_POST['close_time']) : '';
+        $isClosed = isset($_POST['is_closed']) && $_POST['is_closed'] === '1';
+
+        $openTime = null;
+        $closeTime = null;
+        if (!$isClosed) {
+            $openTimeDt = DateTimeImmutable::createFromFormat('H:i', $openTimeRaw);
+            $closeTimeDt = DateTimeImmutable::createFromFormat('H:i', $closeTimeRaw);
+
+            if (!($openTimeDt instanceof DateTimeImmutable) || !($closeTimeDt instanceof DateTimeImmutable)) {
+                throw new RuntimeException('Please select valid opening and closing times.');
+            }
+            if ($openTimeRaw >= $closeTimeRaw) {
+                throw new RuntimeException('Closing time must be later than opening time.');
+            }
+            $openTime = $openTimeDt->format('H:i:s');
+            $closeTime = $closeTimeDt->format('H:i:s');
+        }
+
+        if ($dayOfWeek < 0 || $dayOfWeek > 6) {
+            throw new RuntimeException('Invalid day selected for clinic hours.');
+        }
+
+        $upsertSql = "
+            INSERT INTO tbl_clinic_hours (day_of_week, open_time, close_time, is_closed)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                open_time = VALUES(open_time),
+                close_time = VALUES(close_time),
+                is_closed = VALUES(is_closed),
+                updated_at = CURRENT_TIMESTAMP
+        ";
+        $upsertStmt = $pdo->prepare($upsertSql);
+        $upsertStmt->execute([
+            $dayOfWeek,
+            $isClosed ? null : $openTime,
+            $isClosed ? null : $closeTime,
+            $isClosed ? 1 : 0,
+        ]);
+
+        $_SESSION['clinic_hours_message'] = [
+            'type' => 'success',
+            'text' => 'Clinic hours updated successfully.',
+        ];
+        $redirectUrl = 'StaffClinicHours.php';
+        if ($weekStartForRedirect !== '') {
+            $redirectUrl .= '?week_start=' . rawurlencode($weekStartForRedirect);
+        }
+        header('Location: ' . $redirectUrl);
+        exit;
+    }
+
+    $hoursStmt = $pdo->query('SELECT day_of_week, open_time, close_time, is_closed FROM tbl_clinic_hours');
+    $dbRows = $hoursStmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($dbRows as $dbRow) {
+        $dayIndex = isset($dbRow['day_of_week']) ? (int) $dbRow['day_of_week'] : -1;
+        if (!isset($clinicHoursRowsByIndex[$dayIndex])) {
+            continue;
+        }
+
+        $fallbackOpen = $defaultClinicHoursRows[$dayIndex]['open_time'];
+        $fallbackClose = $defaultClinicHoursRows[$dayIndex]['close_time'];
+        $isClosedFromDb = isset($dbRow['is_closed']) && (int) $dbRow['is_closed'] === 1;
+
+        $clinicHoursRowsByIndex[$dayIndex] = [
+            'day' => $defaultClinicHoursRows[$dayIndex]['day'],
+            'open_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($dbRow['open_time'], $fallbackOpen),
+            'close_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($dbRow['close_time'], $fallbackClose),
+            'is_closed' => $isClosedFromDb,
+            'open_time_raw' => $isClosedFromDb ? '' : substr((string) $dbRow['open_time'], 0, 5),
+            'close_time_raw' => $isClosedFromDb ? '' : substr((string) $dbRow['close_time'], 0, 5),
+        ];
+    }
+} catch (Throwable $e) {
+    error_log('Staff clinic hours load/save error: ' . $e->getMessage());
+    $formMessage = $e instanceof RuntimeException
+        ? $e->getMessage()
+        : 'An unexpected error occurred while loading clinic hours.';
+    $formMessageType = 'error';
 }
 
 $today = new DateTimeImmutable('today');
@@ -186,6 +302,12 @@ for ($offset = 0; $offset <= 16; $offset++) {
             </div>
         </section>
 
+        <?php if ($formMessage !== ''): ?>
+            <section class="rounded-2xl border px-5 py-4 <?php echo $formMessageType === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'; ?>">
+                <p class="text-sm font-semibold"><?php echo htmlspecialchars($formMessage, ENT_QUOTES, 'UTF-8'); ?></p>
+            </section>
+        <?php endif; ?>
+
         <section class="elevated-card rounded-3xl p-7">
             <div class="flex flex-col gap-4 mb-6 lg:flex-row lg:items-center lg:justify-between">
                 <div class="space-y-2">
@@ -251,8 +373,9 @@ for ($offset = 0; $offset <= 16; $offset++) {
                         <?php for ($dayOffset = 0; $dayOffset < 7; $dayOffset++): ?>
                             <?php
                             $dayDate = $selectedWeekStart->modify('+' . $dayOffset . ' days');
+                            $dayOfWeekIndex = (int) $dayDate->format('w');
                             $dayName = $dayDate->format('l');
-                            $row = isset($rowsByDay[$dayName]) ? $rowsByDay[$dayName] : ['open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false];
+                            $row = isset($clinicHoursRowsByIndex[$dayOfWeekIndex]) ? $clinicHoursRowsByIndex[$dayOfWeekIndex] : ['open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false];
                             $fullDayLabel = $dayDate->format('F j, Y') . ' (' . $dayName . ')';
                             $statusLabel = $row['is_closed'] ? 'Closed' : 'Open';
                             $statusClass = $row['is_closed']
@@ -279,8 +402,11 @@ for ($offset = 0; $offset <= 16; $offset++) {
                                         type="button"
                                         data-open-modal="editClinicHoursModal"
                                         data-day="<?php echo htmlspecialchars($fullDayLabel, ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-day-index="<?php echo htmlspecialchars((string) $dayOfWeekIndex, ENT_QUOTES, 'UTF-8'); ?>"
                                         data-open-time="<?php echo htmlspecialchars($row['open_time'], ENT_QUOTES, 'UTF-8'); ?>"
                                         data-close-time="<?php echo htmlspecialchars($row['close_time'], ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-open-time-raw="<?php echo htmlspecialchars(isset($row['open_time_raw']) ? (string) $row['open_time_raw'] : '', ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-close-time-raw="<?php echo htmlspecialchars(isset($row['close_time_raw']) ? (string) $row['close_time_raw'] : '', ENT_QUOTES, 'UTF-8'); ?>"
                                         data-is-closed="<?php echo $row['is_closed'] ? '1' : '0'; ?>"
                                         class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 transition-colors"
                                         aria-label="Edit clinic hours"
@@ -313,7 +439,10 @@ for ($offset = 0; $offset <= 16; $offset++) {
                 <span class="material-symbols-outlined text-lg">close</span>
             </button>
         </div>
-        <form onsubmit="event.preventDefault(); closeModal('editClinicHoursModal');">
+        <form method="post">
+            <input type="hidden" name="save_clinic_hours" value="1"/>
+            <input type="hidden" id="modalDayOfWeekInput" name="day_of_week" value="1"/>
+            <input type="hidden" name="week_start" value="<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
             <div class="p-6 sm:p-7 space-y-5">
                 <div class="rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5">
                     <label class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Day</label>
@@ -322,18 +451,18 @@ for ($offset = 0; $offset <= 16; $offset++) {
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label for="modalOpenTime" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Open Time</label>
-                        <input id="modalOpenTime" type="time" step="60" class="modal-time-input w-full px-4" value="09:00"/>
+                        <input id="modalOpenTime" name="open_time" type="time" step="60" class="modal-time-input w-full px-4" value="09:00"/>
                         <p class="mt-1.5 text-[11px] font-semibold text-slate-400">Choose any minute (e.g., 04:47).</p>
                     </div>
                     <div>
                         <label for="modalCloseTime" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Close Time</label>
-                        <input id="modalCloseTime" type="time" step="60" class="modal-time-input w-full px-4" value="17:00"/>
+                        <input id="modalCloseTime" name="close_time" type="time" step="60" class="modal-time-input w-full px-4" value="17:00"/>
                         <p class="mt-1.5 text-[11px] font-semibold text-slate-400">Supports precise time selection.</p>
                     </div>
                 </div>
                 <div class="rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5">
                     <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
-                        <input id="modalClosedCheckbox" type="checkbox" class="rounded-md border-slate-300 text-primary focus:ring-primary/20"/>
+                        <input id="modalClosedCheckbox" name="is_closed" type="checkbox" value="1" class="rounded-md border-slate-300 text-primary focus:ring-primary/20"/>
                         Mark as Closed
                     </label>
                 </div>
@@ -351,6 +480,7 @@ for ($offset = 0; $offset <= 16; $offset++) {
         const fallback = '09:00';
         if (!timeText || typeof timeText !== 'string') return fallback;
         const trimmed = timeText.trim();
+        if (/^\d{2}:\d{2}$/.test(trimmed)) return trimmed;
         const match = trimmed.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
         if (!match) return fallback;
 
@@ -378,6 +508,13 @@ for ($offset = 0; $offset <= 16; $offset++) {
         modal.classList.remove('flex');
     }
 
+    function setClosedState(isClosed) {
+        const openEl = document.getElementById('modalOpenTime');
+        const closeEl = document.getElementById('modalCloseTime');
+        if (openEl) openEl.disabled = !!isClosed;
+        if (closeEl) closeEl.disabled = !!isClosed;
+    }
+
     document.querySelectorAll('[data-open-modal]').forEach((button) => {
         button.addEventListener('click', () => {
             const targetModal = button.getAttribute('data-open-modal');
@@ -385,21 +522,34 @@ for ($offset = 0; $offset <= 16; $offset++) {
                 const day = button.getAttribute('data-day') || 'Monday';
                 const openTime = button.getAttribute('data-open-time') || '08:00 AM';
                 const closeTime = button.getAttribute('data-close-time') || '05:00 PM';
+                const openTimeRaw = button.getAttribute('data-open-time-raw') || '';
+                const closeTimeRaw = button.getAttribute('data-close-time-raw') || '';
                 const isClosed = button.getAttribute('data-is-closed') === '1';
+                const dayIndex = button.getAttribute('data-day-index') || '1';
 
                 const dayEl = document.getElementById('modalDayLabel');
                 const openEl = document.getElementById('modalOpenTime');
                 const closeEl = document.getElementById('modalCloseTime');
                 const closedEl = document.getElementById('modalClosedCheckbox');
+                const dayOfWeekEl = document.getElementById('modalDayOfWeekInput');
 
                 if (dayEl) dayEl.textContent = day;
-                if (openEl) openEl.value = twelveHourToTwentyFour(openTime);
-                if (closeEl) closeEl.value = twelveHourToTwentyFour(closeTime);
+                if (openEl) openEl.value = openTimeRaw || twelveHourToTwentyFour(openTime);
+                if (closeEl) closeEl.value = closeTimeRaw || twelveHourToTwentyFour(closeTime);
                 if (closedEl) closedEl.checked = isClosed;
+                if (dayOfWeekEl) dayOfWeekEl.value = dayIndex;
+                setClosedState(isClosed);
             }
             openModal(targetModal);
         });
     });
+
+    const modalClosedCheckbox = document.getElementById('modalClosedCheckbox');
+    if (modalClosedCheckbox) {
+        modalClosedCheckbox.addEventListener('change', () => {
+            setClosedState(modalClosedCheckbox.checked);
+        });
+    }
 
     document.querySelectorAll('[data-close-modal]').forEach((button) => {
         button.addEventListener('click', () => {
