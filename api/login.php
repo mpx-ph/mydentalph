@@ -29,12 +29,23 @@ try {
                 u.full_name, 
                 u.role, 
                 u.phone,
+                u.photo AS user_photo,
                 t.clinic_name as tenant_name,
                 p.date_of_birth as birthdate,
-                CONCAT_WS(', ', p.house_street, p.barangay, p.city_municipality) as address
+                CONCAT_WS(', ', p.house_street, p.barangay, p.city_municipality) as address,
+                p.profile_image AS patient_profile_image
             FROM tbl_users u
             LEFT JOIN tbl_tenants t ON u.tenant_id = t.tenant_id
-            LEFT JOIN tbl_patients p ON u.user_id = p.linked_user_id
+            LEFT JOIN tbl_patients p
+                ON p.tenant_id = u.tenant_id
+                AND p.id = (
+                    SELECT p2.id
+                    FROM tbl_patients p2
+                    WHERE p2.tenant_id = u.tenant_id
+                        AND (p2.owner_user_id = u.user_id OR p2.linked_user_id = u.user_id)
+                    ORDER BY (p2.linked_user_id = u.user_id) DESC, p2.id DESC
+                    LIMIT 1
+                )
             WHERE u.email = ? 
             LIMIT 1";
 
@@ -50,6 +61,12 @@ try {
         $user['tenant_name'] = $user['tenant_name'] ?: "Your Clinic";
         $user['address'] = $user['address'] ?: "";
         $user['birthdate'] = $user['birthdate'] ?: "";
+        $patImg = trim((string) ($user['patient_profile_image'] ?? ''));
+        $uImg   = trim((string) ($user['user_photo'] ?? ''));
+        $user['patient_profile_image'] = $patImg;
+        $user['user_photo'] = $uImg;
+        // Single field apps can use for avatar (patient row preferred, then users.photo)
+        $user['profile_image'] = $patImg !== '' ? $patImg : $uImg;
 
         echo json_encode([
             "success" => true,
