@@ -266,12 +266,18 @@ for ($offset = 0; $offset <= 16; $offset++) {
         .modal-time-input {
             border: 1px solid #dbe5f2;
             background: #f8fbff;
-            border-radius: 0.95rem;
+            border-radius: 0.95rem !important;
             font-size: 0.92rem;
             font-weight: 700;
             color: #0f172a;
             min-height: 3.1rem;
             transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+            overflow: hidden;
+        }
+        input[type="time"].modal-time-input {
+            -webkit-appearance: none;
+            appearance: none;
+            border-radius: 0.95rem !important;
         }
         .modal-time-input:focus {
             border-color: rgba(43, 139, 235, 0.5);
