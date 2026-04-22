@@ -278,6 +278,13 @@ for ($offset = 0; $offset <= 16; $offset++) {
             background: linear-gradient(90deg, rgba(43, 139, 235, 0.09), rgba(43, 139, 235, 0.03));
             border: 1px solid rgba(147, 197, 253, 0.45);
         }
+        .success-popup-enter {
+            animation: success-popup-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        @keyframes success-popup-in {
+            from { opacity: 0; transform: translateY(10px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
@@ -302,7 +309,7 @@ for ($offset = 0; $offset <= 16; $offset++) {
             </div>
         </section>
 
-        <?php if ($formMessage !== ''): ?>
+        <?php if ($formMessage !== '' && $formMessageType === 'error'): ?>
             <section class="rounded-2xl border px-5 py-4 <?php echo $formMessageType === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'; ?>">
                 <p class="text-sm font-semibold"><?php echo htmlspecialchars($formMessage, ENT_QUOTES, 'UTF-8'); ?></p>
             </section>
@@ -475,6 +482,25 @@ for ($offset = 0; $offset <= 16; $offset++) {
     </div>
 </div>
 
+<?php if ($formMessage !== '' && $formMessageType === 'success'): ?>
+<div id="clinicHoursSuccessModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
+    <div class="success-popup-enter w-full max-w-md rounded-3xl border border-emerald-200 bg-white shadow-2xl overflow-hidden">
+        <div class="px-6 py-5 flex items-start gap-4">
+            <span class="inline-flex w-11 h-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                <span class="material-symbols-outlined text-[22px]">check_circle</span>
+            </span>
+            <div class="min-w-0">
+                <h3 class="font-headline text-xl font-extrabold text-slate-900">Success</h3>
+                <p class="mt-1 text-sm font-semibold text-slate-600">Clinic hours has been updated successfully.</p>
+            </div>
+        </div>
+        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50/70 flex justify-end">
+            <button type="button" id="closeClinicHoursSuccessModal" class="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-[0.16em] shadow-sm shadow-primary/30">OK</button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <script>
     function twelveHourToTwentyFour(timeText) {
         const fallback = '09:00';
@@ -570,6 +596,21 @@ for ($offset = 0; $offset <= 16; $offset++) {
             closeModal('editClinicHoursModal');
         }
     });
+
+    const clinicHoursSuccessModal = document.getElementById('clinicHoursSuccessModal');
+    const closeClinicHoursSuccessModal = document.getElementById('closeClinicHoursSuccessModal');
+    if (clinicHoursSuccessModal && closeClinicHoursSuccessModal) {
+        const dismissSuccessModal = () => {
+            clinicHoursSuccessModal.classList.add('hidden');
+        };
+        closeClinicHoursSuccessModal.addEventListener('click', dismissSuccessModal);
+        clinicHoursSuccessModal.addEventListener('click', (event) => {
+            if (event.target === clinicHoursSuccessModal) {
+                dismissSuccessModal();
+            }
+        });
+        setTimeout(dismissSuccessModal, 3200);
+    }
 </script>
 </body>
 </html>
