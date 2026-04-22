@@ -135,6 +135,33 @@ for ($offset = 0; $offset <= 16; $offset++) {
             background: #f1f5f9;
             box-shadow: 0 0 0 2px rgba(43, 139, 235, 0.18);
         }
+        .modal-shell {
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            box-shadow: 0 28px 60px -28px rgba(15, 23, 42, 0.35);
+        }
+        .modal-surface {
+            background: linear-gradient(180deg, rgba(248, 250, 252, 0.88) 0%, rgba(255, 255, 255, 1) 100%);
+        }
+        .modal-time-input {
+            border: 1px solid #dbe5f2;
+            background: #f8fbff;
+            border-radius: 0.95rem;
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #0f172a;
+            min-height: 3.1rem;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+        }
+        .modal-time-input:focus {
+            border-color: rgba(43, 139, 235, 0.5);
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(43, 139, 235, 0.15);
+            outline: none;
+        }
+        .modal-day-pill {
+            background: linear-gradient(90deg, rgba(43, 139, 235, 0.09), rgba(43, 139, 235, 0.03));
+            border: 1px solid rgba(147, 197, 253, 0.45);
+        }
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
@@ -272,53 +299,71 @@ for ($offset = 0; $offset <= 16; $offset++) {
 </main>
 
 <div id="editClinicHoursModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/45">
-    <div class="w-full max-w-lg bg-white rounded-3xl border border-slate-200 shadow-2xl">
-        <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-            <h3 class="font-headline text-xl font-extrabold text-slate-900">Edit Clinic Hours</h3>
-            <button type="button" data-close-modal="editClinicHoursModal" class="w-9 h-9 inline-flex items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:text-slate-700">
+    <div class="modal-shell modal-surface w-full max-w-xl overflow-hidden rounded-[1.9rem]">
+        <div class="px-6 sm:px-7 py-5 border-b border-slate-200/80 flex items-start justify-between gap-4">
+            <div>
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
+                    <span class="material-symbols-outlined text-[14px]">schedule</span>
+                    Clinic Schedule
+                </span>
+                <h3 class="font-headline text-2xl font-extrabold tracking-tight text-slate-900 mt-2">Edit Clinic Hours</h3>
+                <p class="text-xs font-semibold text-slate-500 mt-1">Set your exact opening and closing time for this day.</p>
+            </div>
+            <button type="button" data-close-modal="editClinicHoursModal" class="w-10 h-10 inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors">
                 <span class="material-symbols-outlined text-lg">close</span>
             </button>
         </div>
         <form onsubmit="event.preventDefault(); closeModal('editClinicHoursModal');">
-            <div class="p-6 space-y-4">
-                <div>
-                    <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Day</label>
-                    <div id="modalDayLabel" class="schedule-input w-full py-3 px-4 text-slate-700">Monday</div>
+            <div class="p-6 sm:p-7 space-y-5">
+                <div class="rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5">
+                    <label class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Day</label>
+                    <div id="modalDayLabel" class="modal-day-pill w-full rounded-xl px-4 py-3.5 text-[15px] font-extrabold tracking-tight text-slate-700">Monday</div>
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Open Time</label>
-                        <select id="modalOpenTime" class="schedule-input w-full py-3 px-4">
-                            <option>08:00 AM</option>
-                            <option>09:00 AM</option>
-                            <option>10:00 AM</option>
-                            <option>11:00 AM</option>
-                        </select>
+                        <label for="modalOpenTime" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Open Time</label>
+                        <input id="modalOpenTime" type="time" step="60" class="modal-time-input w-full px-4" value="09:00"/>
+                        <p class="mt-1.5 text-[11px] font-semibold text-slate-400">Choose any minute (e.g., 04:47).</p>
                     </div>
                     <div>
-                        <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Close Time</label>
-                        <select id="modalCloseTime" class="schedule-input w-full py-3 px-4">
-                            <option>03:00 PM</option>
-                            <option>04:00 PM</option>
-                            <option selected>05:00 PM</option>
-                            <option>06:00 PM</option>
-                        </select>
+                        <label for="modalCloseTime" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Close Time</label>
+                        <input id="modalCloseTime" type="time" step="60" class="modal-time-input w-full px-4" value="17:00"/>
+                        <p class="mt-1.5 text-[11px] font-semibold text-slate-400">Supports precise time selection.</p>
                     </div>
                 </div>
-                <label class="inline-flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
-                    <input id="modalClosedCheckbox" type="checkbox" class="rounded border-slate-300 text-primary focus:ring-primary/20"/>
-                    Mark as Closed
-                </label>
+                <div class="rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5">
+                    <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
+                        <input id="modalClosedCheckbox" type="checkbox" class="rounded-md border-slate-300 text-primary focus:ring-primary/20"/>
+                        Mark as Closed
+                    </label>
+                </div>
             </div>
-            <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
-                <button type="button" data-close-modal="editClinicHoursModal" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs uppercase tracking-wider">Cancel</button>
-                <button type="submit" class="px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs uppercase tracking-wider">Save</button>
+            <div class="px-6 sm:px-7 py-4 border-t border-slate-200/80 bg-slate-50/70 flex justify-end gap-2">
+                <button type="button" data-close-modal="editClinicHoursModal" class="px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-600 font-black text-xs uppercase tracking-[0.16em] hover:border-slate-400">Cancel</button>
+                <button type="submit" class="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-[0.16em] shadow-sm shadow-primary/30">Save</button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
+    function twelveHourToTwentyFour(timeText) {
+        const fallback = '09:00';
+        if (!timeText || typeof timeText !== 'string') return fallback;
+        const trimmed = timeText.trim();
+        const match = trimmed.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+        if (!match) return fallback;
+
+        let hour = parseInt(match[1], 10);
+        const minute = match[2];
+        const period = match[3].toUpperCase();
+
+        if (period === 'AM' && hour === 12) hour = 0;
+        if (period === 'PM' && hour !== 12) hour += 12;
+
+        return String(hour).padStart(2, '0') + ':' + minute;
+    }
+
     function openModal(modalId) {
         const modal = document.getElementById(modalId);
         if (!modal) return;
@@ -348,8 +393,8 @@ for ($offset = 0; $offset <= 16; $offset++) {
                 const closedEl = document.getElementById('modalClosedCheckbox');
 
                 if (dayEl) dayEl.textContent = day;
-                if (openEl) openEl.value = openTime;
-                if (closeEl) closeEl.value = closeTime;
+                if (openEl) openEl.value = twelveHourToTwentyFour(openTime);
+                if (closeEl) closeEl.value = twelveHourToTwentyFour(closeTime);
                 if (closedEl) closedEl.checked = isClosed;
             }
             openModal(targetModal);
