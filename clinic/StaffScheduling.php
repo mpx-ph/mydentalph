@@ -1238,7 +1238,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     window.alert('Please select today or a future date.');
                     return;
                 }
-                if (!selectedDentistUserId) {
+                if (!selectedDentistUserId && !selectedDentistId) {
                     window.alert('Please select a dentist.');
                     return;
                 }
