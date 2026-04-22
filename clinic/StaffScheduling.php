@@ -282,6 +282,35 @@ try {
             }
         }
 
+        // Legacy-data fallback: resolve by dentist profile email within tenant.
+        if ($shiftUserId === '' && $shiftDentistId !== '') {
+            $dentistEmailLookupStmt = $pdo->prepare("
+                SELECT
+                    d.tenant_id,
+                    d.dentist_id,
+                    u.user_id
+                FROM tbl_dentists d
+                LEFT JOIN tbl_users u
+                    ON u.tenant_id = d.tenant_id
+                    AND LOWER(TRIM(COALESCE(u.email, ''))) = LOWER(TRIM(COALESCE(d.email, '')))
+                    AND u.role = 'dentist'
+                WHERE d.dentist_id = ?
+                LIMIT 1
+            ");
+            $dentistEmailLookupStmt->execute([$shiftDentistId]);
+            $emailResolvedRow = $dentistEmailLookupStmt->fetch(PDO::FETCH_ASSOC);
+            if (is_array($emailResolvedRow) && !empty($emailResolvedRow)) {
+                $emailResolvedUserId = trim((string) ($emailResolvedRow['user_id'] ?? ''));
+                if ($emailResolvedUserId !== '') {
+                    $shiftUserId = $emailResolvedUserId;
+                    $resolvedDentistTenantId = trim((string) ($emailResolvedRow['tenant_id'] ?? ''));
+                    if ($resolvedShiftDentistId === '') {
+                        $resolvedShiftDentistId = trim((string) ($emailResolvedRow['dentist_id'] ?? ''));
+                    }
+                }
+            }
+        }
+
         if ($shiftUserId === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Selected dentist has no linked user account. Please update dentist account linkage first.']);
@@ -429,7 +458,7 @@ try {
 
     $dentistSql = "
         SELECT
-            COALESCE(d.user_id, '') AS user_id,
+            COALESCE(NULLIF(TRIM(d.user_id), ''), NULLIF(TRIM(u.user_id), ''), '') AS user_id,
             COALESCE(
                 NULLIF(TRIM(CONCAT(COALESCE(d.first_name, ''), ' ', COALESCE(d.last_name, ''))), ''),
                 'Dentist'
@@ -438,6 +467,10 @@ try {
             COALESCE(d.dentist_display_id, '') AS dentist_display_id,
             COALESCE(d.profile_image, '') AS profile_image
         FROM tbl_dentists d
+        LEFT JOIN tbl_users u
+            ON u.tenant_id = d.tenant_id
+            AND LOWER(TRIM(COALESCE(u.email, ''))) = LOWER(TRIM(COALESCE(d.email, '')))
+            AND u.role = 'dentist'
     ";
     $dentistParams = [];
     if ($tenantId !== '') {
