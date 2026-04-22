@@ -188,7 +188,7 @@ try {
 
         $fallbackOpen = $defaultClinicHoursRows[$dayIndex]['open_time'];
         $fallbackClose = $defaultClinicHoursRows[$dayIndex]['close_time'];
-        $isClosedFromDb = false;
+        $isClosedFromDb = isset($dbRow['is_closed']) && (int) $dbRow['is_closed'] === 1;
 
         $fallbackRowsByDayIndex[$dayIndex] = [
             'day' => $defaultClinicHoursRows[$dayIndex]['day'],
@@ -219,7 +219,7 @@ try {
         }
         $dayIndex = isset($weekRow['day_of_week']) ? (int) $weekRow['day_of_week'] : -1;
         $dayFallback = isset($fallbackRowsByDayIndex[$dayIndex]) ? $fallbackRowsByDayIndex[$dayIndex] : ['open_time' => '08:00 AM', 'close_time' => '05:00 PM'];
-        $isClosedFromDb = false;
+        $isClosedFromDb = isset($weekRow['is_closed']) && (int) $weekRow['is_closed'] === 1;
 
         $clinicHoursRowsByDate[$dateKey] = [
             'open_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($weekRow['open_time'], $dayFallback['open_time']),
