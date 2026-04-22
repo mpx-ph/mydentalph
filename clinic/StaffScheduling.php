@@ -195,6 +195,7 @@ try {
         }
 
         $shiftDentistId = isset($_POST['dentist_id']) ? trim((string) $_POST['dentist_id']) : '';
+        $shiftDentistUserId = isset($_POST['dentist_user_id']) ? trim((string) $_POST['dentist_user_id']) : '';
         $shiftDate = isset($_POST['shift_date']) ? trim((string) $_POST['shift_date']) : '';
         $shiftStart = isset($_POST['start_time']) ? trim((string) $_POST['start_time']) : '';
         $shiftEnd = isset($_POST['end_time']) ? trim((string) $_POST['end_time']) : '';
@@ -202,7 +203,7 @@ try {
         $shiftNotesInput = isset($_POST['notes']) ? trim((string) $_POST['notes']) : '';
         $shiftNotes = $shiftNotesInput !== '' ? $shiftNotesInput : null;
 
-        if ($shiftDentistId === '') {
+        if ($shiftDentistId === '' && $shiftDentistUserId === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Please select a dentist.']);
             exit;
@@ -232,15 +233,25 @@ try {
         }
 
         $dentistLookupStmt = $pdo->prepare("
-            SELECT user_id
+            SELECT user_id, dentist_id
             FROM tbl_dentists
             WHERE tenant_id = ?
-              AND (dentist_id = ? OR user_id = ?)
+              AND (
+                    (? <> '' AND user_id = ?)
+                 OR (? <> '' AND dentist_id = ?)
+              )
             LIMIT 1
         ");
-        $dentistLookupStmt->execute([$tenantId, $shiftDentistId, $shiftDentistId]);
+        $dentistLookupStmt->execute([
+            $tenantId,
+            $shiftDentistUserId,
+            $shiftDentistUserId,
+            $shiftDentistId,
+            $shiftDentistId,
+        ]);
         $dentistRow = $dentistLookupStmt->fetch(PDO::FETCH_ASSOC);
         $shiftUserId = is_array($dentistRow) ? trim((string) ($dentistRow['user_id'] ?? '')) : '';
+        $resolvedShiftDentistId = is_array($dentistRow) ? trim((string) ($dentistRow['dentist_id'] ?? '')) : '';
         if ($shiftUserId === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Selected dentist could not be resolved.']);
@@ -370,7 +381,8 @@ try {
             'success' => true,
             'message' => 'Shift saved successfully.',
             'selected_date' => $shiftDate,
-            'dentist_id' => $shiftDentistId,
+            'dentist_id' => $resolvedShiftDentistId !== '' ? $resolvedShiftDentistId : $shiftDentistId,
+            'dentist_user_id' => $shiftUserId,
         ]);
         exit;
     }
@@ -915,10 +927,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                         <?php
                                         $shiftDentistId = trim((string) ($dentist['dentist_id'] ?? ''));
                                         $shiftDentistUserId = trim((string) ($dentist['user_id'] ?? ''));
-                                        $shiftDentistValue = $shiftDentistId !== '' ? $shiftDentistId : $shiftDentistUserId;
                                         $shiftDentistName = trim((string) ($dentist['full_name'] ?? 'Dentist'));
                                         ?>
-                                        <option value="<?php echo htmlspecialchars($shiftDentistValue, ENT_QUOTES, 'UTF-8'); ?>" <?php echo (($selectedDentistId !== '' && $selectedDentistId === $shiftDentistId) || ($selectedDentistUserId !== '' && $selectedDentistUserId === $shiftDentistUserId)) ? 'selected' : ''; ?>>
+                                        <option value="<?php echo htmlspecialchars($shiftDentistUserId, ENT_QUOTES, 'UTF-8'); ?>" data-dentist-id="<?php echo htmlspecialchars($shiftDentistId, ENT_QUOTES, 'UTF-8'); ?>" <?php echo (($selectedDentistId !== '' && $selectedDentistId === $shiftDentistId) || ($selectedDentistUserId !== '' && $selectedDentistUserId === $shiftDentistUserId)) ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars($shiftDentistName, ENT_QUOTES, 'UTF-8'); ?>
                                         </option>
                                     <?php endforeach; ?>
@@ -1216,7 +1227,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 const selectedDate = String(setShiftDate.value || '');
                 const selectedStart = String(setShiftStartTime.value || '');
                 const selectedEnd = String(setShiftEndTime.value || '');
-                const selectedDentistId = String(setShiftDentistId.value || '');
+                const selectedDentistUserId = String(setShiftDentistId.value || '');
+                const selectedDentistOption = setShiftDentistId.options[setShiftDentistId.selectedIndex] || null;
+                const selectedDentistId = selectedDentistOption ? String(selectedDentistOption.getAttribute('data-dentist-id') || '') : '';
                 const selectedRepeatInput = setShiftForm.querySelector('input[name="setShiftRepeat"]:checked');
                 const selectedRepeat = selectedRepeatInput ? String(selectedRepeatInput.value || 'one_day') : 'one_day';
                 const notesValue = setShiftNotes ? String(setShiftNotes.value || '').trim() : '';
@@ -1225,7 +1238,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     window.alert('Please select today or a future date.');
                     return;
                 }
-                if (!selectedDentistId) {
+                if (!selectedDentistUserId) {
                     window.alert('Please select a dentist.');
                     return;
                 }
@@ -1261,6 +1274,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     const payload = new URLSearchParams();
                     payload.append('save_set_shift', '1');
                     payload.append('dentist_id', selectedDentistId);
+                    payload.append('dentist_user_id', selectedDentistUserId);
                     payload.append('shift_date', selectedDate);
                     payload.append('start_time', selectedStart);
                     payload.append('end_time', selectedEnd);
@@ -1284,7 +1298,14 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     closeSetShiftModal();
                     const refreshedUrl = new URL(window.location.href);
                     refreshedUrl.searchParams.set('selected_date', selectedDate);
-                    refreshedUrl.searchParams.set('dentist_id', selectedDentistId);
+                    if (result.dentist_user_id) {
+                        refreshedUrl.searchParams.set('user_id', String(result.dentist_user_id));
+                    }
+                    if (result.dentist_id) {
+                        refreshedUrl.searchParams.set('dentist_id', String(result.dentist_id));
+                    } else {
+                        refreshedUrl.searchParams.delete('dentist_id');
+                    }
                     window.location.href = refreshedUrl.toString();
                 } catch (error) {
                     window.alert((error && error.message) ? error.message : 'Failed to save shift.');
