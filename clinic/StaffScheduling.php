@@ -43,6 +43,33 @@ function formatTimeForUi($timeValue)
     return $dt ? $dt->format('g:i A') : (string) $timeValue;
 }
 
+function formatShiftDentistShortName($fullName)
+{
+    $normalized = trim((string) $fullName);
+    if ($normalized === '') {
+        return 'Dr. Dentist';
+    }
+
+    $normalized = preg_replace('/^dr\.?\s+/i', '', $normalized) ?? $normalized;
+    $parts = preg_split('/\s+/', $normalized) ?: [];
+    $parts = array_values(array_filter(array_map(static function ($part) {
+        return trim((string) $part);
+    }, $parts), static function ($part) {
+        return $part !== '';
+    }));
+    if (empty($parts)) {
+        return 'Dr. Dentist';
+    }
+
+    if (count($parts) === 1) {
+        return 'Dr. ' . $parts[0];
+    }
+
+    $firstInitial = strtoupper(substr($parts[0], 0, 1));
+    $lastName = $parts[count($parts) - 1];
+    return 'Dr. ' . $firstInitial . '. ' . $lastName;
+}
+
 function mapAppointmentClass($serviceType)
 {
     $normalized = strtolower(trim((string) $serviceType));
@@ -1019,6 +1046,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                             formatTimeForUi(sprintf('%02d:%02d', $displayStartHour, $displayStartMin)),
                                             formatTimeForUi(sprintf('%02d:%02d', $displayEndHour, $displayEndMin))
                                         );
+                                        $fullDentistName = (string) ($entry['dentist_name'] ?? 'Dr. Dentist');
+                                        $shortDentistName = formatShiftDentistShortName($fullDentistName);
+                                        $shiftTooltip = $fullDentistName . "&#10;Work Shift: " . $timeRangeLabel;
                                         $entryKind = (string) ($entry['kind'] ?? '');
                                         $zClass = ($entryKind === 'appointment' || $entryKind === 'appointment_past') ? 'z-30' : (($entryKind === 'work') ? 'z-20' : 'z-10');
                                         $entryStyle = 'top: ' . $topPx . 'px; height: ' . $heightPx . 'px;';
@@ -1035,11 +1065,10 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                             $entryStyle .= ' left: 6px; right: 6px;';
                                         }
                                         ?>
-                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-emerald-900' : 'text-white'; ?> <?php echo $zClass; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>">
+                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-emerald-900' : 'text-white'; ?> <?php echo $zClass; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isWork ? ('title="' . htmlspecialchars($shiftTooltip, ENT_QUOTES, 'UTF-8') . '"') : ''; ?>>
                                             <?php if ($isWork): ?>
-                                                <p class="text-[10px] font-black text-emerald-900 truncate"><?php echo htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dr. Dentist'), ENT_QUOTES, 'UTF-8'); ?></p>
-                                                <p class="mt-0.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-emerald-700">Work Shift</p>
-                                                <p class="mt-1 text-[10px] font-semibold text-emerald-900/90"><?php echo htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8'); ?></p>
+                                                <p class="text-[10px] font-black text-emerald-900 truncate"><?php echo htmlspecialchars($shortDentistName, ENT_QUOTES, 'UTF-8'); ?></p>
+                                                <p class="mt-1 text-[10px] font-semibold text-emerald-900/90 truncate"><?php echo htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8'); ?></p>
                                             <?php else: ?>
                                                 <p class="text-[10px] font-black uppercase tracking-[0.12em]"><?php echo htmlspecialchars((string) $entry['label'], ENT_QUOTES, 'UTF-8'); ?></p>
                                                 <p class="text-[10px] font-semibold opacity-95"><?php echo htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8'); ?></p>
