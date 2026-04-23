@@ -108,6 +108,148 @@ try {
         // Index may already exist.
     }
 
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_apply_clinic_hours'])) {
+        $weekStartForRedirect = isset($_POST['week_start']) ? trim((string) $_POST['week_start']) : '';
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $weekStartForRedirect)) {
+            $weekStartForRedirect = '';
+        }
+
+        $dateFromRaw = isset($_POST['bulk_date_from']) ? trim((string) $_POST['bulk_date_from']) : '';
+        $dateToRaw = isset($_POST['bulk_date_to']) ? trim((string) $_POST['bulk_date_to']) : '';
+        $openTimeRaw = isset($_POST['bulk_open_time']) ? trim((string) $_POST['bulk_open_time']) : '';
+        $closeTimeRaw = isset($_POST['bulk_close_time']) ? trim((string) $_POST['bulk_close_time']) : '';
+        $isClosed = isset($_POST['bulk_is_closed']) && $_POST['bulk_is_closed'] === '1';
+        $overwrite = isset($_POST['bulk_overwrite']) && $_POST['bulk_overwrite'] === '1';
+        $selectedDays = isset($_POST['bulk_days']) && is_array($_POST['bulk_days']) ? $_POST['bulk_days'] : [];
+        $daySet = [];
+        foreach ($selectedDays as $d) {
+            $i = (int) $d;
+            if ($i >= 0 && $i <= 6) {
+                $daySet[$i] = true;
+            }
+        }
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFromRaw) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateToRaw)) {
+            throw new RuntimeException('Please select a valid date range.');
+        }
+        $dateFrom = DateTimeImmutable::createFromFormat('Y-m-d', $dateFromRaw);
+        $dateTo = DateTimeImmutable::createFromFormat('Y-m-d', $dateToRaw);
+        if (!($dateFrom instanceof DateTimeImmutable) || !($dateTo instanceof DateTimeImmutable)) {
+            throw new RuntimeException('Please select a valid date range.');
+        }
+        if ($dateFrom > $dateTo) {
+            throw new RuntimeException('The start date must be on or before the end date.');
+        }
+        if ($daySet === []) {
+            throw new RuntimeException('Select at least one day of the week to apply.');
+        }
+
+        $openTime = null;
+        $closeTime = null;
+        if (!$isClosed) {
+            $openTimeDt = DateTimeImmutable::createFromFormat('H:i', $openTimeRaw);
+            $closeTimeDt = DateTimeImmutable::createFromFormat('H:i', $closeTimeRaw);
+            if (!($openTimeDt instanceof DateTimeImmutable) || !($closeTimeDt instanceof DateTimeImmutable)) {
+                throw new RuntimeException('Please select valid opening and closing times.');
+            }
+            if ($openTimeRaw >= $closeTimeRaw) {
+                throw new RuntimeException('Closing time must be later than opening time.');
+            }
+            $openTime = $openTimeDt->format('H:i:s');
+            $closeTime = $closeTimeDt->format('H:i:s');
+        }
+
+        $checkStmt = $pdo->prepare('SELECT clinic_hours_id FROM tbl_clinic_hours WHERE clinic_date = ? LIMIT 1');
+        $insertStmt = $pdo->prepare('
+            INSERT INTO tbl_clinic_hours (clinic_date, day_of_week, open_time, close_time, is_closed, notes)
+            VALUES (?, ?, ?, ?, ?, NULL)
+        ');
+        $updateStmt = $pdo->prepare('
+            UPDATE tbl_clinic_hours
+            SET day_of_week = ?,
+                open_time = ?,
+                close_time = ?,
+                is_closed = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE clinic_date = ?
+        ');
+
+        $inserted = 0;
+        $updated = 0;
+        $skipped = 0;
+
+        $pdo->beginTransaction();
+        try {
+            for ($d = $dateFrom; $d <= $dateTo; $d = $d->modify('+1 day')) {
+                $dow = (int) $d->format('w');
+                if (!isset($daySet[$dow])) {
+                    continue;
+                }
+                $clinicDateStr = $d->format('Y-m-d');
+                $checkStmt->execute([$clinicDateStr]);
+                $exists = (bool) $checkStmt->fetchColumn();
+
+                if ($exists) {
+                    if ($overwrite) {
+                        $updateStmt->execute([
+                            $dow,
+                            $isClosed ? null : $openTime,
+                            $isClosed ? null : $closeTime,
+                            $isClosed ? 1 : 0,
+                            $clinicDateStr,
+                        ]);
+                        $updated++;
+                    } else {
+                        $skipped++;
+                    }
+                } else {
+                    $insertStmt->execute([
+                        $clinicDateStr,
+                        $dow,
+                        $isClosed ? null : $openTime,
+                        $isClosed ? null : $closeTime,
+                        $isClosed ? 1 : 0,
+                    ]);
+                    $inserted++;
+                }
+            }
+            $pdo->commit();
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+
+        $msgParts = [];
+        if ($inserted > 0) {
+            $msgParts[] = $inserted . ' new date' . ($inserted === 1 ? '' : 's');
+        }
+        if ($updated > 0) {
+            $msgParts[] = $updated . ' updated';
+        }
+        if ($skipped > 0) {
+            $msgParts[] = $skipped . ' skipped (existing hours, overwrite off)';
+        }
+        if ($inserted === 0 && $updated === 0 && $skipped === 0) {
+            $_SESSION['clinic_hours_message'] = [
+                'type' => 'success',
+                'text' => 'No dates matched your range and day selection. Nothing was changed.',
+            ];
+        } else {
+            $summary = $msgParts !== [] ? implode('; ', $msgParts) . '.' : 'Done.';
+            $_SESSION['clinic_hours_message'] = [
+                'type' => 'success',
+                'text' => 'Bulk apply complete. ' . $summary,
+            ];
+        }
+
+        $redirectUrl = 'StaffClinicHours.php';
+        if ($weekStartForRedirect !== '') {
+            $redirectUrl .= '?week_start=' . rawurlencode($weekStartForRedirect);
+        }
+        header('Location: ' . $redirectUrl);
+        exit;
+    }
+
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_clinic_hours'])) {
         $weekStartForRedirect = isset($_POST['week_start']) ? trim((string) $_POST['week_start']) : '';
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $weekStartForRedirect)) {
@@ -428,6 +570,17 @@ try {
                 </div>
             </div>
 
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end mb-4">
+                <button
+                    type="button"
+                    data-open-modal="applyClinicHoursModal"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-white font-black text-xs uppercase tracking-[0.16em] shadow-sm shadow-primary/30 hover:bg-primary/90 transition-colors w-full sm:w-auto"
+                >
+                    <span class="material-symbols-outlined text-[18px]">event_repeat</span>
+                    Apply Clinic Hours
+                </button>
+            </div>
+
             <div class="overflow-x-auto">
                 <div class="min-w-[780px] border border-slate-200 rounded-2xl overflow-hidden bg-white">
                     <table class="w-full text-sm">
@@ -571,6 +724,78 @@ try {
     </div>
 </div>
 
+<div id="applyClinicHoursModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/45">
+    <div class="modal-shell modal-surface w-full max-w-2xl max-h-[min(90vh,720px)] overflow-y-auto overflow-x-hidden rounded-[1.9rem]">
+        <div class="px-6 sm:px-7 py-5 border-b border-slate-200/80 flex items-start justify-between gap-4">
+            <div>
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
+                    <span class="material-symbols-outlined text-[14px]">date_range</span>
+                    Bulk Apply
+                </span>
+                <h3 class="font-headline text-2xl font-extrabold tracking-tight text-slate-900 mt-2">Apply Clinic Hours</h3>
+                <p class="text-xs font-semibold text-slate-500 mt-1">Set hours for a date range on selected days of the week.</p>
+            </div>
+            <button type="button" data-close-modal="applyClinicHoursModal" class="w-10 h-10 inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors shrink-0">
+                <span class="material-symbols-outlined text-lg">close</span>
+            </button>
+        </div>
+        <form method="post" id="applyClinicHoursForm">
+            <input type="hidden" name="bulk_apply_clinic_hours" value="1"/>
+            <input type="hidden" name="week_start" value="<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
+            <div class="p-6 sm:p-7 space-y-5">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="bulkDateFrom" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">From</label>
+                        <input id="bulkDateFrom" name="bulk_date_from" type="date" required class="modal-time-input w-full px-4" value="<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
+                    </div>
+                    <div>
+                        <label for="bulkDateTo" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">To</label>
+                        <input id="bulkDateTo" name="bulk_date_to" type="date" required class="modal-time-input w-full px-4" value="<?php echo htmlspecialchars($selectedWeekEnd->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
+                    </div>
+                </div>
+                <div>
+                    <span class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2.5">Days to Apply</span>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5" id="bulkDaysGrid">
+                        <?php
+                        $dayLabels = [0 => 'Sun', 1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri', 6 => 'Sat'];
+                        foreach ($dayLabels as $idx => $label):
+                        ?>
+                            <label class="inline-flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 cursor-pointer hover:border-primary/30 transition-colors">
+                                <input type="checkbox" name="bulk_days[]" value="<?php echo (int) $idx; ?>" class="rounded-md border-slate-300 text-primary focus:ring-primary/20 bulk-day-cb" checked/>
+                                <?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="bulkOpenTime" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Open Time</label>
+                        <input id="bulkOpenTime" name="bulk_open_time" type="time" step="60" class="modal-time-input w-full px-4 bulk-time-field" value="08:00"/>
+                    </div>
+                    <div>
+                        <label for="bulkCloseTime" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Close Time</label>
+                        <input id="bulkCloseTime" name="bulk_close_time" type="time" step="60" class="modal-time-input w-full px-4 bulk-time-field" value="17:00"/>
+                    </div>
+                </div>
+                <div class="rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5 space-y-3">
+                    <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
+                        <input id="bulkClosedCheckbox" name="bulk_is_closed" type="checkbox" value="1" class="rounded-md border-slate-300 text-primary focus:ring-primary/20"/>
+                        Mark as Closed
+                    </label>
+                    <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
+                        <input id="bulkOverwriteCheckbox" name="bulk_overwrite" type="checkbox" value="1" class="rounded-md border-slate-300 text-primary focus:ring-primary/20"/>
+                        Overwrite existing clinic hours
+                    </label>
+                </div>
+            </div>
+            <div class="px-6 sm:px-7 py-4 border-t border-slate-200/80 bg-slate-50/70 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+                <button type="button" data-close-modal="applyClinicHoursModal" class="px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-600 font-black text-xs uppercase tracking-[0.16em] hover:border-slate-400 w-full sm:w-auto">Cancel</button>
+                <button type="submit" class="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-[0.16em] shadow-sm shadow-primary/30 w-full sm:w-auto">Apply</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <?php if ($formMessage !== '' && $formMessageType === 'success'): ?>
 <div id="clinicHoursSuccessModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
     <div class="success-popup-enter w-full max-w-md rounded-3xl border border-emerald-200 bg-white shadow-2xl overflow-hidden">
@@ -580,7 +805,7 @@ try {
             </span>
             <div class="min-w-0">
                 <h3 class="font-headline text-xl font-extrabold text-slate-900">Success</h3>
-                <p class="mt-1 text-sm font-semibold text-slate-600">Clinic hours has been updated successfully.</p>
+                <p class="mt-1 text-sm font-semibold text-slate-600"><?php echo htmlspecialchars($formMessage, ENT_QUOTES, 'UTF-8'); ?></p>
             </div>
         </div>
         <div class="px-6 py-4 border-t border-slate-200 bg-slate-50/70 flex justify-end">
@@ -630,9 +855,20 @@ try {
         if (closeEl) closeEl.disabled = !!isClosed;
     }
 
+    function setBulkClosedState(isClosed) {
+        const openEl = document.getElementById('bulkOpenTime');
+        const closeEl = document.getElementById('bulkCloseTime');
+        if (openEl) openEl.disabled = !!isClosed;
+        if (closeEl) closeEl.disabled = !!isClosed;
+    }
+
     document.querySelectorAll('[data-open-modal]').forEach((button) => {
         button.addEventListener('click', () => {
             const targetModal = button.getAttribute('data-open-modal');
+            if (targetModal === 'applyClinicHoursModal') {
+                const closedEl = document.getElementById('bulkClosedCheckbox');
+                setBulkClosedState(closedEl && closedEl.checked);
+            }
             if (targetModal === 'editClinicHoursModal') {
                 const day = button.getAttribute('data-day') || 'Monday';
                 const openTime = button.getAttribute('data-open-time') || '08:00 AM';
@@ -672,6 +908,41 @@ try {
         });
     }
 
+    const bulkClosedCheckbox = document.getElementById('bulkClosedCheckbox');
+    if (bulkClosedCheckbox) {
+        bulkClosedCheckbox.addEventListener('change', () => {
+            setBulkClosedState(bulkClosedCheckbox.checked);
+        });
+    }
+
+    const applyClinicHoursForm = document.getElementById('applyClinicHoursForm');
+    if (applyClinicHoursForm) {
+        applyClinicHoursForm.addEventListener('submit', (e) => {
+            const fromVal = (document.getElementById('bulkDateFrom') || {}).value;
+            const toVal = (document.getElementById('bulkDateTo') || {}).value;
+            if (fromVal && toVal && fromVal > toVal) {
+                e.preventDefault();
+                alert('The start date must be on or before the end date.');
+                return;
+            }
+            const anyDay = document.querySelectorAll('.bulk-day-cb:checked').length > 0;
+            if (!anyDay) {
+                e.preventDefault();
+                alert('Select at least one day of the week.');
+                return;
+            }
+            const closed = bulkClosedCheckbox && bulkClosedCheckbox.checked;
+            if (!closed) {
+                const o = (document.getElementById('bulkOpenTime') || {}).value;
+                const c = (document.getElementById('bulkCloseTime') || {}).value;
+                if (o && c && o >= c) {
+                    e.preventDefault();
+                    alert('Closing time must be later than opening time.');
+                }
+            }
+        });
+    }
+
     document.querySelectorAll('[data-close-modal]').forEach((button) => {
         button.addEventListener('click', () => {
             closeModal(button.getAttribute('data-close-modal'));
@@ -689,6 +960,7 @@ try {
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             closeModal('editClinicHoursModal');
+            closeModal('applyClinicHoursModal');
         }
     });
 
