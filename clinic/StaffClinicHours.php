@@ -567,18 +567,15 @@ try {
                             <?php endforeach; ?>
                         </select>
                     </form>
+                    <button
+                        type="button"
+                        data-open-modal="applyClinicHoursModal"
+                        class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-white font-black text-xs uppercase tracking-[0.16em] shadow-sm shadow-primary/30 hover:bg-primary/90 transition-colors w-full sm:w-auto"
+                    >
+                        <span class="material-symbols-outlined text-[18px]">event_repeat</span>
+                        Apply Clinic Hours
+                    </button>
                 </div>
-            </div>
-
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end mb-4">
-                <button
-                    type="button"
-                    data-open-modal="applyClinicHoursModal"
-                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-white font-black text-xs uppercase tracking-[0.16em] shadow-sm shadow-primary/30 hover:bg-primary/90 transition-colors w-full sm:w-auto"
-                >
-                    <span class="material-symbols-outlined text-[18px]">event_repeat</span>
-                    Apply Clinic Hours
-                </button>
             </div>
 
             <div class="overflow-x-auto">
