@@ -534,6 +534,11 @@ try {
             border-color: rgba(43, 139, 235, 0.6);
             box-shadow: 0 0 0 3px rgba(43, 139, 235, 0.14);
         }
+        .bulk-date-display.is-active {
+            border-color: rgba(43, 139, 235, 0.65);
+            background: #f8fbff;
+            box-shadow: 0 0 0 3px rgba(43, 139, 235, 0.14);
+        }
         .bulk-mini-calendar {
             border: 1px solid rgba(226, 232, 240, 0.95);
             background: #ffffff;
@@ -1032,6 +1037,7 @@ try {
         endDate: '',
         miniViewDate: null,
         miniTarget: 'start',
+        selectionStep: 'start',
         todayIso: '<?php echo htmlspecialchars($today->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>'
     };
 
@@ -1041,7 +1047,7 @@ try {
         const startDisplay = document.getElementById('bulkStartDateDisplay');
         const endDisplay = document.getElementById('bulkEndDateDisplay');
         if (startInput) startInput.value = bulkCalendarState.startDate;
-        if (endInput) endInput.value = bulkCalendarState.endDate || bulkCalendarState.startDate;
+        if (endInput) endInput.value = bulkCalendarState.endDate || '';
         if (startDisplay) {
             const startTextEl = startDisplay.querySelector('span');
             if (startTextEl) startTextEl.textContent = formatDateLong(bulkCalendarState.startDate);
@@ -1050,6 +1056,14 @@ try {
             const endTextEl = endDisplay.querySelector('span');
             if (endTextEl) endTextEl.textContent = bulkCalendarState.endDate ? formatDateLong(bulkCalendarState.endDate) : '-';
         }
+    }
+
+    function setActiveDateTarget(targetKey) {
+        const startDisplay = document.getElementById('bulkStartDateDisplay');
+        const endDisplay = document.getElementById('bulkEndDateDisplay');
+        const activeTarget = targetKey === 'end' ? 'end' : 'start';
+        if (startDisplay) startDisplay.classList.toggle('is-active', activeTarget === 'start');
+        if (endDisplay) endDisplay.classList.toggle('is-active', activeTarget === 'end');
     }
 
     function updateBulkEventSummary() {
@@ -1113,9 +1127,11 @@ try {
 
             btn.addEventListener('click', () => {
                 if (isDisabled) return;
-                if (!bulkCalendarState.startDate || bulkCalendarState.endDate) {
+                if (bulkCalendarState.selectionStep === 'start' || !bulkCalendarState.startDate) {
                     bulkCalendarState.startDate = iso;
                     bulkCalendarState.endDate = '';
+                    bulkCalendarState.selectionStep = 'end';
+                    bulkCalendarState.miniTarget = 'end';
                 } else {
                     if (iso < bulkCalendarState.startDate) {
                         bulkCalendarState.endDate = bulkCalendarState.startDate;
@@ -1123,9 +1139,12 @@ try {
                     } else {
                         bulkCalendarState.endDate = iso;
                     }
+                    bulkCalendarState.selectionStep = 'start';
+                    bulkCalendarState.miniTarget = 'start';
                 }
                 syncBulkDateFields();
                 updateBulkEventSummary();
+                setActiveDateTarget(bulkCalendarState.miniTarget);
                 bulkCalendarState.miniViewDate = new Date(d.getFullYear(), d.getMonth(), 1, 12);
                 renderMiniCalendar();
                 renderBulkCalendar();
@@ -1204,11 +1223,13 @@ try {
 
     function openMiniCalendar(targetKey) {
         bulkCalendarState.miniTarget = targetKey === 'end' ? 'end' : 'start';
+        bulkCalendarState.selectionStep = bulkCalendarState.miniTarget;
         const sourceIso = bulkCalendarState.miniTarget === 'end'
             ? (bulkCalendarState.endDate || bulkCalendarState.startDate || bulkCalendarState.todayIso)
             : (bulkCalendarState.startDate || bulkCalendarState.todayIso);
         const sourceDate = parseISODate(sourceIso) || parseISODate(bulkCalendarState.todayIso) || new Date();
         bulkCalendarState.miniViewDate = new Date(sourceDate.getFullYear(), sourceDate.getMonth(), 1, 12);
+        setActiveDateTarget(bulkCalendarState.miniTarget);
         renderMiniCalendar();
     }
 
@@ -1219,16 +1240,17 @@ try {
 
         const defaultStart = '<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>';
         const startVal = startInput.value || defaultStart;
-        const endVal = endInput.value || '';
         bulkCalendarState.startDate = startVal < bulkCalendarState.todayIso ? bulkCalendarState.todayIso : startVal;
-        bulkCalendarState.endDate = endVal && endVal >= bulkCalendarState.startDate ? endVal : '';
+        bulkCalendarState.endDate = '';
         const view = parseISODate(bulkCalendarState.startDate) || new Date();
         bulkCalendarState.viewDate = new Date(view.getFullYear(), view.getMonth(), 1, 12);
         bulkCalendarState.miniViewDate = new Date(view.getFullYear(), view.getMonth(), 1, 12);
         bulkCalendarState.miniTarget = 'start';
+        bulkCalendarState.selectionStep = 'start';
 
         syncBulkDateFields();
         updateBulkEventSummary();
+        setActiveDateTarget('start');
         renderBulkCalendar();
         renderMiniCalendar();
     }
@@ -1292,6 +1314,17 @@ try {
         applyClinicHoursForm.addEventListener('submit', (e) => {
             const fromVal = (document.getElementById('bulkDateFrom') || {}).value;
             const toVal = (document.getElementById('bulkDateTo') || {}).value;
+            const todayIso = bulkCalendarState.todayIso;
+            if (!fromVal || !toVal) {
+                e.preventDefault();
+                alert('Please select both start and end dates.');
+                return;
+            }
+            if (fromVal < todayIso || toVal < todayIso) {
+                e.preventDefault();
+                alert('Please select current or future dates only.');
+                return;
+            }
             if (fromVal && toVal && fromVal > toVal) {
                 e.preventDefault();
                 alert('The start date must be on or before the end date.');
