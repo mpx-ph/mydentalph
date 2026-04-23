@@ -507,37 +507,44 @@ try {
         .bulk-calendar-day.is-range-single {
             border-radius: 9999px;
         }
-        .bulk-date-display {
+        .bulk-date-input {
             border: 1px solid #dbe5f2;
             background: #ffffff;
             border-radius: 0.95rem;
             min-height: 3.1rem;
-            display: flex;
-            align-items: center;
-            padding: 0 1rem;
             font-size: 0.95rem;
             font-weight: 700;
             color: #0f172a;
-        }
-        .bulk-date-display.is-button {
             width: 100%;
-            justify-content: space-between;
-            cursor: pointer;
+            padding: 0 2.75rem 0 1rem;
             transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+            appearance: none;
+            -webkit-appearance: none;
         }
-        .bulk-date-display.is-button:hover {
+        .bulk-date-input:hover {
             border-color: rgba(43, 139, 235, 0.45);
             background: #f8fbff;
         }
-        .bulk-date-display.is-button:focus {
+        .bulk-date-input:focus {
             outline: none;
             border-color: rgba(43, 139, 235, 0.6);
             box-shadow: 0 0 0 3px rgba(43, 139, 235, 0.14);
         }
-        .bulk-date-display.is-active {
+        .bulk-date-input.is-active {
             border-color: rgba(43, 139, 235, 0.65);
             background: #f8fbff;
             box-shadow: 0 0 0 3px rgba(43, 139, 235, 0.14);
+        }
+        .bulk-date-input::-webkit-calendar-picker-indicator {
+            opacity: 0;
+            cursor: pointer;
+        }
+        .bulk-date-icon {
+            position: absolute;
+            right: 0.95rem;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
         }
         .bulk-calendar-day.is-disabled {
             color: #94a3b8;
@@ -806,8 +813,6 @@ try {
             <input type="hidden" name="bulk_apply_clinic_hours" value="1"/>
             <input type="hidden" name="week_start" value="<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
             <div class="p-6 sm:p-7">
-                <input id="bulkDateFrom" name="bulk_date_from" type="hidden" required value="<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
-                <input id="bulkDateTo" name="bulk_date_to" type="hidden" required value="<?php echo htmlspecialchars($selectedWeekEnd->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
                 <div class="grid grid-cols-1 xl:grid-cols-[1.28fr_1fr] gap-6">
                     <div>
                         <div class="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5">
@@ -836,10 +841,10 @@ try {
                         <div class="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 space-y-4">
                             <div>
                                 <label class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Start date*</label>
-                                <button type="button" id="bulkStartDateDisplay" class="bulk-date-display is-button" data-mini-target="start">
-                                    <span>-</span>
-                                    <span class="material-symbols-outlined text-[18px] text-slate-500">calendar_month</span>
-                                </button>
+                                <div class="relative">
+                                    <input id="bulkDateFrom" name="bulk_date_from" type="date" required class="bulk-date-input" min="<?php echo htmlspecialchars($today->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" value="<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500 bulk-date-icon">calendar_month</span>
+                                </div>
                             </div>
                             <div>
                                 <label for="bulkOpenTime" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Start time*</label>
@@ -847,10 +852,10 @@ try {
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">End date*</label>
-                                <button type="button" id="bulkEndDateDisplay" class="bulk-date-display is-button" data-mini-target="end">
-                                    <span>-</span>
-                                    <span class="material-symbols-outlined text-[18px] text-slate-500">calendar_month</span>
-                                </button>
+                                <div class="relative">
+                                    <input id="bulkDateTo" name="bulk_date_to" type="date" required class="bulk-date-input" min="<?php echo htmlspecialchars($today->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" value="<?php echo htmlspecialchars($selectedWeekEnd->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500 bulk-date-icon">calendar_month</span>
+                                </div>
                             </div>
                             <div>
                                 <label for="bulkCloseTime" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">End time*</label>
@@ -993,23 +998,13 @@ try {
     function syncBulkDateFields() {
         const startInput = document.getElementById('bulkDateFrom');
         const endInput = document.getElementById('bulkDateTo');
-        const startDisplay = document.getElementById('bulkStartDateDisplay');
-        const endDisplay = document.getElementById('bulkEndDateDisplay');
         if (startInput) startInput.value = bulkCalendarState.startDate;
         if (endInput) endInput.value = bulkCalendarState.endDate || '';
-        if (startDisplay) {
-            const startTextEl = startDisplay.querySelector('span');
-            if (startTextEl) startTextEl.textContent = formatDateLong(bulkCalendarState.startDate);
-        }
-        if (endDisplay) {
-            const endTextEl = endDisplay.querySelector('span');
-            if (endTextEl) endTextEl.textContent = bulkCalendarState.endDate ? formatDateLong(bulkCalendarState.endDate) : '-';
-        }
     }
 
     function setActiveDateTarget(targetKey) {
-        const startDisplay = document.getElementById('bulkStartDateDisplay');
-        const endDisplay = document.getElementById('bulkEndDateDisplay');
+        const startDisplay = document.getElementById('bulkDateFrom');
+        const endDisplay = document.getElementById('bulkDateTo');
         const activeTarget = targetKey === 'end' ? 'end' : 'start';
         if (startDisplay) startDisplay.classList.toggle('is-active', activeTarget === 'start');
         if (endDisplay) endDisplay.classList.toggle('is-active', activeTarget === 'end');
@@ -1233,18 +1228,86 @@ try {
         });
     }
 
-    const bulkStartDateDisplay = document.getElementById('bulkStartDateDisplay');
-    const bulkEndDateDisplay = document.getElementById('bulkEndDateDisplay');
-    if (bulkStartDateDisplay) {
-        bulkStartDateDisplay.addEventListener('click', () => {
+    const bulkStartDateInput = document.getElementById('bulkDateFrom');
+    const bulkEndDateInput = document.getElementById('bulkDateTo');
+
+    function openNativeDatePicker(inputEl) {
+        if (!inputEl) return;
+        if (typeof inputEl.showPicker === 'function') {
+            try {
+                inputEl.showPicker();
+            } catch (e) {
+                // Some browsers block showPicker without direct user gesture.
+            }
+        }
+    }
+
+    if (bulkStartDateInput) {
+        bulkStartDateInput.addEventListener('click', () => {
+            bulkCalendarState.selectionStep = 'start';
+            setActiveDateTarget('start');
+            openNativeDatePicker(bulkStartDateInput);
+        });
+        bulkStartDateInput.addEventListener('focus', () => {
             bulkCalendarState.selectionStep = 'start';
             setActiveDateTarget('start');
         });
+        bulkStartDateInput.addEventListener('change', () => {
+            const selected = bulkStartDateInput.value || '';
+            if (!selected) return;
+            const startIso = selected < bulkCalendarState.todayIso ? bulkCalendarState.todayIso : selected;
+            bulkCalendarState.startDate = startIso;
+            if (bulkCalendarState.endDate && bulkCalendarState.endDate < startIso) {
+                bulkCalendarState.endDate = '';
+            }
+            const view = parseISODate(startIso);
+            if (view) {
+                bulkCalendarState.viewDate = new Date(view.getFullYear(), view.getMonth(), 1, 12);
+            }
+            bulkCalendarState.selectionStep = 'end';
+            syncBulkDateFields();
+            updateBulkEventSummary();
+            setActiveDateTarget('end');
+            renderBulkCalendar();
+        });
     }
-    if (bulkEndDateDisplay) {
-        bulkEndDateDisplay.addEventListener('click', () => {
+
+    if (bulkEndDateInput) {
+        bulkEndDateInput.addEventListener('click', () => {
             bulkCalendarState.selectionStep = 'end';
             setActiveDateTarget('end');
+            openNativeDatePicker(bulkEndDateInput);
+        });
+        bulkEndDateInput.addEventListener('focus', () => {
+            bulkCalendarState.selectionStep = 'end';
+            setActiveDateTarget('end');
+        });
+        bulkEndDateInput.addEventListener('change', () => {
+            const selected = bulkEndDateInput.value || '';
+            if (!selected) return;
+            const endIso = selected < bulkCalendarState.todayIso ? bulkCalendarState.todayIso : selected;
+            if (!bulkCalendarState.startDate) {
+                bulkCalendarState.startDate = endIso;
+                bulkCalendarState.endDate = '';
+                bulkCalendarState.selectionStep = 'end';
+                setActiveDateTarget('end');
+            } else if (endIso < bulkCalendarState.startDate) {
+                bulkCalendarState.startDate = endIso;
+                bulkCalendarState.endDate = '';
+                bulkCalendarState.selectionStep = 'end';
+                setActiveDateTarget('end');
+            } else {
+                bulkCalendarState.endDate = endIso;
+                bulkCalendarState.selectionStep = 'start';
+                setActiveDateTarget('start');
+            }
+            const view = parseISODate(endIso);
+            if (view) {
+                bulkCalendarState.viewDate = new Date(view.getFullYear(), view.getMonth(), 1, 12);
+            }
+            syncBulkDateFields();
+            updateBulkEventSummary();
+            renderBulkCalendar();
         });
     }
 
