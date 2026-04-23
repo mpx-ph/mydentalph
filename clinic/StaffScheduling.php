@@ -851,6 +851,24 @@ $dentistsSeedData = array_map(static function ($dentist) {
             from { opacity: 0; transform: translateY(10px) scale(0.98); }
             to { opacity: 1; transform: translateY(0) scale(1); }
         }
+        .shift-tooltip-card {
+            position: fixed;
+            z-index: 95;
+            pointer-events: none;
+            width: min(19rem, calc(100vw - 1.5rem));
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            border-radius: 0.9rem;
+            background: rgba(255, 255, 255, 0.97);
+            box-shadow: 0 18px 34px -20px rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(3px);
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity 0.14s ease, transform 0.14s ease;
+        }
+        .shift-tooltip-card.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
@@ -1048,7 +1066,6 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                         );
                                         $fullDentistName = (string) ($entry['dentist_name'] ?? 'Dr. Dentist');
                                         $shortDentistName = formatShiftDentistShortName($fullDentistName);
-                                        $shiftTooltip = $fullDentistName . "&#10;Work Shift: " . $timeRangeLabel;
                                         $entryKind = (string) ($entry['kind'] ?? '');
                                         $zClass = ($entryKind === 'appointment' || $entryKind === 'appointment_past') ? 'z-30' : (($entryKind === 'work') ? 'z-20' : 'z-10');
                                         $entryStyle = 'top: ' . $topPx . 'px; height: ' . $heightPx . 'px;';
@@ -1065,7 +1082,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                             $entryStyle .= ' left: 6px; right: 6px;';
                                         }
                                         ?>
-                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-emerald-900' : 'text-white'; ?> <?php echo $zClass; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isWork ? ('title="' . htmlspecialchars($shiftTooltip, ENT_QUOTES, 'UTF-8') . '"') : ''; ?>>
+                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-emerald-900' : 'text-white'; ?> <?php echo $zClass; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isWork ? ('data-shift-tooltip="1" data-shift-full-name="' . htmlspecialchars($fullDentistName, ENT_QUOTES, 'UTF-8') . '" data-shift-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '"') : ''; ?>>
                                             <?php if ($isWork): ?>
                                                 <p class="text-[10px] font-black text-emerald-900 truncate"><?php echo htmlspecialchars($shortDentistName, ENT_QUOTES, 'UTF-8'); ?></p>
                                                 <p class="mt-1 text-[10px] font-semibold text-emerald-900/90 truncate"><?php echo htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8'); ?></p>
@@ -1224,6 +1241,26 @@ $dentistsSeedData = array_map(static function ($dentist) {
         </div>
     </div>
 </div>
+<div id="shiftInfoTooltip" class="shift-tooltip-card hidden" role="tooltip" aria-hidden="true">
+    <div class="px-3.5 py-3">
+        <div class="flex items-start gap-2.5">
+            <span class="inline-flex w-7 h-7 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+                <span class="material-symbols-outlined text-[17px]">person</span>
+            </span>
+            <div class="min-w-0">
+                <p id="shiftTooltipDentistName" class="text-sm font-extrabold text-slate-800 leading-snug break-words"></p>
+            </div>
+        </div>
+        <div class="mt-2.5 flex items-start gap-2.5">
+            <span class="inline-flex w-7 h-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <span class="material-symbols-outlined text-[17px]">schedule</span>
+            </span>
+            <div class="min-w-0">
+                <p id="shiftTooltipTimeRange" class="text-sm font-semibold text-slate-600 leading-snug break-words"></p>
+            </div>
+        </div>
+    </div>
+</div>
 <script>
     (function () {
         const openSetShiftModalBtn = document.getElementById('openSetShiftModalBtn');
@@ -1252,6 +1289,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
         const pageAlertModal = document.getElementById('pageAlertModal');
         const pageAlertMessage = document.getElementById('pageAlertMessage');
         const pageAlertOkBtn = document.getElementById('pageAlertOkBtn');
+        const shiftInfoTooltip = document.getElementById('shiftInfoTooltip');
+        const shiftTooltipDentistName = document.getElementById('shiftTooltipDentistName');
+        const shiftTooltipTimeRange = document.getElementById('shiftTooltipTimeRange');
         const scheduleFilterForm = document.getElementById('scheduleFilterForm');
         const dentistsSeedData = <?php echo json_encode($dentistsSeedData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const stockDentistImage = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=60';
@@ -1304,6 +1344,56 @@ $dentistsSeedData = array_map(static function ($dentist) {
             if (!pageAlertModal) return;
             pageAlertModal.classList.add('hidden');
             syncModalBodyScrollLock();
+        }
+
+        function hideShiftTooltip() {
+            if (!shiftInfoTooltip) return;
+            shiftInfoTooltip.classList.remove('is-visible');
+            shiftInfoTooltip.classList.add('hidden');
+            shiftInfoTooltip.setAttribute('aria-hidden', 'true');
+        }
+
+        function positionShiftTooltip(anchorRect, pointerX, pointerY) {
+            if (!shiftInfoTooltip) return;
+
+            const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+            const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+            const tooltipWidth = shiftInfoTooltip.offsetWidth || 280;
+            const tooltipHeight = shiftInfoTooltip.offsetHeight || 92;
+            const gap = 12;
+
+            let left = pointerX + gap;
+            if (left + tooltipWidth > viewportWidth - 8) {
+                left = Math.max(8, pointerX - tooltipWidth - gap);
+            }
+
+            let top = (anchorRect.top + anchorRect.bottom - tooltipHeight) / 2;
+            if (!Number.isFinite(top)) {
+                top = pointerY - (tooltipHeight / 2);
+            }
+            if (top + tooltipHeight > viewportHeight - 8) {
+                top = viewportHeight - tooltipHeight - 8;
+            }
+            if (top < 8) {
+                top = 8;
+            }
+
+            shiftInfoTooltip.style.left = Math.round(left) + 'px';
+            shiftInfoTooltip.style.top = Math.round(top) + 'px';
+        }
+
+        function showShiftTooltip(target, event) {
+            if (!shiftInfoTooltip || !shiftTooltipDentistName || !shiftTooltipTimeRange || !target) return;
+            const fullName = String(target.getAttribute('data-shift-full-name') || '').trim();
+            const timeRange = String(target.getAttribute('data-shift-time') || '').trim();
+            if (!fullName || !timeRange) return;
+
+            shiftTooltipDentistName.textContent = fullName;
+            shiftTooltipTimeRange.textContent = timeRange;
+            shiftInfoTooltip.classList.remove('hidden');
+            shiftInfoTooltip.setAttribute('aria-hidden', 'false');
+            positionShiftTooltip(target.getBoundingClientRect(), event.clientX, event.clientY);
+            shiftInfoTooltip.classList.add('is-visible');
         }
 
         function syncModalBodyScrollLock() {
@@ -1622,6 +1712,21 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 }
             });
         }
+
+        const shiftTooltipTargets = document.querySelectorAll('[data-shift-tooltip="1"]');
+        shiftTooltipTargets.forEach(function (shiftEl) {
+            shiftEl.addEventListener('mouseenter', function (event) {
+                showShiftTooltip(shiftEl, event);
+            });
+            shiftEl.addEventListener('mousemove', function (event) {
+                if (!shiftInfoTooltip || shiftInfoTooltip.classList.contains('hidden')) return;
+                positionShiftTooltip(shiftEl.getBoundingClientRect(), event.clientX, event.clientY);
+            });
+            shiftEl.addEventListener('mouseleave', hideShiftTooltip);
+        });
+
+        window.addEventListener('scroll', hideShiftTooltip, { passive: true });
+        window.addEventListener('resize', hideShiftTooltip);
     })();
 </script>
 </body>
