@@ -115,9 +115,12 @@ $hasDentistIdFilterParam = array_key_exists('dentist_id', $_GET);
 $selectedDentistName = 'All dentists';
 $isDentistFiltered = false;
 $entriesByDate = [];
+$shiftBackgroundsByDate = [];
 foreach ($weekDays as $day) {
     $entriesByDate[$day['date_key']] = [];
+    $shiftBackgroundsByDate[$day['date_key']] = [];
 }
+$dentistNameByUserId = [];
 
 try {
     $pdo = getDBConnection();
@@ -481,6 +484,13 @@ try {
     $dentistStmt = $pdo->prepare($dentistSql);
     $dentistStmt->execute($dentistParams);
     $dentists = $dentistStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    foreach ($dentists as $dentistRow) {
+        $rowUserId = trim((string) ($dentistRow['user_id'] ?? ''));
+        if ($rowUserId === '') {
+            continue;
+        }
+        $dentistNameByUserId[$rowUserId] = trim((string) ($dentistRow['full_name'] ?? 'Dentist'));
+    }
 
     if (!empty($dentists)) {
         $selectionMatchedDentist = false;
@@ -585,15 +595,75 @@ try {
                         'class' => 'bg-slate-500 border-slate-600',
                         'kind' => 'break',
                     ];
-                } elseif ($blockType === 'work' || $blockType === 'shift') {
-                    $entriesByDate[$targetDateKey][] = [
-                        'start_min' => $startMin,
-                        'end_min' => $endMin,
-                        'label' => 'Work Shift',
-                        'class' => 'bg-primary/10 border-primary/30 text-primary',
-                        'kind' => 'work',
-                    ];
                 }
+            }
+
+            $workShiftSql = "
+                SELECT block_date, day_of_week, start_time, end_time, user_id
+                FROM tbl_schedule_blocks
+                WHERE tenant_id = ?
+                  AND is_active = 1
+                  AND LOWER(block_type) = 'work'
+            ";
+            $workShiftParams = [$tenantId];
+            if ($selectedDentistUserId !== '') {
+                $workShiftSql .= " AND user_id = ? ";
+                $workShiftParams[] = $selectedDentistUserId;
+            }
+            $workShiftSql .= "
+                AND (
+                    (block_date BETWEEN ? AND ?)
+                    OR (day_of_week IN ($weekdayPlaceholders) AND (block_date IS NULL OR block_date = '0000-00-00'))
+                )
+            ";
+            $workShiftParams = array_merge(
+                $workShiftParams,
+                [$startOfWeek->format('Y-m-d'), $endOfWeek->format('Y-m-d')],
+                $weekDayNames
+            );
+            $workShiftStmt = $pdo->prepare($workShiftSql);
+            $workShiftStmt->execute($workShiftParams);
+            $workShiftRows = $workShiftStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+            foreach ($workShiftRows as $row) {
+                $startTime = formatDisplayTime((string) ($row['start_time'] ?? ''));
+                $endTime = formatDisplayTime((string) ($row['end_time'] ?? ''));
+                $startMin = toMinutes($startTime);
+                $endMin = toMinutes($endTime);
+                if ($startMin < $gridStartMinutes) {
+                    $startMin += 24 * 60;
+                }
+                if ($endMin < $gridStartMinutes) {
+                    $endMin += 24 * 60;
+                }
+                if ($endMin <= $startMin) {
+                    $endMin += 24 * 60;
+                }
+
+                $targetDateKey = '';
+                $blockDate = trim((string) ($row['block_date'] ?? ''));
+                $dayOfWeek = trim((string) ($row['day_of_week'] ?? ''));
+                if ($blockDate !== '' && $blockDate !== '0000-00-00') {
+                    $targetDateKey = $blockDate;
+                } else {
+                    foreach ($weekDays as $wDay) {
+                        if (strcasecmp($wDay['day_name'], $dayOfWeek) === 0) {
+                            $targetDateKey = $wDay['date_key'];
+                            break;
+                        }
+                    }
+                }
+                if ($targetDateKey === '' || !isset($shiftBackgroundsByDate[$targetDateKey])) {
+                    continue;
+                }
+
+                $rowUserId = trim((string) ($row['user_id'] ?? ''));
+                $dentistLabel = trim((string) ($dentistNameByUserId[$rowUserId] ?? 'Dentist'));
+                $shiftBackgroundsByDate[$targetDateKey][] = [
+                    'start_min' => $startMin,
+                    'end_min' => $endMin,
+                    'dentist_name' => $dentistLabel,
+                ];
             }
 
             $appointmentsSql = "
@@ -650,6 +720,12 @@ foreach ($entriesByDate as $dayKey => $entries) {
         return ((int) $a['start_min']) <=> ((int) $b['start_min']);
     });
     $entriesByDate[$dayKey] = $entries;
+}
+foreach ($shiftBackgroundsByDate as $dayKey => $entries) {
+    usort($entries, static function ($a, $b) {
+        return ((int) $a['start_min']) <=> ((int) $b['start_min']);
+    });
+    $shiftBackgroundsByDate[$dayKey] = $entries;
 }
 $dentistsSeedData = array_map(static function ($dentist) {
     return [
@@ -915,9 +991,39 @@ $dentistsSeedData = array_map(static function ($dentist) {
                             </div>
                             <?php foreach ($weekDays as $weekDay): ?>
                                 <?php $dayEntries = $entriesByDate[$weekDay['date_key']] ?? []; ?>
+                                <?php $dayShiftBackgrounds = $shiftBackgroundsByDate[$weekDay['date_key']] ?? []; ?>
+                                <?php $shownShiftLabels = []; ?>
                                 <div class="relative border-l border-slate-100" style="height: <?php echo (int) $gridHeightPx; ?>px;">
+                                    <div class="absolute inset-0 bg-slate-100/75 pointer-events-none z-[1]"></div>
+                                    <?php foreach ($dayShiftBackgrounds as $shiftEntry): ?>
+                                        <?php
+                                        $shiftStart = max((int) $shiftEntry['start_min'], $gridStartMinutes);
+                                        $shiftEnd = min((int) $shiftEntry['end_min'], $gridEndMinutes);
+                                        if ($shiftEnd <= $shiftStart) {
+                                            continue;
+                                        }
+                                        $shiftTopPx = (int) round((($shiftStart - $gridStartMinutes) / 60) * $pixelsPerHour);
+                                        $shiftHeightPx = max(18, (int) round((($shiftEnd - $shiftStart) / 60) * $pixelsPerHour));
+                                        $shiftDentistName = (string) ($shiftEntry['dentist_name'] ?? 'Dentist');
+                                        $showShiftLabel = !$isDentistFiltered
+                                            && $shiftHeightPx >= 28
+                                            && !isset($shownShiftLabels[$shiftDentistName]);
+                                        if ($showShiftLabel) {
+                                            $shownShiftLabels[$shiftDentistName] = true;
+                                        }
+                                        ?>
+                                        <div class="absolute left-0.5 right-0.5 border-y border-emerald-200 bg-emerald-100/80 pointer-events-none z-[5]" style="top: <?php echo $shiftTopPx; ?>px; height: <?php echo $shiftHeightPx; ?>px;">
+                                            <?php if ($showShiftLabel): ?>
+                                                <div class="px-1.5 pt-1">
+                                                    <span class="inline-flex max-w-full truncate rounded-md bg-white/85 border border-emerald-200 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-emerald-700">
+                                                        <?php echo htmlspecialchars($shiftDentistName, ENT_QUOTES, 'UTF-8'); ?>
+                                                    </span>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endforeach; ?>
                                     <?php for ($line = 1; $line <= $gridHourSegments; $line++): ?>
-                                        <div class="absolute left-0 right-0 border-t border-slate-100" style="top: <?php echo (int) ($line * $pixelsPerHour); ?>px;"></div>
+                                        <div class="absolute left-0 right-0 border-t border-slate-100 z-[10]" style="top: <?php echo (int) ($line * $pixelsPerHour); ?>px;"></div>
                                     <?php endfor; ?>
                                     <?php foreach ($dayEntries as $entry): ?>
                                         <?php
@@ -928,10 +1034,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                         }
                                         $topPx = (int) round((($entryStart - $gridStartMinutes) / 60) * $pixelsPerHour);
                                         $heightPx = max(18, (int) round((($entryEnd - $entryStart) / 60) * $pixelsPerHour));
-                                        $isWork = (string) ($entry['kind'] ?? '') === 'work';
                                         $entryClass = (string) ($entry['class'] ?? 'bg-slate-500 border-slate-600');
                                         ?>
-                                        <div class="schedule-block absolute left-1.5 right-1.5 rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-primary' : 'text-white'; ?>" style="top: <?php echo $topPx; ?>px; height: <?php echo $heightPx; ?>px;">
+                                        <div class="schedule-block absolute left-1.5 right-1.5 rounded-xl border px-2 py-1.5 text-white z-[20] <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?>" style="top: <?php echo $topPx; ?>px; height: <?php echo $heightPx; ?>px;">
                                             <p class="text-[10px] font-black uppercase tracking-[0.12em]"><?php echo htmlspecialchars((string) $entry['label'], ENT_QUOTES, 'UTF-8'); ?></p>
                                             <p class="text-[10px] font-semibold opacity-95">
                                                 <?php
