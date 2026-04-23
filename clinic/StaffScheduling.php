@@ -1069,6 +1069,19 @@ $dentistsSeedData = array_map(static function ($dentist) {
         </div>
     </div>
 </div>
+<div id="pageAlertModal" class="hidden fixed inset-0 z-[80]">
+    <div class="absolute inset-0 bg-slate-900/50"></div>
+    <div class="relative h-full w-full flex items-center justify-center p-4">
+        <div class="page-alert-card w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 px-6 py-6">
+            <p id="pageAlertMessage" class="text-sm font-semibold text-slate-800 text-center leading-relaxed"></p>
+            <div class="mt-6 flex justify-center">
+                <button id="pageAlertOkBtn" type="button" class="inline-flex items-center justify-center min-w-[7rem] px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs uppercase tracking-widest transition-colors shadow-sm">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 <script>
     (function () {
         const openSetShiftModalBtn = document.getElementById('openSetShiftModalBtn');
@@ -1094,6 +1107,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
         const closeChooseDentistModalBtn = document.getElementById('closeChooseDentistModalBtn');
         const dentistListContainer = document.getElementById('dentistListContainer');
         const dentistListEmptyState = document.getElementById('dentistListEmptyState');
+        const pageAlertModal = document.getElementById('pageAlertModal');
+        const pageAlertMessage = document.getElementById('pageAlertMessage');
+        const pageAlertOkBtn = document.getElementById('pageAlertOkBtn');
         const scheduleFilterForm = document.getElementById('scheduleFilterForm');
         const dentistsSeedData = <?php echo json_encode($dentistsSeedData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const stockDentistImage = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=60';
@@ -1129,9 +1145,29 @@ $dentistsSeedData = array_map(static function ($dentist) {
             return clinicAssetBaseUrl.replace(/\/?$/, '/') + path.replace(/^\/+/, '');
         }
 
+        function showPageAlert(message) {
+            if (pageAlertMessage && pageAlertModal) {
+                pageAlertMessage.textContent = String(message != null ? message : '');
+                pageAlertModal.classList.remove('hidden');
+                syncModalBodyScrollLock();
+                if (pageAlertOkBtn) {
+                    pageAlertOkBtn.focus();
+                }
+            } else {
+                window.alert(String(message != null ? message : ''));
+            }
+        }
+
+        function closePageAlert() {
+            if (!pageAlertModal) return;
+            pageAlertModal.classList.add('hidden');
+            syncModalBodyScrollLock();
+        }
+
         function syncModalBodyScrollLock() {
             const hasOpenModal = (chooseDentistModal && !chooseDentistModal.classList.contains('hidden'))
-                || (setShiftModal && !setShiftModal.classList.contains('hidden'));
+                || (setShiftModal && !setShiftModal.classList.contains('hidden'))
+                || (pageAlertModal && !pageAlertModal.classList.contains('hidden'));
             document.body.classList.toggle('overflow-hidden', Boolean(hasOpenModal));
         }
 
@@ -1201,7 +1237,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
             } catch (error) {
                 setShiftClinicOpenTime.value = '-';
                 setShiftClinicCloseTime.value = '-';
-                window.alert((error && error.message) ? error.message : 'Unable to fetch clinic hours for the selected date.');
+                showPageAlert((error && error.message) ? error.message : 'Unable to fetch clinic hours for the selected date.');
             }
         }
 
@@ -1292,6 +1328,16 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 }
             });
         }
+        if (pageAlertOkBtn) {
+            pageAlertOkBtn.addEventListener('click', closePageAlert);
+        }
+        if (pageAlertModal) {
+            pageAlertModal.addEventListener('click', function (event) {
+                if (event.target === pageAlertModal || event.target === pageAlertModal.firstElementChild) {
+                    closePageAlert();
+                }
+            });
+        }
         if (saveSetShiftBtn) {
             saveSetShiftBtn.addEventListener('click', async function () {
                 if (!setShiftStartTime || !setShiftEndTime || !setShiftDate || !setShiftDentistId || !setShiftForm) return;
@@ -1308,31 +1354,31 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 const notesValue = setShiftNotes ? String(setShiftNotes.value || '').trim() : '';
 
                 if (!selectedDate || selectedDate < todayDateOnly) {
-                    window.alert('Please select today or a future date.');
+                    showPageAlert('Please select today or a future date.');
                     return;
                 }
                 if (!selectedDentistUserId && !selectedDentistId) {
-                    window.alert('Please select a dentist.');
+                    showPageAlert('Please select a dentist.');
                     return;
                 }
                 if (!selectedDentistHasUserId) {
-                    window.alert('The selected dentist has no linked account. Please link the dentist to a user account first.');
+                    showPageAlert('The selected dentist has no linked account. Please link the dentist to a user account first.');
                     return;
                 }
                 if (!selectedStart || !selectedEnd) {
-                    window.alert('Please select both shift start and end times.');
+                    showPageAlert('Please select both shift start and end times.');
                     return;
                 }
                 if (toMinutes(selectedEnd) <= toMinutes(selectedStart)) {
-                    window.alert('Shift end time must be later than shift start time.');
+                    showPageAlert('Shift end time must be later than shift start time.');
                     return;
                 }
                 if (!selectedClinicHoursForShift.hasRecord || !selectedClinicHoursForShift.openTimeRaw || !selectedClinicHoursForShift.closeTimeRaw) {
-                    window.alert('Clinic hours are not set for this day. Please set clinic hours first before assigning shifts.');
+                    showPageAlert('Clinic hours are not set for this day. Please set clinic hours first before assigning shifts.');
                     return;
                 }
                 if (selectedClinicHoursForShift.isClosed) {
-                    window.alert('The clinic is marked closed for this date. Shift scheduling is not allowed.');
+                    showPageAlert('The clinic is marked closed for this date. Shift scheduling is not allowed.');
                     return;
                 }
 
@@ -1341,7 +1387,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 const shiftStartMinutes = toMinutes(selectedStart);
                 const shiftEndMinutes = toMinutes(selectedEnd);
                 if (shiftStartMinutes < clinicOpenMinutes || shiftEndMinutes > clinicCloseMinutes) {
-                    window.alert('Shift time must fall within clinic operating hours for the selected day.');
+                    showPageAlert('Shift time must fall within clinic operating hours for the selected day.');
                     return;
                 }
                 const originalButtonLabel = saveSetShiftBtn.textContent;
@@ -1385,7 +1431,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     }
                     window.location.href = refreshedUrl.toString();
                 } catch (error) {
-                    window.alert((error && error.message) ? error.message : 'Failed to save shift.');
+                    showPageAlert((error && error.message) ? error.message : 'Failed to save shift.');
                 } finally {
                     saveSetShiftBtn.disabled = false;
                     saveSetShiftBtn.textContent = originalButtonLabel;
