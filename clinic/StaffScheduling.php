@@ -739,6 +739,13 @@ $dentistsSeedData = array_map(static function ($dentist) {
             background: #f1f5f9;
             box-shadow: 0 0 0 2px rgba(43, 139, 235, 0.18);
         }
+        .alert-popup-enter {
+            animation: alert-popup-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        @keyframes alert-popup-in {
+            from { opacity: 0; transform: translateY(10px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
@@ -1072,9 +1079,17 @@ $dentistsSeedData = array_map(static function ($dentist) {
 <div id="pageAlertModal" class="hidden fixed inset-0 z-[80]">
     <div class="absolute inset-0 bg-slate-900/50"></div>
     <div class="relative h-full w-full flex items-center justify-center p-4">
-        <div class="page-alert-card w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 px-6 py-6">
-            <p id="pageAlertMessage" class="text-sm font-semibold text-slate-800 text-center leading-relaxed"></p>
-            <div class="mt-6 flex justify-center">
+        <div class="alert-popup-enter w-full max-w-md rounded-3xl border border-primary/20 bg-white shadow-2xl overflow-hidden">
+            <div class="px-6 py-5 flex items-start gap-4">
+                <span class="inline-flex w-11 h-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <span class="material-symbols-outlined text-[22px]">info</span>
+                </span>
+                <div class="min-w-0">
+                    <h3 class="font-headline text-xl font-extrabold text-slate-900">Notice</h3>
+                    <p id="pageAlertMessage" class="mt-1 text-sm font-semibold text-slate-600 leading-relaxed"></p>
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-200 bg-slate-50/70 flex justify-end">
                 <button id="pageAlertOkBtn" type="button" class="inline-flex items-center justify-center min-w-[7rem] px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs uppercase tracking-widest transition-colors shadow-sm">
                     OK
                 </button>
@@ -1146,15 +1161,15 @@ $dentistsSeedData = array_map(static function ($dentist) {
         }
 
         function showPageAlert(message) {
-            if (pageAlertMessage && pageAlertModal) {
-                pageAlertMessage.textContent = String(message != null ? message : '');
-                pageAlertModal.classList.remove('hidden');
-                syncModalBodyScrollLock();
-                if (pageAlertOkBtn) {
-                    pageAlertOkBtn.focus();
-                }
-            } else {
-                window.alert(String(message != null ? message : ''));
+            if (!pageAlertMessage || !pageAlertModal) {
+                return;
+            }
+
+            pageAlertMessage.textContent = String(message != null ? message : '');
+            pageAlertModal.classList.remove('hidden');
+            syncModalBodyScrollLock();
+            if (pageAlertOkBtn) {
+                pageAlertOkBtn.focus();
             }
         }
 
