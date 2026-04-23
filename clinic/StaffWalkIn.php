@@ -4,6 +4,7 @@ $staff_nav_active = 'appointments';
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/includes/tenant.php';
 require_once __DIR__ . '/includes/appointment_db_tables.php';
+require_once __DIR__ . '/includes/availability.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -101,9 +102,52 @@ try {
                 ");
                 $stmt->execute([$tenantId]);
                 $walkInDentists = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+                $manilaNow = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
+                $todayDate = $manilaNow->format('Y-m-d');
+                $todayTime = $manilaNow->format('H:i:s');
+                $formatDisplayTime = static function (string $timeValue): string {
+                    $timeValue = trim($timeValue);
+                    if ($timeValue === '') {
+                        return '';
+                    }
+                    $formats = ['H:i:s', 'H:i'];
+                    foreach ($formats as $format) {
+                        $parsed = DateTimeImmutable::createFromFormat($format, $timeValue);
+                        if ($parsed instanceof DateTimeImmutable) {
+                            return $parsed->format('g:i A');
+                        }
+                    }
+                    return $timeValue;
+                };
                 foreach ($walkInDentists as &$dentistRow) {
-                    $dentistRow['is_available_for_slot'] = 1;
-                    $dentistRow['availability_reason'] = 'Available';
+                    $dentistUserId = trim((string) ($dentistRow['user_id'] ?? ''));
+                    $shiftRanges = [];
+                    $isInsideShift = false;
+                    if ($dentistUserId !== '') {
+                        $effectiveBlocks = clinic_get_effective_schedule_blocks($pdo, (string) $tenantId, $dentistUserId, $todayDate);
+                        foreach ($effectiveBlocks as $block) {
+                            $blockType = strtolower((string) ($block['block_type'] ?? ''));
+                            if (!in_array($blockType, ['shift', 'work'], true)) {
+                                continue;
+                            }
+                            $startTime = trim((string) ($block['start_time'] ?? ''));
+                            $endTime = trim((string) ($block['end_time'] ?? ''));
+                            if ($startTime === '' || $endTime === '' || $startTime >= $endTime) {
+                                continue;
+                            }
+                            $shiftRanges[] = $formatDisplayTime($startTime) . ' - ' . $formatDisplayTime($endTime);
+                            if ($todayTime >= $startTime && $todayTime < $endTime) {
+                                $isInsideShift = true;
+                            }
+                        }
+                    }
+                    $dentistRow['schedule_label'] = !empty($shiftRanges)
+                        ? implode(' | ', array_values(array_unique($shiftRanges)))
+                        : 'No schedule';
+                    $dentistRow['is_available_for_slot'] = $isInsideShift ? 1 : 0;
+                    $dentistRow['availability_reason'] = $isInsideShift
+                        ? 'Available'
+                        : (!empty($shiftRanges) ? 'Outside Shift' : 'No schedule');
                 }
                 unset($dentistRow);
             }
@@ -1118,7 +1162,7 @@ try {
                 const lastName = String(dentist.last_name || '').trim();
                 const fullNameText = (firstName + ' ' + lastName).trim() || 'Unnamed Dentist';
                 const fullName = escapeHtml(fullNameText);
-                const isAvailable = true;
+                const isAvailable = Number(dentist.is_available_for_slot || 0) === 1;
                 const statusLabelRaw = String(dentist.availability_reason || '').trim();
                 const statusLabel = statusLabelRaw !== ''
                     ? statusLabelRaw
@@ -1131,6 +1175,11 @@ try {
                 const displayId = String(dentist.dentist_display_id || '').trim();
                 const idLineRaw = displayId !== '' ? displayId : ('ID #' + String(dentist.dentist_id || '').trim());
                 const idLine = escapeHtml(idLineRaw);
+                const scheduleLineRaw = String(dentist.schedule_label || '').trim() || 'No schedule';
+                const scheduleLine = escapeHtml(scheduleLineRaw);
+                const selectButtonClass = isAvailable
+                    ? 'mt-3 rounded-lg px-3 py-2 text-xs font-extrabold uppercase tracking-wide transition-colors bg-primary text-white hover:bg-primary/90'
+                    : 'mt-3 rounded-lg px-3 py-2 text-xs font-extrabold uppercase tracking-wide transition-colors bg-slate-200 text-slate-500 cursor-not-allowed';
                 return '' +
                     '<div class="w-full sm:w-[19rem] rounded-2xl border border-slate-200 bg-slate-50/50 p-4 flex flex-col items-center text-center">' +
                         '<div class="relative shrink-0">' +
@@ -1139,11 +1188,12 @@ try {
                         '</div>' +
                         '<p class="mt-3 text-sm font-extrabold text-slate-900">' + fullName + '</p>' +
                         '<p class="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">' + idLine + '</p>' +
+                        '<p class="mt-1 text-[11px] font-semibold text-slate-600">' + scheduleLine + '</p>' +
                         '<p class="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold ' + statusTextClass + '">' +
                             '<span class="w-2.5 h-2.5 rounded-full shrink-0 ' + statusDotClass + '" title="' + statusTitle + '" aria-hidden="true"></span>' +
                             '<span>' + escapeHtml(statusLabel) + '</span>' +
                         '</p>' +
-                        '<button type="button" data-action="select-dentist" data-dentist-id="' + dentistId + '" data-dentist-name="' + fullName + '" class="mt-3 rounded-lg px-3 py-2 text-xs font-extrabold uppercase tracking-wide transition-colors bg-primary text-white hover:bg-primary/90">Select</button>' +
+                        '<button type="button" data-action="select-dentist" data-dentist-id="' + dentistId + '" data-dentist-name="' + fullName + '" ' + (isAvailable ? '' : 'disabled') + ' class="' + selectButtonClass + '">' + (isAvailable ? 'Select' : 'Unavailable') + '</button>' +
                     '</div>';
             }).join('');
         }
@@ -1390,6 +1440,18 @@ try {
                 void staffUiAlert({ message: 'Please select an assigned dentist.', variant: 'warning', title: 'Dentist required' });
                 return;
             }
+            const selectedDentist = dentistsSeedData.find(function (dentist) {
+                return String(dentist && dentist.dentist_id ? dentist.dentist_id : '') === dentistId;
+            }) || null;
+            const dentistIsAvailableNow = selectedDentist && Number(selectedDentist.is_available_for_slot || 0) === 1;
+            if (!dentistIsAvailableNow) {
+                void staffUiAlert({
+                    title: 'Dentist unavailable',
+                    message: 'Selected dentist is outside the current shift schedule. Please choose an available dentist.',
+                    variant: 'warning'
+                });
+                return;
+            }
             if (!selectedServices.length) {
                 void staffUiAlert({ message: 'Please add at least one service.', variant: 'warning', title: 'Services required' });
                 return;
@@ -1587,6 +1649,7 @@ try {
             dentistListContainer.addEventListener('click', function (event) {
                 const button = event.target.closest('button[data-action="select-dentist"]');
                 if (!button) return;
+                if (button.disabled) return;
                 setSelectedDentist(button.getAttribute('data-dentist-id') || '', button.getAttribute('data-dentist-name') || '');
                 closeChooseDentistModal();
             });
