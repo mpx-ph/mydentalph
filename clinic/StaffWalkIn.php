@@ -90,13 +90,17 @@ try {
                 $stmt = $pdo->prepare("
                     SELECT
                         d.dentist_id,
-                        d.user_id,
+                        COALESCE(NULLIF(TRIM(d.user_id), ''), NULLIF(TRIM(u.user_id), ''), '') AS user_id,
                         COALESCE(d.dentist_display_id, '') AS dentist_display_id,
                         COALESCE(d.first_name, '') AS first_name,
                         COALESCE(d.last_name, '') AS last_name,
                         COALESCE(d.profile_image, '') AS profile_image,
                         COALESCE(d.status, 'active') AS status
                     FROM {$wiQDent} d
+                    LEFT JOIN tbl_users u
+                        ON u.tenant_id = d.tenant_id
+                        AND LOWER(TRIM(COALESCE(u.email, ''))) = LOWER(TRIM(COALESCE(d.email, '')))
+                        AND u.role = 'dentist'
                     WHERE d.tenant_id = ?
                     ORDER BY d.first_name ASC, d.last_name ASC
                 ");
