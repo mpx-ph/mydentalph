@@ -120,15 +120,6 @@ try {
         $closeTimeRaw = isset($_POST['bulk_close_time']) ? trim((string) $_POST['bulk_close_time']) : '';
         $isClosed = isset($_POST['bulk_is_closed']) && $_POST['bulk_is_closed'] === '1';
         $overwrite = isset($_POST['bulk_overwrite']) && $_POST['bulk_overwrite'] === '1';
-        $selectedDays = isset($_POST['bulk_days']) && is_array($_POST['bulk_days']) ? $_POST['bulk_days'] : [];
-        $daySet = [];
-        foreach ($selectedDays as $d) {
-            $i = (int) $d;
-            if ($i >= 0 && $i <= 6) {
-                $daySet[$i] = true;
-            }
-        }
-
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFromRaw) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateToRaw)) {
             throw new RuntimeException('Please select a valid date range.');
         }
@@ -140,10 +131,6 @@ try {
         if ($dateFrom > $dateTo) {
             throw new RuntimeException('The start date must be on or before the end date.');
         }
-        if ($daySet === []) {
-            throw new RuntimeException('Select at least one day of the week to apply.');
-        }
-
         $openTime = null;
         $closeTime = null;
         if (!$isClosed) {
@@ -182,9 +169,6 @@ try {
         try {
             for ($d = $dateFrom; $d <= $dateTo; $d = $d->modify('+1 day')) {
                 $dow = (int) $d->format('w');
-                if (!isset($daySet[$dow])) {
-                    continue;
-                }
                 $clinicDateStr = $d->format('Y-m-d');
                 $checkStmt->execute([$clinicDateStr]);
                 $exists = (bool) $checkStmt->fetchColumn();
@@ -484,6 +468,57 @@ try {
             background: linear-gradient(90deg, rgba(43, 139, 235, 0.09), rgba(43, 139, 235, 0.03));
             border: 1px solid rgba(147, 197, 253, 0.45);
         }
+        .bulk-calendar-day {
+            position: relative;
+            border: 1px solid transparent;
+            border-radius: 0.9rem;
+            min-height: 2.6rem;
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #1e293b;
+            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+        }
+        .bulk-calendar-day:hover {
+            border-color: rgba(99, 102, 241, 0.28);
+            background: rgba(99, 102, 241, 0.08);
+        }
+        .bulk-calendar-day.is-muted {
+            color: #94a3b8;
+        }
+        .bulk-calendar-day.is-in-range {
+            background: rgba(79, 70, 229, 0.12);
+            border-radius: 0;
+        }
+        .bulk-calendar-day.is-range-start,
+        .bulk-calendar-day.is-range-end {
+            background: #4f46e5;
+            color: #ffffff;
+            border-color: #4f46e5;
+            z-index: 2;
+        }
+        .bulk-calendar-day.is-range-start {
+            border-top-left-radius: 9999px;
+            border-bottom-left-radius: 9999px;
+        }
+        .bulk-calendar-day.is-range-end {
+            border-top-right-radius: 9999px;
+            border-bottom-right-radius: 9999px;
+        }
+        .bulk-calendar-day.is-range-single {
+            border-radius: 9999px;
+        }
+        .bulk-date-display {
+            border: 1px solid #dbe5f2;
+            background: #ffffff;
+            border-radius: 0.95rem;
+            min-height: 3.1rem;
+            display: flex;
+            align-items: center;
+            padding: 0 1rem;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
         .success-popup-enter {
             animation: success-popup-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
@@ -722,7 +757,7 @@ try {
 </div>
 
 <div id="applyClinicHoursModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/45">
-    <div class="modal-shell modal-surface w-full max-w-2xl max-h-[min(90vh,720px)] overflow-y-auto overflow-x-hidden rounded-[1.9rem]">
+    <div class="modal-shell modal-surface w-full max-w-5xl max-h-[min(90vh,760px)] overflow-y-auto overflow-x-hidden rounded-[1.9rem]">
         <div class="px-6 sm:px-7 py-5 border-b border-slate-200/80 flex items-start justify-between gap-4">
             <div>
                 <span class="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
@@ -730,7 +765,7 @@ try {
                     Bulk Apply
                 </span>
                 <h3 class="font-headline text-2xl font-extrabold tracking-tight text-slate-900 mt-2">Apply Clinic Hours</h3>
-                <p class="text-xs font-semibold text-slate-500 mt-1">Set hours for a date range on selected days of the week.</p>
+                <p class="text-xs font-semibold text-slate-500 mt-1">Set clinic hours for a custom date range.</p>
             </div>
             <button type="button" data-close-modal="applyClinicHoursModal" class="w-10 h-10 inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors shrink-0">
                 <span class="material-symbols-outlined text-lg">close</span>
@@ -739,55 +774,71 @@ try {
         <form method="post" id="applyClinicHoursForm">
             <input type="hidden" name="bulk_apply_clinic_hours" value="1"/>
             <input type="hidden" name="week_start" value="<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
-            <div class="p-6 sm:p-7 space-y-5">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="p-6 sm:p-7">
+                <input id="bulkDateFrom" name="bulk_date_from" type="hidden" required value="<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
+                <input id="bulkDateTo" name="bulk_date_to" type="hidden" required value="<?php echo htmlspecialchars($selectedWeekEnd->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
+                <div class="grid grid-cols-1 xl:grid-cols-[1.28fr_1fr] gap-6">
                     <div>
-                        <label for="bulkDateFrom" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">From</label>
-                        <input id="bulkDateFrom" name="bulk_date_from" type="date" required class="modal-time-input w-full px-4" value="<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
+                        <div class="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5">
+                            <div class="flex items-center justify-between mb-4">
+                                <button type="button" id="bulkCalendarPrevMonth" class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 transition-colors" aria-label="Previous month">
+                                    <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+                                </button>
+                                <p id="bulkCalendarMonthLabel" class="text-xl font-extrabold tracking-tight text-slate-900">Month Year</p>
+                                <button type="button" id="bulkCalendarNextMonth" class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 transition-colors" aria-label="Next month">
+                                    <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+                                </button>
+                            </div>
+                            <div class="grid grid-cols-7 gap-2 mb-2">
+                                <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Mon</div>
+                                <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Tue</div>
+                                <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Wed</div>
+                                <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Thu</div>
+                                <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Fri</div>
+                                <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Sat</div>
+                                <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Sun</div>
+                            </div>
+                            <div id="bulkCalendarGrid" class="grid grid-cols-7 gap-2"></div>
+                        </div>
                     </div>
-                    <div>
-                        <label for="bulkDateTo" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">To</label>
-                        <input id="bulkDateTo" name="bulk_date_to" type="date" required class="modal-time-input w-full px-4" value="<?php echo htmlspecialchars($selectedWeekEnd->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
-                    </div>
-                </div>
-                <div>
-                    <span class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2.5">Days to Apply</span>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5" id="bulkDaysGrid">
-                        <?php
-                        $dayLabels = [0 => 'Sun', 1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri', 6 => 'Sat'];
-                        foreach ($dayLabels as $idx => $label):
-                        ?>
-                            <label class="inline-flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 cursor-pointer hover:border-primary/30 transition-colors">
-                                <input type="checkbox" name="bulk_days[]" value="<?php echo (int) $idx; ?>" class="rounded-md border-slate-300 text-primary focus:ring-primary/20 bulk-day-cb" checked/>
-                                <?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>
+                    <div class="space-y-4">
+                        <div class="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 space-y-4">
+                            <div>
+                                <label class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Start date*</label>
+                                <div id="bulkStartDateDisplay" class="bulk-date-display">-</div>
+                            </div>
+                            <div>
+                                <label for="bulkOpenTime" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Start time*</label>
+                                <input id="bulkOpenTime" name="bulk_open_time" type="time" step="60" class="modal-time-input w-full px-4 bulk-time-field" value="08:00"/>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">End date*</label>
+                                <div id="bulkEndDateDisplay" class="bulk-date-display">-</div>
+                            </div>
+                            <div>
+                                <label for="bulkCloseTime" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">End time*</label>
+                                <input id="bulkCloseTime" name="bulk_close_time" type="time" step="60" class="modal-time-input w-full px-4 bulk-time-field" value="17:00"/>
+                            </div>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5 space-y-3">
+                            <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
+                                <input id="bulkClosedCheckbox" name="bulk_is_closed" type="checkbox" value="1" class="rounded-md border-slate-300 text-primary focus:ring-primary/20"/>
+                                Mark as Closed
                             </label>
-                        <?php endforeach; ?>
+                            <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
+                                <input id="bulkOverwriteCheckbox" name="bulk_overwrite" type="checkbox" value="1" class="rounded-md border-slate-300 text-primary focus:ring-primary/20"/>
+                                Overwrite existing clinic hours
+                            </label>
+                        </div>
                     </div>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label for="bulkOpenTime" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Open Time</label>
-                        <input id="bulkOpenTime" name="bulk_open_time" type="time" step="60" class="modal-time-input w-full px-4 bulk-time-field" value="08:00"/>
-                    </div>
-                    <div>
-                        <label for="bulkCloseTime" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Close Time</label>
-                        <input id="bulkCloseTime" name="bulk_close_time" type="time" step="60" class="modal-time-input w-full px-4 bulk-time-field" value="17:00"/>
-                    </div>
-                </div>
-                <div class="rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5 space-y-3">
-                    <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
-                        <input id="bulkClosedCheckbox" name="bulk_is_closed" type="checkbox" value="1" class="rounded-md border-slate-300 text-primary focus:ring-primary/20"/>
-                        Mark as Closed
-                    </label>
-                    <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
-                        <input id="bulkOverwriteCheckbox" name="bulk_overwrite" type="checkbox" value="1" class="rounded-md border-slate-300 text-primary focus:ring-primary/20"/>
-                        Overwrite existing clinic hours
-                    </label>
                 </div>
             </div>
-            <div class="px-6 sm:px-7 py-4 border-t border-slate-200/80 bg-slate-50/70 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-                <button type="button" data-close-modal="applyClinicHoursModal" class="px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-600 font-black text-xs uppercase tracking-[0.16em] hover:border-slate-400 w-full sm:w-auto">Cancel</button>
-                <button type="submit" class="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-[0.16em] shadow-sm shadow-primary/30 w-full sm:w-auto">Apply</button>
+            <div class="px-6 sm:px-7 py-4 border-t border-slate-200/80 bg-slate-50/70 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p id="bulkEventSummary" class="text-sm font-bold text-slate-700">Event: -</p>
+                <div class="flex items-center gap-2">
+                    <button type="button" data-close-modal="applyClinicHoursModal" class="px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-600 font-black text-xs uppercase tracking-[0.16em] hover:border-slate-400">Cancel</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-[0.16em] shadow-sm shadow-primary/30">Schedule</button>
+                </div>
             </div>
         </form>
     </div>
@@ -859,12 +910,159 @@ try {
         if (closeEl) closeEl.disabled = !!isClosed;
     }
 
+    function parseISODate(isoDate) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate || '')) return null;
+        const [y, m, d] = isoDate.split('-').map((v) => parseInt(v, 10));
+        return new Date(y, m - 1, d, 12, 0, 0, 0);
+    }
+
+    function toISODate(dateObj) {
+        const y = dateObj.getFullYear();
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const d = String(dateObj.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    function formatDateLong(isoDate) {
+        const d = parseISODate(isoDate);
+        if (!d) return '-';
+        return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    }
+
+    function formatDateShortNoYear(isoDate) {
+        const d = parseISODate(isoDate);
+        if (!d) return '-';
+        return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    }
+
+    function formatTimeForSummary(timeVal) {
+        if (!timeVal || !/^\d{2}:\d{2}$/.test(timeVal)) return '--';
+        const [hourRaw, minute] = timeVal.split(':');
+        let hour = parseInt(hourRaw, 10);
+        const period = hour >= 12 ? 'PM' : 'AM';
+        hour = hour % 12;
+        if (hour === 0) hour = 12;
+        return `${hour}:${minute} ${period}`;
+    }
+
+    const bulkCalendarState = {
+        viewDate: null,
+        startDate: '',
+        endDate: ''
+    };
+
+    function syncBulkDateFields() {
+        const startInput = document.getElementById('bulkDateFrom');
+        const endInput = document.getElementById('bulkDateTo');
+        const startDisplay = document.getElementById('bulkStartDateDisplay');
+        const endDisplay = document.getElementById('bulkEndDateDisplay');
+        if (startInput) startInput.value = bulkCalendarState.startDate;
+        if (endInput) endInput.value = bulkCalendarState.endDate || bulkCalendarState.startDate;
+        if (startDisplay) startDisplay.textContent = formatDateLong(bulkCalendarState.startDate);
+        if (endDisplay) endDisplay.textContent = formatDateLong(bulkCalendarState.endDate || bulkCalendarState.startDate);
+    }
+
+    function updateBulkEventSummary() {
+        const summaryEl = document.getElementById('bulkEventSummary');
+        if (!summaryEl) return;
+        const start = bulkCalendarState.startDate;
+        const end = bulkCalendarState.endDate || bulkCalendarState.startDate;
+        const openTime = (document.getElementById('bulkOpenTime') || {}).value || '';
+        const closeTime = (document.getElementById('bulkCloseTime') || {}).value || '';
+        if (!start || !end) {
+            summaryEl.textContent = 'Event: -';
+            return;
+        }
+        summaryEl.textContent = `Event: ${formatDateShortNoYear(start)} - ${parseISODate(start).getFullYear() === parseISODate(end).getFullYear() ? formatDateShortNoYear(end) : formatDateLong(end)}, from ${formatTimeForSummary(openTime)} - ${formatTimeForSummary(closeTime)}`;
+    }
+
+    function renderBulkCalendar() {
+        const monthLabel = document.getElementById('bulkCalendarMonthLabel');
+        const grid = document.getElementById('bulkCalendarGrid');
+        if (!monthLabel || !grid || !bulkCalendarState.viewDate) return;
+
+        monthLabel.textContent = bulkCalendarState.viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        grid.innerHTML = '';
+
+        const year = bulkCalendarState.viewDate.getFullYear();
+        const month = bulkCalendarState.viewDate.getMonth();
+        const firstOfMonth = new Date(year, month, 1, 12);
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const firstWeekday = (firstOfMonth.getDay() + 6) % 7;
+
+        for (let i = 0; i < firstWeekday; i++) {
+            const placeholder = document.createElement('div');
+            grid.appendChild(placeholder);
+        }
+
+        const start = bulkCalendarState.startDate;
+        const end = bulkCalendarState.endDate || bulkCalendarState.startDate;
+        for (let day = 1; day <= daysInMonth; day++) {
+            const d = new Date(year, month, day, 12);
+            const iso = toISODate(d);
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'bulk-calendar-day';
+            btn.textContent = String(day);
+            btn.dataset.date = iso;
+
+            const inRange = start && end && iso >= start && iso <= end;
+            const isStart = start && iso === start;
+            const isEnd = end && iso === end;
+            const isSingle = isStart && isEnd;
+            if (inRange) btn.classList.add('is-in-range');
+            if (isStart) btn.classList.add('is-range-start');
+            if (isEnd) btn.classList.add('is-range-end');
+            if (isSingle) btn.classList.add('is-range-single');
+
+            btn.addEventListener('click', () => {
+                if (!bulkCalendarState.startDate || (bulkCalendarState.startDate && bulkCalendarState.endDate)) {
+                    bulkCalendarState.startDate = iso;
+                    bulkCalendarState.endDate = '';
+                } else {
+                    if (iso < bulkCalendarState.startDate) {
+                        bulkCalendarState.endDate = bulkCalendarState.startDate;
+                        bulkCalendarState.startDate = iso;
+                    } else {
+                        bulkCalendarState.endDate = iso;
+                    }
+                }
+                if (!bulkCalendarState.endDate) {
+                    bulkCalendarState.endDate = bulkCalendarState.startDate;
+                }
+                syncBulkDateFields();
+                updateBulkEventSummary();
+                renderBulkCalendar();
+            });
+
+            grid.appendChild(btn);
+        }
+    }
+
+    function initializeBulkCalendar() {
+        const startInput = document.getElementById('bulkDateFrom');
+        const endInput = document.getElementById('bulkDateTo');
+        if (!startInput || !endInput) return;
+
+        const startVal = startInput.value || '<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>';
+        const endVal = endInput.value || '<?php echo htmlspecialchars($selectedWeekEnd->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>';
+        bulkCalendarState.startDate = startVal;
+        bulkCalendarState.endDate = endVal >= startVal ? endVal : startVal;
+        const view = parseISODate(bulkCalendarState.startDate) || new Date();
+        bulkCalendarState.viewDate = new Date(view.getFullYear(), view.getMonth(), 1, 12);
+
+        syncBulkDateFields();
+        updateBulkEventSummary();
+        renderBulkCalendar();
+    }
+
     document.querySelectorAll('[data-open-modal]').forEach((button) => {
         button.addEventListener('click', () => {
             const targetModal = button.getAttribute('data-open-modal');
             if (targetModal === 'applyClinicHoursModal') {
                 const closedEl = document.getElementById('bulkClosedCheckbox');
                 setBulkClosedState(closedEl && closedEl.checked);
+                initializeBulkCalendar();
             }
             if (targetModal === 'editClinicHoursModal') {
                 const day = button.getAttribute('data-day') || 'Monday';
@@ -922,12 +1120,6 @@ try {
                 alert('The start date must be on or before the end date.');
                 return;
             }
-            const anyDay = document.querySelectorAll('.bulk-day-cb:checked').length > 0;
-            if (!anyDay) {
-                e.preventDefault();
-                alert('Select at least one day of the week.');
-                return;
-            }
             const closed = bulkClosedCheckbox && bulkClosedCheckbox.checked;
             if (!closed) {
                 const o = (document.getElementById('bulkOpenTime') || {}).value;
@@ -939,6 +1131,38 @@ try {
             }
         });
     }
+
+    const bulkPrevBtn = document.getElementById('bulkCalendarPrevMonth');
+    const bulkNextBtn = document.getElementById('bulkCalendarNextMonth');
+    if (bulkPrevBtn) {
+        bulkPrevBtn.addEventListener('click', () => {
+            if (!bulkCalendarState.viewDate) return;
+            bulkCalendarState.viewDate = new Date(
+                bulkCalendarState.viewDate.getFullYear(),
+                bulkCalendarState.viewDate.getMonth() - 1,
+                1,
+                12
+            );
+            renderBulkCalendar();
+        });
+    }
+    if (bulkNextBtn) {
+        bulkNextBtn.addEventListener('click', () => {
+            if (!bulkCalendarState.viewDate) return;
+            bulkCalendarState.viewDate = new Date(
+                bulkCalendarState.viewDate.getFullYear(),
+                bulkCalendarState.viewDate.getMonth() + 1,
+                1,
+                12
+            );
+            renderBulkCalendar();
+        });
+    }
+
+    const bulkOpenTimeInput = document.getElementById('bulkOpenTime');
+    const bulkCloseTimeInput = document.getElementById('bulkCloseTime');
+    if (bulkOpenTimeInput) bulkOpenTimeInput.addEventListener('input', updateBulkEventSummary);
+    if (bulkCloseTimeInput) bulkCloseTimeInput.addEventListener('input', updateBulkEventSummary);
 
     document.querySelectorAll('[data-close-modal]').forEach((button) => {
         button.addEventListener('click', () => {
