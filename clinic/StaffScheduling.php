@@ -65,7 +65,7 @@ $endOfWeek = $startOfWeek->modify('+6 days')->setTime(23, 59, 59);
 $monthLabel = $selectedDate->format('F Y');
 $weekLabel = $startOfWeek->format('M j') . '-' . $endOfWeek->format('j, Y');
 
-$gridStartMinutes = 8 * 60;
+$gridStartMinutes = 6 * 60;
 $gridEndMinutes = 28 * 60; // 4:00 AM next day
 $pixelsPerHour = 64;
 $gridHeightPx = (int) ((($gridEndMinutes - $gridStartMinutes) / 60) * $pixelsPerHour);
@@ -84,7 +84,7 @@ for ($i = 0; $i < 7; $i++) {
 }
 
 $timeSlots = [];
-for ($hour = 8; $hour <= 28; $hour++) {
+for ($hour = 6; $hour <= 28; $hour++) {
     $slotHour24 = $hour % 24;
     $timeSlots[] = formatTimeForUi(sprintf('%02d:00', $slotHour24));
 }
@@ -1534,14 +1534,8 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     closeSetShiftModal();
                     const refreshedUrl = new URL(window.location.href);
                     refreshedUrl.searchParams.set('selected_date', selectedDate);
-                    if (result.dentist_user_id) {
-                        refreshedUrl.searchParams.set('user_id', String(result.dentist_user_id));
-                    }
-                    if (result.dentist_id) {
-                        refreshedUrl.searchParams.set('dentist_id', String(result.dentist_id));
-                    } else {
-                        refreshedUrl.searchParams.delete('dentist_id');
-                    }
+                    refreshedUrl.searchParams.delete('user_id');
+                    refreshedUrl.searchParams.delete('dentist_id');
                     window.location.href = refreshedUrl.toString();
                 } catch (error) {
                     showPageAlert((error && error.message) ? error.message : 'Failed to save shift.');
