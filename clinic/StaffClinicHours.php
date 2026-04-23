@@ -826,13 +826,13 @@ try {
                                 </button>
                             </div>
                             <div class="grid grid-cols-7 gap-2 mb-2">
+                                <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Sun</div>
                                 <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Mon</div>
                                 <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Tue</div>
                                 <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Wed</div>
                                 <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Thu</div>
                                 <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Fri</div>
                                 <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Sat</div>
-                                <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Sun</div>
                             </div>
                             <div id="bulkCalendarGrid" class="grid grid-cols-7 gap-2"></div>
                         </div>
@@ -1040,7 +1040,7 @@ try {
         const month = bulkCalendarState.viewDate.getMonth();
         const firstOfMonth = new Date(year, month, 1, 12);
         const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const firstWeekday = (firstOfMonth.getDay() + 6) % 7;
+        const firstWeekday = firstOfMonth.getDay();
 
         for (let i = 0; i < firstWeekday; i++) {
             const placeholder = document.createElement('div');
