@@ -114,7 +114,7 @@ foreach ($patientFieldKeys as $k) {
     }
 }
 if (!$wantsUpdate) {
-    api_json_exit(false, 'No profile fields to update. Send at least one of: first_name, last_name, date_of_birth, gender, contact_number, blood_type, province, city_municipality, city, barangay, house_street, street_address');
+    api_json_exit(false, 'No profile fields to update. Send at least one of: first_name, last_name, date_of_birth, gender, contact_number, blood_type, province, city_municipality, city, barangay, house_street (street_address is accepted as an alias for house_street only)');
 }
 
 try {
@@ -135,6 +135,11 @@ try {
     if ($full === '') {
         $full = (string) ($user['full_name'] ?? 'Patient');
     }
+
+    api_profile_refuse_address_json_blob('province', $m['pr']);
+    api_profile_refuse_address_json_blob('city_municipality', $m['city']);
+    api_profile_refuse_address_json_blob('barangay', $m['br']);
+    api_profile_refuse_address_json_blob('house_street', $m['hs']);
 
     $pdo->beginTransaction();
 

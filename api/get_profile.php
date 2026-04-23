@@ -64,22 +64,8 @@ try {
             'blood_type'      => '',
         ];
 
-    $hs = $p ? (string) ($p['house_street'] ?? '') : '';
-    $addr = $p
-        ? [
-            'province'            => (string) ($p['province'] ?? ''),
-            'city_municipality'   => (string) ($p['city_municipality'] ?? ''),
-            'barangay'            => (string) ($p['barangay'] ?? ''),
-            'house_street'        => $hs,
-            'street_address'      => $hs,
-        ]
-        : [
-            'province'            => '',
-            'city_municipality'  => '',
-            'barangay'            => '',
-            'house_street'        => '',
-            'street_address'     => '',
-        ];
+    // DB columns only (tbl_patients). If house_street wrongly contains a stringified JSON object, split it for the app.
+    $addr = api_profile_resolve_address_for_api($p);
 
     $profile = [
         'user_id'            => (string) $user['user_id'],

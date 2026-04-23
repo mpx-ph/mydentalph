@@ -93,6 +93,75 @@ function api_profile_generate_patient_id(PDO $pdo): string
     return 'P-' . $year . '-' . str_pad((string) random_int(10000, 99999), 5, '0', STR_PAD_LEFT);
 }
 
+/**
+ * Detect when a whole address object was JSON-stringified into one field (common client bug).
+ *
+ * @return array<string,string>|null Decoded map with string values, or null if not that shape
+ */
+function api_profile_embedded_address_object(?string $s): ?array
+{
+    $t = trim((string) $s);
+    if ($t === '' || $t[0] !== '{') {
+        return null;
+    }
+    $dec = json_decode($t, true);
+    if (!is_array($dec)) {
+        return null;
+    }
+    // Shape produced when an app mistakenly serializes the address map into house_street (or similar).
+    if (!array_key_exists('city_municipality', $dec) && !array_key_exists('house_street', $dec)) {
+        return null;
+    }
+    return $dec;
+}
+
+/**
+ * @param array<string,mixed>|null $p tbl_patients row
+ * @return array{province: string, city_municipality: string, barangay: string, house_street: string}
+ */
+function api_profile_resolve_address_for_api(?array $p): array
+{
+    $empty = ['province' => '', 'city_municipality' => '', 'barangay' => '', 'house_street' => ''];
+    if (!$p) {
+        return $empty;
+    }
+    $emb = api_profile_embedded_address_object(isset($p['house_street']) ? (string) $p['house_street'] : '');
+    if ($emb !== null) {
+        $line = trim((string) ($emb['house_street'] ?? ''));
+        if ($line === '') {
+            $line = trim((string) ($emb['street_address'] ?? ''));
+        }
+        return [
+            'province'          => trim((string) ($emb['province'] ?? '')),
+            'city_municipality' => trim((string) ($emb['city_municipality'] ?? '')),
+            'barangay'          => trim((string) ($emb['barangay'] ?? '')),
+            'house_street'      => $line,
+        ];
+    }
+    return [
+        'province'          => trim((string) ($p['province'] ?? '')),
+        'city_municipality' => trim((string) ($p['city_municipality'] ?? '')),
+        'barangay'          => trim((string) ($p['barangay'] ?? '')),
+        'house_street'      => trim((string) ($p['house_street'] ?? '')),
+    ];
+}
+
+/**
+ * Reject saving a stringified address JSON into a single-line column.
+ */
+function api_profile_refuse_address_json_blob(string $fieldLabel, string $value): void
+{
+    $t = trim($value);
+    if ($t === '') {
+        return;
+    }
+    if (api_profile_embedded_address_object($t) !== null) {
+        throw new InvalidArgumentException(
+            $fieldLabel . ' must be a plain text line. Do not send the whole address as one JSON string; send province, city_municipality, barangay, and house_street as separate fields.'
+        );
+    }
+}
+
 function api_profile_last_update(?string $userTs, ?string $patientTs): string
 {
     $u = $userTs ? strtotime($userTs) : 0;
