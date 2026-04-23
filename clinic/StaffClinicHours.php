@@ -539,40 +539,14 @@ try {
             background: #f8fbff;
             box-shadow: 0 0 0 3px rgba(43, 139, 235, 0.14);
         }
-        .bulk-mini-calendar {
-            border: 1px solid rgba(226, 232, 240, 0.95);
-            background: #ffffff;
-            border-radius: 1rem;
-            box-shadow: 0 18px 42px -26px rgba(15, 23, 42, 0.45);
-        }
-        .bulk-mini-day {
-            min-height: 2.15rem;
-            border-radius: 0.75rem;
-            border: 1px solid transparent;
-            font-size: 0.78rem;
-            font-weight: 700;
-            color: #334155;
-            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-        }
-        .bulk-mini-day:hover {
-            border-color: rgba(99, 102, 241, 0.28);
-            background: rgba(99, 102, 241, 0.08);
-        }
-        .bulk-mini-day.is-selected {
-            background: #4f46e5;
-            border-color: #4f46e5;
-            color: #ffffff;
-        }
-        .bulk-calendar-day.is-disabled,
-        .bulk-mini-day.is-disabled {
+        .bulk-calendar-day.is-disabled {
             color: #94a3b8;
             background: #f8fafc;
             border-color: transparent;
             cursor: not-allowed;
             opacity: 0.65;
         }
-        .bulk-calendar-day.is-disabled:hover,
-        .bulk-mini-day.is-disabled:hover {
+        .bulk-calendar-day.is-disabled:hover {
             background: #f8fafc;
             border-color: transparent;
         }
@@ -893,29 +867,6 @@ try {
                                 Overwrite existing clinic hours
                             </label>
                         </div>
-                        <div id="bulkMiniCalendarContainer" class="hidden rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5">
-                            <div class="bulk-mini-calendar p-3">
-                                <div class="flex items-center justify-between mb-3">
-                                    <button type="button" id="bulkMiniPrevMonth" class="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 transition-colors" aria-label="Previous month">
-                                        <span class="material-symbols-outlined text-[18px]">chevron_left</span>
-                                    </button>
-                                    <p id="bulkMiniMonthLabel" class="text-sm font-extrabold tracking-tight text-slate-900">Month Year</p>
-                                    <button type="button" id="bulkMiniNextMonth" class="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 transition-colors" aria-label="Next month">
-                                        <span class="material-symbols-outlined text-[18px]">chevron_right</span>
-                                    </button>
-                                </div>
-                                <div class="grid grid-cols-7 gap-1 mb-2">
-                                    <div class="text-center text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">Mon</div>
-                                    <div class="text-center text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">Tue</div>
-                                    <div class="text-center text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">Wed</div>
-                                    <div class="text-center text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">Thu</div>
-                                    <div class="text-center text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">Fri</div>
-                                    <div class="text-center text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">Sat</div>
-                                    <div class="text-center text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">Sun</div>
-                                </div>
-                                <div id="bulkMiniCalendarGrid" class="grid grid-cols-7 gap-1"></div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -1035,8 +986,6 @@ try {
         viewDate: null,
         startDate: '',
         endDate: '',
-        miniViewDate: null,
-        miniTarget: 'start',
         selectionStep: 'start',
         todayIso: '<?php echo htmlspecialchars($today->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>'
     };
@@ -1131,7 +1080,7 @@ try {
                     bulkCalendarState.startDate = iso;
                     bulkCalendarState.endDate = '';
                     bulkCalendarState.selectionStep = 'end';
-                    bulkCalendarState.miniTarget = 'end';
+                    setActiveDateTarget('end');
                 } else {
                     if (iso < bulkCalendarState.startDate) {
                         bulkCalendarState.endDate = bulkCalendarState.startDate;
@@ -1140,97 +1089,15 @@ try {
                         bulkCalendarState.endDate = iso;
                     }
                     bulkCalendarState.selectionStep = 'start';
-                    bulkCalendarState.miniTarget = 'start';
+                    setActiveDateTarget('start');
                 }
                 syncBulkDateFields();
                 updateBulkEventSummary();
-                setActiveDateTarget(bulkCalendarState.miniTarget);
-                bulkCalendarState.miniViewDate = new Date(d.getFullYear(), d.getMonth(), 1, 12);
-                renderMiniCalendar();
                 renderBulkCalendar();
             });
 
             grid.appendChild(btn);
         }
-    }
-
-    function renderMiniCalendar() {
-        const container = document.getElementById('bulkMiniCalendarContainer');
-        const monthLabel = document.getElementById('bulkMiniMonthLabel');
-        const grid = document.getElementById('bulkMiniCalendarGrid');
-        if (!container || !monthLabel || !grid || !bulkCalendarState.miniViewDate) return;
-
-        container.classList.remove('hidden');
-        monthLabel.textContent = bulkCalendarState.miniViewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-        grid.innerHTML = '';
-
-        const year = bulkCalendarState.miniViewDate.getFullYear();
-        const month = bulkCalendarState.miniViewDate.getMonth();
-        const firstOfMonth = new Date(year, month, 1, 12);
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const firstWeekday = (firstOfMonth.getDay() + 6) % 7;
-
-        for (let i = 0; i < firstWeekday; i++) {
-            const placeholder = document.createElement('div');
-            grid.appendChild(placeholder);
-        }
-
-        const selectedIso = bulkCalendarState.miniTarget === 'end'
-            ? (bulkCalendarState.endDate || '')
-            : (bulkCalendarState.startDate || '');
-
-        for (let day = 1; day <= daysInMonth; day++) {
-            const dateObj = new Date(year, month, day, 12);
-            const iso = toISODate(dateObj);
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'bulk-mini-day';
-            btn.textContent = String(day);
-
-            const isDisabled = iso < bulkCalendarState.todayIso;
-            const isSelected = selectedIso && selectedIso === iso;
-            if (isDisabled) btn.classList.add('is-disabled');
-            if (isSelected) btn.classList.add('is-selected');
-
-            btn.addEventListener('click', () => {
-                if (isDisabled) return;
-                if (bulkCalendarState.miniTarget === 'start') {
-                    bulkCalendarState.startDate = iso;
-                    if (bulkCalendarState.endDate && bulkCalendarState.endDate < iso) {
-                        bulkCalendarState.endDate = '';
-                    }
-                } else {
-                    if (!bulkCalendarState.startDate) {
-                        bulkCalendarState.startDate = iso;
-                        bulkCalendarState.endDate = '';
-                    } else if (iso < bulkCalendarState.startDate) {
-                        bulkCalendarState.endDate = bulkCalendarState.startDate;
-                        bulkCalendarState.startDate = iso;
-                    } else {
-                        bulkCalendarState.endDate = iso;
-                    }
-                }
-                syncBulkDateFields();
-                updateBulkEventSummary();
-                bulkCalendarState.viewDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), 1, 12);
-                renderBulkCalendar();
-                renderMiniCalendar();
-            });
-
-            grid.appendChild(btn);
-        }
-    }
-
-    function openMiniCalendar(targetKey) {
-        bulkCalendarState.miniTarget = targetKey === 'end' ? 'end' : 'start';
-        bulkCalendarState.selectionStep = bulkCalendarState.miniTarget;
-        const sourceIso = bulkCalendarState.miniTarget === 'end'
-            ? (bulkCalendarState.endDate || bulkCalendarState.startDate || bulkCalendarState.todayIso)
-            : (bulkCalendarState.startDate || bulkCalendarState.todayIso);
-        const sourceDate = parseISODate(sourceIso) || parseISODate(bulkCalendarState.todayIso) || new Date();
-        bulkCalendarState.miniViewDate = new Date(sourceDate.getFullYear(), sourceDate.getMonth(), 1, 12);
-        setActiveDateTarget(bulkCalendarState.miniTarget);
-        renderMiniCalendar();
     }
 
     function initializeBulkCalendar() {
@@ -1244,15 +1111,12 @@ try {
         bulkCalendarState.endDate = '';
         const view = parseISODate(bulkCalendarState.startDate) || new Date();
         bulkCalendarState.viewDate = new Date(view.getFullYear(), view.getMonth(), 1, 12);
-        bulkCalendarState.miniViewDate = new Date(view.getFullYear(), view.getMonth(), 1, 12);
-        bulkCalendarState.miniTarget = 'start';
         bulkCalendarState.selectionStep = 'start';
 
         syncBulkDateFields();
         updateBulkEventSummary();
         setActiveDateTarget('start');
         renderBulkCalendar();
-        renderMiniCalendar();
     }
 
     document.querySelectorAll('[data-open-modal]').forEach((button) => {
@@ -1369,43 +1233,18 @@ try {
         });
     }
 
-    const bulkMiniPrevBtn = document.getElementById('bulkMiniPrevMonth');
-    const bulkMiniNextBtn = document.getElementById('bulkMiniNextMonth');
-    if (bulkMiniPrevBtn) {
-        bulkMiniPrevBtn.addEventListener('click', () => {
-            if (!bulkCalendarState.miniViewDate) return;
-            bulkCalendarState.miniViewDate = new Date(
-                bulkCalendarState.miniViewDate.getFullYear(),
-                bulkCalendarState.miniViewDate.getMonth() - 1,
-                1,
-                12
-            );
-            renderMiniCalendar();
-        });
-    }
-    if (bulkMiniNextBtn) {
-        bulkMiniNextBtn.addEventListener('click', () => {
-            if (!bulkCalendarState.miniViewDate) return;
-            bulkCalendarState.miniViewDate = new Date(
-                bulkCalendarState.miniViewDate.getFullYear(),
-                bulkCalendarState.miniViewDate.getMonth() + 1,
-                1,
-                12
-            );
-            renderMiniCalendar();
-        });
-    }
-
     const bulkStartDateDisplay = document.getElementById('bulkStartDateDisplay');
     const bulkEndDateDisplay = document.getElementById('bulkEndDateDisplay');
     if (bulkStartDateDisplay) {
         bulkStartDateDisplay.addEventListener('click', () => {
-            openMiniCalendar('start');
+            bulkCalendarState.selectionStep = 'start';
+            setActiveDateTarget('start');
         });
     }
     if (bulkEndDateDisplay) {
         bulkEndDateDisplay.addEventListener('click', () => {
-            openMiniCalendar('end');
+            bulkCalendarState.selectionStep = 'end';
+            setActiveDateTarget('end');
         });
     }
 
