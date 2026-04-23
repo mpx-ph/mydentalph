@@ -519,14 +519,24 @@ try {
 
             $scheduleRows = [];
             $blocksSql = "
-                SELECT block_date, day_of_week, start_time, end_time, block_type
-                FROM tbl_schedule_blocks
-                WHERE tenant_id = ?
-                  AND is_active = 1
+                SELECT
+                    sb.block_date,
+                    sb.day_of_week,
+                    sb.start_time,
+                    sb.end_time,
+                    sb.block_type,
+                    sb.user_id,
+                    COALESCE(NULLIF(TRIM(u.full_name), ''), 'Dentist') AS provider_name
+                FROM tbl_schedule_blocks sb
+                LEFT JOIN tbl_users u
+                    ON u.tenant_id = sb.tenant_id
+                   AND u.user_id = sb.user_id
+                WHERE sb.tenant_id = ?
+                  AND sb.is_active = 1
             ";
             $blocksParams = [$tenantId];
             if ($selectedDentistUserId !== '') {
-                $blocksSql .= " AND user_id = ? ";
+                $blocksSql .= " AND sb.user_id = ? ";
                 $blocksParams[] = $selectedDentistUserId;
             }
             $blocksSql .= "
@@ -586,11 +596,19 @@ try {
                         'kind' => 'break',
                     ];
                 } elseif ($blockType === 'work' || $blockType === 'shift') {
+                    $providerName = trim((string) ($row['provider_name'] ?? 'Dentist'));
+                    if ($providerName === '') {
+                        $providerName = 'Dentist';
+                    }
+                    if (stripos($providerName, 'dr.') !== 0) {
+                        $providerName = 'Dr. ' . $providerName;
+                    }
                     $entriesByDate[$targetDateKey][] = [
                         'start_min' => $startMin,
                         'end_min' => $endMin,
                         'label' => 'Work Shift',
-                        'class' => 'bg-primary/10 border-primary/30 text-primary',
+                        'dentist_name' => $providerName,
+                        'class' => 'bg-emerald-100/60 border-emerald-300/85 text-emerald-900',
                         'kind' => 'work',
                     ];
                 }
@@ -647,8 +665,68 @@ try {
 
 foreach ($entriesByDate as $dayKey => $entries) {
     usort($entries, static function ($a, $b) {
-        return ((int) $a['start_min']) <=> ((int) $b['start_min']);
+        $startCompare = ((int) $a['start_min']) <=> ((int) $b['start_min']);
+        if ($startCompare !== 0) {
+            return $startCompare;
+        }
+        return ((int) $a['end_min']) <=> ((int) $b['end_min']);
     });
+
+    $workEntryIndexes = [];
+    foreach ($entries as $entryIndex => $entry) {
+        if ((string) ($entry['kind'] ?? '') === 'work') {
+            $workEntryIndexes[] = $entryIndex;
+        }
+    }
+    usort($workEntryIndexes, static function ($a, $b) use ($entries) {
+        $startCompare = ((int) $entries[$a]['start_min']) <=> ((int) $entries[$b]['start_min']);
+        if ($startCompare !== 0) {
+            return $startCompare;
+        }
+        return ((int) $entries[$a]['end_min']) <=> ((int) $entries[$b]['end_min']);
+    });
+
+    $activeLanes = [];
+    $clusterIndexes = [];
+    $clusterLaneCount = 1;
+    $finalizeWorkCluster = static function (&$entriesRef, $clusterRefs, $laneCount) {
+        if (empty($clusterRefs)) {
+            return;
+        }
+        $resolvedLaneCount = max(1, (int) $laneCount);
+        foreach ($clusterRefs as $entryRefIndex) {
+            $entriesRef[$entryRefIndex]['lane_total'] = $resolvedLaneCount;
+        }
+    };
+
+    foreach ($workEntryIndexes as $workEntryIndex) {
+        $workStart = (int) ($entries[$workEntryIndex]['start_min'] ?? 0);
+        $workEnd = (int) ($entries[$workEntryIndex]['end_min'] ?? 0);
+        foreach ($activeLanes as $laneIndex => $activeEnd) {
+            if ((int) $activeEnd <= $workStart) {
+                unset($activeLanes[$laneIndex]);
+            }
+        }
+
+        if (empty($activeLanes) && !empty($clusterIndexes)) {
+            $finalizeWorkCluster($entries, $clusterIndexes, $clusterLaneCount);
+            $clusterIndexes = [];
+            $clusterLaneCount = 1;
+        }
+
+        $assignedLane = 0;
+        while (isset($activeLanes[$assignedLane])) {
+            $assignedLane++;
+        }
+        $activeLanes[$assignedLane] = $workEnd;
+        $entries[$workEntryIndex]['lane_index'] = $assignedLane;
+        $clusterIndexes[] = $workEntryIndex;
+        if (($assignedLane + 1) > $clusterLaneCount) {
+            $clusterLaneCount = $assignedLane + 1;
+        }
+    }
+    $finalizeWorkCluster($entries, $clusterIndexes, $clusterLaneCount);
+
     $entriesByDate[$dayKey] = $entries;
 }
 $dentistsSeedData = array_map(static function ($dentist) {
@@ -931,21 +1009,41 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                         $isWork = (string) ($entry['kind'] ?? '') === 'work';
                                         $entryClass = (string) ($entry['class'] ?? 'bg-slate-500 border-slate-600');
                                         ?>
-                                        <div class="schedule-block absolute left-1.5 right-1.5 rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-primary' : 'text-white'; ?>" style="top: <?php echo $topPx; ?>px; height: <?php echo $heightPx; ?>px;">
-                                            <p class="text-[10px] font-black uppercase tracking-[0.12em]"><?php echo htmlspecialchars((string) $entry['label'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                            <p class="text-[10px] font-semibold opacity-95">
-                                                <?php
-                                                $displayStartHour = intdiv((int) $entry['start_min'], 60) % 24;
-                                                $displayStartMin = ((int) $entry['start_min']) % 60;
-                                                $displayEndHour = intdiv((int) $entry['end_min'], 60) % 24;
-                                                $displayEndMin = ((int) $entry['end_min']) % 60;
-                                                echo htmlspecialchars(sprintf(
-                                                    '%s - %s',
-                                                    formatTimeForUi(sprintf('%02d:%02d', $displayStartHour, $displayStartMin)),
-                                                    formatTimeForUi(sprintf('%02d:%02d', $displayEndHour, $displayEndMin))
-                                                ), ENT_QUOTES, 'UTF-8');
-                                                ?>
-                                            </p>
+                                        <?php
+                                        $displayStartHour = intdiv((int) $entry['start_min'], 60) % 24;
+                                        $displayStartMin = ((int) $entry['start_min']) % 60;
+                                        $displayEndHour = intdiv((int) $entry['end_min'], 60) % 24;
+                                        $displayEndMin = ((int) $entry['end_min']) % 60;
+                                        $timeRangeLabel = sprintf(
+                                            '%s - %s',
+                                            formatTimeForUi(sprintf('%02d:%02d', $displayStartHour, $displayStartMin)),
+                                            formatTimeForUi(sprintf('%02d:%02d', $displayEndHour, $displayEndMin))
+                                        );
+                                        $entryKind = (string) ($entry['kind'] ?? '');
+                                        $zClass = ($entryKind === 'appointment' || $entryKind === 'appointment_past') ? 'z-30' : (($entryKind === 'work') ? 'z-20' : 'z-10');
+                                        $entryStyle = 'top: ' . $topPx . 'px; height: ' . $heightPx . 'px;';
+                                        if ($isWork) {
+                                            $laneIndex = max(0, (int) ($entry['lane_index'] ?? 0));
+                                            $laneTotal = max(1, (int) ($entry['lane_total'] ?? 1));
+                                            $laneGapPercent = 1.5;
+                                            $usableWidthPercent = 100 - (($laneTotal - 1) * $laneGapPercent);
+                                            $laneWidthPercent = $usableWidthPercent > 0 ? ($usableWidthPercent / $laneTotal) : (100 / $laneTotal);
+                                            $laneLeftPercent = $laneIndex * ($laneWidthPercent + $laneGapPercent);
+                                            $entryStyle .= ' left: calc(6px + ' . number_format($laneLeftPercent, 4, '.', '') . '%);';
+                                            $entryStyle .= ' width: calc(' . number_format($laneWidthPercent, 4, '.', '') . '% - 8px);';
+                                        } else {
+                                            $entryStyle .= ' left: 6px; right: 6px;';
+                                        }
+                                        ?>
+                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-emerald-900' : 'text-white'; ?> <?php echo $zClass; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>">
+                                            <?php if ($isWork): ?>
+                                                <p class="text-[10px] font-black text-emerald-900 truncate"><?php echo htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dr. Dentist'), ENT_QUOTES, 'UTF-8'); ?></p>
+                                                <p class="mt-0.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-emerald-700">Work Shift</p>
+                                                <p class="mt-1 text-[10px] font-semibold text-emerald-900/90"><?php echo htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8'); ?></p>
+                                            <?php else: ?>
+                                                <p class="text-[10px] font-black uppercase tracking-[0.12em]"><?php echo htmlspecialchars((string) $entry['label'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                                <p class="text-[10px] font-semibold opacity-95"><?php echo htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8'); ?></p>
+                                            <?php endif; ?>
                                         </div>
                                     <?php endforeach; ?>
                                 </div>
