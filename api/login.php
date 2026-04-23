@@ -5,6 +5,7 @@ header("Content-Type: application/json");
 
 // Import database connection
 require_once '../db.php';
+require_once __DIR__ . '/profile_common.inc.php';
 
 // Support both JSON input (from the app) and Form-Data input (standard PHP)
 $input = json_decode(file_get_contents('php://input'), true);
@@ -29,9 +30,13 @@ try {
                 u.full_name, 
                 u.role, 
                 u.phone,
+                u.created_at AS registration_date,
+                u.updated_at AS user_updated_at,
                 u.photo AS user_photo,
                 t.clinic_name as tenant_name,
+                p.patient_id AS patient_id,
                 p.date_of_birth as birthdate,
+                p.updated_at AS patient_updated_at,
                 CONCAT_WS(', ', p.house_street, p.barangay, p.city_municipality) as address,
                 p.profile_image AS patient_profile_image
             FROM tbl_users u
@@ -67,6 +72,12 @@ try {
         $user['user_photo'] = $uImg;
         // Single field apps can use for avatar (patient row preferred, then users.photo)
         $user['profile_image'] = $patImg !== '' ? $patImg : $uImg;
+
+        $uU = (string) ($user['user_updated_at'] ?? '');
+        $pU = (string) ($user['patient_updated_at'] ?? '');
+        $user['last_profile_update'] = api_profile_last_update($uU, $pU !== '' ? $pU : null);
+        $user['registration_date']   = (string) ($user['registration_date'] ?? '');
+        unset($user['user_updated_at'], $user['patient_updated_at']);
 
         echo json_encode([
             "success" => true,
