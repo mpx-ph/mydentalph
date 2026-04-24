@@ -74,12 +74,31 @@ function mapAppointmentClass($serviceType)
 {
     $normalized = strtolower(trim((string) $serviceType));
     if (strpos($normalized, 'hygiene') !== false || strpos($normalized, 'clean') !== false) {
-        return ['label' => 'Hygiene', 'class' => 'bg-teal-500 border-teal-600'];
+        $label = 'Hygiene';
+    } elseif (strpos($normalized, 'consult') !== false) {
+        $label = 'Consultation';
+    } else {
+        $label = 'Treatment';
     }
-    if (strpos($normalized, 'consult') !== false) {
-        return ['label' => 'Consultation', 'class' => 'bg-orange-500 border-orange-600'];
+    return ['label' => $label, 'class' => 'bg-sky-100 border-sky-300 text-sky-900'];
+}
+
+function normalizeAppointmentStatus($statusValue)
+{
+    $statusRaw = strtolower(trim((string) $statusValue));
+    if ($statusRaw === 'scheduled' || $statusRaw === 'confirmed') {
+        return 'pending';
     }
-    return ['label' => 'Treatment', 'class' => 'bg-violet-500 border-violet-600'];
+    if (!in_array($statusRaw, ['pending', 'in_progress', 'completed', 'cancelled', 'no_show'], true)) {
+        return 'pending';
+    }
+    return $statusRaw;
+}
+
+function formatAppointmentStatusLabel($statusValue)
+{
+    $normalized = normalizeAppointmentStatus($statusValue);
+    return ucwords(str_replace('_', ' ', $normalized));
 }
 
 $tz = new DateTimeZone('Asia/Manila');
@@ -673,16 +692,16 @@ try {
                 }
                 $endMin = $startMin + 60;
                 $mapped = mapAppointmentClass((string) ($row['service_type'] ?? ''));
-                $appointmentStatus = strtolower(trim((string) ($row['appointment_status'] ?? 'pending')));
+                $appointmentStatus = normalizeAppointmentStatus((string) ($row['appointment_status'] ?? 'pending'));
                 $appointmentDate = trim((string) ($row['appointment_date'] ?? ''));
-                $appointmentDateTime = DateTimeImmutable::createFromFormat('Y-m-d H:i', $appointmentDate . ' ' . $startTime, $tz);
-                $isPastAppointment = ($appointmentDateTime instanceof DateTimeImmutable) && $appointmentDateTime < new DateTimeImmutable('now', $tz);
                 $entriesByDate[$dateKey][] = [
                     'start_min' => $startMin,
                     'end_min' => $endMin,
-                    'label' => $isPastAppointment ? ($mapped['label'] . ' (Completed)') : $mapped['label'],
-                    'class' => $isPastAppointment ? 'bg-slate-400 border-slate-500' : $mapped['class'],
-                    'kind' => ($appointmentStatus === 'completed' || $isPastAppointment) ? 'appointment_past' : 'appointment',
+                    'label' => 'Appointment',
+                    'status_label' => formatAppointmentStatusLabel($appointmentStatus),
+                    'service_label' => (string) ($mapped['label'] ?? 'Treatment'),
+                    'class' => (string) ($mapped['class'] ?? 'bg-sky-100 border-sky-300 text-sky-900'),
+                    'kind' => 'appointment',
                 ];
             }
     }
@@ -1114,13 +1133,16 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                             $entryStyle .= ' left: 6px; right: 6px;';
                                         }
                                         ?>
-                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-emerald-900' : 'text-white'; ?> <?php echo $zClass; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isWork ? ('data-shift-tooltip="1" data-shift-full-name="' . htmlspecialchars($fullDentistName, ENT_QUOTES, 'UTF-8') . '" data-shift-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '"') : ''; ?>>
+                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-emerald-900' : 'text-sky-900'; ?> <?php echo $zClass; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isWork ? ('data-shift-tooltip="1" data-shift-full-name="' . htmlspecialchars($fullDentistName, ENT_QUOTES, 'UTF-8') . '" data-shift-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '"') : ''; ?>>
                                             <?php if ($isWork): ?>
                                                 <p class="text-[9px] font-black uppercase tracking-[0.12em] text-emerald-900/80 leading-tight">WORK SHIFT</p>
                                                 <p class="mt-0.5 text-[10px] font-black text-emerald-900 truncate"><?php echo htmlspecialchars($shortDentistName, ENT_QUOTES, 'UTF-8'); ?></p>
                                                 <p class="mt-1 text-[10px] font-semibold text-emerald-900/90 truncate"><?php echo htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8'); ?></p>
                                             <?php else: ?>
                                                 <p class="text-[10px] font-black uppercase tracking-[0.12em]"><?php echo htmlspecialchars((string) $entry['label'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                                <?php if (!empty($entry['status_label'])): ?>
+                                                    <p class="text-[10px] font-semibold"><?php echo htmlspecialchars((string) $entry['status_label'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                                <?php endif; ?>
                                                 <p class="text-[10px] font-semibold opacity-95"><?php echo htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8'); ?></p>
                                             <?php endif; ?>
                                         </div>
