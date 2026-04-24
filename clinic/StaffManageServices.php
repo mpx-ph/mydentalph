@@ -129,12 +129,6 @@ try {
         .staff-modal-panel {
             animation: staff-modal-panel-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
-        #editServiceModal {
-            overflow-y: auto;
-        }
-        #editServiceModal .staff-modal-panel {
-            margin: auto;
-        }
         @keyframes staff-modal-fade-in {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -423,7 +417,6 @@ Duration (months) <span class="text-red-500 font-bold">*</span>
 <span class="text-xs text-slate-500 pl-[1.375rem] leading-tight">(Auto-calculated)</span>
 </div>
 <input type="text" id="newServiceInstallmentMonthly" readonly tabindex="-1" placeholder="0.00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 placeholder:text-slate-400 text-[15px] cursor-not-allowed"/>
-</div>
 </div>
 </div>
 </section>
