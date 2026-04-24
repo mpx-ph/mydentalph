@@ -278,11 +278,31 @@ Category <span class="text-red-500 font-bold">*</span>
 </select>
 </div>
 <div>
+<label for="newServiceDuration" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">schedule</span>
+Service Duration
+</label>
+<div class="flex items-center gap-2">
+<input type="number" id="newServiceDuration" step="1" min="0" value="60" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+<span class="text-sm font-medium text-slate-600 shrink-0">minutes</span>
+</div>
+</div>
+<div>
 <label for="newServicePrice" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
 <span class="material-symbols-outlined text-[18px] text-slate-500">payments</span>
 Price (₱) <span class="text-red-500 font-bold">*</span>
 </label>
 <input type="number" id="newServicePrice" step="0.01" min="0" placeholder="0.00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" required/>
+</div>
+<div>
+<label for="newServiceBufferTime" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">timelapse</span>
+Buffer Time
+</label>
+<div class="flex items-center gap-2">
+<input type="number" id="newServiceBufferTime" step="1" min="0" value="10" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+<span class="text-sm font-medium text-slate-600 shrink-0">minutes</span>
+</div>
 </div>
 </div>
 <div id="newServiceDefaultPaymentShell" class="space-y-3">
@@ -990,7 +1010,9 @@ function openNewServiceModal() {
     document.getElementById('newServiceName').value = '';
     document.getElementById('newServiceDetails').value = '';
     document.getElementById('newServiceCategory').value = '';
+    document.getElementById('newServiceDuration').value = '60';
     document.getElementById('newServicePrice').value = '';
+    document.getElementById('newServiceBufferTime').value = '10';
     document.getElementById('newServiceBillingRegular').checked = true;
     document.getElementById('newServiceBillingInstallment').checked = false;
     document.getElementById('newServiceUseCustomPayment').checked = false;
@@ -1129,12 +1151,16 @@ function validatePaymentPayload(payload, price) {
 
 function saveNewService() {
     const price = parseFloat(document.getElementById('newServicePrice').value || '0');
+    const serviceDuration = parseInt(document.getElementById('newServiceDuration').value || '0', 10);
+    const bufferTime = parseInt(document.getElementById('newServiceBufferTime').value || '0', 10);
     const pay = buildPaymentPayload('new');
     const payload = {
         service_name: (document.getElementById('newServiceName').value || '').trim(),
         service_details: (document.getElementById('newServiceDetails').value || '').trim(),
         category: document.getElementById('newServiceCategory').value,
         price: price,
+        service_duration: Number.isInteger(serviceDuration) ? serviceDuration : 0,
+        buffer_time: Number.isInteger(bufferTime) ? bufferTime : 0,
         use_custom_payment: pay.use_custom_payment,
         enable_installment: pay.enable_installment,
         downpayment_percentage: pay.downpayment_percentage,
@@ -1144,6 +1170,14 @@ function saveNewService() {
 
     if (!payload.service_name || !payload.category || Number.isNaN(payload.price) || payload.price < 0) {
         void staffUiAlert({ message: 'Please complete required fields with a valid price.', variant: 'warning', title: 'Required fields' });
+        return;
+    }
+    if (!Number.isInteger(payload.service_duration) || payload.service_duration < 0) {
+        void staffUiAlert({ message: 'Service Duration must be a whole number of minutes (0 or higher).', variant: 'warning', title: 'Invalid duration' });
+        return;
+    }
+    if (!Number.isInteger(payload.buffer_time) || payload.buffer_time < 0) {
+        void staffUiAlert({ message: 'Buffer Time must be a whole number of minutes (0 or higher).', variant: 'warning', title: 'Invalid buffer time' });
         return;
     }
     if (!validatePaymentPayload(pay, payload.price)) {

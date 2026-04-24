@@ -217,6 +217,8 @@ function createService() {
         'service_details' => sanitize($input['service_details'] ?? ''),
         'category' => sanitize($input['category'] ?? ''),
         'price' => isset($input['price']) ? floatval($input['price']) : 0.00,
+        'service_duration' => isset($input['service_duration']) ? intval($input['service_duration']) : 0,
+        'buffer_time' => isset($input['buffer_time']) ? intval($input['buffer_time']) : 0,
         'downpayment_percentage' => $enableInstallment ? null : $downpaymentPct,
         'enable_installment' => $enableInstallment ? 1 : 0,
         'installment_downpayment' => $enableInstallment ? $instDown : null,
@@ -251,6 +253,12 @@ function createService() {
     
     if ($data['price'] < 0) {
         jsonResponse(false, 'Price cannot be negative.');
+    }
+    if ($data['service_duration'] < 0) {
+        jsonResponse(false, 'Service duration cannot be negative.');
+    }
+    if ($data['buffer_time'] < 0) {
+        jsonResponse(false, 'Buffer time cannot be negative.');
     }
 
     if ($useCustom && !$enableInstallment && $downpaymentPct === null) {
@@ -304,10 +312,11 @@ function createService() {
         $stmt = $pdo->prepare("
             INSERT INTO tbl_services (
                 tenant_id, service_id, service_name, service_details, category, price,
+                service_duration, buffer_time,
                 downpayment_percentage, enable_installment,
                 installment_downpayment, installment_duration_months,
                 status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         
         $stmt->execute([
@@ -317,6 +326,8 @@ function createService() {
             $data['service_details'],
             $data['category'],
             $data['price'],
+            $data['service_duration'],
+            $data['buffer_time'],
             $data['downpayment_percentage'],
             $data['enable_installment'],
             $data['installment_downpayment'],
@@ -550,6 +561,8 @@ function updateService() {
         'service_details' => isset($input['service_details']) ? sanitize($input['service_details']) : $existing['service_details'],
         'category' => isset($input['category']) ? sanitize($input['category']) : $existing['category'],
         'price' => isset($input['price']) ? floatval($input['price']) : floatval($existing['price']),
+        'service_duration' => array_key_exists('service_duration', $input) ? intval($input['service_duration']) : intval($existing['service_duration'] ?? 0),
+        'buffer_time' => array_key_exists('buffer_time', $input) ? intval($input['buffer_time']) : intval($existing['buffer_time'] ?? 0),
         'downpayment_percentage' => $enableInstallment ? null : $downpaymentPct,
         'enable_installment' => $enableInstallment ? 1 : 0,
         'installment_downpayment' => $enableInstallment ? $instDown : null,
@@ -584,6 +597,12 @@ function updateService() {
     
     if ($data['price'] < 0) {
         jsonResponse(false, 'Price cannot be negative.');
+    }
+    if ($data['service_duration'] < 0) {
+        jsonResponse(false, 'Service duration cannot be negative.');
+    }
+    if ($data['buffer_time'] < 0) {
+        jsonResponse(false, 'Buffer time cannot be negative.');
     }
 
     if ($paymentInputPresent && $useCustom && !$enableInstallment && $downpaymentPct === null) {
@@ -659,6 +678,8 @@ function updateService() {
                 service_details = ?, 
                 category = ?, 
                 price = ?, 
+                service_duration = ?,
+                buffer_time = ?,
                 downpayment_percentage = ?,
                 enable_installment = ?,
                 installment_downpayment = ?,
@@ -672,6 +693,8 @@ function updateService() {
             $data['service_details'],
             $data['category'],
             $data['price'],
+            $data['service_duration'],
+            $data['buffer_time'],
             $data['downpayment_percentage'],
             $data['enable_installment'],
             $data['installment_downpayment'],
