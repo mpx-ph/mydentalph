@@ -756,6 +756,32 @@ foreach ($entriesByDate as $dayKey => $entries) {
 
     $entriesByDate[$dayKey] = $entries;
 }
+
+$dayMaxLaneCount = [];
+foreach ($weekDays as $d) {
+    $dayMaxLaneCount[$d['date_key']] = 1;
+}
+foreach ($entriesByDate as $dayKey => $ents) {
+    foreach ($ents as $e) {
+        if ((string) ($e['kind'] ?? '') === 'work') {
+            $lt = max(1, (int) ($e['lane_total'] ?? 1));
+            if ($lt > $dayMaxLaneCount[$dayKey]) {
+                $dayMaxLaneCount[$dayKey] = $lt;
+            }
+        }
+    }
+}
+$schedulePerLaneMinPx = 100;
+$scheduleGridColParts = ['84px'];
+$scheduleGridMinWidth = 84;
+foreach ($weekDays as $d) {
+    $lanes = max(1, (int) ($dayMaxLaneCount[$d['date_key']] ?? 1));
+    $scheduleGridColParts[] = 'minmax(' . ($lanes * $schedulePerLaneMinPx) . 'px,' . $lanes . 'fr)';
+    $scheduleGridMinWidth += $lanes * $schedulePerLaneMinPx;
+}
+$scheduleGridMinWidth = max(900, $scheduleGridMinWidth);
+$scheduleGridTemplateColumns = implode(' ', $scheduleGridColParts);
+
 $dentistsSeedData = array_map(static function ($dentist) {
     return [
         'user_id' => (string) ($dentist['user_id'] ?? ''),
@@ -1017,19 +1043,25 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     <span class="material-symbols-outlined text-base"><?php echo $isDentistFiltered ? 'filter_alt' : 'groups'; ?></span>
                     <?php echo htmlspecialchars($isDentistFiltered ? ('Filtered: ' . $selectedDentistName) : 'Overall View: All Dentists', ENT_QUOTES, 'UTF-8'); ?>
                 </div>
-                <div class="overflow-x-auto">
-                    <div class="min-w-[900px] border border-slate-200 rounded-2xl overflow-hidden bg-white">
-                        <div class="grid grid-cols-[84px_repeat(7,minmax(0,1fr))] bg-slate-50 border-b border-slate-200">
-                            <div class="px-3 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Time</div>
+                <div class="overflow-x-auto min-w-0 w-full" style="-webkit-overflow-scrolling: touch;">
+                    <div class="border border-slate-200 rounded-2xl overflow-hidden bg-white shrink-0" style="min-width: <?php echo (int) $scheduleGridMinWidth; ?>px;">
+                        <div class="grid bg-slate-50 border-b border-slate-200" style="grid-template-columns: <?php echo htmlspecialchars($scheduleGridTemplateColumns, ENT_QUOTES, 'UTF-8'); ?>;">
+                            <div class="px-3 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 sticky left-0 z-50 bg-slate-50 border-r border-slate-200 shadow-[2px_0_12px_-4px_rgba(15,23,42,0.1)]">Time</div>
                             <?php foreach ($weekDays as $weekDay): ?>
-                                <div class="px-3 py-3 border-l border-slate-200">
+                                <?php
+                                $dayLaneCount = (int) ($dayMaxLaneCount[$weekDay['date_key']] ?? 1);
+                                ?>
+                                <div class="px-3 py-3 border-l border-slate-200 min-w-0">
                                     <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400"><?php echo htmlspecialchars($weekDay['short'], ENT_QUOTES, 'UTF-8'); ?></p>
                                     <p class="text-sm font-bold text-slate-700 mt-1"><?php echo htmlspecialchars((string) $weekDay['date'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                    <?php if ($dayLaneCount > 1): ?>
+                                        <p class="text-[9px] font-bold uppercase tracking-wider text-primary/80 mt-1.5"><?php echo (int) $dayLaneCount; ?> concurrent</p>
+                                    <?php endif; ?>
                                 </div>
                             <?php endforeach; ?>
                         </div>
-                        <div class="grid grid-cols-[84px_repeat(7,minmax(0,1fr))]">
-                            <div class="border-r border-slate-100">
+                        <div class="grid" style="grid-template-columns: <?php echo htmlspecialchars($scheduleGridTemplateColumns, ENT_QUOTES, 'UTF-8'); ?>;">
+                            <div class="border-r border-slate-100 bg-slate-50/80 backdrop-blur-sm sticky left-0 z-40 shadow-[2px_0_14px_-4px_rgba(15,23,42,0.12)]">
                                 <?php foreach ($timeSlots as $slotTime): ?>
                                     <div class="h-16 px-3 py-3 text-xs font-bold text-slate-500 border-b border-slate-100 last:border-b-0 bg-slate-50/70">
                                         <?php echo htmlspecialchars($slotTime, ENT_QUOTES, 'UTF-8'); ?>
