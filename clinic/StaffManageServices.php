@@ -238,13 +238,13 @@ try {
 <span class="material-symbols-outlined text-[22px]">close</span>
 </button>
 </div>
-<div class="px-6 sm:px-8 py-6 space-y-8 overflow-y-auto">
+<div class="px-6 sm:px-8 pt-3 pb-5 space-y-6 overflow-y-auto">
 <section>
-<div class="flex items-center gap-2 mb-4">
+<div class="flex items-center gap-2 mb-3">
 <span class="material-symbols-outlined text-primary text-[22px]">info</span>
 <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Basic Information</h4>
 </div>
-<div class="space-y-5">
+<div class="space-y-4">
 <div>
 <label for="newServiceName" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
 <span class="material-symbols-outlined text-[18px] text-slate-500">medical_services</span>
@@ -352,7 +352,7 @@ Price (₱) <span class="text-red-500 font-bold">*</span>
 </div>
 </section>
 <section>
-<div class="flex items-center gap-2 mb-4">
+<div class="flex items-center gap-2 mb-3">
 <span class="material-symbols-outlined text-primary text-[22px]">credit_card</span>
 <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Payment Configuration</h4>
 </div>
@@ -540,8 +540,8 @@ Status
 <span class="material-symbols-outlined text-primary text-[22px]">credit_card</span>
 <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Payment Configuration</h4>
 </div>
-<div id="editServiceDefaultPaymentShell" class="space-y-3">
-<div id="editServicePaymentTypeRow" class="flex flex-col gap-4 pt-1 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between lg:gap-6">
+<div id="editServiceDefaultPaymentShell" class="space-y-2">
+<div id="editServicePaymentTypeRow" class="flex flex-col gap-3 pt-0 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between lg:gap-6">
 <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-8 shrink-0">
 <label class="inline-flex items-center gap-2.5 cursor-pointer group">
 <input type="radio" name="editServiceBillingType" value="regular" id="editServiceBillingRegular" class="h-4 w-4 shrink-0 border-slate-300 text-primary accent-primary focus:ring-primary"/>
@@ -563,7 +563,7 @@ Status
 <p id="editServiceAutoDownpaymentHint" class="sr-only">Read-only default from Payment Settings; applied automatically when custom payment is off.</p>
 </div>
 </div>
-<div id="editServiceGlobalInstallmentSection" class="hidden rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:p-5 mt-2">
+<div id="editServiceGlobalInstallmentSection" class="hidden rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:p-5 mt-1">
 <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">Installment schedule</p>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-x-5">
 <div class="flex flex-col gap-2">
@@ -591,7 +591,7 @@ Status
 <label for="editServiceUseCustomPayment" class="text-sm font-semibold text-slate-800 cursor-pointer">Use Custom Payment Settings</label>
 </div>
 </div>
-<div id="editServiceCustomPaymentFields" class="hidden space-y-4 mt-4">
+<div id="editServiceCustomPaymentFields" class="hidden space-y-3 mt-3">
 <div id="editServiceRegularDownpaymentBlock" class="rounded-2xl border border-slate-200/90 bg-slate-50/60 p-4 sm:p-5 space-y-2">
 <label for="editServiceDownpaymentPct" class="flex flex-wrap items-baseline gap-x-1 text-sm font-semibold text-slate-800">
 <span class="material-symbols-outlined text-[18px] text-slate-500 align-middle mr-0.5">percent</span>
@@ -614,7 +614,7 @@ Custom Down Payment (%)
 </div>
 </div>
 </div>
-<div id="editServiceInstallmentConfigBlock" class="hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.06] to-slate-50/80 p-4 sm:p-5 space-y-5">
+<div id="editServiceInstallmentConfigBlock" class="hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.06] to-slate-50/80 p-4 sm:p-5 space-y-4">
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-primary text-[22px]">schedule</span>
 <h5 class="text-sm font-extrabold text-slate-800">Installment Plan Configuration</h5>
