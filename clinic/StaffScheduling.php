@@ -1084,7 +1084,8 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                         ?>
                                         <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-emerald-900' : 'text-white'; ?> <?php echo $zClass; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isWork ? ('data-shift-tooltip="1" data-shift-full-name="' . htmlspecialchars($fullDentistName, ENT_QUOTES, 'UTF-8') . '" data-shift-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '"') : ''; ?>>
                                             <?php if ($isWork): ?>
-                                                <p class="text-[10px] font-black text-emerald-900 truncate"><?php echo htmlspecialchars($shortDentistName, ENT_QUOTES, 'UTF-8'); ?></p>
+                                                <p class="text-[9px] font-black uppercase tracking-[0.12em] text-emerald-900/80 leading-tight">WORK SHIFT</p>
+                                                <p class="mt-0.5 text-[10px] font-black text-emerald-900 truncate"><?php echo htmlspecialchars($shortDentistName, ENT_QUOTES, 'UTF-8'); ?></p>
                                                 <p class="mt-1 text-[10px] font-semibold text-emerald-900/90 truncate"><?php echo htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8'); ?></p>
                                             <?php else: ?>
                                                 <p class="text-[10px] font-black uppercase tracking-[0.12em]"><?php echo htmlspecialchars((string) $entry['label'], ENT_QUOTES, 'UTF-8'); ?></p>
@@ -1248,7 +1249,8 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 <span class="material-symbols-outlined text-[17px]">person</span>
             </span>
             <div class="min-w-0">
-                <p id="shiftTooltipDentistName" class="text-sm font-extrabold text-slate-800 leading-snug break-words"></p>
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">WORK SHIFT</p>
+                <p id="shiftTooltipDentistName" class="text-sm font-extrabold text-slate-800 leading-snug break-words mt-0.5"></p>
             </div>
         </div>
         <div class="mt-2.5 flex items-start gap-2.5">
