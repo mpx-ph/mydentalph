@@ -983,30 +983,22 @@ $dentistsSeedData = array_map(static function ($dentist) {
                             Clear
                         </button>
                     </div>
-                    <p class="mt-2 text-xs font-semibold text-slate-500">
-                        <?php echo $isDentistFiltered ? 'Showing filtered view for selected dentist.' : 'Showing overall view for all dentists.'; ?>
-                    </p>
                 </div>
-                <div class="lg:col-span-3">
+                <div class="lg:col-span-4">
                     <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Week Reference Date</label>
-                    <input type="date" name="selected_date" value="<?php echo htmlspecialchars($selectedDate->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" class="w-full py-3 px-4 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary"/>
+                    <input id="weekReferenceDateInput" type="date" name="selected_date" value="<?php echo htmlspecialchars($selectedDate->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" class="w-full py-3 px-4 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary"/>
                 </div>
-                <div class="lg:col-span-3">
+                <div class="lg:col-span-4">
                     <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Completed Appointments</label>
                     <label class="h-[46px] px-4 rounded-xl border border-slate-200 bg-white inline-flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer select-none w-full">
                         <input type="hidden" name="show_completed" value="0"/>
-                        <input type="checkbox" name="show_completed" value="1" <?php echo $showCompletedAppointments ? 'checked' : ''; ?> class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/30"/>
+                        <input id="showCompletedToggle" type="checkbox" name="show_completed" value="1" <?php echo $showCompletedAppointments ? 'checked' : ''; ?> class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/30"/>
                         <span>Show Completed</span>
                     </label>
                 </div>
                 <?php if ($currentTenantSlug !== ''): ?>
                     <input type="hidden" name="clinic_slug" value="<?php echo htmlspecialchars($currentTenantSlug, ENT_QUOTES, 'UTF-8'); ?>"/>
                 <?php endif; ?>
-                <div class="lg:col-span-2 flex items-end">
-                    <button type="submit" class="w-full px-5 py-3 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs uppercase tracking-widest transition-colors">
-                        Apply Week
-                    </button>
-                </div>
             </form>
         </section>
 
@@ -1353,6 +1345,8 @@ $dentistsSeedData = array_map(static function ($dentist) {
         const selectedDentistLabel = document.getElementById('selectedDentistLabel');
         const selectedDentistUserIdInput = document.getElementById('selectedDentistUserId');
         const selectedDentistIdInput = document.getElementById('selectedDentistId');
+        const weekReferenceDateInput = document.getElementById('weekReferenceDateInput');
+        const showCompletedToggle = document.getElementById('showCompletedToggle');
         const chooseDentistModal = document.getElementById('chooseDentistModal');
         const closeChooseDentistModalBtn = document.getElementById('closeChooseDentistModalBtn');
         const dentistListContainer = document.getElementById('dentistListContainer');
@@ -1778,6 +1772,20 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 const dentistName = button.getAttribute('data-dentist-name') || '';
                 setSelectedDentist(userId, dentistId, dentistName);
                 closeChooseDentistModal();
+                if (scheduleFilterForm) {
+                    scheduleFilterForm.submit();
+                }
+            });
+        }
+        if (weekReferenceDateInput) {
+            weekReferenceDateInput.addEventListener('change', function () {
+                if (scheduleFilterForm) {
+                    scheduleFilterForm.submit();
+                }
+            });
+        }
+        if (showCompletedToggle) {
+            showCompletedToggle.addEventListener('change', function () {
                 if (scheduleFilterForm) {
                     scheduleFilterForm.submit();
                 }
