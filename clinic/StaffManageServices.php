@@ -448,14 +448,14 @@ Add Service
 <span class="material-symbols-outlined text-[22px]">close</span>
 </button>
 </div>
-<div class="px-6 sm:px-8 py-6 space-y-8 overflow-y-auto">
+<div class="px-6 sm:px-8 pt-4 pb-6 space-y-6 overflow-y-auto">
 <input type="hidden" id="editServiceId"/>
-<section>
-<div class="flex items-center gap-2 mb-4">
+<section class="space-y-4">
+<div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-primary text-[22px]">info</span>
 <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Basic Information</h4>
 </div>
-<div class="space-y-5">
+<div class="space-y-4">
 <input type="hidden" id="editServiceIdCode"/>
 <div>
 <label for="editServiceName" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
@@ -471,7 +471,7 @@ Service Details
 </label>
 <textarea id="editServiceDetails" rows="3" placeholder="Enter a detailed description of the service..." class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all resize-y min-h-[100px]"></textarea>
 </div>
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 <div>
 <label for="editServiceCategory" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
 <span class="material-symbols-outlined text-[18px] text-slate-500">category</span>
@@ -535,8 +535,8 @@ Status
 </div>
 </div>
 </section>
-<section>
-<div class="flex items-center gap-2 mb-4">
+<section class="space-y-4">
+<div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-primary text-[22px]">credit_card</span>
 <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Payment Configuration</h4>
 </div>
