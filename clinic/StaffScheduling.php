@@ -101,6 +101,27 @@ function formatAppointmentStatusLabel($statusValue)
     return ucwords(str_replace('_', ' ', $normalized));
 }
 
+function formatPaymentStatusLabel($statusValue)
+{
+    $normalized = strtolower(trim((string) $statusValue));
+    if ($normalized === '') {
+        return 'Unpaid';
+    }
+    if ($normalized === 'paid') {
+        $normalized = 'completed';
+    }
+    return ucwords(str_replace('_', ' ', $normalized));
+}
+
+function formatVisitTypeLabel($visitType)
+{
+    $normalized = strtolower(trim((string) $visitType));
+    if ($normalized === 'walk_in' || $normalized === 'walkin' || $normalized === 'walk-in') {
+        return 'Walk-in';
+    }
+    return 'Booking';
+}
+
 $tz = new DateTimeZone('Asia/Manila');
 $selectedDateInput = isset($_GET['selected_date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $_GET['selected_date'])
     ? (string) $_GET['selected_date']
@@ -662,20 +683,93 @@ try {
                 }
             }
 
-            $appointmentsSql = "
-                SELECT appointment_date, appointment_time, service_type, COALESCE(status, 'pending') AS appointment_status
-                FROM tbl_appointments
-                WHERE tenant_id = ?
-                  AND appointment_date BETWEEN ? AND ?
-                  AND LOWER(COALESCE(status, 'pending')) <> 'cancelled'
-            ";
+            $dbTables = clinic_resolve_appointment_db_tables($pdo);
+            $appointmentsTable = $dbTables['appointments'] ?? null;
+            $patientsTable = $dbTables['patients'] ?? null;
+            $dentistsTable = $dbTables['dentists'] ?? null;
+            $paymentsTable = $dbTables['payments'] ?? null;
+            $appointmentsCols = $appointmentsTable !== null ? clinic_table_columns($pdo, $appointmentsTable) : [];
+            $paymentsCols = $paymentsTable !== null ? clinic_table_columns($pdo, $paymentsTable) : [];
+
+            if ($appointmentsTable !== null) {
+                $qAppt = clinic_quote_identifier($appointmentsTable);
+                $qPat = $patientsTable !== null ? clinic_quote_identifier($patientsTable) : null;
+                $qDent = $dentistsTable !== null ? clinic_quote_identifier($dentistsTable) : null;
+                $qPay = $paymentsTable !== null ? clinic_quote_identifier($paymentsTable) : null;
+
+                $patientNameExpr = $qPat !== null
+                    ? "COALESCE(NULLIF(TRIM(CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(p.last_name, ''))), ''), COALESCE(NULLIF(TRIM(a.patient_id), ''), 'Patient'))"
+                    : "COALESCE(NULLIF(TRIM(a.patient_id), ''), 'Patient')";
+                $dentistNameExpr = $qDent !== null
+                    ? "COALESCE(NULLIF(TRIM(CONCAT(COALESCE(d.first_name, ''), ' ', COALESCE(d.last_name, ''))), ''), 'Dentist')"
+                    : "'Dentist'";
+                $visitTypeExpr = in_array('visit_type', $appointmentsCols, true)
+                    ? "COALESCE(NULLIF(TRIM(a.visit_type), ''), 'booking')"
+                    : "'booking'";
+                $paymentOrderParts = [];
+                if (in_array('payment_date', $paymentsCols, true)) {
+                    $paymentOrderParts[] = 'py.payment_date DESC';
+                }
+                if (in_array('created_at', $paymentsCols, true)) {
+                    $paymentOrderParts[] = 'py.created_at DESC';
+                }
+                if (in_array('id', $paymentsCols, true)) {
+                    $paymentOrderParts[] = 'py.id DESC';
+                }
+                if (empty($paymentOrderParts)) {
+                    $paymentOrderParts[] = 'py.booking_id DESC';
+                }
+                $paymentStatusExpr = $qPay !== null
+                    ? "COALESCE((SELECT COALESCE(NULLIF(TRIM(py.status), ''), 'unpaid') FROM {$qPay} py WHERE py.tenant_id = a.tenant_id AND py.booking_id = a.booking_id ORDER BY " . implode(', ', $paymentOrderParts) . " LIMIT 1), 'unpaid')"
+                    : "'unpaid'";
+
+                $appointmentsSql = "
+                    SELECT
+                        a.appointment_date,
+                        a.appointment_time,
+                        a.service_type,
+                        COALESCE(a.status, 'pending') AS appointment_status,
+                        {$patientNameExpr} AS patient_name,
+                        {$dentistNameExpr} AS dentist_name,
+                        {$visitTypeExpr} AS visit_type,
+                        {$paymentStatusExpr} AS payment_status
+                    FROM {$qAppt} a
+                ";
+                if ($qPat !== null) {
+                    $appointmentsSql .= "
+                    LEFT JOIN {$qPat} p
+                        ON p.tenant_id = a.tenant_id
+                       AND p.patient_id = a.patient_id
+                    ";
+                }
+                if ($qDent !== null && in_array('dentist_id', $appointmentsCols, true)) {
+                    $appointmentsSql .= "
+                    LEFT JOIN {$qDent} d
+                        ON d.tenant_id = a.tenant_id
+                       AND d.dentist_id = a.dentist_id
+                    ";
+                }
+                $appointmentsSql .= "
+                    WHERE a.tenant_id = ?
+                      AND a.appointment_date BETWEEN ? AND ?
+                      AND LOWER(COALESCE(a.status, 'pending')) <> 'cancelled'
+                ";
+            } else {
+                $appointmentsSql = "
+                    SELECT appointment_date, appointment_time, service_type, COALESCE(status, 'pending') AS appointment_status, 'Patient' AS patient_name, 'Dentist' AS dentist_name, 'booking' AS visit_type, 'unpaid' AS payment_status
+                    FROM tbl_appointments
+                    WHERE tenant_id = ?
+                      AND appointment_date BETWEEN ? AND ?
+                      AND LOWER(COALESCE(status, 'pending')) <> 'cancelled'
+                ";
+            }
             $appointmentsParams = [
                 $tenantId,
                 $startOfWeek->format('Y-m-d'),
                 $endOfWeek->format('Y-m-d'),
             ];
-            if ($selectedDentistId !== '') {
-                $appointmentsSql .= " AND dentist_id = ? ";
+            if ($selectedDentistId !== '' && $appointmentsTable !== null && in_array('dentist_id', $appointmentsCols, true)) {
+                $appointmentsSql .= " AND a.dentist_id = ? ";
                 $appointmentsParams[] = $selectedDentistId;
             }
             $apptStmt = $pdo->prepare($appointmentsSql);
@@ -699,11 +793,34 @@ try {
                     continue;
                 }
                 $isCompletedAppointment = $appointmentStatus === 'completed';
+                $patientName = trim((string) ($row['patient_name'] ?? 'Patient'));
+                if ($patientName === '') {
+                    $patientName = 'Patient';
+                }
+                $dentistName = trim((string) ($row['dentist_name'] ?? 'Dentist'));
+                if ($dentistName === '') {
+                    $dentistName = 'Dentist';
+                }
+                if (stripos($dentistName, 'dr.') !== 0) {
+                    $dentistName = 'Dr. ' . $dentistName;
+                }
+                $serviceName = trim((string) ($row['service_type'] ?? 'Treatment'));
+                if ($serviceName === '') {
+                    $serviceName = 'Treatment';
+                }
+                $visitTypeLabel = formatVisitTypeLabel((string) ($row['visit_type'] ?? 'booking'));
+                $paymentStatusLabel = formatPaymentStatusLabel((string) ($row['payment_status'] ?? 'unpaid'));
                 $entriesByDate[$dateKey][] = [
                     'start_min' => $startMin,
                     'end_min' => $endMin,
                     'label' => $isCompletedAppointment ? 'Completed' : 'Appointment',
                     'status_label' => $isCompletedAppointment ? '' : formatAppointmentStatusLabel($appointmentStatus),
+                    'patient_name' => $patientName,
+                    'dentist_name' => $dentistName,
+                    'service_name' => $serviceName,
+                    'visit_type_label' => $visitTypeLabel,
+                    'payment_status_label' => $paymentStatusLabel,
+                    'appointment_status_label' => formatAppointmentStatusLabel($appointmentStatus),
                     'service_label' => (string) ($mapped['label'] ?? 'Treatment'),
                     'class' => $isCompletedAppointment
                         ? 'bg-[#2b8beb]/20 border-[#2b8beb]/35 text-[#2b8beb]'
@@ -918,6 +1035,24 @@ $dentistsSeedData = array_map(static function ($dentist) {
             transition: opacity 0.14s ease, transform 0.14s ease;
         }
         .shift-tooltip-card.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .appointment-tooltip-card {
+            position: fixed;
+            z-index: 96;
+            pointer-events: none;
+            width: min(22rem, calc(100vw - 1.5rem));
+            border: 1px solid rgba(43, 139, 235, 0.35);
+            border-radius: 0.95rem;
+            background: rgba(255, 255, 255, 0.98);
+            box-shadow: 0 20px 38px -22px rgba(15, 23, 42, 0.72);
+            backdrop-filter: blur(4px);
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity 0.14s ease, transform 0.14s ease;
+        }
+        .appointment-tooltip-card.is-visible {
             opacity: 1;
             transform: translateY(0);
         }
@@ -1140,7 +1275,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                             $entryStyle .= ' left: 6px; right: 6px;';
                                         }
                                         ?>
-                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-emerald-900' : 'text-sky-900'; ?> <?php echo $zClass; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isWork ? ('data-shift-tooltip="1" data-shift-full-name="' . htmlspecialchars($fullDentistName, ENT_QUOTES, 'UTF-8') . '" data-shift-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '"') : ''; ?>>
+                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-emerald-900' : 'text-sky-900'; ?> <?php echo $zClass; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isWork ? ('data-shift-tooltip="1" data-shift-full-name="' . htmlspecialchars($fullDentistName, ENT_QUOTES, 'UTF-8') . '" data-shift-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '"') : ''; ?> <?php echo (!$isWork && $entryKind === 'appointment') ? ('data-appointment-tooltip="1" data-appt-patient-name="' . htmlspecialchars((string) ($entry['patient_name'] ?? 'Patient'), ENT_QUOTES, 'UTF-8') . '" data-appt-dentist-name="' . htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dentist'), ENT_QUOTES, 'UTF-8') . '" data-appt-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '" data-appt-service-name="' . htmlspecialchars((string) ($entry['service_name'] ?? 'Treatment'), ENT_QUOTES, 'UTF-8') . '" data-appt-type="' . htmlspecialchars((string) ($entry['visit_type_label'] ?? 'Booking'), ENT_QUOTES, 'UTF-8') . '" data-appt-payment-status="' . htmlspecialchars((string) ($entry['payment_status_label'] ?? 'Unpaid'), ENT_QUOTES, 'UTF-8') . '" data-appt-status="' . htmlspecialchars((string) ($entry['appointment_status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') . '"') : ''; ?>>
                                             <?php if ($isWork): ?>
                                                 <p class="text-[9px] font-black uppercase tracking-[0.12em] text-emerald-900/80 leading-tight">WORK SHIFT</p>
                                                 <p class="mt-0.5 text-[10px] font-black text-emerald-900 truncate"><?php echo htmlspecialchars($shortDentistName, ENT_QUOTES, 'UTF-8'); ?></p>
@@ -1324,6 +1459,30 @@ $dentistsSeedData = array_map(static function ($dentist) {
         </div>
     </div>
 </div>
+<div id="appointmentInfoTooltip" class="appointment-tooltip-card hidden" role="tooltip" aria-hidden="true">
+    <div class="px-3.5 py-3.5 space-y-2.5">
+        <div class="flex items-start gap-2.5">
+            <span class="inline-flex w-7 h-7 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 text-[15px] font-black">👤</span>
+            <div class="min-w-0">
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Patient</p>
+                <p id="apptTooltipPatientName" class="text-sm font-extrabold text-slate-800 leading-snug break-words mt-0.5"></p>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 gap-2">
+            <p id="apptTooltipDentistName" class="text-sm font-semibold text-slate-700 break-words">🦷</p>
+            <p id="apptTooltipTimeRange" class="text-sm font-semibold text-slate-700 break-words">🕒</p>
+        </div>
+        <div class="h-px bg-slate-200"></div>
+        <div class="space-y-1.5">
+            <p id="apptTooltipServiceName" class="text-sm font-semibold text-slate-700 break-words">📌</p>
+            <p id="apptTooltipType" class="text-sm font-semibold text-slate-700 break-words">📍</p>
+        </div>
+        <div class="space-y-1.5 pt-1">
+            <p id="apptTooltipPaymentStatus" class="text-sm font-semibold text-slate-700 break-words">💳</p>
+            <p id="apptTooltipAppointmentStatus" class="text-sm font-semibold text-slate-700 break-words">📊</p>
+        </div>
+    </div>
+</div>
 <script>
     (function () {
         const openSetShiftModalBtn = document.getElementById('openSetShiftModalBtn');
@@ -1357,6 +1516,14 @@ $dentistsSeedData = array_map(static function ($dentist) {
         const shiftInfoTooltip = document.getElementById('shiftInfoTooltip');
         const shiftTooltipDentistName = document.getElementById('shiftTooltipDentistName');
         const shiftTooltipTimeRange = document.getElementById('shiftTooltipTimeRange');
+        const appointmentInfoTooltip = document.getElementById('appointmentInfoTooltip');
+        const apptTooltipPatientName = document.getElementById('apptTooltipPatientName');
+        const apptTooltipDentistName = document.getElementById('apptTooltipDentistName');
+        const apptTooltipTimeRange = document.getElementById('apptTooltipTimeRange');
+        const apptTooltipServiceName = document.getElementById('apptTooltipServiceName');
+        const apptTooltipType = document.getElementById('apptTooltipType');
+        const apptTooltipPaymentStatus = document.getElementById('apptTooltipPaymentStatus');
+        const apptTooltipAppointmentStatus = document.getElementById('apptTooltipAppointmentStatus');
         const scheduleFilterForm = document.getElementById('scheduleFilterForm');
         const dentistsSeedData = <?php echo json_encode($dentistsSeedData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const stockDentistImage = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=60';
@@ -1418,6 +1585,13 @@ $dentistsSeedData = array_map(static function ($dentist) {
             shiftInfoTooltip.setAttribute('aria-hidden', 'true');
         }
 
+        function hideAppointmentTooltip() {
+            if (!appointmentInfoTooltip) return;
+            appointmentInfoTooltip.classList.remove('is-visible');
+            appointmentInfoTooltip.classList.add('hidden');
+            appointmentInfoTooltip.setAttribute('aria-hidden', 'true');
+        }
+
         function positionShiftTooltip(anchorRect, pointerX, pointerY) {
             if (!shiftInfoTooltip) return;
 
@@ -1453,12 +1627,69 @@ $dentistsSeedData = array_map(static function ($dentist) {
             const timeRange = String(target.getAttribute('data-shift-time') || '').trim();
             if (!fullName || !timeRange) return;
 
+            hideAppointmentTooltip();
             shiftTooltipDentistName.textContent = fullName;
             shiftTooltipTimeRange.textContent = timeRange;
             shiftInfoTooltip.classList.remove('hidden');
             shiftInfoTooltip.setAttribute('aria-hidden', 'false');
             positionShiftTooltip(target.getBoundingClientRect(), event.clientX, event.clientY);
             shiftInfoTooltip.classList.add('is-visible');
+        }
+
+        function positionAppointmentTooltip(anchorRect, pointerX, pointerY) {
+            if (!appointmentInfoTooltip) return;
+
+            const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+            const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+            const tooltipWidth = appointmentInfoTooltip.offsetWidth || 320;
+            const tooltipHeight = appointmentInfoTooltip.offsetHeight || 210;
+            const gap = 12;
+
+            let left = pointerX + gap;
+            if (left + tooltipWidth > viewportWidth - 8) {
+                left = Math.max(8, pointerX - tooltipWidth - gap);
+            }
+
+            let top = (anchorRect.top + anchorRect.bottom - tooltipHeight) / 2;
+            if (!Number.isFinite(top)) {
+                top = pointerY - (tooltipHeight / 2);
+            }
+            if (top + tooltipHeight > viewportHeight - 8) {
+                top = viewportHeight - tooltipHeight - 8;
+            }
+            if (top < 8) {
+                top = 8;
+            }
+
+            appointmentInfoTooltip.style.left = Math.round(left) + 'px';
+            appointmentInfoTooltip.style.top = Math.round(top) + 'px';
+        }
+
+        function showAppointmentTooltip(target, event) {
+            if (!appointmentInfoTooltip || !target) return;
+            if (!apptTooltipPatientName || !apptTooltipDentistName || !apptTooltipTimeRange || !apptTooltipServiceName || !apptTooltipType || !apptTooltipPaymentStatus || !apptTooltipAppointmentStatus) return;
+
+            const patientName = String(target.getAttribute('data-appt-patient-name') || '').trim();
+            const dentistName = String(target.getAttribute('data-appt-dentist-name') || '').trim();
+            const timeRange = String(target.getAttribute('data-appt-time') || '').trim();
+            const serviceName = String(target.getAttribute('data-appt-service-name') || '').trim();
+            const typeLabel = String(target.getAttribute('data-appt-type') || '').trim();
+            const paymentStatus = String(target.getAttribute('data-appt-payment-status') || '').trim();
+            const appointmentStatus = String(target.getAttribute('data-appt-status') || '').trim();
+            if (!patientName || !dentistName || !timeRange) return;
+
+            hideShiftTooltip();
+            apptTooltipPatientName.textContent = patientName;
+            apptTooltipDentistName.textContent = '🦷 Dentist: ' + (dentistName || '-');
+            apptTooltipTimeRange.textContent = '🕒 Time: ' + (timeRange || '-');
+            apptTooltipServiceName.textContent = '📌 Service: ' + (serviceName || '-');
+            apptTooltipType.textContent = '📍 Type: ' + (typeLabel || '-');
+            apptTooltipPaymentStatus.textContent = '💳 Status: ' + (paymentStatus || '-');
+            apptTooltipAppointmentStatus.textContent = '📊 Appointment: ' + (appointmentStatus || '-');
+            appointmentInfoTooltip.classList.remove('hidden');
+            appointmentInfoTooltip.setAttribute('aria-hidden', 'false');
+            positionAppointmentTooltip(target.getBoundingClientRect(), event.clientX, event.clientY);
+            appointmentInfoTooltip.classList.add('is-visible');
         }
 
         function syncModalBodyScrollLock() {
@@ -1804,8 +2035,26 @@ $dentistsSeedData = array_map(static function ($dentist) {
             shiftEl.addEventListener('mouseleave', hideShiftTooltip);
         });
 
-        window.addEventListener('scroll', hideShiftTooltip, { passive: true });
-        window.addEventListener('resize', hideShiftTooltip);
+        const appointmentTooltipTargets = document.querySelectorAll('[data-appointment-tooltip="1"]');
+        appointmentTooltipTargets.forEach(function (apptEl) {
+            apptEl.addEventListener('mouseenter', function (event) {
+                showAppointmentTooltip(apptEl, event);
+            });
+            apptEl.addEventListener('mousemove', function (event) {
+                if (!appointmentInfoTooltip || appointmentInfoTooltip.classList.contains('hidden')) return;
+                positionAppointmentTooltip(apptEl.getBoundingClientRect(), event.clientX, event.clientY);
+            });
+            apptEl.addEventListener('mouseleave', hideAppointmentTooltip);
+        });
+
+        window.addEventListener('scroll', function () {
+            hideShiftTooltip();
+            hideAppointmentTooltip();
+        }, { passive: true });
+        window.addEventListener('resize', function () {
+            hideShiftTooltip();
+            hideAppointmentTooltip();
+        });
     })();
 </script>
 </body>
