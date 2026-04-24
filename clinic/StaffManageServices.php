@@ -129,6 +129,21 @@ try {
         .staff-modal-panel {
             animation: staff-modal-panel-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
+        #editServiceModal {
+            overflow-y: auto;
+        }
+        #editServiceModal .staff-modal-panel {
+            margin: auto;
+        }
+        #editServiceModal .staff-modal-content {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+        }
+        #editServiceModal .staff-modal-actions {
+            flex: 0 0 auto;
+            width: 100%;
+        }
         @keyframes staff-modal-fade-in {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -449,7 +464,7 @@ Add Service
 <span class="material-symbols-outlined text-[22px]">close</span>
 </button>
 </div>
-<div class="flex-1 overflow-y-auto px-6 sm:px-8 py-6 space-y-8">
+<div class="staff-modal-content px-6 sm:px-8 py-6 space-y-8">
 <input type="hidden" id="editServiceId"/>
 <section>
 <div class="flex items-center gap-2 mb-4">
@@ -653,7 +668,7 @@ Duration (months) <span class="text-red-500 font-bold">*</span>
 </div>
 </section>
 </div>
-<div class="shrink-0 border-t border-slate-100 bg-slate-50/50 px-6 sm:px-8 py-4 flex flex-wrap items-center justify-end gap-3">
+<div class="staff-modal-actions shrink-0 border-t border-slate-100 bg-slate-50/50 px-6 sm:px-8 py-4 flex flex-wrap items-center justify-end gap-3">
 <button type="button" id="cancelEditServiceBtn" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
 <span class="material-symbols-outlined text-[18px]">close</span>
 Cancel
