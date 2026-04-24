@@ -2750,11 +2750,12 @@ try {
                             ELSE 'regular'
                         END"
                     : "'installment'");
-            $transactionsRegularCostExpr = 'COALESCE(SUM(aps.price), 0)';
-            if (in_array('is_original', $appointmentServiceColumns, true)) {
-                // Exclude paid add-ons from future pending transaction totals.
-                $transactionsRegularCostExpr = 'COALESCE(SUM(CASE WHEN COALESCE(aps.is_original, 1) = 1 THEN aps.price ELSE 0 END), 0)';
-            }
+            // GROUP BY service bucket already splits regular vs installment lines. Sum all
+            // line prices in that bucket (add-ons with is_original=0 must be included) so
+            // walk-ins and follow-up visits with only add-on regular services do not show ₱0
+            // pending. Fall back to the appointment header when the line sum is missing/zero.
+            $lineSumInGroup = 'COALESCE(SUM(aps.price), 0)';
+            $transactionsRegularCostExpr = 'COALESCE(NULLIF(' . $lineSumInGroup . ', 0), NULLIF(COALESCE(a.total_treatment_cost, 0), 0), 0)';
             $transactionsSql = "
                 SELECT
                     a.booking_id,
@@ -3152,7 +3153,13 @@ try {
                             WHEN TRIM(COALESCE(aps.treatment_id, '')) <> '' THEN 'installment'
                             ELSE 'regular'
                         END"
-                    : "'installment'";
+                    : ($supportsServiceEnableInstallmentColumn
+                        ? "CASE
+                                WHEN COALESCE(sv.enable_installment, 0) = 1 THEN 'installment'
+                                WHEN TRIM(COALESCE(aps.treatment_id, '')) <> '' THEN 'installment'
+                                ELSE 'regular'
+                            END"
+                        : "'regular'");
                 $bookedSql = "
                     SELECT
                         aps.booking_id,
@@ -4852,7 +4859,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const bookedInstallment = bookedServicesRaw.filter((s) => {
                 let serviceType = String((s && s.service_type) || '').toLowerCase().trim();
                 if (!serviceType) {
-                    serviceType = 'installment';
+                    serviceType = 'regular';
                 }
                 if (serviceType === 'installment') {
                     return true;
@@ -4864,7 +4871,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 const sid = String((s && s.service_id) || '').trim();
                 let serviceType = String((s && s.service_type) || '').toLowerCase().trim();
                 if (!serviceType) {
-                    serviceType = 'installment';
+                    serviceType = 'regular';
                 }
                 if (serviceType === 'installment') {
                     return false;

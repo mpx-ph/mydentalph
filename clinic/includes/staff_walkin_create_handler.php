@@ -238,6 +238,8 @@ try {
     }
 
     if ($treatmentsTable !== null) {
+        $paymentsTable = clinic_get_physical_table_name($pdo, 'tbl_payments')
+            ?? clinic_get_physical_table_name($pdo, 'payments');
         $qtreat = clinic_quote_identifier($treatmentsTable);
         $activeTreatmentStmt = $pdo->prepare("
             SELECT *
@@ -667,13 +669,17 @@ try {
                 $serviceRowId = trim((string) ($serviceRow['service_id'] ?? ''));
                 $isInstallmentRow = !empty($serviceRow['enable_installment']) || ($primaryServiceId !== '' && $serviceRowId === $primaryServiceId);
                 $serviceRowType = $isInstallmentRow ? 'installment' : 'regular';
+                // StaffPaymentRecording pending totals sum is_original=1 line items. Mark primary visit
+                // services as original; only true add-ons (extra regular services during active treatment) stay 0.
+                $isAddOnService = $primaryServiceId !== '' && $serviceRowId !== $primaryServiceId;
+                $isOriginalLine = $isInstallmentRow || !$isAddOnService;
                 $rowData = [
                     'tenant_id' => $tenantId,
                     'booking_id' => $planBookingId,
                     'service_id' => $serviceRow['service_id'],
                     'service_name' => $serviceRow['service_name'],
                     'price' => $serviceRow['price'],
-                    'is_original' => $isInstallmentRow ? 1 : 0,
+                    'is_original' => $isOriginalLine ? 1 : 0,
                     'treatment_id' => $isInstallmentRow ? $plan['treatment_id'] : null,
                     'added_by' => $createdBy,
                     'service_type' => $serviceRowType,
