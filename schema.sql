@@ -458,6 +458,8 @@ CREATE TABLE IF NOT EXISTS tbl_services (
     service_details TEXT,
     category VARCHAR(100),
     price DECIMAL(10,2),
+    service_duration INT NOT NULL DEFAULT 0 COMMENT 'Service length in minutes',
+    buffer_time INT NOT NULL DEFAULT 0 COMMENT 'Extra buffer after service in minutes',
     downpayment_percentage DECIMAL(5,2) DEFAULT NULL COMMENT 'Optional % for regular (non-installment) bookings; NULL uses clinic default',
     enable_installment TINYINT(1) NOT NULL DEFAULT 0,
     installment_downpayment DECIMAL(10,2) DEFAULT NULL COMMENT 'Peso downpayment when installment plan enabled',
