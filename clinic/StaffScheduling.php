@@ -80,7 +80,7 @@ function mapAppointmentClass($serviceType)
     } else {
         $label = 'Treatment';
     }
-    return ['label' => $label, 'class' => 'bg-sky-100 border-sky-300 text-sky-900'];
+    return ['label' => $label, 'class' => 'bg-[#2b8beb] border-[#2b8beb] text-white'];
 }
 
 function normalizeAppointmentStatus($statusValue)
