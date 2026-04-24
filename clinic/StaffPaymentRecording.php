@@ -2797,6 +2797,8 @@ try {
                    AND p.patient_id = a.patient_id
                 WHERE a.tenant_id = ?
                   AND LOWER(COALESCE(a.status, '')) <> 'cancelled'
+                  AND TRIM(COALESCE(a.booking_id, '')) <> ''
+                  AND TRIM(COALESCE(a.patient_id, '')) <> ''
                 GROUP BY
                     a.booking_id,
                     COALESCE(aps.appointment_id, a.id, 0),
@@ -2856,6 +2858,8 @@ try {
                    AND p.patient_id = a.patient_id
                 WHERE a.tenant_id = ?
                   AND LOWER(COALESCE(a.status, '')) <> 'cancelled'
+                  AND TRIM(COALESCE(a.booking_id, '')) <> ''
+                  AND TRIM(COALESCE(a.patient_id, '')) <> ''
                 GROUP BY
                     a.booking_id,
                     a.id,
@@ -3343,6 +3347,13 @@ try {
                 $transactionCandidates = $collapsedRows;
             }
         }
+        if ($transactionCandidates !== []) {
+            $transactionCandidates = array_values(array_filter($transactionCandidates, static function (array $row): bool {
+                $bid = trim((string) ($row['booking_id'] ?? ''));
+                $pid = trim((string) ($row['patient_id'] ?? ''));
+                return $bid !== '' && $pid !== '';
+            }));
+        }
         foreach ($transactionCandidates as $candRow) {
             $transactionDebugRows[] = [
                 'service_type' => strtolower(trim((string) ($candRow['service_type'] ?? ''))),
@@ -3400,7 +3411,7 @@ if ($paymentError === 'Please select a payment method.') {
     $serverValidationPopupMessage = 'No payment method selected';
     $inlinePaymentError = '';
 } elseif ($paymentError === 'Please select a pending appointment transaction first.') {
-    $serverValidationPopupMessage = 'No patient selected';
+    $serverValidationPopupMessage = 'No booking selected';
     $inlinePaymentError = '';
 }
 ?>
@@ -4815,6 +4826,19 @@ This booking is installment-priced, but no installment schedule rows exist in th
 
         const SETTLED_BALANCE_EPSILON = 0.05;
 
+        function buildTransactionPickerLabel(row) {
+            if (!row) {
+                return '';
+            }
+            const name = String(row.patient_name || 'Unknown Patient').trim() || 'Unknown Patient';
+            const p = Number(row.pending_balance || 0);
+            const tid = String(row.treatment_id || '').trim();
+            if (String(row.transaction_type || '') === 'installment' && tid !== '') {
+                return name + ' | Treatment ' + tid + ' | Pending ₱' + p.toFixed(2);
+            }
+            return name + ' | Booking ' + String(row.booking_id || '-').trim() + ' | Pending ₱' + p.toFixed(2);
+        }
+
         const normalizeTransactions = transactionCandidates.flatMap((item) => {
             const totalCost = Number(item.total_treatment_cost || 0);
             const totalPaid = Number(item.total_paid || 0);
@@ -4843,10 +4867,6 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 : Math.max(0, totalCost - totalPaid);
             const pendingBalance = pendingBalanceRaw <= SETTLED_BALANCE_EPSILON ? 0 : pendingBalanceRaw;
             const treatmentId = String(item.treatment_id || '').trim();
-            const recordRef = (isInstallmentPlan && treatmentId !== '')
-                ? ('Treatment ' + treatmentId)
-                : ('Booking ' + (item.booking_id || '-'));
-            const label = patientName + ' | ' + recordRef + ' | Pending ₱' + pendingBalance.toFixed(2);
             const bookedServicesRaw = Array.isArray(item.booked_services) ? item.booked_services : [];
             const booked_service_ids = bookedServicesRaw
                 .map((s) => String((s && s.service_id) || '').trim())
@@ -4880,11 +4900,14 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const bookedRegularOriginal = bookedRegular.filter((s) => !(s && (s.is_addon === true || s.is_addon === 1 || s.is_addon === '1')));
             const regularCostByLines = bookedRegularOriginal.reduce((sum, s) => sum + Number((s && s.price) || 0), 0);
             const normalizedServiceType = String(item.service_type || '').toLowerCase().trim();
+            const hasInstallmentSchedule = Array.isArray(item.installment_schedule) && item.installment_schedule.length > 0;
+            // Do not treat a bare appointment treatment_id as installment unless there is
+            // installer evidence (avoids false dual rows: list shows regular pending, submit says paid).
             const hasInstallmentEntry =
-                isInstallmentPlan ||
-                bookedInstallment.length > 0 ||
-                treatmentId !== '' ||
-                normalizedServiceType === 'installment';
+                isInstallmentPlan
+                || bookedInstallment.length > 0
+                || normalizedServiceType === 'installment'
+                || hasInstallmentSchedule;
             const hasRegularEntry = bookedRegular.length > 0 || !hasInstallmentEntry;
             const installmentScheduleRaw = Array.isArray(item.installment_schedule) ? item.installment_schedule : [];
             const installmentTotalBySchedule = installmentScheduleRaw.reduce((sum, r) => sum + Number((r && r.amount_due) || 0), 0);
@@ -4920,7 +4943,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 is_installment_plan: isInstallmentPlan,
                 installment_schedule: Array.isArray(item.installment_schedule) ? item.installment_schedule : [],
                 primary_installment_service_id: primaryInstallmentServiceId,
-                label: label
+                label: ''
             };
             const rows = [];
             if (hasRegularEntry) {
@@ -4974,11 +4997,16 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
             return rows;
         }).filter((item) => {
+            if (String(item.patient_id || '').trim() === '' || String(item.booking_id || '').trim() === '') {
+                return false;
+            }
             if (item.transaction_type === 'installment') {
                 const remaining = Number(item.pending_balance || 0);
                 return remaining > SETTLED_BALANCE_EPSILON;
             }
             return Number(item.pending_balance || 0) > SETTLED_BALANCE_EPSILON;
+        }).map((row) => {
+            return Object.assign({}, row, { label: buildTransactionPickerLabel(row) });
         });
 
         if (Array.isArray(transactionDebugRows) && transactionDebugRows.length) {
@@ -5652,7 +5680,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 }
                 if (!bookingIdValue) {
                     event.preventDefault();
-                    showValidationPopup('No patient selected');
+                    showValidationPopup('No booking selected. Choose a transaction with a booking reference.');
                     return;
                 }
                 if (!paymentMethodValue) {
