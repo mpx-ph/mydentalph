@@ -156,6 +156,8 @@ if ($setShiftDefaultDate < $todayDateOnly) {
 $dentists = [];
 $selectedDentistUserId = isset($_GET['user_id']) ? trim((string) $_GET['user_id']) : '';
 $selectedDentistId = isset($_GET['dentist_id']) ? trim((string) $_GET['dentist_id']) : '';
+$showCompletedInput = isset($_GET['show_completed']) ? strtolower(trim((string) $_GET['show_completed'])) : '1';
+$showCompletedAppointments = !in_array($showCompletedInput, ['0', 'false', 'off', 'no'], true);
 $hasUserFilterParam = array_key_exists('user_id', $_GET);
 $hasDentistIdFilterParam = array_key_exists('dentist_id', $_GET);
 $selectedDentistName = 'All dentists';
@@ -693,14 +695,19 @@ try {
                 $endMin = $startMin + 60;
                 $mapped = mapAppointmentClass((string) ($row['service_type'] ?? ''));
                 $appointmentStatus = normalizeAppointmentStatus((string) ($row['appointment_status'] ?? 'pending'));
-                $appointmentDate = trim((string) ($row['appointment_date'] ?? ''));
+                if (!$showCompletedAppointments && $appointmentStatus === 'completed') {
+                    continue;
+                }
+                $isCompletedAppointment = $appointmentStatus === 'completed';
                 $entriesByDate[$dateKey][] = [
                     'start_min' => $startMin,
                     'end_min' => $endMin,
-                    'label' => 'Appointment',
-                    'status_label' => formatAppointmentStatusLabel($appointmentStatus),
+                    'label' => $isCompletedAppointment ? 'Completed' : 'Appointment',
+                    'status_label' => $isCompletedAppointment ? '' : formatAppointmentStatusLabel($appointmentStatus),
                     'service_label' => (string) ($mapped['label'] ?? 'Treatment'),
-                    'class' => (string) ($mapped['class'] ?? 'bg-sky-100 border-sky-300 text-sky-900'),
+                    'class' => $isCompletedAppointment
+                        ? 'bg-[#2b8beb]/20 border-[#2b8beb]/35 text-[#2b8beb]'
+                        : (string) ($mapped['class'] ?? 'bg-[#2b8beb] border-[#2b8beb] text-white'),
                     'kind' => 'appointment',
                 ];
             }
@@ -963,7 +970,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
 
         <section class="elevated-card p-6 rounded-3xl">
             <form method="get" id="scheduleFilterForm" class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                <div class="lg:col-span-5">
+                <div class="lg:col-span-4">
                     <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Dentist</label>
                     <input id="selectedDentistUserId" type="hidden" name="user_id" value="<?php echo htmlspecialchars($selectedDentistUserId, ENT_QUOTES, 'UTF-8'); ?>"/>
                     <input id="selectedDentistId" type="hidden" name="dentist_id" value="<?php echo htmlspecialchars($selectedDentistId, ENT_QUOTES, 'UTF-8'); ?>"/>
@@ -980,14 +987,22 @@ $dentistsSeedData = array_map(static function ($dentist) {
                         <?php echo $isDentistFiltered ? 'Showing filtered view for selected dentist.' : 'Showing overall view for all dentists.'; ?>
                     </p>
                 </div>
-                <div class="lg:col-span-4">
+                <div class="lg:col-span-3">
                     <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Week Reference Date</label>
                     <input type="date" name="selected_date" value="<?php echo htmlspecialchars($selectedDate->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" class="w-full py-3 px-4 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary"/>
+                </div>
+                <div class="lg:col-span-3">
+                    <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Completed Appointments</label>
+                    <label class="h-[46px] px-4 rounded-xl border border-slate-200 bg-white inline-flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer select-none w-full">
+                        <input type="hidden" name="show_completed" value="0"/>
+                        <input type="checkbox" name="show_completed" value="1" <?php echo $showCompletedAppointments ? 'checked' : ''; ?> class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/30"/>
+                        <span>Show Completed</span>
+                    </label>
                 </div>
                 <?php if ($currentTenantSlug !== ''): ?>
                     <input type="hidden" name="clinic_slug" value="<?php echo htmlspecialchars($currentTenantSlug, ENT_QUOTES, 'UTF-8'); ?>"/>
                 <?php endif; ?>
-                <div class="lg:col-span-3 flex items-end">
+                <div class="lg:col-span-2 flex items-end">
                     <button type="submit" class="w-full px-5 py-3 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs uppercase tracking-widest transition-colors">
                         Apply Week
                     </button>
