@@ -4881,8 +4881,10 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 }
                 return true;
             });
-            const bookedRegularOriginal = bookedRegular.filter((s) => !(s && (s.is_addon === true || s.is_addon === 1 || s.is_addon === '1')));
-            const regularCostByLines = bookedRegularOriginal.reduce((sum, s) => sum + Number((s && s.price) || 0), 0);
+            // Regular transaction cards should account for all regular lines (including
+            // add-ons). Excluding add-ons here can inflate pending balance and keep fully
+            // paid regular cards visible.
+            const regularCostByLines = bookedRegular.reduce((sum, s) => sum + Number((s && s.price) || 0), 0);
             const normalizedServiceType = String(item.service_type || '').toLowerCase().trim();
             const hasInstallmentEntry =
                 isInstallmentPlan ||
