@@ -3416,7 +3416,7 @@ if ($paymentError === 'Please select a payment method.') {
 <html class="light" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Staff - Payments Recording</title>
+<title>Staff - Payment Recording</title>
 <!-- Google Fonts: Manrope & Playfair Display -->
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
@@ -4820,6 +4820,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
         }
 
+        const SETTLED_BALANCE_EPSILON = 0.05;
+
         const normalizeTransactions = transactionCandidates.flatMap((item) => {
             const totalCost = Number(item.total_treatment_cost || 0);
             const totalPaid = Number(item.total_paid || 0);
@@ -4843,9 +4845,10 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const effectiveInstallmentPending = hasTreatmentRemainingBalance
                 ? Math.max(0, rawTreatmentRemainingBalance)
                 : Math.max(0, effectiveInstallmentTotalCost - effectiveInstallmentPaid);
-            const pendingBalance = isInstallmentPlan
+            const pendingBalanceRaw = isInstallmentPlan
                 ? effectiveInstallmentPending
                 : Math.max(0, totalCost - totalPaid);
+            const pendingBalance = pendingBalanceRaw <= SETTLED_BALANCE_EPSILON ? 0 : pendingBalanceRaw;
             const treatmentId = String(item.treatment_id || '').trim();
             const recordRef = (isInstallmentPlan && treatmentId !== '')
                 ? ('Treatment ' + treatmentId)
@@ -4881,10 +4884,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 }
                 return true;
             });
-            // Regular transaction cards should account for all regular lines (including
-            // add-ons). Excluding add-ons here can inflate pending balance and keep fully
-            // paid regular cards visible.
-            const regularCostByLines = bookedRegular.reduce((sum, s) => sum + Number((s && s.price) || 0), 0);
+            const bookedRegularOriginal = bookedRegular.filter((s) => !(s && (s.is_addon === true || s.is_addon === 1 || s.is_addon === '1')));
+            const regularCostByLines = bookedRegularOriginal.reduce((sum, s) => sum + Number((s && s.price) || 0), 0);
             const normalizedServiceType = String(item.service_type || '').toLowerCase().trim();
             const hasInstallmentEntry =
                 isInstallmentPlan ||
@@ -4945,7 +4946,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     installment_schedule: [],
                     total_cost: regularCost,
                     total_paid: regularPaid,
-                    pending_balance: Math.max(0, regularCost - regularPaid),
+                    pending_balance: Math.max(0, regularCost - regularPaid) <= SETTLED_BALANCE_EPSILON
+                        ? 0
+                        : Math.max(0, regularCost - regularPaid),
                     booked_services: bookedRegular.length ? bookedRegular : bookedServicesRaw,
                     booked_service_ids: (bookedRegular.length ? bookedRegular : bookedServicesRaw)
                         .map((s) => String((s && s.service_id) || '').trim())
@@ -4955,9 +4958,12 @@ This booking is installment-priced, but no installment schedule rows exist in th
             if (hasInstallmentEntry) {
                 const installmentTotal = effectiveInstallmentTotalCost > 0 ? effectiveInstallmentTotalCost : installmentTotalBySchedule;
                 const installmentPaid = Math.max(0, Math.min(installmentTotal > 0 ? installmentTotal : installmentPaidResolved, installmentPaidResolved));
-                const installmentRemainingBalance = hasTreatmentRemainingBalance
+                const installmentRemainingBalanceRaw = hasTreatmentRemainingBalance
                     ? effectiveInstallmentPending
                     : Math.max(0, installmentTotal - installmentPaid);
+                const installmentRemainingBalance = installmentRemainingBalanceRaw <= SETTLED_BALANCE_EPSILON
+                    ? 0
+                    : installmentRemainingBalanceRaw;
                 rows.push({
                     ...baseRow,
                     transaction_key: (baseRow.treatment_id ? ('treatment:' + baseRow.treatment_id) : ('booking:' + baseRow.booking_id)) + '::installment',
@@ -4977,9 +4983,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
         }).filter((item) => {
             if (item.transaction_type === 'installment') {
                 const remaining = Number(item.pending_balance || 0);
-                return remaining > 0.009;
+                return remaining > SETTLED_BALANCE_EPSILON;
             }
-            return Number(item.pending_balance || 0) > 0.009;
+            return Number(item.pending_balance || 0) > SETTLED_BALANCE_EPSILON;
         });
 
         if (Array.isArray(transactionDebugRows) && transactionDebugRows.length) {
