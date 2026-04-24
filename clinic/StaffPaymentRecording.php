@@ -1570,19 +1570,19 @@ try {
                     }
                     $serviceTotalsStmt = $pdo->prepare("
                         SELECT
-                            COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment') AS normalized_service_type,
+                            COALESCE(NULLIF(TRIM(aps.service_type), ''), 'regular') AS normalized_service_type,
                             COALESCE(SUM(COALESCE(aps.price, 0)), 0) AS total_cost
                         FROM tbl_appointment_services aps
                         WHERE aps.tenant_id = ?
                           AND aps.booking_id = ?
                           {$serviceTotalsAddonFilter}
-                        GROUP BY COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment')
+                        GROUP BY COALESCE(NULLIF(TRIM(aps.service_type), ''), 'regular')
                     ");
                     $serviceTotalsStmt->execute([$tenantId, $selectedBookingId]);
                     foreach ($serviceTotalsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $serviceTotalRow) {
                         $normalizedType = strtolower(trim((string) ($serviceTotalRow['normalized_service_type'] ?? '')));
                         if ($normalizedType !== 'regular' && $normalizedType !== 'installment') {
-                            $normalizedType = 'installment';
+                            $normalizedType = 'regular';
                         }
                         $serviceTypeTotals[$normalizedType] += (float) ($serviceTotalRow['total_cost'] ?? 0);
                     }
