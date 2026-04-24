@@ -225,7 +225,7 @@ try {
 </main>
 
 <div id="newServiceModal" class="staff-modal-overlay fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4">
-<div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
+<div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] overflow-y-auto">
 <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
 <span class="material-symbols-outlined text-2xl text-primary">add</span>
@@ -238,7 +238,7 @@ try {
 <span class="material-symbols-outlined text-[22px]">close</span>
 </button>
 </div>
-<div class="flex-1 overflow-y-auto px-6 sm:px-8 py-6 space-y-8">
+<div class="px-6 sm:px-8 py-6 space-y-8">
 <section>
 <div class="flex items-center gap-2 mb-4">
 <span class="material-symbols-outlined text-primary text-[22px]">info</span>
@@ -422,7 +422,7 @@ Duration (months) <span class="text-red-500 font-bold">*</span>
 </div>
 </section>
 </div>
-<div class="shrink-0 border-t border-slate-100 bg-slate-50/50 px-6 sm:px-8 py-4 flex flex-wrap items-center justify-end gap-3">
+<div class="border-t border-slate-100 bg-slate-50/50 px-6 sm:px-8 py-4 flex flex-wrap items-center justify-end gap-3">
 <button type="button" id="cancelNewServiceBtn" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
 <span class="material-symbols-outlined text-[18px]">close</span>
 Cancel
