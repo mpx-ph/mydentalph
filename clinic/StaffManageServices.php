@@ -135,15 +135,6 @@ try {
         #editServiceModal .staff-modal-panel {
             margin: auto;
         }
-        #editServiceModal .staff-modal-content {
-            flex: 1 1 auto;
-            min-height: 0;
-            overflow-y: auto;
-        }
-        #editServiceModal .staff-modal-actions {
-            flex: 0 0 auto;
-            width: 100%;
-        }
         @keyframes staff-modal-fade-in {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -451,7 +442,7 @@ Add Service
 </div>
 
 <div id="editServiceModal" class="staff-modal-overlay fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4">
-<div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
+<div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] overflow-y-auto">
 <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
 <span class="material-symbols-outlined text-2xl text-primary">edit</span>
@@ -464,7 +455,7 @@ Add Service
 <span class="material-symbols-outlined text-[22px]">close</span>
 </button>
 </div>
-<div class="staff-modal-content px-6 sm:px-8 py-6 space-y-8">
+<div class="px-6 sm:px-8 py-6 space-y-8">
 <input type="hidden" id="editServiceId"/>
 <section>
 <div class="flex items-center gap-2 mb-4">
@@ -472,13 +463,7 @@ Add Service
 <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Basic Information</h4>
 </div>
 <div class="space-y-5">
-<div>
-<label for="editServiceIdCode" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
-<span class="material-symbols-outlined text-[18px] text-slate-500">badge</span>
-Service ID
-</label>
-<input type="text" id="editServiceIdCode" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 text-[15px] shadow-sm" readonly/>
-</div>
+<input type="hidden" id="editServiceIdCode"/>
 <div>
 <label for="editServiceName" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
 <span class="material-symbols-outlined text-[18px] text-slate-500">medical_services</span>
@@ -563,7 +548,7 @@ Status
 <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Payment Configuration</h4>
 </div>
 <div id="editServiceDefaultPaymentShell" class="space-y-3">
-<div id="editServicePaymentTypeRow" class="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between lg:gap-6">
+<div id="editServicePaymentTypeRow" class="flex flex-col gap-4 pt-1 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between lg:gap-6">
 <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-8 shrink-0">
 <label class="inline-flex items-center gap-2.5 cursor-pointer group">
 <input type="radio" name="editServiceBillingType" value="regular" id="editServiceBillingRegular" class="h-4 w-4 shrink-0 border-slate-300 text-primary accent-primary focus:ring-primary"/>
@@ -577,25 +562,26 @@ Status
 <div class="w-full min-w-0 lg:max-w-[17rem] lg:flex-shrink-0">
 <label for="editServiceAutoDownpaymentDisplay" class="flex items-start gap-1.5 text-xs font-semibold text-slate-700 mb-1.5">
 <span class="material-symbols-outlined text-[16px] text-slate-500 shrink-0 mt-0.5">calculate</span>
-<span class="leading-snug">Default Downpayment (₱)</span>
+<span class="leading-snug">Auto-calculated Downpayment (₱)</span>
 </label>
-<p id="editServiceDpHelpRegular" class="text-[11px] text-slate-500 leading-relaxed mb-2 pl-[1.375rem]">Uses Payment Settings: regular services at <span id="editServiceDefaultDpPctLabel"><?php echo htmlspecialchars(number_format($defaultRegularDownpaymentPercent, 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?></span>%.</p>
-<p id="editServiceDpHelpInstallment" class="hidden text-[11px] text-slate-500 leading-relaxed mb-2 pl-[1.375rem]">Uses Payment Settings: long-term minimum ₱<span id="editServiceDefaultLongTermLabel"><?php echo htmlspecialchars(number_format($defaultLongTermMinDownpayment, 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?></span>.</p>
-<input type="text" id="editServiceAutoDownpaymentDisplay" readonly tabindex="-1" value="" placeholder="—" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 text-[15px] font-semibold tabular-nums cursor-default"/>
+<p id="editServiceDpHelpRegular" class="text-[11px] text-slate-500 leading-relaxed mb-2 pl-[1.375rem]">Default down payment uses the <strong class="font-semibold text-slate-600">regular services</strong> percentage from Payment Settings (<span id="editServiceDefaultDpPctLabel"><?php echo htmlspecialchars(number_format($defaultRegularDownpaymentPercent, 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?></span>% of price).</p>
+<p id="editServiceDpHelpInstallment" class="hidden text-[11px] text-slate-500 leading-relaxed mb-2 pl-[1.375rem]">Default down payment uses the <strong class="font-semibold text-slate-600">long-term minimum</strong> from Payment Settings (₱<span id="editServiceDefaultLongTermLabel"><?php echo htmlspecialchars(number_format($defaultLongTermMinDownpayment, 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?></span>).</p>
+<input type="text" id="editServiceAutoDownpaymentDisplay" readonly tabindex="-1" value="" placeholder="—" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 text-[15px] font-semibold tabular-nums cursor-default shadow-inner" aria-describedby="editServiceAutoDownpaymentHint"/>
+<p id="editServiceAutoDownpaymentHint" class="sr-only">Read-only default from Payment Settings; applied automatically when custom payment is off.</p>
 </div>
 </div>
-<div id="editServiceGlobalInstallmentSection" class="hidden rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
+<div id="editServiceGlobalInstallmentSection" class="hidden rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:p-5 mt-2">
 <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">Installment schedule</p>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-x-5">
 <div class="flex flex-col gap-2">
-<label for="editServiceGlobalInstallmentDuration" class="flex items-center gap-1.5 min-h-[2.5rem] text-sm font-semibold text-slate-700">
+<label for="editServiceGlobalInstallmentDuration" class="flex items-center gap-1.5 min-h-[2.5rem] text-sm font-semibold text-slate-800">
 <span class="material-symbols-outlined text-[18px] text-slate-500 shrink-0">calendar_month</span>
-<span>Duration (months) <span class="text-red-500">*</span></span>
+<span>Duration (months) <span class="text-red-500 font-bold">*</span></span>
 </label>
-<input type="number" id="editServiceGlobalInstallmentDuration" step="1" min="1" class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-slate-900"/>
+<input type="number" id="editServiceGlobalInstallmentDuration" step="1" min="1" placeholder="0" class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
 </div>
 <div class="flex flex-col gap-2">
-<label for="editServiceGlobalInstallmentMonthly" class="flex items-center gap-1.5 min-h-[2.5rem] text-sm font-semibold text-slate-700">
+<label for="editServiceGlobalInstallmentMonthly" class="flex items-center gap-1.5 min-h-[2.5rem] text-sm font-semibold text-slate-800">
 <span class="material-symbols-outlined text-[18px] text-slate-500 shrink-0">calculate</span>
 <span>Monthly Payment (₱)</span>
 </label>
@@ -607,7 +593,8 @@ Status
 </div>
 <div class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
 <div class="flex items-center gap-3">
-<input type="checkbox" id="editServiceUseCustomPayment" class="h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 text-primary accent-primary"/>
+<input type="checkbox" id="editServiceUseCustomPayment" class="h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 text-primary focus:ring-2 focus:ring-primary/30 focus:ring-offset-0 accent-primary" aria-label="Use custom payment settings"/>
+<span id="editCustomPaymentEnableCheck" class="hidden shrink-0 text-emerald-500" aria-hidden="true"><span class="material-symbols-outlined text-[22px]">check_circle</span></span>
 <label for="editServiceUseCustomPayment" class="text-sm font-semibold text-slate-800 cursor-pointer">Use Custom Payment Settings</label>
 </div>
 </div>
@@ -626,8 +613,12 @@ Custom Down Payment (%)
 </div>
 <div id="editServiceInstallmentToggleBlock" class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
 <div class="flex items-center gap-3">
-<input type="checkbox" id="editServiceEnableInstallment" class="h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 text-primary accent-primary"/>
+<input type="checkbox" id="editServiceEnableInstallment" class="h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 text-primary focus:ring-2 focus:ring-primary/30 focus:ring-offset-0 accent-primary" aria-label="Enable installment plan"/>
+<span id="editInstallmentEnableCheck" class="hidden shrink-0 text-emerald-500" aria-hidden="true"><span class="material-symbols-outlined text-[22px]">check_circle</span></span>
+<div class="min-w-0 flex-1 flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px] text-slate-500 shrink-0">credit_card</span>
 <label for="editServiceEnableInstallment" class="text-sm font-semibold text-slate-800 cursor-pointer">Enable Installment Plan for this Service</label>
+</div>
 </div>
 </div>
 <div id="editServiceInstallmentConfigBlock" class="hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.06] to-slate-50/80 p-4 sm:p-5 space-y-5">
@@ -668,7 +659,7 @@ Duration (months) <span class="text-red-500 font-bold">*</span>
 </div>
 </section>
 </div>
-<div class="staff-modal-actions shrink-0 border-t border-slate-100 bg-slate-50/50 px-6 sm:px-8 py-4 flex flex-wrap items-center justify-end gap-3">
+<div class="border-t border-slate-100 bg-slate-50/50 px-6 sm:px-8 py-4 flex flex-wrap items-center justify-end gap-3">
 <button type="button" id="cancelEditServiceBtn" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
 <span class="material-symbols-outlined text-[18px]">close</span>
 Cancel
@@ -1054,7 +1045,9 @@ function recalcInstallmentMonthly(scope) {
 function syncCustomPaymentVisibility(scope) {
     const p = payPrefix(scope);
     const use = document.getElementById(p + 'UseCustomPayment').checked;
-    const customCheck = scope === 'new' ? document.getElementById('customPaymentEnableCheck') : null;
+    const customCheck = scope === 'new'
+        ? document.getElementById('customPaymentEnableCheck')
+        : document.getElementById('editCustomPaymentEnableCheck');
     if (customCheck) {
         customCheck.classList.toggle('hidden', !use);
     }
@@ -1083,11 +1076,11 @@ function syncCustomPaymentVisibility(scope) {
         document.getElementById(p + 'InstallmentDownpayment').value = '';
         document.getElementById(p + 'InstallmentDuration').value = '';
         document.getElementById(p + 'InstallmentMonthly').value = '';
-        if (scope === 'new') {
-            const check = document.getElementById('installmentEnableCheck');
-            if (check) {
-                check.classList.add('hidden');
-            }
+        const check = scope === 'new'
+            ? document.getElementById('installmentEnableCheck')
+            : document.getElementById('editInstallmentEnableCheck');
+        if (check) {
+            check.classList.add('hidden');
         }
         document.getElementById(p + 'InstallmentConfigBlock').classList.add('hidden');
         document.getElementById(p + 'RegularDownpaymentBlock').classList.remove('hidden');
@@ -1105,11 +1098,11 @@ function syncInstallmentMode(scope) {
     const on = document.getElementById(p + 'EnableInstallment').checked;
     document.getElementById(p + 'RegularDownpaymentBlock').classList.toggle('hidden', on);
     document.getElementById(p + 'InstallmentConfigBlock').classList.toggle('hidden', !on);
-    if (scope === 'new') {
-        const check = document.getElementById('installmentEnableCheck');
-        if (check) {
-            check.classList.toggle('hidden', !on);
-        }
+    const check = scope === 'new'
+        ? document.getElementById('installmentEnableCheck')
+        : document.getElementById('editInstallmentEnableCheck');
+    if (check) {
+        check.classList.toggle('hidden', !on);
     }
     recalcInstallmentMonthly(scope);
 }
