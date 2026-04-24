@@ -225,7 +225,7 @@ try {
 </main>
 
 <div id="newServiceModal" class="staff-modal-overlay fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4">
-<div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] overflow-y-auto">
+<div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col">
 <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
 <span class="material-symbols-outlined text-2xl text-primary">add</span>
@@ -238,7 +238,7 @@ try {
 <span class="material-symbols-outlined text-[22px]">close</span>
 </button>
 </div>
-<div class="px-6 sm:px-8 py-6 space-y-8">
+<div class="px-6 sm:px-8 py-6 space-y-8 overflow-y-auto">
 <section>
 <div class="flex items-center gap-2 mb-4">
 <span class="material-symbols-outlined text-primary text-[22px]">info</span>
@@ -435,7 +435,7 @@ Add Service
 </div>
 
 <div id="editServiceModal" class="staff-modal-overlay fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4">
-<div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] overflow-y-auto">
+<div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col">
 <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
 <span class="material-symbols-outlined text-2xl text-primary">edit</span>
@@ -448,7 +448,7 @@ Add Service
 <span class="material-symbols-outlined text-[22px]">close</span>
 </button>
 </div>
-<div class="px-6 sm:px-8 py-6 space-y-8">
+<div class="px-6 sm:px-8 py-6 space-y-8 overflow-y-auto">
 <input type="hidden" id="editServiceId"/>
 <section>
 <div class="flex items-center gap-2 mb-4">
