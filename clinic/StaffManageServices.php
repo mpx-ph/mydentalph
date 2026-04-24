@@ -649,7 +649,6 @@ Duration (months) <span class="text-red-500 font-bold">*</span>
 </div>
 </div>
 </div>
-</div>
 </section>
 </div>
 <div class="border-t border-slate-100 bg-slate-50/50 px-6 sm:px-8 py-4 flex flex-wrap items-center justify-end gap-3">
