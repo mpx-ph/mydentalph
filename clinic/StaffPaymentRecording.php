@@ -1562,12 +1562,6 @@ try {
                     'installment' => 0.0,
                 ];
                 if ($supportsAppointmentServicesTable) {
-                    $serviceTotalsAddonFilter = '';
-                    if (in_array('is_original', $appointmentServiceColumns, true)) {
-                        // Additional services posted during payment are tagged as non-original
-                        // and must not generate future pending balances.
-                        $serviceTotalsAddonFilter = ' AND COALESCE(aps.is_original, 1) = 1';
-                    }
                     $serviceTotalsStmt = $pdo->prepare("
                         SELECT
                             COALESCE(NULLIF(TRIM(aps.service_type), ''), 'regular') AS normalized_service_type,
@@ -1575,7 +1569,6 @@ try {
                         FROM tbl_appointment_services aps
                         WHERE aps.tenant_id = ?
                           AND aps.booking_id = ?
-                          {$serviceTotalsAddonFilter}
                         GROUP BY COALESCE(NULLIF(TRIM(aps.service_type), ''), 'regular')
                     ");
                     $serviceTotalsStmt->execute([$tenantId, $selectedBookingId]);
