@@ -278,16 +278,6 @@ Category <span class="text-red-500 font-bold">*</span>
 </select>
 </div>
 <div>
-<label for="newServiceDuration" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
-<span class="material-symbols-outlined text-[18px] text-slate-500">schedule</span>
-Service Duration
-</label>
-<div class="flex items-center gap-2">
-<input type="number" id="newServiceDuration" step="1" min="0" value="60" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
-<span class="text-sm font-medium text-slate-600 shrink-0">minutes</span>
-</div>
-</div>
-<div>
 <label for="newServicePrice" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
 <span class="material-symbols-outlined text-[18px] text-slate-500">payments</span>
 Price (₱) <span class="text-red-500 font-bold">*</span>
@@ -295,9 +285,19 @@ Price (₱) <span class="text-red-500 font-bold">*</span>
 <input type="number" id="newServicePrice" step="0.01" min="0" placeholder="0.00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" required/>
 </div>
 <div>
-<label for="newServiceBufferTime" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<label for="newServiceDuration" class="flex items-center gap-2 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">schedule</span>
+<span>Duration:</span>
+</label>
+<div class="flex items-center gap-2">
+<input type="number" id="newServiceDuration" step="1" min="0" value="60" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+<span class="text-sm font-medium text-slate-600 shrink-0">minutes</span>
+</div>
+</div>
+<div>
+<label for="newServiceBufferTime" class="flex items-center gap-2 text-sm font-semibold text-slate-800 mb-2">
 <span class="material-symbols-outlined text-[18px] text-slate-500">timelapse</span>
-Buffer Time
+<span>Buffer Time:</span>
 </label>
 <div class="flex items-center gap-2">
 <input type="number" id="newServiceBufferTime" step="1" min="0" value="10" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
