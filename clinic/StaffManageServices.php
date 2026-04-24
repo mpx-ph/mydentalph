@@ -436,29 +436,56 @@ Add Service
 </div>
 </div>
 
-<div id="editServiceModal" class="staff-modal-overlay fixed inset-0 z-50 hidden items-center justify-center bg-black/45 p-4">
-<div class="staff-modal-panel bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-<div class="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-<h3 class="text-2xl font-bold font-headline text-on-background">Edit Service</h3>
-<button id="closeEditServiceBtn" class="p-2 rounded-lg hover:bg-slate-100 transition-colors"><span class="material-symbols-outlined text-slate-500">close</span></button>
+<div id="editServiceModal" class="staff-modal-overlay fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4">
+<div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
+<div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
+<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
+<span class="material-symbols-outlined text-2xl text-primary">edit</span>
 </div>
-<div class="p-6 space-y-5">
+<div class="min-w-0 flex-1 pr-2">
+<h3 class="text-xl sm:text-2xl font-extrabold font-headline text-on-background tracking-tight">Edit Service</h3>
+<p class="text-sm text-slate-500 mt-1 leading-relaxed">Update service details, pricing, and payment setup</p>
+</div>
+<button type="button" id="closeEditServiceBtn" class="shrink-0 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Close">
+<span class="material-symbols-outlined text-[22px]">close</span>
+</button>
+</div>
+<div class="flex-1 overflow-y-auto px-6 sm:px-8 py-6 space-y-8">
 <input type="hidden" id="editServiceId"/>
+<section>
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary text-[22px]">info</span>
+<h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Basic Information</h4>
+</div>
+<div class="space-y-5">
 <div>
-<label class="block text-sm font-semibold text-slate-700 mb-2">Service ID</label>
-<input type="text" id="editServiceIdCode" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-600" readonly/>
+<label for="editServiceIdCode" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">badge</span>
+Service ID
+</label>
+<input type="text" id="editServiceIdCode" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 text-[15px] shadow-sm" readonly/>
 </div>
 <div>
-<label class="block text-sm font-semibold text-slate-700 mb-2">Service Name <span class="text-red-500">*</span></label>
-<input type="text" id="editServiceName" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary/20 transition-all" required/>
+<label for="editServiceName" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">medical_services</span>
+Service Name <span class="text-red-500 font-bold">*</span>
+</label>
+<input type="text" id="editServiceName" placeholder="e.g., Teeth Cleaning" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" required/>
 </div>
 <div>
-<label class="block text-sm font-semibold text-slate-700 mb-2">Service Details</label>
-<textarea id="editServiceDetails" rows="3" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary/20 transition-all"></textarea>
+<label for="editServiceDetails" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">description</span>
+Service Details
+</label>
+<textarea id="editServiceDetails" rows="3" placeholder="Enter a detailed description of the service..." class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all resize-y min-h-[100px]"></textarea>
 </div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
 <div>
-<label class="block text-sm font-semibold text-slate-700 mb-2">Category <span class="text-red-500">*</span></label>
-<select id="editServiceCategory" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary/20 transition-all" required>
+<label for="editServiceCategory" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">category</span>
+Category <span class="text-red-500 font-bold">*</span>
+</label>
+<select id="editServiceCategory" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all cursor-pointer" required>
 <option value="">Select category</option>
 <option value="General Dentistry">General Dentistry</option>
 <option value="Restorative Dentistry">Restorative Dentistry</option>
@@ -471,24 +498,56 @@ Add Service
 </select>
 </div>
 <div>
-<label class="block text-sm font-semibold text-slate-700 mb-2">Price (P) <span class="text-red-500">*</span></label>
-<input type="number" id="editServicePrice" step="0.01" min="0" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary/20 transition-all" required/>
+<label for="editServicePrice" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">payments</span>
+Price (₱) <span class="text-red-500 font-bold">*</span>
+</label>
+<input type="number" id="editServicePrice" step="0.01" min="0" placeholder="0.00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" required/>
 </div>
 <div>
-<label class="block text-sm font-semibold text-slate-700 mb-2">Status</label>
+<label for="editServiceDuration" class="flex items-center gap-2 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">schedule</span>
+<span>Duration:</span>
+</label>
+<div class="flex items-center gap-2">
+<input type="number" id="editServiceDuration" step="1" min="0" value="60" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+<span class="text-sm font-medium text-slate-600 shrink-0">minutes</span>
+</div>
+</div>
+<div>
+<label for="editServiceBufferTime" class="flex items-center gap-2 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">timelapse</span>
+<span>Buffer Time:</span>
+</label>
+<div class="flex items-center gap-2">
+<input type="number" id="editServiceBufferTime" step="1" min="0" value="10" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+<span class="text-sm font-medium text-slate-600 shrink-0">minutes</span>
+</div>
+</div>
+</div>
+<div>
+<label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">toggle_on</span>
+Status
+</label>
 <div class="flex items-center gap-4">
-<label class="flex items-center gap-2 cursor-pointer">
-<input type="radio" name="editServiceStatus" value="active" id="editServiceStatusActive" class="w-4 h-4 text-primary border-slate-300 focus:ring-primary"/>
-<span class="text-slate-700">Active</span>
+<label class="inline-flex items-center gap-2.5 cursor-pointer group">
+<input type="radio" name="editServiceStatus" value="active" id="editServiceStatusActive" class="h-4 w-4 shrink-0 border-slate-300 text-primary accent-primary focus:ring-primary"/>
+<span class="text-sm font-semibold text-slate-800 group-hover:text-slate-900">Active</span>
 </label>
-<label class="flex items-center gap-2 cursor-pointer">
-<input type="radio" name="editServiceStatus" value="inactive" id="editServiceStatusInactive" class="w-4 h-4 text-primary border-slate-300 focus:ring-primary"/>
-<span class="text-slate-700">Inactive</span>
+<label class="inline-flex items-center gap-2.5 cursor-pointer group">
+<input type="radio" name="editServiceStatus" value="inactive" id="editServiceStatusInactive" class="h-4 w-4 shrink-0 border-slate-300 text-primary accent-primary focus:ring-primary"/>
+<span class="text-sm font-semibold text-slate-800 group-hover:text-slate-900">Inactive</span>
 </label>
 </div>
 </div>
-<div class="border-t border-slate-100 pt-5 space-y-5">
-<p class="text-xs font-extrabold text-slate-800 uppercase tracking-wide">Payment</p>
+</div>
+</section>
+<section>
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary text-[22px]">credit_card</span>
+<h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Payment Configuration</h4>
+</div>
 <div id="editServiceDefaultPaymentShell" class="space-y-3">
 <div id="editServicePaymentTypeRow" class="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between lg:gap-6">
 <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-8 shrink-0">
@@ -532,43 +591,78 @@ Add Service
 <p class="text-[11px] text-slate-500 mt-3 leading-snug">Monthly payment is estimated after the default down payment from Payment Settings (shown above).</p>
 </div>
 </div>
-<div class="rounded-2xl border border-slate-200 bg-white p-4">
+<div class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
 <div class="flex items-center gap-3">
 <input type="checkbox" id="editServiceUseCustomPayment" class="h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 text-primary accent-primary"/>
 <label for="editServiceUseCustomPayment" class="text-sm font-semibold text-slate-800 cursor-pointer">Use Custom Payment Settings</label>
 </div>
 </div>
-<div id="editServiceCustomPaymentFields" class="hidden space-y-4">
-<div id="editServiceRegularDownpaymentBlock" class="rounded-2xl border border-slate-200/90 bg-slate-50/60 p-4 space-y-2">
-<label for="editServiceDownpaymentPct" class="block text-sm font-semibold text-slate-700">Custom Down Payment (%)</label>
-<input type="number" id="editServiceDownpaymentPct" step="0.01" min="0" max="100" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900"/>
+<div id="editServiceCustomPaymentFields" class="hidden space-y-4 mt-4">
+<div id="editServiceRegularDownpaymentBlock" class="rounded-2xl border border-slate-200/90 bg-slate-50/60 p-4 sm:p-5 space-y-2">
+<label for="editServiceDownpaymentPct" class="flex flex-wrap items-baseline gap-x-1 text-sm font-semibold text-slate-800">
+<span class="material-symbols-outlined text-[18px] text-slate-500 align-middle mr-0.5">percent</span>
+Custom Down Payment (%)
+<span class="text-slate-500 font-normal text-xs sm:text-sm">(for regular services)</span>
+</label>
+<input type="number" id="editServiceDownpaymentPct" step="0.01" min="0" max="100" placeholder="0.00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+<p class="flex items-start gap-2 text-xs text-slate-500 leading-relaxed pt-1">
+<span class="material-symbols-outlined text-[16px] text-slate-400 shrink-0 mt-0.5">info</span>
+<span>Enter the percentage of downpayment required for regular (non-installment) service bookings.</span>
+</p>
 </div>
-<div id="editServiceInstallmentToggleBlock" class="rounded-2xl border border-slate-200 p-4">
+<div id="editServiceInstallmentToggleBlock" class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
 <div class="flex items-center gap-3">
 <input type="checkbox" id="editServiceEnableInstallment" class="h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 text-primary accent-primary"/>
 <label for="editServiceEnableInstallment" class="text-sm font-semibold text-slate-800 cursor-pointer">Enable Installment Plan for this Service</label>
 </div>
 </div>
-<div id="editServiceInstallmentConfigBlock" class="hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.06] to-slate-50/80 p-4 space-y-4">
-<label for="editServiceInstallmentDownpayment" class="block text-sm font-semibold text-slate-700">Downpayment (₱) <span class="text-red-500">*</span></label>
-<input type="number" id="editServiceInstallmentDownpayment" step="0.01" min="0" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900"/>
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-<div>
-<label for="editServiceInstallmentDuration" class="block text-sm font-semibold text-slate-700">Duration (months) <span class="text-red-500">*</span></label>
-<input type="number" id="editServiceInstallmentDuration" step="1" min="1" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900"/>
+<div id="editServiceInstallmentConfigBlock" class="hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.06] to-slate-50/80 p-4 sm:p-5 space-y-5">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[22px]">schedule</span>
+<h5 class="text-sm font-extrabold text-slate-800">Installment Plan Configuration</h5>
 </div>
 <div>
-<label for="editServiceInstallmentMonthly" class="block text-sm font-semibold text-slate-700">Monthly Payment (₱)</label>
-<input type="text" id="editServiceInstallmentMonthly" readonly tabindex="-1" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-700"/>
+<label for="editServiceInstallmentDownpayment" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+<span class="material-symbols-outlined text-[18px] text-slate-500">payments</span>
+Downpayment (₱) <span class="text-red-500 font-bold">*</span>
+</label>
+<input type="number" id="editServiceInstallmentDownpayment" step="0.01" min="0" placeholder="0.00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+<div class="flex flex-col">
+<div class="mb-2 min-h-[3rem] flex flex-col justify-end">
+<label for="editServiceInstallmentDuration" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+<span class="material-symbols-outlined text-[18px] text-slate-500">calendar_month</span>
+Duration (months) <span class="text-red-500 font-bold">*</span>
+</label>
+</div>
+<input type="number" id="editServiceInstallmentDuration" step="1" min="1" placeholder="0" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+</div>
+<div class="flex flex-col">
+<div class="mb-2 min-h-[3rem] flex flex-col justify-end gap-0.5">
+<label for="editServiceInstallmentMonthly" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+<span class="material-symbols-outlined text-[18px] text-slate-500 shrink-0">calculate</span>
+<span>Monthly Payment (₱)</span>
+</label>
+<span class="text-xs text-slate-500 pl-[1.375rem] leading-tight">(Auto-calculated)</span>
+</div>
+<input type="text" id="editServiceInstallmentMonthly" readonly tabindex="-1" placeholder="0.00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 placeholder:text-slate-400 text-[15px] cursor-not-allowed"/>
 </div>
 </div>
 </div>
 </div>
 </div>
+</section>
 </div>
-<div class="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 flex justify-end gap-3">
-<button id="cancelEditServiceBtn" class="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 transition-all">Cancel</button>
-<button id="saveServiceChangesBtn" class="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-semibold shadow-lg shadow-primary/30 transition-all">Save Changes</button>
+<div class="shrink-0 border-t border-slate-100 bg-slate-50/50 px-6 sm:px-8 py-4 flex flex-wrap items-center justify-end gap-3">
+<button type="button" id="cancelEditServiceBtn" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+<span class="material-symbols-outlined text-[18px]">close</span>
+Cancel
+</button>
+<button type="button" id="saveServiceChangesBtn" class="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/92 text-white text-sm font-bold shadow-lg shadow-primary/25 transition-all">
+<span class="material-symbols-outlined text-[18px]">check_circle</span>
+Save Changes
+</button>
 </div>
 </div>
 </div>
@@ -1047,6 +1141,8 @@ function openEditServiceModal(serviceId) {
     document.getElementById('editServiceDetails').value = service.service_details || '';
     document.getElementById('editServiceCategory').value = service.category || '';
     document.getElementById('editServicePrice').value = service.price || '';
+    document.getElementById('editServiceDuration').value = Number.isFinite(parseInt(service.service_duration, 10)) ? String(parseInt(service.service_duration, 10)) : '60';
+    document.getElementById('editServiceBufferTime').value = Number.isFinite(parseInt(service.buffer_time, 10)) ? String(parseInt(service.buffer_time, 10)) : '10';
     document.getElementById((service.status || '').toLowerCase() === 'active' ? 'editServiceStatusActive' : 'editServiceStatusInactive').checked = true;
 
     const hasInst = Number(service.enable_installment) === 1;
@@ -1203,6 +1299,8 @@ function saveNewService() {
 function saveServiceChanges() {
     const selectedStatus = document.querySelector('input[name="editServiceStatus"]:checked');
     const price = parseFloat(document.getElementById('editServicePrice').value || '0');
+    const serviceDuration = parseInt(document.getElementById('editServiceDuration').value || '0', 10);
+    const bufferTime = parseInt(document.getElementById('editServiceBufferTime').value || '0', 10);
     const pay = buildPaymentPayload('edit');
     const payload = {
         id: parseInt(document.getElementById('editServiceId').value, 10),
@@ -1210,6 +1308,8 @@ function saveServiceChanges() {
         service_details: (document.getElementById('editServiceDetails').value || '').trim(),
         category: document.getElementById('editServiceCategory').value,
         price: price,
+        service_duration: Number.isInteger(serviceDuration) ? serviceDuration : 0,
+        buffer_time: Number.isInteger(bufferTime) ? bufferTime : 0,
         status: selectedStatus ? selectedStatus.value : 'active',
         use_custom_payment: pay.use_custom_payment,
         enable_installment: pay.enable_installment,
@@ -1220,6 +1320,14 @@ function saveServiceChanges() {
 
     if (!payload.id || !payload.service_name || !payload.category || Number.isNaN(payload.price) || payload.price < 0) {
         void staffUiAlert({ message: 'Please complete required fields with a valid price.', variant: 'warning', title: 'Required fields' });
+        return;
+    }
+    if (!Number.isInteger(payload.service_duration) || payload.service_duration < 0) {
+        void staffUiAlert({ message: 'Service Duration must be a whole number of minutes (0 or higher).', variant: 'warning', title: 'Invalid duration' });
+        return;
+    }
+    if (!Number.isInteger(payload.buffer_time) || payload.buffer_time < 0) {
+        void staffUiAlert({ message: 'Buffer Time must be a whole number of minutes (0 or higher).', variant: 'warning', title: 'Invalid buffer time' });
         return;
     }
     if (!validatePaymentPayload(pay, payload.price)) {
