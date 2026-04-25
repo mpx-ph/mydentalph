@@ -38,13 +38,8 @@ try {
     // since tbl_appointments.service_type is often null in the mobile booking flow.
     $stmt = $pdo->prepare(
         "SELECT 
-            a.id,
-            a.booking_id,
-            a.appointment_date,
-            a.appointment_time,
+            a.*,
             COALESCE(a.service_type, (SELECT service_name FROM tbl_appointment_services WHERE appointment_id = a.id LIMIT 1)) AS display_service,
-            a.status,
-            a.total_treatment_cost,
             CONCAT(d.first_name, ' ', d.last_name) AS dentist_name
          FROM tbl_appointments a
          LEFT JOIN tbl_dentists d ON a.dentist_id = d.dentist_id
@@ -68,16 +63,13 @@ try {
         $dbStatus      = strtolower($row['status'] ?? 'pending');
         $displayStatus = $statusMap[$dbStatus] ?? strtoupper($dbStatus);
 
-        $appointments[] = [
-            'id'               => $row['id'],
-            'booking_id'       => $row['booking_id'],
-            'service_name'     => $row['display_service'] ?: 'Appointment',
-            'dentist_name'     => $row['dentist_name'] ? 'DR. ' . strtoupper($row['dentist_name']) : 'CLINIC',
-            'appointment_date' => $row['appointment_date'],
-            'appointment_time' => $row['appointment_time'],
-            'status'           => $displayStatus,
-            'price'            => number_format((float)($row['total_treatment_cost'] ?? 0), 2),
-        ];
+        $item = $row;
+        $item['status_code']  = $row['status'] ?? 'pending';
+        $item['status']      = $displayStatus;
+        $item['service_name'] = $row['display_service'] ?: 'Appointment';
+        $item['dentist_name']  = $row['dentist_name'] ? 'DR. ' . strtoupper($row['dentist_name']) : 'CLINIC';
+        $item['price']         = number_format((float)($row['total_treatment_cost'] ?? 0), 2);
+        $appointments[] = $item;
     }
 
     echo json_encode(["status" => "success", "appointments" => $appointments]);

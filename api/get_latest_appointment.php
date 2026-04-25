@@ -36,10 +36,8 @@ try {
     // We look for dates greater than or equal to today, ordered by arrival time.
     $stmt = $pdo->prepare(
         "SELECT 
-            a.booking_id,
-            a.appointment_date,
-            a.appointment_time,
-            a.status,
+            a.*,
+            COALESCE(a.service_type, (SELECT service_name FROM tbl_appointment_services WHERE appointment_id = a.id LIMIT 1)) AS display_service,
             CONCAT(d.first_name, ' ', d.last_name) AS dentist_name,
             d.specialization AS dentist_specialization
          FROM tbl_appointments a
@@ -56,14 +54,11 @@ try {
         exit;
     }
 
-    // 3. Format the response
-    $appointment = [
-        'booking_id'       => $row['booking_id'],
-        'appointment_date' => $row['appointment_date'],
-        'appointment_time' => $row['appointment_time'],
-        'dentist_name'     => 'DR. ' . strtoupper($row['dentist_name']),
-        'specialization'   => strtoupper($row['dentist_specialization'] ?? 'Dentist'),
-    ];
+    // 3. Full row + display-friendly fields (backward compatible)
+    $appointment = $row;
+    $appointment['service_name']   = $row['display_service'] ?: 'Appointment';
+    $appointment['dentist_name']  = 'DR. ' . strtoupper($row['dentist_name'] ?? '');
+    $appointment['specialization'] = strtoupper($row['dentist_specialization'] ?? 'Dentist');
 
     echo json_encode(["status" => "success", "appointment" => $appointment]);
 

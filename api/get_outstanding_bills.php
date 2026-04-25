@@ -32,7 +32,24 @@ try {
             a.appointment_date,
             COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
             SUM(CASE WHEN p.status = 'completed' THEN p.amount ELSE 0 END) AS total_paid_completed,
-            MAX(p.amount) AS amount_to_calculate
+            MAX(p.amount) AS amount_to_calculate,
+            MAX(a.id) AS id,
+            MAX(a.tenant_id) AS tenant_id,
+            MAX(a.dentist_id) AS dentist_id,
+            MAX(a.patient_id) AS patient_id,
+            MAX(a.appointment_time) AS appointment_time,
+            MAX(a.service_type) AS service_type,
+            MAX(a.service_description) AS service_description,
+            MAX(a.insurance) AS insurance,
+            MAX(a.treatment_type) AS treatment_type,
+            MAX(a.visit_type) AS visit_type,
+            MAX(a.status) AS status,
+            MAX(a.notes) AS notes,
+            MAX(a.duration_months) AS duration_months,
+            MAX(a.target_completion_date) AS target_completion_date,
+            MAX(a.start_date) AS start_date,
+            MAX(a.created_by) AS created_by,
+            MAX(a.created_at) AS created_at
         FROM tbl_payments p
         LEFT JOIN tbl_appointments a 
             ON a.booking_id = p.booking_id AND a.tenant_id = p.tenant_id
@@ -76,13 +93,15 @@ try {
             ? date("M d, Y", strtotime($row['appointment_date']))
             : 'Date N/A';
 
-        $bills[] = [
-            "booking_id" => $row['booking_id'],
-            "appointment_date" => $date_label,
-            "total_cost" => ($cost > 0) ? $cost : ($base_amount * 2), // estimate full cost if not stored
-            "amount_paid" => $paid,
-            "unpaid_due" => $unpaid_due
-        ];
+        $bills[] = array_merge(
+            $row,
+            [
+                "appointment_date_label" => $date_label,
+                "total_cost" => ($cost > 0) ? $cost : ($base_amount * 2), // estimate full cost if not stored
+                "amount_paid" => $paid,
+                "unpaid_due" => $unpaid_due
+            ]
+        );
     }
 
     echo json_encode([
