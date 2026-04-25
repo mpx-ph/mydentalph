@@ -4,6 +4,7 @@
  */
 
 require_once __DIR__ . '/availability.php';
+require_once __DIR__ . '/appointment_booking_row.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate');
@@ -183,8 +184,6 @@ try {
     };
     $bookingId = $allocateBookingId();
 
-    $serviceNames = [];
-    $serviceDescriptions = [];
     $totalCost = 0.0;
     $normalizedServices = [];
     $hasInstallmentService = false;
@@ -223,10 +222,6 @@ try {
         ];
         if (!empty($serviceRow['enable_installment'])) {
             $hasInstallmentService = true;
-        }
-        if ($name !== '') {
-            $serviceNames[] = $name;
-            $serviceDescriptions[] = $name . ' (₱' . number_format($price, 2) . ')';
         }
         $totalCost += $price;
     }
@@ -455,16 +450,15 @@ try {
         }
     }
 
-    $serviceNames = array_values(array_unique($serviceNames));
-    $serviceDescriptions = array_values(array_unique($serviceDescriptions));
-    $serviceType = implode(', ', array_slice($serviceNames, 0, 3));
-    if (count($serviceNames) > 3) {
-        $serviceType .= ' (+' . (count($serviceNames) - 3) . ' more)';
+    $mapForHelper = [];
+    foreach ($normalizedServices as $s) {
+        $mapForHelper[] = [
+            'id' => (string) ($s['service_id'] ?? ''),
+            'name' => (string) ($s['service_name'] ?? ''),
+            'price' => (float) ($s['price'] ?? 0),
+        ];
     }
-    $serviceType = function_exists('mb_substr')
-        ? mb_substr($serviceType, 0, 100, 'UTF-8')
-        : substr($serviceType, 0, 100);
-    $serviceDescription = implode('; ', $serviceDescriptions) . ' | Total: ₱' . number_format($totalCost, 2);
+    $bookingExtras = clinic_appointment_extras_for_booking($pdo, $tenantId, $mapForHelper, $appointmentDate);
     $createdBy = isset($_SESSION['user_id']) ? trim((string) $_SESSION['user_id']) : null;
     if ($createdBy === '') {
         $createdBy = null;
@@ -578,8 +572,8 @@ try {
         'booking_id' => $bookingId,
         'treatment_id' => $resolvedTreatmentId !== '' ? $resolvedTreatmentId : null,
         'services' => $normalizedServices,
-        'service_type' => $serviceType,
-        'service_description' => $serviceDescription,
+        'service_type' => (string) ($bookingExtras['service_type'] ?? ''),
+        'service_description' => (string) ($bookingExtras['service_description'] ?? ''),
         'total_treatment_cost' => $isFollowUpVisitForActiveTreatment ? 0.0 : (float) $totalCost,
         'service_payment_type' => ($resolvedTreatmentId !== '' && $isFollowUpVisitForActiveTreatment) ? 'installment' : 'regular',
         'has_installment' => $hasInstallmentService,
@@ -611,14 +605,14 @@ try {
                 'appointment_time' => $appointmentTime,
                 'service_type' => (string) ($plan['service_type'] ?? ''),
                 'service_description' => (string) ($plan['service_description'] ?? ''),
-                'treatment_type' => !empty($plan['has_installment']) ? 'long_term' : 'short_term',
+                'treatment_type' => (string) ($bookingExtras['treatment_type'] ?? 'short_term'),
                 'visit_type' => $visitType,
                 'status' => $localStatus,
                 'notes' => $notes !== '' ? $notes : null,
                 'total_treatment_cost' => (float) ($plan['total_treatment_cost'] ?? 0),
-                'duration_months' => null,
-                'target_completion_date' => null,
-                'start_date' => null,
+                'duration_months' => $bookingExtras['duration_months'],
+                'target_completion_date' => $bookingExtras['target_completion_date'],
+                'start_date' => $bookingExtras['start_date'],
                 'created_by' => $createdBy,
                 'treatment_id' => $plan['treatment_id'],
             ];

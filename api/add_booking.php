@@ -1,6 +1,7 @@
 <?php
 // api/add_booking.php
 require_once '../db.php';
+require_once __DIR__ . '/../clinic/includes/appointment_booking_row.php';
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -51,14 +52,40 @@ try {
     $pdo->beginTransaction();
 
     // 1. Insert Appointment
+    $services = is_array($services_json) ? $services_json : json_decode($services_json, true);
+    if (!is_array($services)) {
+        $services = [];
+    }
+    $apptExtras = clinic_appointment_extras_for_booking(
+        $pdo,
+        (string) $tenant_id,
+        $services,
+        (string) $appointment_date
+    );
     $stmt = $pdo->prepare("INSERT INTO tbl_appointments 
-        (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, total_treatment_cost, visit_type, created_by) 
-        VALUES (?, ?, ?, ?, ?, ?, 'confirmed', ?, 'pre_book', ?)");
-    $stmt->execute([$tenant_id, $dentist_id, $booking_id, $patient_id, $appointment_date, $appointment_time, $total_amount, $user_id]);
+        (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, total_treatment_cost, visit_type, created_by, 
+         service_type, service_description, treatment_type, duration_months, target_completion_date, start_date) 
+        VALUES (?, ?, ?, ?, ?, ?, 'confirmed', ?, 'pre_book', ?, 
+         ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([
+        $tenant_id,
+        $dentist_id,
+        $booking_id,
+        $patient_id,
+        $appointment_date,
+        $appointment_time,
+        $total_amount,
+        $user_id,
+        $apptExtras['service_type'],
+        $apptExtras['service_description'],
+        $apptExtras['treatment_type'],
+        $apptExtras['duration_months'],
+        $apptExtras['target_completion_date'],
+        $apptExtras['start_date'],
+    ]);
     $appointment_id = $pdo->lastInsertId();
 
     // 2. Insert Services Breakdown
-    $services = is_array($services_json) ? $services_json : json_decode($services_json, true);
     $serviceTypeProbeStmt = $pdo->prepare("
         SELECT COALESCE(enable_installment, 0) AS enable_installment
         FROM tbl_services
