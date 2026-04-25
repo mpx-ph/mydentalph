@@ -6,6 +6,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+$manilaTz = new DateTimeZone('Asia/Manila');
+
 $defaultClinicHoursRows = [
     0 => ['day' => 'Sunday', 'open_time' => '09:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false],
     1 => ['day' => 'Monday', 'open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false],
@@ -16,11 +18,11 @@ $defaultClinicHoursRows = [
     6 => ['day' => 'Saturday', 'open_time' => '09:00 AM', 'close_time' => '03:00 PM', 'is_closed' => false],
 ];
 
-$today = new DateTimeImmutable('today');
+$today = new DateTimeImmutable('today', $manilaTz);
 $weekStartInput = isset($_GET['week_start']) ? trim((string) $_GET['week_start']) : '';
 $selectedDate = null;
 if ($weekStartInput !== '') {
-    $selectedDate = DateTimeImmutable::createFromFormat('Y-m-d', $weekStartInput);
+    $selectedDate = DateTimeImmutable::createFromFormat('!Y-m-d', $weekStartInput, $manilaTz);
     if (!($selectedDate instanceof DateTimeImmutable)) {
         $selectedDate = null;
     }
@@ -74,6 +76,18 @@ $formatTimeForDisplay = static function ($timeValue, $fallback) {
     return $dt->format('h:i A');
 };
 
+$parseClockTime = static function ($timeRaw) use ($manilaTz) {
+    $time = trim((string) $timeRaw);
+    if (!preg_match('/^\d{2}:\d{2}$/', $time)) {
+        return null;
+    }
+    $dt = DateTimeImmutable::createFromFormat('!H:i', $time, $manilaTz);
+    if (!($dt instanceof DateTimeImmutable)) {
+        return null;
+    }
+    return $dt;
+};
+
 $formMessage = '';
 $formMessageType = 'success';
 if (isset($_SESSION['clinic_hours_message']) && is_array($_SESSION['clinic_hours_message'])) {
@@ -123,8 +137,8 @@ try {
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFromRaw) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateToRaw)) {
             throw new RuntimeException('Please select a valid date range.');
         }
-        $dateFrom = DateTimeImmutable::createFromFormat('Y-m-d', $dateFromRaw);
-        $dateTo = DateTimeImmutable::createFromFormat('Y-m-d', $dateToRaw);
+        $dateFrom = DateTimeImmutable::createFromFormat('!Y-m-d', $dateFromRaw, $manilaTz);
+        $dateTo = DateTimeImmutable::createFromFormat('!Y-m-d', $dateToRaw, $manilaTz);
         if (!($dateFrom instanceof DateTimeImmutable) || !($dateTo instanceof DateTimeImmutable)) {
             throw new RuntimeException('Please select a valid date range.');
         }
@@ -134,13 +148,15 @@ try {
         $openTime = null;
         $closeTime = null;
         if (!$isClosed) {
-            $openTimeDt = DateTimeImmutable::createFromFormat('H:i', $openTimeRaw);
-            $closeTimeDt = DateTimeImmutable::createFromFormat('H:i', $closeTimeRaw);
+            $openTimeDt = $parseClockTime($openTimeRaw);
+            $closeTimeDt = $parseClockTime($closeTimeRaw);
             if (!($openTimeDt instanceof DateTimeImmutable) || !($closeTimeDt instanceof DateTimeImmutable)) {
                 throw new RuntimeException('Please select valid opening and closing times.');
             }
-            if ($openTimeRaw >= $closeTimeRaw) {
-                throw new RuntimeException('Closing time must be later than opening time.');
+            $openMinutes = ((int) $openTimeDt->format('H')) * 60 + (int) $openTimeDt->format('i');
+            $closeMinutes = ((int) $closeTimeDt->format('H')) * 60 + (int) $closeTimeDt->format('i');
+            if ($openMinutes === $closeMinutes) {
+                throw new RuntimeException('Opening and closing times cannot be the same.');
             }
             $openTime = $openTimeDt->format('H:i:s');
             $closeTime = $closeTimeDt->format('H:i:s');
@@ -251,14 +267,16 @@ try {
         $openTime = null;
         $closeTime = null;
         if (!$isClosed) {
-            $openTimeDt = DateTimeImmutable::createFromFormat('H:i', $openTimeRaw);
-            $closeTimeDt = DateTimeImmutable::createFromFormat('H:i', $closeTimeRaw);
+            $openTimeDt = $parseClockTime($openTimeRaw);
+            $closeTimeDt = $parseClockTime($closeTimeRaw);
 
             if (!($openTimeDt instanceof DateTimeImmutable) || !($closeTimeDt instanceof DateTimeImmutable)) {
                 throw new RuntimeException('Please select valid opening and closing times.');
             }
-            if ($openTimeRaw >= $closeTimeRaw) {
-                throw new RuntimeException('Closing time must be later than opening time.');
+            $openMinutes = ((int) $openTimeDt->format('H')) * 60 + (int) $openTimeDt->format('i');
+            $closeMinutes = ((int) $closeTimeDt->format('H')) * 60 + (int) $closeTimeDt->format('i');
+            if ($openMinutes === $closeMinutes) {
+                throw new RuntimeException('Opening and closing times cannot be the same.');
             }
             $openTime = $openTimeDt->format('H:i:s');
             $closeTime = $closeTimeDt->format('H:i:s');
