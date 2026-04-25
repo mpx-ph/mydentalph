@@ -835,7 +835,6 @@ try {
                 $appointmentsSql .= "
                     WHERE a.tenant_id = ?
                       AND a.appointment_date BETWEEN ? AND ?
-                      AND LOWER(COALESCE(a.status, 'pending')) <> 'cancelled'
                 ";
             } else {
                 $appointmentsSql = "
@@ -843,7 +842,6 @@ try {
                     FROM tbl_appointments
                     WHERE tenant_id = ?
                       AND appointment_date BETWEEN ? AND ?
-                      AND LOWER(COALESCE(status, 'pending')) <> 'cancelled'
                 ";
             }
             $appointmentsParams = [
