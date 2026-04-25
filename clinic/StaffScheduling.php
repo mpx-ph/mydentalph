@@ -685,10 +685,14 @@ try {
 
             $dbTables = clinic_resolve_appointment_db_tables($pdo);
             $appointmentsTable = $dbTables['appointments'] ?? null;
+            $appointmentServicesTable = $dbTables['appointment_services'] ?? null;
+            $servicesTable = $dbTables['services'] ?? null;
             $patientsTable = $dbTables['patients'] ?? null;
             $dentistsTable = $dbTables['dentists'] ?? null;
             $paymentsTable = $dbTables['payments'] ?? null;
             $appointmentsCols = $appointmentsTable !== null ? clinic_table_columns($pdo, $appointmentsTable) : [];
+            $appointmentServicesCols = $appointmentServicesTable !== null ? clinic_table_columns($pdo, $appointmentServicesTable) : [];
+            $servicesCols = $servicesTable !== null ? clinic_table_columns($pdo, $servicesTable) : [];
             $paymentsCols = $paymentsTable !== null ? clinic_table_columns($pdo, $paymentsTable) : [];
 
             if ($appointmentsTable !== null) {
@@ -706,6 +710,63 @@ try {
                 $visitTypeExpr = in_array('visit_type', $appointmentsCols, true)
                     ? "COALESCE(NULLIF(TRIM(a.visit_type), ''), 'booking')"
                     : "'booking'";
+                $serviceMinutesExpr = "NULL";
+                $serviceDurationPart = in_array('service_duration', $servicesCols, true) ? 'COALESCE(s.service_duration, 0)' : '0';
+                $serviceBufferPart = in_array('buffer_time', $servicesCols, true) ? 'COALESCE(s.buffer_time, 0)' : '0';
+                $serviceDurationPartDirect = in_array('service_duration', $servicesCols, true) ? 'COALESCE(s2.service_duration, 0)' : '0';
+                $serviceBufferPartDirect = in_array('buffer_time', $servicesCols, true) ? 'COALESCE(s2.buffer_time, 0)' : '0';
+                if (
+                    $appointmentServicesTable !== null
+                    && $servicesTable !== null
+                    && in_array('tenant_id', $appointmentServicesCols, true)
+                    && in_array('service_id', $appointmentServicesCols, true)
+                    && in_array('tenant_id', $servicesCols, true)
+                    && in_array('service_id', $servicesCols, true)
+                ) {
+                    $qAps = clinic_quote_identifier($appointmentServicesTable);
+                    $qSrv = clinic_quote_identifier($servicesTable);
+                    $apsLinkConditions = [];
+                    if (in_array('appointment_id', $appointmentServicesCols, true) && in_array('id', $appointmentsCols, true)) {
+                        $apsLinkConditions[] = 'aps.appointment_id = a.id';
+                    }
+                    if (in_array('booking_id', $appointmentServicesCols, true) && in_array('booking_id', $appointmentsCols, true)) {
+                        $apsLinkConditions[] = "aps.booking_id IS NOT NULL AND aps.booking_id <> '' AND aps.booking_id = a.booking_id";
+                    }
+                    if (!empty($apsLinkConditions)) {
+                        $serviceMinutesExpr = "
+                            (
+                                SELECT SUM({$serviceDurationPart} + {$serviceBufferPart})
+                                FROM {$qAps} aps
+                                INNER JOIN {$qSrv} s
+                                    ON s.tenant_id = aps.tenant_id
+                                   AND s.service_id = aps.service_id
+                                WHERE aps.tenant_id = a.tenant_id
+                                  AND (" . implode(' OR ', $apsLinkConditions) . ")
+                            )
+                        ";
+                    }
+                }
+                if (
+                    $servicesTable !== null
+                    && in_array('tenant_id', $servicesCols, true)
+                    && in_array('service_name', $servicesCols, true)
+                    && in_array('service_type', $appointmentsCols, true)
+                ) {
+                    $qSrv = clinic_quote_identifier($servicesTable);
+                    $serviceMinutesExpr = "
+                        COALESCE(
+                            {$serviceMinutesExpr},
+                            (
+                                SELECT {$serviceDurationPartDirect} + {$serviceBufferPartDirect}
+                                FROM {$qSrv} s2
+                                WHERE s2.tenant_id = a.tenant_id
+                                  AND LOWER(TRIM(COALESCE(s2.service_name, ''))) = LOWER(TRIM(COALESCE(a.service_type, '')))
+                                LIMIT 1
+                            ),
+                            0
+                        )
+                    ";
+                }
                 $paymentOrderParts = [];
                 if (in_array('payment_date', $paymentsCols, true)) {
                     $paymentOrderParts[] = 'py.payment_date DESC';
@@ -728,6 +789,7 @@ try {
                         a.appointment_date,
                         a.appointment_time,
                         a.service_type,
+                        {$serviceMinutesExpr} AS service_total_minutes,
                         COALESCE(a.status, 'pending') AS appointment_status,
                         {$patientNameExpr} AS patient_name,
                         {$dentistNameExpr} AS dentist_name,
@@ -756,7 +818,7 @@ try {
                 ";
             } else {
                 $appointmentsSql = "
-                    SELECT appointment_date, appointment_time, service_type, COALESCE(status, 'pending') AS appointment_status, 'Patient' AS patient_name, 'Dentist' AS dentist_name, 'booking' AS visit_type, 'unpaid' AS payment_status
+                    SELECT appointment_date, appointment_time, service_type, 0 AS service_total_minutes, COALESCE(status, 'pending') AS appointment_status, 'Patient' AS patient_name, 'Dentist' AS dentist_name, 'booking' AS visit_type, 'unpaid' AS payment_status
                     FROM tbl_appointments
                     WHERE tenant_id = ?
                       AND appointment_date BETWEEN ? AND ?
@@ -786,7 +848,8 @@ try {
                 if ($startMin < $gridStartMinutes) {
                     $startMin += 24 * 60;
                 }
-                $endMin = $startMin + 60;
+                $serviceTotalMinutes = (int) ($row['service_total_minutes'] ?? 0);
+                $endMin = $startMin + max(0, $serviceTotalMinutes);
                 $mapped = mapAppointmentClass((string) ($row['service_type'] ?? ''));
                 $appointmentStatus = normalizeAppointmentStatus((string) ($row['appointment_status'] ?? 'pending'));
                 if (!$showCompletedAppointments && $appointmentStatus === 'completed') {
