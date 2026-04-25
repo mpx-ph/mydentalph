@@ -89,6 +89,9 @@ function normalizeAppointmentStatus($statusValue)
     if ($statusRaw === 'scheduled' || $statusRaw === 'confirmed') {
         return 'pending';
     }
+    if ($statusRaw === 'ongoing') {
+        return 'in_progress';
+    }
     if (!in_array($statusRaw, ['pending', 'in_progress', 'completed', 'cancelled', 'no_show'], true)) {
         return 'pending';
     }
@@ -99,6 +102,24 @@ function formatAppointmentStatusLabel($statusValue)
 {
     $normalized = normalizeAppointmentStatus($statusValue);
     return ucwords(str_replace('_', ' ', $normalized));
+}
+
+function mapAppointmentStatusClass($statusValue)
+{
+    $normalized = normalizeAppointmentStatus($statusValue);
+    switch ($normalized) {
+        case 'in_progress':
+            return 'bg-[#2b8beb] border-[#2b8beb] text-white';
+        case 'completed':
+            return 'bg-slate-200/80 border-slate-300 text-slate-600';
+        case 'cancelled':
+            return 'bg-rose-100 border-rose-300 text-rose-800';
+        case 'no_show':
+            return 'bg-amber-100 border-amber-300 text-amber-900';
+        case 'pending':
+        default:
+            return 'bg-sky-100 border-sky-300 text-sky-900';
+    }
 }
 
 function formatPaymentStatusLabel($statusValue)
@@ -661,7 +682,7 @@ try {
                         'start_min' => $startMin,
                         'end_min' => $endMin,
                         'label' => 'Blocked',
-                        'class' => 'bg-slate-500 border-slate-600',
+                        'class' => 'bg-slate-500 border-slate-600 text-white',
                         'kind' => 'break',
                     ];
                 } elseif ($blockType === 'work' || $blockType === 'shift') {
@@ -855,7 +876,6 @@ try {
                 if (!$showCompletedAppointments && $appointmentStatus === 'completed') {
                     continue;
                 }
-                $isCompletedAppointment = $appointmentStatus === 'completed';
                 $patientName = trim((string) ($row['patient_name'] ?? 'Patient'));
                 if ($patientName === '') {
                     $patientName = 'Patient';
@@ -876,8 +896,8 @@ try {
                 $entriesByDate[$dateKey][] = [
                     'start_min' => $startMin,
                     'end_min' => $endMin,
-                    'label' => $isCompletedAppointment ? 'Completed' : 'Appointment',
-                    'status_label' => $isCompletedAppointment ? '' : formatAppointmentStatusLabel($appointmentStatus),
+                    'label' => 'Appointment',
+                    'status_label' => formatAppointmentStatusLabel($appointmentStatus),
                     'patient_name' => $patientName,
                     'dentist_name' => $dentistName,
                     'service_name' => $serviceName,
@@ -885,9 +905,7 @@ try {
                     'payment_status_label' => $paymentStatusLabel,
                     'appointment_status_label' => formatAppointmentStatusLabel($appointmentStatus),
                     'service_label' => (string) ($mapped['label'] ?? 'Treatment'),
-                    'class' => $isCompletedAppointment
-                        ? 'bg-[#2b8beb]/20 border-[#2b8beb]/35 text-[#2b8beb]'
-                        : (string) ($mapped['class'] ?? 'bg-[#2b8beb] border-[#2b8beb] text-white'),
+                    'class' => mapAppointmentStatusClass($appointmentStatus),
                     'kind' => 'appointment',
                 ];
             }
@@ -1340,7 +1358,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                             $entryStyle .= ' left: 6px; right: 6px;';
                                         }
                                         ?>
-                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-emerald-900' : 'text-sky-900'; ?> <?php echo $zClass; ?> <?php echo $isCompactAppointmentBlock ? 'flex items-center justify-center' : ''; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isWork ? ('data-shift-tooltip="1" data-shift-full-name="' . htmlspecialchars($fullDentistName, ENT_QUOTES, 'UTF-8') . '" data-shift-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '"') : ''; ?> <?php echo (!$isWork && $entryKind === 'appointment') ? ('data-appointment-tooltip="1" data-appt-patient-name="' . htmlspecialchars((string) ($entry['patient_name'] ?? 'Patient'), ENT_QUOTES, 'UTF-8') . '" data-appt-dentist-name="' . htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dentist'), ENT_QUOTES, 'UTF-8') . '" data-appt-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '" data-appt-service-name="' . htmlspecialchars((string) ($entry['service_name'] ?? 'Treatment'), ENT_QUOTES, 'UTF-8') . '" data-appt-type="' . htmlspecialchars((string) ($entry['visit_type_label'] ?? 'Booking'), ENT_QUOTES, 'UTF-8') . '" data-appt-payment-status="' . htmlspecialchars((string) ($entry['payment_status_label'] ?? 'Unpaid'), ENT_QUOTES, 'UTF-8') . '" data-appt-status="' . htmlspecialchars((string) ($entry['appointment_status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') . '"') : ''; ?>>
+                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-emerald-900' : ''; ?> <?php echo $zClass; ?> <?php echo $isCompactAppointmentBlock ? 'flex items-center justify-center' : ''; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isWork ? ('data-shift-tooltip="1" data-shift-full-name="' . htmlspecialchars($fullDentistName, ENT_QUOTES, 'UTF-8') . '" data-shift-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '"') : ''; ?> <?php echo (!$isWork && $entryKind === 'appointment') ? ('data-appointment-tooltip="1" data-appt-patient-name="' . htmlspecialchars((string) ($entry['patient_name'] ?? 'Patient'), ENT_QUOTES, 'UTF-8') . '" data-appt-dentist-name="' . htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dentist'), ENT_QUOTES, 'UTF-8') . '" data-appt-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '" data-appt-service-name="' . htmlspecialchars((string) ($entry['service_name'] ?? 'Treatment'), ENT_QUOTES, 'UTF-8') . '" data-appt-type="' . htmlspecialchars((string) ($entry['visit_type_label'] ?? 'Booking'), ENT_QUOTES, 'UTF-8') . '" data-appt-payment-status="' . htmlspecialchars((string) ($entry['payment_status_label'] ?? 'Unpaid'), ENT_QUOTES, 'UTF-8') . '" data-appt-status="' . htmlspecialchars((string) ($entry['appointment_status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') . '"') : ''; ?>>
                                             <?php if ($isWork): ?>
                                                 <p class="text-[9px] font-black uppercase tracking-[0.12em] text-emerald-900/80 leading-tight">WORK SHIFT</p>
                                                 <p class="mt-0.5 text-[10px] font-black text-emerald-900 truncate"><?php echo htmlspecialchars($shortDentistName, ENT_QUOTES, 'UTF-8'); ?></p>
