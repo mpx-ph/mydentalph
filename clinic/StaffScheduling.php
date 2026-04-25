@@ -151,7 +151,6 @@ $selectedDate = new DateTimeImmutable($selectedDateInput, $tz);
 $startOfWeek = $selectedDate->modify('-' . $selectedDate->format('w') . ' days')->setTime(0, 0, 0);
 $endOfWeek = $startOfWeek->modify('+6 days')->setTime(23, 59, 59);
 $monthLabel = $selectedDate->format('F Y');
-$weekLabel = $startOfWeek->format('M j') . '-' . $endOfWeek->format('j, Y');
 
 $gridStartMinutes = 6 * 60;
 $gridEndMinutes = 28 * 60; // 4:00 AM next day
@@ -1157,19 +1156,6 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     </p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2.5 xl:justify-end">
-                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-xs uppercase tracking-widest hover:border-primary/30 hover:text-primary transition-colors">
-                        <span class="material-symbols-outlined text-base">filter_list</span>
-                        Filter
-                    </button>
-                    <div class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-xs uppercase tracking-widest">
-                        <span class="material-symbols-outlined text-base text-primary">date_range</span>
-                        <?php echo htmlspecialchars($weekLabel, ENT_QUOTES, 'UTF-8'); ?>
-                    </div>
-                    <div class="inline-flex rounded-xl border border-slate-200 bg-white p-1">
-                        <button type="button" class="px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 hover:text-primary transition-colors">Day</button>
-                        <button type="button" class="px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.2em] bg-primary text-white">Week</button>
-                        <button type="button" class="px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 hover:text-primary transition-colors">Month</button>
-                    </div>
                     <button type="button" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs uppercase tracking-widest transition-colors shadow-sm">
                         <span class="material-symbols-outlined text-base">add</span>
                         Block Time
@@ -1243,9 +1229,14 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                         $dateClasses .= ' bg-white text-slate-500 border-slate-100';
                                     }
                                     ?>
-                                    <div class="<?php echo $dateClasses; ?>">
+                                    <button
+                                        type="button"
+                                        class="<?php echo $dateClasses; ?> w-full hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
+                                        data-mini-calendar-date="<?php echo htmlspecialchars($cellDate->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"
+                                        aria-label="View schedule for <?php echo htmlspecialchars($cellDate->format('F j, Y'), ENT_QUOTES, 'UTF-8'); ?>"
+                                    >
                                         <?php echo htmlspecialchars((string) $dateNumber, ENT_QUOTES, 'UTF-8'); ?>
-                                    </div>
+                                    </button>
                                 <?php endforeach; ?>
                             </div>
                         <?php endforeach; ?>
@@ -2100,6 +2091,16 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 }
             });
         }
+        const miniCalendarDateButtons = document.querySelectorAll('[data-mini-calendar-date]');
+        miniCalendarDateButtons.forEach(function (dateButton) {
+            dateButton.addEventListener('click', function () {
+                if (!weekReferenceDateInput || !scheduleFilterForm) return;
+                const selectedDateValue = String(dateButton.getAttribute('data-mini-calendar-date') || '').trim();
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(selectedDateValue)) return;
+                weekReferenceDateInput.value = selectedDateValue;
+                scheduleFilterForm.submit();
+            });
+        });
         if (showCompletedToggle) {
             showCompletedToggle.addEventListener('change', function () {
                 if (scheduleFilterForm) {
