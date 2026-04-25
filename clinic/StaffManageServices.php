@@ -1342,8 +1342,14 @@ function saveServiceChanges() {
         if (!data.success) {
             throw new Error(data.message || 'Failed to update service.');
         }
+        const updatedServiceName = payload.service_name || 'The service';
         closeEditServiceModal();
         loadServices();
+        void staffUiAlert({
+            title: 'Service updated',
+            message: 'The Service "' + updatedServiceName + '" has been updated.',
+            variant: 'success'
+        });
     }).catch(function (err) {
         void staffUiAlert({ message: err.message || 'Failed to update service.', variant: 'error', title: 'Could not update service' });
     });
