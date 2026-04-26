@@ -141,6 +141,7 @@ try {
                     $shiftRanges = [];
                     $isInsideShift = false;
                     $activeBlockReason = '';
+                    $activeBlockTypes = ['break', 'emergency', 'personal', 'other'];
                     if ($dentistUserId !== '') {
                         $effectiveBlocks = clinic_get_effective_schedule_blocks($pdo, (string) $tenantId, $dentistUserId, $todayDate);
                         foreach ($effectiveBlocks as $block) {
@@ -152,6 +153,9 @@ try {
                             }
 
                             if (!in_array($blockType, ['shift', 'work'], true)) {
+                                if (!in_array($blockType, $activeBlockTypes, true)) {
+                                    continue;
+                                }
                                 if ($todayTime >= $startTime && $todayTime < $endTime) {
                                     $activeBlockReason = $normalizeBlockReason(
                                         (string) ($block['block_type'] ?? ''),
