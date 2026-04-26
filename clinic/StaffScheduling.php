@@ -1727,7 +1727,25 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 <div class="elevated-card rounded-3xl p-6">
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em]">Calendar</h2>
-                        <span class="text-xs font-bold text-slate-500"><?php echo htmlspecialchars($monthLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+                        <div class="flex items-center gap-1.5">
+                            <button
+                                type="button"
+                                class="h-7 w-7 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-primary hover:border-primary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 transition-colors"
+                                data-mini-calendar-month-nav="prev"
+                                aria-label="Go to previous month"
+                            >
+                                <span class="material-symbols-outlined text-[18px]">chevron_left</span>
+                            </button>
+                            <span class="text-xs font-bold text-slate-500 min-w-[96px] text-center"><?php echo htmlspecialchars($monthLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+                            <button
+                                type="button"
+                                class="h-7 w-7 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-primary hover:border-primary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 transition-colors"
+                                data-mini-calendar-month-nav="next"
+                                aria-label="Go to next month"
+                            >
+                                <span class="material-symbols-outlined text-[18px]">chevron_right</span>
+                            </button>
+                        </div>
                     </div>
                     <div class="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">
                         <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
@@ -3076,6 +3094,39 @@ $dentistsSeedData = array_map(static function ($dentist) {
             });
         }
         const miniCalendarDateButtons = document.querySelectorAll('[data-mini-calendar-date]');
+        const miniCalendarMonthNavButtons = document.querySelectorAll('[data-mini-calendar-month-nav]');
+        const shiftDateByMonth = function (dateString, monthDelta) {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateString || '').trim())) return '';
+            const [yearRaw, monthRaw, dayRaw] = String(dateString).split('-');
+            const year = Number(yearRaw);
+            const month = Number(monthRaw);
+            const day = Number(dayRaw);
+            if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return '';
+            const firstOfCurrentMonth = new Date(year, month - 1, 1);
+            const targetFirstOfMonth = new Date(firstOfCurrentMonth.getFullYear(), firstOfCurrentMonth.getMonth() + monthDelta, 1);
+            const targetYear = targetFirstOfMonth.getFullYear();
+            const targetMonthIndex = targetFirstOfMonth.getMonth();
+            const maxDay = new Date(targetYear, targetMonthIndex + 1, 0).getDate();
+            const targetDay = Math.min(day, maxDay);
+            const targetDate = new Date(targetYear, targetMonthIndex, targetDay);
+            const yyyy = targetDate.getFullYear();
+            const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const dd = String(targetDate.getDate()).padStart(2, '0');
+            return yyyy + '-' + mm + '-' + dd;
+        };
+        miniCalendarMonthNavButtons.forEach(function (navButton) {
+            navButton.addEventListener('click', function () {
+                if (!weekReferenceDateInput || !scheduleFilterForm) return;
+                const navDirection = String(navButton.getAttribute('data-mini-calendar-month-nav') || '').trim();
+                if (navDirection !== 'prev' && navDirection !== 'next') return;
+                const monthDelta = navDirection === 'prev' ? -1 : 1;
+                const baseDateValue = String(weekReferenceDateInput.value || '').trim();
+                const shiftedDateValue = shiftDateByMonth(baseDateValue, monthDelta);
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(shiftedDateValue)) return;
+                weekReferenceDateInput.value = shiftedDateValue;
+                scheduleFilterForm.submit();
+            });
+        });
         miniCalendarDateButtons.forEach(function (dateButton) {
             dateButton.addEventListener('click', function () {
                 if (!weekReferenceDateInput || !scheduleFilterForm) return;
