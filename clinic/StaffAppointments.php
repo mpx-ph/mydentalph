@@ -538,6 +538,16 @@ $statusLabels = [
     'cancelled' => 'Cancelled',
     'no_show' => 'No Show',
 ];
+/** Human-readable label for a normalized appointment status (Daily Schedule, modal). */
+$appointmentStatusText = [
+    'pending' => 'Pending',
+    'in_progress' => 'In Progress',
+    'completed' => 'Completed',
+    'cancelled' => 'Cancelled',
+    'no_show' => 'No Show',
+    'scheduled' => 'Pending',
+    'confirmed' => 'Pending',
+];
 $walkInBookingHref = BASE_URL . 'StaffWalkIn.php';
 if ($currentTenantSlug !== '') {
     $walkInBookingHref .= '?' . http_build_query(['clinic_slug' => $currentTenantSlug]);
@@ -770,11 +780,18 @@ if ($currentTenantSlug !== '') {
                                     $patientName = 'Unknown Patient';
                                 }
                                 $timeLabel = !empty($appointment['appointment_time']) ? date('g:i A', strtotime((string) $appointment['appointment_time'])) : '-';
-                                $statusRaw = strtolower(trim((string) ($appointment['status'] ?? 'pending')));
+                                $statusFromDb = (string) ($appointment['status'] ?? '');
+                                $statusRaw = strtolower(trim(str_replace([' ', '-'], '_', $statusFromDb)));
+                                if ($statusRaw === 'inprogress') {
+                                    $statusRaw = 'in_progress';
+                                }
+                                if ($statusRaw === '' || $statusRaw === '0') {
+                                    $statusRaw = 'pending';
+                                }
                                 if ($statusRaw === 'confirmed' || $statusRaw === 'scheduled') {
                                     $statusRaw = 'pending';
                                 }
-                                $statusLabel = ucfirst(str_replace('_', ' ', $statusRaw));
+                                $statusLabel = $appointmentStatusText[$statusRaw] ?? (trim($statusFromDb) !== '' ? ucfirst(str_replace('_', ' ', $statusRaw)) : 'Pending');
                                 $statusClass = 'bg-amber-50 text-amber-700 border border-amber-200';
                                 if ($statusRaw === 'in_progress') {
                                     $statusClass = 'bg-blue-50 text-blue-700 border border-blue-200';
@@ -885,7 +902,7 @@ if ($currentTenantSlug !== '') {
                                             data-pending-balance="<?php echo htmlspecialchars((string) $pendingBalance, ENT_QUOTES, 'UTF-8'); ?>"
                                             data-notes="<?php echo htmlspecialchars((string) ($appointment['notes'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-status="<?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?>"
-                                            data-status-raw="<?php echo htmlspecialchars((string) ($appointment['status'] ?? 'pending'), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-status-raw="<?php echo htmlspecialchars($statusRaw, ENT_QUOTES, 'UTF-8'); ?>"
                                             data-treatment-type-raw="<?php echo htmlspecialchars($treatmentType, ENT_QUOTES, 'UTF-8'); ?>"
                                             data-existing-service-ids="<?php echo htmlspecialchars((string) ($appointment['appointment_service_ids'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                                         >

@@ -331,7 +331,7 @@ CREATE TABLE IF NOT EXISTS tbl_appointments (
     insurance VARCHAR(100),
     treatment_type ENUM('short_term','long_term') DEFAULT 'short_term',
     visit_type ENUM('pre_book','walk_in','emergency') DEFAULT 'pre_book',
-    status ENUM('pending','confirmed','completed','cancelled','no_show') DEFAULT 'pending',
+    status ENUM('pending','confirmed','scheduled','in_progress','completed','cancelled','no_show') DEFAULT 'pending',
     notes TEXT,
     total_treatment_cost DECIMAL(10,2),
     duration_months INT,
