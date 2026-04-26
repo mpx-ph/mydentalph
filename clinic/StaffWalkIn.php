@@ -352,8 +352,8 @@ try {
             </div>
         </section>
 
-        <section class="grid grid-cols-1 xl:grid-cols-12 gap-6">
-            <div class="xl:col-span-4 elevated-card rounded-3xl p-6">
+        <section class="space-y-6">
+            <div class="elevated-card rounded-3xl p-6">
                 <div class="flex items-center gap-3 mb-5">
                     <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                         <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person_search</span>
@@ -386,7 +386,8 @@ try {
                 </div>
             </div>
 
-            <div class="xl:col-span-8 space-y-6">
+            <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                <div class="xl:col-span-7">
                 <div class="elevated-card rounded-3xl p-6">
                     <div class="flex items-center gap-3 mb-5">
                         <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
@@ -445,7 +446,9 @@ try {
                         </p>
                     </div>
                 </div>
+                </div>
 
+                <div class="xl:col-span-5 space-y-6">
                 <div id="walkInDefaultPaymentDetailsSection" class="elevated-card rounded-3xl p-6">
                     <div class="flex items-center justify-between gap-3 mb-4">
                         <div>
@@ -513,11 +516,12 @@ try {
                     </div>
                     <p class="text-[11px] font-semibold text-slate-500 mt-4">Installment treatment progress is computed at treatment level and reused across follow-up visits.</p>
                 </div>
+                </div>
             </div>
         </section>
 
         <section class="pt-1 grid grid-cols-1 xl:grid-cols-12">
-            <div class="xl:col-span-8 xl:col-start-5">
+            <div class="xl:col-span-12">
                 <button id="createWalkInAppointmentBtn" type="button" class="walkin-primary-btn w-full rounded-2xl bg-gradient-to-r from-primary to-blue-500 text-white py-3.5 text-sm font-extrabold uppercase tracking-wide shadow-lg shadow-primary/35 inline-flex items-center justify-center gap-2">
                     <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">calendar_add_on</span>
                     Create Walk-In Appointment
