@@ -195,22 +195,22 @@ try {
 </div>
 </div>
 
-<div class="w-full overflow-x-auto">
-<table class="w-full min-w-[64rem] text-left border-separate border-spacing-0 table-fixed">
+<div class="overflow-x-auto px-4 sm:px-6 md:px-8">
+<table class="w-full min-w-[56rem] text-left border-collapse table-fixed">
 <colgroup>
-<col class="min-w-0" style="width: 30%"/>
-<col class="min-w-0" style="width: 17%"/>
-<col class="min-w-0" style="width: 15%"/>
-<col class="min-w-0" style="width: 13%"/>
-<col class="min-w-0" style="width: 25%"/>
+<col class="min-w-0" style="width: 20%"/>
+<col class="min-w-0" style="width: 20%"/>
+<col class="min-w-0" style="width: 20%"/>
+<col class="min-w-0" style="width: 20%"/>
+<col class="min-w-0" style="width: 20%"/>
 </colgroup>
 <thead>
 <tr class="bg-slate-50/70 border-b border-slate-100">
-<th class="pl-6 pr-4 sm:pl-8 sm:pr-5 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left border-r border-slate-100/90">Service Name</th>
-<th class="px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center border-r border-slate-100/90">Category</th>
-<th class="px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center border-r border-slate-100/90">Current Price</th>
-<th class="px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center border-r border-slate-100/90">Status</th>
-<th class="pl-6 pr-6 sm:pl-8 sm:pr-8 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right min-w-[11rem]">Actions</th>
+<th class="py-4 pl-5 pr-3 sm:pl-6 sm:pr-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">Service Name</th>
+<th class="px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Category</th>
+<th class="px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Current Price</th>
+<th class="px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Status</th>
+<th class="py-4 pl-3 pr-5 sm:pl-4 sm:pr-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Actions</th>
 </tr>
 </thead>
 <tbody id="servicesTableBody" class="divide-y divide-slate-100">
@@ -221,7 +221,7 @@ try {
 </table>
 </div>
 
-<div id="paginationContainer" class="hidden p-4 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between gap-4">
+<div id="paginationContainer" class="hidden py-4 px-4 sm:px-6 md:px-8 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between gap-4">
 <p id="paginationInfo" class="text-[11px] font-bold text-slate-500 uppercase tracking-widest"></p>
 <div id="paginationButtons" class="flex items-center gap-2"></div>
 </div>
@@ -882,15 +882,15 @@ function renderServices() {
             ? '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700">Active</span>'
             : '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600">Inactive</span>';
         return '<tr class="hover:bg-slate-50/60 transition-colors">' +
-            '<td class="pl-6 pr-4 sm:pl-8 sm:pr-5 py-4 min-w-0 align-top text-left border-r border-slate-100/80"><div class="font-bold text-slate-900 break-words">' + serviceName + '</div>' +
+            '<td class="py-4 pl-5 pr-3 sm:pl-6 sm:pr-4 min-w-0 align-top text-left"><div class="font-bold text-slate-900 break-words">' + serviceName + '</div>' +
             (serviceDetails ? '<div class="text-xs text-slate-500 mt-0.5 break-words">' + serviceDetails + '</div>' : '') +
             (serviceId ? '<div class="text-[10px] text-slate-400 mt-1 font-semibold uppercase tracking-wider">ID: ' + serviceId + '</div>' : '') +
             '</td>' +
-            '<td class="px-4 py-4 align-top text-center border-r border-slate-100/80"><span class="inline-flex max-w-full px-2.5 py-1 rounded-full text-[11px] font-bold ' + colorClass + '">' + category + '</span></td>' +
-            '<td class="px-4 py-4 align-top text-center whitespace-nowrap border-r border-slate-100/80"><span class="font-extrabold text-slate-900">P' + price + '</span></td>' +
-            '<td class="px-4 py-4 align-top text-center border-r border-slate-100/80">' + status + '</td>' +
-            '<td class="pl-6 pr-6 sm:pl-8 sm:pr-8 py-4 text-right align-top whitespace-nowrap">' +
-                '<div class="inline-flex items-center justify-end gap-3 flex-wrap w-full min-w-0">' +
+            '<td class="px-4 py-4 align-top text-center"><span class="inline-flex max-w-full px-2.5 py-1 rounded-full text-[11px] font-bold ' + colorClass + '">' + category + '</span></td>' +
+            '<td class="px-4 py-4 align-top text-center whitespace-nowrap"><span class="font-extrabold text-slate-900">P' + price + '</span></td>' +
+            '<td class="px-4 py-4 align-top text-center">' + status + '</td>' +
+            '<td class="py-4 pl-3 pr-5 sm:pl-4 sm:pr-6 text-right align-top whitespace-nowrap">' +
+                '<div class="inline-flex items-center justify-end gap-3 flex-wrap">' +
                     '<button class="text-primary font-bold text-sm hover:underline inline-flex items-center gap-1" data-edit-id="' + Number(service.id) + '">' +
                         '<span class="material-symbols-outlined text-sm">edit</span>Edit' +
                     '</button>' +
