@@ -343,6 +343,240 @@ try {
         exit;
     }
 
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_block_time']) && (string) $_POST['save_block_time'] === '1') {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($tenantId === '') {
+            $resolvedTenantId = clinic_resolve_walkin_tenant_id($pdo);
+            if (is_string($resolvedTenantId) && $resolvedTenantId !== '') {
+                $tenantId = $resolvedTenantId;
+            }
+        }
+        if ($tenantId === '') {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Unable to resolve tenant for block time saving.',
+            ]);
+            exit;
+        }
+
+        $blockDentistId = isset($_POST['dentist_id']) ? trim((string) $_POST['dentist_id']) : '';
+        $blockDentistUserId = isset($_POST['dentist_user_id']) ? trim((string) $_POST['dentist_user_id']) : '';
+        $blockDate = isset($_POST['block_date']) ? trim((string) $_POST['block_date']) : '';
+        $blockStart = isset($_POST['start_time']) ? trim((string) $_POST['start_time']) : '';
+        $blockEnd = isset($_POST['end_time']) ? trim((string) $_POST['end_time']) : '';
+        $blockReasonInput = isset($_POST['reason']) ? trim((string) $_POST['reason']) : 'Break';
+        $blockReason = ucfirst(strtolower($blockReasonInput));
+        $blockNotesInput = isset($_POST['notes']) ? trim((string) $_POST['notes']) : '';
+
+        if ($blockDentistId === '' && $blockDentistUserId === '') {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Please select a dentist.']);
+            exit;
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $blockDate)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Please select a valid block date.']);
+            exit;
+        }
+        if ($blockDate < $todayDateOnly) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Block date must be today or a future date.']);
+            exit;
+        }
+        if (!preg_match('/^\d{2}:\d{2}$/', $blockStart) || !preg_match('/^\d{2}:\d{2}$/', $blockEnd)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Please select valid start and end times.']);
+            exit;
+        }
+        if (toMinutes($blockEnd) <= toMinutes($blockStart)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Block end time must be later than start time.']);
+            exit;
+        }
+        if (!in_array($blockReason, ['Break', 'Emergency', 'Personal', 'Other'], true)) {
+            $blockReason = 'Break';
+        }
+
+        $blockUserId = '';
+        $resolvedBlockDentistId = $blockDentistId;
+        $resolvedDentistTenantId = '';
+
+        if ($blockDentistUserId !== '') {
+            $usersLookupStmt = $pdo->prepare("
+                SELECT tenant_id, user_id
+                FROM tbl_users
+                WHERE user_id = ?
+                LIMIT 1
+            ");
+            $usersLookupStmt->execute([$blockDentistUserId]);
+            $userRow = $usersLookupStmt->fetch(PDO::FETCH_ASSOC);
+            if (is_array($userRow) && !empty($userRow)) {
+                $blockUserId = trim((string) ($userRow['user_id'] ?? ''));
+                $resolvedDentistTenantId = trim((string) ($userRow['tenant_id'] ?? ''));
+            }
+        }
+
+        if ($blockUserId === '' || $resolvedBlockDentistId === '') {
+            $dentistLookupStmt = $pdo->prepare("
+                SELECT tenant_id, user_id, dentist_id
+                FROM tbl_dentists
+                WHERE
+                    (? <> '' AND user_id = ?)
+                    OR (? <> '' AND dentist_id = ?)
+                ORDER BY tenant_id ASC
+                LIMIT 1
+            ");
+            $dentistLookupStmt->execute([
+                $blockDentistUserId,
+                $blockDentistUserId,
+                $blockDentistId,
+                $blockDentistId,
+            ]);
+            $dentistRow = $dentistLookupStmt->fetch(PDO::FETCH_ASSOC);
+            if (is_array($dentistRow) && !empty($dentistRow)) {
+                if ($blockUserId === '') {
+                    $blockUserId = trim((string) ($dentistRow['user_id'] ?? ''));
+                }
+                if ($resolvedBlockDentistId === '') {
+                    $resolvedBlockDentistId = trim((string) ($dentistRow['dentist_id'] ?? ''));
+                }
+                if ($resolvedDentistTenantId === '') {
+                    $resolvedDentistTenantId = trim((string) ($dentistRow['tenant_id'] ?? ''));
+                }
+            }
+        }
+
+        if ($blockUserId === '' && $blockDentistId !== '') {
+            $dentistEmailLookupStmt = $pdo->prepare("
+                SELECT
+                    d.tenant_id,
+                    d.dentist_id,
+                    u.user_id
+                FROM tbl_dentists d
+                LEFT JOIN tbl_users u
+                    ON u.tenant_id = d.tenant_id
+                    AND LOWER(TRIM(COALESCE(u.email, ''))) = LOWER(TRIM(COALESCE(d.email, '')))
+                    AND u.role = 'dentist'
+                WHERE d.dentist_id = ?
+                LIMIT 1
+            ");
+            $dentistEmailLookupStmt->execute([$blockDentistId]);
+            $emailResolvedRow = $dentistEmailLookupStmt->fetch(PDO::FETCH_ASSOC);
+            if (is_array($emailResolvedRow) && !empty($emailResolvedRow)) {
+                $emailResolvedUserId = trim((string) ($emailResolvedRow['user_id'] ?? ''));
+                if ($emailResolvedUserId !== '') {
+                    $blockUserId = $emailResolvedUserId;
+                    $resolvedDentistTenantId = trim((string) ($emailResolvedRow['tenant_id'] ?? ''));
+                    if ($resolvedBlockDentistId === '') {
+                        $resolvedBlockDentistId = trim((string) ($emailResolvedRow['dentist_id'] ?? ''));
+                    }
+                }
+            }
+        }
+
+        if ($blockUserId === '') {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Selected dentist has no linked user account. Please update dentist account linkage first.']);
+            exit;
+        }
+        if ($resolvedDentistTenantId !== '') {
+            $tenantId = $resolvedDentistTenantId;
+        }
+
+        $blockDateObj = DateTimeImmutable::createFromFormat('Y-m-d', $blockDate, $tz);
+        $blockDayName = $blockDateObj instanceof DateTimeImmutable ? $blockDateObj->format('l') : '';
+        $shiftLookupStmt = $pdo->prepare("
+            SELECT start_time, end_time
+            FROM tbl_schedule_blocks
+            WHERE tenant_id = ?
+              AND user_id = ?
+              AND is_active = 1
+              AND block_type IN ('shift', 'work')
+              AND (
+                  block_date = ?
+                  OR (
+                      (block_date IS NULL OR block_date = '' OR block_date = '0000-00-00')
+                      AND day_of_week = ?
+                  )
+              )
+            ORDER BY
+                CASE WHEN block_date = ? THEN 0 ELSE 1 END,
+                start_time DESC,
+                end_time DESC
+            LIMIT 1
+        ");
+        $shiftLookupStmt->execute([$tenantId, $blockUserId, $blockDate, $blockDayName, $blockDate]);
+        $shiftRow = $shiftLookupStmt->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($shiftRow) || empty($shiftRow)) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'No work shift found for this dentist on the selected date.',
+            ]);
+            exit;
+        }
+
+        $shiftStart = substr((string) ($shiftRow['start_time'] ?? ''), 0, 5);
+        $shiftEnd = substr((string) ($shiftRow['end_time'] ?? ''), 0, 5);
+        if ($shiftStart === '' || $shiftEnd === '') {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Work shift time is incomplete for the selected date.',
+            ]);
+            exit;
+        }
+        $shiftStartMinutes = toMinutes($shiftStart);
+        $shiftEndMinutes = toMinutes($shiftEnd);
+        $blockStartMinutes = toMinutes($blockStart);
+        $blockEndMinutes = toMinutes($blockEnd);
+        if ($blockStartMinutes < $shiftStartMinutes || $blockEndMinutes > $shiftEndMinutes) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Block time must be within the selected dentist work shift (' . formatTimeForUi($shiftStart) . ' - ' . formatTimeForUi($shiftEnd) . ').',
+            ]);
+            exit;
+        }
+
+        $createdByUserId = isset($_SESSION['user_id']) ? trim((string) $_SESSION['user_id']) : null;
+        if ($createdByUserId === '') {
+            $createdByUserId = null;
+        }
+        $savedNotes = 'Reason: ' . $blockReason;
+        if ($blockNotesInput !== '') {
+            $savedNotes .= "\n" . $blockNotesInput;
+        }
+
+        $insertBlockStmt = $pdo->prepare("
+            INSERT INTO tbl_schedule_blocks
+                (tenant_id, user_id, block_date, day_of_week, start_time, end_time, block_type, is_active, notes, created_by)
+            VALUES
+                (?, ?, ?, NULL, ?, ?, ?, 1, ?, ?)
+        ");
+        $insertBlockStmt->execute([
+            $tenantId,
+            $blockUserId,
+            $blockDate,
+            $blockStart . ':00',
+            $blockEnd . ':00',
+            strtolower($blockReason),
+            $savedNotes,
+            $createdByUserId,
+        ]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Blocked time saved successfully.',
+            'selected_date' => $blockDate,
+            'dentist_id' => $resolvedBlockDentistId !== '' ? $resolvedBlockDentistId : $blockDentistId,
+            'dentist_user_id' => $blockUserId,
+        ]);
+        exit;
+    }
+
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_set_shift']) && (string) $_POST['save_set_shift'] === '1') {
         header('Content-Type: application/json; charset=utf-8');
 
@@ -754,7 +988,7 @@ try {
                     continue;
                 }
 
-                if ($blockType === 'break') {
+                if (!in_array($blockType, ['shift', 'work'], true)) {
                     $entriesByDate[$targetDateKey][] = [
                         'start_min' => $startMin,
                         'end_min' => $endMin,
@@ -1746,6 +1980,10 @@ $dentistsSeedData = array_map(static function ($dentist) {
         const saveBlockTimeBtn = document.getElementById('saveBlockTimeBtn');
         const blockTimeDentistId = document.getElementById('blockTimeDentistId');
         const blockTimeDate = document.getElementById('blockTimeDate');
+        const blockTimeStartTime = document.getElementById('blockTimeStartTime');
+        const blockTimeEndTime = document.getElementById('blockTimeEndTime');
+        const blockTimeReason = document.getElementById('blockTimeReason');
+        const blockTimeNotes = document.getElementById('blockTimeNotes');
         const blockTimeShiftHoursLabel = document.getElementById('blockTimeShiftHoursLabel');
         const blockTimeShiftStartReadonly = document.getElementById('blockTimeShiftStartReadonly');
         const blockTimeShiftEndReadonly = document.getElementById('blockTimeShiftEndReadonly');
@@ -2215,8 +2453,92 @@ $dentistsSeedData = array_map(static function ($dentist) {
             });
         }
         if (saveBlockTimeBtn) {
-            saveBlockTimeBtn.addEventListener('click', function () {
-                closeBlockTimeModal();
+            saveBlockTimeBtn.addEventListener('click', async function () {
+                if (!blockTimeDentistId || !blockTimeDate || !blockTimeStartTime || !blockTimeEndTime || !blockTimeReason) return;
+
+                const selectedDate = String(blockTimeDate.value || '');
+                const selectedStart = String(blockTimeStartTime.value || '');
+                const selectedEnd = String(blockTimeEndTime.value || '');
+                const selectedReason = String(blockTimeReason.value || 'Break');
+                const notesValue = blockTimeNotes ? String(blockTimeNotes.value || '').trim() : '';
+                const selectedDentistUserId = String(blockTimeDentistId.value || '');
+                const selectedDentistOption = blockTimeDentistId.options[blockTimeDentistId.selectedIndex] || null;
+                const selectedDentistId = selectedDentistOption ? String(selectedDentistOption.getAttribute('data-dentist-id') || '') : '';
+
+                if (!selectedDate || selectedDate < todayDateOnly) {
+                    showPageAlert('Please select today or a future date.');
+                    return;
+                }
+                if (!selectedDentistUserId && !selectedDentistId) {
+                    showPageAlert('Please select a dentist.');
+                    return;
+                }
+                if (!selectedStart || !selectedEnd) {
+                    showPageAlert('Please select both block start and end times.');
+                    return;
+                }
+                if (toMinutes(selectedEnd) <= toMinutes(selectedStart)) {
+                    showPageAlert('Block end time must be later than block start time.');
+                    return;
+                }
+                if (!selectedWorkShiftForBlockTime.hasRecord || !selectedWorkShiftForBlockTime.startTimeRaw || !selectedWorkShiftForBlockTime.endTimeRaw) {
+                    showPageAlert('No work shift found for the selected dentist and date.');
+                    return;
+                }
+
+                const shiftStartMinutes = toMinutes(selectedWorkShiftForBlockTime.startTimeRaw);
+                const shiftEndMinutes = toMinutes(selectedWorkShiftForBlockTime.endTimeRaw);
+                const blockStartMinutes = toMinutes(selectedStart);
+                const blockEndMinutes = toMinutes(selectedEnd);
+                if (blockStartMinutes < shiftStartMinutes || blockEndMinutes > shiftEndMinutes) {
+                    showPageAlert('Block time must be within the selected dentist work shift.');
+                    return;
+                }
+
+                const originalButtonLabel = saveBlockTimeBtn.textContent;
+                saveBlockTimeBtn.disabled = true;
+                saveBlockTimeBtn.textContent = 'Saving...';
+                try {
+                    const payload = new URLSearchParams();
+                    payload.append('save_block_time', '1');
+                    payload.append('dentist_id', selectedDentistId);
+                    payload.append('dentist_user_id', selectedDentistUserId);
+                    payload.append('block_date', selectedDate);
+                    payload.append('start_time', selectedStart);
+                    payload.append('end_time', selectedEnd);
+                    payload.append('reason', selectedReason);
+                    payload.append('notes', notesValue);
+
+                    const response = await fetch(window.location.pathname + window.location.search, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                            'Accept': 'application/json'
+                        },
+                        credentials: 'same-origin',
+                        body: payload.toString()
+                    });
+                    const result = await response.json();
+                    if (!response.ok || !result || result.success !== true) {
+                        throw new Error((result && result.message) ? result.message : 'Failed to save blocked time.');
+                    }
+
+                    closeBlockTimeModal();
+                    const refreshedUrl = new URL(window.location.href);
+                    refreshedUrl.searchParams.set('selected_date', selectedDate);
+                    if (selectedDentistUserId) {
+                        refreshedUrl.searchParams.set('user_id', selectedDentistUserId);
+                    }
+                    if (selectedDentistId) {
+                        refreshedUrl.searchParams.set('dentist_id', selectedDentistId);
+                    }
+                    window.location.href = refreshedUrl.toString();
+                } catch (error) {
+                    showPageAlert((error && error.message) ? error.message : 'Failed to save blocked time.');
+                } finally {
+                    saveBlockTimeBtn.disabled = false;
+                    saveBlockTimeBtn.textContent = originalButtonLabel;
+                }
             });
         }
         if (blockTimeDate) {
