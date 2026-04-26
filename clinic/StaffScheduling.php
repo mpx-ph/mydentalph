@@ -1541,51 +1541,11 @@ $dentistsSeedData = array_map(static function ($dentist) {
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label for="blockTimeStartTime" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Start Time</label>
-                                <select id="blockTimeStartTime" class="schedule-input w-full py-3 px-4">
-                                    <option value="08:00">8:00 AM</option>
-                                    <option value="08:30">8:30 AM</option>
-                                    <option value="09:00">9:00 AM</option>
-                                    <option value="09:30">9:30 AM</option>
-                                    <option value="10:00">10:00 AM</option>
-                                    <option value="10:30">10:30 AM</option>
-                                    <option value="11:00">11:00 AM</option>
-                                    <option value="11:30">11:30 AM</option>
-                                    <option value="12:00" selected>12:00 PM</option>
-                                    <option value="12:30">12:30 PM</option>
-                                    <option value="13:00">1:00 PM</option>
-                                    <option value="13:30">1:30 PM</option>
-                                    <option value="14:00">2:00 PM</option>
-                                    <option value="14:30">2:30 PM</option>
-                                    <option value="15:00">3:00 PM</option>
-                                    <option value="15:30">3:30 PM</option>
-                                    <option value="16:00">4:00 PM</option>
-                                    <option value="16:30">4:30 PM</option>
-                                    <option value="17:00">5:00 PM</option>
-                                </select>
+                                <input id="blockTimeStartTime" type="time" step="60" value="12:00" class="schedule-input w-full py-3 px-4"/>
                             </div>
                             <div>
                                 <label for="blockTimeEndTime" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">End Time</label>
-                                <select id="blockTimeEndTime" class="schedule-input w-full py-3 px-4">
-                                    <option value="08:30">8:30 AM</option>
-                                    <option value="09:00">9:00 AM</option>
-                                    <option value="09:30">9:30 AM</option>
-                                    <option value="10:00">10:00 AM</option>
-                                    <option value="10:30">10:30 AM</option>
-                                    <option value="11:00">11:00 AM</option>
-                                    <option value="11:30">11:30 AM</option>
-                                    <option value="12:00">12:00 PM</option>
-                                    <option value="12:30">12:30 PM</option>
-                                    <option value="13:00" selected>1:00 PM</option>
-                                    <option value="13:30">1:30 PM</option>
-                                    <option value="14:00">2:00 PM</option>
-                                    <option value="14:30">2:30 PM</option>
-                                    <option value="15:00">3:00 PM</option>
-                                    <option value="15:30">3:30 PM</option>
-                                    <option value="16:00">4:00 PM</option>
-                                    <option value="16:30">4:30 PM</option>
-                                    <option value="17:00">5:00 PM</option>
-                                    <option value="17:30">5:30 PM</option>
-                                </select>
+                                <input id="blockTimeEndTime" type="time" step="60" value="13:00" class="schedule-input w-full py-3 px-4"/>
                             </div>
                         </div>
                         <div>
