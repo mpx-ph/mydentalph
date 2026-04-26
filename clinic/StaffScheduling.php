@@ -211,6 +211,84 @@ foreach ($weekDays as $day) {
 try {
     $pdo = getDBConnection();
 
+    if (isset($_GET['dentist_shift_lookup']) && (string) $_GET['dentist_shift_lookup'] === '1') {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $lookupDate = isset($_GET['date']) ? trim((string) $_GET['date']) : '';
+        $lookupUserId = isset($_GET['dentist_user_id']) ? trim((string) $_GET['dentist_user_id']) : '';
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $lookupDate)) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Invalid date supplied.',
+            ]);
+            exit;
+        }
+        if ($lookupUserId === '') {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Invalid dentist supplied.',
+            ]);
+            exit;
+        }
+        if ($tenantId === '') {
+            $resolvedTenantId = clinic_resolve_walkin_tenant_id($pdo);
+            if (is_string($resolvedTenantId) && $resolvedTenantId !== '') {
+                $tenantId = $resolvedTenantId;
+            }
+        }
+        if ($tenantId === '') {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Unable to resolve tenant.',
+            ]);
+            exit;
+        }
+
+        $lookupDateObj = DateTimeImmutable::createFromFormat('Y-m-d', $lookupDate, $tz);
+        $lookupDayName = $lookupDateObj instanceof DateTimeImmutable ? $lookupDateObj->format('l') : '';
+
+        $shiftLookupStmt = $pdo->prepare("
+            SELECT start_time, end_time
+            FROM tbl_schedule_blocks
+            WHERE tenant_id = ?
+              AND user_id = ?
+              AND is_active = 1
+              AND block_type IN ('shift', 'work')
+              AND (
+                  block_date = ?
+                  OR (
+                      (block_date IS NULL OR block_date = '' OR block_date = '0000-00-00')
+                      AND day_of_week = ?
+                  )
+              )
+            ORDER BY
+                CASE WHEN block_date = ? THEN 0 ELSE 1 END,
+                start_time DESC,
+                end_time DESC
+            LIMIT 1
+        ");
+        $shiftLookupStmt->execute([$tenantId, $lookupUserId, $lookupDate, $lookupDayName, $lookupDate]);
+        $shiftRow = $shiftLookupStmt->fetch(PDO::FETCH_ASSOC);
+
+        $hasRecord = is_array($shiftRow) && !empty($shiftRow);
+        $startRaw = $hasRecord ? substr((string) ($shiftRow['start_time'] ?? ''), 0, 5) : '';
+        $endRaw = $hasRecord ? substr((string) ($shiftRow['end_time'] ?? ''), 0, 5) : '';
+
+        echo json_encode([
+            'success' => true,
+            'date' => $lookupDate,
+            'has_record' => $hasRecord,
+            'start_time_raw' => $startRaw,
+            'end_time_raw' => $endRaw,
+            'start_time' => $hasRecord && $startRaw !== '' ? formatTimeForUi($startRaw) : '-',
+            'end_time' => $hasRecord && $endRaw !== '' ? formatTimeForUi($endRaw) : '-',
+        ]);
+        exit;
+    }
+
     if (isset($_GET['clinic_hours_lookup']) && (string) $_GET['clinic_hours_lookup'] === '1') {
         header('Content-Type: application/json; charset=utf-8');
 
@@ -1538,6 +1616,19 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                 </div>
                             </div>
                         </div>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+                            <p id="blockTimeShiftHoursLabel" class="text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em]">Selected Dentist Work Shift for <?php echo htmlspecialchars((new DateTimeImmutable($setShiftDefaultDate, $tz))->format('F j, Y'), ENT_QUOTES, 'UTF-8'); ?></p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="blockTimeShiftStartReadonly" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Shift Start Time (Read Only)</label>
+                                    <input id="blockTimeShiftStartReadonly" type="text" value="-" readonly class="w-full py-3 px-4 rounded-xl border border-slate-200 bg-slate-100 text-sm font-bold text-slate-500 cursor-not-allowed"/>
+                                </div>
+                                <div>
+                                    <label for="blockTimeShiftEndReadonly" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Shift End Time (Read Only)</label>
+                                    <input id="blockTimeShiftEndReadonly" type="text" value="-" readonly class="w-full py-3 px-4 rounded-xl border border-slate-200 bg-slate-100 text-sm font-bold text-slate-500 cursor-not-allowed"/>
+                                </div>
+                            </div>
+                        </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label for="blockTimeStartTime" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Start Time</label>
@@ -1655,6 +1746,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
         const saveBlockTimeBtn = document.getElementById('saveBlockTimeBtn');
         const blockTimeDentistId = document.getElementById('blockTimeDentistId');
         const blockTimeDate = document.getElementById('blockTimeDate');
+        const blockTimeShiftHoursLabel = document.getElementById('blockTimeShiftHoursLabel');
+        const blockTimeShiftStartReadonly = document.getElementById('blockTimeShiftStartReadonly');
+        const blockTimeShiftEndReadonly = document.getElementById('blockTimeShiftEndReadonly');
         const setShiftDentistId = document.getElementById('setShiftDentistId');
         const setShiftForm = document.getElementById('setShiftForm');
         const setShiftNotes = document.getElementById('setShiftNotes');
@@ -1699,6 +1793,11 @@ $dentistsSeedData = array_map(static function ($dentist) {
             isClosed: false,
             openTimeRaw: '',
             closeTimeRaw: ''
+        };
+        let selectedWorkShiftForBlockTime = {
+            hasRecord: false,
+            startTimeRaw: '',
+            endTimeRaw: ''
         };
 
         function escapeHtml(value) {
@@ -1935,6 +2034,60 @@ $dentistsSeedData = array_map(static function ($dentist) {
             }
         }
 
+        async function loadWorkShiftForBlockTime(dateValue) {
+            const normalizedDate = String(dateValue || '').trim();
+            if (!blockTimeShiftHoursLabel || !blockTimeShiftStartReadonly || !blockTimeShiftEndReadonly || !blockTimeDentistId) return;
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) return;
+
+            const selectedDentistUserId = String(blockTimeDentistId.value || '').trim();
+            blockTimeShiftHoursLabel.textContent = 'Selected Dentist Work Shift for ' + formatDateForUiLabel(normalizedDate);
+            blockTimeShiftStartReadonly.value = 'Loading...';
+            blockTimeShiftEndReadonly.value = 'Loading...';
+            selectedWorkShiftForBlockTime = {
+                hasRecord: false,
+                startTimeRaw: '',
+                endTimeRaw: ''
+            };
+
+            if (selectedDentistUserId === '') {
+                blockTimeShiftStartReadonly.value = '-';
+                blockTimeShiftEndReadonly.value = '-';
+                return;
+            }
+
+            try {
+                const params = new URLSearchParams({
+                    dentist_shift_lookup: '1',
+                    date: normalizedDate,
+                    dentist_user_id: selectedDentistUserId
+                });
+                const response = await fetch(window.location.pathname + '?' + params.toString(), {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin'
+                });
+                if (!response.ok) {
+                    throw new Error('Unable to load dentist work shift.');
+                }
+                const payload = await response.json();
+                if (!payload || payload.success !== true) {
+                    throw new Error((payload && payload.message) ? payload.message : 'Unable to load dentist work shift.');
+                }
+
+                blockTimeShiftStartReadonly.value = String(payload.start_time || '-');
+                blockTimeShiftEndReadonly.value = String(payload.end_time || '-');
+                selectedWorkShiftForBlockTime = {
+                    hasRecord: Boolean(payload.has_record),
+                    startTimeRaw: String(payload.start_time_raw || ''),
+                    endTimeRaw: String(payload.end_time_raw || '')
+                };
+            } catch (error) {
+                blockTimeShiftStartReadonly.value = '-';
+                blockTimeShiftEndReadonly.value = '-';
+                showPageAlert((error && error.message) ? error.message : 'Unable to fetch dentist shift for the selected date.');
+            }
+        }
+
         function openSetShiftModal() {
             if (!setShiftModal) return;
             if (setShiftStartTime && !setShiftStartTime.value) {
@@ -1968,6 +2121,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
             }
             if (blockTimeDentistId && selectedDentistUserIdInput && selectedDentistUserIdInput.value) {
                 blockTimeDentistId.value = selectedDentistUserIdInput.value;
+            }
+            if (blockTimeDate) {
+                loadWorkShiftForBlockTime(blockTimeDate.value);
             }
             blockTimeModal.classList.remove('hidden');
             syncModalBodyScrollLock();
@@ -2061,6 +2217,20 @@ $dentistsSeedData = array_map(static function ($dentist) {
         if (saveBlockTimeBtn) {
             saveBlockTimeBtn.addEventListener('click', function () {
                 closeBlockTimeModal();
+            });
+        }
+        if (blockTimeDate) {
+            blockTimeDate.addEventListener('change', function () {
+                if (blockTimeDate.value < todayDateOnly) {
+                    blockTimeDate.value = todayDateOnly;
+                }
+                loadWorkShiftForBlockTime(blockTimeDate.value);
+            });
+        }
+        if (blockTimeDentistId) {
+            blockTimeDentistId.addEventListener('change', function () {
+                if (!blockTimeDate) return;
+                loadWorkShiftForBlockTime(blockTimeDate.value);
             });
         }
         if (pageAlertOkBtn) {
