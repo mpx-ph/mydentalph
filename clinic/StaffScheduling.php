@@ -927,6 +927,7 @@ try {
                     sb.end_time,
                     sb.block_type,
                     sb.user_id,
+                    sb.notes,
                     COALESCE(NULLIF(TRIM(u.full_name), ''), 'Dentist') AS provider_name
                 FROM tbl_schedule_blocks sb
                 LEFT JOIN tbl_users u
@@ -989,10 +990,38 @@ try {
                 }
 
                 if (!in_array($blockType, ['shift', 'work'], true)) {
+                    $providerName = trim((string) ($row['provider_name'] ?? 'Dentist'));
+                    if ($providerName === '') {
+                        $providerName = 'Dentist';
+                    }
+                    if (stripos($providerName, 'dr.') !== 0) {
+                        $providerName = 'Dr. ' . $providerName;
+                    }
+                    $blockReason = ucfirst($blockType !== '' ? $blockType : 'break');
+                    $blockNotes = '';
+                    $blockRawNotes = trim((string) ($row['notes'] ?? ''));
+                    if ($blockRawNotes !== '') {
+                        if (preg_match('/^\s*Reason\s*:\s*([^\r\n]+)\s*(?:\r?\n(.*))?$/is', $blockRawNotes, $noteMatches)) {
+                            $parsedReason = isset($noteMatches[1]) ? trim((string) $noteMatches[1]) : '';
+                            $parsedNotes = isset($noteMatches[2]) ? trim((string) $noteMatches[2]) : '';
+                            if ($parsedReason !== '') {
+                                $blockReason = ucfirst(strtolower($parsedReason));
+                            }
+                            $blockNotes = $parsedNotes;
+                        } else {
+                            $blockNotes = $blockRawNotes;
+                        }
+                    }
+                    if (!in_array($blockReason, ['Break', 'Emergency', 'Personal', 'Other'], true)) {
+                        $blockReason = 'Other';
+                    }
                     $entriesByDate[$targetDateKey][] = [
                         'start_min' => $startMin,
                         'end_min' => $endMin,
                         'label' => 'Blocked',
+                        'dentist_name' => $providerName,
+                        'block_reason' => $blockReason,
+                        'block_notes' => $blockNotes,
                         'class' => 'bg-slate-500 border-slate-600 text-white',
                         'kind' => 'break',
                     ];
@@ -1446,6 +1475,24 @@ $dentistsSeedData = array_map(static function ($dentist) {
             opacity: 1;
             transform: translateY(0);
         }
+        .block-tooltip-card {
+            position: fixed;
+            z-index: 97;
+            pointer-events: none;
+            width: min(22rem, calc(100vw - 1.5rem));
+            border: 1px solid rgba(239, 68, 68, 0.32);
+            border-radius: 0.95rem;
+            background: rgba(255, 255, 255, 0.98);
+            box-shadow: 0 20px 38px -22px rgba(15, 23, 42, 0.72);
+            backdrop-filter: blur(4px);
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity 0.14s ease, transform 0.14s ease;
+        }
+        .block-tooltip-card.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
@@ -1628,6 +1675,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                         $heightPx = max(18, (int) round((($entryEnd - $entryStart) / 60) * $pixelsPerHour));
                                         $isWork = (string) ($entry['kind'] ?? '') === 'work';
                                         $isAppointmentEntry = (string) ($entry['kind'] ?? '') === 'appointment';
+                                        $isBlockedEntry = (string) ($entry['kind'] ?? '') === 'break';
                                         $entryClass = (string) ($entry['class'] ?? 'bg-slate-500 border-slate-600');
                                         ?>
                                         <?php
@@ -1659,7 +1707,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                             $entryStyle .= ' left: 6px; right: 6px;';
                                         }
                                         ?>
-                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-emerald-900' : ''; ?> <?php echo $zClass; ?> <?php echo $isCompactAppointmentBlock ? 'flex items-center justify-center' : ''; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isWork ? ('data-shift-tooltip="1" data-shift-full-name="' . htmlspecialchars($fullDentistName, ENT_QUOTES, 'UTF-8') . '" data-shift-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '"') : ''; ?> <?php echo (!$isWork && $entryKind === 'appointment') ? ('data-appointment-tooltip="1" data-appt-patient-name="' . htmlspecialchars((string) ($entry['patient_name'] ?? 'Patient'), ENT_QUOTES, 'UTF-8') . '" data-appt-dentist-name="' . htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dentist'), ENT_QUOTES, 'UTF-8') . '" data-appt-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '" data-appt-service-name="' . htmlspecialchars((string) ($entry['service_name'] ?? 'Treatment'), ENT_QUOTES, 'UTF-8') . '" data-appt-type="' . htmlspecialchars((string) ($entry['visit_type_label'] ?? 'Booking'), ENT_QUOTES, 'UTF-8') . '" data-appt-payment-status="' . htmlspecialchars((string) ($entry['payment_status_label'] ?? 'Unpaid'), ENT_QUOTES, 'UTF-8') . '" data-appt-status="' . htmlspecialchars((string) ($entry['appointment_status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') . '"') : ''; ?>>
+                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-emerald-900' : ''; ?> <?php echo $zClass; ?> <?php echo $isCompactAppointmentBlock ? 'flex items-center justify-center' : ''; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isWork ? ('data-shift-tooltip="1" data-shift-full-name="' . htmlspecialchars($fullDentistName, ENT_QUOTES, 'UTF-8') . '" data-shift-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '"') : ''; ?> <?php echo (!$isWork && $entryKind === 'appointment') ? ('data-appointment-tooltip="1" data-appt-patient-name="' . htmlspecialchars((string) ($entry['patient_name'] ?? 'Patient'), ENT_QUOTES, 'UTF-8') . '" data-appt-dentist-name="' . htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dentist'), ENT_QUOTES, 'UTF-8') . '" data-appt-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '" data-appt-service-name="' . htmlspecialchars((string) ($entry['service_name'] ?? 'Treatment'), ENT_QUOTES, 'UTF-8') . '" data-appt-type="' . htmlspecialchars((string) ($entry['visit_type_label'] ?? 'Booking'), ENT_QUOTES, 'UTF-8') . '" data-appt-payment-status="' . htmlspecialchars((string) ($entry['payment_status_label'] ?? 'Unpaid'), ENT_QUOTES, 'UTF-8') . '" data-appt-status="' . htmlspecialchars((string) ($entry['appointment_status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') . '"') : ''; ?> <?php echo $isBlockedEntry ? ('data-block-tooltip="1" data-block-dentist-name="' . htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dr. Dentist'), ENT_QUOTES, 'UTF-8') . '" data-block-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '" data-block-reason="' . htmlspecialchars((string) ($entry['block_reason'] ?? 'Break'), ENT_QUOTES, 'UTF-8') . '" data-block-notes="' . htmlspecialchars((string) ($entry['block_notes'] ?? ''), ENT_QUOTES, 'UTF-8') . '"') : ''; ?>>
                                             <?php if ($isWork): ?>
                                                 <p class="text-[9px] font-black uppercase tracking-[0.12em] text-emerald-900/80 leading-tight">WORK SHIFT</p>
                                                 <p class="mt-0.5 text-[10px] font-black text-emerald-900 truncate"><?php echo htmlspecialchars($shortDentistName, ENT_QUOTES, 'UTF-8'); ?></p>
@@ -1966,6 +2014,20 @@ $dentistsSeedData = array_map(static function ($dentist) {
         </div>
     </div>
 </div>
+<div id="blockInfoTooltip" class="block-tooltip-card hidden" role="tooltip" aria-hidden="true">
+    <div class="px-3.5 py-3.5 space-y-2.5">
+        <p class="text-sm font-extrabold text-slate-800 leading-tight">🚫 Blocked Time</p>
+        <div class="grid grid-cols-1 gap-1.5">
+            <p id="blockTooltipDentistName" class="text-sm font-semibold text-slate-700 break-words">👤 Dentist: -</p>
+            <p id="blockTooltipTimeRange" class="text-sm font-semibold text-slate-700 break-words">🕒 Time: -</p>
+        </div>
+        <div class="h-px bg-slate-200"></div>
+        <div class="space-y-1.5">
+            <p id="blockTooltipReason" class="text-sm font-semibold text-slate-700 break-words">📌 Reason: -</p>
+            <p id="blockTooltipNotes" class="hidden text-sm font-semibold text-slate-700 break-words">📝 Notes: -</p>
+        </div>
+    </div>
+</div>
 <script>
     (function () {
         const openSetShiftModalBtn = document.getElementById('openSetShiftModalBtn');
@@ -2021,6 +2083,11 @@ $dentistsSeedData = array_map(static function ($dentist) {
         const apptTooltipType = document.getElementById('apptTooltipType');
         const apptTooltipPaymentStatus = document.getElementById('apptTooltipPaymentStatus');
         const apptTooltipAppointmentStatus = document.getElementById('apptTooltipAppointmentStatus');
+        const blockInfoTooltip = document.getElementById('blockInfoTooltip');
+        const blockTooltipDentistName = document.getElementById('blockTooltipDentistName');
+        const blockTooltipTimeRange = document.getElementById('blockTooltipTimeRange');
+        const blockTooltipReason = document.getElementById('blockTooltipReason');
+        const blockTooltipNotes = document.getElementById('blockTooltipNotes');
         const scheduleFilterForm = document.getElementById('scheduleFilterForm');
         const dentistsSeedData = <?php echo json_encode($dentistsSeedData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const stockDentistImage = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=60';
@@ -2094,6 +2161,13 @@ $dentistsSeedData = array_map(static function ($dentist) {
             appointmentInfoTooltip.setAttribute('aria-hidden', 'true');
         }
 
+        function hideBlockTooltip() {
+            if (!blockInfoTooltip) return;
+            blockInfoTooltip.classList.remove('is-visible');
+            blockInfoTooltip.classList.add('hidden');
+            blockInfoTooltip.setAttribute('aria-hidden', 'true');
+        }
+
         function positionShiftTooltip(anchorRect, pointerX, pointerY) {
             if (!shiftInfoTooltip) return;
 
@@ -2130,6 +2204,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
             if (!fullName || !timeRange) return;
 
             hideAppointmentTooltip();
+            hideBlockTooltip();
             shiftTooltipDentistName.textContent = fullName;
             shiftTooltipTimeRange.textContent = timeRange;
             shiftInfoTooltip.classList.remove('hidden');
@@ -2181,6 +2256,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
             if (!patientName || !dentistName || !timeRange) return;
 
             hideShiftTooltip();
+            hideBlockTooltip();
             apptTooltipPatientName.textContent = patientName;
             apptTooltipDentistName.textContent = '🦷 Dentist: ' + (dentistName || '-');
             apptTooltipTimeRange.textContent = '🕒 Time: ' + (timeRange || '-');
@@ -2192,6 +2268,63 @@ $dentistsSeedData = array_map(static function ($dentist) {
             appointmentInfoTooltip.setAttribute('aria-hidden', 'false');
             positionAppointmentTooltip(target.getBoundingClientRect(), event.clientX, event.clientY);
             appointmentInfoTooltip.classList.add('is-visible');
+        }
+
+        function positionBlockTooltip(anchorRect, pointerX, pointerY) {
+            if (!blockInfoTooltip) return;
+
+            const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+            const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+            const tooltipWidth = blockInfoTooltip.offsetWidth || 320;
+            const tooltipHeight = blockInfoTooltip.offsetHeight || 170;
+            const gap = 12;
+
+            let left = pointerX + gap;
+            if (left + tooltipWidth > viewportWidth - 8) {
+                left = Math.max(8, pointerX - tooltipWidth - gap);
+            }
+
+            let top = (anchorRect.top + anchorRect.bottom - tooltipHeight) / 2;
+            if (!Number.isFinite(top)) {
+                top = pointerY - (tooltipHeight / 2);
+            }
+            if (top + tooltipHeight > viewportHeight - 8) {
+                top = viewportHeight - tooltipHeight - 8;
+            }
+            if (top < 8) {
+                top = 8;
+            }
+
+            blockInfoTooltip.style.left = Math.round(left) + 'px';
+            blockInfoTooltip.style.top = Math.round(top) + 'px';
+        }
+
+        function showBlockTooltip(target, event) {
+            if (!blockInfoTooltip || !target) return;
+            if (!blockTooltipDentistName || !blockTooltipTimeRange || !blockTooltipReason || !blockTooltipNotes) return;
+
+            const dentistName = String(target.getAttribute('data-block-dentist-name') || '').trim();
+            const timeRange = String(target.getAttribute('data-block-time') || '').trim();
+            const reason = String(target.getAttribute('data-block-reason') || '').trim();
+            const notes = String(target.getAttribute('data-block-notes') || '').trim();
+            if (!dentistName || !timeRange) return;
+
+            hideShiftTooltip();
+            hideAppointmentTooltip();
+            blockTooltipDentistName.textContent = '👤 Dentist: ' + (dentistName || '-');
+            blockTooltipTimeRange.textContent = '🕒 Time: ' + (timeRange || '-');
+            blockTooltipReason.textContent = '📌 Reason: ' + (reason || 'Break');
+            if (notes) {
+                blockTooltipNotes.textContent = '📝 Notes: ' + notes;
+                blockTooltipNotes.classList.remove('hidden');
+            } else {
+                blockTooltipNotes.textContent = '📝 Notes: -';
+                blockTooltipNotes.classList.add('hidden');
+            }
+            blockInfoTooltip.classList.remove('hidden');
+            blockInfoTooltip.setAttribute('aria-hidden', 'false');
+            positionBlockTooltip(target.getBoundingClientRect(), event.clientX, event.clientY);
+            blockInfoTooltip.classList.add('is-visible');
         }
 
         function syncModalBodyScrollLock() {
@@ -2756,13 +2889,27 @@ $dentistsSeedData = array_map(static function ($dentist) {
             apptEl.addEventListener('mouseleave', hideAppointmentTooltip);
         });
 
+        const blockTooltipTargets = document.querySelectorAll('[data-block-tooltip="1"]');
+        blockTooltipTargets.forEach(function (blockEl) {
+            blockEl.addEventListener('mouseenter', function (event) {
+                showBlockTooltip(blockEl, event);
+            });
+            blockEl.addEventListener('mousemove', function (event) {
+                if (!blockInfoTooltip || blockInfoTooltip.classList.contains('hidden')) return;
+                positionBlockTooltip(blockEl.getBoundingClientRect(), event.clientX, event.clientY);
+            });
+            blockEl.addEventListener('mouseleave', hideBlockTooltip);
+        });
+
         window.addEventListener('scroll', function () {
             hideShiftTooltip();
             hideAppointmentTooltip();
+            hideBlockTooltip();
         }, { passive: true });
         window.addEventListener('resize', function () {
             hideShiftTooltip();
             hideAppointmentTooltip();
+            hideBlockTooltip();
         });
     })();
 </script>
