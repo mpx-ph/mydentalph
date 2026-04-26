@@ -214,10 +214,9 @@ if (!function_exists('clinic_appointments_ensure_in_progress_in_status_enum')) {
 
         $columnType = null;
         $isNullable = 'YES';
-        $columnDefault = 'pending';
         try {
             $meta = $pdo->prepare("
-                SELECT COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT
+                SELECT COLUMN_TYPE, IS_NULLABLE
                 FROM information_schema.COLUMNS
                 WHERE TABLE_SCHEMA = DATABASE()
                   AND TABLE_NAME = ?
@@ -228,13 +227,6 @@ if (!function_exists('clinic_appointments_ensure_in_progress_in_status_enum')) {
             if ($row) {
                 $columnType = isset($row['COLUMN_TYPE']) ? (string) $row['COLUMN_TYPE'] : null;
                 $isNullable = isset($row['IS_NULLABLE']) ? strtoupper((string) $row['IS_NULLABLE']) : 'YES';
-                if (array_key_exists('COLUMN_DEFAULT', $row)) {
-                    if ($row['COLUMN_DEFAULT'] === null) {
-                        $columnDefault = $isNullable === 'YES' ? '' : 'pending';
-                    } else {
-                        $columnDefault = (string) $row['COLUMN_DEFAULT'];
-                    }
-                }
             }
         } catch (Throwable $e) {
             $columnType = null;
@@ -246,11 +238,6 @@ if (!function_exists('clinic_appointments_ensure_in_progress_in_status_enum')) {
                 if ($r) {
                     $columnType = isset($r['Type']) ? (string) $r['Type'] : null;
                     $isNullable = isset($r['Null']) && strtoupper((string) $r['Null']) === 'NO' ? 'NO' : 'YES';
-                    if (array_key_exists('Default', $r) && $r['Default'] !== null) {
-                        $columnDefault = (string) $r['Default'];
-                    } elseif (array_key_exists('Default', $r) && $r['Default'] === null) {
-                        $columnDefault = '';
-                    }
                 }
             } catch (Throwable $e) {
                 return;
@@ -275,19 +262,20 @@ if (!function_exists('clinic_appointments_ensure_in_progress_in_status_enum')) {
         } else {
             $values[] = 'in_progress';
         }
+        if (!in_array('pending', $values, true)) {
+            array_unshift($values, 'pending');
+        }
         $enumList = implode(',', array_map(static function (string $v) {
             return "'" . str_replace("'", "''", $v) . "'";
         }, $values));
-        $nullSql = $isNullable === 'NO' ? 'NOT NULL' : 'NULL';
-        if ($isNullable === 'YES' && ($columnDefault === '' || $columnDefault === 'NULL')) {
-            $defaultSql = 'DEFAULT NULL';
-        } elseif ((string) $columnDefault === '') {
-            $defaultSql = "DEFAULT 'pending'";
+        // MySQL 1067 "Invalid default value" if DEFAULT is not a member of the ENUM, or if
+        // NULL/NOT NULL and DEFAULT are inconsistent. Avoid copying COLUMN_DEFAULT; use only
+        // patterns that are valid in strict mode across 5.7/8.0.
+        if ($isNullable === 'NO') {
+            $sql = "ALTER TABLE {$q} MODIFY COLUMN `status` ENUM({$enumList}) NOT NULL DEFAULT 'pending'";
         } else {
-            $d = (string) $columnDefault;
-            $defaultSql = "DEFAULT '" . str_replace("'", "''", $d) . "'";
+            $sql = "ALTER TABLE {$q} MODIFY COLUMN `status` ENUM({$enumList}) NULL DEFAULT NULL";
         }
-        $sql = "ALTER TABLE {$q} MODIFY COLUMN `status` ENUM({$enumList}) {$nullSql} {$defaultSql}";
         $pdo->exec($sql);
     }
 }
