@@ -1489,10 +1489,31 @@ $dentistsSeedData = array_map(static function ($dentist) {
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+        /* Full word "APPOINTMENT" must not ellipsis — wrap or scale instead of "APPOINTME…" */
         .appt-grid-line--title {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            white-space: normal;
+            text-overflow: clip;
+            overflow-wrap: anywhere;
+            line-height: 1.15;
             font-weight: 900;
             text-transform: uppercase;
-            letter-spacing: 0.12em;
+            letter-spacing: 0.08em;
+        }
+        @container sched-appt (max-width: 90px) {
+            .appt-grid-line--title {
+                font-size: 8.5px;
+                letter-spacing: 0.04em;
+            }
+        }
+        @container sched-appt (max-width: 60px) {
+            .appt-grid-line--title {
+                font-size: 7.5px;
+                letter-spacing: 0.02em;
+            }
         }
         .appt-grid-line--status {
             display: none;
