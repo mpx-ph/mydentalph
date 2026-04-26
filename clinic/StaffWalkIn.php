@@ -352,42 +352,43 @@ try {
             </div>
         </section>
 
-        <section class="space-y-6">
-            <div class="elevated-card rounded-3xl p-6">
-                <div class="flex items-center gap-3 mb-5">
-                    <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person_search</span>
+        <section class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+            <div class="xl:col-span-4">
+                <div class="elevated-card rounded-3xl p-6">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person_search</span>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Patient Selection</p>
+                            <h2 class="text-lg font-extrabold text-slate-900">Select Patient</h2>
+                        </div>
                     </div>
-                    <div>
-                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Patient Selection</p>
-                        <h2 class="text-lg font-extrabold text-slate-900">Select Patient</h2>
-                    </div>
-                </div>
-                <div class="space-y-3">
-                    <div class="block">
-                        <span class="block text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/70 mb-2">Select Patient</span>
-                        <input id="selectedPatientId" type="hidden" value=""/>
-                        <button
-                            id="choosePatientBtn"
-                            type="button"
-                            class="walkin-input w-full py-3 px-4 text-left inline-flex items-center justify-between"
-                        >
-                            <span id="selectedPatientLabel">Choose patient</span>
-                            <span class="material-symbols-outlined text-[18px] text-slate-500">keyboard_arrow_down</span>
+                    <div class="space-y-3">
+                        <div class="block">
+                            <span class="block text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/70 mb-2">Select Patient</span>
+                            <input id="selectedPatientId" type="hidden" value=""/>
+                            <button
+                                id="choosePatientBtn"
+                                type="button"
+                                class="walkin-input w-full py-3 px-4 text-left inline-flex items-center justify-between"
+                            >
+                                <span id="selectedPatientLabel">Choose patient</span>
+                                <span class="material-symbols-outlined text-[18px] text-slate-500">keyboard_arrow_down</span>
+                            </button>
+                        </div>
+                        <button type="button" class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-blue-500 text-white py-3 text-sm font-bold shadow-lg shadow-primary/30 walkin-primary-btn">
+                            <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">person_add</span>
+                            Register Patient
                         </button>
+                        <p class="text-xs font-semibold text-slate-500 leading-relaxed">
+                            Tip: You can also register a new patient from the patients menu if they are not in the list.
+                        </p>
                     </div>
-                    <button type="button" class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-blue-500 text-white py-3 text-sm font-bold shadow-lg shadow-primary/30 walkin-primary-btn">
-                        <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">person_add</span>
-                        Register Patient
-                    </button>
-                    <p class="text-xs font-semibold text-slate-500 leading-relaxed">
-                        Tip: You can also register a new patient from the patients menu if they are not in the list.
-                    </p>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-                <div class="xl:col-span-7">
+            <div class="xl:col-span-8 space-y-6">
                 <div class="elevated-card rounded-3xl p-6">
                     <div class="flex items-center gap-3 mb-5">
                         <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
@@ -446,9 +447,7 @@ try {
                         </p>
                     </div>
                 </div>
-                </div>
 
-                <div class="xl:col-span-5 space-y-6">
                 <div id="walkInDefaultPaymentDetailsSection" class="elevated-card rounded-3xl p-6">
                     <div class="flex items-center justify-between gap-3 mb-4">
                         <div>
@@ -515,7 +514,6 @@ try {
                         </div>
                     </div>
                     <p class="text-[11px] font-semibold text-slate-500 mt-4">Installment treatment progress is computed at treatment level and reused across follow-up visits.</p>
-                </div>
                 </div>
             </div>
         </section>
