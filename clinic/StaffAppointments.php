@@ -99,6 +99,64 @@ function buildAppointmentsUrl(array $overrides = []): string
     return BASE_URL . 'StaffAppointments.php?' . http_build_query($params);
 }
 
+/**
+ * Normalize a DB status string for the Daily Schedule pill + modal, strip invisible
+ * characters (so labels never appear blank), and return canonical code, display label, classes.
+ *
+ * @param array<string, string> $labelMap
+ * @return array{code: string, label: string, class: string}
+ */
+function staff_appointments_resolve_status_for_ui($raw, array $labelMap)
+{
+    $original = (string) $raw;
+    $s = $original;
+    $s = preg_replace('/\x{FEFF}|\x{200B}|\x{00AD}/u', '', (string) $s);
+    $s = preg_replace('/\p{Zs}/u', ' ', (string) $s);
+    $s = trim((string) $s);
+
+    $slug = strtolower(str_replace([' ', '-'], '_', (string) $s));
+    $slug = (string) preg_replace('/_+/', '_', $slug);
+    if ($slug === 'inprogress' || $slug === 'ongoing') {
+        $slug = 'in_progress';
+    }
+    if ($original !== '' && $s === '' && $slug === '') {
+        $slug = 'pending';
+    }
+    if ($slug === '' || $slug === '0') {
+        $slug = 'pending';
+    } elseif (in_array($slug, ['confirmed', 'scheduled'], true)) {
+        $slug = 'pending';
+    }
+
+    $known = ['pending', 'in_progress', 'completed', 'cancelled', 'no_show'];
+    $label = $labelMap[$slug] ?? '';
+    if (trim($label) === '' && in_array($slug, $known, true)) {
+        $label = $labelMap['pending'] ?? 'Pending';
+    } elseif (trim($label) === '' && $slug !== '') {
+        $label = ucwords(str_replace('_', ' ', (string) $slug));
+    }
+    if (trim($label) === '') {
+        $label = (string) ($labelMap['pending'] ?? 'Pending');
+    }
+
+    $class = 'bg-amber-50 text-amber-700 border border-amber-200';
+    if ($slug === 'in_progress') {
+        $class = 'bg-blue-50 text-blue-700 border border-blue-200';
+    } elseif ($slug === 'cancelled') {
+        $class = 'bg-rose-50 text-rose-700 border border-rose-200';
+    } elseif ($slug === 'completed') {
+        $class = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+    } elseif ($slug === 'no_show') {
+        $class = 'bg-slate-100 text-slate-700 border border-slate-200';
+    }
+
+    return [
+        'code' => $slug,
+        'label' => $label,
+        'class' => $class,
+    ];
+}
+
 if (isset($_SESSION['staff_appointments_notice']) && is_array($_SESSION['staff_appointments_notice'])) {
     $noticeType = (string) ($_SESSION['staff_appointments_notice']['type'] ?? '');
     $noticeMessage = (string) ($_SESSION['staff_appointments_notice']['message'] ?? '');
@@ -140,6 +198,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tenantId !== '') {
                 LIMIT 1
             ");
             $statusStmt->execute([$newStatus, $tenantId, $bookingId]);
+            $vStmt = $pdo->prepare("
+                SELECT status
+                FROM {$qAppt}
+                WHERE tenant_id = ? AND booking_id = ?
+                LIMIT 1
+            ");
+            $vStmt->execute([$tenantId, $bookingId]);
+            $vRow = $vStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$vRow) {
+                throw new RuntimeException('Appointment not found.');
+            }
+            $rawStored = (string) ($vRow['status'] ?? '');
+            $rawStored = preg_replace('/\x{FEFF}|\x{200B}|\x{00AD}/u', '', $rawStored);
+            $rawStored = preg_replace('/\p{Zs}/u', ' ', (string) $rawStored);
+            $stored = strtolower(str_replace([' ', '-'], '_', trim($rawStored)));
+            if ($stored === 'inprogress') {
+                $stored = 'in_progress';
+            }
+            if ($stored !== $newStatus) {
+                throw new RuntimeException(
+                    'Status could not be saved. If you selected In Progress, your database may be missing the in_progress value on the appointment status column. Run migrations/013_appointments_status_in_progress.sql.'
+                );
+            }
             $notice = ['type' => 'success', 'message' => 'Appointment status updated successfully.'];
         } elseif ($postAction === 'add_services') {
             $serviceIds = isset($_POST['service_ids']) && is_array($_POST['service_ids']) ? array_values(array_unique($_POST['service_ids'])) : [];
@@ -780,28 +861,10 @@ if ($currentTenantSlug !== '') {
                                     $patientName = 'Unknown Patient';
                                 }
                                 $timeLabel = !empty($appointment['appointment_time']) ? date('g:i A', strtotime((string) $appointment['appointment_time'])) : '-';
-                                $statusFromDb = (string) ($appointment['status'] ?? '');
-                                $statusRaw = strtolower(trim(str_replace([' ', '-'], '_', $statusFromDb)));
-                                if ($statusRaw === 'inprogress') {
-                                    $statusRaw = 'in_progress';
-                                }
-                                if ($statusRaw === '' || $statusRaw === '0') {
-                                    $statusRaw = 'pending';
-                                }
-                                if ($statusRaw === 'confirmed' || $statusRaw === 'scheduled') {
-                                    $statusRaw = 'pending';
-                                }
-                                $statusLabel = $appointmentStatusText[$statusRaw] ?? (trim($statusFromDb) !== '' ? ucfirst(str_replace('_', ' ', $statusRaw)) : 'Pending');
-                                $statusClass = 'bg-amber-50 text-amber-700 border border-amber-200';
-                                if ($statusRaw === 'in_progress') {
-                                    $statusClass = 'bg-blue-50 text-blue-700 border border-blue-200';
-                                } elseif ($statusRaw === 'cancelled') {
-                                    $statusClass = 'bg-rose-50 text-rose-700 border border-rose-200';
-                                } elseif ($statusRaw === 'completed') {
-                                    $statusClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-                                } elseif ($statusRaw === 'no_show') {
-                                    $statusClass = 'bg-slate-100 text-slate-700 border border-slate-200';
-                                }
+                                $statusResolved = staff_appointments_resolve_status_for_ui($appointment['status'] ?? '', $appointmentStatusText);
+                                $statusRaw = $statusResolved['code'];
+                                $statusLabel = $statusResolved['label'];
+                                $statusClass = $statusResolved['class'];
                                 $appointmentRowId = (int) ($appointment['appointment_row_id'] ?? 0);
                                 $serviceKey = $appointmentRowId > 0 ? ('id:' . $appointmentRowId) : ('booking:' . (string) ($appointment['booking_id'] ?? ''));
                                 $serviceLines = $appointmentServicesByKey[$serviceKey] ?? [];
