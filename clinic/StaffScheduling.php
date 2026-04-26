@@ -1936,11 +1936,11 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                                         <p class="appt-grid-line appt-grid-line--time"><?php echo htmlspecialchars($apptTimeRangeForGrid, ENT_QUOTES, 'UTF-8'); ?></p>
                                                     </div>
                                                 <?php else: ?>
-                                                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-center">APPOINTMENT</p>
+                                                    <p class="text-[10px] font-black uppercase tracking-[0.12em] leading-tight">APPOINTMENT</p>
                                                     <?php if (!empty($entry['status_label'])): ?>
-                                                        <p class="text-[10px] font-semibold text-center"><?php echo htmlspecialchars((string) $entry['status_label'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                                        <p class="mt-0.5 text-[10px] font-semibold truncate"><?php echo htmlspecialchars((string) $entry['status_label'], ENT_QUOTES, 'UTF-8'); ?></p>
                                                     <?php endif; ?>
-                                                    <p class="text-[10px] font-semibold opacity-95 text-center"><?php echo htmlspecialchars($apptTimeRangeForGrid, ENT_QUOTES, 'UTF-8'); ?></p>
+                                                    <p class="mt-1 text-[10px] font-semibold opacity-95 truncate"><?php echo htmlspecialchars($apptTimeRangeForGrid, ENT_QUOTES, 'UTF-8'); ?></p>
                                                 <?php endif; ?>
                                             <?php elseif ($isCompactBlockedBlock): ?>
                                                 <p class="text-[10px] font-black uppercase tracking-[0.12em] leading-tight text-center">BLOCKED</p>
