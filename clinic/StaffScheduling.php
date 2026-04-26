@@ -1471,23 +1471,25 @@ $dentistsSeedData = array_map(static function ($dentist) {
             display: flex;
             flex-direction: column;
             flex: 1 1 auto;
+            height: 100%;
             min-height: 0;
             min-width: 0;
             overflow: hidden;
-            row-gap: 0.2em;
-            justify-content: flex-start;
-            align-items: stretch;
-            text-align: left;
+            row-gap: 0.16rem;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
         }
         .appt-grid-line {
             margin: 0;
             font-size: 10px;
             line-height: 1.2;
             min-width: 0;
-            max-width: 100%;
+            width: 100%;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            text-align: center;
         }
         /* Full word "APPOINTMENT" must not ellipsis — wrap or scale instead of "APPOINTME…" */
         .appt-grid-line--title {
@@ -1502,6 +1504,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
             font-weight: 900;
             text-transform: uppercase;
             letter-spacing: 0.08em;
+            text-align: center;
         }
         @container sched-appt (max-width: 90px) {
             .appt-grid-line--title {
