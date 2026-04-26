@@ -1820,9 +1820,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                             $zLayerClass = 'schedule-block-layer-default';
                                         }
                                         $entryStyle = 'top: ' . $topPx . 'px; height: ' . $heightPx . 'px;';
+                                        $isCompactAppointmentBlock = $isAppointmentEntry && $heightPx < 44;
                                         $isCompactBlockedBlock = $isBlockedEntry && $heightPx < 44;
                                         $useLaneLayout = $isWork || $isAppointmentEntry;
-                                        $laneTotal = 1;
                                         if ($useLaneLayout) {
                                             $laneIndex = max(0, (int) ($entry['lane_index'] ?? 0));
                                             $laneTotal = max(1, (int) ($entry['lane_total'] ?? 1));
@@ -1833,60 +1833,26 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                             $entryStyle .= ' left: calc(6px + ' . number_format($laneLeftPercent, 4, '.', '') . '%);';
                                             $entryStyle .= ' width: calc(' . number_format($laneWidthPercent, 4, '.', '') . '% - 8px);';
                                         } else {
-                                            $laneIndex = 0;
                                             $entryStyle .= ' left: 6px; right: 6px;';
                                         }
-                                        $apptContentTier = 0;
-                                        if ($isAppointmentEntry) {
-                                            $h = (int) $heightPx;
-                                            $apptContentTier = 1;
-                                            if ($h >= 28) {
-                                                $apptContentTier = 2;
-                                            }
-                                            $minHForTime = 44;
-                                            if ($laneTotal >= 2) {
-                                                $minHForTime = 52;
-                                            }
-                                            if ($laneTotal >= 3) {
-                                                $minHForTime = 64;
-                                            }
-                                            if ($h >= $minHForTime) {
-                                                $apptContentTier = 3;
-                                            }
-                                            if ($h < 24) {
-                                                $apptContentTier = 1;
-                                            }
-                                        }
-                                        $apptBlockLayoutClass = '';
-                                        if ($isAppointmentEntry) {
-                                            $apptBlockLayoutClass = 'overflow-hidden min-h-0 flex flex-col';
-                                        } elseif ($isCompactBlockedBlock) {
-                                            $apptBlockLayoutClass = 'flex items-center justify-center';
-                                        }
                                         ?>
-                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo htmlspecialchars($zLayerClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo htmlspecialchars($apptBlockLayoutClass, ENT_QUOTES, 'UTF-8'); ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isWork ? ('data-shift-tooltip="1" data-shift-full-name="' . htmlspecialchars($fullDentistName, ENT_QUOTES, 'UTF-8') . '" data-shift-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '"') : ''; ?> <?php echo (!$isWork && $entryKind === 'appointment') ? ('data-appointment-tooltip="1" data-appt-patient-name="' . htmlspecialchars((string) ($entry['patient_name'] ?? 'Patient'), ENT_QUOTES, 'UTF-8') . '" data-appt-dentist-name="' . htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dentist'), ENT_QUOTES, 'UTF-8') . '" data-appt-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '" data-appt-service-name="' . htmlspecialchars((string) ($entry['service_name'] ?? 'Treatment'), ENT_QUOTES, 'UTF-8') . '" data-appt-type="' . htmlspecialchars((string) ($entry['visit_type_label'] ?? 'Booking'), ENT_QUOTES, 'UTF-8') . '" data-appt-payment-status="' . htmlspecialchars((string) ($entry['payment_status_label'] ?? 'Unpaid'), ENT_QUOTES, 'UTF-8') . '" data-appt-status="' . htmlspecialchars((string) ($entry['appointment_status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') . '"') : ''; ?> <?php echo $isBlockedEntry ? ('data-block-tooltip="1" data-block-dentist-name="' . htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dr. Dentist'), ENT_QUOTES, 'UTF-8') . '" data-block-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '" data-block-reason="' . htmlspecialchars((string) ($entry['block_reason'] ?? 'Break'), ENT_QUOTES, 'UTF-8') . '" data-block-notes="' . htmlspecialchars((string) ($entry['block_notes'] ?? ''), ENT_QUOTES, 'UTF-8') . '"') : ''; ?>>
+                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo htmlspecialchars($zLayerClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo ($isCompactAppointmentBlock || $isCompactBlockedBlock) ? 'flex items-center justify-center' : ''; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isWork ? ('data-shift-tooltip="1" data-shift-full-name="' . htmlspecialchars($fullDentistName, ENT_QUOTES, 'UTF-8') . '" data-shift-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '"') : ''; ?> <?php echo (!$isWork && $entryKind === 'appointment') ? ('data-appointment-tooltip="1" data-appt-patient-name="' . htmlspecialchars((string) ($entry['patient_name'] ?? 'Patient'), ENT_QUOTES, 'UTF-8') . '" data-appt-dentist-name="' . htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dentist'), ENT_QUOTES, 'UTF-8') . '" data-appt-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '" data-appt-service-name="' . htmlspecialchars((string) ($entry['service_name'] ?? 'Treatment'), ENT_QUOTES, 'UTF-8') . '" data-appt-type="' . htmlspecialchars((string) ($entry['visit_type_label'] ?? 'Booking'), ENT_QUOTES, 'UTF-8') . '" data-appt-payment-status="' . htmlspecialchars((string) ($entry['payment_status_label'] ?? 'Unpaid'), ENT_QUOTES, 'UTF-8') . '" data-appt-status="' . htmlspecialchars((string) ($entry['appointment_status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') . '"') : ''; ?> <?php echo $isBlockedEntry ? ('data-block-tooltip="1" data-block-dentist-name="' . htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dr. Dentist'), ENT_QUOTES, 'UTF-8') . '" data-block-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '" data-block-reason="' . htmlspecialchars((string) ($entry['block_reason'] ?? 'Break'), ENT_QUOTES, 'UTF-8') . '" data-block-notes="' . htmlspecialchars((string) ($entry['block_notes'] ?? ''), ENT_QUOTES, 'UTF-8') . '"') : ''; ?>>
                                             <?php if ($isWork): ?>
                                                 <p class="text-[9px] font-black uppercase tracking-[0.12em] text-current/80 leading-tight">WORK SHIFT</p>
                                                 <p class="mt-0.5 text-[10px] font-black text-current truncate"><?php echo htmlspecialchars($shortDentistName, ENT_QUOTES, 'UTF-8'); ?></p>
                                                 <p class="mt-1 text-[10px] font-semibold text-current/90 truncate"><?php echo htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8'); ?></p>
-                                            <?php elseif ($isAppointmentEntry): ?>
-                                                <div class="flex min-h-0 w-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 overflow-hidden text-center text-current">
-                                                    <p class="shrink-0 text-[10px] font-black uppercase leading-tight tracking-[0.12em]">APPOINTMENT</p>
-                                                    <?php if ($apptContentTier >= 2 && !empty($entry['status_label'])): ?>
-                                                        <p class="line-clamp-1 w-full min-w-0 break-words text-[10px] font-semibold leading-tight"><?php echo htmlspecialchars((string) $entry['status_label'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                                    <?php endif; ?>
-                                                    <?php if ($apptContentTier >= 3): ?>
-                                                        <p class="line-clamp-2 w-full min-w-0 break-words text-[10px] font-semibold leading-tight opacity-95"><?php echo htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8'); ?></p>
-                                                    <?php endif; ?>
-                                                </div>
-                                            <?php elseif ($isCompactBlockedBlock): ?>
-                                                <p class="text-[10px] font-black uppercase tracking-[0.12em] leading-tight text-center">BLOCKED</p>
                                             <?php else: ?>
-                                                <p class="text-[10px] font-black uppercase tracking-[0.12em]"><?php echo htmlspecialchars((string) $entry['label'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                                <?php if (!empty($entry['status_label'])): ?>
-                                                    <p class="line-clamp-2 w-full min-w-0 break-words text-[10px] font-semibold leading-tight"><?php echo htmlspecialchars((string) $entry['status_label'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                                <?php if ($isCompactAppointmentBlock): ?>
+                                                    <p class="text-[10px] font-black uppercase tracking-[0.12em] leading-tight text-center">APPOINTMENT</p>
+                                                <?php elseif ($isCompactBlockedBlock): ?>
+                                                    <p class="text-[10px] font-black uppercase tracking-[0.12em] leading-tight text-center">BLOCKED</p>
+                                                <?php else: ?>
+                                                    <p class="text-[10px] font-black uppercase tracking-[0.12em]"><?php echo htmlspecialchars((string) $entry['label'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                                    <?php if (!empty($entry['status_label'])): ?>
+                                                        <p class="text-[10px] font-semibold"><?php echo htmlspecialchars((string) $entry['status_label'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                                    <?php endif; ?>
+                                                    <p class="text-[10px] font-semibold opacity-95"><?php echo htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8'); ?></p>
                                                 <?php endif; ?>
-                                                <p class="line-clamp-2 w-full min-w-0 break-words text-[10px] font-semibold leading-tight opacity-95"><?php echo htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8'); ?></p>
                                             <?php endif; ?>
                                         </div>
                                     <?php endforeach; ?>
