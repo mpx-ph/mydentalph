@@ -191,6 +191,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tenantId !== '') {
                 throw new RuntimeException('Please select a valid status.');
             }
 
+            if ($newStatus === 'in_progress') {
+                clinic_appointments_ensure_in_progress_in_status_enum($pdo, $tAppt);
+            }
+
             $statusStmt = $pdo->prepare("
                 UPDATE {$qAppt}
                 SET status = ?

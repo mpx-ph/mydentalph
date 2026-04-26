@@ -197,3 +197,97 @@ if (!function_exists('clinic_table_columns')) {
         return $cache[$phys];
     }
 }
+
+if (!function_exists('clinic_appointments_ensure_in_progress_in_status_enum')) {
+    /**
+     * Older databases may have tbl_appointments.status as an ENUM that omits in_progress.
+     * MySQL then stores '' for invalid values, which looks "blank" in clients.
+     * This extends the ENUM idempotently when the app can ALTER the table.
+     */
+    function clinic_appointments_ensure_in_progress_in_status_enum(PDO $pdo, string $appointmentsTableName): void
+    {
+        if (!in_array('status', clinic_table_columns($pdo, $appointmentsTableName), true)) {
+            return;
+        }
+        $phys = clinic_get_physical_table_name($pdo, $appointmentsTableName) ?? $appointmentsTableName;
+        $q = clinic_quote_identifier($phys);
+
+        $columnType = null;
+        $isNullable = 'YES';
+        $columnDefault = 'pending';
+        try {
+            $meta = $pdo->prepare("
+                SELECT COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = ?
+                  AND COLUMN_NAME = 'status'
+            ");
+            $meta->execute([$phys]);
+            $row = $meta->fetch(PDO::FETCH_ASSOC) ?: null;
+            if ($row) {
+                $columnType = isset($row['COLUMN_TYPE']) ? (string) $row['COLUMN_TYPE'] : null;
+                $isNullable = isset($row['IS_NULLABLE']) ? strtoupper((string) $row['IS_NULLABLE']) : 'YES';
+                if (array_key_exists('COLUMN_DEFAULT', $row)) {
+                    if ($row['COLUMN_DEFAULT'] === null) {
+                        $columnDefault = $isNullable === 'YES' ? '' : 'pending';
+                    } else {
+                        $columnDefault = (string) $row['COLUMN_DEFAULT'];
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            $columnType = null;
+        }
+        if ($columnType === null) {
+            try {
+                $show = $pdo->query('SHOW COLUMNS FROM ' . $q . " LIKE 'status'");
+                $r = $show ? $show->fetch(PDO::FETCH_ASSOC) : null;
+                if ($r) {
+                    $columnType = isset($r['Type']) ? (string) $r['Type'] : null;
+                    $isNullable = isset($r['Null']) && strtoupper((string) $r['Null']) === 'NO' ? 'NO' : 'YES';
+                    if (array_key_exists('Default', $r) && $r['Default'] !== null) {
+                        $columnDefault = (string) $r['Default'];
+                    } elseif (array_key_exists('Default', $r) && $r['Default'] === null) {
+                        $columnDefault = '';
+                    }
+                }
+            } catch (Throwable $e) {
+                return;
+            }
+        }
+        if ($columnType === null || stripos($columnType, 'enum(') !== 0) {
+            return;
+        }
+        if (preg_match("/'in_progress'/", $columnType)) {
+            return;
+        }
+        if (!preg_match_all("/'([a-z0-9_]+)'/i", $columnType, $enumParts) || empty($enumParts[1])) {
+            return;
+        }
+        $values = $enumParts[1];
+        if (in_array('in_progress', $values, true)) {
+            return;
+        }
+        $idx = array_search('scheduled', $values, true);
+        if ($idx !== false) {
+            array_splice($values, (int) $idx + 1, 0, ['in_progress']);
+        } else {
+            $values[] = 'in_progress';
+        }
+        $enumList = implode(',', array_map(static function (string $v) {
+            return "'" . str_replace("'", "''", $v) . "'";
+        }, $values));
+        $nullSql = $isNullable === 'NO' ? 'NOT NULL' : 'NULL';
+        if ($isNullable === 'YES' && ($columnDefault === '' || $columnDefault === 'NULL')) {
+            $defaultSql = 'DEFAULT NULL';
+        } elseif ((string) $columnDefault === '') {
+            $defaultSql = "DEFAULT 'pending'";
+        } else {
+            $d = (string) $columnDefault;
+            $defaultSql = "DEFAULT '" . str_replace("'", "''", $d) . "'";
+        }
+        $sql = "ALTER TABLE {$q} MODIFY COLUMN `status` ENUM({$enumList}) {$nullSql} {$defaultSql}";
+        $pdo->exec($sql);
+    }
+}
