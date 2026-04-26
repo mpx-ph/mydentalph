@@ -1719,74 +1719,12 @@ $dentistsSeedData = array_map(static function ($dentist) {
             </form>
         </section>
 
-        <section class="w-full min-w-0" aria-label="Schedule calendar and legend">
-            <div class="elevated-card rounded-3xl p-5 sm:p-6 lg:p-7 xl:p-8 min-w-0">
-                <div class="flex flex-col gap-6 lg:gap-7 xl:gap-8 min-w-0">
-                    <div class="flex flex-col lg:flex-row gap-5 lg:gap-6 xl:gap-8 lg:items-start min-w-0">
-                        <div class="min-w-0 flex-1 rounded-2xl border border-slate-200/90 bg-slate-50/40 p-4 sm:p-5 shadow-[0_1px_0_0_rgba(15,23,42,0.04)] order-1">
-                    <h3 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Legend</h3>
-                    <div class="space-y-4">
-                        <div>
-                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1.5">Appointments</p>
-                            <p class="text-[10px] font-bold text-slate-400 tracking-wide mb-2">Color by status</p>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-2 sm:gap-2.5">
-                                <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2 bg-white/60">
-                                    <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--pending" aria-hidden="true"></span>
-                                    <span class="text-sm font-semibold text-slate-700">Pending / Scheduled</span>
-                                </div>
-                                <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2 bg-white/60">
-                                    <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--ongoing" aria-hidden="true"></span>
-                                    <span class="text-sm font-semibold text-slate-700">Ongoing</span>
-                                </div>
-                                <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2 bg-white/60">
-                                    <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--completed" aria-hidden="true"></span>
-                                    <span class="text-sm font-semibold text-slate-700">Completed</span>
-                                </div>
-                                <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2 bg-white/60">
-                                    <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--cancelled" aria-hidden="true"></span>
-                                    <span class="text-sm font-semibold text-slate-700">Cancelled</span>
-                                </div>
-                                <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2 bg-white/60">
-                                    <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--no_show" aria-hidden="true"></span>
-                                    <span class="text-sm font-semibold text-slate-700">No show</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                        <div>
-                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1.5">Work shift / available slot</p>
-                            <p class="text-[10px] font-bold text-slate-400 tracking-wide mb-2">Dentist hours &amp; open capacity</p>
-                            <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2 bg-white/60">
-                                <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--work" aria-hidden="true"></span>
-                                <span class="text-sm font-semibold text-slate-700">Work shift</span>
-                            </div>
-                        </div>
-                        <div>
-                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1.5">Blocked time / schedule</p>
-                            <p class="text-[10px] font-bold text-slate-400 tracking-wide mb-2">Breaks &amp; personal blocks</p>
-                            <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2 bg-white/60">
-                                <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--blocked" aria-hidden="true"></span>
-                                <span class="text-sm font-semibold text-slate-700">Blocked</span>
-                            </div>
-                        </div>
-                        </div>
-                    </div>
-                    <div class="mt-5 pt-5 border-t border-slate-200/80 space-y-2">
-                        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Entry type (icons in grid)</p>
-                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm font-semibold text-slate-700">
-                        <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-base text-primary">event_available</span> Appointment
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-base text-amber-500">directions_walk</span> Walk-in
-                        </div>
-                        </div>
-                    </div>
-                        </div>
-                        <div class="w-full max-w-md shrink-0 rounded-2xl border border-slate-200/90 bg-slate-50/40 p-4 sm:p-5 shadow-[0_1px_0_0_rgba(15,23,42,0.04)] self-stretch sm:self-start lg:max-w-[20rem] lg:mx-0 order-2">
-                    <div class="flex items-center justify-between gap-2 mb-4">
+        <section class="grid grid-cols-1 2xl:grid-cols-12 gap-6 items-start">
+            <aside class="2xl:col-span-3 space-y-6">
+                <div class="elevated-card rounded-3xl p-6">
+                    <div class="flex items-center justify-between mb-4">
                         <h2 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em]">Calendar</h2>
-                        <span class="text-xs font-bold text-slate-500 text-right"><?php echo htmlspecialchars($monthLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+                        <span class="text-xs font-bold text-slate-500"><?php echo htmlspecialchars($monthLabel, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">
                         <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
@@ -1821,22 +1759,79 @@ $dentistsSeedData = array_map(static function ($dentist) {
                         <?php endforeach; ?>
                     </div>
                 </div>
-            </div>
 
-                <div class="min-w-0 border-t border-slate-200/90 pt-5 sm:pt-6 lg:pt-7 space-y-4 sm:space-y-5">
-                <div class="mb-0 sm:mb-0.5 inline-flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 text-xs font-extrabold uppercase tracking-[0.15em] <?php echo $isDentistFiltered ? 'border-primary/30 bg-primary/10 text-primary' : 'border-slate-200 bg-slate-50 text-slate-600'; ?>">
-                    <span class="material-symbols-outlined text-base shrink-0"><?php echo $isDentistFiltered ? 'filter_alt' : 'groups'; ?></span>
+                <div class="elevated-card rounded-3xl p-6">
+                    <h3 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Legend</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1.5">Appointments</p>
+                            <p class="text-[10px] font-bold text-slate-400 tracking-wide mb-2">Color by status</p>
+                            <div class="space-y-1.5">
+                                <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2">
+                                    <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--pending" aria-hidden="true"></span>
+                                    <span class="text-sm font-semibold text-slate-700">Pending / Scheduled</span>
+                                </div>
+                                <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2">
+                                    <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--ongoing" aria-hidden="true"></span>
+                                    <span class="text-sm font-semibold text-slate-700">Ongoing</span>
+                                </div>
+                                <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2">
+                                    <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--completed" aria-hidden="true"></span>
+                                    <span class="text-sm font-semibold text-slate-700">Completed</span>
+                                </div>
+                                <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2">
+                                    <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--cancelled" aria-hidden="true"></span>
+                                    <span class="text-sm font-semibold text-slate-700">Cancelled</span>
+                                </div>
+                                <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2">
+                                    <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--no_show" aria-hidden="true"></span>
+                                    <span class="text-sm font-semibold text-slate-700">No show</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1.5">Work shift / available slot</p>
+                            <p class="text-[10px] font-bold text-slate-400 tracking-wide mb-2">Dentist hours &amp; open capacity</p>
+                            <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2">
+                                <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--work" aria-hidden="true"></span>
+                                <span class="text-sm font-semibold text-slate-700">Work shift</span>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1.5">Blocked time / schedule</p>
+                            <p class="text-[10px] font-bold text-slate-400 tracking-wide mb-2">Breaks &amp; personal blocks</p>
+                            <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2">
+                                <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--blocked" aria-hidden="true"></span>
+                                <span class="text-sm font-semibold text-slate-700">Blocked</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-5 pt-5 border-t border-slate-100 space-y-2">
+                        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Entry type (icons in grid)</p>
+                        <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                            <span class="material-symbols-outlined text-base text-primary">event_available</span> Appointment
+                        </div>
+                        <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                            <span class="material-symbols-outlined text-base text-amber-500">directions_walk</span> Walk-in
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <div class="2xl:col-span-9 elevated-card rounded-3xl p-5 lg:p-6 overflow-hidden">
+                <div class="mb-4 inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-extrabold uppercase tracking-[0.15em] <?php echo $isDentistFiltered ? 'border-primary/30 bg-primary/10 text-primary' : 'border-slate-200 bg-slate-50 text-slate-600'; ?>">
+                    <span class="material-symbols-outlined text-base"><?php echo $isDentistFiltered ? 'filter_alt' : 'groups'; ?></span>
                     <?php echo htmlspecialchars($isDentistFiltered ? ('Filtered: ' . $selectedDentistName) : 'Overall View: All Dentists', ENT_QUOTES, 'UTF-8'); ?>
                 </div>
                 <div class="overflow-x-auto min-w-0 w-full" style="-webkit-overflow-scrolling: touch;">
                     <div class="border border-slate-200 rounded-2xl overflow-hidden bg-white shrink-0" style="min-width: <?php echo (int) $scheduleGridMinWidth; ?>px;">
                         <div class="grid bg-slate-50 border-b border-slate-200" style="grid-template-columns: <?php echo htmlspecialchars($scheduleGridTemplateColumns, ENT_QUOTES, 'UTF-8'); ?>;">
-                            <div class="px-4 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 sticky left-0 z-50 bg-slate-50 border-r border-slate-200 shadow-[2px_0_12px_-4px_rgba(15,23,42,0.1)]">Time</div>
+                            <div class="px-3 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 sticky left-0 z-50 bg-slate-50 border-r border-slate-200 shadow-[2px_0_12px_-4px_rgba(15,23,42,0.1)]">Time</div>
                             <?php foreach ($weekDays as $weekDay): ?>
                                 <?php
                                 $dayLaneCount = (int) ($dayMaxLaneCount[$weekDay['date_key']] ?? 1);
                                 ?>
-                                <div class="px-4 py-3.5 border-l border-slate-200 min-w-0">
+                                <div class="px-3 py-3 border-l border-slate-200 min-w-0">
                                     <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400"><?php echo htmlspecialchars($weekDay['short'], ENT_QUOTES, 'UTF-8'); ?></p>
                                     <p class="text-sm font-bold text-slate-700 mt-1"><?php echo htmlspecialchars((string) $weekDay['date'], ENT_QUOTES, 'UTF-8'); ?></p>
                                     <?php if ($dayLaneCount > 1): ?>
@@ -1848,7 +1843,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                         <div class="grid" style="grid-template-columns: <?php echo htmlspecialchars($scheduleGridTemplateColumns, ENT_QUOTES, 'UTF-8'); ?>;">
                             <div class="border-r border-slate-100 bg-slate-50/80 backdrop-blur-sm sticky left-0 z-40 shadow-[2px_0_14px_-4px_rgba(15,23,42,0.12)]">
                                 <?php foreach ($timeSlots as $slotTime): ?>
-                                    <div class="h-16 px-4 py-3 text-xs font-bold text-slate-500 border-b border-slate-100 last:border-b-0 bg-slate-50/70">
+                                    <div class="h-16 px-3 py-3 text-xs font-bold text-slate-500 border-b border-slate-100 last:border-b-0 bg-slate-50/70">
                                         <?php echo htmlspecialchars($slotTime, ENT_QUOTES, 'UTF-8'); ?>
                                     </div>
                                 <?php endforeach; ?>
@@ -1950,8 +1945,6 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
         </section>
     </div>
 </main>
