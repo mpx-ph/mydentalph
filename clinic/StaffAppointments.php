@@ -945,8 +945,8 @@ if ($currentTenantSlug !== '') {
                                             <?php endforeach; ?>
                                         </div>
                                     </td>
-                                    <td class="px-6 py-5">
-                                        <span class="inline-flex items-center justify-center px-3 py-1 rounded-full <?php echo htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8'); ?> text-[10px] font-black uppercase tracking-wider">
+                                    <td class="px-6 py-5 whitespace-nowrap">
+                                        <span class="inline-flex items-center justify-center px-3 py-1 rounded-full <?php echo htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8'); ?> text-[10px] font-black uppercase tracking-wider whitespace-nowrap">
                                             <?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?>
                                         </span>
                                     </td>
