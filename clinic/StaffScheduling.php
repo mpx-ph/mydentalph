@@ -1156,7 +1156,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     </p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2.5 xl:justify-end">
-                    <button type="button" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs uppercase tracking-widest transition-colors shadow-sm">
+                    <button id="openBlockTimeModalBtn" type="button" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs uppercase tracking-widest transition-colors shadow-sm">
                         <span class="material-symbols-outlined text-base">add</span>
                         Block Time
                     </button>
@@ -1493,6 +1493,128 @@ $dentistsSeedData = array_map(static function ($dentist) {
         </div>
     </div>
 </div>
+<div id="blockTimeModal" class="hidden fixed inset-0 z-[70]">
+    <div class="absolute inset-0 bg-slate-900/45"></div>
+    <div class="relative h-full w-full flex items-center justify-center p-4">
+        <div class="w-full max-w-2xl rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-primary/10 via-white to-white flex items-center justify-between gap-4">
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Dentist Scheduling</p>
+                    <h3 class="text-2xl font-extrabold text-slate-900 tracking-tight">Block Time</h3>
+                </div>
+                <button id="closeBlockTimeModalBtn" type="button" class="w-9 h-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center justify-center">
+                    <span class="material-symbols-outlined text-[18px]">close</span>
+                </button>
+            </div>
+            <div class="px-6 py-6 bg-slate-50/40">
+                <form id="blockTimeForm" class="space-y-4">
+                    <div class="rounded-2xl border border-slate-200 bg-white p-5 space-y-4 shadow-sm">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="blockTimeDentistId" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Dentist</label>
+                                <select id="blockTimeDentistId" class="schedule-input w-full py-3 px-4">
+                                    <?php foreach ($dentists as $dentist): ?>
+                                        <?php
+                                        $blockDentistId = trim((string) ($dentist['dentist_id'] ?? ''));
+                                        $blockDentistUserId = trim((string) ($dentist['user_id'] ?? ''));
+                                        $blockDentistName = trim((string) ($dentist['full_name'] ?? 'Dentist'));
+                                        ?>
+                                        <option
+                                            value="<?php echo htmlspecialchars($blockDentistUserId, ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-dentist-id="<?php echo htmlspecialchars($blockDentistId, ENT_QUOTES, 'UTF-8'); ?>"
+                                            <?php echo (($selectedDentistId !== '' && $selectedDentistId === $blockDentistId) || ($selectedDentistUserId !== '' && $selectedDentistUserId === $blockDentistUserId)) ? 'selected' : ''; ?>
+                                            <?php echo $blockDentistUserId === '' ? 'disabled' : ''; ?>
+                                        >
+                                            <?php echo htmlspecialchars($blockDentistName . ($blockDentistUserId === '' ? ' (No linked account)' : ''), ENT_QUOTES, 'UTF-8'); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="blockTimeDate" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Date</label>
+                                <div class="schedule-input w-full py-3 px-4 inline-flex items-center gap-2.5">
+                                    <span class="material-symbols-outlined text-[18px] text-primary">event</span>
+                                    <input id="blockTimeDate" type="date" min="<?php echo htmlspecialchars($todayDateOnly, ENT_QUOTES, 'UTF-8'); ?>" value="<?php echo htmlspecialchars($setShiftDefaultDate, ENT_QUOTES, 'UTF-8'); ?>" class="w-full bg-transparent p-0 border-0 text-sm font-extrabold text-slate-900 focus:ring-0"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="blockTimeStartTime" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Start Time</label>
+                                <select id="blockTimeStartTime" class="schedule-input w-full py-3 px-4">
+                                    <option value="08:00">8:00 AM</option>
+                                    <option value="08:30">8:30 AM</option>
+                                    <option value="09:00">9:00 AM</option>
+                                    <option value="09:30">9:30 AM</option>
+                                    <option value="10:00">10:00 AM</option>
+                                    <option value="10:30">10:30 AM</option>
+                                    <option value="11:00">11:00 AM</option>
+                                    <option value="11:30">11:30 AM</option>
+                                    <option value="12:00" selected>12:00 PM</option>
+                                    <option value="12:30">12:30 PM</option>
+                                    <option value="13:00">1:00 PM</option>
+                                    <option value="13:30">1:30 PM</option>
+                                    <option value="14:00">2:00 PM</option>
+                                    <option value="14:30">2:30 PM</option>
+                                    <option value="15:00">3:00 PM</option>
+                                    <option value="15:30">3:30 PM</option>
+                                    <option value="16:00">4:00 PM</option>
+                                    <option value="16:30">4:30 PM</option>
+                                    <option value="17:00">5:00 PM</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="blockTimeEndTime" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">End Time</label>
+                                <select id="blockTimeEndTime" class="schedule-input w-full py-3 px-4">
+                                    <option value="08:30">8:30 AM</option>
+                                    <option value="09:00">9:00 AM</option>
+                                    <option value="09:30">9:30 AM</option>
+                                    <option value="10:00">10:00 AM</option>
+                                    <option value="10:30">10:30 AM</option>
+                                    <option value="11:00">11:00 AM</option>
+                                    <option value="11:30">11:30 AM</option>
+                                    <option value="12:00">12:00 PM</option>
+                                    <option value="12:30">12:30 PM</option>
+                                    <option value="13:00" selected>1:00 PM</option>
+                                    <option value="13:30">1:30 PM</option>
+                                    <option value="14:00">2:00 PM</option>
+                                    <option value="14:30">2:30 PM</option>
+                                    <option value="15:00">3:00 PM</option>
+                                    <option value="15:30">3:30 PM</option>
+                                    <option value="16:00">4:00 PM</option>
+                                    <option value="16:30">4:30 PM</option>
+                                    <option value="17:00">5:00 PM</option>
+                                    <option value="17:30">5:30 PM</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="blockTimeReason" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Reason</label>
+                            <select id="blockTimeReason" class="schedule-input w-full py-3 px-4">
+                                <option value="Break" selected>Break</option>
+                                <option value="Emergency">Emergency</option>
+                                <option value="Personal">Personal</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="blockTimeNotes" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Notes</label>
+                            <textarea id="blockTimeNotes" rows="3" class="schedule-input w-full py-3 px-4 resize-y" placeholder="Optional text"></textarea>
+                        </div>
+                    </div>
+                    <div class="pt-4 border-t border-slate-200 flex items-center justify-end gap-2.5">
+                        <button id="cancelBlockTimeBtn" type="button" class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs uppercase tracking-widest transition-colors">
+                            Cancel
+                        </button>
+                        <button id="saveBlockTimeBtn" type="button" class="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs uppercase tracking-widest transition-colors shadow-sm">
+                            Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 <div id="pageAlertModal" class="hidden fixed inset-0 z-[80]">
     <div class="absolute inset-0 bg-slate-900/50"></div>
     <div class="relative h-full w-full flex items-center justify-center p-4">
@@ -1562,10 +1684,17 @@ $dentistsSeedData = array_map(static function ($dentist) {
 <script>
     (function () {
         const openSetShiftModalBtn = document.getElementById('openSetShiftModalBtn');
+        const openBlockTimeModalBtn = document.getElementById('openBlockTimeModalBtn');
         const setShiftModal = document.getElementById('setShiftModal');
+        const blockTimeModal = document.getElementById('blockTimeModal');
         const closeSetShiftModalBtn = document.getElementById('closeSetShiftModalBtn');
+        const closeBlockTimeModalBtn = document.getElementById('closeBlockTimeModalBtn');
         const cancelSetShiftBtn = document.getElementById('cancelSetShiftBtn');
+        const cancelBlockTimeBtn = document.getElementById('cancelBlockTimeBtn');
         const saveSetShiftBtn = document.getElementById('saveSetShiftBtn');
+        const saveBlockTimeBtn = document.getElementById('saveBlockTimeBtn');
+        const blockTimeDentistId = document.getElementById('blockTimeDentistId');
+        const blockTimeDate = document.getElementById('blockTimeDate');
         const setShiftDentistId = document.getElementById('setShiftDentistId');
         const setShiftForm = document.getElementById('setShiftForm');
         const setShiftNotes = document.getElementById('setShiftNotes');
@@ -1771,6 +1900,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
         function syncModalBodyScrollLock() {
             const hasOpenModal = (chooseDentistModal && !chooseDentistModal.classList.contains('hidden'))
                 || (setShiftModal && !setShiftModal.classList.contains('hidden'))
+                || (blockTimeModal && !blockTimeModal.classList.contains('hidden'))
                 || (pageAlertModal && !pageAlertModal.classList.contains('hidden'));
             document.body.classList.toggle('overflow-hidden', Boolean(hasOpenModal));
         }
@@ -1869,6 +1999,26 @@ $dentistsSeedData = array_map(static function ($dentist) {
             syncModalBodyScrollLock();
         }
 
+        function openBlockTimeModal() {
+            if (!blockTimeModal) return;
+            if (blockTimeDate && weekReferenceDateInput && weekReferenceDateInput.value) {
+                blockTimeDate.value = weekReferenceDateInput.value;
+            } else if (blockTimeDate && (!blockTimeDate.value || blockTimeDate.value < todayDateOnly)) {
+                blockTimeDate.value = todayDateOnly;
+            }
+            if (blockTimeDentistId && selectedDentistUserIdInput && selectedDentistUserIdInput.value) {
+                blockTimeDentistId.value = selectedDentistUserIdInput.value;
+            }
+            blockTimeModal.classList.remove('hidden');
+            syncModalBodyScrollLock();
+        }
+
+        function closeBlockTimeModal() {
+            if (!blockTimeModal) return;
+            blockTimeModal.classList.add('hidden');
+            syncModalBodyScrollLock();
+        }
+
         function openChooseDentistModal() {
             if (!chooseDentistModal) return;
             chooseDentistModal.classList.remove('hidden');
@@ -1919,17 +2069,38 @@ $dentistsSeedData = array_map(static function ($dentist) {
         if (openSetShiftModalBtn) {
             openSetShiftModalBtn.addEventListener('click', openSetShiftModal);
         }
+        if (openBlockTimeModalBtn) {
+            openBlockTimeModalBtn.addEventListener('click', openBlockTimeModal);
+        }
         if (closeSetShiftModalBtn) {
             closeSetShiftModalBtn.addEventListener('click', closeSetShiftModal);
         }
+        if (closeBlockTimeModalBtn) {
+            closeBlockTimeModalBtn.addEventListener('click', closeBlockTimeModal);
+        }
         if (cancelSetShiftBtn) {
             cancelSetShiftBtn.addEventListener('click', closeSetShiftModal);
+        }
+        if (cancelBlockTimeBtn) {
+            cancelBlockTimeBtn.addEventListener('click', closeBlockTimeModal);
         }
         if (setShiftModal) {
             setShiftModal.addEventListener('click', function (event) {
                 if (event.target === setShiftModal || event.target === setShiftModal.firstElementChild) {
                     closeSetShiftModal();
                 }
+            });
+        }
+        if (blockTimeModal) {
+            blockTimeModal.addEventListener('click', function (event) {
+                if (event.target === blockTimeModal || event.target === blockTimeModal.firstElementChild) {
+                    closeBlockTimeModal();
+                }
+            });
+        }
+        if (saveBlockTimeBtn) {
+            saveBlockTimeBtn.addEventListener('click', function () {
+                closeBlockTimeModal();
             });
         }
         if (pageAlertOkBtn) {
