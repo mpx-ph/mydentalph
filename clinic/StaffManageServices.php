@@ -196,20 +196,26 @@ try {
 </div>
 
 <div class="overflow-x-auto">
-<table class="w-full text-left border-collapse">
+<table class="w-full min-w-[720px] text-left border-collapse table-fixed">
+<colgroup>
+<col class="min-w-0" style="width: 40%"/>
+<col class="min-w-0" style="width: 20%"/>
+<col class="min-w-0" style="width: 16%"/>
+<col class="min-w-0" style="width: 12%"/>
+<col class="min-w-0" style="width: 12%"/>
+</colgroup>
 <thead>
 <tr class="bg-slate-50/70 border-b border-slate-100">
-<th class="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Service Name</th>
-<th class="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Category</th>
-<th class="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Current Price</th>
-<th class="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
-<th class="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Last Updated</th>
-<th class="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Actions</th>
+<th class="px-5 sm:px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Service Name</th>
+<th class="px-5 sm:px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Category</th>
+<th class="px-5 sm:px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Current Price</th>
+<th class="px-5 sm:px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
+<th class="px-5 sm:px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Actions</th>
 </tr>
 </thead>
 <tbody id="servicesTableBody" class="divide-y divide-slate-100">
 <tr>
-<td colspan="6" class="px-6 py-8 text-center text-sm text-slate-500">Loading services...</td>
+<td colspan="5" class="px-6 py-8 text-center text-sm text-slate-500">Loading services...</td>
 </tr>
 </tbody>
 </table>
@@ -802,7 +808,7 @@ function loadServices() {
         })
         .catch(function (error) {
             console.error(error);
-            document.getElementById('servicesTableBody').innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-sm text-red-500">Failed to load services.</td></tr>';
+            document.getElementById('servicesTableBody').innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-sm text-red-500">Failed to load services.</td></tr>';
             document.getElementById('paginationContainer').classList.add('hidden');
         });
 }
@@ -845,7 +851,7 @@ function applyFilters() {
 function renderServices() {
     const tbody = document.getElementById('servicesTableBody');
     if (filteredServices.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-sm text-slate-500">No services found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-sm text-slate-500">No services found.</td></tr>';
         document.getElementById('paginationContainer').classList.add('hidden');
         return;
     }
@@ -875,18 +881,15 @@ function renderServices() {
         const status = (service.status || '').toLowerCase() === 'active'
             ? '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700">Active</span>'
             : '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600">Inactive</span>';
-        const updatedAt = service.updated_at ? new Date(service.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
-
         return '<tr class="hover:bg-slate-50/60 transition-colors">' +
-            '<td class="px-6 py-4"><div class="font-bold text-slate-900">' + serviceName + '</div>' +
-            (serviceDetails ? '<div class="text-xs text-slate-500 mt-0.5">' + serviceDetails + '</div>' : '') +
+            '<td class="px-5 sm:px-6 py-4 min-w-0 align-top"><div class="font-bold text-slate-900 break-words">' + serviceName + '</div>' +
+            (serviceDetails ? '<div class="text-xs text-slate-500 mt-0.5 break-words">' + serviceDetails + '</div>' : '') +
             (serviceId ? '<div class="text-[10px] text-slate-400 mt-1 font-semibold uppercase tracking-wider">ID: ' + serviceId + '</div>' : '') +
             '</td>' +
-            '<td class="px-6 py-4"><span class="px-2.5 py-1 rounded-full text-[11px] font-bold ' + colorClass + '">' + category + '</span></td>' +
-            '<td class="px-6 py-4"><span class="font-extrabold text-slate-900">P' + price + '</span></td>' +
-            '<td class="px-6 py-4">' + status + '</td>' +
-            '<td class="px-6 py-4 text-sm text-slate-500">' + escapeHtml(updatedAt) + '</td>' +
-            '<td class="px-6 py-4 text-right">' +
+            '<td class="px-5 sm:px-6 py-4 align-top"><span class="px-2.5 py-1 rounded-full text-[11px] font-bold ' + colorClass + '">' + category + '</span></td>' +
+            '<td class="px-5 sm:px-6 py-4 align-top whitespace-nowrap"><span class="font-extrabold text-slate-900">P' + price + '</span></td>' +
+            '<td class="px-5 sm:px-6 py-4 align-top">' + status + '</td>' +
+            '<td class="px-5 sm:px-6 py-4 text-right align-top whitespace-nowrap">' +
                 '<div class="inline-flex items-center gap-3">' +
                     '<button class="text-primary font-bold text-sm hover:underline inline-flex items-center gap-1" data-edit-id="' + Number(service.id) + '">' +
                         '<span class="material-symbols-outlined text-sm">edit</span>Edit' +
