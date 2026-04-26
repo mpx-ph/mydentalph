@@ -73,7 +73,7 @@ if (!function_exists('clinic_get_effective_schedule_blocks')) {
     function clinic_get_effective_schedule_blocks($pdo, $tenantId, $userId, $slotDate)
     {
         $dateSpecificBlocksStmt = $pdo->prepare("
-            SELECT start_time, end_time, block_type
+            SELECT start_time, end_time, block_type, notes
             FROM tbl_schedule_blocks
             WHERE tenant_id = ?
               AND user_id = ?
@@ -90,7 +90,7 @@ if (!function_exists('clinic_get_effective_schedule_blocks')) {
 
         $slotDayOfWeek = date('l', strtotime((string) $slotDate));
         $recurringBlocksStmt = $pdo->prepare("
-            SELECT start_time, end_time, block_type
+            SELECT start_time, end_time, block_type, notes
             FROM tbl_schedule_blocks
             WHERE tenant_id = ?
               AND user_id = ?

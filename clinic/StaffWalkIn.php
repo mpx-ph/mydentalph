@@ -109,6 +109,19 @@ try {
                 $manilaNow = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
                 $todayDate = $manilaNow->format('Y-m-d');
                 $todayTime = $manilaNow->format('H:i:s');
+                $normalizeBlockReason = static function (string $blockType, string $notes): string {
+                    $normalizedType = strtolower(trim($blockType));
+                    if (in_array($normalizedType, ['break', 'emergency', 'personal', 'other'], true)) {
+                        return ucfirst($normalizedType);
+                    }
+                    if (preg_match('/^\s*Reason\s*:\s*(.+)$/im', $notes, $matches)) {
+                        $parsed = trim((string) ($matches[1] ?? ''));
+                        if ($parsed !== '') {
+                            return ucwords(strtolower($parsed));
+                        }
+                    }
+                    return 'Blocked';
+                };
                 $formatDisplayTime = static function (string $timeValue): string {
                     $timeValue = trim($timeValue);
                     if ($timeValue === '') {
@@ -127,16 +140,24 @@ try {
                     $dentistUserId = trim((string) ($dentistRow['user_id'] ?? ''));
                     $shiftRanges = [];
                     $isInsideShift = false;
+                    $activeBlockReason = '';
                     if ($dentistUserId !== '') {
                         $effectiveBlocks = clinic_get_effective_schedule_blocks($pdo, (string) $tenantId, $dentistUserId, $todayDate);
                         foreach ($effectiveBlocks as $block) {
                             $blockType = strtolower((string) ($block['block_type'] ?? ''));
-                            if (!in_array($blockType, ['shift', 'work'], true)) {
-                                continue;
-                            }
                             $startTime = trim((string) ($block['start_time'] ?? ''));
                             $endTime = trim((string) ($block['end_time'] ?? ''));
                             if ($startTime === '' || $endTime === '' || $startTime >= $endTime) {
+                                continue;
+                            }
+
+                            if (!in_array($blockType, ['shift', 'work'], true)) {
+                                if ($todayTime >= $startTime && $todayTime < $endTime) {
+                                    $activeBlockReason = $normalizeBlockReason(
+                                        (string) ($block['block_type'] ?? ''),
+                                        (string) ($block['notes'] ?? '')
+                                    );
+                                }
                                 continue;
                             }
                             $shiftRanges[] = $formatDisplayTime($startTime) . ' - ' . $formatDisplayTime($endTime);
@@ -148,10 +169,15 @@ try {
                     $dentistRow['schedule_label'] = !empty($shiftRanges)
                         ? implode(' | ', array_values(array_unique($shiftRanges)))
                         : 'No schedule';
-                    $dentistRow['is_available_for_slot'] = $isInsideShift ? 1 : 0;
-                    $dentistRow['availability_reason'] = $isInsideShift
-                        ? 'Available'
-                        : (!empty($shiftRanges) ? 'Outside Shift' : 'No schedule');
+                    $isBlockedByActiveBlock = $activeBlockReason !== '';
+                    $dentistRow['is_available_for_slot'] = ($isInsideShift && !$isBlockedByActiveBlock) ? 1 : 0;
+                    if ($isBlockedByActiveBlock) {
+                        $dentistRow['availability_reason'] = 'Dentist is on ' . $activeBlockReason;
+                    } else {
+                        $dentistRow['availability_reason'] = $isInsideShift
+                            ? 'Available'
+                            : (!empty($shiftRanges) ? 'Outside Shift' : 'No schedule');
+                    }
                 }
                 unset($dentistRow);
             }
@@ -1449,9 +1475,12 @@ try {
             }) || null;
             const dentistIsAvailableNow = selectedDentist && Number(selectedDentist.is_available_for_slot || 0) === 1;
             if (!dentistIsAvailableNow) {
+                const unavailableReason = selectedDentist && selectedDentist.availability_reason
+                    ? String(selectedDentist.availability_reason)
+                    : 'Outside Shift';
                 void staffUiAlert({
                     title: 'Dentist unavailable',
-                    message: 'Selected dentist is outside the current shift schedule. Please choose an available dentist.',
+                    message: unavailableReason + '. Please choose an available dentist.',
                     variant: 'warning'
                 });
                 return;
