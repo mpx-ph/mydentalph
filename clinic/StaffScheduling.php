@@ -80,7 +80,7 @@ function mapAppointmentClass($serviceType)
     } else {
         $label = 'Treatment';
     }
-    return ['label' => $label, 'class' => 'bg-[#2b8beb] border-[#2b8beb] text-white'];
+    return ['label' => $label, 'class' => 'sched-fill--pending'];
 }
 
 function normalizeAppointmentStatus($statusValue)
@@ -109,16 +109,16 @@ function mapAppointmentStatusClass($statusValue)
     $normalized = normalizeAppointmentStatus($statusValue);
     switch ($normalized) {
         case 'in_progress':
-            return 'bg-[#2b8beb] border-[#2b8beb] text-white';
+            return 'sched-fill--ongoing';
         case 'completed':
-            return 'bg-slate-200/80 border-slate-300 text-slate-600';
+            return 'sched-fill--completed';
         case 'cancelled':
-            return 'bg-rose-100 border-rose-300 text-rose-800';
+            return 'sched-fill--cancelled';
         case 'no_show':
-            return 'bg-amber-100 border-amber-300 text-amber-900';
+            return 'sched-fill--no_show';
         case 'pending':
         default:
-            return 'bg-sky-100 border-sky-300 text-sky-900';
+            return 'sched-fill--pending';
     }
 }
 
@@ -1022,7 +1022,7 @@ try {
                         'dentist_name' => $providerName,
                         'block_reason' => $blockReason,
                         'block_notes' => $blockNotes,
-                        'class' => 'bg-slate-500 border-slate-600 text-white',
+                        'class' => 'sched-fill--blocked',
                         'kind' => 'break',
                     ];
                 } elseif ($blockType === 'work' || $blockType === 'shift') {
@@ -1038,7 +1038,7 @@ try {
                         'end_min' => $endMin,
                         'label' => 'Work Shift',
                         'dentist_name' => $providerName,
-                        'class' => 'bg-emerald-100/60 border-emerald-300/85 text-emerald-900',
+                        'class' => 'sched-fill--work',
                         'kind' => 'work',
                     ];
                 }
@@ -1432,6 +1432,48 @@ $dentistsSeedData = array_map(static function ($dentist) {
             transform: translateY(-1px);
             box-shadow: 0 10px 18px -10px rgba(15, 23, 42, 0.6);
         }
+        /* Main schedule grid + legend — single source; keep in sync with mapAppointmentStatusClass() / work & break entry classes */
+        .sched-fill--pending {
+            background-color: #dbeafe;
+            border-color: #93c5fd;
+            color: #0c4a6e;
+        }
+        .sched-fill--ongoing {
+            background-color: #2b8beb;
+            border-color: #2b8beb;
+            color: #ffffff;
+        }
+        .sched-fill--completed {
+            background-color: #e2e8f0;
+            border-color: #cbd5e1;
+            color: #64748b;
+        }
+        .sched-fill--cancelled {
+            background-color: #fee2e2;
+            border-color: #fecaca;
+            color: #991b1b;
+        }
+        .sched-fill--no_show {
+            background-color: #ffedd5;
+            border-color: #fdba74;
+            color: #9a3412;
+        }
+        .sched-fill--work {
+            background-color: #dcfce7;
+            border-color: #86efac;
+            color: #14532d;
+        }
+        .sched-fill--blocked {
+            background-color: #52525b;
+            border-color: #3f3f46;
+            color: #f4f4f5;
+        }
+        .sched-legend-swatch {
+            min-width: 2.75rem;
+            height: 0.9rem;
+            border-width: 1px;
+            border-style: solid;
+        }
         .schedule-input {
             border: none;
             background: #f8fafc;
@@ -1618,20 +1660,52 @@ $dentistsSeedData = array_map(static function ($dentist) {
 
                 <div class="elevated-card rounded-3xl p-6">
                     <h3 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Legend</h3>
-                    <div class="space-y-2.5">
-                        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Schedule Status</p>
-                        <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2.5">
-                            <span class="w-3 h-3 rounded-full bg-primary"></span><span class="text-sm font-semibold text-slate-700">Appointment (all services)</span>
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1.5">Appointments</p>
+                            <p class="text-[10px] font-bold text-slate-400 tracking-wide mb-2">Color by status</p>
+                            <div class="space-y-1.5">
+                                <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2">
+                                    <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--pending" aria-hidden="true"></span>
+                                    <span class="text-sm font-semibold text-slate-700">Pending / Scheduled</span>
+                                </div>
+                                <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2">
+                                    <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--ongoing" aria-hidden="true"></span>
+                                    <span class="text-sm font-semibold text-slate-700">Ongoing</span>
+                                </div>
+                                <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2">
+                                    <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--completed" aria-hidden="true"></span>
+                                    <span class="text-sm font-semibold text-slate-700">Completed</span>
+                                </div>
+                                <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2">
+                                    <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--cancelled" aria-hidden="true"></span>
+                                    <span class="text-sm font-semibold text-slate-700">Cancelled</span>
+                                </div>
+                                <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2">
+                                    <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--no_show" aria-hidden="true"></span>
+                                    <span class="text-sm font-semibold text-slate-700">No show</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2.5">
-                            <span class="w-3 h-3 rounded-full bg-slate-700"></span><span class="text-sm font-semibold text-slate-700">Blocked / Personal Time</span>
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1.5">Work shift / available slot</p>
+                            <p class="text-[10px] font-bold text-slate-400 tracking-wide mb-2">Dentist hours &amp; open capacity</p>
+                            <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2">
+                                <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--work" aria-hidden="true"></span>
+                                <span class="text-sm font-semibold text-slate-700">Work shift</span>
+                            </div>
                         </div>
-                        <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2.5">
-                            <span class="w-3 h-3 rounded-full bg-emerald-500"></span><span class="text-sm font-semibold text-slate-700">Available Slot</span>
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1.5">Blocked time / schedule</p>
+                            <p class="text-[10px] font-bold text-slate-400 tracking-wide mb-2">Breaks &amp; personal blocks</p>
+                            <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2">
+                                <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--blocked" aria-hidden="true"></span>
+                                <span class="text-sm font-semibold text-slate-700">Blocked</span>
+                            </div>
                         </div>
                     </div>
                     <div class="mt-5 pt-5 border-t border-slate-100 space-y-2">
-                        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Entry Type</p>
+                        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Entry type (icons in grid)</p>
                         <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
                             <span class="material-symbols-outlined text-base text-primary">event_available</span> Appointment
                         </div>
@@ -1690,7 +1764,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                         $isWork = (string) ($entry['kind'] ?? '') === 'work';
                                         $isAppointmentEntry = (string) ($entry['kind'] ?? '') === 'appointment';
                                         $isBlockedEntry = (string) ($entry['kind'] ?? '') === 'break';
-                                        $entryClass = (string) ($entry['class'] ?? 'bg-slate-500 border-slate-600');
+                                        $entryClass = (string) ($entry['class'] ?? 'sched-fill--blocked');
                                         ?>
                                         <?php
                                         $displayStartHour = intdiv((int) $entry['start_min'], 60) % 24;
@@ -1730,11 +1804,11 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                             $entryStyle .= ' left: 6px; right: 6px;';
                                         }
                                         ?>
-                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo $isWork ? 'text-emerald-900' : ''; ?> <?php echo htmlspecialchars($zLayerClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo ($isCompactAppointmentBlock || $isCompactBlockedBlock) ? 'flex items-center justify-center' : ''; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isWork ? ('data-shift-tooltip="1" data-shift-full-name="' . htmlspecialchars($fullDentistName, ENT_QUOTES, 'UTF-8') . '" data-shift-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '"') : ''; ?> <?php echo (!$isWork && $entryKind === 'appointment') ? ('data-appointment-tooltip="1" data-appt-patient-name="' . htmlspecialchars((string) ($entry['patient_name'] ?? 'Patient'), ENT_QUOTES, 'UTF-8') . '" data-appt-dentist-name="' . htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dentist'), ENT_QUOTES, 'UTF-8') . '" data-appt-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '" data-appt-service-name="' . htmlspecialchars((string) ($entry['service_name'] ?? 'Treatment'), ENT_QUOTES, 'UTF-8') . '" data-appt-type="' . htmlspecialchars((string) ($entry['visit_type_label'] ?? 'Booking'), ENT_QUOTES, 'UTF-8') . '" data-appt-payment-status="' . htmlspecialchars((string) ($entry['payment_status_label'] ?? 'Unpaid'), ENT_QUOTES, 'UTF-8') . '" data-appt-status="' . htmlspecialchars((string) ($entry['appointment_status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') . '"') : ''; ?> <?php echo $isBlockedEntry ? ('data-block-tooltip="1" data-block-dentist-name="' . htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dr. Dentist'), ENT_QUOTES, 'UTF-8') . '" data-block-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '" data-block-reason="' . htmlspecialchars((string) ($entry['block_reason'] ?? 'Break'), ENT_QUOTES, 'UTF-8') . '" data-block-notes="' . htmlspecialchars((string) ($entry['block_notes'] ?? ''), ENT_QUOTES, 'UTF-8') . '"') : ''; ?>>
+                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo htmlspecialchars($zLayerClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo ($isCompactAppointmentBlock || $isCompactBlockedBlock) ? 'flex items-center justify-center' : ''; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isWork ? ('data-shift-tooltip="1" data-shift-full-name="' . htmlspecialchars($fullDentistName, ENT_QUOTES, 'UTF-8') . '" data-shift-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '"') : ''; ?> <?php echo (!$isWork && $entryKind === 'appointment') ? ('data-appointment-tooltip="1" data-appt-patient-name="' . htmlspecialchars((string) ($entry['patient_name'] ?? 'Patient'), ENT_QUOTES, 'UTF-8') . '" data-appt-dentist-name="' . htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dentist'), ENT_QUOTES, 'UTF-8') . '" data-appt-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '" data-appt-service-name="' . htmlspecialchars((string) ($entry['service_name'] ?? 'Treatment'), ENT_QUOTES, 'UTF-8') . '" data-appt-type="' . htmlspecialchars((string) ($entry['visit_type_label'] ?? 'Booking'), ENT_QUOTES, 'UTF-8') . '" data-appt-payment-status="' . htmlspecialchars((string) ($entry['payment_status_label'] ?? 'Unpaid'), ENT_QUOTES, 'UTF-8') . '" data-appt-status="' . htmlspecialchars((string) ($entry['appointment_status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') . '"') : ''; ?> <?php echo $isBlockedEntry ? ('data-block-tooltip="1" data-block-dentist-name="' . htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dr. Dentist'), ENT_QUOTES, 'UTF-8') . '" data-block-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '" data-block-reason="' . htmlspecialchars((string) ($entry['block_reason'] ?? 'Break'), ENT_QUOTES, 'UTF-8') . '" data-block-notes="' . htmlspecialchars((string) ($entry['block_notes'] ?? ''), ENT_QUOTES, 'UTF-8') . '"') : ''; ?>>
                                             <?php if ($isWork): ?>
-                                                <p class="text-[9px] font-black uppercase tracking-[0.12em] text-emerald-900/80 leading-tight">WORK SHIFT</p>
-                                                <p class="mt-0.5 text-[10px] font-black text-emerald-900 truncate"><?php echo htmlspecialchars($shortDentistName, ENT_QUOTES, 'UTF-8'); ?></p>
-                                                <p class="mt-1 text-[10px] font-semibold text-emerald-900/90 truncate"><?php echo htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8'); ?></p>
+                                                <p class="text-[9px] font-black uppercase tracking-[0.12em] text-current/80 leading-tight">WORK SHIFT</p>
+                                                <p class="mt-0.5 text-[10px] font-black text-current truncate"><?php echo htmlspecialchars($shortDentistName, ENT_QUOTES, 'UTF-8'); ?></p>
+                                                <p class="mt-1 text-[10px] font-semibold text-current/90 truncate"><?php echo htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8'); ?></p>
                                             <?php else: ?>
                                                 <?php if ($isCompactAppointmentBlock): ?>
                                                     <p class="text-[10px] font-black uppercase tracking-[0.12em] leading-tight text-center">APPOINTMENT</p>
