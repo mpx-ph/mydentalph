@@ -1691,7 +1691,11 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                         $fullDentistName = (string) ($entry['dentist_name'] ?? 'Dr. Dentist');
                                         $shortDentistName = formatShiftDentistShortName($fullDentistName);
                                         $entryKind = (string) ($entry['kind'] ?? '');
-                                        $zClass = ($entryKind === 'appointment' || $entryKind === 'appointment_past') ? 'z-30' : (($entryKind === 'work') ? 'z-20' : 'z-10');
+                                        $zClass = ($entryKind === 'appointment' || $entryKind === 'appointment_past')
+                                            ? 'z-30'
+                                            : (($entryKind === 'break')
+                                                ? 'z-25'
+                                                : (($entryKind === 'work') ? 'z-20' : 'z-10'));
                                         $entryStyle = 'top: ' . $topPx . 'px; height: ' . $heightPx . 'px;';
                                         $isCompactAppointmentBlock = $isAppointmentEntry && $heightPx < 44;
                                         if ($isWork) {
