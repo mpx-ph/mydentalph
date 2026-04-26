@@ -122,6 +122,61 @@ function mapAppointmentStatusClass($statusValue)
     }
 }
 
+/**
+ * Place overlapping time-based entries in parallel horizontal lanes (same algorithm as work shifts).
+ * Expects $sortedEntryIndexes sorted by start_min, then end_min.
+ *
+ * @param array<int, array<string, mixed>> $entries
+ * @param int[] $sortedEntryIndexes
+ */
+function assignTimeOverlappingLaneLayout(array &$entries, array $sortedEntryIndexes)
+{
+    if (empty($sortedEntryIndexes)) {
+        return;
+    }
+    $activeLanes = [];
+    $clusterIndexes = [];
+    $clusterLaneCount = 1;
+    $finalizeCluster = static function (array &$entriesRef, array $clusterRefs, $laneCount) {
+        if (empty($clusterRefs)) {
+            return;
+        }
+        $resolvedLaneCount = max(1, (int) $laneCount);
+        foreach ($clusterRefs as $entryRefIndex) {
+            $entriesRef[$entryRefIndex]['lane_total'] = $resolvedLaneCount;
+        }
+    };
+
+    foreach ($sortedEntryIndexes as $entryIndex) {
+        if (!array_key_exists($entryIndex, $entries)) {
+            continue;
+        }
+        $spanStart = (int) ($entries[$entryIndex]['start_min'] ?? 0);
+        $spanEnd = (int) ($entries[$entryIndex]['end_min'] ?? 0);
+        foreach ($activeLanes as $laneKey => $activeEnd) {
+            if ((int) $activeEnd <= $spanStart) {
+                unset($activeLanes[$laneKey]);
+            }
+        }
+        if (empty($activeLanes) && !empty($clusterIndexes)) {
+            $finalizeCluster($entries, $clusterIndexes, $clusterLaneCount);
+            $clusterIndexes = [];
+            $clusterLaneCount = 1;
+        }
+        $assignedLane = 0;
+        while (isset($activeLanes[$assignedLane])) {
+            $assignedLane++;
+        }
+        $activeLanes[$assignedLane] = $spanEnd;
+        $entries[$entryIndex]['lane_index'] = $assignedLane;
+        $clusterIndexes[] = $entryIndex;
+        if (($assignedLane + 1) > $clusterLaneCount) {
+            $clusterLaneCount = $assignedLane + 1;
+        }
+    }
+    $finalizeCluster($entries, $clusterIndexes, $clusterLaneCount);
+}
+
 function formatPaymentStatusLabel($statusValue)
 {
     $normalized = strtolower(trim((string) $statusValue));
@@ -1274,47 +1329,22 @@ foreach ($entriesByDate as $dayKey => $entries) {
         }
         return ((int) $entries[$a]['end_min']) <=> ((int) $entries[$b]['end_min']);
     });
+    assignTimeOverlappingLaneLayout($entries, $workEntryIndexes);
 
-    $activeLanes = [];
-    $clusterIndexes = [];
-    $clusterLaneCount = 1;
-    $finalizeWorkCluster = static function (&$entriesRef, $clusterRefs, $laneCount) {
-        if (empty($clusterRefs)) {
-            return;
-        }
-        $resolvedLaneCount = max(1, (int) $laneCount);
-        foreach ($clusterRefs as $entryRefIndex) {
-            $entriesRef[$entryRefIndex]['lane_total'] = $resolvedLaneCount;
-        }
-    };
-
-    foreach ($workEntryIndexes as $workEntryIndex) {
-        $workStart = (int) ($entries[$workEntryIndex]['start_min'] ?? 0);
-        $workEnd = (int) ($entries[$workEntryIndex]['end_min'] ?? 0);
-        foreach ($activeLanes as $laneIndex => $activeEnd) {
-            if ((int) $activeEnd <= $workStart) {
-                unset($activeLanes[$laneIndex]);
-            }
-        }
-
-        if (empty($activeLanes) && !empty($clusterIndexes)) {
-            $finalizeWorkCluster($entries, $clusterIndexes, $clusterLaneCount);
-            $clusterIndexes = [];
-            $clusterLaneCount = 1;
-        }
-
-        $assignedLane = 0;
-        while (isset($activeLanes[$assignedLane])) {
-            $assignedLane++;
-        }
-        $activeLanes[$assignedLane] = $workEnd;
-        $entries[$workEntryIndex]['lane_index'] = $assignedLane;
-        $clusterIndexes[] = $workEntryIndex;
-        if (($assignedLane + 1) > $clusterLaneCount) {
-            $clusterLaneCount = $assignedLane + 1;
+    $appointmentEntryIndexes = [];
+    foreach ($entries as $entryIndex => $entry) {
+        if ((string) ($entry['kind'] ?? '') === 'appointment') {
+            $appointmentEntryIndexes[] = $entryIndex;
         }
     }
-    $finalizeWorkCluster($entries, $clusterIndexes, $clusterLaneCount);
+    usort($appointmentEntryIndexes, static function ($a, $b) use ($entries) {
+        $startCompare = ((int) $entries[$a]['start_min']) <=> ((int) $entries[$b]['start_min']);
+        if ($startCompare !== 0) {
+            return $startCompare;
+        }
+        return ((int) $entries[$a]['end_min']) <=> ((int) $entries[$b]['end_min']);
+    });
+    assignTimeOverlappingLaneLayout($entries, $appointmentEntryIndexes);
 
     $entriesByDate[$dayKey] = $entries;
 }
@@ -1325,7 +1355,8 @@ foreach ($weekDays as $d) {
 }
 foreach ($entriesByDate as $dayKey => $ents) {
     foreach ($ents as $e) {
-        if ((string) ($e['kind'] ?? '') === 'work') {
+        $eKind = (string) ($e['kind'] ?? '');
+        if ($eKind === 'work' || $eKind === 'appointment') {
             $lt = max(1, (int) ($e['lane_total'] ?? 1));
             if ($lt > $dayMaxLaneCount[$dayKey]) {
                 $dayMaxLaneCount[$dayKey] = $lt;
@@ -1791,7 +1822,8 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                         $entryStyle = 'top: ' . $topPx . 'px; height: ' . $heightPx . 'px;';
                                         $isCompactAppointmentBlock = $isAppointmentEntry && $heightPx < 44;
                                         $isCompactBlockedBlock = $isBlockedEntry && $heightPx < 44;
-                                        if ($isWork) {
+                                        $useLaneLayout = $isWork || $isAppointmentEntry;
+                                        if ($useLaneLayout) {
                                             $laneIndex = max(0, (int) ($entry['lane_index'] ?? 0));
                                             $laneTotal = max(1, (int) ($entry['lane_total'] ?? 1));
                                             $laneGapPercent = 1.5;
