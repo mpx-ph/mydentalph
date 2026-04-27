@@ -1445,19 +1445,19 @@ $dentistsSeedData = array_map(static function ($dentist) {
         .schedule-block {
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
-        /* Tailwind’s default z-index scale has no z-25; work shifts use z-20 so blocks must be explicit */
+        /* Keep schedule blocks below sticky top header (z-30) while preserving in-grid layering */
         .schedule-block-layer-appointment,
         .schedule-block-layer-appointment_past {
-            z-index: 30;
+            z-index: 18;
         }
         .schedule-block-layer-blocked {
-            z-index: 25;
+            z-index: 16;
         }
         .schedule-block-layer-work {
-            z-index: 20;
+            z-index: 14;
         }
         .schedule-block-layer-default {
-            z-index: 10;
+            z-index: 12;
         }
         .schedule-block:hover {
             transform: translateY(-1px);
@@ -1847,7 +1847,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 <div class="overflow-x-auto min-w-0 w-full" style="-webkit-overflow-scrolling: touch;">
                     <div class="border border-slate-200 rounded-2xl overflow-hidden bg-white shrink-0" style="min-width: <?php echo (int) $scheduleGridMinWidth; ?>px;">
                         <div class="grid bg-slate-50 border-b border-slate-200" style="grid-template-columns: <?php echo htmlspecialchars($scheduleGridTemplateColumns, ENT_QUOTES, 'UTF-8'); ?>;">
-                            <div class="px-3 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 sticky left-0 z-50 bg-slate-50 border-r border-slate-200 shadow-[2px_0_12px_-4px_rgba(15,23,42,0.1)]">Time</div>
+                            <div class="px-3 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 sticky left-0 z-20 bg-slate-50 border-r border-slate-200 shadow-[2px_0_12px_-4px_rgba(15,23,42,0.1)]">Time</div>
                             <?php foreach ($weekDays as $weekDay): ?>
                                 <?php
                                 $dayLaneCount = (int) ($dayMaxLaneCount[$weekDay['date_key']] ?? 1);
@@ -1862,7 +1862,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                             <?php endforeach; ?>
                         </div>
                         <div class="grid" style="grid-template-columns: <?php echo htmlspecialchars($scheduleGridTemplateColumns, ENT_QUOTES, 'UTF-8'); ?>;">
-                            <div class="border-r border-slate-100 bg-slate-50/80 backdrop-blur-sm sticky left-0 z-40 shadow-[2px_0_14px_-4px_rgba(15,23,42,0.12)]">
+                            <div class="border-r border-slate-100 bg-slate-50/80 backdrop-blur-sm sticky left-0 z-10 shadow-[2px_0_14px_-4px_rgba(15,23,42,0.12)]">
                                 <?php foreach ($timeSlots as $slotTime): ?>
                                     <div class="h-16 px-3 py-3 text-xs font-bold text-slate-500 border-b border-slate-100 last:border-b-0 bg-slate-50/70">
                                         <?php echo htmlspecialchars($slotTime, ENT_QUOTES, 'UTF-8'); ?>
