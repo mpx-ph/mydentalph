@@ -551,13 +551,15 @@ try {
                     </div>
                     <p class="text-[11px] font-semibold text-slate-500 mt-4">Installment treatment progress is computed at treatment level and reused across follow-up visits.</p>
                 </div>
+            </div>
+        </section>
 
-                <div class="pt-1 flex w-full justify-start">
-                    <button id="createWalkInAppointmentBtn" type="button" class="walkin-primary-btn w-full max-w-md rounded-2xl bg-gradient-to-r from-primary to-blue-500 text-white py-3.5 text-sm font-extrabold uppercase tracking-wide shadow-lg shadow-primary/35 inline-flex items-center justify-center gap-2 sm:w-auto sm:min-w-[17rem]">
-                        <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">calendar_add_on</span>
-                        Create Walk-In Appointment
-                    </button>
-                </div>
+        <section class="pt-1 grid grid-cols-1 xl:grid-cols-12 gap-6">
+            <div class="xl:col-start-5 xl:col-span-8 w-full min-w-0">
+                <button id="createWalkInAppointmentBtn" type="button" class="walkin-primary-btn w-full max-w-full rounded-2xl bg-gradient-to-r from-primary to-blue-500 text-white py-3.5 text-sm font-extrabold uppercase tracking-wide shadow-lg shadow-primary/35 inline-flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">calendar_add_on</span>
+                    Create Walk-In Appointment
+                </button>
             </div>
         </section>
     </div>
