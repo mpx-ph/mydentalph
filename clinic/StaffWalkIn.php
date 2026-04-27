@@ -629,11 +629,11 @@ try {
                                 </label>
                                 <div class="flex items-center gap-6 h-[48px] px-4 rounded-xl border border-slate-200 bg-white">
                                     <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
-                                        <input type="radio" name="addGender" value="Male" class="text-primary border-slate-300 accent-primary focus:ring-primary"/>
+                                        <input type="radio" name="addGender" value="Male" class="h-4 w-4 rounded-full text-primary border-slate-300 accent-primary focus:ring-primary"/>
                                         Male
                                     </label>
                                     <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
-                                        <input type="radio" name="addGender" value="Female" class="text-primary border-slate-300 accent-primary focus:ring-primary"/>
+                                        <input type="radio" name="addGender" value="Female" class="h-4 w-4 rounded-full text-primary border-slate-300 accent-primary focus:ring-primary"/>
                                         Female
                                     </label>
                                 </div>
