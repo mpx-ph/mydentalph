@@ -390,8 +390,8 @@ try {
         </section>
 
         <section class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch">
-            <div class="xl:col-span-4 flex">
-                <div class="elevated-card rounded-3xl p-6 h-full w-full flex flex-col">
+            <div class="xl:col-span-4 xl:row-span-2 flex min-h-0 self-stretch">
+                <div class="elevated-card rounded-3xl p-6 h-full min-h-0 w-full flex flex-col">
                     <div class="flex items-center gap-3 mb-5">
                         <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                             <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person_search</span>
@@ -552,9 +552,7 @@ try {
                     <p class="text-[11px] font-semibold text-slate-500 mt-4">Installment treatment progress is computed at treatment level and reused across follow-up visits.</p>
                 </div>
             </div>
-        </section>
 
-        <section class="pt-1 grid grid-cols-1 xl:grid-cols-12 gap-6">
             <div class="xl:col-start-5 xl:col-span-8 w-full min-w-0">
                 <button id="createWalkInAppointmentBtn" type="button" class="walkin-primary-btn w-full max-w-full rounded-2xl bg-gradient-to-r from-primary to-blue-500 text-white py-3.5 text-sm font-extrabold uppercase tracking-wide shadow-lg shadow-primary/35 inline-flex items-center justify-center gap-2">
                     <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">calendar_add_on</span>
