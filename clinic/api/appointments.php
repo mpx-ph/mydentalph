@@ -13,6 +13,26 @@ require_once __DIR__ . '/../includes/availability.php';
 
 header('Content-Type: application/json');
 
+// Ensure this endpoint never returns an empty body on fatal errors.
+register_shutdown_function(static function () {
+    $lastError = error_get_last();
+    if ($lastError === null) {
+        return;
+    }
+    $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
+    if (!in_array((int) ($lastError['type'] ?? 0), $fatalTypes, true)) {
+        return;
+    }
+    if (!headers_sent()) {
+        header('Content-Type: application/json');
+        http_response_code(500);
+    }
+    echo json_encode([
+        'success' => false,
+        'message' => 'Failed to create appointment. Please try again.'
+    ]);
+});
+
 $method = $_SERVER['REQUEST_METHOD'];
 $pdo = getDBConnection();
 $tenantId = requireClinicTenantId();
@@ -294,37 +314,42 @@ function createAppointment() {
 
     // Optional provider availability enforcement for booking pages that pass dentist info.
     if (empty($errors) && (!empty($data['dentist_user_id']) || !empty($data['dentist_id']))) {
-        $dentistUserId = trim((string) ($data['dentist_user_id'] ?? ''));
-        if ($dentistUserId === '' && !empty($data['dentist_id'])) {
-            $dentistsTable = clinic_get_physical_table_name($pdo, 'tbl_dentists')
-                ?? clinic_get_physical_table_name($pdo, 'dentists');
-            if ($dentistsTable !== null) {
-                $quotedDentistsTable = '`' . str_replace('`', '``', $dentistsTable) . '`';
-                $dentistLookupStmt = $pdo->prepare("
-                    SELECT user_id
-                    FROM {$quotedDentistsTable}
-                    WHERE tenant_id = ?
-                      AND dentist_id = ?
-                    LIMIT 1
-                ");
-                $dentistLookupStmt->execute([$tenantId, trim((string) $data['dentist_id'])]);
-                $dentistLookup = $dentistLookupStmt->fetch(PDO::FETCH_ASSOC);
-                $dentistUserId = trim((string) ($dentistLookup['user_id'] ?? ''));
+        try {
+            $dentistUserId = trim((string) ($data['dentist_user_id'] ?? ''));
+            if ($dentistUserId === '' && !empty($data['dentist_id'])) {
+                $dentistsTable = clinic_get_physical_table_name($pdo, 'tbl_dentists')
+                    ?? clinic_get_physical_table_name($pdo, 'dentists');
+                if ($dentistsTable !== null) {
+                    $quotedDentistsTable = '`' . str_replace('`', '``', $dentistsTable) . '`';
+                    $dentistLookupStmt = $pdo->prepare("
+                        SELECT user_id
+                        FROM {$quotedDentistsTable}
+                        WHERE tenant_id = ?
+                          AND dentist_id = ?
+                        LIMIT 1
+                    ");
+                    $dentistLookupStmt->execute([$tenantId, trim((string) $data['dentist_id'])]);
+                    $dentistLookup = $dentistLookupStmt->fetch(PDO::FETCH_ASSOC);
+                    $dentistUserId = trim((string) ($dentistLookup['user_id'] ?? ''));
+                }
             }
-        }
-        if ($dentistUserId === '') {
-            $errors[] = 'Selected staff/dentist is not available at this time';
-        } else {
-            $availabilityDentistUserId = $dentistUserId;
-            $slotStart = $data['appointment_date'] . ' ' . $data['appointment_time'];
-            try {
-                $slotEnd = (new DateTime($slotStart))->modify('+1 hour')->format('Y-m-d H:i:s');
-            } catch (Exception $e) {
-                $slotEnd = '';
-            }
-            if ($slotEnd === '' || !isUserAvailable($dentistUserId, $slotStart, $slotEnd)) {
+            if ($dentistUserId === '') {
                 $errors[] = 'Selected staff/dentist is not available at this time';
+            } else {
+                $availabilityDentistUserId = $dentistUserId;
+                $slotStart = $data['appointment_date'] . ' ' . $data['appointment_time'];
+                try {
+                    $slotEnd = (new DateTime($slotStart))->modify('+1 hour')->format('Y-m-d H:i:s');
+                } catch (Exception $e) {
+                    $slotEnd = '';
+                }
+                if ($slotEnd === '' || !isUserAvailable($dentistUserId, $slotStart, $slotEnd)) {
+                    $errors[] = 'Selected staff/dentist is not available at this time';
+                }
             }
+        } catch (Throwable $availabilityError) {
+            error_log('Availability pre-check error: ' . $availabilityError->getMessage());
+            $errors[] = 'Selected staff/dentist is not available at this time';
         }
     }
     
