@@ -355,8 +355,8 @@ try {
 <main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
     <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
 
-    <div class="p-10 space-y-8">
-        <section class="flex flex-col gap-4">
+    <div class="p-10 space-y-4">
+        <section class="flex flex-col gap-3">
             <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
                 <span class="w-12 h-[1.5px] bg-primary"></span> APPOINTMENT MANAGEMENT
             </div>
