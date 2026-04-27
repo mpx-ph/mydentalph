@@ -3,6 +3,8 @@
  * Shared availability helpers for staff/dentist assignment checks.
  */
 
+require_once __DIR__ . '/appointment_db_tables.php';
+
 if (!function_exists('clinic_time_overlaps')) {
     /**
      * Overlap check: (startA < endB) AND (endA > startB)
@@ -72,9 +74,18 @@ if (!function_exists('clinic_get_effective_schedule_blocks')) {
      */
     function clinic_get_effective_schedule_blocks($pdo, $tenantId, $userId, $slotDate)
     {
+        $scheduleBlocksTable = function_exists('clinic_get_physical_table_name')
+            ? (clinic_get_physical_table_name($pdo, 'tbl_schedule_blocks')
+                ?? clinic_get_physical_table_name($pdo, 'schedule_blocks'))
+            : 'tbl_schedule_blocks';
+        if ($scheduleBlocksTable === null) {
+            return [];
+        }
+        $quotedScheduleBlocksTable = '`' . str_replace('`', '``', (string) $scheduleBlocksTable) . '`';
+
         $dateSpecificBlocksStmt = $pdo->prepare("
             SELECT start_time, end_time, block_type, notes
-            FROM tbl_schedule_blocks
+            FROM {$quotedScheduleBlocksTable}
             WHERE tenant_id = ?
               AND user_id = ?
               AND is_active = 1
@@ -91,7 +102,7 @@ if (!function_exists('clinic_get_effective_schedule_blocks')) {
         $slotDayOfWeek = date('l', strtotime((string) $slotDate));
         $recurringBlocksStmt = $pdo->prepare("
             SELECT start_time, end_time, block_type, notes
-            FROM tbl_schedule_blocks
+            FROM {$quotedScheduleBlocksTable}
             WHERE tenant_id = ?
               AND user_id = ?
               AND is_active = 1
@@ -116,12 +127,26 @@ if (!function_exists('clinic_get_appointments_for_user_date')) {
      */
     function clinic_get_appointments_for_user_date($pdo, $tenantId, $userId, $slotDate)
     {
+        $appointmentsTable = function_exists('clinic_get_physical_table_name')
+            ? (clinic_get_physical_table_name($pdo, 'tbl_appointments')
+                ?? clinic_get_physical_table_name($pdo, 'appointments'))
+            : 'tbl_appointments';
+        $dentistsTable = function_exists('clinic_get_physical_table_name')
+            ? (clinic_get_physical_table_name($pdo, 'tbl_dentists')
+                ?? clinic_get_physical_table_name($pdo, 'dentists'))
+            : 'tbl_dentists';
+        if ($appointmentsTable === null || $dentistsTable === null) {
+            return [];
+        }
+        $quotedAppointmentsTable = '`' . str_replace('`', '``', (string) $appointmentsTable) . '`';
+        $quotedDentistsTable = '`' . str_replace('`', '``', (string) $dentistsTable) . '`';
+
         $appointmentsStmt = $pdo->prepare("
             SELECT
                 a.appointment_time AS start_time,
                 ADDTIME(a.appointment_time, '01:00:00') AS end_time
-            FROM tbl_appointments a
-            INNER JOIN tbl_dentists d
+            FROM {$quotedAppointmentsTable} a
+            INNER JOIN {$quotedDentistsTable} d
                 ON d.tenant_id = a.tenant_id
                AND d.dentist_id = a.dentist_id
             WHERE a.tenant_id = ?
@@ -169,8 +194,12 @@ if (!function_exists('clinic_get_availability_details')) {
         $slotStartTime = $start->format('H:i:s');
         $slotEndTime = $end->format('H:i:s');
 
-        $pdo = getDBConnection();
-        $effectiveBlocks = clinic_get_effective_schedule_blocks($pdo, $resolvedTenantId, (string) $userId, $slotDate);
+        try {
+            $pdo = getDBConnection();
+            $effectiveBlocks = clinic_get_effective_schedule_blocks($pdo, $resolvedTenantId, (string) $userId, $slotDate);
+        } catch (Throwable $e) {
+            return ['available' => false, 'reason' => 'Outside Shift'];
+        }
 
         // Priority order:
         // 1) BREAK (always blocks)
@@ -188,7 +217,11 @@ if (!function_exists('clinic_get_availability_details')) {
             }
         }
 
-        $appointments = clinic_get_appointments_for_user_date($pdo, $resolvedTenantId, (string) $userId, $slotDate);
+        try {
+            $appointments = clinic_get_appointments_for_user_date($pdo, $resolvedTenantId, (string) $userId, $slotDate);
+        } catch (Throwable $e) {
+            return ['available' => false, 'reason' => 'Already Booked'];
+        }
         foreach ($appointments as $appointment) {
             $appointmentStart = (string) ($appointment['start_time'] ?? '');
             $appointmentEnd = (string) ($appointment['end_time'] ?? '');
