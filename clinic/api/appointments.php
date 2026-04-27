@@ -46,6 +46,11 @@ $pdo = getDBConnection();
 $tenantId = requireClinicTenantId();
 $resolvedTables = clinic_resolve_appointment_db_tables($pdo);
 $appointmentsTableName = $resolvedTables['appointments'] ?? 'appointments';
+$patientsTableName = $resolvedTables['patients'] ?? (clinic_get_physical_table_name($pdo, 'tbl_patients') ?? 'patients');
+$usersTableName = $resolvedTables['users'] ?? (clinic_get_physical_table_name($pdo, 'tbl_users') ?? 'tbl_users');
+$installmentsTableName = clinic_get_physical_table_name($pdo, 'tbl_installments')
+    ?? clinic_get_physical_table_name($pdo, 'installments')
+    ?? 'installments';
 
 // Route based on method and action
 $action = isset($_GET['action']) ? sanitize($_GET['action']) : null;
@@ -210,6 +215,7 @@ function getColumnType(PDO $pdo, string $tableName, string $columnName): string 
  * @param array|null $orthodonticsRequirements Orthodontics payment requirements
  */
 function createInstallments($pdo, $bookingId, $totalCost, $durationMonths, $startDate, $orthodonticsRequirements = null) {
+    global $installmentsTableName;
     $paymentOption = isset($orthodonticsRequirements['payment_option']) ? $orthodonticsRequirements['payment_option'] : 'installment';
     $downpaymentAmount = isset($orthodonticsRequirements['downpayment_amount']) ? floatval($orthodonticsRequirements['downpayment_amount']) : 0;
     
@@ -265,8 +271,9 @@ function createInstallments($pdo, $bookingId, $totalCost, $durationMonths, $star
     
     // Insert installments into database
     foreach ($installments as $installment) {
+        $quotedInstallmentsTable = clinic_quote_identifier((string) $installmentsTableName);
         $stmt = $pdo->prepare("
-            INSERT INTO installments (
+            INSERT INTO {$quotedInstallmentsTable} (
                 booking_id,
                 installment_number,
                 amount_due,
@@ -288,7 +295,11 @@ function createInstallments($pdo, $bookingId, $totalCost, $durationMonths, $star
  * Create new appointment
  */
 function createAppointment() {
-    global $pdo, $tenantId;
+    global $pdo, $tenantId, $appointmentsTableName, $patientsTableName, $usersTableName, $installmentsTableName;
+    $quotedPatientsTable = clinic_quote_identifier((string) $patientsTableName);
+    $quotedUsersTable = clinic_quote_identifier((string) $usersTableName);
+    $quotedAppointmentsTable = clinic_quote_identifier((string) $appointmentsTableName);
+    $quotedInstallmentsTable = clinic_quote_identifier((string) $installmentsTableName);
     
     $input = json_decode(file_get_contents('php://input'), true);
     
@@ -331,7 +342,7 @@ function createAppointment() {
                 if (empty($patientId)) {
                     $errors[] = 'Patient ID cannot be empty.';
                 } else {
-                    $stmt = $pdo->prepare("SELECT patient_id, id FROM patients WHERE patient_id = ? AND tenant_id = ?");
+                    $stmt = $pdo->prepare("SELECT patient_id, id FROM {$quotedPatientsTable} WHERE patient_id = ? AND tenant_id = ?");
                     $stmt->execute([$patientId, $tenantId]);
                     $patient = $stmt->fetch();
                     
@@ -343,12 +354,12 @@ function createAppointment() {
                 }
             } else {
                 // For clients, verify the patient belongs to the logged-in user
-                $stmt = $pdo->prepare("SELECT user_id FROM tbl_users WHERE user_id = ?");
+                $stmt = $pdo->prepare("SELECT user_id FROM {$quotedUsersTable} WHERE user_id = ?");
                 $stmt->execute([$userId]);
                 $user = $stmt->fetch();
                 
                 if ($user) {
-                    $stmt = $pdo->prepare("SELECT patient_id FROM patients WHERE patient_id = ? AND owner_user_id = ? AND tenant_id = ?");
+                    $stmt = $pdo->prepare("SELECT patient_id FROM {$quotedPatientsTable} WHERE patient_id = ? AND owner_user_id = ? AND tenant_id = ?");
                     $stmt->execute([$data['patient_id'], $user['user_id'], $tenantId]);
                     $patient = $stmt->fetch();
                     
@@ -482,7 +493,7 @@ function createAppointment() {
             // Verify the installment exists and belongs to the user
             $userId = getCurrentUserId();
             if ($userId) {
-                $stmt = $pdo->prepare("SELECT user_id FROM tbl_users WHERE user_id = ?");
+                $stmt = $pdo->prepare("SELECT user_id FROM {$quotedUsersTable} WHERE user_id = ?");
                 $stmt->execute([$userId]);
                 $user = $stmt->fetch();
                 
@@ -490,8 +501,8 @@ function createAppointment() {
                     // Verify appointment belongs to user
                         $stmt = $pdo->prepare("
                         SELECT a.booking_id, a.patient_id
-                        FROM appointments a
-                        INNER JOIN patients p ON a.patient_id = p.patient_id
+                        FROM {$quotedAppointmentsTable} a
+                        INNER JOIN {$quotedPatientsTable} p ON a.patient_id = p.patient_id
                         WHERE a.booking_id = ? AND p.owner_user_id = ? AND a.tenant_id = ? AND p.tenant_id = ?
                     ");
                     $stmt->execute([$followupBookingId, $user['user_id'], $tenantId, $tenantId]);
@@ -523,7 +534,7 @@ function createAppointment() {
                     $previousDate = null;
                     if ($followupInstallmentNumber == 2) {
                         // For Treatment 2, get date from appointments table (Treatment 1)
-                        $stmt = $pdo->prepare("SELECT appointment_date FROM appointments WHERE booking_id = ? AND tenant_id = ?");
+                        $stmt = $pdo->prepare("SELECT appointment_date FROM {$quotedAppointmentsTable} WHERE booking_id = ? AND tenant_id = ?");
                         $stmt->execute([$followupBookingId, $tenantId]);
                         $appointment = $stmt->fetch();
                         if ($appointment && $appointment['appointment_date']) {
@@ -533,7 +544,7 @@ function createAppointment() {
                         // For Treatment 3+, get date from previous installment
                         $stmt = $pdo->prepare("
                             SELECT scheduled_date 
-                            FROM installments 
+                            FROM {$quotedInstallmentsTable}
                             WHERE booking_id = ? AND installment_number = ?
                         ");
                         $stmt->execute([$followupBookingId, $followupInstallmentNumber - 1]);
@@ -564,7 +575,7 @@ function createAppointment() {
                     
                     // Update installment with scheduled date and time
                     $stmt = $pdo->prepare("
-                        UPDATE installments 
+                        UPDATE {$quotedInstallmentsTable}
                         SET scheduled_date = ?, 
                             scheduled_time = ?,
                             status = CASE 
@@ -605,7 +616,7 @@ function createAppointment() {
         $createdBy = getCurrentUserId();
         $createdByUserId = null;
         if ($createdBy) {
-            $stmt = $pdo->prepare("SELECT user_id FROM tbl_users WHERE user_id = ?");
+            $stmt = $pdo->prepare("SELECT user_id FROM {$quotedUsersTable} WHERE user_id = ?");
             $stmt->execute([$createdBy]);
             $user = $stmt->fetch();
             if ($user) {
@@ -799,7 +810,6 @@ function createAppointment() {
                 if ($insertCols === []) {
                     throw new Exception('Appointments table has no compatible columns for insert.');
                 }
-                $quotedAppointmentsTable = clinic_quote_identifier((string) $appointmentsTableName);
                 $insertSql = 'INSERT INTO ' . $quotedAppointmentsTable
                     . ' (' . implode(', ', $insertCols) . ') VALUES (' . implode(', ', $insertPlaceholders) . ')';
                 $stmt = $pdo->prepare($insertSql);
