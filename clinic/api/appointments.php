@@ -163,6 +163,32 @@ function getEnumValues(PDO $pdo, string $tableName, string $columnName): array {
 }
 
 /**
+ * Read the SQL column type for a table column.
+ *
+ * @param PDO $pdo
+ * @param string $tableName
+ * @param string $columnName
+ * @return string
+ */
+function getColumnType(PDO $pdo, string $tableName, string $columnName): string {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT COLUMN_TYPE
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+              AND COLUMN_NAME = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$tableName, $columnName]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        return isset($row['COLUMN_TYPE']) ? strtolower(trim((string) $row['COLUMN_TYPE'])) : '';
+    } catch (Throwable $e) {
+        return '';
+    }
+}
+
+/**
  * Create installments for long-term treatment
  * @param PDO $pdo Database connection
  * @param string $bookingId Booking ID
@@ -686,11 +712,43 @@ function createAppointment() {
                         }
                     }
                 }
+                $normalizedDentistId = $data['dentist_id'] !== null ? trim((string) $data['dentist_id']) : '';
+                if ($normalizedDentistId !== '') {
+                    $dentistIdColumnType = getColumnType($pdo, (string) $appointmentsTableName, 'dentist_id');
+                    if ($dentistIdColumnType !== '' && preg_match('/^(tinyint|smallint|mediumint|int|bigint)\b/', $dentistIdColumnType)) {
+                        if (!ctype_digit($normalizedDentistId)) {
+                            $resolvedNumericDentistId = '';
+                            $dentistsTableForId = clinic_get_physical_table_name($pdo, 'tbl_dentists')
+                                ?? clinic_get_physical_table_name($pdo, 'dentists');
+                            if ($dentistsTableForId !== null) {
+                                $quotedDentistsTableForId = clinic_quote_identifier((string) $dentistsTableForId);
+                                if (!empty($data['dentist_user_id'])) {
+                                    $resolveByUserStmt = $pdo->prepare("
+                                        SELECT dentist_id
+                                        FROM {$quotedDentistsTableForId}
+                                        WHERE tenant_id = ?
+                                          AND user_id = ?
+                                        LIMIT 1
+                                    ");
+                                    $resolveByUserStmt->execute([$tenantId, trim((string) $data['dentist_user_id'])]);
+                                    $resolveByUser = $resolveByUserStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+                                    $resolvedNumericDentistId = trim((string) ($resolveByUser['dentist_id'] ?? ''));
+                                }
+                            }
+                            if ($resolvedNumericDentistId !== '' && ctype_digit($resolvedNumericDentistId)) {
+                                $normalizedDentistId = $resolvedNumericDentistId;
+                            } else {
+                                throw new Exception('Please select a valid assigned dentist before scheduling.');
+                            }
+                        }
+                    }
+                }
+
                 $apptData = [
                     'tenant_id' => $tenantId,
                     'booking_id' => $bookingId,
                     'patient_id' => $data['patient_id'],
-                    'dentist_id' => $data['dentist_id'] !== null ? trim((string) $data['dentist_id']) : null,
+                    'dentist_id' => $normalizedDentistId !== '' ? $normalizedDentistId : null,
                     'appointment_date' => $data['appointment_date'],
                     'appointment_time' => $data['appointment_time'],
                     'service_type' => $serviceType,
@@ -747,6 +805,16 @@ function createAppointment() {
                     }
                     // Wait a tiny bit and retry (in case of race condition)
                     usleep(100000); // 0.1 seconds
+                } elseif ($e->getCode() == '23000' && (
+                    stripos($e->getMessage(), 'unique_dentist_schedule') !== false
+                    || stripos($e->getMessage(), 'dentist_id') !== false && stripos($e->getMessage(), 'appointment_date') !== false
+                )) {
+                    throw new Exception('The selected dentist already has a booking at that date/time. Please pick a different time.');
+                } elseif ($e->getCode() == '23000' && (
+                    stripos($e->getMessage(), 'foreign key') !== false
+                    || stripos($e->getMessage(), 'cannot add or update a child row') !== false
+                )) {
+                    throw new Exception('One or more selected booking details are invalid. Please reselect patient, dentist, and services.');
                 } else {
                     // Different error - rethrow
                     throw $e;
@@ -784,7 +852,11 @@ function createAppointment() {
             $pdo->rollBack();
         }
         error_log('Appointment creation error: ' . $e->getMessage());
-        jsonResponse(false, 'Failed to create appointment. Please try again.');
+        $safeMessage = trim((string) $e->getMessage());
+        if ($safeMessage === '' || stripos($safeMessage, 'sqlstate') !== false) {
+            $safeMessage = 'Failed to create appointment. Please try again.';
+        }
+        jsonResponse(false, $safeMessage);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
