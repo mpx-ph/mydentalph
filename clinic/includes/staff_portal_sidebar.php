@@ -97,24 +97,53 @@ $buildStaffHref = function ($targetFile) use ($linkBaseDir, $sidebarClinicSlug) 
     return ($base === '' ? '/' : ($base . '/')) . $targetFile;
 };
 
-$allNavItems = [
-    ['key' => 'dashboard',        'label' => 'Dashboard',         'icon' => 'dashboard',        'href' => $buildStaffHref('StaffDashboard.php')],
-    ['key' => 'patients',         'label' => 'Patients',          'icon' => 'group',             'href' => $buildStaffHref('StaffManagePatient.php')],
-    ['key' => 'appointments',     'label' => 'Appointments',      'icon' => 'calendar_month',   'href' => $buildStaffHref('StaffAppointments.php')],
-    ['key' => 'block_schedule',   'label' => 'Block Schedule',    'icon' => 'event_busy',        'href' => $buildStaffHref('StaffBlockSchedule.php')],
-    ['key' => 'my_schedule',      'label' => 'My Schedule',       'icon' => 'view_week',         'href' => $buildStaffHref('StaffScheduling.php')],
-    ['key' => 'clinic_hours',     'label' => 'Clinic Hours',      'icon' => 'schedule',          'href' => $buildStaffHref('StaffClinicHours.php')],
-    ['key' => 'services',         'label' => 'Services & Pricing','icon' => 'medical_services',  'href' => $buildStaffHref('StaffManageServices.php')],
-    ['key' => 'payments',         'label' => 'Payments',          'icon' => 'payments',          'href' => $buildStaffHref('StaffPaymentRecording.php')],
-    ['key' => 'payment_settings', 'label' => 'Payment Settings',  'icon' => 'settings',          'href' => $buildStaffHref('StaffPaymentSetting.php')],
-    ['key' => 'reports',          'label' => 'Reports',           'icon' => 'bar_chart',         'href' => $buildStaffHref('StaffReports.php')],
-    ['key' => 'users',            'label' => 'Users',             'icon' => 'people',            'href' => $buildStaffHref('StaffManageUsers.php')],
-    ['key' => 'reviews',          'label' => 'Reviews',           'icon' => 'rate_review',       'href' => $buildStaffHref('StaffManageReview.php')],
-    ['key' => 'profile',          'label' => 'My Profile',        'icon' => 'account_circle',    'href' => $buildStaffHref('StaffMyProfile.php')],
+$navSections = [
+    [
+        'label' => 'Overview',
+        'items' => [
+            ['key' => 'dashboard',    'label' => 'Dashboard',          'icon' => 'dashboard',        'href' => $buildStaffHref('StaffDashboard.php')],
+        ],
+    ],
+    [
+        'label' => 'Scheduling',
+        'items' => [
+            ['key' => 'appointments', 'label' => 'Appointments',       'icon' => 'calendar_month',   'href' => $buildStaffHref('StaffAppointments.php')],
+            ['key' => 'my_schedule',  'label' => 'My Schedule',        'icon' => 'view_week',        'href' => $buildStaffHref('StaffScheduling.php')],
+            ['key' => 'clinic_hours', 'label' => 'Clinic Hours',       'icon' => 'schedule',         'href' => $buildStaffHref('StaffClinicHours.php')],
+        ],
+    ],
+    [
+        'label' => 'Patients & Services',
+        'items' => [
+            ['key' => 'patients',     'label' => 'Patients',           'icon' => 'group',            'href' => $buildStaffHref('StaffManagePatient.php')],
+            ['key' => 'services',     'label' => 'Services & Pricing', 'icon' => 'medical_services', 'href' => $buildStaffHref('StaffManageServices.php')],
+        ],
+    ],
+    [
+        'label' => 'Payments',
+        'items' => [
+            ['key' => 'payments',         'label' => 'Payments',         'icon' => 'payments',       'href' => $buildStaffHref('StaffPaymentRecording.php')],
+            ['key' => 'payment_settings', 'label' => 'Payment Settings', 'icon' => 'settings',       'href' => $buildStaffHref('StaffPaymentSetting.php')],
+        ],
+    ],
+    [
+        'label' => 'Management',
+        'items' => [
+            ['key' => 'reports',      'label' => 'Reports',            'icon' => 'bar_chart',        'href' => $buildStaffHref('StaffReports.php')],
+            ['key' => 'users',        'label' => 'Users',              'icon' => 'people',           'href' => $buildStaffHref('StaffManageUsers.php')],
+            ['key' => 'reviews',      'label' => 'Reviews',            'icon' => 'rate_review',      'href' => $buildStaffHref('StaffManageReview.php')],
+        ],
+    ],
+    [
+        'label' => 'Account',
+        'items' => [
+            ['key' => 'profile',      'label' => 'My Profile',         'icon' => 'account_circle',   'href' => $buildStaffHref('StaffMyProfile.php')],
+        ],
+    ],
 ];
 
 // Dentist role: only these pages are accessible
-$dentistAllowedKeys = ['dashboard', 'patients', 'appointments', 'block_schedule', 'my_schedule', 'clinic_hours', 'profile'];
+$dentistAllowedKeys = ['dashboard', 'patients', 'appointments', 'my_schedule', 'clinic_hours', 'profile'];
 $currentUserRole = isset($_SESSION['user_role']) ? strtolower(trim((string) $_SESSION['user_role'])) : '';
 $currentUserType = isset($_SESSION['user_type']) ? strtolower(trim((string) $_SESSION['user_type'])) : '';
 if ($currentUserRole === 'dentist') {
@@ -126,11 +155,14 @@ if ($currentUserRole === 'dentist') {
 }
 
 if ($currentUserRole === 'dentist') {
-    $navItems = array_values(array_filter($allNavItems, function ($item) use ($dentistAllowedKeys) {
-        return in_array($item['key'], $dentistAllowedKeys, true);
+    $navSections = array_values(array_filter(array_map(function ($section) use ($dentistAllowedKeys) {
+        $section['items'] = array_values(array_filter($section['items'], function ($item) use ($dentistAllowedKeys) {
+            return in_array($item['key'], $dentistAllowedKeys, true);
+        }));
+        return $section;
+    }, $navSections), function ($section) {
+        return !empty($section['items']);
     }));
-} else {
-    $navItems = $allNavItems;
 }
 ?>
 <style>
@@ -233,16 +265,23 @@ if ($currentUserRole === 'dentist') {
         <p class="staff-sidebar-tagline text-primary font-bold text-[10px] tracking-[0.2em] uppercase mt-2 opacity-80"><?php echo htmlspecialchars($portalLabel, ENT_QUOTES, 'UTF-8'); ?></p>
     </div>
 
-    <nav class="flex-1 min-h-0 space-y-1 overflow-y-auto no-scrollbar">
-        <?php foreach ($navItems as $item) { ?>
-            <?php $isActive = $staff_nav_active === $item['key']; ?>
-            <div class="<?php echo $isActive ? 'relative ' : ''; ?>px-3">
-                <a href="<?php echo htmlspecialchars($item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="staff-nav-link flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?php echo $isActive ? 'bg-primary/10 text-primary active-glow' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'; ?>">
-                    <span class="material-symbols-outlined text-[22px] shrink-0" <?php echo $isActive ? 'style="font-variation-settings: \'FILL\' 1;"' : ''; ?>><?php echo htmlspecialchars($item['icon'], ENT_QUOTES, 'UTF-8'); ?></span>
-                    <span class="staff-sidebar-label font-headline text-sm <?php echo $isActive ? 'font-bold' : 'font-medium'; ?> tracking-tight"><?php echo htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
-                </a>
-                <?php if ($isActive) { ?>
-                    <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full"></div>
+    <nav class="flex-1 min-h-0 space-y-3 overflow-y-auto no-scrollbar">
+        <?php foreach ($navSections as $section) { ?>
+            <div>
+                <p class="staff-sidebar-label px-7 mb-1 text-[10px] font-bold tracking-[0.16em] uppercase text-slate-400">
+                    <?php echo htmlspecialchars($section['label'], ENT_QUOTES, 'UTF-8'); ?>
+                </p>
+                <?php foreach ($section['items'] as $item) { ?>
+                    <?php $isActive = $staff_nav_active === $item['key']; ?>
+                    <div class="<?php echo $isActive ? 'relative ' : ''; ?>px-3">
+                        <a href="<?php echo htmlspecialchars($item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="staff-nav-link flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?php echo $isActive ? 'bg-primary/10 text-primary active-glow' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'; ?>">
+                            <span class="material-symbols-outlined text-[22px] shrink-0" <?php echo $isActive ? 'style="font-variation-settings: \'FILL\' 1;"' : ''; ?>><?php echo htmlspecialchars($item['icon'], ENT_QUOTES, 'UTF-8'); ?></span>
+                            <span class="staff-sidebar-label font-headline text-sm <?php echo $isActive ? 'font-bold' : 'font-medium'; ?> tracking-tight"><?php echo htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+                        </a>
+                        <?php if ($isActive) { ?>
+                            <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full"></div>
+                        <?php } ?>
+                    </div>
                 <?php } ?>
             </div>
         <?php } ?>
