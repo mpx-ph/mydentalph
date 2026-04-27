@@ -296,16 +296,21 @@ function createAppointment() {
     if (empty($errors) && (!empty($data['dentist_user_id']) || !empty($data['dentist_id']))) {
         $dentistUserId = trim((string) ($data['dentist_user_id'] ?? ''));
         if ($dentistUserId === '' && !empty($data['dentist_id'])) {
-            $dentistLookupStmt = $pdo->prepare("
-                SELECT user_id
-                FROM tbl_dentists
-                WHERE tenant_id = ?
-                  AND dentist_id = ?
-                LIMIT 1
-            ");
-            $dentistLookupStmt->execute([$tenantId, (int) $data['dentist_id']]);
-            $dentistLookup = $dentistLookupStmt->fetch(PDO::FETCH_ASSOC);
-            $dentistUserId = trim((string) ($dentistLookup['user_id'] ?? ''));
+            $dentistsTable = clinic_get_physical_table_name($pdo, 'tbl_dentists')
+                ?? clinic_get_physical_table_name($pdo, 'dentists');
+            if ($dentistsTable !== null) {
+                $quotedDentistsTable = '`' . str_replace('`', '``', $dentistsTable) . '`';
+                $dentistLookupStmt = $pdo->prepare("
+                    SELECT user_id
+                    FROM {$quotedDentistsTable}
+                    WHERE tenant_id = ?
+                      AND dentist_id = ?
+                    LIMIT 1
+                ");
+                $dentistLookupStmt->execute([$tenantId, trim((string) $data['dentist_id'])]);
+                $dentistLookup = $dentistLookupStmt->fetch(PDO::FETCH_ASSOC);
+                $dentistUserId = trim((string) ($dentistLookup['user_id'] ?? ''));
+            }
         }
         if ($dentistUserId === '') {
             $errors[] = 'Selected staff/dentist is not available at this time';
