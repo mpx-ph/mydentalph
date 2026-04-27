@@ -128,6 +128,41 @@ function generateBookingId() {
 }
 
 /**
+ * Read ENUM values for a table column.
+ *
+ * @param PDO $pdo
+ * @param string $tableName
+ * @param string $columnName
+ * @return array<int, string>
+ */
+function getEnumValues(PDO $pdo, string $tableName, string $columnName): array {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT COLUMN_TYPE
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+              AND COLUMN_NAME = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$tableName, $columnName]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        $columnType = isset($row['COLUMN_TYPE']) ? (string) $row['COLUMN_TYPE'] : '';
+        if ($columnType === '' || stripos($columnType, 'enum(') !== 0) {
+            return [];
+        }
+        if (!preg_match_all("/'([^']+)'/", $columnType, $matches) || empty($matches[1])) {
+            return [];
+        }
+        return array_values(array_map(static function ($value) {
+            return strtolower(trim((string) $value));
+        }, $matches[1]));
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/**
  * Create installments for long-term treatment
  * @param PDO $pdo Database connection
  * @param string $bookingId Booking ID
@@ -627,6 +662,30 @@ function createAppointment() {
                 
                 // Insert appointment with dynamic column support across table variants.
                 $apptCols = clinic_table_columns($pdo, (string) $appointmentsTableName);
+                $statusForInsert = strtolower(trim((string) ($data['status'] ?? 'pending')));
+                if ($statusForInsert === '' || $statusForInsert === 'scheduled' || $statusForInsert === 'confirmed') {
+                    $statusForInsert = 'pending';
+                }
+                $visitTypeForInsert = strtolower(trim((string) ($data['visit_type'] ?? 'pre_book')));
+                if ($visitTypeForInsert === 'walkin' || $visitTypeForInsert === 'walk-in') {
+                    $visitTypeForInsert = 'walk_in';
+                } elseif ($visitTypeForInsert !== 'walk_in') {
+                    $visitTypeForInsert = 'pre_book';
+                }
+                if (in_array('visit_type', $apptCols, true)) {
+                    $visitTypeEnumValues = getEnumValues($pdo, (string) $appointmentsTableName, 'visit_type');
+                    if ($visitTypeEnumValues !== [] && !in_array($visitTypeForInsert, $visitTypeEnumValues, true)) {
+                        if (in_array('pre_book', $visitTypeEnumValues, true)) {
+                            $visitTypeForInsert = 'pre_book';
+                        } elseif (in_array('scheduled', $visitTypeEnumValues, true)) {
+                            $visitTypeForInsert = 'scheduled';
+                        } elseif (in_array('appointment', $visitTypeEnumValues, true)) {
+                            $visitTypeForInsert = 'appointment';
+                        } else {
+                            $visitTypeForInsert = (string) $visitTypeEnumValues[0];
+                        }
+                    }
+                }
                 $apptData = [
                     'tenant_id' => $tenantId,
                     'booking_id' => $bookingId,
@@ -637,8 +696,8 @@ function createAppointment() {
                     'service_type' => $serviceType,
                     'service_description' => $serviceDescription,
                     'treatment_type' => $treatmentType,
-                    'visit_type' => $data['visit_type'],
-                    'status' => $data['status'],
+                    'visit_type' => $visitTypeForInsert,
+                    'status' => $statusForInsert,
                     'notes' => $data['notes'],
                     'total_treatment_cost' => $totalTreatmentCost,
                     'duration_months' => $durationMonths,

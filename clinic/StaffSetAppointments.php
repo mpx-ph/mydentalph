@@ -462,6 +462,7 @@ try {
                         <label class="block">
                             <span class="block text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/70 mb-2">Assigned Dentist</span>
                             <input id="selectedDentistId" type="hidden" value=""/>
+                            <input id="selectedDentistUserId" type="hidden" value=""/>
                             <button id="chooseDentistBtn" type="button" class="selection-pill-btn w-full py-3 px-4 text-left inline-flex items-center justify-between gap-3">
                                 <span class="inline-flex items-center gap-3 min-w-0">
                                     <span class="selection-pill-icon">
@@ -851,6 +852,7 @@ try {
         const chooseDentistBtn = document.getElementById('chooseDentistBtn');
         const selectedDentistLabel = document.getElementById('selectedDentistLabel');
         const selectedDentistIdInput = document.getElementById('selectedDentistId');
+        const selectedDentistUserIdInput = document.getElementById('selectedDentistUserId');
         const chooseDentistModal = document.getElementById('chooseDentistModal');
         const closeChooseDentistModalBtn = document.getElementById('closeChooseDentistModalBtn');
         const dentistListContainer = document.getElementById('dentistListContainer');
@@ -1692,6 +1694,7 @@ try {
                 const statusTextClass = isAvailable ? 'text-emerald-700' : 'text-red-700';
                 const imageSrc = escapeHtml(resolveDentistProfileImageUrl(dentist.profile_image));
                 const dentistId = escapeHtml(dentist.dentist_id || '');
+                const dentistUserId = escapeHtml(dentist.user_id || '');
                 const displayId = String(dentist.dentist_display_id || '').trim();
                 const idLineRaw = displayId !== '' ? displayId : ('ID #' + String(dentist.dentist_id || '').trim());
                 const idLine = escapeHtml(idLineRaw);
@@ -1713,7 +1716,7 @@ try {
                             '<span class="w-2.5 h-2.5 rounded-full shrink-0 ' + statusDotClass + '" title="' + statusTitle + '" aria-hidden="true"></span>' +
                             '<span>' + escapeHtml(statusLabel) + '</span>' +
                         '</p>' +
-                        '<button type="button" data-action="select-dentist" data-dentist-id="' + dentistId + '" data-dentist-name="' + fullName + '" ' + (isAvailable ? '' : 'disabled') + ' class="' + selectButtonClass + '">' + (isAvailable ? 'Select' : 'Unavailable') + '</button>' +
+                        '<button type="button" data-action="select-dentist" data-dentist-id="' + dentistId + '" data-dentist-user-id="' + dentistUserId + '" data-dentist-name="' + fullName + '" ' + (isAvailable ? '' : 'disabled') + ' class="' + selectButtonClass + '">' + (isAvailable ? 'Select' : 'Unavailable') + '</button>' +
                     '</div>';
             }).join('');
         }
@@ -1828,8 +1831,9 @@ try {
             updateDefaultPaymentDetails();
         }
 
-        function setSelectedDentist(dentistId, dentistName) {
+        function setSelectedDentist(dentistId, dentistUserId, dentistName) {
             if (selectedDentistIdInput) selectedDentistIdInput.value = dentistId || '';
+            if (selectedDentistUserIdInput) selectedDentistUserIdInput.value = dentistUserId || '';
             if (selectedDentistLabel) selectedDentistLabel.textContent = dentistName || 'Tap to choose dentist';
         }
 
@@ -1937,6 +1941,7 @@ try {
             const patientId = selectedPatientIdInput ? String(selectedPatientIdInput.value || '').trim() : '';
             const dentistId = selectedDentistIdInput ? String(selectedDentistIdInput.value || '').trim() : '';
             const notes = notesInput ? String(notesInput.value || '').trim() : '';
+            const dentistUserId = selectedDentistUserIdInput ? String(selectedDentistUserIdInput.value || '').trim() : '';
 
             if (!patientId) {
                 void staffUiAlert({ message: 'Please select a patient first.', variant: 'warning', title: 'Patient required' });
@@ -2031,6 +2036,7 @@ try {
                 }).filter(Boolean))),
                 notes: notes,
                 dentist_id: dentistId,
+                dentist_user_id: dentistUserId,
                 visit_type: 'pre_book',
                 status: 'pending'
             };
@@ -2215,7 +2221,11 @@ try {
                 const button = event.target.closest('button[data-action="select-dentist"]');
                 if (!button) return;
                 if (button.disabled) return;
-                setSelectedDentist(button.getAttribute('data-dentist-id') || '', button.getAttribute('data-dentist-name') || '');
+                setSelectedDentist(
+                    button.getAttribute('data-dentist-id') || '',
+                    button.getAttribute('data-dentist-user-id') || '',
+                    button.getAttribute('data-dentist-name') || ''
+                );
                 closeChooseDentistModal();
             });
         }
