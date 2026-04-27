@@ -9,6 +9,7 @@ require_once __DIR__ . '/includes/availability.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+$currentStaffUserId = isset($_SESSION['user_id']) ? (string) $_SESSION['user_id'] : '';
 
 if (empty($_GET['clinic_slug']) && !empty($_SESSION['public_tenant_slug'])) {
     $_GET['clinic_slug'] = $_SESSION['public_tenant_slug'];
@@ -321,6 +322,24 @@ try {
             color: #ffffff;
             box-shadow: 0 8px 18px -12px rgba(43, 139, 235, 0.9);
         }
+        .staff-modal-overlay:not(.hidden) {
+            animation: staff-modal-fade-in 0.25s ease forwards;
+        }
+        .staff-modal-panel {
+            animation: staff-modal-panel-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        @keyframes staff-modal-fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes staff-modal-panel-in {
+            from { opacity: 0; transform: translateY(10px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .field-error {
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15) !important;
+        }
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
@@ -342,13 +361,22 @@ try {
                         Register and schedule a same-day patient appointment with quick service and payment preview.
                     </p>
                 </div>
-                <a
-                    href="<?php echo htmlspecialchars($backToAppointmentsHref, ENT_QUOTES, 'UTF-8'); ?>"
-                    class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-slate-700 transition-colors"
-                >
-                    <span class="material-symbols-outlined text-[18px]">arrow_back</span>
-                    Back to Appointments
-                </a>
+                <div class="flex flex-col items-start lg:items-end gap-3">
+                    <a
+                        href="<?php echo htmlspecialchars($backToAppointmentsHref, ENT_QUOTES, 'UTF-8'); ?>"
+                        class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-slate-700 transition-colors"
+                    >
+                        <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+                        Back to Appointments
+                    </a>
+                    <p class="text-xs font-semibold text-slate-500 leading-relaxed max-w-xs lg:text-right">
+                        Is the patient new or not yet registered? Click the button to register.
+                    </p>
+                    <button id="registerPatientBtnTop" type="button" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-blue-500 text-white px-4 py-2.5 text-xs font-black uppercase tracking-wider shadow-lg shadow-primary/30 walkin-primary-btn">
+                        <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">person_add</span>
+                        Register Patient
+                    </button>
+                </div>
             </div>
         </section>
 
@@ -370,21 +398,14 @@ try {
                             <input id="selectedPatientId" type="hidden" value=""/>
                             <input id="patientSearchInput" type="text" class="walkin-input w-full py-3 px-4" placeholder="Search patient name, ID, or contact number"/>
                         </div>
-                        <div class="rounded-2xl border border-slate-100 bg-slate-50/60 flex-1 min-h-[22rem] overflow-y-auto">
-                            <div id="patientListEmptyState" class="hidden px-4 py-8 text-center text-sm font-semibold text-slate-500"></div>
-                            <div id="patientListContainer" class="divide-y divide-slate-100"></div>
-                        </div>
                         <div class="rounded-xl border border-primary/15 bg-primary/5 px-4 py-2.5">
                             <p class="text-[10px] font-black uppercase tracking-[0.18em] text-primary/70 mb-1">Selected Patient</p>
                             <p id="selectedPatientLabel" class="text-sm font-extrabold text-slate-900 truncate">Choose patient from list</p>
                         </div>
-                        <button type="button" class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-blue-500 text-white py-3 text-sm font-bold shadow-lg shadow-primary/30 walkin-primary-btn">
-                            <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">person_add</span>
-                            Register Patient
-                        </button>
-                        <p class="text-xs font-semibold text-slate-500 leading-relaxed">
-                            Tip: You can also register a new patient from the patients menu if they are not in the list.
-                        </p>
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/60 flex-1 min-h-[22rem] overflow-y-auto">
+                            <div id="patientListEmptyState" class="hidden px-4 py-8 text-center text-sm font-semibold text-slate-500"></div>
+                            <div id="patientListContainer" class="divide-y divide-slate-100"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -530,6 +551,141 @@ try {
     </div>
 </main>
 
+<div id="addPatientModal" class="staff-modal-overlay fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[75] hidden items-center justify-center p-4">
+    <div class="staff-modal-panel bg-slate-100 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden flex flex-col border border-slate-200">
+        <div class="px-8 py-6 border-b border-slate-200 bg-slate-100 flex items-start justify-between gap-4">
+            <div>
+                <h2 id="patientModalTitle" class="text-4xl font-extrabold tracking-tight text-slate-900">Patient Registration</h2>
+                <p class="text-sm text-slate-500 font-medium mt-1">Register a new patient to the clinic management system</p>
+            </div>
+            <button id="closeAddPatientModal" type="button" class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <form id="addPatientForm" class="flex-1 overflow-y-auto px-8 py-6">
+            <input id="editingPatientId" type="hidden" value=""/>
+            <div class="bg-white rounded-3xl border border-slate-200 p-7 space-y-8">
+                <section class="space-y-4">
+                    <h3 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">person</span>
+                        Personal Information
+                    </h3>
+                    <div class="border-b border-slate-200"></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">First Name <span class="text-red-500">*</span></label>
+                            <input id="addFirstName" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Enter first name"/>
+                            <p id="addFirstNameError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Last Name <span class="text-red-500">*</span></label>
+                            <input id="addLastName" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Enter last name"/>
+                            <p id="addLastNameError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Date of Birth <span class="text-red-500">*</span></label>
+                                <input id="addDob" type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"/>
+                                <p id="addDobError" class="mt-1 text-xs text-red-500 hidden"></p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Age</label>
+                                <input id="addAge" type="text" readonly class="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-500" placeholder="0"/>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Gender <span class="text-red-500">*</span></label>
+                            <div class="flex items-center gap-6 h-[42px]">
+                                <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                                    <input type="radio" name="addGender" value="Male" class="text-primary border-slate-300"/>
+                                    Male
+                                </label>
+                                <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                                    <input type="radio" name="addGender" value="Female" class="text-primary border-slate-300"/>
+                                    Female
+                                </label>
+                            </div>
+                            <p id="addGenderError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Blood Type <span class="text-red-500">*</span></label>
+                            <select id="addBloodType" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="">Select type</option>
+                                <option value="A+">A+</option>
+                                <option value="A-">A-</option>
+                                <option value="B+">B+</option>
+                                <option value="B-">B-</option>
+                                <option value="AB+">AB+</option>
+                                <option value="AB-">AB-</option>
+                                <option value="O+">O+</option>
+                                <option value="O-">O-</option>
+                            </select>
+                            <p id="addBloodTypeError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Medical History &amp; Alerts <span class="ml-1 text-[11px] font-semibold text-slate-400">(Optional)</span></label>
+                            <textarea id="addMedicalHistory" rows="3" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Allergies, chronic conditions, current medications..."></textarea>
+                            <p id="addMedicalHistoryError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                    </div>
+                </section>
+                <section class="space-y-4">
+                    <h3 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">contact_page</span>
+                        Contact Information
+                    </h3>
+                    <div class="border-b border-slate-200"></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Contact No. <span class="text-red-500">*</span></label>
+                            <input id="addContact" type="tel" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="09XX XXX XXXX"/>
+                            <p id="addContactError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Email Address <span class="text-red-500">*</span></label>
+                            <input id="addEmail" type="email" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="patient@example.com"/>
+                            <p id="addEmailError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                    </div>
+                    <p class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mt-4">Residential Address</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Province <span class="text-red-500">*</span></label>
+                            <select id="addProvince" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="">Select province</option>
+                            </select>
+                            <p id="addProvinceError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">City / Municipality <span class="text-red-500">*</span></label>
+                            <select id="addCity" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" disabled>
+                                <option value="">Select city/municipality</option>
+                            </select>
+                            <p id="addCityError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Barangay <span class="text-red-500">*</span></label>
+                            <select id="addBarangay" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" disabled>
+                                <option value="">Select barangay</option>
+                            </select>
+                            <p id="addBarangayError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Street / House No. <span class="text-red-500">*</span></label>
+                            <input id="addHouseStreet" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Unit, building, street"/>
+                            <p id="addHouseStreetError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            <div class="flex items-center justify-end gap-3 mt-6 pt-1">
+                <button type="button" id="cancelAddPatientBtn" class="px-6 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-sm font-semibold">Cancel</button>
+                <button type="submit" id="savePatientBtn" class="px-6 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl text-sm font-semibold">Register Patient</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div id="chooseDentistModal" class="hidden fixed inset-0 z-[70]">
     <div class="absolute inset-0 bg-slate-900/45"></div>
     <div class="relative h-full w-full flex items-center justify-center p-4">
@@ -588,8 +744,10 @@ try {
 <script src="<?php echo htmlspecialchars(BASE_URL, ENT_QUOTES, 'UTF-8'); ?>js/staff-ui-dialogs.js"></script>
 <script>
     (function () {
+        const STAFF_OWNER_USER_ID = <?php echo json_encode($currentStaffUserId, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const dateInput = document.getElementById('walkInDateInput');
         const timeInput = document.getElementById('walkInTimeInput');
+        const registerPatientBtnTop = document.getElementById('registerPatientBtnTop');
         const selectedPatientLabel = document.getElementById('selectedPatientLabel');
         const selectedPatientIdInput = document.getElementById('selectedPatientId');
         const patientSearchInput = document.getElementById('patientSearchInput');
@@ -640,6 +798,17 @@ try {
         const clinicSlug = <?php echo json_encode((string) $currentTenantSlug, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const stockDentistImage = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=60';
         const clinicAssetBaseUrl = <?php echo json_encode(rtrim(BASE_URL, '/') . '/', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const patientAddressApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/philippine_address.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const addPatientModal = document.getElementById('addPatientModal');
+        const addPatientForm = document.getElementById('addPatientForm');
+        const closeAddPatientModalBtn = document.getElementById('closeAddPatientModal');
+        const cancelAddPatientBtn = document.getElementById('cancelAddPatientBtn');
+        const addDobInput = document.getElementById('addDob');
+        const addAgeInput = document.getElementById('addAge');
+        const addProvinceSelect = document.getElementById('addProvince');
+        const addCitySelect = document.getElementById('addCity');
+        const addBarangaySelect = document.getElementById('addBarangay');
+        const addGenderRadios = Array.from(document.querySelectorAll('input[name="addGender"]'));
         let allPatients = [];
         let allServices = [];
         let selectedServices = [];
@@ -702,6 +871,268 @@ try {
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#039;');
+        }
+
+        const regBloodTypeOptions = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+        const regFieldValidators = {
+            addFirstName: { required: true, pattern: /^[a-zA-Z\s.'-]{2,50}$/, message: 'Enter a valid first name (2-50 letters).' },
+            addLastName: { required: true, pattern: /^[a-zA-Z\s.'-]{2,50}$/, message: 'Enter a valid last name (2-50 letters).' },
+            addDob: { required: true, message: 'Date of birth is required.' },
+            addGender: { required: true, message: 'Gender is required.' },
+            addBloodType: { required: true, message: 'Blood type is required.' },
+            addMedicalHistory: { required: false },
+            addContact: { required: true, pattern: /^09\d{9}$/, message: 'Use PH mobile format: 09XXXXXXXXX.' },
+            addEmail: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Enter a valid email address.' },
+            addProvince: { required: true, message: 'Province is required.' },
+            addCity: { required: true, message: 'City/Municipality is required.' },
+            addBarangay: { required: true, message: 'Barangay is required.' },
+            addHouseStreet: { required: true, minLength: 3, message: 'Street / House No. is required.' }
+        };
+
+        function regCalculateAge(dateValue) {
+            if (!dateValue) return '';
+            const birthDate = new Date(dateValue);
+            if (Number.isNaN(birthDate.getTime())) return '';
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age -= 1;
+            return age >= 0 ? String(age) : '';
+        }
+
+        function regGetDobMaxDateForMinimumAge(minYears) {
+            const maxDate = new Date();
+            maxDate.setFullYear(maxDate.getFullYear() - minYears);
+            return maxDate.toISOString().slice(0, 10);
+        }
+
+        function regIsAtLeastOneYearOld(dateValue) {
+            if (!dateValue) return false;
+            const birthDate = new Date(dateValue);
+            if (Number.isNaN(birthDate.getTime())) return false;
+            return birthDate <= new Date(regGetDobMaxDateForMinimumAge(1));
+        }
+
+        function regClearFieldError(fieldId) {
+            const inputEl = document.getElementById(fieldId);
+            const errorEl = document.getElementById(fieldId + 'Error');
+            if (inputEl) inputEl.classList.remove('field-error');
+            if (errorEl) {
+                errorEl.textContent = '';
+                errorEl.classList.add('hidden');
+            }
+        }
+
+        function regShowFieldError(fieldId, message) {
+            const inputEl = document.getElementById(fieldId);
+            const errorEl = document.getElementById(fieldId + 'Error');
+            if (inputEl) inputEl.classList.add('field-error');
+            if (errorEl) {
+                errorEl.textContent = message;
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        function regResetFormValidation() {
+            Object.keys(regFieldValidators).forEach(regClearFieldError);
+        }
+
+        function regGetSelectedGender() {
+            const selected = addGenderRadios.find(function (radio) { return radio.checked; });
+            return selected ? selected.value : '';
+        }
+
+        function regFillSelect(selectEl, values, placeholder) {
+            if (!selectEl) return;
+            selectEl.innerHTML = '<option value="">' + escapeHtml(placeholder) + '</option>' + values
+                .map(function (v) { return '<option value="' + escapeHtml(v) + '">' + escapeHtml(v) + '</option>'; })
+                .join('');
+            selectEl.disabled = values.length === 0;
+        }
+
+        async function regFetchAddress(action, params) {
+            const url = new URL(patientAddressApiUrl, window.location.origin);
+            url.searchParams.set('action', action);
+            Object.entries(params || {}).forEach(function (entry) {
+                url.searchParams.set(entry[0], entry[1]);
+            });
+            const response = await fetch(buildApiUrl(url.pathname + url.search), { credentials: 'include' });
+            const data = await parseJsonResponse(response);
+            if (!response.ok || !data.success || !Array.isArray(data.data)) {
+                throw new Error(data.message || 'Failed to load address data.');
+            }
+            return data.data;
+        }
+
+        async function regLoadProvinces(selectedProvince) {
+            try {
+                const provinces = await regFetchAddress('provinces', {});
+                regFillSelect(addProvinceSelect, provinces, 'Select province');
+                if (addProvinceSelect) addProvinceSelect.value = selectedProvince || '';
+            } catch (error) {
+                regFillSelect(addProvinceSelect, [], 'Unable to load provinces');
+            }
+        }
+
+        async function regLoadCities(province, selectedCity) {
+            if (!province) {
+                regFillSelect(addCitySelect, [], 'Select city/municipality');
+                regFillSelect(addBarangaySelect, [], 'Select barangay');
+                return;
+            }
+            try {
+                const cities = await regFetchAddress('cities', { province: province });
+                regFillSelect(addCitySelect, cities, 'Select city/municipality');
+                if (addCitySelect) addCitySelect.value = selectedCity || '';
+            } catch (error) {
+                regFillSelect(addCitySelect, [], 'Unable to load cities');
+            }
+        }
+
+        async function regLoadBarangays(province, city, selectedBarangay) {
+            if (!province || !city) {
+                regFillSelect(addBarangaySelect, [], 'Select barangay');
+                return;
+            }
+            try {
+                const barangays = await regFetchAddress('barangays', { province: province, city: city });
+                regFillSelect(addBarangaySelect, barangays, 'Select barangay');
+                if (addBarangaySelect) addBarangaySelect.value = selectedBarangay || '';
+            } catch (error) {
+                regFillSelect(addBarangaySelect, [], 'Unable to load barangays');
+            }
+        }
+
+        function regValidatePatientForm(payload) {
+            regResetFormValidation();
+            let isValid = true;
+            Object.entries(regFieldValidators).forEach(function (entry) {
+                const fieldId = entry[0];
+                const rules = entry[1];
+                const raw = fieldId === 'addGender'
+                    ? payload.gender
+                    : ((document.getElementById(fieldId) && document.getElementById(fieldId).value) || '');
+                const value = String(raw || '').trim();
+                if (rules.required && !value) {
+                    regShowFieldError(fieldId, rules.message);
+                    isValid = false;
+                    return;
+                }
+                if (value && rules.minLength && value.length < rules.minLength) {
+                    regShowFieldError(fieldId, rules.message);
+                    isValid = false;
+                    return;
+                }
+                if (value && rules.pattern && !rules.pattern.test(value)) {
+                    regShowFieldError(fieldId, rules.message);
+                    isValid = false;
+                }
+            });
+
+            if (payload.date_of_birth) {
+                const selectedDob = new Date(payload.date_of_birth);
+                if (Number.isNaN(selectedDob.getTime())) {
+                    regShowFieldError('addDob', 'Enter a valid date of birth.');
+                    isValid = false;
+                } else if (!regIsAtLeastOneYearOld(payload.date_of_birth)) {
+                    regShowFieldError('addDob', 'Patient must be at least 1 year old.');
+                    isValid = false;
+                }
+            }
+            if (payload.blood_type && regBloodTypeOptions.indexOf(payload.blood_type) === -1) {
+                regShowFieldError('addBloodType', 'Select a valid blood type.');
+                isValid = false;
+            }
+            return isValid;
+        }
+
+        function openAddPatientModal() {
+            if (!addPatientModal) return;
+            const titleEl = document.getElementById('patientModalTitle');
+            const editingPatientIdEl = document.getElementById('editingPatientId');
+            const savePatientBtn = document.getElementById('savePatientBtn');
+            if (titleEl) titleEl.textContent = 'Patient Registration';
+            if (editingPatientIdEl) editingPatientIdEl.value = '';
+            if (savePatientBtn) savePatientBtn.textContent = 'Register Patient';
+            if (addPatientForm) addPatientForm.reset();
+            if (addAgeInput) addAgeInput.value = '';
+            addGenderRadios.forEach(function (radio) { radio.checked = false; });
+            regFillSelect(addCitySelect, [], 'Select city/municipality');
+            regFillSelect(addBarangaySelect, [], 'Select barangay');
+            regResetFormValidation();
+            addPatientModal.classList.remove('hidden');
+            addPatientModal.classList.add('flex');
+            syncModalBodyScrollLock();
+        }
+
+        function closeAddPatientModal() {
+            if (!addPatientModal) return;
+            if (addPatientForm) addPatientForm.reset();
+            const editingPatientIdEl = document.getElementById('editingPatientId');
+            if (editingPatientIdEl) editingPatientIdEl.value = '';
+            if (addAgeInput) addAgeInput.value = '';
+            addGenderRadios.forEach(function (radio) { radio.checked = false; });
+            regFillSelect(addCitySelect, [], 'Select city/municipality');
+            regFillSelect(addBarangaySelect, [], 'Select barangay');
+            regResetFormValidation();
+            addPatientModal.classList.add('hidden');
+            addPatientModal.classList.remove('flex');
+            syncModalBodyScrollLock();
+        }
+
+        async function savePatientFromWalkIn(event) {
+            event.preventDefault();
+            const payload = {
+                first_name: (document.getElementById('addFirstName').value || '').trim(),
+                last_name: (document.getElementById('addLastName').value || '').trim(),
+                contact_number: (document.getElementById('addContact').value || '').trim(),
+                mobile: (document.getElementById('addContact').value || '').trim(),
+                email: (document.getElementById('addEmail').value || '').trim(),
+                date_of_birth: document.getElementById('addDob').value,
+                gender: regGetSelectedGender(),
+                blood_type: (document.getElementById('addBloodType').value || '').trim(),
+                medical_history: (document.getElementById('addMedicalHistory').value || '').trim(),
+                house_street: (document.getElementById('addHouseStreet').value || '').trim(),
+                barangay: document.getElementById('addBarangay').value,
+                city_municipality: document.getElementById('addCity').value,
+                province: document.getElementById('addProvince').value,
+                owner_user_id: STAFF_OWNER_USER_ID || ''
+            };
+
+            if (!regValidatePatientForm(payload)) return;
+
+            const saveBtn = document.getElementById('savePatientBtn');
+            const oldHtml = saveBtn ? saveBtn.innerHTML : '';
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">sync</span> Saving...';
+            }
+
+            try {
+                const response = await fetch(buildApiUrl(patientsApiUrl), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(payload)
+                });
+                const data = await parseJsonResponse(response);
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || 'Failed to save patient.');
+                }
+                closeAddPatientModal();
+                await loadAllPatients();
+            } catch (error) {
+                await staffUiAlert({
+                    title: 'Could not save patient',
+                    message: error && error.message ? error.message : 'Failed to save patient.',
+                    variant: 'error'
+                });
+            } finally {
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = oldHtml;
+                }
+            }
         }
 
         function setEmptyState(message) {
@@ -1269,7 +1700,7 @@ try {
         }
 
         function syncModalBodyScrollLock() {
-            const hasOpenModal = [chooseDentistModal, chooseServiceModal].some(function (modalEl) {
+            const hasOpenModal = [addPatientModal, chooseDentistModal, chooseServiceModal].some(function (modalEl) {
                 return modalEl && !modalEl.classList.contains('hidden');
             });
             document.body.classList.toggle('overflow-hidden', hasOpenModal);
@@ -1561,6 +1992,25 @@ try {
         if (chooseDentistBtn) {
             chooseDentistBtn.addEventListener('click', openChooseDentistModal);
         }
+        if (registerPatientBtnTop) {
+            registerPatientBtnTop.addEventListener('click', openAddPatientModal);
+        }
+        if (closeAddPatientModalBtn) {
+            closeAddPatientModalBtn.addEventListener('click', closeAddPatientModal);
+        }
+        if (cancelAddPatientBtn) {
+            cancelAddPatientBtn.addEventListener('click', closeAddPatientModal);
+        }
+        if (addPatientModal) {
+            addPatientModal.addEventListener('click', function (event) {
+                if (event.target === addPatientModal) {
+                    closeAddPatientModal();
+                }
+            });
+        }
+        if (addPatientForm) {
+            addPatientForm.addEventListener('submit', savePatientFromWalkIn);
+        }
         if (closeChooseDentistModalBtn) {
             closeChooseDentistModalBtn.addEventListener('click', closeChooseDentistModal);
         }
@@ -1618,6 +2068,43 @@ try {
                 renderPatientsList(filtered);
             });
         }
+        if (addDobInput) {
+            addDobInput.max = regGetDobMaxDateForMinimumAge(1);
+            addDobInput.addEventListener('change', function () {
+                if (addAgeInput) addAgeInput.value = regCalculateAge(addDobInput.value);
+                if (addDobInput.value && !regIsAtLeastOneYearOld(addDobInput.value)) {
+                    regShowFieldError('addDob', 'Patient must be at least 1 year old.');
+                } else {
+                    regClearFieldError('addDob');
+                }
+            });
+        }
+        if (addProvinceSelect) {
+            addProvinceSelect.addEventListener('change', async function () {
+                regClearFieldError('addProvince');
+                await regLoadCities(addProvinceSelect.value, '');
+                regFillSelect(addBarangaySelect, [], 'Select barangay');
+            });
+        }
+        if (addCitySelect) {
+            addCitySelect.addEventListener('change', async function () {
+                regClearFieldError('addCity');
+                await regLoadBarangays(addProvinceSelect ? addProvinceSelect.value : '', addCitySelect.value, '');
+            });
+        }
+        if (addBarangaySelect) {
+            addBarangaySelect.addEventListener('change', function () { regClearFieldError('addBarangay'); });
+        }
+        addGenderRadios.forEach(function (radio) {
+            radio.addEventListener('change', function () { regClearFieldError('addGender'); });
+        });
+        Object.keys(regFieldValidators).forEach(function (fieldId) {
+            if (fieldId === 'addGender') return;
+            const inputEl = document.getElementById(fieldId);
+            if (!inputEl) return;
+            inputEl.addEventListener('input', function () { regClearFieldError(fieldId); });
+            inputEl.addEventListener('change', function () { regClearFieldError(fieldId); });
+        });
         if (patientListContainer) {
             patientListContainer.addEventListener('click', async function (event) {
                 const button = event.target.closest('button[data-action="select-patient"]');
@@ -1722,6 +2209,7 @@ try {
         updatePaymentDetailsVisibility();
         updateDefaultPaymentDetails();
         renderSelectedServices();
+        regLoadProvinces('');
         loadAllPatients();
         setInterval(updateNow, 1000);
     })();
