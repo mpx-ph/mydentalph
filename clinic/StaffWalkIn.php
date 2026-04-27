@@ -352,9 +352,9 @@ try {
             </div>
         </section>
 
-        <section class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-            <div class="xl:col-span-4">
-                <div class="elevated-card rounded-3xl p-6">
+        <section class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch">
+            <div class="xl:col-span-4 flex">
+                <div class="elevated-card rounded-3xl p-6 h-full w-full flex flex-col">
                     <div class="flex items-center gap-3 mb-5">
                         <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                             <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person_search</span>
@@ -364,18 +364,19 @@ try {
                             <h2 class="text-lg font-extrabold text-slate-900">Select Patient</h2>
                         </div>
                     </div>
-                    <div class="space-y-3">
+                    <div class="space-y-3 flex-1 flex flex-col min-h-0">
                         <div class="block">
-                            <span class="block text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/70 mb-2">Select Patient</span>
+                            <span class="block text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/70 mb-2">Search Patient</span>
                             <input id="selectedPatientId" type="hidden" value=""/>
-                            <button
-                                id="choosePatientBtn"
-                                type="button"
-                                class="walkin-input w-full py-3 px-4 text-left inline-flex items-center justify-between"
-                            >
-                                <span id="selectedPatientLabel">Choose patient</span>
-                                <span class="material-symbols-outlined text-[18px] text-slate-500">keyboard_arrow_down</span>
-                            </button>
+                            <input id="patientSearchInput" type="text" class="walkin-input w-full py-3 px-4" placeholder="Search patient name, ID, or contact number"/>
+                        </div>
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/60 flex-1 min-h-[22rem] overflow-y-auto">
+                            <div id="patientListEmptyState" class="hidden px-4 py-8 text-center text-sm font-semibold text-slate-500"></div>
+                            <div id="patientListContainer" class="divide-y divide-slate-100"></div>
+                        </div>
+                        <div class="rounded-xl border border-primary/15 bg-primary/5 px-4 py-2.5">
+                            <p class="text-[10px] font-black uppercase tracking-[0.18em] text-primary/70 mb-1">Selected Patient</p>
+                            <p id="selectedPatientLabel" class="text-sm font-extrabold text-slate-900 truncate">Choose patient from list</p>
                         </div>
                         <button type="button" class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-blue-500 text-white py-3 text-sm font-bold shadow-lg shadow-primary/30 walkin-primary-btn">
                             <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">person_add</span>
@@ -529,32 +530,6 @@ try {
     </div>
 </main>
 
-<div id="choosePatientModal" class="hidden fixed inset-0 z-[70]">
-    <div class="absolute inset-0 bg-slate-900/45"></div>
-    <div class="relative h-full w-full flex items-center justify-center p-4">
-        <div class="w-full max-w-3xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
-            <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
-                <div>
-                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Patient Selection</p>
-                    <h3 class="text-lg font-extrabold text-slate-900">Choose Patient</h3>
-                </div>
-                <button id="closeChoosePatientModalBtn" type="button" class="w-9 h-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center justify-center">
-                    <span class="material-symbols-outlined text-[18px]">close</span>
-                </button>
-            </div>
-
-            <div class="px-5 py-4 border-b border-slate-100">
-                <input id="patientSearchInput" type="text" class="walkin-input w-full py-3 px-4" placeholder="Search patient name, ID, or contact number"/>
-            </div>
-
-            <div class="max-h-[26rem] overflow-y-auto">
-                <div id="patientListEmptyState" class="hidden px-5 py-8 text-center text-sm font-semibold text-slate-500"></div>
-                <div id="patientListContainer" class="divide-y divide-slate-100"></div>
-            </div>
-        </div>
-    </div>
-</div>
-
 <div id="chooseDentistModal" class="hidden fixed inset-0 z-[70]">
     <div class="absolute inset-0 bg-slate-900/45"></div>
     <div class="relative h-full w-full flex items-center justify-center p-4">
@@ -615,11 +590,8 @@ try {
     (function () {
         const dateInput = document.getElementById('walkInDateInput');
         const timeInput = document.getElementById('walkInTimeInput');
-        const choosePatientBtn = document.getElementById('choosePatientBtn');
         const selectedPatientLabel = document.getElementById('selectedPatientLabel');
         const selectedPatientIdInput = document.getElementById('selectedPatientId');
-        const choosePatientModal = document.getElementById('choosePatientModal');
-        const closeChoosePatientModalBtn = document.getElementById('closeChoosePatientModalBtn');
         const patientSearchInput = document.getElementById('patientSearchInput');
         const patientListContainer = document.getElementById('patientListContainer');
         const patientListEmptyState = document.getElementById('patientListEmptyState');
@@ -1297,24 +1269,10 @@ try {
         }
 
         function syncModalBodyScrollLock() {
-            const hasOpenModal = [choosePatientModal, chooseDentistModal, chooseServiceModal].some(function (modalEl) {
+            const hasOpenModal = [chooseDentistModal, chooseServiceModal].some(function (modalEl) {
                 return modalEl && !modalEl.classList.contains('hidden');
             });
             document.body.classList.toggle('overflow-hidden', hasOpenModal);
-        }
-
-        function openChoosePatientModal() {
-            if (!choosePatientModal) return;
-            choosePatientModal.classList.remove('hidden');
-            syncModalBodyScrollLock();
-            if (patientSearchInput) patientSearchInput.value = '';
-            loadAllPatients();
-        }
-
-        function closeChoosePatientModal() {
-            if (!choosePatientModal) return;
-            choosePatientModal.classList.add('hidden');
-            syncModalBodyScrollLock();
         }
 
         function openChooseDentistModal() {
@@ -1348,7 +1306,7 @@ try {
 
         function setSelectedPatient(patientId, patientName) {
             if (selectedPatientIdInput) selectedPatientIdInput.value = patientId || '';
-            if (selectedPatientLabel) selectedPatientLabel.textContent = patientName || 'Choose patient';
+            if (selectedPatientLabel) selectedPatientLabel.textContent = patientName || 'Choose patient from list';
             activeTreatmentContext = null;
             selectedServices = [];
             renderSelectedServices();
@@ -1600,19 +1558,6 @@ try {
             }
         }
 
-        if (choosePatientBtn) {
-            choosePatientBtn.addEventListener('click', openChoosePatientModal);
-        }
-        if (closeChoosePatientModalBtn) {
-            closeChoosePatientModalBtn.addEventListener('click', closeChoosePatientModal);
-        }
-        if (choosePatientModal) {
-            choosePatientModal.addEventListener('click', function (event) {
-                if (event.target === choosePatientModal || event.target === choosePatientModal.firstElementChild) {
-                    closeChoosePatientModal();
-                }
-            });
-        }
         if (chooseDentistBtn) {
             chooseDentistBtn.addEventListener('click', openChooseDentistModal);
         }
@@ -1680,7 +1625,6 @@ try {
                 const patientId = button.getAttribute('data-patient-id') || '';
                 const patientName = button.getAttribute('data-patient-name') || '';
                 setSelectedPatient(patientId, patientName);
-                closeChoosePatientModal();
                 await loadPatientTreatmentContext(patientId);
             });
         }
@@ -1778,6 +1722,7 @@ try {
         updatePaymentDetailsVisibility();
         updateDefaultPaymentDetails();
         renderSelectedServices();
+        loadAllPatients();
         setInterval(updateNow, 1000);
     })();
 </script>
