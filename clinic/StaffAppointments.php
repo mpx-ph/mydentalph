@@ -637,6 +637,10 @@ $walkInBookingHref = BASE_URL . 'StaffWalkIn.php';
 if ($currentTenantSlug !== '') {
     $walkInBookingHref .= '?' . http_build_query(['clinic_slug' => $currentTenantSlug]);
 }
+$setAppointmentHref = BASE_URL . 'StaffSetAppointments.php';
+if ($currentTenantSlug !== '') {
+    $setAppointmentHref .= '?' . http_build_query(['clinic_slug' => $currentTenantSlug]);
+}
 ?>
 <!DOCTYPE html>
 <html class="light" lang="en">
@@ -1405,7 +1409,9 @@ if ($currentTenantSlug !== '') {
         });
     }
     if (bookingTypeAppointmentBtn) {
-        bookingTypeAppointmentBtn.addEventListener('click', closeBookingTypeModal);
+        bookingTypeAppointmentBtn.addEventListener('click', () => {
+            window.location.href = <?php echo json_encode($setAppointmentHref, JSON_UNESCAPED_SLASHES); ?>;
+        });
     }
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
