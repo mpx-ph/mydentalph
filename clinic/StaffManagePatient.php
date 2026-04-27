@@ -184,138 +184,188 @@ body { font-family: "Manrope", sans-serif; }
 </div>
 </main>
 
-<div id="addPatientModal" class="staff-modal-overlay fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-    <div class="staff-modal-panel bg-slate-100 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden flex flex-col border border-slate-200">
-        <div class="px-8 py-6 border-b border-slate-200 bg-slate-100 flex items-start justify-between gap-4">
-            <div>
-                <h2 id="patientModalTitle" class="text-4xl font-extrabold tracking-tight text-slate-900">Patient Registration</h2>
-                <p class="text-sm text-slate-500 font-medium mt-1">Register a new patient to the clinic management system</p>
+<div id="addPatientModal" class="staff-modal-overlay fixed inset-0 z-[75] hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4">
+    <div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col">
+        <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
+            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
+                <span class="material-symbols-outlined text-2xl text-primary">person_add</span>
             </div>
-            <button id="closeAddPatientModal" type="button" class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                <span class="material-symbols-outlined">close</span>
+            <div class="min-w-0 flex-1 pr-2">
+                <h2 id="patientModalTitle" class="text-xl sm:text-2xl font-extrabold font-headline text-on-background tracking-tight">Patient Registration</h2>
+                <p class="text-sm text-slate-500 mt-1 leading-relaxed">Register a new patient to the clinic management system</p>
+            </div>
+            <button id="closeAddPatientModal" type="button" class="shrink-0 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Close">
+                <span class="material-symbols-outlined text-[22px]">close</span>
             </button>
         </div>
-        <form id="addPatientForm" class="flex-1 overflow-y-auto px-8 py-6">
+        <form id="addPatientForm" class="flex-1 min-h-0 flex flex-col">
             <input id="editingPatientId" type="hidden" value=""/>
-            <div class="bg-white rounded-3xl border border-slate-200 p-7 space-y-8">
-                <section class="space-y-4">
-                    <h3 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-primary">person</span>
-                        Personal Information
-                    </h3>
-                    <div class="border-b border-slate-200"></div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-2">First Name <span class="text-red-500">*</span></label>
-                            <input id="addFirstName" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Enter first name"/>
-                            <p id="addFirstNameError" class="mt-1 text-xs text-red-500 hidden"></p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-2">Last Name <span class="text-red-500">*</span></label>
-                            <input id="addLastName" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Enter last name"/>
-                            <p id="addLastNameError" class="mt-1 text-xs text-red-500 hidden"></p>
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
+            <div class="px-6 sm:px-8 pt-3 pb-5 space-y-6 overflow-y-auto">
+                <section>
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="material-symbols-outlined text-primary text-[22px]">badge</span>
+                        <h3 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Personal Information</h3>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                             <div>
-                                <label class="block text-sm font-bold text-slate-700 mb-2">Date of Birth <span class="text-red-500">*</span></label>
-                                <input id="addDob" type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"/>
-                                <p id="addDobError" class="mt-1 text-xs text-red-500 hidden"></p>
+                                <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">person</span>
+                                    First Name <span class="text-red-500 font-bold">*</span>
+                                </label>
+                                <input id="addFirstName" type="text" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" placeholder="Enter first name"/>
+                                <p id="addFirstNameError" class="mt-1 text-xs text-red-500 hidden"></p>
                             </div>
                             <div>
-                                <label class="block text-sm font-bold text-slate-700 mb-2">Age</label>
-                                <input id="addAge" type="text" readonly class="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-500" placeholder="0"/>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-2">Gender <span class="text-red-500">*</span></label>
-                            <div class="flex items-center gap-6 h-[42px]">
-                                <label class="inline-flex items-center gap-2 text-sm text-slate-700">
-                                    <input type="radio" name="addGender" value="Male" class="text-primary border-slate-300"/>
-                                    Male
+                                <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">badge</span>
+                                    Last Name <span class="text-red-500 font-bold">*</span>
                                 </label>
-                                <label class="inline-flex items-center gap-2 text-sm text-slate-700">
-                                    <input type="radio" name="addGender" value="Female" class="text-primary border-slate-300"/>
-                                    Female
-                                </label>
+                                <input id="addLastName" type="text" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" placeholder="Enter last name"/>
+                                <p id="addLastNameError" class="mt-1 text-xs text-red-500 hidden"></p>
                             </div>
-                            <p id="addGenderError" class="mt-1 text-xs text-red-500 hidden"></p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-2">Blood Type <span class="text-red-500">*</span></label>
-                            <select id="addBloodType" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                                <option value="">Select type</option>
-                                <option value="A+">A+</option>
-                                <option value="A-">A-</option>
-                                <option value="B+">B+</option>
-                                <option value="B-">B-</option>
-                                <option value="AB+">AB+</option>
-                                <option value="AB-">AB-</option>
-                                <option value="O+">O+</option>
-                                <option value="O-">O-</option>
-                            </select>
-                            <p id="addBloodTypeError" class="mt-1 text-xs text-red-500 hidden"></p>
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-bold text-slate-700 mb-2">Medical History &amp; Alerts <span class="ml-1 text-[11px] font-semibold text-slate-400">(Optional)</span></label>
-                            <textarea id="addMedicalHistory" rows="3" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Allergies, chronic conditions, current medications..."></textarea>
-                            <p id="addMedicalHistoryError" class="mt-1 text-xs text-red-500 hidden"></p>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                        <span class="material-symbols-outlined text-[18px] text-slate-500">event</span>
+                                        Date of Birth <span class="text-red-500 font-bold">*</span>
+                                    </label>
+                                    <input id="addDob" type="date" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+                                    <p id="addDobError" class="mt-1 text-xs text-red-500 hidden"></p>
+                                </div>
+                                <div>
+                                    <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                        <span class="material-symbols-outlined text-[18px] text-slate-500">cake</span>
+                                        Age
+                                    </label>
+                                    <input id="addAge" type="text" readonly class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 text-[15px] shadow-inner" placeholder="0"/>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">wc</span>
+                                    Gender <span class="text-red-500 font-bold">*</span>
+                                </label>
+                                <div class="flex items-center gap-6 h-[48px]">
+                                    <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+                                        <input type="radio" name="addGender" value="Male" class="text-primary border-slate-300 accent-primary focus:ring-primary"/>
+                                        Male
+                                    </label>
+                                    <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+                                        <input type="radio" name="addGender" value="Female" class="text-primary border-slate-300 accent-primary focus:ring-primary"/>
+                                        Female
+                                    </label>
+                                </div>
+                                <p id="addGenderError" class="mt-1 text-xs text-red-500 hidden"></p>
+                            </div>
+                            <div>
+                                <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">bloodtype</span>
+                                    Blood Type <span class="text-red-500 font-bold">*</span>
+                                </label>
+                                <select id="addBloodType" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all cursor-pointer">
+                                    <option value="">Select type</option>
+                                    <option value="A+">A+</option>
+                                    <option value="A-">A-</option>
+                                    <option value="B+">B+</option>
+                                    <option value="B-">B-</option>
+                                    <option value="AB+">AB+</option>
+                                    <option value="AB-">AB-</option>
+                                    <option value="O+">O+</option>
+                                    <option value="O-">O-</option>
+                                </select>
+                                <p id="addBloodTypeError" class="mt-1 text-xs text-red-500 hidden"></p>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">clinical_notes</span>
+                                    Medical History &amp; Alerts <span class="ml-1 text-[11px] font-semibold text-slate-400">(Optional)</span>
+                                </label>
+                                <textarea id="addMedicalHistory" rows="3" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all resize-y min-h-[100px]" placeholder="Allergies, chronic conditions, current medications..."></textarea>
+                                <p id="addMedicalHistoryError" class="mt-1 text-xs text-red-500 hidden"></p>
+                            </div>
                         </div>
                     </div>
                 </section>
 
-                <section class="space-y-4">
-                    <h3 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-primary">contact_page</span>
-                        Contact Information
-                    </h3>
-                    <div class="border-b border-slate-200"></div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-2">Contact No. <span class="text-red-500">*</span></label>
-                            <input id="addContact" type="tel" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="09XX XXX XXXX"/>
-                            <p id="addContactError" class="mt-1 text-xs text-red-500 hidden"></p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-2">Email Address <span class="text-red-500">*</span></label>
-                            <input id="addEmail" type="email" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="patient@example.com"/>
-                            <p id="addEmailError" class="mt-1 text-xs text-red-500 hidden"></p>
-                        </div>
+                <section>
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="material-symbols-outlined text-primary text-[22px]">contact_page</span>
+                        <h3 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Contact Information</h3>
                     </div>
+                    <div class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                            <div>
+                                <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">call</span>
+                                    Contact No. <span class="text-red-500 font-bold">*</span>
+                                </label>
+                                <input id="addContact" type="tel" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" placeholder="09XX XXX XXXX"/>
+                                <p id="addContactError" class="mt-1 text-xs text-red-500 hidden"></p>
+                            </div>
+                            <div>
+                                <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">mail</span>
+                                    Email Address <span class="text-red-500 font-bold">*</span>
+                                </label>
+                                <input id="addEmail" type="email" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" placeholder="patient@example.com"/>
+                                <p id="addEmailError" class="mt-1 text-xs text-red-500 hidden"></p>
+                            </div>
+                        </div>
 
-                    <p class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mt-4">Residential Address</p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-2">Province <span class="text-red-500">*</span></label>
-                            <select id="addProvince" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                                <option value="">Select province</option>
-                            </select>
-                            <p id="addProvinceError" class="mt-1 text-xs text-red-500 hidden"></p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-2">City / Municipality <span class="text-red-500">*</span></label>
-                            <select id="addCity" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" disabled>
-                                <option value="">Select city/municipality</option>
-                            </select>
-                            <p id="addCityError" class="mt-1 text-xs text-red-500 hidden"></p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-2">Barangay <span class="text-red-500">*</span></label>
-                            <select id="addBarangay" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" disabled>
-                                <option value="">Select barangay</option>
-                            </select>
-                            <p id="addBarangayError" class="mt-1 text-xs text-red-500 hidden"></p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-2">Street / House No. <span class="text-red-500">*</span></label>
-                            <input id="addHouseStreet" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Unit, building, street"/>
-                            <p id="addHouseStreetError" class="mt-1 text-xs text-red-500 hidden"></p>
+                        <p class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Residential Address</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                            <div>
+                                <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">map</span>
+                                    Province <span class="text-red-500 font-bold">*</span>
+                                </label>
+                                <select id="addProvince" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all cursor-pointer">
+                                    <option value="">Select province</option>
+                                </select>
+                                <p id="addProvinceError" class="mt-1 text-xs text-red-500 hidden"></p>
+                            </div>
+                            <div>
+                                <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">location_city</span>
+                                    City / Municipality <span class="text-red-500 font-bold">*</span>
+                                </label>
+                                <select id="addCity" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all cursor-pointer" disabled>
+                                    <option value="">Select city/municipality</option>
+                                </select>
+                                <p id="addCityError" class="mt-1 text-xs text-red-500 hidden"></p>
+                            </div>
+                            <div>
+                                <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">pin_drop</span>
+                                    Barangay <span class="text-red-500 font-bold">*</span>
+                                </label>
+                                <select id="addBarangay" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all cursor-pointer" disabled>
+                                    <option value="">Select barangay</option>
+                                </select>
+                                <p id="addBarangayError" class="mt-1 text-xs text-red-500 hidden"></p>
+                            </div>
+                            <div>
+                                <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">home_pin</span>
+                                    Street / House No. <span class="text-red-500 font-bold">*</span>
+                                </label>
+                                <input id="addHouseStreet" type="text" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" placeholder="Unit, building, street"/>
+                                <p id="addHouseStreetError" class="mt-1 text-xs text-red-500 hidden"></p>
+                            </div>
                         </div>
                     </div>
                 </section>
             </div>
-            <div class="flex items-center justify-end gap-3 mt-6 pt-1">
-                <button type="button" id="cancelAddPatientBtn" class="px-6 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-sm font-semibold">Cancel</button>
-                <button type="submit" id="savePatientBtn" class="px-6 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl text-sm font-semibold">Register Patient</button>
+            <div class="border-t border-slate-100 bg-slate-50/50 px-6 sm:px-8 py-4 flex flex-wrap items-center justify-end gap-3">
+                <button type="button" id="cancelAddPatientBtn" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+                    <span class="material-symbols-outlined text-[18px]">close</span>
+                    Cancel
+                </button>
+                <button type="submit" id="savePatientBtn" class="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/92 text-white text-sm font-bold shadow-lg shadow-primary/25 transition-all">
+                    <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                    Register Patient
+                </button>
             </div>
         </form>
     </div>
