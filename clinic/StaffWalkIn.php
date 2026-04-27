@@ -306,6 +306,33 @@ try {
         .walkin-primary-btn:active {
             transform: translateY(0) scale(0.99);
         }
+        .selection-pill-btn {
+            border: 2px solid rgba(59, 130, 246, 0.35);
+            background: #ffffff;
+            border-radius: 1rem;
+            transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+        }
+        .selection-pill-btn:hover {
+            border-color: rgba(59, 130, 246, 0.55);
+            box-shadow: 0 8px 20px -14px rgba(43, 139, 235, 0.65);
+        }
+        .selection-pill-btn:focus-visible {
+            outline: none;
+            border-color: rgba(43, 139, 235, 0.85);
+            box-shadow: 0 0 0 3px rgba(43, 139, 235, 0.15);
+        }
+        .selection-pill-icon {
+            width: 2.1rem;
+            height: 2.1rem;
+            border-radius: 999px;
+            background: linear-gradient(120deg, #2b8beb, #3b82f6);
+            color: #ffffff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 8px 16px -10px rgba(43, 139, 235, 0.85);
+        }
         .service-filter-chip {
             border: 1px solid #dbe5f1;
             background: #ffffff;
@@ -440,8 +467,13 @@ try {
                         <label class="block">
                             <span class="block text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/70 mb-2">Assigned Dentist</span>
                             <input id="selectedDentistId" type="hidden" value=""/>
-                            <button id="chooseDentistBtn" type="button" class="walkin-input w-full py-3 px-4 text-left inline-flex items-center justify-between">
-                                <span id="selectedDentistLabel">Select dentist</span>
+                            <button id="chooseDentistBtn" type="button" class="selection-pill-btn w-full py-3 px-4 text-left inline-flex items-center justify-between gap-3">
+                                <span class="inline-flex items-center gap-3 min-w-0">
+                                    <span class="selection-pill-icon">
+                                        <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">badge</span>
+                                    </span>
+                                    <span id="selectedDentistLabel" class="text-slate-900 text-[1.05rem] leading-tight font-extrabold truncate">Tap to choose dentist</span>
+                                </span>
                                 <span class="material-symbols-outlined text-[18px] text-slate-500">keyboard_arrow_down</span>
                             </button>
                         </label>
@@ -449,8 +481,13 @@ try {
                             <span class="block text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/70 mb-2">Service / Treatment</span>
                             <div class="flex items-center gap-2">
                                 <input id="selectedServiceId" type="hidden" value=""/>
-                                <button id="chooseServiceBtn" type="button" class="walkin-input w-full py-3 px-4 text-left inline-flex items-center justify-between">
-                                    <span id="selectedServiceLabel">Select service</span>
+                                <button id="chooseServiceBtn" type="button" class="selection-pill-btn w-full py-3 px-4 text-left inline-flex items-center justify-between gap-3">
+                                    <span class="inline-flex items-center gap-3 min-w-0">
+                                        <span class="selection-pill-icon">
+                                            <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">medical_services</span>
+                                        </span>
+                                        <span id="selectedServiceLabel" class="text-slate-900 text-[1.05rem] leading-tight font-extrabold truncate">Tap to choose service</span>
+                                    </span>
                                     <span class="material-symbols-outlined text-[18px] text-slate-500">keyboard_arrow_down</span>
                                 </button>
                                 <button id="addServiceBtn" type="button" class="w-11 h-11 rounded-xl bg-primary text-white inline-flex items-center justify-center hover:bg-primary/90 transition-colors">
@@ -1812,7 +1849,7 @@ try {
 
         function setSelectedDentist(dentistId, dentistName) {
             if (selectedDentistIdInput) selectedDentistIdInput.value = dentistId || '';
-            if (selectedDentistLabel) selectedDentistLabel.textContent = dentistName || 'Select dentist';
+            if (selectedDentistLabel) selectedDentistLabel.textContent = dentistName || 'Tap to choose dentist';
         }
 
         function setSelectedService(serviceId, serviceName) {
@@ -1829,7 +1866,7 @@ try {
                 }
             }
             if (selectedServiceIdInput) selectedServiceIdInput.value = serviceId || '';
-            if (selectedServiceLabel) selectedServiceLabel.textContent = serviceName || 'Select service';
+            if (selectedServiceLabel) selectedServiceLabel.textContent = serviceName || 'Tap to choose service';
             updateTreatmentProgressCards(activeTreatmentContext ? activeTreatmentContext.treatment : null);
             return true;
         }
