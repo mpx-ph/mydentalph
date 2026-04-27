@@ -356,20 +356,20 @@ try {
     <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
 
     <div class="p-10 space-y-4">
-        <section class="flex flex-col gap-3">
+        <section class="flex flex-col gap-2">
             <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
                 <span class="w-12 h-[1.5px] bg-primary"></span> APPOINTMENT MANAGEMENT
             </div>
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                     <h1 class="font-headline text-5xl font-extrabold tracking-tighter leading-tight text-on-background">
                         Create <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Walk-In Booking</span>
                     </h1>
-                    <p class="font-body text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3">
+                    <p class="font-body text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-2">
                         Register and schedule a same-day patient appointment with quick service and payment preview.
                     </p>
                 </div>
-                <div class="flex flex-col items-start lg:items-end gap-2 lg:mt-10">
+                <div class="flex flex-col items-start lg:items-end gap-2 lg:mt-2">
                     <a
                         href="<?php echo htmlspecialchars($backToAppointmentsHref, ENT_QUOTES, 'UTF-8'); ?>"
                         class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-slate-700 transition-colors"
