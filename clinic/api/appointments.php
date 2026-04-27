@@ -28,9 +28,16 @@ register_shutdown_function(static function () {
         header('Content-Type: application/json');
         http_response_code(500);
     }
+    $fatalMessage = isset($lastError['message']) ? trim((string) $lastError['message']) : '';
+    $fatalFile = isset($lastError['file']) ? basename((string) $lastError['file']) : 'unknown';
+    $fatalLine = isset($lastError['line']) ? (int) $lastError['line'] : 0;
+    $displayMessage = 'Failed to create appointment. Please try again.';
+    if ($fatalMessage !== '') {
+        $displayMessage = 'Failed to create appointment. ' . $fatalMessage . ' (' . $fatalFile . ':' . $fatalLine . ')';
+    }
     echo json_encode([
         'success' => false,
-        'message' => 'Failed to create appointment. Please try again.'
+        'message' => $displayMessage
     ]);
 });
 
@@ -43,32 +50,37 @@ $appointmentsTableName = $resolvedTables['appointments'] ?? 'appointments';
 // Route based on method and action
 $action = isset($_GET['action']) ? sanitize($_GET['action']) : null;
 
-switch ($method) {
-    case 'POST':
-        if ($action === 'add_services') {
-            addServicesToAppointment();
-        } else {
-            createAppointment();
-        }
-        break;
-    case 'GET':
-        if ($action === 'auto_cancel_pending') {
-            autoCancelPendingBookings();
-            jsonResponse(true, 'Auto-cancellation check completed.');
-        } else {
-            // Auto-cancel old pending bookings before fetching appointments
-            autoCancelPendingBookings();
-            getAppointments();
-        }
-        break;
-    case 'PUT':
-        updateAppointment();
-        break;
-    case 'DELETE':
-        deleteAppointment();
-        break;
-    default:
-        jsonResponse(false, 'Invalid request method.');
+try {
+    switch ($method) {
+        case 'POST':
+            if ($action === 'add_services') {
+                addServicesToAppointment();
+            } else {
+                createAppointment();
+            }
+            break;
+        case 'GET':
+            if ($action === 'auto_cancel_pending') {
+                autoCancelPendingBookings();
+                jsonResponse(true, 'Auto-cancellation check completed.');
+            } else {
+                // Auto-cancel old pending bookings before fetching appointments
+                autoCancelPendingBookings();
+                getAppointments();
+            }
+            break;
+        case 'PUT':
+            updateAppointment();
+            break;
+        case 'DELETE':
+            deleteAppointment();
+            break;
+        default:
+            jsonResponse(false, 'Invalid request method.');
+    }
+} catch (Throwable $routeError) {
+    error_log('Appointments API uncaught error: ' . $routeError->getMessage());
+    jsonResponse(false, 'Appointment API error: ' . $routeError->getMessage());
 }
 
 /**
