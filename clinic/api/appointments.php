@@ -721,7 +721,9 @@ function createAppointment() {
         ]);
         
     } catch (Exception $e) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         error_log('Appointment creation error: ' . $e->getMessage());
         jsonResponse(false, 'Failed to create appointment. Please try again.');
     } catch (Throwable $e) {
