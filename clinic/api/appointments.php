@@ -10,6 +10,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/tenant.php';
 require_once __DIR__ . '/../includes/availability.php';
+require_once __DIR__ . '/../includes/appointment_db_tables.php';
 
 header('Content-Type: application/json');
 
@@ -36,6 +37,8 @@ register_shutdown_function(static function () {
 $method = $_SERVER['REQUEST_METHOD'];
 $pdo = getDBConnection();
 $tenantId = requireClinicTenantId();
+$resolvedTables = clinic_resolve_appointment_db_tables($pdo);
+$appointmentsTableName = $resolvedTables['appointments'] ?? 'appointments';
 
 // Route based on method and action
 $action = isset($_GET['action']) ? sanitize($_GET['action']) : null;
@@ -74,16 +77,18 @@ switch ($method) {
  * @return string Booking ID
  */
 function generateBookingId() {
-    global $pdo, $tenantId;
+    global $pdo, $tenantId, $appointmentsTableName;
     
     $prefix = 'BK';
     $year = date('Y');
     $pattern = $prefix . '-' . $year . '-%';
     
+    $quotedAppointmentsTable = clinic_quote_identifier((string) $appointmentsTableName);
+
     // Find the last booking_id with this prefix and year
     $stmt = $pdo->prepare("
         SELECT booking_id 
-        FROM appointments 
+        FROM {$quotedAppointmentsTable}
         WHERE booking_id LIKE ?
           AND tenant_id = ?
         ORDER BY booking_id DESC 
@@ -110,7 +115,7 @@ function generateBookingId() {
     $bookingId = $prefix . '-' . $year . '-' . $formattedSequence;
     
     // Double-check uniqueness
-    $stmt = $pdo->prepare("SELECT booking_id FROM appointments WHERE booking_id = ? AND tenant_id = ?");
+    $stmt = $pdo->prepare("SELECT booking_id FROM {$quotedAppointmentsTable} WHERE booking_id = ? AND tenant_id = ?");
     $stmt->execute([$bookingId, $tenantId]);
     if ($stmt->fetchColumn()) {
         // If somehow it exists, increment and try again
@@ -620,47 +625,56 @@ function createAppointment() {
                     $targetCompletionDate = $targetCompletionDateObj->format('Y-m-d');
                 }
                 
-                // Insert appointment with treatment_type
-                $stmt = $pdo->prepare("
-                    INSERT INTO appointments (
-                        tenant_id,
-                        booking_id,
-                        patient_id, 
-                        appointment_date, 
-                        appointment_time, 
-                        service_type, 
-                        service_description, 
-                        treatment_type,
-                        visit_type,
-                        status, 
-                        notes,
-                        total_treatment_cost,
-                        duration_months,
-                        target_completion_date,
-                        start_date,
-                        created_by, 
-                        created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-                ");
-                
-                $stmt->execute([
-                    $tenantId,
-                    $bookingId,
-                    $data['patient_id'],
-                    $data['appointment_date'],
-                    $data['appointment_time'],
-                    $serviceType,
-                    $serviceDescription,
-                    $treatmentType,
-                    $data['visit_type'],
-                    $data['status'],
-                    $data['notes'],
-                    $totalTreatmentCost,
-                    $durationMonths,
-                    $targetCompletionDate,
-                    $startDate,
-                    $createdByUserId
-                ]);
+                // Insert appointment with dynamic column support across table variants.
+                $apptCols = clinic_table_columns($pdo, (string) $appointmentsTableName);
+                $apptData = [
+                    'tenant_id' => $tenantId,
+                    'booking_id' => $bookingId,
+                    'patient_id' => $data['patient_id'],
+                    'dentist_id' => $data['dentist_id'] !== null ? trim((string) $data['dentist_id']) : null,
+                    'appointment_date' => $data['appointment_date'],
+                    'appointment_time' => $data['appointment_time'],
+                    'service_type' => $serviceType,
+                    'service_description' => $serviceDescription,
+                    'treatment_type' => $treatmentType,
+                    'visit_type' => $data['visit_type'],
+                    'status' => $data['status'],
+                    'notes' => $data['notes'],
+                    'total_treatment_cost' => $totalTreatmentCost,
+                    'duration_months' => $durationMonths,
+                    'target_completion_date' => $targetCompletionDate,
+                    'start_date' => $startDate,
+                    'created_by' => $createdByUserId,
+                ];
+                $columnOrder = [
+                    'tenant_id', 'dentist_id', 'booking_id', 'patient_id',
+                    'appointment_date', 'appointment_time', 'service_type', 'service_description',
+                    'treatment_type', 'visit_type', 'status', 'notes', 'total_treatment_cost',
+                    'duration_months', 'target_completion_date', 'start_date', 'created_by'
+                ];
+                $insertCols = [];
+                $insertPlaceholders = [];
+                $insertParams = [];
+                foreach ($columnOrder as $col) {
+                    if (!in_array($col, $apptCols, true) || !array_key_exists($col, $apptData)) {
+                        continue;
+                    }
+                    $insertCols[] = clinic_quote_identifier($col);
+                    $insertPlaceholders[] = '?';
+                    $insertParams[] = $apptData[$col];
+                }
+                if (in_array('created_at', $apptCols, true)) {
+                    $insertCols[] = clinic_quote_identifier('created_at');
+                    $insertPlaceholders[] = 'NOW()';
+                }
+                if ($insertCols === []) {
+                    throw new Exception('Appointments table has no compatible columns for insert.');
+                }
+                $quotedAppointmentsTable = clinic_quote_identifier((string) $appointmentsTableName);
+                $insertSql = 'INSERT INTO ' . $quotedAppointmentsTable
+                    . ' (' . implode(', ', $insertCols) . ') VALUES (' . implode(', ', $insertPlaceholders) . ')';
+                $stmt = $pdo->prepare($insertSql);
+                $stmt->execute($insertParams);
                 
                 // Success - break out of retry loop
                 break;
