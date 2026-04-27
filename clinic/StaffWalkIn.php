@@ -290,6 +290,7 @@ try {
         .walkin-input-bordered {
             border: 2px solid rgba(43, 139, 235, 0.35) !important;
             background: #ffffff;
+            border-radius: 1rem !important;
         }
         .walkin-input-bordered:focus {
             border-color: rgba(43, 139, 235, 0.8) !important;
@@ -376,6 +377,7 @@ try {
                         <span class="material-symbols-outlined text-[18px]">arrow_back</span>
                         Back to Appointments
                     </a>
+                    <div class="h-4"></div>
                     <button id="registerPatientBtnTop" type="button" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-blue-500 text-white px-4 py-2.5 text-xs font-black uppercase tracking-wider shadow-lg shadow-primary/30 walkin-primary-btn">
                         <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">person_add</span>
                         Register New Patient
@@ -405,12 +407,12 @@ try {
                             <input id="selectedPatientId" type="hidden" value=""/>
                             <input id="patientSearchInput" type="text" class="walkin-input walkin-input-bordered w-full py-3 px-4" placeholder="Search patient name, ID, or contact number"/>
                         </div>
-                        <div class="flex items-end gap-2">
+                        <div class="flex items-stretch gap-2">
                             <div class="rounded-xl border border-primary/15 bg-primary/5 px-4 py-2.5 flex-1 max-w-[88%]">
                                 <p class="text-[10px] font-black uppercase tracking-[0.18em] text-primary/70 mb-1">Selected Patient</p>
                                 <p id="selectedPatientLabel" class="text-sm font-extrabold text-slate-900 truncate">Choose patient from list</p>
                             </div>
-                            <button id="clearSelectedPatientBtn" type="button" class="shrink-0 w-8 h-8 rounded-md border border-slate-300 text-slate-500 hover:text-slate-700 hover:bg-white/70 inline-flex items-center justify-center transition-colors" aria-label="Clear selected patient" title="Clear selected patient">
+                            <button id="clearSelectedPatientBtn" type="button" class="shrink-0 h-auto px-2.5 rounded-md border border-slate-300 text-slate-500 hover:text-slate-700 hover:bg-white/70 inline-flex items-center justify-center transition-colors self-stretch" aria-label="Clear selected patient" title="Clear selected patient">
                                 <span class="material-symbols-outlined text-[16px]">close</span>
                             </button>
                         </div>
