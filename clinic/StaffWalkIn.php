@@ -287,6 +287,13 @@ try {
             background: #f1f5f9;
             box-shadow: 0 0 0 2px rgba(43, 139, 235, 0.18);
         }
+        .walkin-input-bordered {
+            border: 2px solid rgba(43, 139, 235, 0.35) !important;
+            background: #ffffff;
+        }
+        .walkin-input-bordered:focus {
+            border-color: rgba(43, 139, 235, 0.8) !important;
+        }
         .walkin-primary-btn {
             transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease, filter 0.25s ease;
         }
@@ -361,7 +368,7 @@ try {
                         Register and schedule a same-day patient appointment with quick service and payment preview.
                     </p>
                 </div>
-                <div class="flex flex-col items-start lg:items-end gap-3">
+                <div class="flex flex-col items-start lg:items-end gap-2 lg:mt-10">
                     <a
                         href="<?php echo htmlspecialchars($backToAppointmentsHref, ENT_QUOTES, 'UTF-8'); ?>"
                         class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-slate-700 transition-colors"
@@ -371,7 +378,7 @@ try {
                     </a>
                     <button id="registerPatientBtnTop" type="button" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-blue-500 text-white px-4 py-2.5 text-xs font-black uppercase tracking-wider shadow-lg shadow-primary/30 walkin-primary-btn">
                         <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">person_add</span>
-                        Register Patient
+                        Register New Patient
                     </button>
                     <p class="text-xs font-semibold text-slate-500 leading-relaxed max-w-xs lg:text-right whitespace-nowrap">
                         Click the button to register new Patient.
@@ -396,16 +403,16 @@ try {
                         <div class="block">
                             <span class="block text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/70 mb-2">Search Patient</span>
                             <input id="selectedPatientId" type="hidden" value=""/>
-                            <input id="patientSearchInput" type="text" class="walkin-input w-full py-3 px-4 border-2 border-primary/35 focus:border-primary" placeholder="Search patient name, ID, or contact number"/>
+                            <input id="patientSearchInput" type="text" class="walkin-input walkin-input-bordered w-full py-3 px-4" placeholder="Search patient name, ID, or contact number"/>
                         </div>
-                        <div class="rounded-xl border border-primary/15 bg-primary/5 px-4 py-2.5">
-                            <p class="text-[10px] font-black uppercase tracking-[0.18em] text-primary/70 mb-1">Selected Patient</p>
-                            <div class="flex items-center gap-2">
-                                <p id="selectedPatientLabel" class="text-sm font-extrabold text-slate-900 truncate flex-1">Choose patient from list</p>
-                                <button id="clearSelectedPatientBtn" type="button" class="w-7 h-7 rounded-md border border-slate-300 text-slate-500 hover:text-slate-700 hover:bg-white/70 inline-flex items-center justify-center transition-colors" aria-label="Clear selected patient" title="Clear selected patient">
-                                    <span class="material-symbols-outlined text-[16px]">close</span>
-                                </button>
+                        <div class="flex items-end gap-2">
+                            <div class="rounded-xl border border-primary/15 bg-primary/5 px-4 py-2.5 flex-1 max-w-[88%]">
+                                <p class="text-[10px] font-black uppercase tracking-[0.18em] text-primary/70 mb-1">Selected Patient</p>
+                                <p id="selectedPatientLabel" class="text-sm font-extrabold text-slate-900 truncate">Choose patient from list</p>
                             </div>
+                            <button id="clearSelectedPatientBtn" type="button" class="shrink-0 w-8 h-8 rounded-md border border-slate-300 text-slate-500 hover:text-slate-700 hover:bg-white/70 inline-flex items-center justify-center transition-colors" aria-label="Clear selected patient" title="Clear selected patient">
+                                <span class="material-symbols-outlined text-[16px]">close</span>
+                            </button>
                         </div>
                         <div class="rounded-2xl border border-slate-100 bg-slate-50/60 flex-1 min-h-[22rem] overflow-y-auto">
                             <div id="patientListEmptyState" class="hidden px-4 py-8 text-center text-sm font-semibold text-slate-500"></div>
