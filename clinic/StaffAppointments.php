@@ -431,8 +431,18 @@ try {
                       AND {$apsMatchSql}
                 )"
                 : "''";
+            $directServiceDescriptionExpr = ($qSvc !== null && in_array('service_name', $svcCols, true) && in_array('service_details', $svcCols, true))
+                ? "(
+                    SELECT NULLIF(TRIM(COALESCE(svcd2.service_details, '')), '')
+                    FROM {$qSvc} svcd2
+                    WHERE svcd2.tenant_id = a.tenant_id
+                      AND LOWER(TRIM(COALESCE(svcd2.service_name, ''))) = LOWER(TRIM(COALESCE(a.service_type, '')))
+                    LIMIT 1
+                )"
+                : "NULL";
             $serviceDescriptionExpr = ($qAps !== null && $qSvc !== null && in_array('service_id', $apsCols, true) && in_array('service_id', $svcCols, true) && in_array('service_details', $svcCols, true))
-                ? "COALESCE((
+                ? "COALESCE(
+                (
                     SELECT NULLIF(
                         GROUP_CONCAT(
                             DISTINCT NULLIF(TRIM(COALESCE(svcd.service_details, '')), '')
@@ -446,8 +456,11 @@ try {
                        AND svcd.service_id = apsd.service_id
                     WHERE apsd.tenant_id = a.tenant_id
                       AND {$apsMatchSqlForDetails}
-                ), a.service_description)"
-                : 'a.service_description';
+                ),
+                {$directServiceDescriptionExpr},
+                a.service_description
+            )"
+                : "COALESCE({$directServiceDescriptionExpr}, a.service_description)";
             $bookingTypeExpr = $qAps !== null
                 ? "(
                     SELECT CASE
