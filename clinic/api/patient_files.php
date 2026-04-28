@@ -19,6 +19,8 @@ header('Content-Type: application/json');
 $patientFilesTableName = null;
 $patientsTableName = null;
 $patientFilesHasUpdatedAt = false;
+$patientFilesHasTenantId = false;
+$resolvedTenantId = '';
 
 register_shutdown_function(static function () {
     $lastError = error_get_last();
@@ -55,6 +57,20 @@ try {
     $patientsTableName = $resolveTable($pdo, 'patients', 'tbl_patients')
         ?? 'patients';
     $quotedPatientFilesTable = clinic_quote_identifier((string) $patientFilesTableName);
+    if (function_exists('requireClinicTenantId')) {
+        try {
+            $resolvedTenantId = (string) requireClinicTenantId();
+        } catch (Throwable $e) {
+            $resolvedTenantId = '';
+        }
+    }
+    if ($resolvedTenantId === '' && function_exists('getClinicTenantId')) {
+        try {
+            $resolvedTenantId = (string) getClinicTenantId();
+        } catch (Throwable $e) {
+            $resolvedTenantId = '';
+        }
+    }
     try {
         $columnCheckStmt = $pdo->prepare("
             SELECT 1
@@ -76,6 +92,28 @@ try {
             $patientFilesHasUpdatedAt = true;
         } catch (Throwable $e) {
             $patientFilesHasUpdatedAt = false;
+        }
+    }
+    try {
+        $tenantColumnCheckStmt = $pdo->prepare("
+            SELECT 1
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+              AND COLUMN_NAME = 'tenant_id'
+            LIMIT 1
+        ");
+        $tenantColumnCheckStmt->execute([(string) $patientFilesTableName]);
+        $patientFilesHasTenantId = (bool) $tenantColumnCheckStmt->fetchColumn();
+    } catch (Throwable $e) {
+        $patientFilesHasTenantId = false;
+    }
+    if (!$patientFilesHasTenantId) {
+        try {
+            $pdo->query("SELECT tenant_id FROM {$quotedPatientFilesTable} WHERE 1=0");
+            $patientFilesHasTenantId = true;
+        } catch (Throwable $e) {
+            $patientFilesHasTenantId = false;
         }
     }
 
@@ -115,7 +153,7 @@ try {
  * Upload patient file
  */
 function uploadPatientFile() {
-    global $pdo, $patientFilesTableName, $patientsTableName;
+    global $pdo, $patientFilesTableName, $patientsTableName, $patientFilesHasTenantId, $resolvedTenantId;
     $quotedPatientFilesTable = clinic_quote_identifier((string) $patientFilesTableName);
     $quotedPatientsTable = clinic_quote_identifier((string) $patientsTableName);
     
@@ -259,22 +297,20 @@ function uploadPatientFile() {
     // Insert file record into database
     // Using patients.patient_id (varchar) to identify the patient
     try {
+        $insertColumns = ['patient_id', 'file_name', 'file_path', 'file_type', 'file_size', 'file_category', 'description', 'uploaded_by'];
+        $insertValues = [$patientId, $file['name'], $relativePath, $mimeType, $file['size'], $fileCategory, $description, $userUserId];
+        if ($patientFilesHasTenantId) {
+            $insertColumns[] = 'tenant_id';
+            $insertValues[] = $resolvedTenantId !== '' ? $resolvedTenantId : null;
+        }
+        $columnSql = implode(', ', $insertColumns) . ', created_at';
+        $placeholderSql = implode(', ', array_fill(0, count($insertValues), '?')) . ', NOW()';
         $stmt = $pdo->prepare("
             INSERT INTO {$quotedPatientFilesTable}
-            (patient_id, file_name, file_path, file_type, file_size, file_category, description, uploaded_by, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            ({$columnSql})
+            VALUES ({$placeholderSql})
         ");
-        
-        $stmt->execute([
-            $patientId, // This is patients.patient_id (varchar like "P-2024-00001")
-            $file['name'], // Original filename
-            $relativePath,
-            $mimeType,
-            $file['size'],
-            $fileCategory,
-            $description,
-            $userUserId
-        ]);
+        $stmt->execute($insertValues);
         
         $fileId = $pdo->lastInsertId();
         
