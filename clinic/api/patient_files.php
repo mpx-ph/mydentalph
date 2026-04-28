@@ -73,11 +73,45 @@ function uploadPatientFile() {
     }
     
     $userUserId = $user['user_id']; // user_id (varchar)
+    $userType = $_SESSION['user_type'] ?? 'client';
     
+    // Check if patient_id (varchar) is provided directly (for manager/doctor/staff)
+    $patientIdParam = isset($_POST['patient_id']) ? sanitize($_POST['patient_id']) : null;
+    if (($userType === 'manager' || $userType === 'doctor' || $userType === 'staff') && !empty($patientIdParam)) {
+        $patientId = trim((string) $patientIdParam);
+    } else {
+        $patientId = null;
+    }
+
     // Check if patient_db_id (int id) is provided in POST data
     $patientDbId = isset($_POST['patient_db_id']) ? intval($_POST['patient_db_id']) : null;
     
-    if ($patientDbId) {
+    if ($patientId !== null && $patientId !== '') {
+        // Staff-provided patient_id accepted as-is after basic existence check
+        $stmt = $pdo->prepare("
+            SELECT patient_id FROM patients
+            WHERE patient_id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$patientId]);
+        $patient = $stmt->fetch();
+        if (!$patient || !$patient['patient_id']) {
+            jsonResponse(false, 'Patient profile not found.');
+        }
+    } elseif ($patientDbId) {
+        if ($userType === 'manager' || $userType === 'doctor' || $userType === 'staff') {
+            $stmt = $pdo->prepare("
+                SELECT patient_id FROM patients
+                WHERE id = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$patientDbId]);
+            $patient = $stmt->fetch();
+            if (!$patient || !$patient['patient_id']) {
+                jsonResponse(false, 'Patient profile not found.');
+            }
+            $patientId = $patient['patient_id'];
+        } else {
         // Use provided patient_db_id (int id) and verify it belongs to the user
         $stmt = $pdo->prepare("
             SELECT patient_id FROM patients 
@@ -92,6 +126,7 @@ function uploadPatientFile() {
         }
         
         $patientId = $patient['patient_id']; // This is the varchar patient_id from patients table
+        }
     } else {
         // Fallback: Get patient_id (varchar) from patients table - use self profile (linked_user_id = user_id)
         $stmt = $pdo->prepare("

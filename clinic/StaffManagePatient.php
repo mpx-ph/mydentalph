@@ -392,9 +392,13 @@ body { font-family: "Manrope", sans-serif; }
 const STAFF_OWNER_USER_ID = <?php echo json_encode($currentStaffUserId, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 const API_PATIENTS_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patients.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 const API_ADDRESS_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/philippine_address.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+const API_APPOINTMENTS_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/appointments.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+const API_TREATMENT_CONTEXT_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patient_treatment_context.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+const API_PATIENT_FILES_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patient_files.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
 let allPatientsData = [];
 let viewPatientCloseTimer = null;
+let activeProfilePatient = null;
 
 const tableBody = document.getElementById('patientsTableBody');
 const recordsSummary = document.getElementById('recordsSummary');
@@ -442,6 +446,263 @@ function formatDate(dateString) {
     const date = new Date(dateString);
     if (Number.isNaN(date.getTime())) return 'N/A';
     return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+}
+
+function formatDateTime(dateValue, timeValue) {
+    const dateText = formatDate(dateValue);
+    if (!timeValue) return dateText;
+    const parsed = new Date(`1970-01-01T${String(timeValue).slice(0, 8)}`);
+    const timeText = Number.isNaN(parsed.getTime())
+        ? String(timeValue)
+        : parsed.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return `${dateText} ${timeText}`;
+}
+
+function formatPeso(amount) {
+    return `P${Number(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatStatusLabel(rawStatus) {
+    const status = String(rawStatus || '').trim().toLowerCase();
+    if (!status) return 'Pending';
+    return status.replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function getStatusBadgeClasses(rawStatus) {
+    const status = String(rawStatus || '').trim().toLowerCase();
+    if (status === 'completed') return 'bg-emerald-50 text-emerald-700';
+    if (status === 'cancelled') return 'bg-rose-50 text-rose-700';
+    if (status === 'in_progress') return 'bg-blue-50 text-blue-700';
+    if (status === 'no_show') return 'bg-amber-50 text-amber-700';
+    return 'bg-slate-100 text-slate-700';
+}
+
+function resolveDentistLabel(appointment) {
+    const rawDentist = String(appointment.dentist_name || '').trim();
+    if (rawDentist) return rawDentist;
+    const dentistId = String(appointment.dentist_id || '').trim();
+    return dentistId ? `Dentist #${dentistId}` : 'Unassigned';
+}
+
+async function parseJsonResponse(response) {
+    const rawText = await response.text();
+    if (!rawText || !rawText.trim()) return { success: false, message: 'Empty response from server.' };
+    try {
+        return JSON.parse(rawText);
+    } catch (error) {
+        return { success: false, message: 'Unexpected server response.' };
+    }
+}
+
+function renderAppointmentsTab(appointments) {
+    const section = document.getElementById('patient-tab-appointments');
+    if (!section) return;
+    if (!appointments.length) {
+        section.innerHTML = `
+            <div class="rounded-2xl border border-slate-200 p-5">
+                <h5 class="text-lg font-black mb-3">Appointments History</h5>
+                <p class="text-slate-500 font-medium">No appointment history found for this patient.</p>
+            </div>
+        `;
+        return;
+    }
+    const sorted = appointments.slice().sort((a, b) => {
+        const aKey = `${a.appointment_date || ''} ${a.appointment_time || ''}`;
+        const bKey = `${b.appointment_date || ''} ${b.appointment_time || ''}`;
+        return aKey < bKey ? 1 : -1;
+    });
+    section.innerHTML = `
+        <div class="rounded-2xl border border-slate-200 p-5">
+            <h5 class="text-lg font-black mb-4">Appointments History</h5>
+            <div class="space-y-3">
+                ${sorted.map((appointment) => `
+                    <div class="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <p class="text-sm font-extrabold text-slate-900">${escapeHtml(formatDateTime(appointment.appointment_date, appointment.appointment_time))}</p>
+                                <p class="text-xs font-semibold text-slate-600 mt-1">Dentist: ${escapeHtml(resolveDentistLabel(appointment))}</p>
+                                <p class="text-xs font-medium text-slate-500 mt-1">Service: ${escapeHtml(appointment.service_type || appointment.service_description || 'N/A')}</p>
+                            </div>
+                            <span class="px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider ${getStatusBadgeClasses(appointment.final_status || appointment.status)}">
+                                ${escapeHtml(formatStatusLabel(appointment.final_status || appointment.status))}
+                            </span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function renderTreatmentTab(context) {
+    const section = document.getElementById('patient-tab-treatment');
+    if (!section) return;
+    const hasTreatment = Boolean(context && context.has_active_treatment && context.treatment);
+    if (!hasTreatment) {
+        section.innerHTML = `
+            <div class="rounded-2xl border border-primary/10 bg-primary/[0.03] p-5">
+                <h5 class="text-lg font-black mb-3">Active Treatment</h5>
+                <p class="text-slate-500 font-medium">No active installment treatment plan found.</p>
+            </div>
+        `;
+        return;
+    }
+    const treatment = context.treatment;
+    const progress = Math.max(0, Math.min(100, Number(treatment.progress_percentage || 0)));
+    const nextDueDate = treatment.next_due_date ? formatDate(treatment.next_due_date) : 'Not available';
+    const serviceName = treatment.primary_service && treatment.primary_service.service_name
+        ? treatment.primary_service.service_name
+        : (treatment.primary_service_name || 'Installment treatment');
+    section.innerHTML = `
+        <div class="rounded-2xl border border-primary/10 bg-primary/[0.03] p-5">
+            <h5 class="text-lg font-black mb-4">Active Treatment</h5>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Treatment / Service</p><p class="text-lg font-bold text-slate-800 mt-1">${escapeHtml(serviceName)}</p></div>
+                <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Total Cost</p><p class="text-lg font-bold text-slate-800 mt-1">${escapeHtml(formatPeso(treatment.total_cost))}</p></div>
+                <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Amount Paid</p><p class="text-lg font-bold text-slate-800 mt-1">${escapeHtml(formatPeso(treatment.amount_paid))}</p></div>
+                <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Remaining Balance</p><p class="text-lg font-bold text-slate-800 mt-1">${escapeHtml(formatPeso(treatment.remaining_balance))}</p></div>
+                <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Next Due Date</p><p class="text-lg font-bold text-slate-800 mt-1">${escapeHtml(nextDueDate)}</p></div>
+            </div>
+            <div class="mt-5">
+                <div class="flex items-center justify-between text-xs font-bold text-slate-600 mb-2">
+                    <span>Payment Progress</span>
+                    <span>${escapeHtml(`${progress.toFixed(1)}%`)}</span>
+                </div>
+                <div class="w-full h-2.5 rounded-full bg-slate-200 overflow-hidden">
+                    <div class="h-full bg-primary rounded-full" style="width:${progress}%"></div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderFilesTab(files) {
+    const section = document.getElementById('patient-tab-files');
+    if (!section || !activeProfilePatient) return;
+    section.innerHTML = `
+        <div class="rounded-2xl border border-slate-200 p-5">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h5 class="text-lg font-black">Files & Documents</h5>
+                <form id="patientFileUploadForm" class="flex flex-wrap items-center gap-2">
+                    <input id="patientFileInput" type="file" class="block text-xs font-semibold text-slate-600 file:mr-2 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary file:font-bold"/>
+                    <button type="submit" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-white text-xs font-bold uppercase tracking-wider hover:bg-primary/90 transition-all">
+                        <span class="material-symbols-outlined text-[16px]">upload_file</span> Upload File
+                    </button>
+                </form>
+            </div>
+            <div id="patientFilesListContainer">
+                ${files.length ? `
+                    <div class="space-y-3">
+                        ${files.map((file) => `
+                            <div class="rounded-xl border border-slate-100 bg-slate-50/60 p-4 flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <p class="text-sm font-bold text-slate-900">${escapeHtml(file.file_name || 'Unnamed file')}</p>
+                                    <p class="text-xs text-slate-600 mt-1">Type: ${escapeHtml(file.file_type || 'Unknown')} • Uploaded: ${escapeHtml(file.formatted_date || formatDate(file.created_at))}</p>
+                                </div>
+                                <a href="${escapeHtml(file.file_url || '#')}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-100 transition-all">
+                                    <span class="material-symbols-outlined text-[16px]">download</span> View / Download
+                                </a>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : `<p class="text-slate-500 font-medium">No uploaded files yet for this patient.</p>`}
+            </div>
+        </div>
+    `;
+    const uploadForm = document.getElementById('patientFileUploadForm');
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            await uploadPatientFileForActiveProfile();
+        });
+    }
+}
+
+async function loadAppointmentsForPatient(patient) {
+    const section = document.getElementById('patient-tab-appointments');
+    if (section) {
+        section.innerHTML = '<div class="rounded-2xl border border-slate-200 p-5"><p class="text-slate-500 font-medium">Loading appointments...</p></div>';
+    }
+    try {
+        const url = new URL(API_APPOINTMENTS_URL, window.location.origin);
+        url.searchParams.set('patient_id', String(patient.patientId || ''));
+        const response = await fetch(url.toString(), { credentials: 'include' });
+        const data = await parseJsonResponse(response);
+        if (!response.ok || !data.success) throw new Error(data.message || 'Failed to load appointments.');
+        const list = Array.isArray(data.data && data.data.appointments) ? data.data.appointments : [];
+        renderAppointmentsTab(list);
+    } catch (error) {
+        if (section) {
+            section.innerHTML = `<div class="rounded-2xl border border-slate-200 p-5"><p class="text-rose-500 font-medium">${escapeHtml(error.message || 'Failed to load appointments.')}</p></div>`;
+        }
+    }
+}
+
+async function loadTreatmentForPatient(patient) {
+    const section = document.getElementById('patient-tab-treatment');
+    if (section) {
+        section.innerHTML = '<div class="rounded-2xl border border-primary/10 bg-primary/[0.03] p-5"><p class="text-slate-500 font-medium">Loading treatment details...</p></div>';
+    }
+    try {
+        const url = new URL(API_TREATMENT_CONTEXT_URL, window.location.origin);
+        url.searchParams.set('patient_id', String(patient.patientId || ''));
+        const response = await fetch(url.toString(), { credentials: 'include' });
+        const data = await parseJsonResponse(response);
+        if (!response.ok || !data.success) throw new Error(data.message || 'Failed to load treatment context.');
+        renderTreatmentTab(data.data || null);
+    } catch (error) {
+        if (section) {
+            section.innerHTML = `<div class="rounded-2xl border border-primary/10 bg-primary/[0.03] p-5"><p class="text-rose-500 font-medium">${escapeHtml(error.message || 'Failed to load treatment context.')}</p></div>`;
+        }
+    }
+}
+
+async function loadFilesForPatient(patient) {
+    const section = document.getElementById('patient-tab-files');
+    if (section) {
+        section.innerHTML = '<div class="rounded-2xl border border-slate-200 p-5"><p class="text-slate-500 font-medium">Loading files...</p></div>';
+    }
+    try {
+        const url = new URL(API_PATIENT_FILES_URL, window.location.origin);
+        url.searchParams.set('patient_id', String(patient.patientId || ''));
+        const response = await fetch(url.toString(), { credentials: 'include' });
+        const data = await parseJsonResponse(response);
+        if (!response.ok || !data.success) throw new Error(data.message || 'Failed to load patient files.');
+        const files = Array.isArray(data.data && data.data.files) ? data.data.files : [];
+        renderFilesTab(files);
+    } catch (error) {
+        if (section) {
+            section.innerHTML = `<div class="rounded-2xl border border-slate-200 p-5"><p class="text-rose-500 font-medium">${escapeHtml(error.message || 'Failed to load patient files.')}</p></div>`;
+        }
+    }
+}
+
+async function uploadPatientFileForActiveProfile() {
+    if (!activeProfilePatient) return;
+    const input = document.getElementById('patientFileInput');
+    const file = input && input.files ? input.files[0] : null;
+    if (!file) {
+        await staffUiAlert({ title: 'File required', message: 'Please select a file to upload.', variant: 'warning' });
+        return;
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('patient_id', String(activeProfilePatient.patientId || ''));
+    formData.append('file_category', 'General');
+    try {
+        const response = await fetch(API_PATIENT_FILES_URL, {
+            method: 'POST',
+            credentials: 'include',
+            body: formData
+        });
+        const data = await parseJsonResponse(response);
+        if (!response.ok || !data.success) throw new Error(data.message || 'Failed to upload file.');
+        if (input) input.value = '';
+        await staffUiAlert({ title: 'Upload successful', message: 'Patient file uploaded successfully.', variant: 'success' });
+        await loadFilesForPatient(activeProfilePatient);
+    } catch (error) {
+        await staffUiAlert({ title: 'Upload failed', message: error.message || 'Failed to upload file.', variant: 'error' });
+    }
 }
 
 function normalizePatient(p) {
@@ -769,7 +1030,7 @@ function openViewModal(patient) {
         ? 'bg-slate-100 text-slate-600'
         : 'bg-emerald-50 text-emerald-600';
     const address = [patient.houseStreet, patient.barangay, patient.city, patient.province].filter(Boolean).join(', ') || 'N/A';
-    const treatmentText = patient.status === 'inactive' ? 'No active treatment plan found.' : 'No long-term treatment plan found.';
+    activeProfilePatient = patient;
     document.getElementById('viewPatientContent').innerHTML = `
         <div class="space-y-6">
             <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-5">
@@ -824,26 +1085,20 @@ function openViewModal(patient) {
                 </div>
             </div>
             <div id="patient-tab-appointments" class="hidden">
-                <div class="rounded-2xl border border-slate-200 p-5">
-                    <h5 class="text-lg font-black mb-3">Appointments History</h5>
-                    <p class="text-slate-500 font-medium">Appointments list will appear here once linked to patient scheduling records.</p>
-                </div>
+                <div class="rounded-2xl border border-slate-200 p-5"><p class="text-slate-500 font-medium">Loading appointments...</p></div>
             </div>
             <div id="patient-tab-treatment" class="hidden">
-                <div class="rounded-2xl border border-primary/10 bg-primary/[0.03] p-5">
-                    <h5 class="text-lg font-black mb-3">Long-Term Treatment Plans</h5>
-                    <p class="text-slate-500 font-medium">${escapeHtml(treatmentText)}</p>
-                </div>
+                <div class="rounded-2xl border border-primary/10 bg-primary/[0.03] p-5"><p class="text-slate-500 font-medium">Loading treatment details...</p></div>
             </div>
             <div id="patient-tab-files" class="hidden">
-                <div class="rounded-2xl border border-slate-200 p-5">
-                    <h5 class="text-lg font-black mb-3">Files & Documents</h5>
-                    <p class="text-slate-500 font-medium">No uploaded files yet for this patient.</p>
-                </div>
+                <div class="rounded-2xl border border-slate-200 p-5"><p class="text-slate-500 font-medium">Loading files...</p></div>
             </div>
         </div>
     `;
     setupPatientTabs();
+    void loadAppointmentsForPatient(patient);
+    void loadTreatmentForPatient(patient);
+    void loadFilesForPatient(patient);
     viewPatientModal.classList.remove('hidden');
     requestAnimationFrame(() => {
         viewPatientPanel.classList.remove('translate-x-full');
@@ -881,6 +1136,7 @@ function closeViewModal() {
     viewPatientPanel.classList.remove('translate-x-0');
     viewPatientCloseTimer = window.setTimeout(() => {
         viewPatientModal.classList.add('hidden');
+        activeProfilePatient = null;
         viewPatientCloseTimer = null;
     }, 300);
 }
