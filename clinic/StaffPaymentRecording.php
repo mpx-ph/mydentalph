@@ -1856,11 +1856,48 @@ try {
                                 && ((float) $totalPaid + 0.009 >= $inst1AmountDue);
                         }
 
+                        // Reconcile installment table rows against aggregate paid amount so stale statuses
+                        // do not force overpayment (e.g. amount_paid already covered one or more slots).
+                        $alreadyMarkedPaidAmount = 0.0;
+                        foreach ($scheduleRows as $sr) {
+                            if (staff_payment_recording_installment_is_paid((string) ($sr['status'] ?? ''))) {
+                                $alreadyMarkedPaidAmount += (float) ($sr['amount_due'] ?? 0);
+                            }
+                        }
+                        $autoCoveredInstallmentNumbers = [];
+                        $remainingPaidCoverage = round(max(0.0, (float) $totalPaid - $alreadyMarkedPaidAmount), 2);
+                        if ($remainingPaidCoverage > 0.009) {
+                            foreach ($scheduleRows as $sr) {
+                                $installmentNumber = (int) ($sr['installment_number'] ?? 0);
+                                if ($installmentNumber <= 0) {
+                                    continue;
+                                }
+                                if (staff_payment_recording_installment_is_paid((string) ($sr['status'] ?? ''))) {
+                                    continue;
+                                }
+                                $amountDue = round((float) ($sr['amount_due'] ?? 0), 2);
+                                if ($amountDue <= 0.0) {
+                                    $autoCoveredInstallmentNumbers[$installmentNumber] = true;
+                                    continue;
+                                }
+                                if ($remainingPaidCoverage + 0.009 >= $amountDue) {
+                                    $autoCoveredInstallmentNumbers[$installmentNumber] = true;
+                                    $remainingPaidCoverage = round(max(0.0, $remainingPaidCoverage - $amountDue), 2);
+                                    continue;
+                                }
+                                break;
+                            }
+                        }
+
                         $unpaid = [];
                         foreach ($scheduleRows as $sr) {
                             $isPaid = staff_payment_recording_installment_is_paid((string) ($sr['status'] ?? ''));
-                            $isDownpaymentSlot = ((int) ($sr['installment_number'] ?? 0) === 1);
+                            $installmentNumber = (int) ($sr['installment_number'] ?? 0);
+                            $isDownpaymentSlot = ($installmentNumber === 1);
                             if (!$isPaid && $isDownpaymentSlot && $downpaymentCoveredByAmount) {
+                                $isPaid = true;
+                            }
+                            if (!$isPaid && isset($autoCoveredInstallmentNumbers[$installmentNumber])) {
                                 $isPaid = true;
                             }
                             if (!$isPaid) {
