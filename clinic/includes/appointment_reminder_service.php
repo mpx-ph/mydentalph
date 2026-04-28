@@ -258,6 +258,11 @@ if (!function_exists('send_scheduled_appointment_reminders')) {
         $qAppointments = appointment_reminder_quote_ident($appointmentsTable);
         $qPatients = appointment_reminder_quote_ident($patientsTable);
         $qUsers = appointment_reminder_quote_ident($usersTable);
+        $patientCols = clinic_table_columns($pdo, $patientsTable);
+        $patientEmailExpr = "COALESCE(NULLIF(TRIM(u.email), ''), '')";
+        if (in_array('email', $patientCols, true)) {
+            $patientEmailExpr = "COALESCE(NULLIF(TRIM(u.email), ''), NULLIF(TRIM(p.email), ''), '')";
+        }
 
         $sql = "
             SELECT
@@ -273,7 +278,7 @@ if (!function_exists('send_scheduled_appointment_reminders')) {
                 a.reminder_1day_sent_at,
                 a.reminder_final_sent_at,
                 COALESCE(NULLIF(TRIM(CONCAT(p.first_name, ' ', p.last_name)), ''), 'Patient') AS patient_name,
-                COALESCE(NULLIF(TRIM(u.email), ''), '') AS patient_email,
+                {$patientEmailExpr} AS patient_email,
                 {$dentistNameExpr} AS dentist_name
             FROM {$qAppointments} a
             INNER JOIN {$qPatients} p
@@ -336,20 +341,24 @@ if (!function_exists('send_scheduled_appointment_reminders')) {
             $flagColumn = null;
 
             if (APPOINTMENT_REMINDER_TEST_SCHEDULE) {
-                // Test: ~3h, ~1h, final in the 15–20 min band (center 17.5 min ± 2.5 min).
-                $targetFirst = 3 * 3600;
-                $targetSecond = 1 * 3600;
-                $targetFinalCenterSeconds = (int) round((15 + 20) / 2 * 60);
-                $finalHalfBandSeconds = (int) round((20 - 15) / 2 * 60);
+                // Test windows with catch-up behavior if cron runs late:
+                // 3-hour reminder: >1h to <=3h before appointment
+                // 1-hour reminder: >20m to <=1h before appointment
+                // Final reminder: 15m to 20m before appointment
+                $threeHours = 3 * 3600;
+                $oneHour = 1 * 3600;
+                $twentyMinutes = 20 * 60;
+                $fifteenMinutes = 15 * 60;
 
-                if (empty($appointment['reminder_3day_sent_at']) && abs($diffSeconds - $targetFirst) <= $windowSeconds) {
+                if (empty($appointment['reminder_3day_sent_at']) && $diffSeconds <= $threeHours && $diffSeconds > $oneHour) {
                     $sendType = '3day';
                     $flagColumn = 'reminder_3day_sent_at';
-                } elseif (empty($appointment['reminder_1day_sent_at']) && abs($diffSeconds - $targetSecond) <= $windowSeconds) {
+                } elseif (empty($appointment['reminder_1day_sent_at']) && $diffSeconds <= $oneHour && $diffSeconds > $twentyMinutes) {
                     $sendType = '1day';
                     $flagColumn = 'reminder_1day_sent_at';
                 } elseif (empty($appointment['reminder_final_sent_at'])
-                    && abs($diffSeconds - $targetFinalCenterSeconds) <= $finalHalfBandSeconds) {
+                    && $diffSeconds <= $twentyMinutes
+                    && $diffSeconds >= $fifteenMinutes) {
                     $sendType = 'final';
                     $flagColumn = 'reminder_final_sent_at';
                 }
