@@ -461,15 +461,16 @@ try {
             background: linear-gradient(180deg, rgba(248, 250, 252, 0.88) 0%, rgba(255, 255, 255, 1) 100%);
         }
         .modal-time-input {
-            border: 1px solid #dbe5f2;
-            background: #f8fbff;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
             border-radius: 0.95rem !important;
-            font-size: 0.92rem;
-            font-weight: 700;
+            font-size: 0.95rem;
+            font-weight: 600;
             color: #0f172a;
             min-height: 3.1rem;
             transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
             overflow: hidden;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
         }
         input[type="time"].modal-time-input {
             -webkit-appearance: none;
@@ -477,7 +478,7 @@ try {
             border-radius: 0.95rem !important;
         }
         .modal-time-input:focus {
-            border-color: rgba(43, 139, 235, 0.5);
+            border-color: #2b8beb;
             background: #ffffff;
             box-shadow: 0 0 0 3px rgba(43, 139, 235, 0.15);
             outline: none;
@@ -526,27 +527,28 @@ try {
             border-radius: 9999px;
         }
         .bulk-date-input {
-            border: 1px solid #dbe5f2;
+            border: 1px solid #e2e8f0;
             background: #ffffff;
             border-radius: 0.95rem;
             min-height: 3.1rem;
             font-size: 0.95rem;
-            font-weight: 700;
+            font-weight: 600;
             color: #0f172a;
             width: 100%;
             padding: 0 2.75rem 0 1rem;
             transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
             appearance: none;
             -webkit-appearance: none;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
         }
         .bulk-date-input:hover {
             border-color: rgba(43, 139, 235, 0.45);
-            background: #f8fbff;
+            background: #ffffff;
         }
         .bulk-date-input:focus {
             outline: none;
-            border-color: rgba(43, 139, 235, 0.6);
-            box-shadow: 0 0 0 3px rgba(43, 139, 235, 0.14);
+            border-color: #2b8beb;
+            box-shadow: 0 0 0 3px rgba(43, 139, 235, 0.15);
         }
         .bulk-date-input.is-active {
             border-color: rgba(43, 139, 235, 0.65);
@@ -978,6 +980,7 @@ try {
         if (!modal) return;
         modal.classList.remove('hidden');
         modal.classList.add('flex');
+        syncBodyScrollLock();
     }
 
     function closeModal(modalId) {
@@ -985,6 +988,14 @@ try {
         if (!modal) return;
         modal.classList.add('hidden');
         modal.classList.remove('flex');
+        syncBodyScrollLock();
+    }
+
+    function syncBodyScrollLock() {
+        const hasVisibleModal = Array.from(document.querySelectorAll('[id$="Modal"]')).some((modal) => {
+            return !modal.classList.contains('hidden');
+        });
+        document.body.style.overflow = hasVisibleModal ? 'hidden' : '';
     }
 
     function setClosedState(isClosed) {
@@ -1071,7 +1082,7 @@ try {
             return;
         }
         if (!bulkCalendarState.endDate) {
-            summaryEl.textContent = `Event: ${formatDateLong(start)} - select an end date`;
+            summaryEl.textContent = `Event: ${formatDateLong(start)}`;
             return;
         }
         summaryEl.textContent = `Event: ${formatDateShortNoYear(start)} - ${parseISODate(start).getFullYear() === parseISODate(end).getFullYear() ? formatDateShortNoYear(end) : formatDateLong(end)}, from ${formatTimeForSummary(openTime)} - ${formatTimeForSummary(closeTime)}`;
@@ -1391,6 +1402,7 @@ try {
     if (clinicHoursSuccessModal && closeClinicHoursSuccessModal) {
         const dismissSuccessModal = () => {
             clinicHoursSuccessModal.classList.add('hidden');
+            syncBodyScrollLock();
         };
         closeClinicHoursSuccessModal.addEventListener('click', dismissSuccessModal);
         clinicHoursSuccessModal.addEventListener('click', (event) => {
@@ -1399,6 +1411,7 @@ try {
             }
         });
     }
+    syncBodyScrollLock();
 </script>
 </body>
 </html>
