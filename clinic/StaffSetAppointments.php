@@ -2167,7 +2167,6 @@ try {
             }));
 
             const previousState = {
-                hasTimeSlotConflict: liveValidationState.hasTimeSlotConflict,
                 hasPatientDuplicate: liveValidationState.hasPatientDuplicate
             };
             liveValidationState = {
@@ -2176,12 +2175,28 @@ try {
             };
             syncCreateAppointmentButtonState();
 
-            if (showAlerts && !previousState.hasTimeSlotConflict && hasTimeSlotConflict) {
+            if (showAlerts && hasTimeSlotConflict) {
                 await staffUiAlert({
                     title: 'Schedule conflict',
                     message: 'There is already a scheduled appointment for the selected time. Please choose a new time slot.',
                     variant: 'warning'
                 });
+                if (token !== liveValidationRequestToken) {
+                    return {
+                        hasTimeSlotConflict: liveValidationState.hasTimeSlotConflict,
+                        hasPatientDuplicate: liveValidationState.hasPatientDuplicate
+                    };
+                }
+                if (timeInput) {
+                    timeInput.value = '00:00';
+                }
+                liveValidationState = {
+                    hasTimeSlotConflict: false,
+                    hasPatientDuplicate: liveValidationState.hasPatientDuplicate
+                };
+                syncCreateAppointmentButtonState();
+                await refreshDentistAvailabilityForSelection();
+                return runLiveConflictValidation({ showAlerts: false });
             }
             if (showAlerts && !previousState.hasPatientDuplicate && hasPatientDuplicate) {
                 await staffUiAlert({
