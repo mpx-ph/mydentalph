@@ -1011,6 +1011,7 @@ function openAddModal(patient) {
     document.getElementById('savePatientBtn').textContent = patient ? 'Save Patient' : 'Register Patient';
     addPatientModal.classList.remove('hidden');
     addPatientModal.classList.add('flex');
+    syncModalBodyScrollLock();
 }
 
 function closeAddModal() {
@@ -1023,6 +1024,7 @@ function closeAddModal() {
     resetFormValidation();
     addPatientModal.classList.add('hidden');
     addPatientModal.classList.remove('flex');
+    syncModalBodyScrollLock();
 }
 
 function openViewModal(patient) {
@@ -1143,8 +1145,15 @@ function closeViewModal() {
     viewPatientCloseTimer = window.setTimeout(() => {
         viewPatientModal.classList.add('hidden');
         activeProfilePatient = null;
+        syncModalBodyScrollLock();
         viewPatientCloseTimer = null;
     }, 300);
+}
+
+function syncModalBodyScrollLock() {
+    const addOpen = addPatientModal && !addPatientModal.classList.contains('hidden');
+    const viewOpen = viewPatientModal && !viewPatientModal.classList.contains('hidden');
+    document.body.style.overflow = (addOpen || viewOpen) ? 'hidden' : '';
 }
 
 async function savePatient(event) {
