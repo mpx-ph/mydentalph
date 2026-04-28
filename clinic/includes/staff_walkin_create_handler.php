@@ -118,6 +118,25 @@ try {
         exit;
     }
 
+    $quotedAppointments = clinic_quote_identifier($appointmentsTable);
+    $activePatientAppointmentTodayStmt = $pdo->prepare("
+        SELECT 1
+        FROM {$quotedAppointments}
+        WHERE tenant_id = ?
+          AND patient_id = ?
+          AND appointment_date = ?
+          AND LOWER(COALESCE(status, 'pending')) IN ('pending', 'confirmed', 'scheduled')
+        LIMIT 1
+    ");
+    $clinicTz = new DateTimeZone('Asia/Manila');
+    $nowClinic = new DateTimeImmutable('now', $clinicTz);
+    $todayDate = $nowClinic->format('Y-m-d');
+    $activePatientAppointmentTodayStmt->execute([$tenantId, $patientId, $todayDate]);
+    if ($activePatientAppointmentTodayStmt->fetchColumn()) {
+        echo json_encode(['success' => false, 'message' => 'Patients can only have one active appointment at a time.']);
+        exit;
+    }
+
     $quotedDentists = clinic_quote_identifier($dentistsTable);
     $dentistCheckStmt = $pdo->prepare("
         SELECT dentist_id, user_id
@@ -134,8 +153,6 @@ try {
 
     // Same calendar day as StaffAppointments.php (Asia/Manila). Using only server date() breaks
     // walk-ins when PHP default timezone is UTC — booking lands on "yesterday" vs clinic schedule.
-    $clinicTz = new DateTimeZone('Asia/Manila');
-    $nowClinic = new DateTimeImmutable('now', $clinicTz);
     $appointmentDate = $nowClinic->format('Y-m-d');
     $dentistIdInt = (int) $dentistId;
     $slotProbe = $pdo->prepare('
