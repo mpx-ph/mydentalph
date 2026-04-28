@@ -1,24 +1,31 @@
 <?php
 // api/get_payments.php
 require_once '../db.php';
+require_once __DIR__ . '/request_context.inc.php';
 header('Content-Type: application/json');
+api_send_no_cache_headers();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     die(json_encode(["success" => false, "message" => "GET required"]));
 }
 
-$tenant_id = $_GET['tenant_id'] ?? null;
-$user_id = $_GET['user_id'] ?? null;
+$tenant_id = trim((string) ($_GET['tenant_id'] ?? ''));
+$user_id = trim((string) ($_GET['user_id'] ?? ''));
 $payment_id = $_GET['payment_id'] ?? null;
 $booking_id = $_GET['booking_id'] ?? null;
 $patient_id = $_GET['patient_id'] ?? null;
 $status = $_GET['status'] ?? null;
 
-if (!$tenant_id || !$user_id) {
-    die(json_encode(["success" => false, "message" => "Missing tenant_id or user_id"]));
+if ($user_id === '') {
+    die(json_encode(["success" => false, "message" => "Missing user_id"]));
 }
 
 try {
+    $tenant_id = api_resolve_tenant_id($pdo, $user_id, $tenant_id);
+    if ($tenant_id === null) {
+        die(json_encode(["success" => false, "message" => "Missing tenant context for this user"]));
+    }
+
     // Resolve patient access for this user.
     $stmt = $pdo->prepare(
         "SELECT patient_id

@@ -1,28 +1,41 @@
 <?php
 // api/get_latest_appointment.php
 require_once '../db.php';
+require_once __DIR__ . '/request_context.inc.php';
 
 header('Content-Type: application/json');
+api_send_no_cache_headers();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     die(json_encode(["status" => "error", "message" => "GET required"]));
 }
 
 $user_id   = $_GET['user_id']   ?? '';
-$tenant_id = $_GET['tenant_id'] ?? 'TNT_00025';
+$tenant_id = $_GET['tenant_id'] ?? '';
 
 if (empty($user_id)) {
     die(json_encode(["status" => "error", "message" => "Missing user_id"]));
 }
 
 try {
+    $tenant_id = api_resolve_tenant_id($pdo, (string) $user_id, (string) $tenant_id);
+
     // 1. Find the patient record linked to the logged-in user
-    $stmt = $pdo->prepare(
-        "SELECT patient_id FROM tbl_patients 
-         WHERE owner_user_id = ? OR linked_user_id = ?
-         LIMIT 1"
-    );
-    $stmt->execute([$user_id, $user_id]);
+    if ($tenant_id !== null && $tenant_id !== '') {
+        $stmt = $pdo->prepare(
+            "SELECT patient_id FROM tbl_patients 
+             WHERE tenant_id = ? AND (owner_user_id = ? OR linked_user_id = ?)
+             LIMIT 1"
+        );
+        $stmt->execute([$tenant_id, $user_id, $user_id]);
+    } else {
+        $stmt = $pdo->prepare(
+            "SELECT patient_id FROM tbl_patients 
+             WHERE owner_user_id = ? OR linked_user_id = ?
+             LIMIT 1"
+        );
+        $stmt->execute([$user_id, $user_id]);
+    }
     $patient = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$patient) {

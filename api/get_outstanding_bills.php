@@ -1,16 +1,23 @@
 <?php
 // api/get_outstanding_bills.php
 require_once '../db.php';
+require_once __DIR__ . '/request_context.inc.php';
 header('Content-Type: application/json');
+api_send_no_cache_headers();
 
-$user_id = $_GET['user_id'] ?? null;
-$tenant_id = $_GET['tenant_id'] ?? null;
+$user_id = trim((string) ($_GET['user_id'] ?? ''));
+$tenant_id = trim((string) ($_GET['tenant_id'] ?? ''));
 
-if (!$user_id || !$tenant_id) {
-    die(json_encode(["success" => false, "message" => "Missing user_id or tenant_id"]));
+if ($user_id === '') {
+    die(json_encode(["success" => false, "message" => "Missing user_id"]));
 }
 
 try {
+    $tenant_id = api_resolve_tenant_id($pdo, $user_id, $tenant_id);
+    if ($tenant_id === null) {
+        die(json_encode(["success" => false, "message" => "Missing tenant context for this user"]));
+    }
+
     // 1. Get patient_id for this user
     $stmt = $pdo->prepare("SELECT patient_id FROM tbl_patients WHERE (owner_user_id = ? OR linked_user_id = ?) AND tenant_id = ? LIMIT 1");
     $stmt->execute([$user_id, $user_id, $tenant_id]);

@@ -1,7 +1,9 @@
 <?php
 // api/get_wallet_data.php
 require_once '../db.php';
+require_once __DIR__ . '/request_context.inc.php';
 header('Content-Type: application/json');
+api_send_no_cache_headers();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     die(json_encode([
@@ -10,17 +12,25 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     ]));
 }
 
-$user_id = $_GET['user_id'] ?? null;
-$tenant_id = $_GET['tenant_id'] ?? null;
+$user_id = trim((string) ($_GET['user_id'] ?? ''));
+$tenant_id = trim((string) ($_GET['tenant_id'] ?? ''));
 
-if (!$user_id || !$tenant_id) {
+if ($user_id === '') {
     die(json_encode([
         "success" => false,
-        "message" => "Missing user_id or tenant_id"
+        "message" => "Missing user_id"
     ]));
 }
 
 try {
+    $tenant_id = api_resolve_tenant_id($pdo, $user_id, $tenant_id);
+    if ($tenant_id === null) {
+        die(json_encode([
+            "success" => false,
+            "message" => "Missing tenant context for this user"
+        ]));
+    }
+
     // Resolve patient for this logged-in app user.
     $stmt = $pdo->prepare("
         SELECT patient_id

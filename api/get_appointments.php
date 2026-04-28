@@ -1,8 +1,10 @@
 <?php
 // api/get_appointments.php
 require_once '../db.php';
+require_once __DIR__ . '/request_context.inc.php';
 
 header('Content-Type: application/json');
+api_send_no_cache_headers();
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if ($method !== 'GET' && $method !== 'POST') {
@@ -28,9 +30,11 @@ if ($user_id === '') {
 }
 
 try {
+    $tenant_id = api_resolve_tenant_id($pdo, $user_id, $tenant_id);
+
     // 1. Find the patient record linked to the logged-in user
     // We match by user_id across owner or linked fields; scope by tenant when provided.
-    if ($tenant_id !== '') {
+    if ($tenant_id !== null && $tenant_id !== '') {
         $stmt = $pdo->prepare(
             "SELECT patient_id FROM tbl_patients 
              WHERE tenant_id = ? AND (owner_user_id = ? OR linked_user_id = ?)
@@ -57,7 +61,7 @@ try {
     // 2. Fetch appointments
     // We use a subquery to grab the first service name from tbl_appointment_services 
     // since tbl_appointments.service_type is often null in the mobile booking flow.
-    if ($tenant_id !== '') {
+    if ($tenant_id !== null && $tenant_id !== '') {
         $stmt = $pdo->prepare(
             "SELECT 
                 a.*,

@@ -11,6 +11,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/profile_common.inc.php';
+require_once __DIR__ . '/request_context.inc.php';
+api_send_no_cache_headers();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     api_json_exit(false, 'GET required');
@@ -19,11 +21,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 $userId   = isset($_GET['user_id']) ? trim((string) $_GET['user_id']) : '';
 $tenantId = isset($_GET['tenant_id']) ? trim((string) $_GET['tenant_id']) : '';
 
-if ($userId === '' || $tenantId === '') {
-    api_json_exit(false, 'Missing user_id or tenant_id');
+if ($userId === '') {
+    api_json_exit(false, 'Missing user_id');
 }
 
 try {
+    $tenantId = api_resolve_tenant_id($pdo, $userId, $tenantId);
+    if ($tenantId === null) {
+        api_json_exit(false, 'Missing tenant context for this user');
+    }
+
     $user = api_profile_fetch_user($pdo, $userId, $tenantId);
     if (!$user) {
         api_json_exit(false, 'User not found for this tenant');
