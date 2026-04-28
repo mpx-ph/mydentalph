@@ -43,14 +43,15 @@ if ($clinicSlugBoot !== '' && preg_match('/^[a-z0-9\-]+$/', strtolower($clinicSl
     $currentTenantSlug = '';
 }
 
-$selectedDateValue = date('Y-m-d');
-$selectedTimeValue = date('H:i');
+$manilaNow = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
+$selectedDateValue = $manilaNow->format('Y-m-d');
+$selectedTimeValue = $manilaNow->format('H:i');
 
 $baseParams = [];
 if ($currentTenantSlug !== '') {
     $baseParams['clinic_slug'] = $currentTenantSlug;
 }
-$manilaToday = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d');
+$manilaToday = $manilaNow->format('Y-m-d');
 $baseParams['date'] = $manilaToday;
 $baseParams['month'] = substr($manilaToday, 0, 7);
 // Same-origin paths from this script (do not use BASE_URL here — on some hosts it differs from SCRIPT_NAME and breaks API/redirects).
@@ -119,13 +120,22 @@ function buildSetAppointmentDentistsSnapshot(PDO $pdo, string $tenantId, string 
         }
         return $timeValue;
     };
+    $normalizeTimeValue = static function (string $timeValue): string {
+        $timeValue = trim($timeValue);
+        if ($timeValue === '') {
+            return '';
+        }
+        $parsed = DateTimeImmutable::createFromFormat('H:i:s', $timeValue)
+            ?: DateTimeImmutable::createFromFormat('H:i', $timeValue)
+            ?: DateTimeImmutable::createFromFormat('G:i:s', $timeValue)
+            ?: DateTimeImmutable::createFromFormat('G:i', $timeValue);
+        if ($parsed instanceof DateTimeImmutable) {
+            return $parsed->format('H:i:s');
+        }
+        return '';
+    };
 
-    $slotTime = trim($targetTime);
-    if ($slotTime !== '') {
-        $slotParsed = DateTimeImmutable::createFromFormat('H:i:s', $slotTime)
-            ?: DateTimeImmutable::createFromFormat('H:i', $slotTime);
-        $slotTime = $slotParsed instanceof DateTimeImmutable ? $slotParsed->format('H:i:s') : '';
-    }
+    $slotTime = $normalizeTimeValue($targetTime);
 
     foreach ($walkInDentists as &$dentistRow) {
         $dentistUserId = trim((string) ($dentistRow['user_id'] ?? ''));
@@ -137,8 +147,8 @@ function buildSetAppointmentDentistsSnapshot(PDO $pdo, string $tenantId, string 
             $effectiveBlocks = clinic_get_effective_schedule_blocks($pdo, $tenantId, $dentistUserId, $targetDate);
             foreach ($effectiveBlocks as $block) {
                 $blockType = strtolower((string) ($block['block_type'] ?? ''));
-                $startTime = trim((string) ($block['start_time'] ?? ''));
-                $endTime = trim((string) ($block['end_time'] ?? ''));
+                $startTime = $normalizeTimeValue((string) ($block['start_time'] ?? ''));
+                $endTime = $normalizeTimeValue((string) ($block['end_time'] ?? ''));
                 if ($startTime === '' || $endTime === '' || $startTime >= $endTime) {
                     continue;
                 }
@@ -210,7 +220,6 @@ try {
             $tenantId = (string) $_SESSION['public_tenant_id'];
         }
         if ($pdo && $tenantId) {
-            $manilaNow = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
             $todayDate = $manilaNow->format('Y-m-d');
             $todayTime = $manilaNow->format('H:i:s');
             $walkInDentists = buildSetAppointmentDentistsSnapshot($pdo, (string) $tenantId, $todayDate, $todayTime);
