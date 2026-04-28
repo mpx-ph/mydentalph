@@ -12,6 +12,7 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/appointment_db_tables.php';
 
 header('Content-Type: application/json');
 
@@ -41,11 +42,16 @@ register_shutdown_function(static function () {
 try {
     $method = $_SERVER['REQUEST_METHOD'];
     $pdo = getDBConnection();
-    $patientFilesTableName = clinic_get_physical_table_name($pdo, 'patient_files')
-        ?? clinic_get_physical_table_name($pdo, 'tbl_patient_files')
+    $resolveTable = static function (PDO $db, string $primary, string $secondary): ?string {
+        if (function_exists('clinic_get_physical_table_name')) {
+            return clinic_get_physical_table_name($db, $primary)
+                ?? clinic_get_physical_table_name($db, $secondary);
+        }
+        return null;
+    };
+    $patientFilesTableName = $resolveTable($pdo, 'patient_files', 'tbl_patient_files')
         ?? 'patient_files';
-    $patientsTableName = clinic_get_physical_table_name($pdo, 'patients')
-        ?? clinic_get_physical_table_name($pdo, 'tbl_patients')
+    $patientsTableName = $resolveTable($pdo, 'patients', 'tbl_patients')
         ?? 'patients';
 
     // Require authentication (client, manager, doctor, or staff)
