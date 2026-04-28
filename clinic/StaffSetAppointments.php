@@ -1,4 +1,5 @@
 <?php
+// Patient reminder emails are sent by the cron job clinic/cron/send_appointment_reminders.php (timing: clinic/includes/appointment_reminder_service.php).
 $pageTitle = 'Set Appointment';
 $staff_nav_active = 'appointments';
 require_once __DIR__ . '/config/config.php';

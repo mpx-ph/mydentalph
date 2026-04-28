@@ -23,6 +23,7 @@ try {
         'checked' => 0,
         'sent' => ['3day' => 0, '1day' => 0, 'final' => 0],
         'errors' => ['Fatal reminder runner error: ' . $e->getMessage()],
+        'schedule_mode' => defined('APPOINTMENT_REMINDER_TEST_SCHEDULE') && APPOINTMENT_REMINDER_TEST_SCHEDULE ? 'test' : 'production',
     ];
 }
 
