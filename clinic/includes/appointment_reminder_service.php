@@ -247,6 +247,7 @@ if (!function_exists('send_scheduled_appointment_reminders')) {
         appointment_reminder_ensure_tracking_columns($pdo, $appointmentsTable);
 
         $appointmentsCols = clinic_table_columns($pdo, $appointmentsTable);
+        $hasUpdatedAtColumn = in_array('updated_at', $appointmentsCols, true);
         $dentistJoinSql = '';
         $dentistNameExpr = "'Assigned Dentist'";
         if ($dentistsTable !== null && in_array('dentist_id', $appointmentsCols, true)) {
@@ -404,7 +405,11 @@ if (!function_exists('send_scheduled_appointment_reminders')) {
             }
 
             try {
-                $flagSql = "UPDATE {$qAppointments} SET {$flagColumn} = NOW(), updated_at = NOW() WHERE id = ? AND tenant_id = ?";
+                $setClause = "{$flagColumn} = NOW()";
+                if ($hasUpdatedAtColumn) {
+                    $setClause .= ", updated_at = NOW()";
+                }
+                $flagSql = "UPDATE {$qAppointments} SET {$setClause} WHERE id = ? AND tenant_id = ?";
                 $updateStmt = $pdo->prepare($flagSql);
                 $updateStmt->execute([(int) $appointment['id'], $tenantId]);
                 $result['sent'][$sendType]++;
