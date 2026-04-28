@@ -48,6 +48,22 @@ try {
     $qs = clinic_quote_identifier($servicesTable);
     $qp = $paymentsTable !== null ? clinic_quote_identifier($paymentsTable) : null;
     $qa = $appointmentsTable !== null ? clinic_quote_identifier($appointmentsTable) : null;
+    $hasActiveAppointmentToday = false;
+    if ($qa !== null) {
+        $clinicTz = new DateTimeZone('Asia/Manila');
+        $todayDate = (new DateTimeImmutable('now', $clinicTz))->format('Y-m-d');
+        $activeAppointmentStmt = $pdo->prepare("
+            SELECT 1
+            FROM {$qa}
+            WHERE tenant_id = ?
+              AND patient_id = ?
+              AND appointment_date = ?
+              AND LOWER(COALESCE(status, 'pending')) IN ('pending', 'confirmed', 'scheduled')
+            LIMIT 1
+        ");
+        $activeAppointmentStmt->execute([$tenantId, $patientId, $todayDate]);
+        $hasActiveAppointmentToday = (bool) $activeAppointmentStmt->fetchColumn();
+    }
 
     $stmt = $pdo->prepare("
         SELECT
@@ -77,7 +93,10 @@ try {
         echo json_encode([
             'success' => true,
             'message' => 'No active installment treatment found.',
-            'data' => ['has_active_treatment' => false],
+            'data' => [
+                'has_active_treatment' => false,
+                'has_active_appointment_today' => $hasActiveAppointmentToday,
+            ],
         ]);
         exit;
     }
@@ -111,6 +130,7 @@ try {
         'message' => 'Treatment context loaded.',
         'data' => [
             'has_active_treatment' => true,
+            'has_active_appointment_today' => $hasActiveAppointmentToday,
             'treatment' => [
                 'treatment_id' => (string) ($treatment['treatment_id'] ?? ''),
                 'patient_id' => (string) ($treatment['patient_id'] ?? ''),

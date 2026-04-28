@@ -1890,6 +1890,14 @@ try {
                     credentials: 'include'
                 });
                 const data = await parseJsonResponse(response);
+                const hasActiveAppointmentToday = Boolean(data && data.data && data.data.has_active_appointment_today);
+                if (hasActiveAppointmentToday) {
+                    await staffUiAlert({
+                        title: 'Active appointment detected',
+                        message: 'Patients can only have one active appointment at a time.',
+                        variant: 'warning'
+                    });
+                }
                 if (!response.ok || !data.success || !data.data || !data.data.has_active_treatment) {
                     activeTreatmentContext = null;
                     selectedServices = [];
