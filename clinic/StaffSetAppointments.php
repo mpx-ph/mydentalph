@@ -140,6 +140,7 @@ function buildSetAppointmentDentistsSnapshot(PDO $pdo, string $tenantId, string 
     foreach ($walkInDentists as &$dentistRow) {
         $dentistUserId = trim((string) ($dentistRow['user_id'] ?? ''));
         $shiftRanges = [];
+        $shiftWindows = [];
         $isInsideShift = false;
         $activeBlockReason = '';
         $activeBlockTypes = ['break', 'emergency', 'personal', 'other'];
@@ -167,6 +168,11 @@ function buildSetAppointmentDentistsSnapshot(PDO $pdo, string $tenantId, string 
                 }
 
                 $shiftRanges[] = $formatDisplayTime($startTime) . ' - ' . $formatDisplayTime($endTime);
+                $shiftWindows[] = [
+                    'start' => $startTime,
+                    'end' => $endTime,
+                    'label' => $formatDisplayTime($startTime) . ' - ' . $formatDisplayTime($endTime),
+                ];
                 if ($slotTime !== '' && $slotTime >= $startTime && $slotTime < $endTime) {
                     $isInsideShift = true;
                 }
@@ -176,6 +182,7 @@ function buildSetAppointmentDentistsSnapshot(PDO $pdo, string $tenantId, string 
         $dentistRow['schedule_label'] = !empty($shiftRanges)
             ? implode(' | ', array_values(array_unique($shiftRanges)))
             : 'No schedule';
+        $dentistRow['shift_windows'] = array_values($shiftWindows);
 
         if ($slotTime === '') {
             $dentistRow['is_available_for_slot'] = 1;
@@ -1021,6 +1028,28 @@ try {
             return h + ':' + m + ':00';
         }
 
+        function timeToMinutes(timeValue) {
+            const normalized = formatTimeForApi(timeValue);
+            if (!normalized) return NaN;
+            const parts = normalized.split(':');
+            if (parts.length < 2) return NaN;
+            const h = Number(parts[0]);
+            const m = Number(parts[1]);
+            if (!Number.isFinite(h) || !Number.isFinite(m)) return NaN;
+            return (h * 60) + m;
+        }
+
+        function minutesToDisplayTime(totalMinutes) {
+            const safe = Math.max(0, Number(totalMinutes) || 0);
+            const minutes = safe % (24 * 60);
+            let hour24 = Math.floor(minutes / 60);
+            const minute = minutes % 60;
+            const suffix = hour24 >= 12 ? 'PM' : 'AM';
+            hour24 = hour24 % 12;
+            if (hour24 === 0) hour24 = 12;
+            return hour24 + ':' + String(minute).padStart(2, '0') + ' ' + suffix;
+        }
+
         function escapeHtml(value) {
             return String(value || '')
                 .replace(/&/g, '&amp;')
@@ -1769,6 +1798,7 @@ try {
                 const imageSrc = escapeHtml(resolveDentistProfileImageUrl(dentist.profile_image));
                 const dentistId = escapeHtml(dentist.dentist_id || '');
                 const dentistUserId = escapeHtml(dentist.user_id || '');
+                const shiftWindowsJson = escapeHtml(JSON.stringify(Array.isArray(dentist.shift_windows) ? dentist.shift_windows : []));
                 const displayId = String(dentist.dentist_display_id || '').trim();
                 const idLineRaw = displayId !== '' ? displayId : ('ID #' + String(dentist.dentist_id || '').trim());
                 const idLine = escapeHtml(idLineRaw);
@@ -1790,9 +1820,79 @@ try {
                             '<span class="w-2.5 h-2.5 rounded-full shrink-0 ' + statusDotClass + '" title="' + statusTitle + '" aria-hidden="true"></span>' +
                             '<span>' + escapeHtml(statusLabel) + '</span>' +
                         '</p>' +
-                        '<button type="button" data-action="select-dentist" data-dentist-id="' + dentistId + '" data-dentist-user-id="' + dentistUserId + '" data-dentist-name="' + fullName + '" ' + (isAvailable ? '' : 'disabled') + ' class="' + selectButtonClass + '">' + (isAvailable ? 'Select' : 'Unavailable') + '</button>' +
+                        '<button type="button" data-action="select-dentist" data-dentist-id="' + dentistId + '" data-dentist-user-id="' + dentistUserId + '" data-dentist-name="' + fullName + '" data-dentist-shift-windows="' + shiftWindowsJson + '" ' + (isAvailable ? '' : 'disabled') + ' class="' + selectButtonClass + '">' + (isAvailable ? 'Select' : 'Unavailable') + '</button>' +
                     '</div>';
             }).join('');
+        }
+
+        function computeRequiredMinutesForSelectedServices() {
+            return selectedServices.reduce(function (sum, service) {
+                const duration = Math.max(0, Number(service && service.service_duration ? service.service_duration : 0));
+                const buffer = Math.max(0, Number(service && service.buffer_time ? service.buffer_time : 0));
+                return sum + duration + buffer;
+            }, 0);
+        }
+
+        function getSelectedDentistSnapshot() {
+            const selectedDentistId = selectedDentistIdInput ? String(selectedDentistIdInput.value || '').trim() : '';
+            if (!selectedDentistId) return null;
+            return dentistsData.find(function (dentist) {
+                return String(dentist && dentist.dentist_id ? dentist.dentist_id : '').trim() === selectedDentistId;
+            }) || null;
+        }
+
+        function validateShiftCapacityForSelectedSlot() {
+            const dentist = getSelectedDentistSnapshot();
+            if (!dentist) {
+                return { ok: true };
+            }
+            const selectedTimeRaw = timeInput ? String(timeInput.value || '').trim() : '';
+            const selectedTimeMinutes = timeToMinutes(selectedTimeRaw);
+            if (!Number.isFinite(selectedTimeMinutes)) {
+                return { ok: true };
+            }
+            const requiredMinutes = computeRequiredMinutesForSelectedServices();
+            if (!(requiredMinutes > 0)) {
+                return { ok: true };
+            }
+            const requiredEndMinutes = selectedTimeMinutes + requiredMinutes;
+            const shiftWindows = Array.isArray(dentist.shift_windows) ? dentist.shift_windows : [];
+            if (!shiftWindows.length) {
+                return {
+                    ok: false,
+                    reason: 'no_schedule',
+                    message: 'Unable to create appointment.\n\nThis dentist has no schedule on the selected date.'
+                };
+            }
+
+            let activeShift = null;
+            for (let i = 0; i < shiftWindows.length; i += 1) {
+                const shift = shiftWindows[i] || {};
+                const shiftStart = timeToMinutes(String(shift.start || ''));
+                const shiftEnd = timeToMinutes(String(shift.end || ''));
+                if (!Number.isFinite(shiftStart) || !Number.isFinite(shiftEnd) || shiftEnd <= shiftStart) continue;
+                if (selectedTimeMinutes >= shiftStart && selectedTimeMinutes < shiftEnd) {
+                    activeShift = { start: shiftStart, end: shiftEnd, label: String(shift.label || '').trim() };
+                    break;
+                }
+            }
+
+            if (!activeShift) {
+                return { ok: true };
+            }
+
+            if (requiredEndMinutes > activeShift.end) {
+                return {
+                    ok: false,
+                    reason: 'insufficient_shift_time',
+                    shiftLabel: activeShift.label || (minutesToDisplayTime(activeShift.start) + ' - ' + minutesToDisplayTime(activeShift.end)),
+                    selectedTimeLabel: minutesToDisplayTime(selectedTimeMinutes),
+                    requiredEndLabel: minutesToDisplayTime(requiredEndMinutes),
+                    message: 'Unable to create appointment.\n\nNot enough remaining shift time for this service.\n\nShift: ' + (activeShift.label || (minutesToDisplayTime(activeShift.start) + ' - ' + minutesToDisplayTime(activeShift.end))) + '\nSelected Time: ' + minutesToDisplayTime(selectedTimeMinutes) + '\nRequired End Time: ' + minutesToDisplayTime(requiredEndMinutes) + '\n\nPlease choose an earlier available time.'
+                };
+            }
+
+            return { ok: true };
         }
 
         async function refreshDentistAvailabilityForSelection() {
@@ -2148,6 +2248,16 @@ try {
                 status: 'pending'
             };
 
+            const shiftCapacityValidation = validateShiftCapacityForSelectedSlot();
+            if (!shiftCapacityValidation.ok) {
+                await staffUiAlert({
+                    title: 'Unable to create appointment',
+                    message: shiftCapacityValidation.message,
+                    variant: 'warning'
+                });
+                return;
+            }
+
             if (createWalkInAppointmentBtn) {
                 createWalkInAppointmentBtn.disabled = true;
                 createWalkInAppointmentBtn.classList.add('opacity-70', 'cursor-not-allowed');
@@ -2166,6 +2276,12 @@ try {
                 const data = await parseJsonResponse(response);
                 if (!response.ok || !data.success) {
                     const message = (data && data.message) ? data.message : 'Failed to create scheduled appointment.';
+                    if (String(message).toLowerCase().indexOf('selected staff/dentist is not available at this time') !== -1) {
+                        const retryShiftValidation = validateShiftCapacityForSelectedSlot();
+                        if (!retryShiftValidation.ok && retryShiftValidation.reason === 'insufficient_shift_time') {
+                            throw new Error(retryShiftValidation.message);
+                        }
+                    }
                     throw new Error(message);
                 }
 
