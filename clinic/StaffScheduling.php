@@ -262,9 +262,100 @@ $entriesByDate = [];
 foreach ($weekDays as $day) {
     $entriesByDate[$day['date_key']] = [];
 }
+$clinicHoursByDate = [];
+foreach ($weekDays as $day) {
+    $clinicHoursByDate[$day['date_key']] = [
+        'has_record' => false,
+        'is_closed' => true,
+        'open_time' => '--',
+        'close_time' => '--',
+        'open_time_raw' => '',
+        'close_time_raw' => '',
+    ];
+}
 
 try {
     $pdo = getDBConnection();
+    $defaultClinicHoursByDayIndex = [
+        0 => ['open_time_raw' => '09:00', 'close_time_raw' => '17:00', 'is_closed' => false],
+        1 => ['open_time_raw' => '08:00', 'close_time_raw' => '17:00', 'is_closed' => false],
+        2 => ['open_time_raw' => '08:00', 'close_time_raw' => '17:00', 'is_closed' => false],
+        3 => ['open_time_raw' => '08:00', 'close_time_raw' => '17:00', 'is_closed' => false],
+        4 => ['open_time_raw' => '08:00', 'close_time_raw' => '17:00', 'is_closed' => false],
+        5 => ['open_time_raw' => '08:00', 'close_time_raw' => '17:00', 'is_closed' => false],
+        6 => ['open_time_raw' => '09:00', 'close_time_raw' => '15:00', 'is_closed' => false],
+    ];
+    $legacyClinicHoursByDayIndex = $defaultClinicHoursByDayIndex;
+
+    $legacyHoursStmt = $pdo->query('SELECT day_of_week, open_time, close_time, is_closed FROM tbl_clinic_hours WHERE clinic_date IS NULL');
+    $legacyHoursRows = $legacyHoursStmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($legacyHoursRows as $legacyHoursRow) {
+        $legacyDayIndex = isset($legacyHoursRow['day_of_week']) ? (int) $legacyHoursRow['day_of_week'] : -1;
+        if (!isset($legacyClinicHoursByDayIndex[$legacyDayIndex])) {
+            continue;
+        }
+        $legacyIsClosed = isset($legacyHoursRow['is_closed']) && (int) $legacyHoursRow['is_closed'] === 1;
+        $legacyOpen = $legacyIsClosed ? '' : substr((string) ($legacyHoursRow['open_time'] ?? ''), 0, 5);
+        $legacyClose = $legacyIsClosed ? '' : substr((string) ($legacyHoursRow['close_time'] ?? ''), 0, 5);
+        $legacyClinicHoursByDayIndex[$legacyDayIndex] = [
+            'open_time_raw' => $legacyOpen,
+            'close_time_raw' => $legacyClose,
+            'is_closed' => $legacyIsClosed,
+        ];
+    }
+
+    $resolveClinicHoursByDate = static function ($dateValue) use ($pdo, $tz, $legacyClinicHoursByDayIndex, $defaultClinicHoursByDayIndex) {
+        $dateText = trim((string) $dateValue);
+        $dateObj = DateTimeImmutable::createFromFormat('Y-m-d', $dateText, $tz);
+        if (!($dateObj instanceof DateTimeImmutable)) {
+            return [
+                'has_record' => false,
+                'is_closed' => false,
+                'open_time' => '-',
+                'close_time' => '-',
+                'open_time_raw' => '',
+                'close_time_raw' => '',
+            ];
+        }
+
+        $dayIndex = (int) $dateObj->format('w');
+        $fallback = $legacyClinicHoursByDayIndex[$dayIndex] ?? $defaultClinicHoursByDayIndex[$dayIndex] ?? ['open_time_raw' => '08:00', 'close_time_raw' => '17:00', 'is_closed' => false];
+
+        $hoursStmt = $pdo->prepare("
+            SELECT open_time, close_time, is_closed
+            FROM tbl_clinic_hours
+            WHERE clinic_date = ?
+            LIMIT 1
+        ");
+        $hoursStmt->execute([$dateText]);
+        $hoursRow = $hoursStmt->fetch(PDO::FETCH_ASSOC);
+
+        $hasRecord = is_array($hoursRow) && !empty($hoursRow);
+        $isClosed = $hasRecord
+            ? (isset($hoursRow['is_closed']) && (int) $hoursRow['is_closed'] === 1)
+            : (bool) ($fallback['is_closed'] ?? false);
+        $openTimeRaw = $isClosed
+            ? ''
+            : ($hasRecord ? substr((string) ($hoursRow['open_time'] ?? ''), 0, 5) : (string) ($fallback['open_time_raw'] ?? ''));
+        $closeTimeRaw = $isClosed
+            ? ''
+            : ($hasRecord ? substr((string) ($hoursRow['close_time'] ?? ''), 0, 5) : (string) ($fallback['close_time_raw'] ?? ''));
+        $hasValidTimes = $openTimeRaw !== '' && $closeTimeRaw !== '';
+
+        return [
+            'has_record' => $hasRecord,
+            'is_closed' => $isClosed || !$hasValidTimes,
+            'open_time' => ($isClosed || !$hasValidTimes) ? '--' : formatTimeForUi($openTimeRaw),
+            'close_time' => ($isClosed || !$hasValidTimes) ? '--' : formatTimeForUi($closeTimeRaw),
+            'open_time_raw' => $hasValidTimes ? $openTimeRaw : '',
+            'close_time_raw' => $hasValidTimes ? $closeTimeRaw : '',
+        ];
+    };
+
+    $clinicHoursByDate = [];
+    foreach ($weekDays as $weekDayRef) {
+        $clinicHoursByDate[$weekDayRef['date_key']] = $resolveClinicHoursByDate($weekDayRef['date_key']);
+    }
 
     if (isset($_GET['dentist_shift_lookup']) && (string) $_GET['dentist_shift_lookup'] === '1') {
         header('Content-Type: application/json; charset=utf-8');
@@ -357,43 +448,17 @@ try {
             exit;
         }
 
-        $hoursStmt = $pdo->prepare("
-            SELECT open_time, close_time, is_closed
-            FROM tbl_clinic_hours
-            WHERE clinic_date = ?
-            LIMIT 1
-        ");
-        $hoursStmt->execute([$lookupDate]);
-        $hoursRow = $hoursStmt->fetch(PDO::FETCH_ASSOC);
-
-        $hasRecord = is_array($hoursRow) && !empty($hoursRow);
-        $isClosed = $hasRecord && isset($hoursRow['is_closed']) && (int) $hoursRow['is_closed'] === 1;
-        $openTimeRaw = null;
-        $closeTimeRaw = null;
-        $openTimeLabel = '-';
-        $closeTimeLabel = '-';
-
-        if ($hasRecord && !$isClosed) {
-            $openTimeRaw = substr((string) ($hoursRow['open_time'] ?? ''), 0, 5);
-            $closeTimeRaw = substr((string) ($hoursRow['close_time'] ?? ''), 0, 5);
-            if ($openTimeRaw !== '' && $closeTimeRaw !== '') {
-                $openTimeLabel = formatTimeForUi($openTimeRaw);
-                $closeTimeLabel = formatTimeForUi($closeTimeRaw);
-            }
-        } elseif ($isClosed) {
-            $openTimeLabel = '--';
-            $closeTimeLabel = '--';
-        }
+        $resolvedHours = $resolveClinicHoursByDate($lookupDate);
 
         echo json_encode([
             'success' => true,
             'date' => $lookupDate,
-            'has_record' => $hasRecord,
-            'is_closed' => $isClosed,
-            'open_time' => $openTimeLabel,
-            'close_time' => $closeTimeLabel,
-            'open_time_raw' => $openTimeRaw,
-            'close_time_raw' => $closeTimeRaw,
+            'has_record' => $resolvedHours['has_record'],
+            'is_closed' => $resolvedHours['is_closed'],
+            'open_time' => $resolvedHours['open_time'],
+            'close_time' => $resolvedHours['close_time'],
+            'open_time_raw' => $resolvedHours['open_time_raw'],
+            'close_time_raw' => $resolvedHours['close_time_raw'],
         ]);
         exit;
     }
@@ -540,6 +605,38 @@ try {
             $tenantId = $resolvedDentistTenantId;
         }
 
+        $resolvedBlockClinicHours = $resolveClinicHoursByDate($blockDate);
+        if ($resolvedBlockClinicHours['is_closed']) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'The clinic is closed for the selected date. Block time cannot be added.',
+            ]);
+            exit;
+        }
+        $blockClinicOpen = (string) ($resolvedBlockClinicHours['open_time_raw'] ?? '');
+        $blockClinicClose = (string) ($resolvedBlockClinicHours['close_time_raw'] ?? '');
+        if ($blockClinicOpen === '' || $blockClinicClose === '') {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Clinic hours are unavailable for the selected date.',
+            ]);
+            exit;
+        }
+        $blockClinicOpenMinutes = toMinutes($blockClinicOpen);
+        $blockClinicCloseMinutes = toMinutes($blockClinicClose);
+        $blockStartMinutes = toMinutes($blockStart);
+        $blockEndMinutes = toMinutes($blockEnd);
+        if ($blockStartMinutes < $blockClinicOpenMinutes || $blockEndMinutes > $blockClinicCloseMinutes) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Block time must fall within clinic operating hours for the selected day.',
+            ]);
+            exit;
+        }
+
         $blockDateObj = DateTimeImmutable::createFromFormat('Y-m-d', $blockDate, $tz);
         $blockDayName = $blockDateObj instanceof DateTimeImmutable ? $blockDateObj->format('l') : '';
         $shiftLookupStmt = $pdo->prepare("
@@ -585,8 +682,6 @@ try {
         }
         $shiftStartMinutes = toMinutes($shiftStart);
         $shiftEndMinutes = toMinutes($shiftEnd);
-        $blockStartMinutes = toMinutes($blockStart);
-        $blockEndMinutes = toMinutes($blockEnd);
         if ($blockStartMinutes < $shiftStartMinutes || $blockEndMinutes > $shiftEndMinutes) {
             http_response_code(400);
             echo json_encode([
@@ -776,23 +871,8 @@ try {
             $tenantId = $resolvedDentistTenantId;
         }
 
-        $clinicHoursStmt = $pdo->prepare("
-            SELECT open_time, close_time, is_closed
-            FROM tbl_clinic_hours
-            WHERE clinic_date = ?
-            LIMIT 1
-        ");
-        $clinicHoursStmt->execute([$shiftDate]);
-        $clinicHoursRow = $clinicHoursStmt->fetch(PDO::FETCH_ASSOC);
-        if (!is_array($clinicHoursRow) || empty($clinicHoursRow)) {
-            http_response_code(400);
-            echo json_encode([
-                'success' => false,
-                'message' => 'Clinic hours are not set for the selected date.',
-            ]);
-            exit;
-        }
-        if (isset($clinicHoursRow['is_closed']) && (int) $clinicHoursRow['is_closed'] === 1) {
+        $resolvedShiftClinicHours = $resolveClinicHoursByDate($shiftDate);
+        if ($resolvedShiftClinicHours['is_closed']) {
             http_response_code(400);
             echo json_encode([
                 'success' => false,
@@ -801,8 +881,8 @@ try {
             exit;
         }
 
-        $clinicOpen = substr((string) ($clinicHoursRow['open_time'] ?? ''), 0, 5);
-        $clinicClose = substr((string) ($clinicHoursRow['close_time'] ?? ''), 0, 5);
+        $clinicOpen = (string) ($resolvedShiftClinicHours['open_time_raw'] ?? '');
+        $clinicClose = (string) ($resolvedShiftClinicHours['close_time_raw'] ?? '');
         if ($clinicOpen === '' || $clinicClose === '') {
             http_response_code(400);
             echo json_encode([
@@ -1573,6 +1653,19 @@ $dentistsSeedData = array_map(static function ($dentist) {
             border-color: #3f3f46;
             color: #f4f4f5;
         }
+        .sched-fill--clinic-closed {
+            background-color: #f1f5f9;
+            border-color: #e2e8f0;
+            color: #64748b;
+        }
+        .schedule-closed-slot-overlay {
+            position: absolute;
+            left: 0;
+            right: 0;
+            background: #f1f5f9;
+            z-index: 11;
+            pointer-events: auto;
+        }
         .sched-legend-swatch {
             min-width: 2.75rem;
             height: 0.9rem;
@@ -1826,6 +1919,14 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                 <span class="text-sm font-semibold text-slate-700">Blocked</span>
                             </div>
                         </div>
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1.5">Clinic hours status</p>
+                            <p class="text-[10px] font-bold text-slate-400 tracking-wide mb-2">Light Grey = Clinic Closed / Unavailable</p>
+                            <div class="flex items-center gap-3 rounded-xl border border-slate-100 px-2.5 py-2">
+                                <span class="sched-legend-swatch shrink-0 rounded-xl sched-fill--clinic-closed" aria-hidden="true"></span>
+                                <span class="text-sm font-semibold text-slate-700">Clinic Closed / Unavailable</span>
+                            </div>
+                        </div>
                     </div>
                     <div class="mt-5 pt-5 border-t border-slate-100 space-y-2">
                         <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Entry type (icons in grid)</p>
@@ -1870,11 +1971,53 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                 <?php endforeach; ?>
                             </div>
                             <?php foreach ($weekDays as $weekDay): ?>
-                                <?php $dayEntries = $entriesByDate[$weekDay['date_key']] ?? []; ?>
+                                <?php
+                                $dayEntries = $entriesByDate[$weekDay['date_key']] ?? [];
+                                $dayClinicHours = $clinicHoursByDate[$weekDay['date_key']] ?? ['is_closed' => true, 'open_time_raw' => '', 'close_time_raw' => ''];
+                                $closedSegments = [];
+                                if (!empty($dayClinicHours['is_closed'])) {
+                                    $closedSegments[] = ['top' => 0, 'height' => $gridHeightPx];
+                                } else {
+                                    $openRaw = (string) ($dayClinicHours['open_time_raw'] ?? '');
+                                    $closeRaw = (string) ($dayClinicHours['close_time_raw'] ?? '');
+                                    if ($openRaw !== '' && $closeRaw !== '') {
+                                        $openMin = toMinutes($openRaw);
+                                        $closeMin = toMinutes($closeRaw);
+                                        if ($openMin < $gridStartMinutes) {
+                                            $openMin += 24 * 60;
+                                        }
+                                        if ($closeMin < $gridStartMinutes) {
+                                            $closeMin += 24 * 60;
+                                        }
+                                        if ($closeMin <= $openMin) {
+                                            $closeMin += 24 * 60;
+                                        }
+                                        $openTop = max(0, min($gridHeightPx, (int) round((($openMin - $gridStartMinutes) / 60) * $pixelsPerHour)));
+                                        $closeTop = max(0, min($gridHeightPx, (int) round((($closeMin - $gridStartMinutes) / 60) * $pixelsPerHour)));
+                                        if ($openTop > 0) {
+                                            $closedSegments[] = ['top' => 0, 'height' => $openTop];
+                                        }
+                                        if ($closeTop < $gridHeightPx) {
+                                            $closedSegments[] = ['top' => $closeTop, 'height' => $gridHeightPx - $closeTop];
+                                        }
+                                    } else {
+                                        $closedSegments[] = ['top' => 0, 'height' => $gridHeightPx];
+                                    }
+                                }
+                                ?>
                                 <div class="relative border-l border-slate-100" style="height: <?php echo (int) $gridHeightPx; ?>px;">
                                     <?php for ($line = 1; $line <= $gridHourSegments; $line++): ?>
                                         <div class="absolute left-0 right-0 border-t border-slate-100" style="top: <?php echo (int) ($line * $pixelsPerHour); ?>px;"></div>
                                     <?php endfor; ?>
+                                    <?php foreach ($closedSegments as $closedSegment): ?>
+                                        <?php if ((int) ($closedSegment['height'] ?? 0) <= 0) { continue; } ?>
+                                        <div
+                                            class="schedule-closed-slot-overlay"
+                                            style="top: <?php echo (int) ($closedSegment['top'] ?? 0); ?>px; height: <?php echo (int) ($closedSegment['height'] ?? 0); ?>px;"
+                                            title="Clinic Closed / Unavailable"
+                                            aria-hidden="true"
+                                        ></div>
+                                    <?php endforeach; ?>
                                     <?php foreach ($dayEntries as $entry): ?>
                                         <?php
                                         $entryStart = max((int) $entry['start_min'], $gridStartMinutes);
