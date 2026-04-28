@@ -64,11 +64,47 @@ if (!function_exists('appointment_reminder_load_tenant_clinic_info')) {
         if ($tenantTable !== null) {
             try {
                 $qTenants = appointment_reminder_quote_ident($tenantTable);
-                $stmt = $pdo->prepare("SELECT clinic_name FROM {$qTenants} WHERE tenant_id = ? LIMIT 1");
+                $tenantCols = clinic_table_columns($pdo, $tenantTable);
+                $selectFields = ['clinic_name'];
+
+                if (in_array('clinic_address', $tenantCols, true)) {
+                    $selectFields[] = 'clinic_address';
+                } elseif (in_array('contact_address', $tenantCols, true)) {
+                    $selectFields[] = 'contact_address';
+                }
+                if (in_array('contact_phone', $tenantCols, true)) {
+                    $selectFields[] = 'contact_phone';
+                }
+                if (in_array('contact_email', $tenantCols, true)) {
+                    $selectFields[] = 'contact_email';
+                }
+                if (in_array('logo_nav', $tenantCols, true)) {
+                    $selectFields[] = 'logo_nav';
+                } elseif (in_array('logo', $tenantCols, true)) {
+                    $selectFields[] = 'logo';
+                }
+
+                $stmt = $pdo->prepare("SELECT " . implode(', ', $selectFields) . " FROM {$qTenants} WHERE tenant_id = ? LIMIT 1");
                 $stmt->execute([$tenantId]);
                 $tenantRow = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
                 if (!empty($tenantRow['clinic_name'])) {
                     $info['clinic_name'] = trim((string) $tenantRow['clinic_name']);
+                }
+                if (!empty($tenantRow['clinic_address']) && $info['contact_address'] === '') {
+                    $info['contact_address'] = trim((string) $tenantRow['clinic_address']);
+                } elseif (!empty($tenantRow['contact_address']) && $info['contact_address'] === '') {
+                    $info['contact_address'] = trim((string) $tenantRow['contact_address']);
+                }
+                if (!empty($tenantRow['contact_phone']) && $info['contact_phone'] === '') {
+                    $info['contact_phone'] = trim((string) $tenantRow['contact_phone']);
+                }
+                if (!empty($tenantRow['contact_email']) && $info['contact_email'] === '') {
+                    $info['contact_email'] = trim((string) $tenantRow['contact_email']);
+                }
+                if (!empty($tenantRow['logo_nav']) && $info['logo'] === '') {
+                    $info['logo'] = trim((string) $tenantRow['logo_nav']);
+                } elseif (!empty($tenantRow['logo']) && $info['logo'] === '') {
+                    $info['logo'] = trim((string) $tenantRow['logo']);
                 }
             } catch (Throwable $e) {
                 error_log('Appointment reminder tenant fetch failed: ' . $e->getMessage());
@@ -130,7 +166,28 @@ if (!function_exists('appointment_reminder_to_absolute_url')) {
         if (strpos($value, '/') === 0) {
             return $base . $value;
         }
-        return $base . '/uploads/clinic/' . ltrim($value, '/');
+        $normalized = ltrim($value, '/\\');
+        $directUrl = $base . '/' . $normalized;
+
+        if (strpos($normalized, '/') !== false) {
+            return $directUrl;
+        }
+
+        $uploadRelative = 'uploads/clinic/' . $normalized;
+        $uploadUrl = $base . '/' . $uploadRelative;
+        if (defined('ROOT_PATH')) {
+            $directPath = ROOT_PATH . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $normalized);
+            if (is_file($directPath)) {
+                return $directUrl;
+            }
+            $uploadPath = ROOT_PATH . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $uploadRelative);
+            if (is_file($uploadPath)) {
+                return $uploadUrl;
+            }
+        }
+
+        // Prefer direct BASE_URL-relative path as a safer default for tenant logo files.
+        return $directUrl;
     }
 }
 
