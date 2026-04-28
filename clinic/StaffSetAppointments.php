@@ -58,6 +58,136 @@ $clinicWebRoot = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT
 $backToAppointmentsHref = $clinicWebRoot . '/StaffAppointments.php' . ($baseParams ? ('?' . http_build_query($baseParams)) : '');
 $appointmentsCreateApiPath = $clinicWebRoot . '/api/appointments.php';
 
+/**
+ * Build dentist schedule and availability snapshot for a target date/time.
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function buildSetAppointmentDentistsSnapshot(PDO $pdo, string $tenantId, string $targetDate, string $targetTime = ''): array
+{
+    $wiTables = clinic_resolve_appointment_db_tables($pdo);
+    $wiDentists = $wiTables['dentists'] ?? null;
+    if ($wiDentists === null) {
+        return [];
+    }
+
+    $wiQDent = '`' . str_replace('`', '``', $wiDentists) . '`';
+    $stmt = $pdo->prepare("
+        SELECT
+            d.dentist_id,
+            COALESCE(NULLIF(TRIM(d.user_id), ''), NULLIF(TRIM(u.user_id), ''), '') AS user_id,
+            COALESCE(d.dentist_display_id, '') AS dentist_display_id,
+            COALESCE(d.first_name, '') AS first_name,
+            COALESCE(d.last_name, '') AS last_name,
+            COALESCE(d.profile_image, '') AS profile_image,
+            COALESCE(d.status, 'active') AS status
+        FROM {$wiQDent} d
+        LEFT JOIN tbl_users u
+            ON u.tenant_id = d.tenant_id
+            AND LOWER(TRIM(COALESCE(u.email, ''))) = LOWER(TRIM(COALESCE(d.email, '')))
+            AND u.role = 'dentist'
+        WHERE d.tenant_id = ?
+        ORDER BY d.first_name ASC, d.last_name ASC
+    ");
+    $stmt->execute([$tenantId]);
+    $walkInDentists = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    $normalizeBlockReason = static function (string $blockType, string $notes): string {
+        $normalizedType = strtolower(trim($blockType));
+        if (in_array($normalizedType, ['break', 'emergency', 'personal', 'other'], true)) {
+            return ucfirst($normalizedType);
+        }
+        if (preg_match('/^\s*Reason\s*:\s*(.+)$/im', $notes, $matches)) {
+            $parsed = trim((string) ($matches[1] ?? ''));
+            if ($parsed !== '') {
+                return ucwords(strtolower($parsed));
+            }
+        }
+        return 'Blocked';
+    };
+    $formatDisplayTime = static function (string $timeValue): string {
+        $timeValue = trim($timeValue);
+        if ($timeValue === '') {
+            return '';
+        }
+        $formats = ['H:i:s', 'H:i'];
+        foreach ($formats as $format) {
+            $parsed = DateTimeImmutable::createFromFormat($format, $timeValue);
+            if ($parsed instanceof DateTimeImmutable) {
+                return $parsed->format('g:i A');
+            }
+        }
+        return $timeValue;
+    };
+
+    $slotTime = trim($targetTime);
+    if ($slotTime !== '') {
+        $slotParsed = DateTimeImmutable::createFromFormat('H:i:s', $slotTime)
+            ?: DateTimeImmutable::createFromFormat('H:i', $slotTime);
+        $slotTime = $slotParsed instanceof DateTimeImmutable ? $slotParsed->format('H:i:s') : '';
+    }
+
+    foreach ($walkInDentists as &$dentistRow) {
+        $dentistUserId = trim((string) ($dentistRow['user_id'] ?? ''));
+        $shiftRanges = [];
+        $isInsideShift = false;
+        $activeBlockReason = '';
+        $activeBlockTypes = ['break', 'emergency', 'personal', 'other'];
+        if ($dentistUserId !== '') {
+            $effectiveBlocks = clinic_get_effective_schedule_blocks($pdo, $tenantId, $dentistUserId, $targetDate);
+            foreach ($effectiveBlocks as $block) {
+                $blockType = strtolower((string) ($block['block_type'] ?? ''));
+                $startTime = trim((string) ($block['start_time'] ?? ''));
+                $endTime = trim((string) ($block['end_time'] ?? ''));
+                if ($startTime === '' || $endTime === '' || $startTime >= $endTime) {
+                    continue;
+                }
+
+                if (!in_array($blockType, ['shift', 'work'], true)) {
+                    if (!in_array($blockType, $activeBlockTypes, true)) {
+                        continue;
+                    }
+                    if ($slotTime !== '' && $slotTime >= $startTime && $slotTime < $endTime) {
+                        $activeBlockReason = $normalizeBlockReason(
+                            (string) ($block['block_type'] ?? ''),
+                            (string) ($block['notes'] ?? '')
+                        );
+                    }
+                    continue;
+                }
+
+                $shiftRanges[] = $formatDisplayTime($startTime) . ' - ' . $formatDisplayTime($endTime);
+                if ($slotTime !== '' && $slotTime >= $startTime && $slotTime < $endTime) {
+                    $isInsideShift = true;
+                }
+            }
+        }
+
+        $dentistRow['schedule_label'] = !empty($shiftRanges)
+            ? implode(' | ', array_values(array_unique($shiftRanges)))
+            : 'No schedule';
+
+        if ($slotTime === '') {
+            $dentistRow['is_available_for_slot'] = 1;
+            $dentistRow['availability_reason'] = !empty($shiftRanges) ? 'Scheduled' : 'No schedule';
+            continue;
+        }
+
+        $isBlockedByActiveBlock = $activeBlockReason !== '';
+        $dentistRow['is_available_for_slot'] = ($isInsideShift && !$isBlockedByActiveBlock) ? 1 : 0;
+        if ($isBlockedByActiveBlock) {
+            $dentistRow['availability_reason'] = 'Dentist is on ' . $activeBlockReason;
+        } else {
+            $dentistRow['availability_reason'] = $isInsideShift
+                ? 'Available'
+                : (!empty($shiftRanges) ? 'Outside Shift' : 'No schedule');
+        }
+    }
+    unset($dentistRow);
+
+    return $walkInDentists;
+}
+
 $walkInDentists = [];
 $walkInPaymentSettings = [
     'regular_downpayment_percentage' => 20.0,
@@ -80,107 +210,36 @@ try {
             $tenantId = (string) $_SESSION['public_tenant_id'];
         }
         if ($pdo && $tenantId) {
-            $wiTables = clinic_resolve_appointment_db_tables($pdo);
-            $wiDentists = $wiTables['dentists'];
-            if ($wiDentists !== null) {
-                $wiQDent = '`' . str_replace('`', '``', $wiDentists) . '`';
-                $stmt = $pdo->prepare("
-                    SELECT
-                        d.dentist_id,
-                        COALESCE(NULLIF(TRIM(d.user_id), ''), NULLIF(TRIM(u.user_id), ''), '') AS user_id,
-                        COALESCE(d.dentist_display_id, '') AS dentist_display_id,
-                        COALESCE(d.first_name, '') AS first_name,
-                        COALESCE(d.last_name, '') AS last_name,
-                        COALESCE(d.profile_image, '') AS profile_image,
-                        COALESCE(d.status, 'active') AS status
-                    FROM {$wiQDent} d
-                    LEFT JOIN tbl_users u
-                        ON u.tenant_id = d.tenant_id
-                        AND LOWER(TRIM(COALESCE(u.email, ''))) = LOWER(TRIM(COALESCE(d.email, '')))
-                        AND u.role = 'dentist'
-                    WHERE d.tenant_id = ?
-                    ORDER BY d.first_name ASC, d.last_name ASC
-                ");
-                $stmt->execute([$tenantId]);
-                $walkInDentists = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-                $manilaNow = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
-                $todayDate = $manilaNow->format('Y-m-d');
-                $todayTime = $manilaNow->format('H:i:s');
-                $normalizeBlockReason = static function (string $blockType, string $notes): string {
-                    $normalizedType = strtolower(trim($blockType));
-                    if (in_array($normalizedType, ['break', 'emergency', 'personal', 'other'], true)) {
-                        return ucfirst($normalizedType);
-                    }
-                    if (preg_match('/^\s*Reason\s*:\s*(.+)$/im', $notes, $matches)) {
-                        $parsed = trim((string) ($matches[1] ?? ''));
-                        if ($parsed !== '') {
-                            return ucwords(strtolower($parsed));
-                        }
-                    }
-                    return 'Blocked';
-                };
-                $formatDisplayTime = static function (string $timeValue): string {
-                    $timeValue = trim($timeValue);
-                    if ($timeValue === '') {
-                        return '';
-                    }
-                    $formats = ['H:i:s', 'H:i'];
-                    foreach ($formats as $format) {
-                        $parsed = DateTimeImmutable::createFromFormat($format, $timeValue);
-                        if ($parsed instanceof DateTimeImmutable) {
-                            return $parsed->format('g:i A');
-                        }
-                    }
-                    return $timeValue;
-                };
-                foreach ($walkInDentists as &$dentistRow) {
-                    $dentistUserId = trim((string) ($dentistRow['user_id'] ?? ''));
-                    $shiftRanges = [];
-                    $isInsideShift = false;
-                    $activeBlockReason = '';
-                    $activeBlockTypes = ['break', 'emergency', 'personal', 'other'];
-                    if ($dentistUserId !== '') {
-                        $effectiveBlocks = clinic_get_effective_schedule_blocks($pdo, (string) $tenantId, $dentistUserId, $todayDate);
-                        foreach ($effectiveBlocks as $block) {
-                            $blockType = strtolower((string) ($block['block_type'] ?? ''));
-                            $startTime = trim((string) ($block['start_time'] ?? ''));
-                            $endTime = trim((string) ($block['end_time'] ?? ''));
-                            if ($startTime === '' || $endTime === '' || $startTime >= $endTime) {
-                                continue;
-                            }
+            $manilaNow = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
+            $todayDate = $manilaNow->format('Y-m-d');
+            $todayTime = $manilaNow->format('H:i:s');
+            $walkInDentists = buildSetAppointmentDentistsSnapshot($pdo, (string) $tenantId, $todayDate, $todayTime);
 
-                            if (!in_array($blockType, ['shift', 'work'], true)) {
-                                if (!in_array($blockType, $activeBlockTypes, true)) {
-                                    continue;
-                                }
-                                if ($todayTime >= $startTime && $todayTime < $endTime) {
-                                    $activeBlockReason = $normalizeBlockReason(
-                                        (string) ($block['block_type'] ?? ''),
-                                        (string) ($block['notes'] ?? '')
-                                    );
-                                }
-                                continue;
-                            }
-                            $shiftRanges[] = $formatDisplayTime($startTime) . ' - ' . $formatDisplayTime($endTime);
-                            if ($todayTime >= $startTime && $todayTime < $endTime) {
-                                $isInsideShift = true;
-                            }
-                        }
-                    }
-                    $dentistRow['schedule_label'] = !empty($shiftRanges)
-                        ? implode(' | ', array_values(array_unique($shiftRanges)))
-                        : 'No schedule';
-                    $isBlockedByActiveBlock = $activeBlockReason !== '';
-                    $dentistRow['is_available_for_slot'] = ($isInsideShift && !$isBlockedByActiveBlock) ? 1 : 0;
-                    if ($isBlockedByActiveBlock) {
-                        $dentistRow['availability_reason'] = 'Dentist is on ' . $activeBlockReason;
-                    } else {
-                        $dentistRow['availability_reason'] = $isInsideShift
-                            ? 'Available'
-                            : (!empty($shiftRanges) ? 'Outside Shift' : 'No schedule');
-                    }
+            $ajaxAction = isset($_GET['action']) ? trim((string) $_GET['action']) : '';
+            if ($ajaxAction === 'dentist_availability') {
+                $requestDate = isset($_GET['date']) ? trim((string) $_GET['date']) : '';
+                $requestTime = isset($_GET['time']) ? trim((string) $_GET['time']) : '';
+                if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $requestDate)) {
+                    $requestDate = $todayDate;
                 }
-                unset($dentistRow);
+                if ($requestTime !== '' && !preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $requestTime)) {
+                    $requestTime = '';
+                }
+
+                $snapshot = buildSetAppointmentDentistsSnapshot($pdo, (string) $tenantId, $requestDate, $requestTime);
+                if (!headers_sent()) {
+                    header('Content-Type: application/json; charset=utf-8');
+                }
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Dentist schedule loaded.',
+                    'data' => [
+                        'date' => $requestDate,
+                        'time' => $requestTime,
+                        'dentists' => $snapshot,
+                    ],
+                ]);
+                exit;
             }
             $paymentSettingsTable = clinic_get_physical_table_name($pdo, 'tbl_payment_settings')
                 ?? clinic_get_physical_table_name($pdo, 'payment_settings');
@@ -889,6 +948,10 @@ try {
         const walkInDefaultDurationMaxEl = document.getElementById('walkInDefaultDurationMax');
         const walkInPaymentSettings = <?php echo json_encode($walkInPaymentSettings, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const dentistsSeedData = <?php echo json_encode($walkInDentists, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const dentistAvailabilityApiUrl = <?php
+            $dentistAvailabilityPath = $clinicWebRoot . '/StaffSetAppointments.php?action=dentist_availability';
+            echo json_encode($dentistAvailabilityPath, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        ?>;
         const patientsApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patients.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const servicesApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/services.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const patientTreatmentContextApiUrl = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patient_treatment_context.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
@@ -910,6 +973,7 @@ try {
         let allPatients = [];
         let allServices = [];
         let selectedServices = [];
+        let dentistsData = Array.isArray(dentistsSeedData) ? dentistsSeedData.slice() : [];
         let activeTreatmentContext = null;
         let selectedServiceCategoryFilter = 'all';
         const SERVICE_CATEGORY_FILTERS = [
@@ -1672,7 +1736,7 @@ try {
 
         function renderDentistsList() {
             if (!dentistListContainer || !dentistListEmptyState) return;
-            if (!dentistsSeedData.length) {
+            if (!dentistsData.length) {
                 dentistListEmptyState.textContent = 'No dentists available.';
                 dentistListEmptyState.classList.remove('hidden');
                 dentistListContainer.innerHTML = '';
@@ -1680,7 +1744,7 @@ try {
             }
 
             dentistListEmptyState.classList.add('hidden');
-            dentistListContainer.innerHTML = dentistsSeedData.map(function (dentist) {
+            dentistListContainer.innerHTML = dentistsData.map(function (dentist) {
                 const firstName = String(dentist.first_name || '').trim();
                 const lastName = String(dentist.last_name || '').trim();
                 const fullNameText = (firstName + ' ' + lastName).trim() || 'Unnamed Dentist';
@@ -1720,6 +1784,39 @@ try {
                         '<button type="button" data-action="select-dentist" data-dentist-id="' + dentistId + '" data-dentist-user-id="' + dentistUserId + '" data-dentist-name="' + fullName + '" ' + (isAvailable ? '' : 'disabled') + ' class="' + selectButtonClass + '">' + (isAvailable ? 'Select' : 'Unavailable') + '</button>' +
                     '</div>';
             }).join('');
+        }
+
+        async function refreshDentistAvailabilityForSelection() {
+            const selectedDate = dateInput ? String(dateInput.value || '').trim() : '';
+            if (!selectedDate) return;
+            const selectedTime = formatTimeForApi(timeInput ? String(timeInput.value || '').trim() : '');
+            const url = new URL(buildApiUrl(dentistAvailabilityApiUrl), window.location.origin);
+            url.searchParams.set('date', selectedDate);
+            if (selectedTime) {
+                url.searchParams.set('time', selectedTime);
+            }
+
+            try {
+                const response = await fetch(url.pathname + url.search, { credentials: 'include' });
+                const data = await parseJsonResponse(response);
+                if (!response.ok || !data.success || !data.data || !Array.isArray(data.data.dentists)) {
+                    throw new Error(data.message || 'Failed to load dentist schedule.');
+                }
+                dentistsData = data.data.dentists.slice();
+                renderDentistsList();
+
+                const currentDentistId = selectedDentistIdInput ? String(selectedDentistIdInput.value || '').trim() : '';
+                if (!currentDentistId) return;
+                const selectedDentist = dentistsData.find(function (dentist) {
+                    return String(dentist.dentist_id || '').trim() === currentDentistId;
+                });
+                const stillAvailable = selectedDentist && Number(selectedDentist.is_available_for_slot || 0) === 1;
+                if (!stillAvailable) {
+                    setSelectedDentist('', '', '');
+                }
+            } catch (error) {
+                // Keep current dentist list on transient fetch failures.
+            }
         }
 
         async function loadAllPatients() {
@@ -2310,6 +2407,16 @@ try {
         if (createWalkInAppointmentBtn) {
             createWalkInAppointmentBtn.addEventListener('click', submitWalkInAppointment);
         }
+        if (dateInput) {
+            dateInput.addEventListener('change', function () {
+                void refreshDentistAvailabilityForSelection();
+            });
+        }
+        if (timeInput) {
+            timeInput.addEventListener('change', function () {
+                void refreshDentistAvailabilityForSelection();
+            });
+        }
 
         if (dateInput && !dateInput.value) {
             dateInput.value = new Date().toISOString().slice(0, 10);
@@ -2321,6 +2428,7 @@ try {
         updatePaymentDetailsVisibility();
         updateDefaultPaymentDetails();
         renderSelectedServices();
+        void refreshDentistAvailabilityForSelection();
         regLoadProvinces('');
         loadAllPatients();
     })();
