@@ -15,9 +15,18 @@ require_once __DIR__ . '/../config/database.php';
 
 header('Content-Type: application/json');
 
+$patientFilesTableName = null;
+$patientsTableName = null;
+
 try {
     $method = $_SERVER['REQUEST_METHOD'];
     $pdo = getDBConnection();
+    $patientFilesTableName = clinic_get_physical_table_name($pdo, 'patient_files')
+        ?? clinic_get_physical_table_name($pdo, 'tbl_patient_files')
+        ?? 'patient_files';
+    $patientsTableName = clinic_get_physical_table_name($pdo, 'patients')
+        ?? clinic_get_physical_table_name($pdo, 'tbl_patients')
+        ?? 'patients';
 
     // Require authentication (client, manager, doctor, or staff)
     if (!isLoggedIn('client') && !isLoggedIn('manager') && !isLoggedIn('doctor') && !isLoggedIn('staff')) {
@@ -55,7 +64,9 @@ try {
  * Upload patient file
  */
 function uploadPatientFile() {
-    global $pdo;
+    global $pdo, $patientFilesTableName, $patientsTableName;
+    $quotedPatientFilesTable = clinic_quote_identifier((string) $patientFilesTableName);
+    $quotedPatientsTable = clinic_quote_identifier((string) $patientsTableName);
     
     $userId = getCurrentUserId(); // users.id (int)
     
@@ -89,7 +100,7 @@ function uploadPatientFile() {
     if ($patientId !== null && $patientId !== '') {
         // Staff-provided patient_id accepted as-is after basic existence check
         $stmt = $pdo->prepare("
-            SELECT patient_id FROM patients
+            SELECT patient_id FROM {$quotedPatientsTable}
             WHERE patient_id = ?
             LIMIT 1
         ");
@@ -101,7 +112,7 @@ function uploadPatientFile() {
     } elseif ($patientDbId) {
         if ($userType === 'manager' || $userType === 'doctor' || $userType === 'staff') {
             $stmt = $pdo->prepare("
-                SELECT patient_id FROM patients
+                SELECT patient_id FROM {$quotedPatientsTable}
                 WHERE id = ?
                 LIMIT 1
             ");
@@ -114,7 +125,7 @@ function uploadPatientFile() {
         } else {
         // Use provided patient_db_id (int id) and verify it belongs to the user
         $stmt = $pdo->prepare("
-            SELECT patient_id FROM patients 
+            SELECT patient_id FROM {$quotedPatientsTable}
             WHERE id = ? AND owner_user_id = ?
             LIMIT 1
         ");
@@ -130,7 +141,7 @@ function uploadPatientFile() {
     } else {
         // Fallback: Get patient_id (varchar) from patients table - use self profile (linked_user_id = user_id)
         $stmt = $pdo->prepare("
-            SELECT patient_id FROM patients 
+            SELECT patient_id FROM {$quotedPatientsTable}
             WHERE linked_user_id = ? AND owner_user_id = ?
             ORDER BY id DESC
             LIMIT 1
@@ -198,7 +209,7 @@ function uploadPatientFile() {
     // Using patients.patient_id (varchar) to identify the patient
     try {
         $stmt = $pdo->prepare("
-            INSERT INTO patient_files 
+            INSERT INTO {$quotedPatientFilesTable}
             (patient_id, file_name, file_path, file_type, file_size, file_category, description, uploaded_by, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
         ");
@@ -217,7 +228,7 @@ function uploadPatientFile() {
         $fileId = $pdo->lastInsertId();
         
         // Get the created file record
-        $stmt = $pdo->prepare("SELECT * FROM patient_files WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT * FROM {$quotedPatientFilesTable} WHERE id = ?");
         $stmt->execute([$fileId]);
         $fileRecord = $stmt->fetch();
         
@@ -237,7 +248,9 @@ function uploadPatientFile() {
  * Get patient files
  */
 function getFiles() {
-    global $pdo;
+    global $pdo, $patientFilesTableName, $patientsTableName;
+    $quotedPatientFilesTable = clinic_quote_identifier((string) $patientFilesTableName);
+    $quotedPatientsTable = clinic_quote_identifier((string) $patientsTableName);
     
     $userId = getCurrentUserId(); // users.id (int)
     $userType = $_SESSION['user_type'] ?? 'client';
@@ -273,7 +286,7 @@ function getFiles() {
         if ($userType === 'client') {
             // Use provided patient_db_id (int id) and verify it belongs to the user
             $stmt = $pdo->prepare("
-                SELECT patient_id FROM patients 
+                SELECT patient_id FROM {$quotedPatientsTable}
                 WHERE id = ? AND owner_user_id = ?
                 LIMIT 1
             ");
@@ -288,7 +301,7 @@ function getFiles() {
         } else {
             // Admin/Doctor/Staff can access by patient_db_id without ownership check
             $stmt = $pdo->prepare("
-                SELECT patient_id FROM patients 
+                SELECT patient_id FROM {$quotedPatientsTable}
                 WHERE id = ?
                 LIMIT 1
             ");
@@ -306,7 +319,7 @@ function getFiles() {
         // Only for clients
         if ($userType === 'client') {
             $stmt = $pdo->prepare("
-                SELECT patient_id FROM patients 
+                SELECT patient_id FROM {$quotedPatientsTable}
                 WHERE linked_user_id = ? AND owner_user_id = ?
                 ORDER BY id DESC
                 LIMIT 1
@@ -337,8 +350,8 @@ function getFiles() {
         // Non-deleted files will have updated_at IS NULL (since no updates are made to files)
         if ($search) {
             $sql = "
-                SELECT * FROM patient_files 
-                WHERE patient_id = ? 
+                SELECT * FROM {$quotedPatientFilesTable}
+                WHERE patient_id = ?
                 AND updated_at IS NULL
                 AND (file_name LIKE ? OR file_category LIKE ?)
                 ORDER BY created_at DESC
@@ -348,8 +361,8 @@ function getFiles() {
             $stmt->execute([$patientId, $searchTerm, $searchTerm]);
         } else {
             $sql = "
-                SELECT * FROM patient_files 
-                WHERE patient_id = ? 
+                SELECT * FROM {$quotedPatientFilesTable}
+                WHERE patient_id = ?
                 AND updated_at IS NULL
                 ORDER BY created_at DESC
             ";
@@ -384,7 +397,9 @@ function getFiles() {
  * Delete patient file
  */
 function deleteFile() {
-    global $pdo;
+    global $pdo, $patientFilesTableName, $patientsTableName;
+    $quotedPatientFilesTable = clinic_quote_identifier((string) $patientFilesTableName);
+    $quotedPatientsTable = clinic_quote_identifier((string) $patientsTableName);
     
     $userId = getCurrentUserId(); // users.id (int)
     
@@ -413,8 +428,8 @@ function deleteFile() {
     
     // Verify file belongs to user's patient profile
     $stmt = $pdo->prepare("
-        SELECT pf.* FROM patient_files pf
-        INNER JOIN patients p ON pf.patient_id = p.patient_id
+        SELECT pf.* FROM {$quotedPatientFilesTable} pf
+        INNER JOIN {$quotedPatientsTable} p ON pf.patient_id = p.patient_id
         WHERE pf.id = ? AND p.owner_user_id = ?
     ");
     $stmt->execute([$fileId, $userUserId]);
@@ -428,7 +443,7 @@ function deleteFile() {
         // Soft delete: Update updated_at timestamp instead of deleting the record
         // Since no updates are made to files, setting updated_at marks it as deleted
         // Non-deleted files will have updated_at IS NULL
-        $stmt = $pdo->prepare("UPDATE patient_files SET updated_at = NOW() WHERE id = ?");
+        $stmt = $pdo->prepare("UPDATE {$quotedPatientFilesTable} SET updated_at = NOW() WHERE id = ?");
         $stmt->execute([$fileId]);
         
         // Note: Physical file is kept for potential recovery/audit purposes
@@ -450,7 +465,9 @@ function deleteFile() {
  * Get verification status for a patient
  */
 function getVerificationStatus() {
-    global $pdo;
+    global $pdo, $patientFilesTableName, $patientsTableName;
+    $quotedPatientFilesTable = clinic_quote_identifier((string) $patientFilesTableName);
+    $quotedPatientsTable = clinic_quote_identifier((string) $patientsTableName);
     
     $userId = getCurrentUserId();
     
@@ -484,7 +501,7 @@ function getVerificationStatus() {
         } else {
             // It's likely an integer ID, convert it
             error_log("Verification status: Converting integer ID to varchar: " . $patientIdParam);
-            $stmt = $pdo->prepare("SELECT patient_id FROM patients WHERE id = ? AND owner_user_id = ?");
+            $stmt = $pdo->prepare("SELECT patient_id FROM {$quotedPatientsTable} WHERE id = ? AND owner_user_id = ?");
             $stmt->execute([intval($patientIdParam), $userUserId]);
             $patient = $stmt->fetch();
             if ($patient && $patient['patient_id']) {
@@ -496,7 +513,7 @@ function getVerificationStatus() {
         }
     } elseif ($patientDbId) {
         // Get patient_id (varchar) from patient_db_id
-        $stmt = $pdo->prepare("SELECT patient_id FROM patients WHERE id = ? AND owner_user_id = ?");
+        $stmt = $pdo->prepare("SELECT patient_id FROM {$quotedPatientsTable} WHERE id = ? AND owner_user_id = ?");
         $stmt->execute([$patientDbId, $userUserId]);
         $patient = $stmt->fetch();
         
@@ -506,7 +523,7 @@ function getVerificationStatus() {
     } else {
         // Use self profile
         $stmt = $pdo->prepare("
-            SELECT patient_id FROM patients 
+            SELECT patient_id FROM {$quotedPatientsTable}
             WHERE linked_user_id = ? AND owner_user_id = ?
             ORDER BY id DESC
             LIMIT 1
@@ -530,7 +547,7 @@ function getVerificationStatus() {
         
         // Debug: Check all files for this patient to see what's in the database
         error_log("Verification check - Querying with patient_id: " . $patientId);
-        $debugSql = "SELECT id, patient_id, description, file_category, created_at FROM patient_files WHERE patient_id = ? AND updated_at IS NULL ORDER BY created_at DESC";
+        $debugSql = "SELECT id, patient_id, description, file_category, created_at FROM {$quotedPatientFilesTable} WHERE patient_id = ? AND updated_at IS NULL ORDER BY created_at DESC";
         $debugStmt = $pdo->prepare($debugSql);
         $debugStmt->execute([$patientId]);
         $allFiles = $debugStmt->fetchAll();
@@ -543,7 +560,7 @@ function getVerificationStatus() {
             }
         } else {
             // Check if patient_id exists in patients table
-            $checkPatientStmt = $pdo->prepare("SELECT id, patient_id FROM patients WHERE patient_id = ? OR id = ?");
+            $checkPatientStmt = $pdo->prepare("SELECT id, patient_id FROM {$quotedPatientsTable} WHERE patient_id = ? OR id = ?");
             $checkPatientStmt->execute([$patientId, intval($patientId)]);
             $patientCheck = $checkPatientStmt->fetchAll();
             error_log("Patient lookup result: " . json_encode($patientCheck));
@@ -552,7 +569,7 @@ function getVerificationStatus() {
         // Check for verification files (PWD or SC) - patient is automatically verified if file exists
         $sql = "
             SELECT description, created_at 
-            FROM patient_files 
+            FROM {$quotedPatientFilesTable}
             WHERE patient_id = ? 
             AND description IN ('PWD', 'SC')
             AND updated_at IS NULL

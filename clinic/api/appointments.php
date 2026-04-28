@@ -896,9 +896,11 @@ function createAppointment() {
  * @return array ['total_cost' => float, 'total_paid' => float, 'pending_balance' => float]
  */
 function calculateBookingBalance($bookingId, $pdo) {
+    global $appointmentsTableName;
     // Get total treatment cost from appointment
     $tenantId = getClinicTenantId();
-    $stmt = $pdo->prepare("SELECT total_treatment_cost FROM appointments WHERE booking_id = ? AND tenant_id = ?");
+    $quotedAppointmentsTable = clinic_quote_identifier((string) $appointmentsTableName);
+    $stmt = $pdo->prepare("SELECT total_treatment_cost FROM {$quotedAppointmentsTable} WHERE booking_id = ? AND tenant_id = ?");
     $stmt->execute([$bookingId, $tenantId]);
     $appointment = $stmt->fetch();
     $totalCost = $appointment ? floatval($appointment['total_treatment_cost'] ?? 0) : 0;
@@ -956,7 +958,11 @@ function computeAppointmentStatus($appointment, $pdo, $installmentNumber = null)
  * Get appointments
  */
 function getAppointments() {
-    global $pdo, $tenantId;
+    global $pdo, $tenantId, $appointmentsTableName, $patientsTableName, $usersTableName, $installmentsTableName;
+    $quotedAppointmentsTable = clinic_quote_identifier((string) $appointmentsTableName);
+    $quotedPatientsTable = clinic_quote_identifier((string) $patientsTableName);
+    $quotedUsersTable = clinic_quote_identifier((string) $usersTableName);
+    $quotedInstallmentsTable = clinic_quote_identifier((string) $installmentsTableName);
     
     $userId = getCurrentUserId();
     $userType = $_SESSION['user_type'] ?? 'client';
@@ -986,10 +992,10 @@ function getAppointments() {
                        p.patient_id as patient_display_id,
                        u.email,
                        u2.email as created_by_email
-                FROM appointments a
-                LEFT JOIN patients p ON a.patient_id = p.patient_id
-                LEFT JOIN tbl_users u ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id
-                LEFT JOIN tbl_users u2 ON a.created_by = u2.user_id
+                FROM {$quotedAppointmentsTable} a
+                LEFT JOIN {$quotedPatientsTable} p ON a.patient_id = p.patient_id
+                LEFT JOIN {$quotedUsersTable} u ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id
+                LEFT JOIN {$quotedUsersTable} u2 ON a.created_by = u2.user_id
                 WHERE a.appointment_date = ?
                   AND a.tenant_id = ?
             ";
@@ -1067,11 +1073,11 @@ function getAppointments() {
                        i.scheduled_date as installment_scheduled_date,
                        i.scheduled_time as installment_scheduled_time,
                        i.status as installment_status
-                FROM installments i
-                INNER JOIN appointments a ON i.booking_id = a.booking_id
-                LEFT JOIN patients p ON a.patient_id = p.patient_id
-                LEFT JOIN tbl_users u ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id
-                LEFT JOIN tbl_users u2 ON a.created_by = u2.user_id
+                FROM {$quotedInstallmentsTable} i
+                INNER JOIN {$quotedAppointmentsTable} a ON i.booking_id = a.booking_id
+                LEFT JOIN {$quotedPatientsTable} p ON a.patient_id = p.patient_id
+                LEFT JOIN {$quotedUsersTable} u ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id
+                LEFT JOIN {$quotedUsersTable} u2 ON a.created_by = u2.user_id
                 WHERE i.scheduled_date = ?
                   AND i.tenant_id = ?
                   AND a.tenant_id = ?
@@ -1166,10 +1172,10 @@ function getAppointments() {
                        p.patient_id as patient_display_id,
                        u.email,
                        u2.email as created_by_email
-                FROM appointments a
-                LEFT JOIN patients p ON a.patient_id = p.patient_id
-                LEFT JOIN tbl_users u ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id
-                LEFT JOIN tbl_users u2 ON a.created_by = u2.user_id
+                FROM {$quotedAppointmentsTable} a
+                LEFT JOIN {$quotedPatientsTable} p ON a.patient_id = p.patient_id
+                LEFT JOIN {$quotedUsersTable} u ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id
+                LEFT JOIN {$quotedUsersTable} u2 ON a.created_by = u2.user_id
                 WHERE a.tenant_id = ?
             ";
             
@@ -1225,9 +1231,9 @@ function getAppointments() {
                        p.contact_number,
                        p.patient_id as patient_display_id,
                        u.email
-                FROM appointments a
-                INNER JOIN patients p ON a.patient_id = p.patient_id
-                LEFT JOIN tbl_users u ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id
+                FROM {$quotedAppointmentsTable} a
+                INNER JOIN {$quotedPatientsTable} p ON a.patient_id = p.patient_id
+                LEFT JOIN {$quotedUsersTable} u ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id
                 WHERE p.owner_user_id = ?
                   AND a.tenant_id = ?
                   AND p.tenant_id = ?
