@@ -41,7 +41,6 @@ try {
 
     $p = api_profile_fetch_patient($pdo, $userId, $tenantId);
 
-    $userPhoto = trim((string) ($user['photo'] ?? ''));
     $patImg    = $p ? trim((string) ($p['profile_image'] ?? '')) : '';
     $phone     = trim((string) ($user['phone'] ?? ''));
     $contact   = $p ? trim((string) ($p['contact_number'] ?? '')) : '';
@@ -81,9 +80,10 @@ try {
         'email'              => (string) ($user['email'] ?? ''),
         'username'           => (string) ($user['username'] ?? ''),
         'full_name'          => (string) ($user['full_name'] ?? ''),
-        'user_photo'         => $userPhoto,
+        // Backward-compatible alias; now sourced from tbl_patients.profile_image only.
+        'user_photo'         => $patImg,
         'patient_profile_image' => $patImg,
-        'profile_image'      => $patImg !== '' ? $patImg : $userPhoto,
+        'profile_image'      => $patImg,
         'personal'           => $pObj,
         'address'            => $addr,
         'account'            => [

@@ -1,5 +1,5 @@
 <?php
-// api/upload_profile_photo.php — mobile app: save profile image to tbl_users + tbl_patients
+// api/upload_profile_photo.php — mobile app: save profile image to tbl_patients
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -131,7 +131,7 @@ $relPath = $saved['rel'];
 
 try {
     $stmt = $pdo->prepare(
-        "SELECT user_id, photo, role FROM tbl_users WHERE user_id = ? AND tenant_id = ? LIMIT 1"
+        "SELECT user_id, role FROM tbl_users WHERE user_id = ? AND tenant_id = ? LIMIT 1"
     );
     $stmt->execute([$user_id, $tenant_id]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -146,8 +146,6 @@ try {
         exit;
     }
 
-    $oldUser = trim((string) ($user['photo'] ?? ''));
-
     $stmt = $pdo->prepare(
         "SELECT id, profile_image FROM tbl_patients
          WHERE tenant_id = ?
@@ -160,18 +158,15 @@ try {
     $oldPat = $patient ? trim((string) ($patient['profile_image'] ?? '')) : '';
 
     $pdo->beginTransaction();
-    $stmt = $pdo->prepare('UPDATE tbl_users SET photo = ?, updated_at = NOW() WHERE user_id = ? AND tenant_id = ?');
-    $stmt->execute([$relPath, $user_id, $tenant_id]);
     if ($patient) {
         $stmt = $pdo->prepare('UPDATE tbl_patients SET profile_image = ?, updated_at = NOW() WHERE id = ?');
         $stmt->execute([$relPath, $patient['id']]);
+    } else {
+        throw new RuntimeException('No linked patient record found for this account.');
     }
     $pdo->commit();
 
-    if ($oldUser !== '' && $oldUser !== $relPath) {
-        api_profile_unlink_if_local($oldUser);
-    }
-    if ($oldPat !== '' && $oldPat !== $relPath && $oldPat !== $oldUser) {
+    if ($oldPat !== '' && $oldPat !== $relPath) {
         api_profile_unlink_if_local($oldPat);
     }
 
@@ -180,6 +175,7 @@ try {
         'message'         => 'Profile photo updated.',
         'profile_image'  => $relPath,
         'user_photo'     => $relPath,
+        'patient_profile_image' => $relPath,
     ]);
 } catch (Throwable $e) {
     if (isset($pdo) && $pdo->inTransaction()) {

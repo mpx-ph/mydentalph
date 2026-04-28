@@ -32,7 +32,6 @@ try {
                 u.phone,
                 u.created_at AS registration_date,
                 u.updated_at AS user_updated_at,
-                u.photo AS user_photo,
                 t.clinic_name as tenant_name,
                 p.patient_id AS patient_id,
                 p.date_of_birth as birthdate,
@@ -67,11 +66,10 @@ try {
         $user['address'] = $user['address'] ?: "";
         $user['birthdate'] = $user['birthdate'] ?: "";
         $patImg = trim((string) ($user['patient_profile_image'] ?? ''));
-        $uImg   = trim((string) ($user['user_photo'] ?? ''));
         $user['patient_profile_image'] = $patImg;
-        $user['user_photo'] = $uImg;
-        // Single field apps can use for avatar (patient row preferred, then users.photo)
-        $user['profile_image'] = $patImg !== '' ? $patImg : $uImg;
+        // Backward-compatible alias; now sourced from tbl_patients.profile_image only.
+        $user['user_photo'] = $patImg;
+        $user['profile_image'] = $patImg;
 
         $uU = (string) ($user['user_updated_at'] ?? '');
         $pU = (string) ($user['patient_updated_at'] ?? '');

@@ -8,7 +8,7 @@ declare(strict_types=1);
 function api_profile_fetch_user(PDO $pdo, string $userId, string $tenantId): ?array
 {
     $st = $pdo->prepare(
-        "SELECT user_id, tenant_id, username, email, full_name, role, phone, photo, created_at, updated_at, status
+        "SELECT user_id, tenant_id, username, email, full_name, role, phone, created_at, updated_at, status
          FROM tbl_users
          WHERE user_id = ? AND tenant_id = ?
          LIMIT 1"
