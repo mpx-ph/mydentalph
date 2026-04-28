@@ -18,6 +18,7 @@ header('Content-Type: application/json');
 
 $patientFilesTableName = null;
 $patientsTableName = null;
+$patientFilesHasUpdatedAt = false;
 
 register_shutdown_function(static function () {
     $lastError = error_get_last();
@@ -53,6 +54,30 @@ try {
         ?? 'patient_files';
     $patientsTableName = $resolveTable($pdo, 'patients', 'tbl_patients')
         ?? 'patients';
+    $quotedPatientFilesTable = clinic_quote_identifier((string) $patientFilesTableName);
+    try {
+        $columnCheckStmt = $pdo->prepare("
+            SELECT 1
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+              AND COLUMN_NAME = 'updated_at'
+            LIMIT 1
+        ");
+        $columnCheckStmt->execute([(string) $patientFilesTableName]);
+        $patientFilesHasUpdatedAt = (bool) $columnCheckStmt->fetchColumn();
+    } catch (Throwable $e) {
+        // Fallback: assume column does not exist if metadata query fails.
+        $patientFilesHasUpdatedAt = false;
+    }
+    if (!$patientFilesHasUpdatedAt) {
+        try {
+            $pdo->query("SELECT updated_at FROM {$quotedPatientFilesTable} WHERE 1=0");
+            $patientFilesHasUpdatedAt = true;
+        } catch (Throwable $e) {
+            $patientFilesHasUpdatedAt = false;
+        }
+    }
 
     // Require authentication (client, manager, doctor, or staff)
     if (!isLoggedIn('client') && !isLoggedIn('manager') && !isLoggedIn('doctor') && !isLoggedIn('staff')) {
@@ -274,7 +299,7 @@ function uploadPatientFile() {
  * Get patient files
  */
 function getFiles() {
-    global $pdo, $patientFilesTableName, $patientsTableName;
+    global $pdo, $patientFilesTableName, $patientsTableName, $patientFilesHasUpdatedAt;
     $quotedPatientFilesTable = clinic_quote_identifier((string) $patientFilesTableName);
     $quotedPatientsTable = clinic_quote_identifier((string) $patientsTableName);
     
@@ -374,11 +399,12 @@ function getFiles() {
         // Build query - use updated_at for soft delete (since deleted_at doesn't exist)
         // Files that are soft-deleted will have updated_at set (via UPDATE)
         // Non-deleted files will have updated_at IS NULL (since no updates are made to files)
+        $activeFilterSql = $patientFilesHasUpdatedAt ? "AND updated_at IS NULL" : "";
         if ($search) {
             $sql = "
                 SELECT * FROM {$quotedPatientFilesTable}
                 WHERE patient_id = ?
-                AND updated_at IS NULL
+                {$activeFilterSql}
                 AND (file_name LIKE ? OR file_category LIKE ?)
                 ORDER BY created_at DESC
             ";
@@ -389,7 +415,7 @@ function getFiles() {
             $sql = "
                 SELECT * FROM {$quotedPatientFilesTable}
                 WHERE patient_id = ?
-                AND updated_at IS NULL
+                {$activeFilterSql}
                 ORDER BY created_at DESC
             ";
             $stmt = $pdo->prepare($sql);
@@ -423,7 +449,7 @@ function getFiles() {
  * Delete patient file
  */
 function deleteFile() {
-    global $pdo, $patientFilesTableName, $patientsTableName;
+    global $pdo, $patientFilesTableName, $patientsTableName, $patientFilesHasUpdatedAt;
     $quotedPatientFilesTable = clinic_quote_identifier((string) $patientFilesTableName);
     $quotedPatientsTable = clinic_quote_identifier((string) $patientsTableName);
     
@@ -466,11 +492,15 @@ function deleteFile() {
     }
     
     try {
-        // Soft delete: Update updated_at timestamp instead of deleting the record
-        // Since no updates are made to files, setting updated_at marks it as deleted
-        // Non-deleted files will have updated_at IS NULL
-        $stmt = $pdo->prepare("UPDATE {$quotedPatientFilesTable} SET updated_at = NOW() WHERE id = ?");
-        $stmt->execute([$fileId]);
+        if ($patientFilesHasUpdatedAt) {
+            // Soft delete: mark updated_at when available.
+            $stmt = $pdo->prepare("UPDATE {$quotedPatientFilesTable} SET updated_at = NOW() WHERE id = ?");
+            $stmt->execute([$fileId]);
+        } else {
+            // Legacy schema fallback: hard delete when updated_at does not exist.
+            $stmt = $pdo->prepare("DELETE FROM {$quotedPatientFilesTable} WHERE id = ?");
+            $stmt->execute([$fileId]);
+        }
         
         // Note: Physical file is kept for potential recovery/audit purposes
         // If you want to delete the physical file as well, uncomment the following:
@@ -491,7 +521,7 @@ function deleteFile() {
  * Get verification status for a patient
  */
 function getVerificationStatus() {
-    global $pdo, $patientFilesTableName, $patientsTableName;
+    global $pdo, $patientFilesTableName, $patientsTableName, $patientFilesHasUpdatedAt;
     $quotedPatientFilesTable = clinic_quote_identifier((string) $patientFilesTableName);
     $quotedPatientsTable = clinic_quote_identifier((string) $patientsTableName);
     
@@ -573,7 +603,9 @@ function getVerificationStatus() {
         
         // Debug: Check all files for this patient to see what's in the database
         error_log("Verification check - Querying with patient_id: " . $patientId);
-        $debugSql = "SELECT id, patient_id, description, file_category, created_at FROM {$quotedPatientFilesTable} WHERE patient_id = ? AND updated_at IS NULL ORDER BY created_at DESC";
+        $debugSql = "SELECT id, patient_id, description, file_category, created_at FROM {$quotedPatientFilesTable} WHERE patient_id = ? "
+            . ($patientFilesHasUpdatedAt ? "AND updated_at IS NULL " : "")
+            . "ORDER BY created_at DESC";
         $debugStmt = $pdo->prepare($debugSql);
         $debugStmt->execute([$patientId]);
         $allFiles = $debugStmt->fetchAll();
@@ -598,7 +630,7 @@ function getVerificationStatus() {
             FROM {$quotedPatientFilesTable}
             WHERE patient_id = ? 
             AND description IN ('PWD', 'SC')
-            AND updated_at IS NULL
+            " . ($patientFilesHasUpdatedAt ? "AND updated_at IS NULL" : "") . "
             ORDER BY created_at DESC LIMIT 1
         ";
         
