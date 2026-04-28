@@ -1940,16 +1940,27 @@ try {
                             throw new RuntimeException('Not enough pending installments for this payment selection.');
                         }
 
-                        $expected = 0.0;
+                        $expectedFromSchedule = 0.0;
                         foreach ($toPay as $tp) {
-                            $expected += (float) $tp['amount_due'];
+                            $expectedFromSchedule += (float) $tp['amount_due'];
                         }
-                        $expected = round($expected, 2);
+                        $expectedFromSchedule = round($expectedFromSchedule, 2);
+                        // Full settlement should match the treatment's actual remaining balance.
+                        // Schedule rows can occasionally drift from computed pending balance.
+                        $expected = $mode === 'full'
+                            ? round(max(0.0, (float) $pendingBalance), 2)
+                            : $expectedFromSchedule;
                         $installmentPaymentAmount = round(max(0.0, (float) $amount - (float) $addedServicesTotal), 2);
                         if ($installmentPaymentAmount <= 0.0) {
                             throw new RuntimeException('Payment amount must include at least the selected installment amount.');
                         }
-                        if (abs($installmentPaymentAmount - $expected) > 0.05) {
+                        $matchesExpected = abs($installmentPaymentAmount - $expected) <= 0.05;
+                        // Backward-compatible tolerance: accept full payment that matches schedule total
+                        // in cases where pending-balance reconciliation has not yet been fully aligned.
+                        if (!$matchesExpected && $mode === 'full') {
+                            $matchesExpected = abs($installmentPaymentAmount - $expectedFromSchedule) <= 0.05;
+                        }
+                        if (!$matchesExpected) {
                             throw new RuntimeException('Payment amount must be ₱' . number_format($expected, 2) . ' for the selected installment option.');
                         }
 
