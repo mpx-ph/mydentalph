@@ -2090,6 +2090,13 @@ try {
             createWalkInAppointmentBtn.classList.toggle('cursor-not-allowed', shouldDisable);
         }
 
+        function rangesOverlap(startA, endA, startB, endB) {
+            if (!Number.isFinite(startA) || !Number.isFinite(endA) || !Number.isFinite(startB) || !Number.isFinite(endB)) {
+                return false;
+            }
+            return startA < endB && startB < endA;
+        }
+
         async function runLiveConflictValidation(options) {
             const opts = options || {};
             const showAlerts = Boolean(opts.showAlerts);
@@ -2143,10 +2150,16 @@ try {
                 };
             }
 
-            const hasTimeSlotConflict = Boolean(dentistId && appointmentTime && appointments.some(function (appointment) {
+            const selectedStartMinutes = timeToMinutes(appointmentTime);
+            const selectedDurationMinutes = Math.max(60, computeRequiredMinutesForSelectedServices());
+            const selectedEndMinutes = Number.isFinite(selectedStartMinutes) ? selectedStartMinutes + selectedDurationMinutes : NaN;
+            const hasTimeSlotConflict = Boolean(dentistId && Number.isFinite(selectedStartMinutes) && appointments.some(function (appointment) {
                 if (!isConflictBlockingStatus(appointment.final_status || appointment.status)) return false;
-                return String(appointment.dentist_id || '').trim() === dentistId
-                    && formatTimeForApi(String(appointment.appointment_time || '').trim()) === appointmentTime;
+                if (String(appointment.dentist_id || '').trim() !== dentistId) return false;
+                const existingStartMinutes = timeToMinutes(String(appointment.appointment_time || '').trim());
+                if (!Number.isFinite(existingStartMinutes)) return false;
+                const existingEndMinutes = existingStartMinutes + 60;
+                return rangesOverlap(selectedStartMinutes, selectedEndMinutes, existingStartMinutes, existingEndMinutes);
             }));
             const hasPatientDuplicate = Boolean(patientId && appointments.some(function (appointment) {
                 if (!isConflictBlockingStatus(appointment.final_status || appointment.status)) return false;
@@ -2176,6 +2189,13 @@ try {
                     message: 'Only one appointment at a time is allowed for this patient.',
                     variant: 'warning'
                 });
+                setSelectedPatient('', '');
+                await loadPatientTreatmentContext('');
+                liveValidationState = {
+                    hasTimeSlotConflict: liveValidationState.hasTimeSlotConflict,
+                    hasPatientDuplicate: false
+                };
+                syncCreateAppointmentButtonState();
             }
 
             return {
