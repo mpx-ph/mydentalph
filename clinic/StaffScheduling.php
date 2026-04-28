@@ -1689,8 +1689,16 @@ $dentistsSeedData = array_map(static function ($dentist) {
         .alert-popup-enter {
             animation: alert-popup-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
+        .schedule-popup-enter {
+            animation: schedule-popup-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            transform-origin: center;
+        }
         @keyframes alert-popup-in {
             from { opacity: 0; transform: translateY(10px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes schedule-popup-in {
+            from { opacity: 0; transform: translateY(14px) scale(0.97); }
             to { opacity: 1; transform: translateY(0) scale(1); }
         }
         .shift-tooltip-card {
@@ -2142,26 +2150,36 @@ $dentistsSeedData = array_map(static function ($dentist) {
     </div>
 </div>
 <div id="setShiftModal" class="hidden fixed inset-0 z-[70]">
-    <div class="absolute inset-0 bg-slate-900/45"></div>
+    <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"></div>
     <div class="relative h-full w-full flex items-center justify-center p-4">
-        <div class="w-full max-w-3xl rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
-            <div class="px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-primary/10 via-white to-white flex items-center justify-between gap-4">
-                <div>
-                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Dentist Scheduling</p>
-                    <h3 class="text-2xl font-extrabold text-slate-900 tracking-tight">Set Dentist Shift</h3>
-                    <p class="mt-1 text-xs font-semibold text-slate-500">Define a one-day or weekly working schedule.</p>
+        <div class="staff-modal-panel schedule-popup-enter bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col">
+            <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
+                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
+                    <span class="material-symbols-outlined text-2xl text-primary">schedule</span>
                 </div>
-                <button id="closeSetShiftModalBtn" type="button" class="w-9 h-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center justify-center">
-                    <span class="material-symbols-outlined text-[18px]">close</span>
+                <div class="min-w-0 flex-1 pr-2">
+                    <h3 class="text-xl sm:text-2xl font-extrabold font-headline text-on-background tracking-tight">Set Dentist Shift</h3>
+                    <p class="text-sm text-slate-500 mt-1 leading-relaxed">Define a one-day or weekly working schedule</p>
+                </div>
+                <button id="closeSetShiftModalBtn" type="button" class="shrink-0 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Close">
+                    <span class="material-symbols-outlined text-[22px]">close</span>
                 </button>
             </div>
-            <div class="px-6 py-6 bg-slate-50/40">
-                <form id="setShiftForm" class="space-y-4">
-                    <div class="rounded-2xl border border-slate-200 bg-white p-5 space-y-4 shadow-sm">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="px-6 sm:px-8 pt-3 pb-5 space-y-6 overflow-y-auto">
+                <form id="setShiftForm" class="space-y-6">
+                    <section>
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="material-symbols-outlined text-primary text-[22px]">info</span>
+                            <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Basic Information</h4>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                             <div>
-                                <label for="setShiftDentistId" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Dentist</label>
-                                <select id="setShiftDentistId" class="schedule-input w-full py-3 px-4">
+                                <label for="setShiftDentistId" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">badge</span>
+                                    Dentist
+                                </label>
+                                <select id="setShiftDentistId" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all cursor-pointer">
                                     <?php foreach ($dentists as $dentist): ?>
                                         <?php
                                         $shiftDentistId = trim((string) ($dentist['dentist_id'] ?? ''));
@@ -2181,60 +2199,83 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                 </select>
                             </div>
                             <div>
-                                <label for="setShiftDate" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Date</label>
-                                <div class="schedule-input w-full py-3 px-4 inline-flex items-center gap-2.5">
-                                    <span class="material-symbols-outlined text-[18px] text-primary">event</span>
-                                    <input id="setShiftDate" type="date" min="<?php echo htmlspecialchars($todayDateOnly, ENT_QUOTES, 'UTF-8'); ?>" value="<?php echo htmlspecialchars($setShiftDefaultDate, ENT_QUOTES, 'UTF-8'); ?>" class="w-full bg-transparent p-0 border-0 text-sm font-extrabold text-slate-900 focus:ring-0"/>
+                                <label for="setShiftDate" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">event</span>
+                                    Date
+                                </label>
+                                <div class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 transition-all inline-flex items-center gap-2.5">
+                                    <input id="setShiftDate" type="date" min="<?php echo htmlspecialchars($todayDateOnly, ENT_QUOTES, 'UTF-8'); ?>" value="<?php echo htmlspecialchars($setShiftDefaultDate, ENT_QUOTES, 'UTF-8'); ?>" class="w-full bg-transparent p-0 border-0 text-[15px] font-semibold text-slate-900 focus:ring-0"/>
                                 </div>
                             </div>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
-                            <p id="setShiftClinicHoursLabel" class="text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em]">Clinic Hours for the day <?php echo htmlspecialchars((new DateTimeImmutable($setShiftDefaultDate, $tz))->format('F j, Y'), ENT_QUOTES, 'UTF-8'); ?></p>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5 space-y-3">
+                            <p id="setShiftClinicHoursLabel" class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Clinic Hours for the day <?php echo htmlspecialchars((new DateTimeImmutable($setShiftDefaultDate, $tz))->format('F j, Y'), ENT_QUOTES, 'UTF-8'); ?></p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                                 <div>
-                                    <label for="setShiftClinicOpenTime" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Open Time (Read Only)</label>
-                                    <input id="setShiftClinicOpenTime" type="text" value="-" readonly class="w-full py-3 px-4 rounded-xl border border-slate-200 bg-slate-100 text-sm font-bold text-slate-500 cursor-not-allowed"/>
+                                    <label for="setShiftClinicOpenTime" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                        <span class="material-symbols-outlined text-[18px] text-slate-500">storefront</span>
+                                        Open Time (Read Only)
+                                    </label>
+                                    <input id="setShiftClinicOpenTime" type="text" value="-" readonly class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 text-[15px] font-semibold cursor-not-allowed"/>
                                 </div>
                                 <div>
-                                    <label for="setShiftClinicCloseTime" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Close Time (Read Only)</label>
-                                    <input id="setShiftClinicCloseTime" type="text" value="-" readonly class="w-full py-3 px-4 rounded-xl border border-slate-200 bg-slate-100 text-sm font-bold text-slate-500 cursor-not-allowed"/>
+                                    <label for="setShiftClinicCloseTime" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                        <span class="material-symbols-outlined text-[18px] text-slate-500">storefront</span>
+                                        Close Time (Read Only)
+                                    </label>
+                                    <input id="setShiftClinicCloseTime" type="text" value="-" readonly class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 text-[15px] font-semibold cursor-not-allowed"/>
                                 </div>
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                             <div>
-                                <label for="setShiftStartTime" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Start Time</label>
-                                <input id="setShiftStartTime" type="time" step="60" value="09:00" class="schedule-input w-full py-3 px-4"/>
+                                <label for="setShiftStartTime" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">timer</span>
+                                    Start Time
+                                </label>
+                                <input id="setShiftStartTime" type="time" step="60" value="09:00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
                             </div>
                             <div>
-                                <label for="setShiftEndTime" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">End Time</label>
-                                <input id="setShiftEndTime" type="time" step="60" value="17:00" class="schedule-input w-full py-3 px-4"/>
+                                <label for="setShiftEndTime" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">timer_off</span>
+                                    End Time
+                                </label>
+                                <input id="setShiftEndTime" type="time" step="60" value="17:00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
                             </div>
                         </div>
                         <div>
-                            <p class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Repeat</p>
+                            <p class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                <span class="material-symbols-outlined text-[18px] text-slate-500">repeat</span>
+                                Repeat
+                            </p>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                <label class="inline-flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 hover:border-primary/30 cursor-pointer">
+                                <label class="inline-flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 hover:border-primary/30 cursor-pointer">
                                     <input type="radio" name="setShiftRepeat" value="one_day" checked class="h-4 w-4 border-slate-300 text-primary focus:ring-primary/30"/>
                                     One Day
                                 </label>
-                                <label class="inline-flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 hover:border-primary/30 cursor-pointer">
+                                <label class="inline-flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 hover:border-primary/30 cursor-pointer">
                                     <input type="radio" name="setShiftRepeat" value="weekly" class="h-4 w-4 border-slate-300 text-primary focus:ring-primary/30"/>
                                     Weekly
                                 </label>
                             </div>
                         </div>
                         <div>
-                            <label for="setShiftNotes" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Notes</label>
-                            <textarea id="setShiftNotes" rows="3" class="schedule-input w-full py-3 px-4 resize-y" placeholder="Optional text"></textarea>
+                            <label for="setShiftNotes" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                <span class="material-symbols-outlined text-[18px] text-slate-500">description</span>
+                                Notes
+                            </label>
+                            <textarea id="setShiftNotes" rows="3" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all resize-y min-h-[100px]" placeholder="Optional text"></textarea>
                         </div>
-                    </div>
-                    <div class="pt-4 border-t border-slate-200 flex items-center justify-end gap-2.5">
-                        <button id="cancelSetShiftBtn" type="button" class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs uppercase tracking-widest transition-colors">
+                        </div>
+                    </section>
+                    <div class="border-t border-slate-100 bg-slate-50/50 px-0 py-4 flex flex-wrap items-center justify-end gap-3">
+                        <button id="cancelSetShiftBtn" type="button" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+                            <span class="material-symbols-outlined text-[18px]">close</span>
                             Cancel
                         </button>
-                        <button id="saveSetShiftBtn" type="button" class="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs uppercase tracking-widest transition-colors shadow-sm">
-                            Save
+                        <button id="saveSetShiftBtn" type="button" class="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/92 text-white text-sm font-bold shadow-lg shadow-primary/25 transition-all">
+                            <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                            Save Shift
                         </button>
                     </div>
                 </form>
@@ -2245,7 +2286,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
 <div id="blockTimeModal" class="hidden fixed inset-0 z-[70]">
     <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"></div>
     <div class="relative h-full w-full flex items-center justify-center p-4">
-        <div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col">
+        <div class="staff-modal-panel schedule-popup-enter bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col">
             <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
                 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
                     <span class="material-symbols-outlined text-2xl text-primary">block</span>
