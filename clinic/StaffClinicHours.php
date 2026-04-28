@@ -463,14 +463,14 @@ try {
         .modal-time-input {
             border: 1px solid #e2e8f0;
             background: #ffffff;
-            border-radius: 0.95rem !important;
-            font-size: 0.95rem;
+            border-radius: 0.75rem !important;
+            font-size: 0.9375rem;
             font-weight: 600;
             color: #0f172a;
             min-height: 3.1rem;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
             overflow: hidden;
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
         }
         input[type="time"].modal-time-input {
             -webkit-appearance: none;
@@ -480,7 +480,7 @@ try {
         .modal-time-input:focus {
             border-color: #2b8beb;
             background: #ffffff;
-            box-shadow: 0 0 0 3px rgba(43, 139, 235, 0.15);
+            box-shadow: 0 0 0 2px rgba(43, 139, 235, 0.15);
             outline: none;
         }
         .modal-day-pill {
@@ -529,31 +529,31 @@ try {
         .bulk-date-input {
             border: 1px solid #e2e8f0;
             background: #ffffff;
-            border-radius: 0.95rem;
+            border-radius: 0.75rem;
             min-height: 3.1rem;
-            font-size: 0.95rem;
+            font-size: 0.9375rem;
             font-weight: 600;
             color: #0f172a;
             width: 100%;
             padding: 0 2.75rem 0 1rem;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
             appearance: none;
             -webkit-appearance: none;
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
         }
         .bulk-date-input:hover {
-            border-color: rgba(43, 139, 235, 0.45);
+            border-color: #e2e8f0;
             background: #ffffff;
         }
         .bulk-date-input:focus {
             outline: none;
             border-color: #2b8beb;
-            box-shadow: 0 0 0 3px rgba(43, 139, 235, 0.15);
+            box-shadow: 0 0 0 2px rgba(43, 139, 235, 0.15);
         }
         .bulk-date-input.is-active {
-            border-color: rgba(43, 139, 235, 0.65);
-            background: #f8fbff;
-            box-shadow: 0 0 0 3px rgba(43, 139, 235, 0.14);
+            border-color: #2b8beb;
+            background: #ffffff;
+            box-shadow: 0 0 0 2px rgba(43, 139, 235, 0.15);
         }
         .bulk-date-input::-webkit-calendar-picker-indicator {
             opacity: 0;
@@ -920,8 +920,7 @@ try {
                 </div>
                 </section>
             </div>
-            <div class="border-t border-slate-100 bg-slate-50/50 px-6 sm:px-8 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p id="bulkEventSummary" class="text-sm font-bold text-slate-700">Event: -</p>
+            <div class="border-t border-slate-100 bg-slate-50/50 px-6 sm:px-8 py-4 flex justify-end">
                 <div class="flex items-center gap-2">
                     <button type="button" data-close-modal="applyClinicHoursModal" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
                         <span class="material-symbols-outlined text-[18px]">close</span>
@@ -991,11 +990,38 @@ try {
         syncBodyScrollLock();
     }
 
+    let modalScrollLockY = 0;
+    let isModalScrollLocked = false;
+
     function syncBodyScrollLock() {
         const hasVisibleModal = Array.from(document.querySelectorAll('[id$="Modal"]')).some((modal) => {
             return !modal.classList.contains('hidden');
         });
-        document.body.style.overflow = hasVisibleModal ? 'hidden' : '';
+        if (hasVisibleModal && !isModalScrollLocked) {
+            modalScrollLockY = window.scrollY || window.pageYOffset || 0;
+            document.documentElement.style.overflow = 'hidden';
+            document.body.style.overflow = 'hidden';
+            document.body.style.position = 'fixed';
+            document.body.style.top = `-${modalScrollLockY}px`;
+            document.body.style.left = '0';
+            document.body.style.right = '0';
+            document.body.style.width = '100%';
+            isModalScrollLocked = true;
+            return;
+        }
+
+        if (!hasVisibleModal && isModalScrollLocked) {
+            document.documentElement.style.overflow = '';
+            document.body.style.overflow = '';
+            document.body.style.position = '';
+            document.body.style.top = '';
+            document.body.style.left = '';
+            document.body.style.right = '';
+            document.body.style.width = '';
+            window.scrollTo(0, modalScrollLockY);
+            modalScrollLockY = 0;
+            isModalScrollLocked = false;
+        }
     }
 
     function setClosedState(isClosed) {
