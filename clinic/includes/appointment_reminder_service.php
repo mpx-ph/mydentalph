@@ -280,10 +280,59 @@ if (!function_exists('appointment_reminder_build_email')) {
     }
 }
 
+if (!function_exists('appointment_reminder_normalize_sent_flag')) {
+    function appointment_reminder_normalize_sent_flag($value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        $text = trim((string) $value);
+        if ($text === '' || $text === '0000-00-00 00:00:00') {
+            return null;
+        }
+        return $text;
+    }
+}
+
+if (!function_exists('appointment_reminder_parse_datetime')) {
+    function appointment_reminder_parse_datetime(string $dateValue, string $timeValue, DateTimeZone $timezone): ?DateTimeImmutable
+    {
+        $dateValue = trim($dateValue);
+        $timeValue = trim($timeValue);
+        if ($dateValue === '' || $timeValue === '') {
+            return null;
+        }
+
+        $normalizedTime = preg_replace('/\s+/', ' ', strtoupper($timeValue));
+        $formats = [
+            'Y-m-d H:i:s',
+            'Y-m-d H:i',
+            'Y-m-d g:i A',
+            'Y-m-d g:iA',
+            'Y-m-d h:i A',
+            'Y-m-d h:iA',
+        ];
+        foreach ($formats as $format) {
+            $candidate = DateTimeImmutable::createFromFormat($format, $dateValue . ' ' . $normalizedTime, $timezone);
+            if ($candidate instanceof DateTimeImmutable) {
+                return $candidate;
+            }
+        }
+
+        // Last fallback for slightly unusual but valid time strings.
+        try {
+            return new DateTimeImmutable($dateValue . ' ' . $timeValue, $timezone);
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+}
+
 if (!function_exists('send_scheduled_appointment_reminders')) {
     function send_scheduled_appointment_reminders(PDO $pdo, ?string $forceTenantId = null): array
     {
         date_default_timezone_set('Asia/Manila');
+        $timezone = new DateTimeZone('Asia/Manila');
 
         $tables = clinic_resolve_appointment_db_tables($pdo);
         $appointmentsTable = $tables['appointments'];
@@ -321,6 +370,10 @@ if (!function_exists('send_scheduled_appointment_reminders')) {
             $patientEmailExpr = "COALESCE(NULLIF(TRIM(u.email), ''), NULLIF(TRIM(p.email), ''), '')";
         }
 
+        $now = new DateTimeImmutable('now', $timezone);
+        $today = $now->format('Y-m-d');
+        $maxDate = $now->modify('+4 days')->format('Y-m-d');
+
         $sql = "
             SELECT
                 a.id,
@@ -345,12 +398,12 @@ if (!function_exists('send_scheduled_appointment_reminders')) {
                 ON u.tenant_id = p.tenant_id
                AND p.linked_user_id = u.user_id
             {$dentistJoinSql}
-            WHERE a.appointment_date >= CURDATE()
-              AND a.appointment_date <= DATE_ADD(CURDATE(), INTERVAL 4 DAY)
+            WHERE a.appointment_date >= ?
+              AND a.appointment_date <= ?
               AND COALESCE(a.visit_type, 'pre_book') <> 'walk_in'
               AND COALESCE(a.status, 'pending') NOT IN ('cancelled', 'completed', 'no_show')
         ";
-        $params = [];
+        $params = [$today, $maxDate];
         if ($forceTenantId !== null && trim($forceTenantId) !== '') {
             $sql .= " AND a.tenant_id = ? ";
             $params[] = trim($forceTenantId);
@@ -360,7 +413,6 @@ if (!function_exists('send_scheduled_appointment_reminders')) {
         $stmt->execute($params);
         $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        $now = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
         /** Match window around each target; cron should run at least every ~5 minutes during tests. */
         $windowSeconds = 10 * 60;
         $result = [
@@ -369,33 +421,79 @@ if (!function_exists('send_scheduled_appointment_reminders')) {
             'sent' => ['3day' => 0, '1day' => 0, 'final' => 0],
             'errors' => [],
             'schedule_mode' => APPOINTMENT_REMINDER_TEST_SCHEDULE ? 'test' : 'production',
+            'server_now' => $now->format(DateTimeInterface::ATOM),
+            'timezone' => $timezone->getName(),
+            'debug' => [],
         ];
         $clinicCache = [];
 
         foreach ($appointments as $appointment) {
+            $bookingId = (string) ($appointment['booking_id'] ?? '');
             $email = trim((string) ($appointment['patient_email'] ?? ''));
+            $debug = [
+                'booking_id' => $bookingId,
+                'patient_email' => $email,
+                'server_now' => $now->format(DateTimeInterface::ATOM),
+                'appointment_date_raw' => (string) ($appointment['appointment_date'] ?? ''),
+                'appointment_time_raw' => (string) ($appointment['appointment_time'] ?? ''),
+                'matched_schedule' => null,
+                'status' => 'pending',
+            ];
+
             if ($email === '') {
+                $debug['status'] = 'skipped';
+                $debug['reason'] = 'missing_patient_email';
+                $result['debug'][] = $debug;
+                error_log('Appointment reminder skipped (missing email). booking=' . $bookingId);
                 continue;
             }
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $debug['status'] = 'skipped';
+                $debug['reason'] = 'invalid_patient_email';
+                $result['debug'][] = $debug;
+                error_log('Appointment reminder skipped (invalid email). booking=' . $bookingId . ' email=' . $email);
+                continue;
+            }
+
             $appointmentDate = trim((string) ($appointment['appointment_date'] ?? ''));
             $appointmentTimeRaw = trim((string) ($appointment['appointment_time'] ?? ''));
             if ($appointmentDate === '' || $appointmentTimeRaw === '') {
+                $debug['status'] = 'skipped';
+                $debug['reason'] = 'missing_schedule';
+                $result['debug'][] = $debug;
+                error_log('Appointment reminder skipped (missing schedule). booking=' . $bookingId);
                 continue;
             }
 
-            $timeValue = strlen($appointmentTimeRaw) === 5 ? $appointmentTimeRaw . ':00' : $appointmentTimeRaw;
-            $appointmentAt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $appointmentDate . ' ' . $timeValue, new DateTimeZone('Asia/Manila'));
+            $appointmentAt = appointment_reminder_parse_datetime($appointmentDate, $appointmentTimeRaw, $timezone);
             if (!$appointmentAt) {
+                $debug['status'] = 'skipped';
+                $debug['reason'] = 'invalid_datetime';
+                $result['debug'][] = $debug;
+                error_log('Appointment reminder skipped (invalid datetime). booking=' . $bookingId . ' value=' . $appointmentDate . ' ' . $appointmentTimeRaw);
                 continue;
             }
+            $debug['appointment_time'] = $appointmentAt->format(DateTimeInterface::ATOM);
 
             $diffSeconds = $appointmentAt->getTimestamp() - $now->getTimestamp();
+            $debug['seconds_until_appointment'] = $diffSeconds;
             if ($diffSeconds <= 0) {
+                $debug['status'] = 'skipped';
+                $debug['reason'] = 'appointment_in_past';
+                $result['debug'][] = $debug;
                 continue;
             }
 
             $sendType = null;
             $flagColumn = null;
+            $reminder3daySentAt = appointment_reminder_normalize_sent_flag($appointment['reminder_3day_sent_at'] ?? null);
+            $reminder1daySentAt = appointment_reminder_normalize_sent_flag($appointment['reminder_1day_sent_at'] ?? null);
+            $reminderFinalSentAt = appointment_reminder_normalize_sent_flag($appointment['reminder_final_sent_at'] ?? null);
+            $debug['existing_flags'] = [
+                '3day' => $reminder3daySentAt,
+                '1day' => $reminder1daySentAt,
+                'final' => $reminderFinalSentAt,
+            ];
 
             if (APPOINTMENT_REMINDER_TEST_SCHEDULE) {
                 // Test windows with catch-up behavior if cron runs late:
@@ -407,13 +505,13 @@ if (!function_exists('send_scheduled_appointment_reminders')) {
                 $twentyMinutes = 20 * 60;
                 $fifteenMinutes = 15 * 60;
 
-                if (empty($appointment['reminder_3day_sent_at']) && $diffSeconds <= $threeHours && $diffSeconds > $oneHour) {
+                if ($reminder3daySentAt === null && $diffSeconds <= $threeHours && $diffSeconds > $oneHour) {
                     $sendType = '3day';
                     $flagColumn = 'reminder_3day_sent_at';
-                } elseif (empty($appointment['reminder_1day_sent_at']) && $diffSeconds <= $oneHour && $diffSeconds > $twentyMinutes) {
+                } elseif ($reminder1daySentAt === null && $diffSeconds <= $oneHour && $diffSeconds > $twentyMinutes) {
                     $sendType = '1day';
                     $flagColumn = 'reminder_1day_sent_at';
-                } elseif (empty($appointment['reminder_final_sent_at'])
+                } elseif ($reminderFinalSentAt === null
                     && $diffSeconds <= $twentyMinutes
                     && $diffSeconds >= $fifteenMinutes) {
                     $sendType = 'final';
@@ -426,24 +524,31 @@ if (!function_exists('send_scheduled_appointment_reminders')) {
                 $minFinal = 2 * 3600;
                 $maxFinal = 4 * 3600;
 
-                if (empty($appointment['reminder_3day_sent_at']) && abs($diffSeconds - $target3Day) <= $windowSeconds) {
+                if ($reminder3daySentAt === null && abs($diffSeconds - $target3Day) <= $windowSeconds) {
                     $sendType = '3day';
                     $flagColumn = 'reminder_3day_sent_at';
-                } elseif (empty($appointment['reminder_1day_sent_at']) && abs($diffSeconds - $target1Day) <= $windowSeconds) {
+                } elseif ($reminder1daySentAt === null && abs($diffSeconds - $target1Day) <= $windowSeconds) {
                     $sendType = '1day';
                     $flagColumn = 'reminder_1day_sent_at';
-                } elseif (empty($appointment['reminder_final_sent_at']) && $diffSeconds >= $minFinal && $diffSeconds <= $maxFinal) {
+                } elseif ($reminderFinalSentAt === null && $diffSeconds >= $minFinal && $diffSeconds <= $maxFinal) {
                     $sendType = 'final';
                     $flagColumn = 'reminder_final_sent_at';
                 }
             }
 
             if ($sendType === null || $flagColumn === null) {
+                $debug['status'] = 'skipped';
+                $debug['reason'] = 'outside_trigger_window_or_already_sent';
+                $result['debug'][] = $debug;
                 continue;
             }
+            $debug['matched_schedule'] = $sendType;
 
             $tenantId = trim((string) ($appointment['tenant_id'] ?? ''));
             if ($tenantId === '') {
+                $debug['status'] = 'skipped';
+                $debug['reason'] = 'missing_tenant_id';
+                $result['debug'][] = $debug;
                 continue;
             }
             if (!isset($clinicCache[$tenantId])) {
@@ -456,7 +561,13 @@ if (!function_exists('send_scheduled_appointment_reminders')) {
             $sent = send_smtp_gmail($email, $payload['subject'], $payload['text'], $payload['html']);
 
             if (!$sent) {
-                $result['errors'][] = 'Failed to send ' . $sendType . ' reminder for booking ' . (string) ($appointment['booking_id'] ?? '') . ': ' . (string) ($GLOBALS['smtp_last_error'] ?? 'Unknown SMTP error');
+                $smtpError = (string) ($GLOBALS['smtp_last_error'] ?? 'Unknown SMTP error');
+                $debug['status'] = 'failed';
+                $debug['reason'] = 'smtp_send_failed';
+                $debug['smtp_error'] = $smtpError;
+                $result['debug'][] = $debug;
+                $result['errors'][] = 'Failed to send ' . $sendType . ' reminder for booking ' . (string) ($appointment['booking_id'] ?? '') . ': ' . $smtpError;
+                error_log('Appointment reminder send failed. booking=' . $bookingId . ' type=' . $sendType . ' error=' . $smtpError);
                 continue;
             }
 
@@ -469,7 +580,15 @@ if (!function_exists('send_scheduled_appointment_reminders')) {
                 $updateStmt = $pdo->prepare($flagSql);
                 $updateStmt->execute([(int) $appointment['id'], $tenantId]);
                 $result['sent'][$sendType]++;
+                $debug['status'] = 'sent';
+                $debug['flag_column_updated'] = $flagColumn;
+                $result['debug'][] = $debug;
+                error_log('Appointment reminder sent. booking=' . $bookingId . ' type=' . $sendType . ' appointment_at=' . $appointmentAt->format(DateTimeInterface::ATOM));
             } catch (Throwable $e) {
+                $debug['status'] = 'warning';
+                $debug['reason'] = 'sent_but_flag_update_failed';
+                $debug['error'] = $e->getMessage();
+                $result['debug'][] = $debug;
                 $result['errors'][] = 'Reminder sent but failed to store status for booking ' . (string) ($appointment['booking_id'] ?? '') . ': ' . $e->getMessage();
             }
         }
