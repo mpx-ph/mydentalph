@@ -77,7 +77,7 @@
             '<h2 id="staff-ui-dialog-title" class="text-lg font-bold text-slate-900 tracking-tight mt-1 leading-snug"></h2>' +
             '</div>' +
             '</div>' +
-            '<div id="staff-ui-dialog-body" class="px-6 pb-6 text-sm text-slate-600 leading-relaxed"></div>' +
+            '<div id="staff-ui-dialog-body" class="px-6 pb-6 text-sm text-slate-600 leading-relaxed whitespace-pre-line"></div>' +
             '<div id="staff-ui-dialog-footer" class="px-6 py-4 bg-slate-50/90 border-t border-slate-100 flex flex-wrap justify-end gap-2"></div>' +
             '</div>' +
             '</div>';

@@ -1861,7 +1861,7 @@ try {
                 return {
                     ok: false,
                     reason: 'no_schedule',
-                    message: 'Unable to create appointment.\n\nThis dentist has no schedule on the selected date.'
+                    message: 'This dentist has no schedule on the selected date.\n\nPlease choose another date or dentist.'
                 };
             }
 
@@ -1888,7 +1888,7 @@ try {
                     shiftLabel: activeShift.label || (minutesToDisplayTime(activeShift.start) + ' - ' + minutesToDisplayTime(activeShift.end)),
                     selectedTimeLabel: minutesToDisplayTime(selectedTimeMinutes),
                     requiredEndLabel: minutesToDisplayTime(requiredEndMinutes),
-                    message: 'Unable to create appointment.\n\nNot enough remaining shift time for this service.\n\nShift: ' + (activeShift.label || (minutesToDisplayTime(activeShift.start) + ' - ' + minutesToDisplayTime(activeShift.end))) + '\nSelected Time: ' + minutesToDisplayTime(selectedTimeMinutes) + '\nRequired End Time: ' + minutesToDisplayTime(requiredEndMinutes) + '\n\nPlease choose an earlier available time.'
+                    message: 'Not enough remaining shift time for this service.\n\nShift: ' + (activeShift.label || (minutesToDisplayTime(activeShift.start) + ' - ' + minutesToDisplayTime(activeShift.end))) + '\nSelected time: ' + minutesToDisplayTime(selectedTimeMinutes) + '\nRequired end time: ' + minutesToDisplayTime(requiredEndMinutes) + '\n\nPlease choose an earlier available time.'
                 };
             }
 
