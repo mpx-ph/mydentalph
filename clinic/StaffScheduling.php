@@ -2243,25 +2243,36 @@ $dentistsSeedData = array_map(static function ($dentist) {
     </div>
 </div>
 <div id="blockTimeModal" class="hidden fixed inset-0 z-[70]">
-    <div class="absolute inset-0 bg-slate-900/45"></div>
+    <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"></div>
     <div class="relative h-full w-full flex items-center justify-center p-4">
-        <div class="w-full max-w-2xl rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
-            <div class="px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-primary/10 via-white to-white flex items-center justify-between gap-4">
-                <div>
-                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Dentist Scheduling</p>
-                    <h3 class="text-2xl font-extrabold text-slate-900 tracking-tight">Block Time</h3>
+        <div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col">
+            <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
+                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
+                    <span class="material-symbols-outlined text-2xl text-primary">block</span>
                 </div>
-                <button id="closeBlockTimeModalBtn" type="button" class="w-9 h-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center justify-center">
-                    <span class="material-symbols-outlined text-[18px]">close</span>
+                <div class="min-w-0 flex-1 pr-2">
+                    <h3 class="text-xl sm:text-2xl font-extrabold font-headline text-on-background tracking-tight">Block Time</h3>
+                    <p class="text-sm text-slate-500 mt-1 leading-relaxed">Reserve unavailable hours for dentist schedules</p>
+                </div>
+                <button id="closeBlockTimeModalBtn" type="button" class="shrink-0 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Close">
+                    <span class="material-symbols-outlined text-[22px]">close</span>
                 </button>
             </div>
-            <div class="px-6 py-6 bg-slate-50/40">
-                <form id="blockTimeForm" class="space-y-4">
-                    <div class="rounded-2xl border border-slate-200 bg-white p-5 space-y-4 shadow-sm">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="px-6 sm:px-8 pt-3 pb-5 space-y-6 overflow-y-auto">
+                <form id="blockTimeForm" class="space-y-6">
+                    <section>
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="material-symbols-outlined text-primary text-[22px]">info</span>
+                            <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Basic Information</h4>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                             <div>
-                                <label for="blockTimeDentistId" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Dentist</label>
-                                <select id="blockTimeDentistId" class="schedule-input w-full py-3 px-4">
+                                <label for="blockTimeDentistId" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">badge</span>
+                                    Dentist
+                                </label>
+                                <select id="blockTimeDentistId" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all cursor-pointer">
                                     <?php foreach ($dentists as $dentist): ?>
                                         <?php
                                         $blockDentistId = trim((string) ($dentist['dentist_id'] ?? ''));
@@ -2280,39 +2291,56 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                 </select>
                             </div>
                             <div>
-                                <label for="blockTimeDate" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Date</label>
-                                <div class="schedule-input w-full py-3 px-4 inline-flex items-center gap-2.5">
-                                    <span class="material-symbols-outlined text-[18px] text-primary">event</span>
-                                    <input id="blockTimeDate" type="date" min="<?php echo htmlspecialchars($todayDateOnly, ENT_QUOTES, 'UTF-8'); ?>" value="<?php echo htmlspecialchars($setShiftDefaultDate, ENT_QUOTES, 'UTF-8'); ?>" class="w-full bg-transparent p-0 border-0 text-sm font-extrabold text-slate-900 focus:ring-0"/>
+                                <label for="blockTimeDate" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">event</span>
+                                    Date
+                                </label>
+                                <div class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 transition-all inline-flex items-center gap-2.5">
+                                    <input id="blockTimeDate" type="date" min="<?php echo htmlspecialchars($todayDateOnly, ENT_QUOTES, 'UTF-8'); ?>" value="<?php echo htmlspecialchars($setShiftDefaultDate, ENT_QUOTES, 'UTF-8'); ?>" class="w-full bg-transparent p-0 border-0 text-[15px] font-semibold text-slate-900 focus:ring-0"/>
                                 </div>
                             </div>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
-                            <p id="blockTimeShiftHoursLabel" class="text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em]">Selected Dentist Work Shift for <?php echo htmlspecialchars((new DateTimeImmutable($setShiftDefaultDate, $tz))->format('F j, Y'), ENT_QUOTES, 'UTF-8'); ?></p>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5 space-y-3">
+                            <p id="blockTimeShiftHoursLabel" class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Selected Dentist Work Shift for <?php echo htmlspecialchars((new DateTimeImmutable($setShiftDefaultDate, $tz))->format('F j, Y'), ENT_QUOTES, 'UTF-8'); ?></p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                                 <div>
-                                    <label for="blockTimeShiftStartReadonly" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Shift Start Time (Read Only)</label>
-                                    <input id="blockTimeShiftStartReadonly" type="text" value="-" readonly class="w-full py-3 px-4 rounded-xl border border-slate-200 bg-slate-100 text-sm font-bold text-slate-500 cursor-not-allowed"/>
+                                    <label for="blockTimeShiftStartReadonly" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                        <span class="material-symbols-outlined text-[18px] text-slate-500">schedule</span>
+                                        Shift Start Time (Read Only)
+                                    </label>
+                                    <input id="blockTimeShiftStartReadonly" type="text" value="-" readonly class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 text-[15px] font-semibold cursor-not-allowed"/>
                                 </div>
                                 <div>
-                                    <label for="blockTimeShiftEndReadonly" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Shift End Time (Read Only)</label>
-                                    <input id="blockTimeShiftEndReadonly" type="text" value="-" readonly class="w-full py-3 px-4 rounded-xl border border-slate-200 bg-slate-100 text-sm font-bold text-slate-500 cursor-not-allowed"/>
+                                    <label for="blockTimeShiftEndReadonly" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                        <span class="material-symbols-outlined text-[18px] text-slate-500">schedule</span>
+                                        Shift End Time (Read Only)
+                                    </label>
+                                    <input id="blockTimeShiftEndReadonly" type="text" value="-" readonly class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 text-[15px] font-semibold cursor-not-allowed"/>
                                 </div>
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                             <div>
-                                <label for="blockTimeStartTime" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Start Time</label>
-                                <input id="blockTimeStartTime" type="time" step="60" value="12:00" class="schedule-input w-full py-3 px-4"/>
+                                <label for="blockTimeStartTime" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">timer</span>
+                                    Start Time
+                                </label>
+                                <input id="blockTimeStartTime" type="time" step="60" value="12:00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
                             </div>
                             <div>
-                                <label for="blockTimeEndTime" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">End Time</label>
-                                <input id="blockTimeEndTime" type="time" step="60" value="13:00" class="schedule-input w-full py-3 px-4"/>
+                                <label for="blockTimeEndTime" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">timer_off</span>
+                                    End Time
+                                </label>
+                                <input id="blockTimeEndTime" type="time" step="60" value="13:00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
                             </div>
                         </div>
                         <div>
-                            <label for="blockTimeReason" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Reason</label>
-                            <select id="blockTimeReason" class="schedule-input w-full py-3 px-4">
+                            <label for="blockTimeReason" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                <span class="material-symbols-outlined text-[18px] text-slate-500">label</span>
+                                Reason
+                            </label>
+                            <select id="blockTimeReason" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all cursor-pointer">
                                 <option value="Break" selected>Break</option>
                                 <option value="Emergency">Emergency</option>
                                 <option value="Personal">Personal</option>
@@ -2320,16 +2348,22 @@ $dentistsSeedData = array_map(static function ($dentist) {
                             </select>
                         </div>
                         <div>
-                            <label for="blockTimeNotes" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Notes</label>
-                            <textarea id="blockTimeNotes" rows="3" class="schedule-input w-full py-3 px-4 resize-y" placeholder="Optional text"></textarea>
+                            <label for="blockTimeNotes" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                <span class="material-symbols-outlined text-[18px] text-slate-500">description</span>
+                                Notes
+                            </label>
+                            <textarea id="blockTimeNotes" rows="3" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all resize-y min-h-[100px]" placeholder="Optional text"></textarea>
                         </div>
-                    </div>
-                    <div class="pt-4 border-t border-slate-200 flex items-center justify-end gap-2.5">
-                        <button id="cancelBlockTimeBtn" type="button" class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs uppercase tracking-widest transition-colors">
+                        </div>
+                    </section>
+                    <div class="border-t border-slate-100 bg-slate-50/50 px-0 py-4 flex flex-wrap items-center justify-end gap-3">
+                        <button id="cancelBlockTimeBtn" type="button" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+                            <span class="material-symbols-outlined text-[18px]">close</span>
                             Cancel
                         </button>
-                        <button id="saveBlockTimeBtn" type="button" class="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs uppercase tracking-widest transition-colors shadow-sm">
-                            Save
+                        <button id="saveBlockTimeBtn" type="button" class="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/92 text-white text-sm font-bold shadow-lg shadow-primary/25 transition-all">
+                            <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                            Save Block Time
                         </button>
                     </div>
                 </form>
