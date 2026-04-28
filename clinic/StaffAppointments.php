@@ -354,6 +354,7 @@ try {
         $tUsr = $dbTables['users'];
         $tPay = $dbTables['payments'];
         $tSvc = $dbTables['services'];
+        $tDent = $dbTables['dentists'];
 
         if ($tAppt === null) {
             error_log('Staff appointments: appointments table not found.');
@@ -364,13 +365,26 @@ try {
             $qUsr = $tUsr !== null ? clinic_quote_identifier($tUsr) : null;
             $qPay = $tPay !== null ? clinic_quote_identifier($tPay) : null;
             $qSvc = $tSvc !== null ? clinic_quote_identifier($tSvc) : null;
+            $qDent = $tDent !== null ? clinic_quote_identifier($tDent) : null;
             $apptCols = clinic_table_columns($pdo, $tAppt);
             $apsCols = $tAps !== null ? clinic_table_columns($pdo, $tAps) : [];
+            $patCols = $tPat !== null ? clinic_table_columns($pdo, $tPat) : [];
+            $svcCols = $tSvc !== null ? clinic_table_columns($pdo, $tSvc) : [];
+            $dentCols = $tDent !== null ? clinic_table_columns($pdo, $tDent) : [];
             $apptIdCol = in_array('id', $apptCols, true) ? 'id' : (in_array('appointment_id', $apptCols, true) ? 'appointment_id' : null);
             $supportsApsAppointmentId = in_array('appointment_id', $apsCols, true) && $apptIdCol !== null;
             $apsMatchSql = $supportsApsAppointmentId
                 ? 'svc.appointment_id = a.' . $apptIdCol
                 : 'svc.booking_id = a.booking_id';
+            $apsMatchSqlForDetails = str_replace('svc.', 'apsd.', $apsMatchSql);
+            $dentistNameExpr = "'Unassigned'";
+            if ($qDent !== null && in_array('dentist_id', $apptCols, true) && in_array('dentist_id', $dentCols, true)) {
+                if (in_array('first_name', $dentCols, true) && in_array('last_name', $dentCols, true)) {
+                    $dentistNameExpr = "NULLIF(TRIM(CONCAT(COALESCE(d.first_name, ''), ' ', COALESCE(d.last_name, ''))), '')";
+                } elseif (in_array('full_name', $dentCols, true)) {
+                    $dentistNameExpr = "NULLIF(TRIM(COALESCE(d.full_name, '')), '')";
+                }
+            }
 
             $summaryStmt = $pdo->prepare("
                 SELECT
@@ -417,6 +431,23 @@ try {
                       AND {$apsMatchSql}
                 )"
                 : "''";
+            $serviceDescriptionExpr = ($qAps !== null && $qSvc !== null && in_array('service_id', $apsCols, true) && in_array('service_id', $svcCols, true) && in_array('service_details', $svcCols, true))
+                ? "COALESCE((
+                    SELECT NULLIF(
+                        GROUP_CONCAT(
+                            DISTINCT NULLIF(TRIM(COALESCE(svcd.service_details, '')), '')
+                            SEPARATOR '; '
+                        ),
+                        ''
+                    )
+                    FROM {$qAps} apsd
+                    INNER JOIN {$qSvc} svcd
+                        ON svcd.tenant_id = apsd.tenant_id
+                       AND svcd.service_id = apsd.service_id
+                    WHERE apsd.tenant_id = a.tenant_id
+                      AND {$apsMatchSqlForDetails}
+                ), a.service_description)"
+                : 'a.service_description';
             $bookingTypeExpr = $qAps !== null
                 ? "(
                     SELECT CASE
@@ -444,19 +475,31 @@ try {
                 ) AS total_paid"
                 : '0 AS total_paid';
 
+            $patientEmailExpr = in_array('email', $patCols, true)
+                ? 'p.email'
+                : (in_array('patient_email', $patCols, true) ? 'p.patient_email' : 'NULL');
             $patientSelectSql = $qPat !== null
                 ? 'p.first_name AS patient_first_name,
                 p.last_name AS patient_last_name,
                 p.contact_number AS patient_contact_number,
-                p.patient_id AS patient_display_id'
+                p.patient_id AS patient_display_id,
+                ' . $patientEmailExpr . ' AS patient_email'
                 : 'NULL AS patient_first_name,
                 NULL AS patient_last_name,
                 NULL AS patient_contact_number,
-                a.patient_id AS patient_display_id';
+                a.patient_id AS patient_display_id,
+                NULL AS patient_email';
 
-            $createdBySelectSql = $qUsr !== null
-                ? 'u.email AS created_by_email'
-                : 'NULL AS created_by_email';
+            $assignedStaffSelectSql = ($qDent !== null && in_array('dentist_id', $apptCols, true) && in_array('dentist_id', $dentCols, true))
+                ? "COALESCE(
+                    {$dentistNameExpr},
+                    " . ($qUsr !== null ? "NULLIF(TRIM(COALESCE(u.full_name, '')), '')" : "NULL") . ",
+                    " . ($qUsr !== null ? "NULLIF(TRIM(COALESCE(u.email, '')), '')" : "NULL") . ",
+                    'Unassigned'
+                ) AS assigned_staff_name"
+                : (($qUsr !== null)
+                    ? "COALESCE(NULLIF(TRIM(COALESCE(u.full_name, '')), ''), NULLIF(TRIM(COALESCE(u.email, '')), ''), 'Unassigned') AS assigned_staff_name"
+                    : "'Unassigned' AS assigned_staff_name");
 
             $patientJoinSql = $qPat !== null
                 ? "LEFT JOIN {$qPat} p
@@ -466,6 +509,11 @@ try {
             $userJoinSql = $qUsr !== null
                 ? "LEFT JOIN {$qUsr} u
               ON u.user_id = a.created_by"
+                : '';
+            $dentistJoinSql = ($qDent !== null && in_array('dentist_id', $apptCols, true) && in_array('dentist_id', $dentCols, true))
+                ? "LEFT JOIN {$qDent} d
+              ON d.tenant_id = a.tenant_id
+             AND d.dentist_id = a.dentist_id"
                 : '';
 
             $dailySql = "
@@ -477,7 +525,7 @@ try {
                 a.appointment_time,
                 {$serviceTypeExpr} as service_type,
                 {$serviceIdsExpr} AS appointment_service_ids,
-                a.service_description,
+                {$serviceDescriptionExpr} AS service_description,
                 a.treatment_type,
                 {$bookingTypeExpr} AS booking_type_label,
                 a.status,
@@ -486,10 +534,11 @@ try {
                 {$totalPaidSelectSql},
                 a.created_by,
                 {$patientSelectSql},
-                {$createdBySelectSql}
+                {$assignedStaffSelectSql}
             FROM {$qAppt} a
             {$patientJoinSql}
             {$userJoinSql}
+            {$dentistJoinSql}
             WHERE a.tenant_id = ?
               AND a.appointment_date = ?
         ";
@@ -727,6 +776,19 @@ if ($currentTenantSlug !== '') {
         .booking-type-option:active {
             transform: translateY(-1px) scale(0.99);
         }
+        body.appointments-modal-open {
+            overflow: hidden;
+        }
+        .appointments-page-blurred {
+            filter: blur(2px);
+            transition: filter 0.2s ease;
+        }
+        .staff-modal-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.5);
+            backdrop-filter: blur(2px);
+        }
         .booking-action-btn {
             transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease, background-color 0.25s ease;
         }
@@ -749,7 +811,7 @@ if ($currentTenantSlug !== '') {
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
+<main id="appointmentsPageContent" class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
     <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
     <div class="p-10 space-y-8">
         <?php if ($pageNotice): ?>
@@ -907,10 +969,7 @@ if ($currentTenantSlug !== '') {
                                 $totalPaid = (float) ($appointment['total_paid'] ?? 0);
                                 $pendingBalance = max(0, $totalCost - $totalPaid);
                                 $patientIdLabel = (string) ($appointment['patient_display_id'] ?? $appointment['patient_id'] ?? 'N/A');
-                                $staffLabel = trim((string) ($appointment['created_by_email'] ?? ''));
-                                if ($staffLabel === '') {
-                                    $staffLabel = trim((string) ($appointment['created_by'] ?? ''));
-                                }
+                                $staffLabel = trim((string) ($appointment['assigned_staff_name'] ?? ''));
                                 if ($staffLabel === '') {
                                     $staffLabel = 'Unassigned';
                                 }
@@ -962,6 +1021,7 @@ if ($currentTenantSlug !== '') {
                                             data-patient-name="<?php echo htmlspecialchars($patientName, ENT_QUOTES, 'UTF-8'); ?>"
                                             data-patient-id="<?php echo htmlspecialchars((string) $patientIdLabel, ENT_QUOTES, 'UTF-8'); ?>"
                                             data-patient-contact="<?php echo htmlspecialchars((string) ($appointment['patient_contact_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                            data-patient-email="<?php echo htmlspecialchars((string) ($appointment['patient_email'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-staff="<?php echo htmlspecialchars($staffLabel, ENT_QUOTES, 'UTF-8'); ?>"
                                             data-date="<?php echo htmlspecialchars(date('F j, Y', strtotime((string) ($appointment['appointment_date'] ?? $selectedDate))), ENT_QUOTES, 'UTF-8'); ?>"
                                             data-time="<?php echo htmlspecialchars($timeLabel, ENT_QUOTES, 'UTF-8'); ?>"
@@ -1038,7 +1098,7 @@ if ($currentTenantSlug !== '') {
 </main>
 
 <div id="bookingTypeModal" class="staff-modal-overlay hidden fixed inset-0 z-[80]">
-    <div class="absolute inset-0 bg-slate-900/50" id="bookingTypeBackdrop"></div>
+    <div class="staff-modal-backdrop" id="bookingTypeBackdrop"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
         <div class="staff-modal-panel bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
             <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -1093,7 +1153,7 @@ if ($currentTenantSlug !== '') {
 </div>
 
 <div id="treatmentModal" class="staff-modal-overlay hidden fixed inset-0 z-[70]">
-    <div class="absolute inset-0 bg-slate-900/50" id="modalBackdrop"></div>
+    <div class="staff-modal-backdrop" id="modalBackdrop"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
         <div class="staff-modal-panel bg-white w-full max-w-5xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white">
@@ -1141,6 +1201,10 @@ if ($currentTenantSlug !== '') {
                                 <div>
                                     <dt class="text-xs font-black uppercase tracking-wide text-slate-400">Contact Number</dt>
                                     <dd id="mPatientContact" class="mt-1 font-bold text-slate-900">-</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs font-black uppercase tracking-wide text-slate-400">Patient Email</dt>
+                                    <dd id="mPatientEmail" class="mt-1 font-bold text-slate-900">-</dd>
                                 </div>
                                 <div>
                                     <dt class="text-xs font-black uppercase tracking-wide text-slate-400">Assigned Staff</dt>
@@ -1234,6 +1298,7 @@ if ($currentTenantSlug !== '') {
     const bookingTypeCancelBtn = document.getElementById('bookingTypeCancelBtn');
     const bookingTypeWalkInBtn = document.getElementById('bookingTypeWalkInBtn');
     const bookingTypeAppointmentBtn = document.getElementById('bookingTypeAppointmentBtn');
+    const appointmentsPageContent = document.getElementById('appointmentsPageContent');
 
     function setText(id, value) {
         const node = document.getElementById(id);
@@ -1248,6 +1313,16 @@ if ($currentTenantSlug !== '') {
         return Number.isFinite(parsed) ? parsed : 0;
     }
 
+    function syncModalVisualState() {
+        const treatmentOpen = modal && !modal.classList.contains('hidden');
+        const bookingTypeOpen = bookingTypeModal && !bookingTypeModal.classList.contains('hidden');
+        const hasOpenModal = treatmentOpen || bookingTypeOpen;
+        document.body.classList.toggle('appointments-modal-open', hasOpenModal);
+        if (appointmentsPageContent) {
+            appointmentsPageContent.classList.toggle('appointments-page-blurred', hasOpenModal);
+        }
+    }
+
     function openModal(button) {
         const totalCost = parseMoney(button.dataset.cost);
         const totalPaid = parseMoney(button.dataset.totalPaid);
@@ -1258,6 +1333,7 @@ if ($currentTenantSlug !== '') {
         setText('mPatientName', button.dataset.patientName || '');
         setText('mPatientId', button.dataset.patientId || '');
         setText('mPatientContact', button.dataset.patientContact || '');
+        setText('mPatientEmail', button.dataset.patientEmail || '');
         setText('mStaff', button.dataset.staff || '');
         setText('mDate', button.dataset.date || '');
         setText('mTime', button.dataset.time || '');
@@ -1290,20 +1366,24 @@ if ($currentTenantSlug !== '') {
             }
         }
         modal.classList.remove('hidden');
+        syncModalVisualState();
     }
 
     function closeModal() {
         modal.classList.add('hidden');
+        syncModalVisualState();
     }
 
     function openBookingTypeModal() {
         if (!bookingTypeModal) return;
         bookingTypeModal.classList.remove('hidden');
+        syncModalVisualState();
     }
 
     function closeBookingTypeModal() {
         if (!bookingTypeModal) return;
         bookingTypeModal.classList.add('hidden');
+        syncModalVisualState();
     }
 
     openButtons.forEach((button) => {
@@ -1346,6 +1426,7 @@ if ($currentTenantSlug !== '') {
             window.location.reload();
         }
     });
+    syncModalVisualState();
 </script>
 </body>
 </html>
