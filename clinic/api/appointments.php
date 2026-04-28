@@ -51,6 +51,10 @@ $usersTableName = $resolvedTables['users'] ?? (clinic_get_physical_table_name($p
 $installmentsTableName = clinic_get_physical_table_name($pdo, 'tbl_installments')
     ?? clinic_get_physical_table_name($pdo, 'installments')
     ?? 'installments';
+$dentistsTableName = $resolvedTables['dentists']
+    ?? clinic_get_physical_table_name($pdo, 'tbl_dentists')
+    ?? clinic_get_physical_table_name($pdo, 'dentists')
+    ?? 'tbl_dentists';
 
 // Route based on method and action
 $action = isset($_GET['action']) ? sanitize($_GET['action']) : null;
@@ -958,11 +962,12 @@ function computeAppointmentStatus($appointment, $pdo, $installmentNumber = null)
  * Get appointments
  */
 function getAppointments() {
-    global $pdo, $tenantId, $appointmentsTableName, $patientsTableName, $usersTableName, $installmentsTableName;
+    global $pdo, $tenantId, $appointmentsTableName, $patientsTableName, $usersTableName, $installmentsTableName, $dentistsTableName;
     $quotedAppointmentsTable = clinic_quote_identifier((string) $appointmentsTableName);
     $quotedPatientsTable = clinic_quote_identifier((string) $patientsTableName);
     $quotedUsersTable = clinic_quote_identifier((string) $usersTableName);
     $quotedInstallmentsTable = clinic_quote_identifier((string) $installmentsTableName);
+    $quotedDentistsTable = clinic_quote_identifier((string) $dentistsTableName);
     
     $userId = getCurrentUserId();
     $userType = $_SESSION['user_type'] ?? 'client';
@@ -990,10 +995,14 @@ function getAppointments() {
                        p.last_name,
                        p.contact_number,
                        p.patient_id as patient_display_id,
+                       TRIM(CONCAT(COALESCE(d.first_name, ''), ' ', COALESCE(d.last_name, ''))) AS dentist_name,
                        u.email,
                        u2.email as created_by_email
                 FROM {$quotedAppointmentsTable} a
                 LEFT JOIN {$quotedPatientsTable} p ON a.patient_id = p.patient_id
+                LEFT JOIN {$quotedDentistsTable} d
+                    ON d.tenant_id = a.tenant_id
+                   AND TRIM(CAST(d.dentist_id AS CHAR)) = TRIM(CAST(a.dentist_id AS CHAR))
                 LEFT JOIN {$quotedUsersTable} u ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id
                 LEFT JOIN {$quotedUsersTable} u2 ON a.created_by = u2.user_id
                 WHERE a.appointment_date = ?
@@ -1067,6 +1076,7 @@ function getAppointments() {
                        p.last_name,
                        p.contact_number,
                        p.patient_id as patient_display_id,
+                       TRIM(CONCAT(COALESCE(d.first_name, ''), ' ', COALESCE(d.last_name, ''))) AS dentist_name,
                        u.email,
                        u2.email as created_by_email,
                        i.installment_number,
@@ -1076,6 +1086,9 @@ function getAppointments() {
                 FROM {$quotedInstallmentsTable} i
                 INNER JOIN {$quotedAppointmentsTable} a ON i.booking_id = a.booking_id
                 LEFT JOIN {$quotedPatientsTable} p ON a.patient_id = p.patient_id
+                LEFT JOIN {$quotedDentistsTable} d
+                    ON d.tenant_id = a.tenant_id
+                   AND TRIM(CAST(d.dentist_id AS CHAR)) = TRIM(CAST(a.dentist_id AS CHAR))
                 LEFT JOIN {$quotedUsersTable} u ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id
                 LEFT JOIN {$quotedUsersTable} u2 ON a.created_by = u2.user_id
                 WHERE i.scheduled_date = ?
@@ -1170,10 +1183,14 @@ function getAppointments() {
                        p.last_name,
                        p.contact_number,
                        p.patient_id as patient_display_id,
+                       TRIM(CONCAT(COALESCE(d.first_name, ''), ' ', COALESCE(d.last_name, ''))) AS dentist_name,
                        u.email,
                        u2.email as created_by_email
                 FROM {$quotedAppointmentsTable} a
                 LEFT JOIN {$quotedPatientsTable} p ON a.patient_id = p.patient_id
+                LEFT JOIN {$quotedDentistsTable} d
+                    ON d.tenant_id = a.tenant_id
+                   AND TRIM(CAST(d.dentist_id AS CHAR)) = TRIM(CAST(a.dentist_id AS CHAR))
                 LEFT JOIN {$quotedUsersTable} u ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id
                 LEFT JOIN {$quotedUsersTable} u2 ON a.created_by = u2.user_id
                 WHERE a.tenant_id = ?
@@ -1230,9 +1247,13 @@ function getAppointments() {
                        p.last_name,
                        p.contact_number,
                        p.patient_id as patient_display_id,
+                       TRIM(CONCAT(COALESCE(d.first_name, ''), ' ', COALESCE(d.last_name, ''))) AS dentist_name,
                        u.email
                 FROM {$quotedAppointmentsTable} a
                 INNER JOIN {$quotedPatientsTable} p ON a.patient_id = p.patient_id
+                LEFT JOIN {$quotedDentistsTable} d
+                    ON d.tenant_id = a.tenant_id
+                   AND TRIM(CAST(d.dentist_id AS CHAR)) = TRIM(CAST(a.dentist_id AS CHAR))
                 LEFT JOIN {$quotedUsersTable} u ON p.linked_user_id = u.user_id AND p.owner_user_id = u.user_id
                 WHERE p.owner_user_id = ?
                   AND a.tenant_id = ?

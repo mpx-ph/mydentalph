@@ -18,6 +18,26 @@ header('Content-Type: application/json');
 $patientFilesTableName = null;
 $patientsTableName = null;
 
+register_shutdown_function(static function () {
+    $lastError = error_get_last();
+    if ($lastError === null) {
+        return;
+    }
+    $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
+    if (!in_array((int) ($lastError['type'] ?? 0), $fatalTypes, true)) {
+        return;
+    }
+    if (!headers_sent()) {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(500);
+    }
+    $message = trim((string) ($lastError['message'] ?? ''));
+    echo json_encode([
+        'success' => false,
+        'message' => $message !== '' ? ('Fatal error: ' . $message) : 'Fatal error while processing patient files.'
+    ]);
+});
+
 try {
     $method = $_SERVER['REQUEST_METHOD'];
     $pdo = getDBConnection();

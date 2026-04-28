@@ -480,6 +480,12 @@ function getStatusBadgeClasses(rawStatus) {
 function resolveDentistLabel(appointment) {
     const rawDentist = String(appointment.dentist_name || '').trim();
     if (rawDentist) return rawDentist;
+    const fallbackFullName = [appointment.dentist_first_name, appointment.dentist_last_name]
+        .map(v => String(v || '').trim())
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+    if (fallbackFullName) return fallbackFullName;
     const dentistId = String(appointment.dentist_id || '').trim();
     return dentistId ? `Dentist #${dentistId}` : 'Unassigned';
 }
