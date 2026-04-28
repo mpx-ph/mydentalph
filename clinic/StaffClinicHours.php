@@ -578,8 +578,16 @@ try {
         .success-popup-enter {
             animation: success-popup-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
+        .clinic-hours-popup-enter {
+            animation: clinic-hours-popup-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            transform-origin: center;
+        }
         @keyframes success-popup-in {
             from { opacity: 0; transform: translateY(10px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes clinic-hours-popup-in {
+            from { opacity: 0; transform: translateY(14px) scale(0.97); }
             to { opacity: 1; transform: translateY(0) scale(1); }
         }
     </style>
@@ -812,28 +820,32 @@ try {
     </div>
 </div>
 
-<div id="applyClinicHoursModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/45">
-    <div class="modal-shell modal-surface w-full max-w-5xl max-h-[min(90vh,760px)] overflow-y-auto overflow-x-hidden rounded-[1.9rem]">
-        <div class="px-6 sm:px-7 py-5 border-b border-slate-200/80 flex items-start justify-between gap-4">
-            <div>
-                <span class="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
-                    <span class="material-symbols-outlined text-[14px]">date_range</span>
-                    Bulk Apply
-                </span>
-                <h3 class="font-headline text-2xl font-extrabold tracking-tight text-slate-900 mt-2">Apply Clinic Hours</h3>
-                <p class="text-xs font-semibold text-slate-500 mt-1">Set clinic hours for a custom date range.</p>
+<div id="applyClinicHoursModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/50 backdrop-blur-[2px]">
+    <div class="staff-modal-panel clinic-hours-popup-enter bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-5xl max-h-[92vh] overflow-y-auto overflow-x-hidden flex flex-col">
+        <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
+            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
+                <span class="material-symbols-outlined text-2xl text-primary">calendar_month</span>
             </div>
-            <button type="button" data-close-modal="applyClinicHoursModal" class="w-10 h-10 inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors shrink-0">
-                <span class="material-symbols-outlined text-lg">close</span>
+            <div class="min-w-0 flex-1 pr-2">
+                <h3 class="text-xl sm:text-2xl font-extrabold font-headline text-on-background tracking-tight">Apply Clinic Hours</h3>
+                <p class="text-sm text-slate-500 mt-1 leading-relaxed">Set clinic hours for a custom date range</p>
+            </div>
+            <button type="button" data-close-modal="applyClinicHoursModal" class="shrink-0 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Close">
+                <span class="material-symbols-outlined text-[22px]">close</span>
             </button>
         </div>
         <form method="post" id="applyClinicHoursForm">
             <input type="hidden" name="bulk_apply_clinic_hours" value="1"/>
             <input type="hidden" name="week_start" value="<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
-            <div class="p-6 sm:p-7">
+            <div class="px-6 sm:px-8 pt-3 pb-5 space-y-6 overflow-y-auto">
+                <section>
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="material-symbols-outlined text-primary text-[22px]">info</span>
+                        <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Basic Information</h4>
+                    </div>
                 <div class="grid grid-cols-1 xl:grid-cols-[1.28fr_1fr] gap-6">
                     <div>
-                        <div class="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5">
+                        <div class="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-sm">
                             <div class="flex items-center justify-between mb-4">
                                 <button type="button" id="bulkCalendarPrevMonth" class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 transition-colors" aria-label="Previous month">
                                     <span class="material-symbols-outlined text-[20px]">chevron_left</span>
@@ -856,31 +868,43 @@ try {
                         </div>
                     </div>
                     <div class="space-y-4">
-                        <div class="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 space-y-4">
+                        <div class="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 space-y-4 shadow-sm">
                             <div>
-                                <label class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Start date*</label>
+                                <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">event</span>
+                                    Start Date <span class="text-red-500 font-bold">*</span>
+                                </label>
                                 <div class="relative">
                                     <input id="bulkDateFrom" name="bulk_date_from" type="date" required class="bulk-date-input" min="<?php echo htmlspecialchars($today->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" value="<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
                                     <span class="material-symbols-outlined text-[18px] text-slate-500 bulk-date-icon">calendar_month</span>
                                 </div>
                             </div>
                             <div>
-                                <label for="bulkOpenTime" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Start time*</label>
+                                <label for="bulkOpenTime" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">timer</span>
+                                    Start Time <span class="text-red-500 font-bold">*</span>
+                                </label>
                                 <input id="bulkOpenTime" name="bulk_open_time" type="time" step="60" class="modal-time-input w-full px-4 bulk-time-field" value="08:00"/>
                             </div>
                             <div>
-                                <label class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">End date*</label>
+                                <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">event</span>
+                                    End Date <span class="text-red-500 font-bold">*</span>
+                                </label>
                                 <div class="relative">
                                     <input id="bulkDateTo" name="bulk_date_to" type="date" required class="bulk-date-input" min="<?php echo htmlspecialchars($today->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" value="<?php echo htmlspecialchars($selectedWeekEnd->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
                                     <span class="material-symbols-outlined text-[18px] text-slate-500 bulk-date-icon">calendar_month</span>
                                 </div>
                             </div>
                             <div>
-                                <label for="bulkCloseTime" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">End time*</label>
+                                <label for="bulkCloseTime" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                    <span class="material-symbols-outlined text-[18px] text-slate-500">timer_off</span>
+                                    End Time <span class="text-red-500 font-bold">*</span>
+                                </label>
                                 <input id="bulkCloseTime" name="bulk_close_time" type="time" step="60" class="modal-time-input w-full px-4 bulk-time-field" value="17:00"/>
                             </div>
                         </div>
-                        <div class="rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5 space-y-3">
+                        <div class="rounded-2xl border border-slate-200/90 bg-white px-4 py-3.5 space-y-3 shadow-sm">
                             <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
                                 <input id="bulkClosedCheckbox" name="bulk_is_closed" type="checkbox" value="1" class="rounded-md border-slate-300 text-primary focus:ring-primary/20"/>
                                 Mark as Closed
@@ -892,12 +916,19 @@ try {
                         </div>
                     </div>
                 </div>
+                </section>
             </div>
-            <div class="px-6 sm:px-7 py-4 border-t border-slate-200/80 bg-slate-50/70 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="border-t border-slate-100 bg-slate-50/50 px-6 sm:px-8 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p id="bulkEventSummary" class="text-sm font-bold text-slate-700">Event: -</p>
                 <div class="flex items-center gap-2">
-                    <button type="button" data-close-modal="applyClinicHoursModal" class="px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-600 font-black text-xs uppercase tracking-[0.16em] hover:border-slate-400">Cancel</button>
-                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-[0.16em] shadow-sm shadow-primary/30">Schedule</button>
+                    <button type="button" data-close-modal="applyClinicHoursModal" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+                        <span class="material-symbols-outlined text-[18px]">close</span>
+                        Cancel
+                    </button>
+                    <button type="submit" class="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/92 text-white text-sm font-bold shadow-lg shadow-primary/25 transition-all">
+                        <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                        Apply Hours
+                    </button>
                 </div>
             </div>
         </form>
