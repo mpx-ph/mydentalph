@@ -1217,55 +1217,6 @@ if ($currentTenantSlug !== '') {
                         </div>
                     </div>
                 </div>
-                <div class="bg-white rounded-2xl border border-slate-200 p-4">
-                    <div class="mb-3 space-y-1">
-                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                            <p class="text-[11px] font-black uppercase tracking-widest text-slate-400">Additional Services</p>
-                            <p class="text-xs font-semibold text-slate-500">Select one or more services to append in this booking.</p>
-                        </div>
-                        <p class="text-xs font-medium text-slate-500 leading-relaxed">
-                            <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 text-slate-600 px-2.5 py-1">
-                                <span class="material-symbols-outlined text-[14px] text-slate-500" aria-hidden="true">info</span>
-                                <span>Already included: services listed on this appointment cannot be selected again here.</span>
-                            </span>
-                        </p>
-                    </div>
-                    <form method="post" class="space-y-3">
-                        <input type="hidden" name="modal_action" value="add_services"/>
-                        <input type="hidden" name="modal_booking_id" id="addServiceBookingId" value=""/>
-                        <div class="border border-slate-200 rounded-xl p-2.5 max-h-56 overflow-y-auto bg-slate-50/40 space-y-1.5">
-                            <?php if (empty($availableServices)): ?>
-                                <p class="text-sm font-semibold text-slate-500">No active services available.</p>
-                            <?php else: ?>
-                                <?php foreach ($availableServices as $service): ?>
-                                    <?php
-                                    $serviceId = (string) ($service['service_id'] ?? '');
-                                    $serviceName = (string) ($service['service_name'] ?? 'Service');
-                                    $serviceCategory = (string) ($service['category'] ?? 'General');
-                                    $servicePrice = (float) ($service['price'] ?? 0);
-                                    ?>
-                                    <label class="additional-service-option flex items-center justify-between gap-3 p-2.5 rounded-lg hover:bg-white border border-transparent hover:border-slate-200">
-                                        <span class="flex items-start gap-3 min-w-0">
-                                            <input type="checkbox" name="service_ids[]" value="<?php echo htmlspecialchars($serviceId, ENT_QUOTES, 'UTF-8'); ?>" class="mt-1 rounded border-slate-300 text-primary focus:ring-primary/30">
-                                            <span class="min-w-0">
-                                                <span class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                                                    <span class="text-sm font-bold text-slate-800"><?php echo htmlspecialchars($serviceName, ENT_QUOTES, 'UTF-8'); ?></span>
-                                                    <span class="svc-already-inline hidden shrink-0 text-[10px] font-black uppercase tracking-wider text-slate-400 border border-slate-200 rounded px-1.5 py-0.5 bg-white">Already on appointment</span>
-                                                </span>
-                                                <span class="block text-xs text-slate-500"><?php echo htmlspecialchars($serviceCategory, ENT_QUOTES, 'UTF-8'); ?></span>
-                                            </span>
-                                        </span>
-                                        <span class="text-sm font-black text-primary">P<?php echo htmlspecialchars(number_format($servicePrice, 2), ENT_QUOTES, 'UTF-8'); ?></span>
-                                    </label>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </div>
-                        <button type="submit" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors">
-                            <span class="material-symbols-outlined text-[18px]">add</span>
-                            Add Extra Services
-                        </button>
-                    </form>
-                </div>
             </div>
         </div>
     </div>
@@ -1321,34 +1272,9 @@ if ($currentTenantSlug !== '') {
         setText('mBalanceTotalPaid', 'PHP ' + totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
         setText('mBalancePending', 'PHP ' + pendingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
-        const addServiceBookingId = document.getElementById('addServiceBookingId');
         const statusBookingId = document.getElementById('statusBookingId');
         const statusSelector = document.getElementById('statusSelector');
         const warning = document.getElementById('mPaymentWarning');
-        const existingRaw = button.dataset.existingServiceIds || '';
-        const existingIds = new Set(
-            existingRaw
-                .split(',')
-                .map((s) => String(s).trim())
-                .filter((s) => s !== '')
-        );
-        document.querySelectorAll('#treatmentModal input[name="service_ids[]"]').forEach((checkbox) => {
-            const sid = String(checkbox.value || '').trim();
-            const alreadyOnBooking = sid !== '' && existingIds.has(sid);
-            checkbox.checked = false;
-            checkbox.disabled = alreadyOnBooking;
-            const label = checkbox.closest('label.additional-service-option');
-            if (label) {
-                label.classList.toggle('opacity-60', alreadyOnBooking);
-                label.classList.toggle('pointer-events-none', alreadyOnBooking);
-                label.classList.toggle('hover:bg-white', !alreadyOnBooking);
-                const badge = label.querySelector('.svc-already-inline');
-                if (badge) {
-                    badge.classList.toggle('hidden', !alreadyOnBooking);
-                }
-            }
-        });
-        if (addServiceBookingId) addServiceBookingId.value = button.dataset.bookingId || '';
         if (statusBookingId) statusBookingId.value = button.dataset.bookingId || '';
 
         if (statusSelector) {
@@ -1367,19 +1293,6 @@ if ($currentTenantSlug !== '') {
     }
 
     function closeModal() {
-        document.querySelectorAll('#treatmentModal input[name="service_ids[]"]').forEach((checkbox) => {
-            checkbox.checked = false;
-            checkbox.disabled = false;
-            const label = checkbox.closest('label.additional-service-option');
-            if (label) {
-                label.classList.remove('opacity-60', 'pointer-events-none');
-                label.classList.add('hover:bg-white');
-                const badge = label.querySelector('.svc-already-inline');
-                if (badge) {
-                    badge.classList.add('hidden');
-                }
-            }
-        });
         modal.classList.add('hidden');
     }
 
