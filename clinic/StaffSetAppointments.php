@@ -991,6 +991,12 @@ try {
         let selectedServices = [];
         let dentistsData = Array.isArray(dentistsSeedData) ? dentistsSeedData.slice() : [];
         let activeTreatmentContext = null;
+        let isSubmittingAppointment = false;
+        let liveValidationRequestToken = 0;
+        let liveValidationState = {
+            hasTimeSlotConflict: false,
+            hasPatientDuplicate: false
+        };
         let selectedServiceCategoryFilter = 'all';
         const SERVICE_CATEGORY_FILTERS = [
             { key: 'all', label: 'All' },
@@ -2069,6 +2075,115 @@ try {
             return baseUrl + separator + 'clinic_slug=' + encodeURIComponent(clinicSlug);
         }
 
+        function isConflictBlockingStatus(statusValue) {
+            const status = String(statusValue || '').trim().toLowerCase();
+            if (!status) return true;
+            return ['cancelled', 'completed', 'no_show'].indexOf(status) === -1;
+        }
+
+        function syncCreateAppointmentButtonState() {
+            if (!createWalkInAppointmentBtn) return;
+            const hasLiveConflict = liveValidationState.hasTimeSlotConflict || liveValidationState.hasPatientDuplicate;
+            const shouldDisable = isSubmittingAppointment || hasLiveConflict;
+            createWalkInAppointmentBtn.disabled = shouldDisable;
+            createWalkInAppointmentBtn.classList.toggle('opacity-70', shouldDisable);
+            createWalkInAppointmentBtn.classList.toggle('cursor-not-allowed', shouldDisable);
+        }
+
+        async function runLiveConflictValidation(options) {
+            const opts = options || {};
+            const showAlerts = Boolean(opts.showAlerts);
+            const token = ++liveValidationRequestToken;
+            const patientId = selectedPatientIdInput ? String(selectedPatientIdInput.value || '').trim() : '';
+            const dentistId = selectedDentistIdInput ? String(selectedDentistIdInput.value || '').trim() : '';
+            const appointmentDate = dateInput ? String(dateInput.value || '').trim() : '';
+            const appointmentTime = formatTimeForApi(timeInput ? String(timeInput.value || '').trim() : '');
+
+            if (!appointmentDate) {
+                const previousNoDateState = {
+                    hasTimeSlotConflict: liveValidationState.hasTimeSlotConflict,
+                    hasPatientDuplicate: liveValidationState.hasPatientDuplicate
+                };
+                liveValidationState = { hasTimeSlotConflict: false, hasPatientDuplicate: false };
+                syncCreateAppointmentButtonState();
+                return previousNoDateState;
+            }
+
+            let appointments = [];
+            try {
+                const conflictUrl = new URL(buildApiUrl(appointmentsApiUrl), window.location.origin);
+                conflictUrl.searchParams.set('date', appointmentDate);
+                const response = await fetch(conflictUrl.pathname + conflictUrl.search, {
+                    credentials: 'include'
+                });
+                const data = await parseJsonResponse(response);
+                if (!response.ok || !data.success) {
+                    throw new Error(data && data.message ? data.message : 'Failed to validate appointment conflicts.');
+                }
+                appointments = Array.isArray(data.data && data.data.appointments) ? data.data.appointments : [];
+            } catch (error) {
+                if (token !== liveValidationRequestToken) {
+                    return {
+                        hasTimeSlotConflict: liveValidationState.hasTimeSlotConflict,
+                        hasPatientDuplicate: liveValidationState.hasPatientDuplicate
+                    };
+                }
+                liveValidationState = { hasTimeSlotConflict: false, hasPatientDuplicate: false };
+                syncCreateAppointmentButtonState();
+                return {
+                    hasTimeSlotConflict: false,
+                    hasPatientDuplicate: false
+                };
+            }
+
+            if (token !== liveValidationRequestToken) {
+                return {
+                    hasTimeSlotConflict: liveValidationState.hasTimeSlotConflict,
+                    hasPatientDuplicate: liveValidationState.hasPatientDuplicate
+                };
+            }
+
+            const hasTimeSlotConflict = Boolean(dentistId && appointmentTime && appointments.some(function (appointment) {
+                if (!isConflictBlockingStatus(appointment.final_status || appointment.status)) return false;
+                return String(appointment.dentist_id || '').trim() === dentistId
+                    && formatTimeForApi(String(appointment.appointment_time || '').trim()) === appointmentTime;
+            }));
+            const hasPatientDuplicate = Boolean(patientId && appointments.some(function (appointment) {
+                if (!isConflictBlockingStatus(appointment.final_status || appointment.status)) return false;
+                return String(appointment.patient_id || '').trim() === patientId;
+            }));
+
+            const previousState = {
+                hasTimeSlotConflict: liveValidationState.hasTimeSlotConflict,
+                hasPatientDuplicate: liveValidationState.hasPatientDuplicate
+            };
+            liveValidationState = {
+                hasTimeSlotConflict: hasTimeSlotConflict,
+                hasPatientDuplicate: hasPatientDuplicate
+            };
+            syncCreateAppointmentButtonState();
+
+            if (showAlerts && !previousState.hasTimeSlotConflict && hasTimeSlotConflict) {
+                await staffUiAlert({
+                    title: 'Schedule conflict',
+                    message: 'There is already a scheduled appointment for the selected time. Please choose a new time slot.',
+                    variant: 'warning'
+                });
+            }
+            if (showAlerts && !previousState.hasPatientDuplicate && hasPatientDuplicate) {
+                await staffUiAlert({
+                    title: 'Duplicate appointment',
+                    message: 'Only one appointment at a time is allowed for this patient.',
+                    variant: 'warning'
+                });
+            }
+
+            return {
+                hasTimeSlotConflict: hasTimeSlotConflict,
+                hasPatientDuplicate: hasPatientDuplicate
+            };
+        }
+
         async function loadPatientTreatmentContext(patientId) {
             activeTreatmentContext = null;
             updateTreatmentProgressCards(null);
@@ -2258,10 +2373,13 @@ try {
                 return;
             }
 
-            if (createWalkInAppointmentBtn) {
-                createWalkInAppointmentBtn.disabled = true;
-                createWalkInAppointmentBtn.classList.add('opacity-70', 'cursor-not-allowed');
+            const liveConflicts = await runLiveConflictValidation({ showAlerts: true });
+            if (liveConflicts.hasTimeSlotConflict || liveConflicts.hasPatientDuplicate) {
+                return;
             }
+
+            isSubmittingAppointment = true;
+            syncCreateAppointmentButtonState();
 
             try {
                 const response = await fetch(buildApiUrl(appointmentsApiUrl), {
@@ -2300,10 +2418,8 @@ try {
                     variant: 'error'
                 });
             } finally {
-                if (createWalkInAppointmentBtn) {
-                    createWalkInAppointmentBtn.disabled = false;
-                    createWalkInAppointmentBtn.classList.remove('opacity-70', 'cursor-not-allowed');
-                }
+                isSubmittingAppointment = false;
+                syncCreateAppointmentButtonState();
             }
         }
 
@@ -2317,6 +2433,7 @@ try {
             clearSelectedPatientBtn.addEventListener('click', async function () {
                 setSelectedPatient('', '');
                 await loadPatientTreatmentContext('');
+                await runLiveConflictValidation({ showAlerts: true });
             });
         }
         if (closeAddPatientModalBtn) {
@@ -2437,10 +2554,11 @@ try {
                 const patientName = button.getAttribute('data-patient-name') || '';
                 setSelectedPatient(patientId, patientName);
                 await loadPatientTreatmentContext(patientId);
+                await runLiveConflictValidation({ showAlerts: true });
             });
         }
         if (dentistListContainer) {
-            dentistListContainer.addEventListener('click', function (event) {
+            dentistListContainer.addEventListener('click', async function (event) {
                 const button = event.target.closest('button[data-action="select-dentist"]');
                 if (!button) return;
                 if (button.disabled) return;
@@ -2450,6 +2568,7 @@ try {
                     button.getAttribute('data-dentist-name') || ''
                 );
                 closeChooseDentistModal();
+                await runLiveConflictValidation({ showAlerts: true });
             });
         }
         if (serviceListContainer) {
@@ -2533,13 +2652,15 @@ try {
             createWalkInAppointmentBtn.addEventListener('click', submitWalkInAppointment);
         }
         if (dateInput) {
-            dateInput.addEventListener('change', function () {
-                void refreshDentistAvailabilityForSelection();
+            dateInput.addEventListener('change', async function () {
+                await refreshDentistAvailabilityForSelection();
+                await runLiveConflictValidation({ showAlerts: true });
             });
         }
         if (timeInput) {
-            timeInput.addEventListener('change', function () {
-                void refreshDentistAvailabilityForSelection();
+            timeInput.addEventListener('change', async function () {
+                await refreshDentistAvailabilityForSelection();
+                await runLiveConflictValidation({ showAlerts: true });
             });
         }
 
@@ -2554,6 +2675,7 @@ try {
         updateDefaultPaymentDetails();
         renderSelectedServices();
         void refreshDentistAvailabilityForSelection();
+        void runLiveConflictValidation({ showAlerts: false });
         regLoadProvinces('');
         loadAllPatients();
     })();
