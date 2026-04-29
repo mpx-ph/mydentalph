@@ -2271,13 +2271,18 @@ try {
 
             const selectedStartMinutes = timeToMinutes(appointmentTime);
             const selectedServiceMinutes = computeRequiredMinutesForSelectedServices();
-            const selectedDurationMinutes = selectedServiceMinutes > 0 ? selectedServiceMinutes : 60;
+            const hasKnownSelectedDuration = selectedServiceMinutes > 0;
+            const selectedDurationMinutes = hasKnownSelectedDuration ? selectedServiceMinutes : 0;
             const selectedEndMinutes = Number.isFinite(selectedStartMinutes) ? selectedStartMinutes + selectedDurationMinutes : NaN;
             const hasTimeSlotConflict = Boolean(dentistId && Number.isFinite(selectedStartMinutes) && appointments.some(function (appointment) {
                 if (!isConflictBlockingStatus(appointment.final_status || appointment.status)) return false;
                 if (String(appointment.dentist_id || '').trim() !== dentistId) return false;
                 const existingRange = getAppointmentTimeRange(appointment);
                 if (!existingRange) return false;
+                if (!hasKnownSelectedDuration) {
+                    // Before service selection, only block if the chosen start is inside an occupied range.
+                    return selectedStartMinutes >= existingRange.start && selectedStartMinutes < existingRange.end;
+                }
                 return rangesOverlap(selectedStartMinutes, selectedEndMinutes, existingRange.start, existingRange.end);
             }));
             const sameDayPatientAppointments = patientId ? appointments.filter(function (appointment) {
@@ -2287,6 +2292,9 @@ try {
             const overlappingPatientAppointment = Number.isFinite(selectedStartMinutes) ? (sameDayPatientAppointments.find(function (appointment) {
                 const existingRange = getAppointmentTimeRange(appointment);
                 if (!existingRange) return false;
+                if (!hasKnownSelectedDuration) {
+                    return selectedStartMinutes >= existingRange.start && selectedStartMinutes < existingRange.end;
+                }
                 return rangesOverlap(selectedStartMinutes, selectedEndMinutes, existingRange.start, existingRange.end);
             }) || null) : null;
             const hasPatientDuplicate = Boolean(overlappingPatientAppointment);
