@@ -168,37 +168,8 @@ try {
             );
         }
 
-        $appointmentUpdatedAtColumnStmt = $pdo->prepare("
-            SELECT 1
-            FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = 'tbl_appointments'
-              AND COLUMN_NAME = 'updated_at'
-            LIMIT 1
-        ");
-        $appointmentUpdatedAtColumnStmt->execute();
-        $supportsAppointmentUpdatedAtColumn = (bool) $appointmentUpdatedAtColumnStmt->fetchColumn();
-
-        $tablesToUpdate = [];
-        foreach (['tbl_appointments', 'appointments'] as $candidate) {
-            $physical = clinic_get_physical_table_name($pdo, $candidate);
-            if ($physical !== null && $physical !== '' && !in_array($physical, $tablesToUpdate, true)) {
-                $tablesToUpdate[] = $physical;
-            }
-        }
-        foreach ($tablesToUpdate as $tableName) {
-            $updateById = $appointmentId > 0 && strtolower($tableName) === 'tbl_appointments';
-            $quotedTable = clinic_quote_identifier($tableName);
-            $updateAppointmentSql = "
-                UPDATE {$quotedTable}
-                SET status = 'completed'" . ($supportsAppointmentUpdatedAtColumn ? ", updated_at = NOW()" : "") . "
-                WHERE tenant_id = ?
-                  AND " . ($updateById ? "id = ?" : "booking_id = ?") . "
-                  AND LOWER(COALESCE(status, 'pending')) NOT IN ('cancelled', 'no_show')
-            ";
-            $updateAppointmentStmt = $pdo->prepare($updateAppointmentSql);
-            $updateAppointmentStmt->execute([$tenantId, $updateById ? $appointmentId : $bookingId]);
-        }
+        // Keep appointment lifecycle independent from payment lifecycle.
+        // Successful payment updates payment/treatment/installment records only.
 
         $pdo->commit();
     } catch (Throwable $inner) {
