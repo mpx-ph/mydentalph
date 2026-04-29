@@ -2103,6 +2103,60 @@ try {
             return minutes;
         }
 
+        function normalizeServiceNameToken(value) {
+            return String(value || '')
+                .toLowerCase()
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function extractDurationFromServiceCatalog(serviceNames) {
+            if (!Array.isArray(serviceNames) || !serviceNames.length || !Array.isArray(allServices) || !allServices.length) {
+                return NaN;
+            }
+            const wantedNames = new Set(serviceNames.map(normalizeServiceNameToken).filter(Boolean));
+            if (!wantedNames.size) {
+                return NaN;
+            }
+            let totalMinutes = 0;
+            allServices.forEach(function (service) {
+                const serviceNameKey = normalizeServiceNameToken(service && service.service_name ? service.service_name : '');
+                if (!serviceNameKey || !wantedNames.has(serviceNameKey)) {
+                    return;
+                }
+                const duration = Math.max(0, Number(service && service.service_duration ? service.service_duration : 0));
+                const buffer = Math.max(0, Number(service && service.buffer_time ? service.buffer_time : 0));
+                totalMinutes += duration + buffer;
+            });
+            return totalMinutes > 0 ? totalMinutes : NaN;
+        }
+
+        function extractServiceNamesFromAppointment(appointment) {
+            if (!appointment || typeof appointment !== 'object') {
+                return [];
+            }
+            const names = [];
+            const description = String(appointment.service_description || '');
+            if (description) {
+                const descriptionMatches = description.match(/([^;|]+?)\s*\([P₱]\s*[\d,]+(?:\.\d+)?\)/g) || [];
+                descriptionMatches.forEach(function (item) {
+                    const cleaned = String(item || '').replace(/\s*\([P₱].*$/, '').trim();
+                    if (cleaned) names.push(cleaned);
+                });
+            }
+            const serviceTypeRaw = String(appointment.service_type || '').trim();
+            if (serviceTypeRaw) {
+                const parsedTypeNames = serviceTypeRaw
+                    .split(',')
+                    .map(function (part) {
+                        return String(part || '').replace(/\(\+\d+\s+more\)/i, '').trim();
+                    })
+                    .filter(Boolean);
+                names.push.apply(names, parsedTypeNames);
+            }
+            return Array.from(new Set(names.map(normalizeServiceNameToken))).filter(Boolean);
+        }
+
         function inferAppointmentDurationMinutes(appointment) {
             if (!appointment || typeof appointment !== 'object') {
                 return 60;
@@ -2127,6 +2181,12 @@ try {
             }
             if (Number.isFinite(serviceDuration)) {
                 return serviceDuration;
+            }
+
+            const appointmentServiceNames = extractServiceNamesFromAppointment(appointment);
+            const catalogDuration = extractDurationFromServiceCatalog(appointmentServiceNames);
+            if (Number.isFinite(catalogDuration)) {
+                return catalogDuration;
             }
 
             return 60;
