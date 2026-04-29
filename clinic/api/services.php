@@ -175,7 +175,12 @@ function createService() {
     
     $input = json_decode(file_get_contents('php://input'), true);
 
-    $useCustom = !empty($input['use_custom_payment']);
+    $serviceType = strtolower(trim((string) ($input['service_type'] ?? '')));
+    if (!in_array($serviceType, ['regular', 'installment', 'included_plan'], true)) {
+        $serviceType = !empty($input['enable_installment']) ? 'installment' : 'regular';
+    }
+
+    $useCustom = $serviceType === 'included_plan' ? false : !empty($input['use_custom_payment']);
     $downPctRaw = $input['downpayment_percentage'] ?? null;
     $downpaymentPct = null;
     if ($downPctRaw !== null && $downPctRaw !== '') {
@@ -186,7 +191,12 @@ function createService() {
     $instDown = null;
     $instMonths = null;
 
-    if ($useCustom) {
+    if ($serviceType === 'included_plan') {
+        $enableInstallment = false;
+        $downpaymentPct = null;
+        $instDown = null;
+        $instMonths = null;
+    } elseif ($useCustom) {
         $enableInstallment = !empty($input['enable_installment']);
         if ($enableInstallment) {
             if (isset($input['installment_downpayment']) && $input['installment_downpayment'] !== '' && $input['installment_downpayment'] !== null) {
@@ -216,7 +226,8 @@ function createService() {
         'service_name' => sanitize($input['service_name'] ?? ''),
         'service_details' => sanitize($input['service_details'] ?? ''),
         'category' => sanitize($input['category'] ?? ''),
-        'price' => isset($input['price']) ? floatval($input['price']) : 0.00,
+        'price' => $serviceType === 'included_plan' ? 0.00 : (isset($input['price']) ? floatval($input['price']) : 0.00),
+        'service_type' => $serviceType,
         'service_duration' => isset($input['service_duration']) ? intval($input['service_duration']) : 0,
         'buffer_time' => isset($input['buffer_time']) ? intval($input['buffer_time']) : 0,
         'downpayment_percentage' => $enableInstallment ? null : $downpaymentPct,
@@ -261,11 +272,11 @@ function createService() {
         jsonResponse(false, 'Buffer time cannot be negative.');
     }
 
-    if ($useCustom && !$enableInstallment && $downpaymentPct === null) {
+    if ($serviceType !== 'included_plan' && $useCustom && !$enableInstallment && $downpaymentPct === null) {
         jsonResponse(false, 'Enter a custom down payment percentage, or disable custom payment settings to use the clinic default.');
     }
 
-    if (!$enableInstallment && $data['downpayment_percentage'] !== null) {
+    if ($serviceType !== 'included_plan' && !$enableInstallment && $data['downpayment_percentage'] !== null) {
         if ($data['downpayment_percentage'] < 0 || $data['downpayment_percentage'] > 100) {
             jsonResponse(false, 'Downpayment percentage must be between 0 and 100.');
         }
@@ -273,7 +284,7 @@ function createService() {
 
     $ps = loadTenantPaymentSettings($pdo, $tenantId);
 
-    if ($enableInstallment) {
+    if ($serviceType !== 'included_plan' && $enableInstallment) {
         if ($data['installment_duration_months'] === null || $data['installment_duration_months'] < 1) {
             jsonResponse(false, 'Duration must be at least 1 month when installment plan is enabled.');
         }
@@ -312,11 +323,12 @@ function createService() {
         $stmt = $pdo->prepare("
             INSERT INTO tbl_services (
                 tenant_id, service_id, service_name, service_details, category, price,
+                service_type,
                 service_duration, buffer_time,
                 downpayment_percentage, enable_installment,
                 installment_downpayment, installment_duration_months,
                 status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         
         $stmt->execute([
@@ -326,6 +338,7 @@ function createService() {
             $data['service_details'],
             $data['category'],
             $data['price'],
+            $data['service_type'],
             $data['service_duration'],
             $data['buffer_time'],
             $data['downpayment_percentage'],
@@ -488,9 +501,13 @@ function updateService() {
     $instDown = null;
     $instMonths = null;
     $useCustom = false;
+    $serviceType = strtolower(trim((string) ($input['service_type'] ?? ($existing['service_type'] ?? ''))));
+    if (!in_array($serviceType, ['regular', 'installment', 'included_plan'], true)) {
+        $serviceType = !empty($existing['enable_installment']) ? 'installment' : 'regular';
+    }
 
     if ($paymentInputPresent) {
-        $useCustom = !empty($input['use_custom_payment']);
+        $useCustom = $serviceType === 'included_plan' ? false : !empty($input['use_custom_payment']);
         $downPctRaw = $input['downpayment_percentage'] ?? null;
         if ($downPctRaw !== null && $downPctRaw !== '') {
             $downpaymentPct = floatval($downPctRaw);
@@ -498,7 +515,12 @@ function updateService() {
             $downpaymentPct = null;
         }
 
-        if ($useCustom) {
+        if ($serviceType === 'included_plan') {
+            $enableInstallment = false;
+            $downpaymentPct = null;
+            $instDown = null;
+            $instMonths = null;
+        } elseif ($useCustom) {
             $enableInstallment = !empty($input['enable_installment']);
             if ($enableInstallment) {
                 if (isset($input['installment_downpayment']) && $input['installment_downpayment'] !== '' && $input['installment_downpayment'] !== null) {
@@ -560,7 +582,10 @@ function updateService() {
         'service_name' => isset($input['service_name']) ? sanitize($input['service_name']) : $existing['service_name'],
         'service_details' => isset($input['service_details']) ? sanitize($input['service_details']) : $existing['service_details'],
         'category' => isset($input['category']) ? sanitize($input['category']) : $existing['category'],
-        'price' => isset($input['price']) ? floatval($input['price']) : floatval($existing['price']),
+        'price' => $serviceType === 'included_plan'
+            ? 0.00
+            : (isset($input['price']) ? floatval($input['price']) : floatval($existing['price'])),
+        'service_type' => $serviceType,
         'service_duration' => array_key_exists('service_duration', $input) ? intval($input['service_duration']) : intval($existing['service_duration'] ?? 0),
         'buffer_time' => array_key_exists('buffer_time', $input) ? intval($input['buffer_time']) : intval($existing['buffer_time'] ?? 0),
         'downpayment_percentage' => $enableInstallment ? null : $downpaymentPct,
@@ -605,11 +630,11 @@ function updateService() {
         jsonResponse(false, 'Buffer time cannot be negative.');
     }
 
-    if ($paymentInputPresent && $useCustom && !$enableInstallment && $downpaymentPct === null) {
+    if ($serviceType !== 'included_plan' && $paymentInputPresent && $useCustom && !$enableInstallment && $downpaymentPct === null) {
         jsonResponse(false, 'Enter a custom down payment percentage, or disable custom payment settings to use the clinic default.');
     }
 
-    if (!$enableInstallment && $data['downpayment_percentage'] !== null) {
+    if ($serviceType !== 'included_plan' && !$enableInstallment && $data['downpayment_percentage'] !== null) {
         if ($data['downpayment_percentage'] < 0 || $data['downpayment_percentage'] > 100) {
             jsonResponse(false, 'Downpayment percentage must be between 0 and 100.');
         }
@@ -617,7 +642,7 @@ function updateService() {
 
     $ps = loadTenantPaymentSettings($pdo, $tenantId);
 
-    if ($enableInstallment) {
+    if ($serviceType !== 'included_plan' && $enableInstallment) {
         if ($data['installment_duration_months'] === null || $data['installment_duration_months'] < 1) {
             jsonResponse(false, 'Duration must be at least 1 month when installment plan is enabled.');
         }
@@ -678,6 +703,7 @@ function updateService() {
                 service_details = ?, 
                 category = ?, 
                 price = ?, 
+                service_type = ?,
                 service_duration = ?,
                 buffer_time = ?,
                 downpayment_percentage = ?,
@@ -693,6 +719,7 @@ function updateService() {
             $data['service_details'],
             $data['category'],
             $data['price'],
+            $data['service_type'],
             $data['service_duration'],
             $data['buffer_time'],
             $data['downpayment_percentage'],

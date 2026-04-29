@@ -322,6 +322,10 @@ Price (₱) <span class="text-red-500 font-bold">*</span>
 <input type="radio" name="newServiceBillingType" value="installment" id="newServiceBillingInstallment" class="h-4 w-4 shrink-0 border-slate-300 text-primary accent-primary focus:ring-primary"/>
 <span class="text-sm font-semibold text-slate-800 group-hover:text-slate-900">Installment Plan</span>
 </label>
+<label class="inline-flex items-center gap-2.5 cursor-pointer group">
+<input type="radio" name="newServiceBillingType" value="included_plan" id="newServiceBillingIncludedPlan" class="h-4 w-4 shrink-0 border-slate-300 text-primary accent-primary focus:ring-primary"/>
+<span class="text-sm font-semibold text-slate-800 group-hover:text-slate-900">Covered by Plan</span>
+</label>
 </div>
 <div class="w-full min-w-0 lg:max-w-[17rem] lg:flex-shrink-0">
 <label for="newServiceAutoDownpaymentDisplay" class="flex items-start gap-1.5 text-xs font-semibold text-slate-700 mb-1.5">
@@ -557,6 +561,10 @@ Status
 <input type="radio" name="editServiceBillingType" value="installment" id="editServiceBillingInstallment" class="h-4 w-4 shrink-0 border-slate-300 text-primary accent-primary focus:ring-primary"/>
 <span class="text-sm font-semibold text-slate-800">Installment Plan</span>
 </label>
+<label class="inline-flex items-center gap-2.5 cursor-pointer group">
+<input type="radio" name="editServiceBillingType" value="included_plan" id="editServiceBillingIncludedPlan" class="h-4 w-4 shrink-0 border-slate-300 text-primary accent-primary focus:ring-primary"/>
+<span class="text-sm font-semibold text-slate-800">Covered by Plan</span>
+</label>
 </div>
 <div class="w-full min-w-0 lg:max-w-[17rem] lg:flex-shrink-0">
 <label for="editServiceAutoDownpaymentDisplay" class="flex items-start gap-1.5 text-xs font-semibold text-slate-700 mb-1.5">
@@ -786,11 +794,18 @@ function bindEvents() {
     document.getElementById('newServiceGlobalInstallmentDuration').addEventListener('input', function () { recalcGlobalInstallmentMonthly('new'); });
     document.getElementById('editServiceGlobalInstallmentDuration').addEventListener('input', function () { recalcGlobalInstallmentMonthly('edit'); });
     document.querySelectorAll('input[name="newServiceBillingType"]').forEach(function (r) {
-        r.addEventListener('change', function () { updatePaymentPreview('new'); });
+        r.addEventListener('change', function () {
+            syncIncludedPlanMode('new');
+            syncCustomPaymentVisibility('new');
+        });
     });
     document.querySelectorAll('input[name="editServiceBillingType"]').forEach(function (r) {
-        r.addEventListener('change', function () { updatePaymentPreview('edit'); });
+        r.addEventListener('change', function () {
+            syncIncludedPlanMode('edit');
+            syncCustomPaymentVisibility('edit');
+        });
     });
+    syncIncludedPlanMode('new');
     syncCustomPaymentVisibility('new');
     updatePaymentPreview('new');
 }
@@ -947,6 +962,44 @@ function billingName(scope) {
     return scope === 'edit' ? 'editServiceBillingType' : 'newServiceBillingType';
 }
 
+function selectedBillingType(scope) {
+    const selected = document.querySelector('input[name="' + billingName(scope) + '"]:checked');
+    return selected ? selected.value : 'regular';
+}
+
+function isIncludedPlanScope(scope) {
+    return selectedBillingType(scope) === 'included_plan';
+}
+
+function syncIncludedPlanMode(scope) {
+    const p = payPrefix(scope);
+    const isIncludedPlan = isIncludedPlanScope(scope);
+    const priceEl = document.getElementById(p + 'Price');
+    const customPaymentToggle = document.getElementById(p + 'UseCustomPayment');
+    const customCheck = scope === 'new'
+        ? document.getElementById('customPaymentEnableCheck')
+        : document.getElementById('editCustomPaymentEnableCheck');
+
+    if (isIncludedPlan && priceEl) {
+        priceEl.value = '0';
+        priceEl.readOnly = true;
+    } else if (priceEl) {
+        priceEl.readOnly = false;
+    }
+
+    if (customPaymentToggle) {
+        if (isIncludedPlan) {
+            customPaymentToggle.checked = false;
+            customPaymentToggle.disabled = true;
+            if (customCheck) {
+                customCheck.classList.add('hidden');
+            }
+        } else {
+            customPaymentToggle.disabled = false;
+        }
+    }
+}
+
 function updatePaymentPreview(scope) {
     const p = payPrefix(scope);
     const out = document.getElementById(p + 'AutoDownpaymentDisplay');
@@ -960,11 +1013,12 @@ function updatePaymentPreview(scope) {
     const priceEl = document.getElementById(p + 'Price');
     const raw = priceEl && priceEl.value !== undefined && priceEl.value !== null ? String(priceEl.value).trim() : '';
     const price = parseFloat(raw);
-    const billingEl = document.querySelector('input[name="' + billingName(scope) + '"]:checked');
-    const isInst = !useCustom && billingEl && billingEl.value === 'installment';
+    const billingType = selectedBillingType(scope);
+    const isInst = !useCustom && billingType === 'installment';
+    const isIncludedPlan = !useCustom && billingType === 'included_plan';
 
     if (regHelp && instHelp) {
-        regHelp.classList.toggle('hidden', isInst);
+        regHelp.classList.toggle('hidden', isInst || isIncludedPlan);
         instHelp.classList.toggle('hidden', !isInst);
     }
     if (globalInst) {
@@ -1040,6 +1094,7 @@ function recalcInstallmentMonthly(scope) {
 function syncCustomPaymentVisibility(scope) {
     const p = payPrefix(scope);
     const use = document.getElementById(p + 'UseCustomPayment').checked;
+    const isIncludedPlan = isIncludedPlanScope(scope);
     const customCheck = scope === 'new'
         ? document.getElementById('customPaymentEnableCheck')
         : document.getElementById('editCustomPaymentEnableCheck');
@@ -1051,7 +1106,7 @@ function syncCustomPaymentVisibility(scope) {
     const shell = document.getElementById(p + 'DefaultPaymentShell');
     const billingRadios = document.querySelectorAll('input[name="' + billingName(scope) + '"]');
 
-    if (use) {
+    if (use && !isIncludedPlan) {
         if (shell) {
             shell.classList.add('hidden');
         }
@@ -1086,6 +1141,7 @@ function syncCustomPaymentVisibility(scope) {
         updatePaymentPreview(scope);
     }
     syncInstallmentMode(scope);
+    updatePaymentPreview(scope);
 }
 
 function syncInstallmentMode(scope) {
@@ -1111,6 +1167,7 @@ function openNewServiceModal() {
     document.getElementById('newServiceBufferTime').value = '10';
     document.getElementById('newServiceBillingRegular').checked = true;
     document.getElementById('newServiceBillingInstallment').checked = false;
+    document.getElementById('newServiceBillingIncludedPlan').checked = false;
     document.getElementById('newServiceUseCustomPayment').checked = false;
     document.getElementById('newServiceDownpaymentPct').value = '';
     document.getElementById('newServiceEnableInstallment').checked = false;
@@ -1118,6 +1175,7 @@ function openNewServiceModal() {
     document.getElementById('newServiceInstallmentDuration').value = '';
     document.getElementById('newServiceInstallmentMonthly').value = '';
     document.getElementById('newServiceGlobalInstallmentDuration').value = '';
+    syncIncludedPlanMode('new');
     syncCustomPaymentVisibility('new');
     updatePaymentPreview('new');
     document.getElementById('newServiceModal').classList.remove('hidden');
@@ -1142,7 +1200,9 @@ function openEditServiceModal(serviceId) {
     document.getElementById('editServiceName').value = service.service_name || '';
     document.getElementById('editServiceDetails').value = service.service_details || '';
     document.getElementById('editServiceCategory').value = service.category || '';
-    document.getElementById('editServicePrice').value = service.price || '';
+    const serviceType = String(service.service_type || '').toLowerCase();
+    const isIncludedPlan = serviceType === 'included_plan';
+    document.getElementById('editServicePrice').value = isIncludedPlan ? '0' : (service.price || '');
     document.getElementById('editServiceDuration').value = Number.isFinite(parseInt(service.service_duration, 10)) ? String(parseInt(service.service_duration, 10)) : '60';
     document.getElementById('editServiceBufferTime').value = Number.isFinite(parseInt(service.buffer_time, 10)) ? String(parseInt(service.buffer_time, 10)) : '10';
     document.getElementById((service.status || '').toLowerCase() === 'active' ? 'editServiceStatusActive' : 'editServiceStatusInactive').checked = true;
@@ -1159,9 +1219,11 @@ function openEditServiceModal(serviceId) {
     document.getElementById('editServiceEnableInstallment').checked = useCustom ? hasInst : false;
     document.getElementById('editServiceInstallmentDownpayment').value = hasCustomInstAmt ? String(rawInst) : '';
     document.getElementById('editServiceInstallmentDuration').value = (useCustom && hasInst && service.installment_duration_months) ? String(service.installment_duration_months) : '';
-    document.getElementById('editServiceBillingRegular').checked = !hasInst;
-    document.getElementById('editServiceBillingInstallment').checked = hasInst;
+    document.getElementById('editServiceBillingRegular').checked = !hasInst && !isIncludedPlan;
+    document.getElementById('editServiceBillingInstallment').checked = hasInst && !isIncludedPlan;
+    document.getElementById('editServiceBillingIncludedPlan').checked = isIncludedPlan;
 
+    syncIncludedPlanMode('edit');
     syncCustomPaymentVisibility('edit');
     if (!useCustom && hasInst && service.installment_duration_months) {
         document.getElementById('editServiceGlobalInstallmentDuration').value = String(service.installment_duration_months);
@@ -1180,16 +1242,20 @@ function closeEditServiceModal() {
 
 function buildPaymentPayload(scope) {
     const p = payPrefix(scope);
-    const useCustom = document.getElementById(p + 'UseCustomPayment').checked;
-    const billingTypeEl = document.querySelector('input[name="' + billingName(scope) + '"]:checked');
-    const billingType = billingTypeEl ? billingTypeEl.value : 'regular';
+    const billingType = selectedBillingType(scope);
+    const isIncludedPlan = billingType === 'included_plan';
+    const useCustom = isIncludedPlan ? false : document.getElementById(p + 'UseCustomPayment').checked;
     const out = {
         use_custom_payment: useCustom,
+        service_type: billingType,
         enable_installment: false,
         downpayment_percentage: null,
         installment_downpayment: null,
         installment_duration_months: null
     };
+    if (isIncludedPlan) {
+        return out;
+    }
     if (!useCustom) {
         out.enable_installment = billingType === 'installment';
         if (billingType === 'installment') {
@@ -1211,6 +1277,9 @@ function buildPaymentPayload(scope) {
 }
 
 function validatePaymentPayload(payload, price) {
+    if (payload.service_type === 'included_plan') {
+        return true;
+    }
     const useCustom = payload.use_custom_payment;
     if (!useCustom && payload.enable_installment) {
         if (!Number.isInteger(payload.installment_duration_months) || payload.installment_duration_months < 1) {
@@ -1248,10 +1317,12 @@ function validatePaymentPayload(payload, price) {
 }
 
 function saveNewService() {
-    const price = parseFloat(document.getElementById('newServicePrice').value || '0');
     const serviceDuration = parseInt(document.getElementById('newServiceDuration').value || '0', 10);
     const bufferTime = parseInt(document.getElementById('newServiceBufferTime').value || '0', 10);
     const pay = buildPaymentPayload('new');
+    const price = pay.service_type === 'included_plan'
+        ? 0
+        : parseFloat(document.getElementById('newServicePrice').value || '0');
     const payload = {
         service_name: (document.getElementById('newServiceName').value || '').trim(),
         service_details: (document.getElementById('newServiceDetails').value || '').trim(),
@@ -1260,6 +1331,7 @@ function saveNewService() {
         service_duration: Number.isInteger(serviceDuration) ? serviceDuration : 0,
         buffer_time: Number.isInteger(bufferTime) ? bufferTime : 0,
         use_custom_payment: pay.use_custom_payment,
+        service_type: pay.service_type,
         enable_installment: pay.enable_installment,
         downpayment_percentage: pay.downpayment_percentage,
         installment_downpayment: pay.installment_downpayment,
@@ -1300,10 +1372,12 @@ function saveNewService() {
 
 function saveServiceChanges() {
     const selectedStatus = document.querySelector('input[name="editServiceStatus"]:checked');
-    const price = parseFloat(document.getElementById('editServicePrice').value || '0');
     const serviceDuration = parseInt(document.getElementById('editServiceDuration').value || '0', 10);
     const bufferTime = parseInt(document.getElementById('editServiceBufferTime').value || '0', 10);
     const pay = buildPaymentPayload('edit');
+    const price = pay.service_type === 'included_plan'
+        ? 0
+        : parseFloat(document.getElementById('editServicePrice').value || '0');
     const payload = {
         id: parseInt(document.getElementById('editServiceId').value, 10),
         service_name: (document.getElementById('editServiceName').value || '').trim(),
@@ -1314,6 +1388,7 @@ function saveServiceChanges() {
         buffer_time: Number.isInteger(bufferTime) ? bufferTime : 0,
         status: selectedStatus ? selectedStatus.value : 'active',
         use_custom_payment: pay.use_custom_payment,
+        service_type: pay.service_type,
         enable_installment: pay.enable_installment,
         downpayment_percentage: pay.downpayment_percentage,
         installment_downpayment: pay.installment_downpayment,
