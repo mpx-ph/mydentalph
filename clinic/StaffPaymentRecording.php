@@ -3372,7 +3372,13 @@ try {
             $collapsedKeyOrder = [];
             foreach ($transactionCandidates as $candRow) {
                 $candidateType = strtolower(trim((string) ($candRow['service_type'] ?? '')));
-                $isInstallment = $candidateType === 'installment';
+                $candidateTransactionType = strtolower(trim((string) ($candRow['transaction_type'] ?? '')));
+                $candidateInstallmentFlag = $candRow['is_installment_plan'] ?? 0;
+                $isInstallment = $candidateType === 'installment'
+                    || $candidateTransactionType === 'installment'
+                    || $candidateInstallmentFlag === 1
+                    || $candidateInstallmentFlag === '1'
+                    || $candidateInstallmentFlag === true;
                 $treatmentId = trim((string) ($candRow['treatment_id'] ?? ''));
                 if ($isInstallment && $treatmentId !== '') {
                     $groupKey = 'treatment:' . $treatmentId;
