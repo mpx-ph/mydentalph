@@ -457,6 +457,7 @@ CREATE TABLE IF NOT EXISTS tbl_services (
     service_name VARCHAR(255),
     service_details TEXT,
     category VARCHAR(100),
+    service_type ENUM('regular','installment','included_plan') NOT NULL DEFAULT 'regular',
     price DECIMAL(10,2),
     service_duration INT NOT NULL DEFAULT 0 COMMENT 'Service length in minutes',
     buffer_time INT NOT NULL DEFAULT 0 COMMENT 'Extra buffer after service in minutes',
