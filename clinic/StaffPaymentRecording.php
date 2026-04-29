@@ -2571,7 +2571,6 @@ try {
         $recentInstallmentPlanSqlParts[] = "
             (
                 TRIM(COALESCE(a.treatment_id, '')) <> ''
-                OR LOWER(TRIM(COALESCE(a.treatment_type, ''))) = 'long_term'
                 OR LOWER(TRIM(COALESCE(a.service_type, ''))) = 'installment'
             )
         ";
@@ -2724,7 +2723,6 @@ try {
         $installmentPlanSqlParts[] = "
             (
                 TRIM(COALESCE(a.treatment_id, '')) <> ''
-                OR LOWER(TRIM(COALESCE(a.treatment_type, ''))) = 'long_term'
                 OR LOWER(TRIM(COALESCE(a.service_type, ''))) = 'installment'
             )
         ";
@@ -2795,14 +2793,12 @@ try {
                         WHEN LOWER(TRIM(COALESCE(NULLIF(aps.service_type, ''), NULLIF(a.service_type, ''), ''))) = 'regular' THEN 'regular'
                         WHEN LOWER(TRIM(COALESCE(NULLIF(aps.service_type, ''), NULLIF(a.service_type, ''), ''))) = 'installment' THEN 'installment'
                         WHEN LOWER(TRIM(COALESCE(sv.service_type, ''))) = 'installment' THEN 'installment'
-                        WHEN LOWER(TRIM(COALESCE(a.treatment_type, ''))) = 'long_term' THEN 'installment'
                         WHEN TRIM(COALESCE(NULLIF(aps.treatment_id, ''), NULLIF(a.treatment_id, ''), '')) <> '' THEN 'installment'
                         ELSE 'regular'
                     END"
                 : ($supportsServiceEnableInstallmentColumn
                     ? "CASE
                             WHEN COALESCE(sv.enable_installment, 0) = 1 THEN 'installment'
-                            WHEN LOWER(TRIM(COALESCE(a.treatment_type, ''))) = 'long_term' THEN 'installment'
                             WHEN TRIM(COALESCE(a.treatment_id, '')) <> '' THEN 'installment'
                             WHEN LOWER(TRIM(COALESCE(a.service_type, ''))) = 'installment' THEN 'installment'
                             ELSE 'regular'

@@ -56,6 +56,9 @@ $dentistsTableName = $resolvedTables['dentists']
     ?? clinic_get_physical_table_name($pdo, 'tbl_dentists')
     ?? clinic_get_physical_table_name($pdo, 'dentists')
     ?? 'tbl_dentists';
+$treatmentsTableName = clinic_get_physical_table_name($pdo, 'tbl_treatments')
+    ?? clinic_get_physical_table_name($pdo, 'treatments')
+    ?? '';
 
 // Route based on method and action
 $action = isset($_GET['action']) ? sanitize($_GET['action']) : null;
@@ -147,6 +150,42 @@ function generateBookingId() {
     }
     
     return $bookingId;
+}
+
+/**
+ * Generate unique treatment ID.
+ * Format: TRT-YYYY-XXXXXX
+ */
+function generateTreatmentId(): string {
+    global $pdo, $tenantId, $treatmentsTableName;
+
+    if (trim((string) $treatmentsTableName) === '') {
+        return '';
+    }
+
+    $prefix = 'TRT-' . date('Y') . '-';
+    $quotedTreatmentsTable = clinic_quote_identifier((string) $treatmentsTableName);
+
+    $stmt = $pdo->prepare("
+        SELECT treatment_id
+        FROM {$quotedTreatmentsTable}
+        WHERE tenant_id = ?
+          AND treatment_id LIKE ?
+        ORDER BY treatment_id DESC
+        LIMIT 1
+    ");
+    $stmt->execute([$tenantId, $prefix . '%']);
+    $lastTreatmentId = (string) ($stmt->fetchColumn() ?: '');
+
+    $sequence = 1;
+    if ($lastTreatmentId !== '') {
+        $parts = explode('-', $lastTreatmentId);
+        if (count($parts) === 3) {
+            $sequence = ((int) $parts[2]) + 1;
+        }
+    }
+
+    return $prefix . str_pad((string) $sequence, 6, '0', STR_PAD_LEFT);
 }
 
 /**
@@ -300,7 +339,7 @@ function createInstallments($pdo, $bookingId, $totalCost, $durationMonths, $star
  * Create new appointment
  */
 function createAppointment() {
-    global $pdo, $tenantId, $appointmentsTableName, $patientsTableName, $usersTableName, $installmentsTableName, $resolvedTables;
+    global $pdo, $tenantId, $appointmentsTableName, $patientsTableName, $usersTableName, $installmentsTableName, $resolvedTables, $treatmentsTableName;
     $quotedPatientsTable = clinic_quote_identifier((string) $patientsTableName);
     $quotedUsersTable = clinic_quote_identifier((string) $usersTableName);
     $quotedAppointmentsTable = clinic_quote_identifier((string) $appointmentsTableName);
@@ -640,6 +679,9 @@ function createAppointment() {
         // Generate booking ID
         $bookingId = generateBookingId();
         
+        $resolvedTreatmentId = trim((string) ($data['treatment_id'] ?? ''));
+        $pendingInstallmentTreatmentData = null;
+
         // Retry loop for potential duplicates (shouldn't happen with new format, but safety check)
         $maxRetries = 5;
         $retryCount = 0;
@@ -675,7 +717,7 @@ function createAppointment() {
                     if ($isStaffSetAppointmentBooking && $appointmentServicesTableName !== null && $servicesCatalogTableName !== null) {
                         $quotedServicesCatalogTable = clinic_quote_identifier((string) $servicesCatalogTableName);
                         $serviceCatalogStmt = $pdo->prepare("
-                            SELECT service_id, service_name, price, enable_installment, service_type
+                            SELECT service_id, service_name, price, enable_installment, service_type, installment_duration_months
                             FROM {$quotedServicesCatalogTable}
                             WHERE tenant_id = ?
                               AND service_id = ?
@@ -714,6 +756,9 @@ function createAppointment() {
                             'service_name' => $rowName,
                             'price' => $rowPrice,
                             'service_type' => $isInstallmentRow ? 'installment' : 'regular',
+                            'installment_duration_months' => isset($serviceCatalogRow['installment_duration_months'])
+                                ? (int) $serviceCatalogRow['installment_duration_months']
+                                : 0,
                         ];
                     }
                     
@@ -763,6 +808,37 @@ function createAppointment() {
                     $targetCompletionDateObj = clone $startDateObj;
                     $targetCompletionDateObj->modify('+' . $durationMonths . ' months');
                     $targetCompletionDate = $targetCompletionDateObj->format('Y-m-d');
+                }
+
+                $primaryInstallmentServiceRow = null;
+                foreach ($normalizedServiceRows as $serviceRow) {
+                    if (strtolower(trim((string) ($serviceRow['service_type'] ?? 'regular'))) === 'installment') {
+                        $primaryInstallmentServiceRow = $serviceRow;
+                        break;
+                    }
+                }
+                $hasInstallmentService = $primaryInstallmentServiceRow !== null;
+                if ($isStaffSetAppointmentBooking && $hasInstallmentService && $resolvedTreatmentId === '' && $treatmentsTableName !== '') {
+                    $resolvedTreatmentId = generateTreatmentId();
+                    if ($resolvedTreatmentId !== '') {
+                        $durationFromService = max(0, (int) ($primaryInstallmentServiceRow['installment_duration_months'] ?? 0));
+                        $pendingInstallmentTreatmentData = [
+                            'tenant_id' => $tenantId,
+                            'treatment_id' => $resolvedTreatmentId,
+                            'patient_id' => (string) $data['patient_id'],
+                            'primary_service_id' => trim((string) ($primaryInstallmentServiceRow['service_id'] ?? '')),
+                            'primary_service_name' => trim((string) ($primaryInstallmentServiceRow['service_name'] ?? '')),
+                            'total_cost' => (float) ($primaryInstallmentServiceRow['price'] ?? 0),
+                            'amount_paid' => 0.0,
+                            'remaining_balance' => (float) ($primaryInstallmentServiceRow['price'] ?? 0),
+                            'duration_months' => $durationFromService,
+                            'months_paid' => 0,
+                            'months_left' => $durationFromService,
+                            'status' => 'active',
+                            'started_at' => (string) ($data['appointment_date'] ?? date('Y-m-d')),
+                            'created_by' => $createdByUserId,
+                        ];
+                    }
                 }
                 
                 // Insert appointment with dynamic column support across table variants.
@@ -827,6 +903,7 @@ function createAppointment() {
                     'tenant_id' => $tenantId,
                     'booking_id' => $bookingId,
                     'patient_id' => $data['patient_id'],
+                    'treatment_id' => $resolvedTreatmentId !== '' ? $resolvedTreatmentId : null,
                     'dentist_id' => $normalizedDentistId !== '' ? $normalizedDentistId : null,
                     'appointment_date' => $data['appointment_date'],
                     'appointment_time' => $data['appointment_time'],
@@ -843,7 +920,7 @@ function createAppointment() {
                     'created_by' => $createdByUserId,
                 ];
                 $columnOrder = [
-                    'tenant_id', 'dentist_id', 'booking_id', 'patient_id',
+                    'tenant_id', 'dentist_id', 'booking_id', 'patient_id', 'treatment_id',
                     'appointment_date', 'appointment_time', 'service_type', 'service_description',
                     'treatment_type', 'visit_type', 'status', 'notes', 'total_treatment_cost',
                     'duration_months', 'target_completion_date', 'start_date', 'created_by'
@@ -926,7 +1003,9 @@ function createAppointment() {
                             $lineParams[] = $appointmentRowId > 0 ? $appointmentRowId : null;
                         }
                         if (in_array('treatment_id', $appointmentServiceColumns, true)) {
-                            $lineParams[] = null;
+                            $lineParams[] = strtolower(trim((string) ($serviceRow['service_type'] ?? 'regular'))) === 'installment'
+                                ? ($resolvedTreatmentId !== '' ? $resolvedTreatmentId : null)
+                                : null;
                         }
                         if (in_array('service_type', $appointmentServiceColumns, true)) {
                             $lineParams[] = strtolower(trim((string) ($serviceRow['service_type'] ?? 'regular'))) === 'installment'
@@ -978,6 +1057,56 @@ function createAppointment() {
         }
         
         $appointmentId = $pdo->lastInsertId();
+
+        if (
+            $pendingInstallmentTreatmentData !== null
+            && $resolvedTreatmentId !== ''
+            && $treatmentsTableName !== ''
+        ) {
+            $quotedTreatmentsTable = clinic_quote_identifier((string) $treatmentsTableName);
+            $treatCols = clinic_table_columns($pdo, (string) $treatmentsTableName);
+
+            $existsStmt = $pdo->prepare("
+                SELECT 1
+                FROM {$quotedTreatmentsTable}
+                WHERE tenant_id = ?
+                  AND treatment_id = ?
+                LIMIT 1
+            ");
+            $existsStmt->execute([$tenantId, $resolvedTreatmentId]);
+            $alreadyExists = (bool) $existsStmt->fetchColumn();
+
+            if (!$alreadyExists) {
+                $insertTreatCols = [];
+                $insertTreatVals = [];
+                $insertTreatParams = [];
+                $treatOrder = [
+                    'tenant_id', 'treatment_id', 'patient_id',
+                    'primary_service_id', 'primary_service_name',
+                    'total_cost', 'amount_paid', 'remaining_balance',
+                    'duration_months', 'months_paid', 'months_left',
+                    'status', 'started_at', 'created_by'
+                ];
+                foreach ($treatOrder as $col) {
+                    if (!in_array($col, $treatCols, true) || !array_key_exists($col, $pendingInstallmentTreatmentData)) {
+                        continue;
+                    }
+                    $insertTreatCols[] = clinic_quote_identifier($col);
+                    $insertTreatVals[] = '?';
+                    $insertTreatParams[] = $pendingInstallmentTreatmentData[$col];
+                }
+                if (in_array('created_at', $treatCols, true)) {
+                    $insertTreatCols[] = clinic_quote_identifier('created_at');
+                    $insertTreatVals[] = 'NOW()';
+                }
+                if ($insertTreatCols !== []) {
+                    $insertTreatSql = 'INSERT INTO ' . $quotedTreatmentsTable
+                        . ' (' . implode(', ', $insertTreatCols) . ') VALUES (' . implode(', ', $insertTreatVals) . ')';
+                    $insertTreatStmt = $pdo->prepare($insertTreatSql);
+                    $insertTreatStmt->execute($insertTreatParams);
+                }
+            }
+        }
         
         // Create installments for long-term treatments ONLY if payment option is 'downpayment'
         // Full payment long-term treatments should NOT have installments
