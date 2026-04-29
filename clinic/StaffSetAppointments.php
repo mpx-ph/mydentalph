@@ -1441,7 +1441,11 @@ try {
         function serviceInstallmentEnabled(service) {
             if (!service) return false;
             const v = service.enable_installment;
-            return v === true || v === 1 || v === '1';
+            if (v === true || v === 1 || v === '1') {
+                return true;
+            }
+            const rawServiceType = String(service.service_type || '').toLowerCase().trim();
+            return rawServiceType === 'installment';
         }
 
         function formatPeso(amount) {

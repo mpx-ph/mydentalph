@@ -2579,9 +2579,15 @@ try {
                 EXISTS (
                     SELECT 1
                     FROM tbl_appointment_services aps
+                    LEFT JOIN tbl_services sv
+                      ON sv.tenant_id = aps.tenant_id
+                     AND sv.service_id = aps.service_id
                     WHERE aps.tenant_id = a.tenant_id
                       AND aps.booking_id = a.booking_id
-                      AND COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment') = 'installment'
+                      AND (
+                          LOWER(COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment')) = 'installment'
+                          OR LOWER(TRIM(COALESCE(sv.service_type, ''))) = 'installment'
+                      )
                 )
             ";
         } elseif ($supportsAppointmentServicesTable && $supportsServiceEnableInstallmentColumn) {
@@ -2725,9 +2731,15 @@ try {
                 EXISTS (
                     SELECT 1
                     FROM tbl_appointment_services aps
+                    LEFT JOIN tbl_services sv
+                      ON sv.tenant_id = aps.tenant_id
+                     AND sv.service_id = aps.service_id
                     WHERE aps.tenant_id = a.tenant_id
                       AND aps.booking_id = a.booking_id
-                      AND COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment') = 'installment'
+                      AND (
+                          LOWER(COALESCE(NULLIF(TRIM(aps.service_type), ''), 'installment')) = 'installment'
+                          OR LOWER(TRIM(COALESCE(sv.service_type, ''))) = 'installment'
+                      )
                 )
             ";
         } elseif ($supportsAppointmentServicesTable && $supportsServiceEnableInstallmentColumn) {
@@ -2780,6 +2792,7 @@ try {
                 ? "CASE
                         WHEN LOWER(TRIM(COALESCE(NULLIF(aps.service_type, ''), NULLIF(a.service_type, ''), ''))) = 'regular' THEN 'regular'
                         WHEN LOWER(TRIM(COALESCE(NULLIF(aps.service_type, ''), NULLIF(a.service_type, ''), ''))) = 'installment' THEN 'installment'
+                        WHEN LOWER(TRIM(COALESCE(sv.service_type, ''))) = 'installment' THEN 'installment'
                         WHEN TRIM(COALESCE(NULLIF(aps.treatment_id, ''), NULLIF(a.treatment_id, ''), '')) <> '' THEN 'installment'
                         ELSE 'regular'
                     END"
@@ -3197,6 +3210,7 @@ try {
                     ? "CASE
                             WHEN LOWER(TRIM(COALESCE(aps.service_type, ''))) = 'regular' THEN 'regular'
                             WHEN LOWER(TRIM(COALESCE(aps.service_type, ''))) = 'installment' THEN 'installment'
+                            WHEN LOWER(TRIM(COALESCE(sv.service_type, ''))) = 'installment' THEN 'installment'
                             WHEN TRIM(COALESCE(aps.treatment_id, '')) <> '' THEN 'installment'
                             ELSE 'regular'
                         END"

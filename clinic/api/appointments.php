@@ -671,11 +671,11 @@ function createAppointment() {
                     // New format: Multiple services selected.
                     // For StaffSetAppointments bookings, normalize service rows so we can persist
                     // appointment line items (same behavior pattern used by walk-ins).
-                    $serviceCatalogStmt = null;
+                        $serviceCatalogStmt = null;
                     if ($isStaffSetAppointmentBooking && $appointmentServicesTableName !== null && $servicesCatalogTableName !== null) {
                         $quotedServicesCatalogTable = clinic_quote_identifier((string) $servicesCatalogTableName);
                         $serviceCatalogStmt = $pdo->prepare("
-                            SELECT service_id, service_name, price, enable_installment
+                            SELECT service_id, service_name, price, enable_installment, service_type
                             FROM {$quotedServicesCatalogTable}
                             WHERE tenant_id = ?
                               AND service_id = ?
@@ -700,7 +700,8 @@ function createAppointment() {
                                     $rowName = $catalogName;
                                 }
                                 $rowPrice = isset($serviceCatalogRow['price']) ? (float) $serviceCatalogRow['price'] : $rowPrice;
-                                $isInstallmentRow = !empty($serviceCatalogRow['enable_installment']);
+                                $catalogServiceType = strtolower(trim((string) ($serviceCatalogRow['service_type'] ?? '')));
+                                $isInstallmentRow = !empty($serviceCatalogRow['enable_installment']) || $catalogServiceType === 'installment';
                             }
                         }
                         if ($rowName === '') {
