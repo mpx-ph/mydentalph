@@ -2161,10 +2161,18 @@ try {
                 const existingEndMinutes = existingStartMinutes + 60;
                 return rangesOverlap(selectedStartMinutes, selectedEndMinutes, existingStartMinutes, existingEndMinutes);
             }));
-            const hasPatientDuplicate = Boolean(patientId && appointments.some(function (appointment) {
+            const sameDayPatientAppointments = patientId ? appointments.filter(function (appointment) {
                 if (!isConflictBlockingStatus(appointment.final_status || appointment.status)) return false;
                 return String(appointment.patient_id || '').trim() === patientId;
-            }));
+            }) : [];
+            const overlappingPatientAppointment = Number.isFinite(selectedStartMinutes) ? (sameDayPatientAppointments.find(function (appointment) {
+                const existingStartMinutes = timeToMinutes(String(appointment.appointment_time || '').trim());
+                if (!Number.isFinite(existingStartMinutes)) return false;
+                const existingEndMinutes = existingStartMinutes + 60;
+                return rangesOverlap(selectedStartMinutes, selectedEndMinutes, existingStartMinutes, existingEndMinutes);
+            }) || null) : null;
+            const hasPatientDuplicate = Boolean(overlappingPatientAppointment);
+            const patientHasSameDayAppointment = sameDayPatientAppointments.length > 0;
 
             const previousState = {
                 hasPatientDuplicate: liveValidationState.hasPatientDuplicate
@@ -2200,22 +2208,23 @@ try {
             }
             if (showAlerts && !previousState.hasPatientDuplicate && hasPatientDuplicate) {
                 await staffUiAlert({
-                    title: 'Duplicate appointment',
-                    message: 'Only one appointment at a time is allowed for this patient.',
+                    title: 'Schedule conflict',
+                    message: 'This patient already has an appointment that overlaps with the selected time. Please choose a different time slot.',
                     variant: 'warning'
                 });
-                setSelectedPatient('', '');
-                await loadPatientTreatmentContext('');
                 liveValidationState = {
                     hasTimeSlotConflict: liveValidationState.hasTimeSlotConflict,
-                    hasPatientDuplicate: false
+                    hasPatientDuplicate: true
                 };
                 syncCreateAppointmentButtonState();
             }
 
             return {
                 hasTimeSlotConflict: hasTimeSlotConflict,
-                hasPatientDuplicate: hasPatientDuplicate
+                hasPatientDuplicate: hasPatientDuplicate,
+                patientHasSameDayAppointment: patientHasSameDayAppointment,
+                overlappingPatientAppointment: overlappingPatientAppointment,
+                firstPatientAppointment: sameDayPatientAppointments.length ? sameDayPatientAppointments[0] : null
             };
         }
 
@@ -2412,6 +2421,26 @@ try {
             const liveConflicts = await runLiveConflictValidation({ showAlerts: true });
             if (liveConflicts.hasTimeSlotConflict || liveConflicts.hasPatientDuplicate) {
                 return;
+            }
+            if (liveConflicts.patientHasSameDayAppointment) {
+                const existingAppointment = liveConflicts.firstPatientAppointment || {};
+                const existingStartMinutes = timeToMinutes(String(existingAppointment.appointment_time || '').trim());
+                const existingStartLabel = Number.isFinite(existingStartMinutes)
+                    ? minutesToDisplayTime(existingStartMinutes)
+                    : String(existingAppointment.appointment_time || '').trim();
+                const existingEndLabel = Number.isFinite(existingStartMinutes)
+                    ? minutesToDisplayTime(existingStartMinutes + 60)
+                    : '-';
+                const proceedWithSameDay = await staffUiConfirm({
+                    title: 'Existing appointment found',
+                    message: 'This patient already has an appointment today at ' + existingStartLabel + ' – ' + existingEndLabel + '.\n\nDo you still want to create another appointment?',
+                    cancelLabel: 'No',
+                    confirmLabel: 'Yes, Continue',
+                    variant: 'warning'
+                });
+                if (!proceedWithSameDay) {
+                    return;
+                }
             }
 
             isSubmittingAppointment = true;
