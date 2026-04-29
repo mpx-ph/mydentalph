@@ -911,7 +911,7 @@ if ($currentTenantSlug !== '') {
             </div>
         </section>
 
-        <section class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <section class="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
             <div class="xl:col-span-2 elevated-card rounded-3xl overflow-hidden">
                 <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white">
                     <h3 class="text-2xl font-bold font-headline text-on-background">Daily Schedule</h3>
@@ -1066,7 +1066,7 @@ if ($currentTenantSlug !== '') {
                 </div>
             </div>
 
-            <div class="elevated-card rounded-3xl p-6">
+            <div class="elevated-card rounded-3xl p-6 self-start h-fit">
                 <div class="flex items-center justify-between mb-5">
                     <a href="<?php echo htmlspecialchars(buildAppointmentsUrl(['month' => $prevMonth]), ENT_QUOTES, 'UTF-8'); ?>" class="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:text-primary hover:border-primary transition-colors">
                         <span class="material-symbols-outlined text-[18px]">chevron_left</span>
