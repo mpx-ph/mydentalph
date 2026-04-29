@@ -851,7 +851,7 @@ if ($currentTenantSlug !== '') {
                         Daily schedule with status tracking and treatment details.
                     </p>
                 </div>
-                <div class="shrink-0 pt-5">
+                <div class="shrink-0 pt-10">
                     <button
                         type="button"
                         id="openBookingTypeModalBtn"
