@@ -2375,6 +2375,7 @@ try {
             const payload = {
                 patient_id: patientId,
                 clinic_slug: clinicSlug || '',
+                booking_source: 'staff_set_appointments',
                 treatment_id: treatmentIsInstallmentPlan(activeTreatmentContext) && activeTreatmentContext.treatment
                     ? (activeTreatmentContext.treatment.treatment_id || '')
                     : '',

@@ -299,7 +299,7 @@ function createInstallments($pdo, $bookingId, $totalCost, $durationMonths, $star
  * Create new appointment
  */
 function createAppointment() {
-    global $pdo, $tenantId, $appointmentsTableName, $patientsTableName, $usersTableName, $installmentsTableName;
+    global $pdo, $tenantId, $appointmentsTableName, $patientsTableName, $usersTableName, $installmentsTableName, $resolvedTables;
     $quotedPatientsTable = clinic_quote_identifier((string) $patientsTableName);
     $quotedUsersTable = clinic_quote_identifier((string) $usersTableName);
     $quotedAppointmentsTable = clinic_quote_identifier((string) $appointmentsTableName);
@@ -312,6 +312,7 @@ function createAppointment() {
         'patient_id' => isset($input['patient_id']) ? sanitize($input['patient_id']) : null,
         'dentist_id' => isset($input['dentist_id']) ? sanitize($input['dentist_id']) : null,
         'dentist_user_id' => isset($input['dentist_user_id']) ? sanitize($input['dentist_user_id']) : null,
+        'booking_source' => isset($input['booking_source']) ? sanitize($input['booking_source']) : '',
         'appointment_date' => sanitize($input['appointment_date'] ?? ''),
         'appointment_time' => sanitize($input['appointment_time'] ?? ''),
         'procedure' => sanitize($input['procedure'] ?? ''), // Legacy support
@@ -323,6 +324,13 @@ function createAppointment() {
         'visit_type' => isset($input['visit_type']) ? sanitize($input['visit_type']) : 'pre_book',
         'status' => isset($input['status']) ? sanitize($input['status']) : 'pending'
     ];
+    $isStaffSetAppointmentBooking = strtolower(trim((string) ($data['booking_source'] ?? ''))) === 'staff_set_appointments';
+    $appointmentServicesTableName = $resolvedTables['appointment_services']
+        ?? clinic_get_physical_table_name($pdo, 'tbl_appointment_services')
+        ?? clinic_get_physical_table_name($pdo, 'appointment_services');
+    $servicesCatalogTableName = $resolvedTables['services']
+        ?? clinic_get_physical_table_name($pdo, 'tbl_services')
+        ?? clinic_get_physical_table_name($pdo, 'services');
     
     // Validation
     $errors = [];
@@ -641,6 +649,7 @@ function createAppointment() {
                 $serviceType = '';
                 $serviceDescription = '';
                 $totalPrice = 0;
+                $normalizedServiceRows = [];
                 
                 // Check if any service is from Orthodontics category
                 $hasOrthodontics = false;
@@ -658,10 +667,53 @@ function createAppointment() {
                 $treatmentType = $hasOrthodontics ? 'long_term' : 'short_term';
                 
                 if (!empty($data['services']) && is_array($data['services'])) {
-                    // New format: Multiple services selected
-                    $serviceNames = array_map(function($service) {
-                        return $service['name'] ?? '';
-                    }, $data['services']);
+                    // New format: Multiple services selected.
+                    // For StaffSetAppointments bookings, normalize service rows so we can persist
+                    // appointment line items (same behavior pattern used by walk-ins).
+                    $serviceCatalogStmt = null;
+                    if ($isStaffSetAppointmentBooking && $appointmentServicesTableName !== null && $servicesCatalogTableName !== null) {
+                        $quotedServicesCatalogTable = clinic_quote_identifier((string) $servicesCatalogTableName);
+                        $serviceCatalogStmt = $pdo->prepare("
+                            SELECT service_id, service_name, price, enable_installment
+                            FROM {$quotedServicesCatalogTable}
+                            WHERE tenant_id = ?
+                              AND service_id = ?
+                            LIMIT 1
+                        ");
+                    }
+                    $serviceNames = [];
+                    foreach ($data['services'] as $service) {
+                        if (!is_array($service)) {
+                            continue;
+                        }
+                        $serviceId = trim((string) ($service['id'] ?? $service['service_id'] ?? ''));
+                        $rowName = trim((string) ($service['name'] ?? $service['service_name'] ?? ''));
+                        $rowPrice = isset($service['price']) ? (float) $service['price'] : 0.0;
+                        $isInstallmentRow = false;
+                        if ($serviceCatalogStmt !== null && $serviceId !== '') {
+                            $serviceCatalogStmt->execute([$tenantId, $serviceId]);
+                            $serviceCatalogRow = $serviceCatalogStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+                            if (is_array($serviceCatalogRow)) {
+                                $catalogName = trim((string) ($serviceCatalogRow['service_name'] ?? ''));
+                                if ($catalogName !== '') {
+                                    $rowName = $catalogName;
+                                }
+                                $rowPrice = isset($serviceCatalogRow['price']) ? (float) $serviceCatalogRow['price'] : $rowPrice;
+                                $isInstallmentRow = !empty($serviceCatalogRow['enable_installment']);
+                            }
+                        }
+                        if ($rowName === '') {
+                            continue;
+                        }
+                        $serviceNames[] = $rowName;
+                        $totalPrice += $rowPrice;
+                        $normalizedServiceRows[] = [
+                            'service_id' => $serviceId,
+                            'service_name' => $rowName,
+                            'price' => $rowPrice,
+                            'service_type' => $isInstallmentRow ? 'installment' : 'regular',
+                        ];
+                    }
                     
                     $serviceType = implode(', ', array_slice($serviceNames, 0, 3)); // First 3 services
                     if (count($serviceNames) > 3) {
@@ -670,11 +722,9 @@ function createAppointment() {
                     
                     // Create detailed description with prices
                     $serviceDetails = [];
-                    foreach ($data['services'] as $service) {
-                        $name = $service['name'] ?? '';
-                        $price = isset($service['price']) ? floatval($service['price']) : 0;
-                        $totalPrice += $price;
-                        $serviceDetails[] = $name . ' (₱' . number_format($price, 2) . ')';
+                    foreach ($normalizedServiceRows as $serviceRow) {
+                        $serviceDetails[] = (string) ($serviceRow['service_name'] ?? '')
+                            . ' (₱' . number_format((float) ($serviceRow['price'] ?? 0), 2) . ')';
                     }
                     
                     $serviceDescription = implode('; ', $serviceDetails);
@@ -818,6 +868,83 @@ function createAppointment() {
                     . ' (' . implode(', ', $insertCols) . ') VALUES (' . implode(', ', $insertPlaceholders) . ')';
                 $stmt = $pdo->prepare($insertSql);
                 $stmt->execute($insertParams);
+                $appointmentRowId = (int) $pdo->lastInsertId();
+
+                if (
+                    $isStaffSetAppointmentBooking
+                    && $visitTypeForInsert === 'pre_book'
+                    && $appointmentServicesTableName !== null
+                    && $normalizedServiceRows !== []
+                ) {
+                    $appointmentServiceColumns = clinic_table_columns($pdo, (string) $appointmentServicesTableName);
+                    $quotedAppointmentServicesTable = clinic_quote_identifier((string) $appointmentServicesTableName);
+                    $lineCols = ['tenant_id', 'booking_id', 'service_id', 'service_name', 'price'];
+                    $lineVals = ['?', '?', '?', '?', '?'];
+                    if (in_array('appointment_id', $appointmentServiceColumns, true)) {
+                        $lineCols[] = 'appointment_id';
+                        $lineVals[] = '?';
+                    }
+                    if (in_array('treatment_id', $appointmentServiceColumns, true)) {
+                        $lineCols[] = 'treatment_id';
+                        $lineVals[] = '?';
+                    }
+                    if (in_array('service_type', $appointmentServiceColumns, true)) {
+                        $lineCols[] = 'service_type';
+                        $lineVals[] = '?';
+                    }
+                    if (in_array('type', $appointmentServiceColumns, true)) {
+                        $lineCols[] = 'type';
+                        $lineVals[] = '?';
+                    }
+                    if (in_array('is_original', $appointmentServiceColumns, true)) {
+                        $lineCols[] = 'is_original';
+                        $lineVals[] = '?';
+                    }
+                    if (in_array('added_by', $appointmentServiceColumns, true)) {
+                        $lineCols[] = 'added_by';
+                        $lineVals[] = '?';
+                    }
+                    if (in_array('added_at', $appointmentServiceColumns, true)) {
+                        $lineCols[] = 'added_at';
+                        $lineVals[] = 'NOW()';
+                    }
+                    $lineInsertSql = 'INSERT INTO ' . $quotedAppointmentServicesTable
+                        . ' (' . implode(', ', array_map('clinic_quote_identifier', $lineCols)) . ')'
+                        . ' VALUES (' . implode(', ', $lineVals) . ')';
+                    $lineInsertStmt = $pdo->prepare($lineInsertSql);
+                    foreach ($normalizedServiceRows as $serviceRow) {
+                        $lineParams = [
+                            $tenantId,
+                            $bookingId,
+                            trim((string) ($serviceRow['service_id'] ?? '')),
+                            trim((string) ($serviceRow['service_name'] ?? '')),
+                            (float) ($serviceRow['price'] ?? 0),
+                        ];
+                        if (in_array('appointment_id', $appointmentServiceColumns, true)) {
+                            $lineParams[] = $appointmentRowId > 0 ? $appointmentRowId : null;
+                        }
+                        if (in_array('treatment_id', $appointmentServiceColumns, true)) {
+                            $lineParams[] = null;
+                        }
+                        if (in_array('service_type', $appointmentServiceColumns, true)) {
+                            $lineParams[] = strtolower(trim((string) ($serviceRow['service_type'] ?? 'regular'))) === 'installment'
+                                ? 'installment'
+                                : 'regular';
+                        }
+                        if (in_array('type', $appointmentServiceColumns, true)) {
+                            $lineParams[] = strtolower(trim((string) ($serviceRow['service_type'] ?? 'regular'))) === 'installment'
+                                ? 'Long Term'
+                                : 'Short Term';
+                        }
+                        if (in_array('is_original', $appointmentServiceColumns, true)) {
+                            $lineParams[] = 1;
+                        }
+                        if (in_array('added_by', $appointmentServiceColumns, true)) {
+                            $lineParams[] = $createdByUserId;
+                        }
+                        $lineInsertStmt->execute($lineParams);
+                    }
+                }
                 
                 // Success - break out of retry loop
                 break;
