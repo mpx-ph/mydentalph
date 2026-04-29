@@ -361,18 +361,8 @@ function createPayment() {
             $stmt->execute([$data['booking_id'], $nextInstallmentNumber, $tenantId]);
         }
 
-        // Any completed payment confirms the booking (treat as "Ongoing" in UI)
-        if (!empty($data['booking_id']) && $data['status'] === 'completed') {
-            $stmt = $pdo->prepare("
-                UPDATE appointments
-                SET status = 'confirmed',
-                    updated_at = NOW()
-                WHERE booking_id = ?
-                  AND status = 'pending'
-                  AND tenant_id = ?
-            ");
-            $stmt->execute([$data['booking_id'], $tenantId]);
-        }
+        // Keep payment lifecycle independent from appointment lifecycle.
+        // Recording a payment must not mutate appointment status.
         
         $pdo->commit();
         
