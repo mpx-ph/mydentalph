@@ -11,6 +11,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/tenant.php';
 require_once __DIR__ . '/../includes/availability.php';
 require_once __DIR__ . '/../includes/appointment_db_tables.php';
+require_once __DIR__ . '/../includes/appointment_reminder_service.php';
 
 header('Content-Type: application/json');
 
@@ -992,6 +993,23 @@ function createAppointment() {
         }
         
         $pdo->commit();
+
+        // Fallback trigger: process due reminders right after create so same-day
+        // bookings are still handled if cron is delayed on some environments.
+        if ($visitTypeForInsert !== 'walk_in' && function_exists('send_scheduled_appointment_reminders')) {
+            try {
+                $reminderRun = send_scheduled_appointment_reminders($pdo, (string) $tenantId);
+                error_log('Appointment create reminder run: ' . json_encode([
+                    'booking_id' => $bookingId,
+                    'tenant_id' => $tenantId,
+                    'ok' => (bool) ($reminderRun['ok'] ?? false),
+                    'sent' => $reminderRun['sent'] ?? [],
+                    'errors' => $reminderRun['errors'] ?? [],
+                ], JSON_UNESCAPED_SLASHES));
+            } catch (Throwable $reminderError) {
+                error_log('Appointment create reminder fallback failed. booking=' . $bookingId . ' error=' . $reminderError->getMessage());
+            }
+        }
         
         jsonResponse(true, 'Appointment request submitted successfully. Our team will contact you to confirm.', [
             'appointment_id' => $appointmentId,

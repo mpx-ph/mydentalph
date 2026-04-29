@@ -23,8 +23,23 @@ try {
         'checked' => 0,
         'sent' => ['3day' => 0, '1day' => 0, 'final' => 0],
         'errors' => ['Fatal reminder runner error: ' . $e->getMessage()],
-        'schedule_mode' => defined('APPOINTMENT_REMINDER_TEST_SCHEDULE') && APPOINTMENT_REMINDER_TEST_SCHEDULE ? 'test' : 'production',
+        'schedule_mode' => '3h_1h_30m',
     ];
+}
+
+try {
+    $logDir = dirname(__DIR__) . '/logs';
+    if (!is_dir($logDir)) {
+        @mkdir($logDir, 0775, true);
+    }
+    $logLine = sprintf(
+        "[%s] appointment_reminder_runner %s\n",
+        date('Y-m-d H:i:s'),
+        json_encode($result, JSON_UNESCAPED_SLASHES)
+    );
+    @file_put_contents($logDir . '/appointment_reminders.log', $logLine, FILE_APPEND);
+} catch (Throwable $logError) {
+    error_log('Appointment reminder log write failed: ' . $logError->getMessage());
 }
 
 if (PHP_SAPI === 'cli') {

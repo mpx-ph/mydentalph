@@ -9,12 +9,13 @@ require_once dirname(__DIR__, 2) . '/mail_config.php';
 /**
  * Appointment reminder timing (runner: clinic/cron/send_appointment_reminders.php).
  *
- * Set to false for production-style offsets (~3 days, ~1 day, final ~2–4 hours before).
- * Set to true while debugging so reminders fire at ~3 hours, ~1 hour, and ~15–20 minutes before.
- *
- * IMPORTANT: Flip back to false and verify cron intervals before going live.
+ * Use strict same-day offsets with catch-up support for late-created bookings.
  */
-const APPOINTMENT_REMINDER_TEST_SCHEDULE = true;
+const APPOINTMENT_REMINDER_SCHEDULE_SECONDS = [
+    '3day' => 3 * 3600,
+    '1day' => 1 * 3600,
+    'final' => 30 * 60,
+];
 
 if (!function_exists('appointment_reminder_quote_ident')) {
     function appointment_reminder_quote_ident(string $value): string
@@ -346,7 +347,7 @@ if (!function_exists('send_scheduled_appointment_reminders')) {
                 'checked' => 0,
                 'sent' => ['3day' => 0, '1day' => 0, 'final' => 0],
                 'errors' => ['Required appointment tables not found.'],
-                'schedule_mode' => APPOINTMENT_REMINDER_TEST_SCHEDULE ? 'test' : 'production',
+                'schedule_mode' => '3h_1h_30m',
             ];
         }
 
@@ -413,14 +414,12 @@ if (!function_exists('send_scheduled_appointment_reminders')) {
         $stmt->execute($params);
         $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        /** Match window around each target; cron should run at least every ~5 minutes during tests. */
-        $windowSeconds = 10 * 60;
         $result = [
             'ok' => true,
             'checked' => count($appointments),
             'sent' => ['3day' => 0, '1day' => 0, 'final' => 0],
             'errors' => [],
-            'schedule_mode' => APPOINTMENT_REMINDER_TEST_SCHEDULE ? 'test' : 'production',
+            'schedule_mode' => '3h_1h_30m',
             'server_now' => $now->format(DateTimeInterface::ATOM),
             'timezone' => $timezone->getName(),
             'debug' => [],
@@ -495,44 +494,32 @@ if (!function_exists('send_scheduled_appointment_reminders')) {
                 'final' => $reminderFinalSentAt,
             ];
 
-            if (APPOINTMENT_REMINDER_TEST_SCHEDULE) {
-                // Test windows with catch-up behavior if cron runs late:
-                // 3-hour reminder: >1h to <=3h before appointment
-                // 1-hour reminder: >20m to <=1h before appointment
-                // Final reminder: 15m to 20m before appointment
-                $threeHours = 3 * 3600;
-                $oneHour = 1 * 3600;
-                $twentyMinutes = 20 * 60;
-                $fifteenMinutes = 15 * 60;
+            // Catch-up aware schedule:
+            // if a reminder milestone has passed and is still unsent, send it now.
+            // send at most one reminder per run (earliest milestone first) to avoid bursts.
+            $flags = [
+                '3day' => $reminder3daySentAt,
+                '1day' => $reminder1daySentAt,
+                'final' => $reminderFinalSentAt,
+            ];
+            $columns = [
+                '3day' => 'reminder_3day_sent_at',
+                '1day' => 'reminder_1day_sent_at',
+                'final' => 'reminder_final_sent_at',
+            ];
 
-                if ($reminder3daySentAt === null && $diffSeconds <= $threeHours && $diffSeconds > $oneHour) {
-                    $sendType = '3day';
-                    $flagColumn = 'reminder_3day_sent_at';
-                } elseif ($reminder1daySentAt === null && $diffSeconds <= $oneHour && $diffSeconds > $twentyMinutes) {
-                    $sendType = '1day';
-                    $flagColumn = 'reminder_1day_sent_at';
-                } elseif ($reminderFinalSentAt === null
-                    && $diffSeconds <= $twentyMinutes
-                    && $diffSeconds >= $fifteenMinutes) {
-                    $sendType = 'final';
-                    $flagColumn = 'reminder_final_sent_at';
+            foreach (['3day', '1day', 'final'] as $candidateType) {
+                if ($flags[$candidateType] !== null) {
+                    continue;
                 }
-            } else {
-                // Production: ~3 days, ~1 day, final once in the 2–4 hour window before start.
-                $target3Day = 3 * 24 * 3600;
-                $target1Day = 24 * 3600;
-                $minFinal = 2 * 3600;
-                $maxFinal = 4 * 3600;
-
-                if ($reminder3daySentAt === null && abs($diffSeconds - $target3Day) <= $windowSeconds) {
-                    $sendType = '3day';
-                    $flagColumn = 'reminder_3day_sent_at';
-                } elseif ($reminder1daySentAt === null && abs($diffSeconds - $target1Day) <= $windowSeconds) {
-                    $sendType = '1day';
-                    $flagColumn = 'reminder_1day_sent_at';
-                } elseif ($reminderFinalSentAt === null && $diffSeconds >= $minFinal && $diffSeconds <= $maxFinal) {
-                    $sendType = 'final';
-                    $flagColumn = 'reminder_final_sent_at';
+                $targetOffset = (int) (APPOINTMENT_REMINDER_SCHEDULE_SECONDS[$candidateType] ?? 0);
+                if ($targetOffset <= 0) {
+                    continue;
+                }
+                if ($diffSeconds <= $targetOffset) {
+                    $sendType = $candidateType;
+                    $flagColumn = $columns[$candidateType];
+                    break;
                 }
             }
 
