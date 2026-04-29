@@ -583,7 +583,7 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
                 : 'Monthly Payment';
         }
     } elseif ($serviceType === 'regular' || $serviceType === '') {
-        $transactionLabel = 'Add-on Services';
+        $transactionLabel = 'Regular Services';
     }
 
     if ($transactionLabel === 'Add-on Services' && $addOnItemsFromNotes !== []) {
@@ -602,7 +602,7 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
         ];
     }
 
-    if ($transactionLabel === 'Add-on Services' && $regularServiceItems !== []) {
+    if ($transactionLabel === 'Regular Services' && $regularServiceItems !== []) {
         $regularServicesTotal = 0.0;
         foreach ($regularServiceItems as $regularServiceItem) {
             $regularServicesTotal += (float) ($regularServiceItem['amount'] ?? 0);
@@ -611,7 +611,7 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
             $regularServicesTotal = $amountPaid;
         }
         return [
-            'service_label' => 'Add-on Services',
+            'service_label' => 'Regular Services',
             'service_items' => $regularServiceItems,
             'services_total' => round($regularServicesTotal, 2),
         ];
@@ -3180,6 +3180,8 @@ try {
             }
         }
         $bookedServicesByBucket = [];
+        $bookedServicesByBookingType = [];
+        $bookedServicesByBooking = [];
         if ($supportsAppointmentServicesTable && $transactionCandidates !== []) {
             $bookedBidKeys = [];
             foreach ($transactionCandidates as $candRow) {
@@ -3247,7 +3249,7 @@ try {
                     if (!isset($bookedServicesByBucket[$bucketKey])) {
                         $bookedServicesByBucket[$bucketKey] = [];
                     }
-                    $bookedServicesByBucket[$bucketKey][] = [
+                    $serviceItem = [
                         'service_id' => trim((string) ($brow['service_id'] ?? '')),
                         'service_name' => trim((string) ($brow['service_name'] ?? '')),
                         'service_type' => $stype,
@@ -3255,6 +3257,16 @@ try {
                         'category' => trim((string) ($brow['category'] ?? '')),
                         'price' => round((float) ($brow['price'] ?? 0), 2),
                     ];
+                    $bookedServicesByBucket[$bucketKey][] = $serviceItem;
+                    $bookingTypeKey = $bb . '::' . $stype;
+                    if (!isset($bookedServicesByBookingType[$bookingTypeKey])) {
+                        $bookedServicesByBookingType[$bookingTypeKey] = [];
+                    }
+                    $bookedServicesByBookingType[$bookingTypeKey][] = $serviceItem;
+                    if (!isset($bookedServicesByBooking[$bb])) {
+                        $bookedServicesByBooking[$bb] = [];
+                    }
+                    $bookedServicesByBooking[$bb][] = $serviceItem;
                 }
             }
         }
@@ -3317,7 +3329,12 @@ try {
             }
             $bucketKey = $b . '::' . $appointmentId . '::' . $stype;
             $transactionCandidates[$ic]['installment_schedule'] = $scheduleByBooking[$b] ?? [];
-            $transactionCandidates[$ic]['booked_services'] = $bookedServicesByBucket[$bucketKey] ?? [];
+            $bookingTypeKey = $b . '::' . $stype;
+            $transactionCandidates[$ic]['booked_services'] =
+                $bookedServicesByBucket[$bucketKey]
+                ?? $bookedServicesByBookingType[$bookingTypeKey]
+                ?? $bookedServicesByBooking[$b]
+                ?? [];
             $primaryInstallmentMeta = $tid !== '' ? ($primaryInstallmentServiceByTreatment[$tid] ?? null) : null;
             $transactionCandidates[$ic]['primary_installment_service_id'] = is_array($primaryInstallmentMeta)
                 ? trim((string) ($primaryInstallmentMeta['primary_service_id'] ?? ''))
