@@ -892,7 +892,12 @@ function renderServices() {
         const serviceId = escapeHtml(service.service_id || '');
         const category = escapeHtml(service.category || 'Uncategorized');
         const colorClass = categoryColors[service.category] || 'bg-slate-100 text-slate-700';
+        const normalizedServiceType = String(service.service_type || '').toLowerCase().trim();
+        const isIncludedPlan = normalizedServiceType === 'included_plan';
         const price = Number(service.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const currentPriceHtml = isIncludedPlan
+            ? '<span class="font-extrabold text-primary">Covered by Plan</span>'
+            : '<span class="font-extrabold text-slate-900">P' + price + '</span>';
         const status = (service.status || '').toLowerCase() === 'active'
             ? '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700">Active</span>'
             : '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600">Inactive</span>';
@@ -902,7 +907,7 @@ function renderServices() {
             (serviceId ? '<div class="text-[10px] text-slate-400 mt-1 font-semibold uppercase tracking-wider">ID: ' + serviceId + '</div>' : '') +
             '</td>' +
             '<td class="px-4 py-4 align-top text-center"><span class="inline-flex max-w-full px-2.5 py-1 rounded-full text-[11px] font-bold ' + colorClass + '">' + category + '</span></td>' +
-            '<td class="px-4 py-4 align-top text-center whitespace-nowrap"><span class="font-extrabold text-slate-900">P' + price + '</span></td>' +
+            '<td class="px-4 py-4 align-top text-center whitespace-nowrap">' + currentPriceHtml + '</td>' +
             '<td class="px-4 py-4 align-top text-center">' + status + '</td>' +
             '<td class="py-4 pl-3 pr-5 sm:pl-4 sm:pr-6 text-right align-top whitespace-nowrap">' +
                 '<div class="inline-flex items-center justify-end gap-3 flex-wrap">' +
