@@ -2097,6 +2097,65 @@ try {
             return startA < endB && startB < endA;
         }
 
+        function parsePositiveMinutes(value) {
+            const minutes = Number(value);
+            if (!Number.isFinite(minutes) || minutes <= 0) return NaN;
+            return minutes;
+        }
+
+        function inferAppointmentDurationMinutes(appointment) {
+            if (!appointment || typeof appointment !== 'object') {
+                return 60;
+            }
+            const directDurationCandidates = [
+                appointment.duration_minutes,
+                appointment.appointment_duration_minutes,
+                appointment.total_duration_minutes,
+                appointment.estimated_duration_minutes
+            ];
+            for (let i = 0; i < directDurationCandidates.length; i += 1) {
+                const directDuration = parsePositiveMinutes(directDurationCandidates[i]);
+                if (Number.isFinite(directDuration)) {
+                    return directDuration;
+                }
+            }
+
+            const serviceDuration = parsePositiveMinutes(appointment.service_duration);
+            const bufferDuration = parsePositiveMinutes(appointment.buffer_time);
+            if (Number.isFinite(serviceDuration) && Number.isFinite(bufferDuration)) {
+                return serviceDuration + bufferDuration;
+            }
+            if (Number.isFinite(serviceDuration)) {
+                return serviceDuration;
+            }
+
+            return 60;
+        }
+
+        function getAppointmentTimeRange(appointment) {
+            const existingStartMinutes = timeToMinutes(String(appointment && appointment.appointment_time ? appointment.appointment_time : '').trim());
+            if (!Number.isFinite(existingStartMinutes)) {
+                return null;
+            }
+            const explicitEndCandidates = [
+                appointment.end_time,
+                appointment.appointment_end_time,
+                appointment.end_at_time
+            ];
+            for (let i = 0; i < explicitEndCandidates.length; i += 1) {
+                const explicitEndMinutes = timeToMinutes(String(explicitEndCandidates[i] || '').trim());
+                if (Number.isFinite(explicitEndMinutes) && explicitEndMinutes > existingStartMinutes) {
+                    return { start: existingStartMinutes, end: explicitEndMinutes };
+                }
+            }
+
+            const inferredDurationMinutes = inferAppointmentDurationMinutes(appointment);
+            return {
+                start: existingStartMinutes,
+                end: existingStartMinutes + inferredDurationMinutes
+            };
+        }
+
         async function runLiveConflictValidation(options) {
             const opts = options || {};
             const showAlerts = Boolean(opts.showAlerts);
@@ -2151,25 +2210,24 @@ try {
             }
 
             const selectedStartMinutes = timeToMinutes(appointmentTime);
-            const selectedDurationMinutes = Math.max(60, computeRequiredMinutesForSelectedServices());
+            const selectedServiceMinutes = computeRequiredMinutesForSelectedServices();
+            const selectedDurationMinutes = selectedServiceMinutes > 0 ? selectedServiceMinutes : 60;
             const selectedEndMinutes = Number.isFinite(selectedStartMinutes) ? selectedStartMinutes + selectedDurationMinutes : NaN;
             const hasTimeSlotConflict = Boolean(dentistId && Number.isFinite(selectedStartMinutes) && appointments.some(function (appointment) {
                 if (!isConflictBlockingStatus(appointment.final_status || appointment.status)) return false;
                 if (String(appointment.dentist_id || '').trim() !== dentistId) return false;
-                const existingStartMinutes = timeToMinutes(String(appointment.appointment_time || '').trim());
-                if (!Number.isFinite(existingStartMinutes)) return false;
-                const existingEndMinutes = existingStartMinutes + 60;
-                return rangesOverlap(selectedStartMinutes, selectedEndMinutes, existingStartMinutes, existingEndMinutes);
+                const existingRange = getAppointmentTimeRange(appointment);
+                if (!existingRange) return false;
+                return rangesOverlap(selectedStartMinutes, selectedEndMinutes, existingRange.start, existingRange.end);
             }));
             const sameDayPatientAppointments = patientId ? appointments.filter(function (appointment) {
                 if (!isConflictBlockingStatus(appointment.final_status || appointment.status)) return false;
                 return String(appointment.patient_id || '').trim() === patientId;
             }) : [];
             const overlappingPatientAppointment = Number.isFinite(selectedStartMinutes) ? (sameDayPatientAppointments.find(function (appointment) {
-                const existingStartMinutes = timeToMinutes(String(appointment.appointment_time || '').trim());
-                if (!Number.isFinite(existingStartMinutes)) return false;
-                const existingEndMinutes = existingStartMinutes + 60;
-                return rangesOverlap(selectedStartMinutes, selectedEndMinutes, existingStartMinutes, existingEndMinutes);
+                const existingRange = getAppointmentTimeRange(appointment);
+                if (!existingRange) return false;
+                return rangesOverlap(selectedStartMinutes, selectedEndMinutes, existingRange.start, existingRange.end);
             }) || null) : null;
             const hasPatientDuplicate = Boolean(overlappingPatientAppointment);
             const patientHasSameDayAppointment = sameDayPatientAppointments.length > 0;
@@ -2424,12 +2482,12 @@ try {
             }
             if (liveConflicts.patientHasSameDayAppointment) {
                 const existingAppointment = liveConflicts.firstPatientAppointment || {};
-                const existingStartMinutes = timeToMinutes(String(existingAppointment.appointment_time || '').trim());
-                const existingStartLabel = Number.isFinite(existingStartMinutes)
-                    ? minutesToDisplayTime(existingStartMinutes)
+                const existingRange = getAppointmentTimeRange(existingAppointment);
+                const existingStartLabel = existingRange
+                    ? minutesToDisplayTime(existingRange.start)
                     : String(existingAppointment.appointment_time || '').trim();
-                const existingEndLabel = Number.isFinite(existingStartMinutes)
-                    ? minutesToDisplayTime(existingStartMinutes + 60)
+                const existingEndLabel = existingRange
+                    ? minutesToDisplayTime(existingRange.end)
                     : '-';
                 const proceedWithSameDay = await staffUiConfirm({
                     title: 'Existing appointment found',
