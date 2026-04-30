@@ -5264,15 +5264,38 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     ? item.booked_services.map((s) => escapeHtml(s.service_name || 'Service')).join(', ')
                     : escapeHtml(item.service_type);
                 const typeMeta = getRecordTypeMeta(item);
+                const isInstallmentCard = String(item.transaction_type || '').toLowerCase() === 'installment';
+                const primaryService = (Array.isArray(item.booked_services) && item.booked_services.length)
+                    ? item.booked_services[0]
+                    : null;
+                const treatmentPlanName = primaryService && primaryService.service_name
+                    ? String(primaryService.service_name)
+                    : 'Installment Treatment';
+                const treatmentPlanCategory = primaryService && primaryService.category
+                    ? String(primaryService.category)
+                    : '';
+                const treatmentPlanLabel = treatmentPlanCategory
+                    ? (treatmentPlanName + ' (' + treatmentPlanCategory + ')')
+                    : treatmentPlanName;
+                const detailsHtml = isInstallmentCard
+                    ? '' +
+                        '<p class="text-xs font-semibold text-slate-500 mt-1">Patient ID: ' + escapeHtml(item.patient_id) + '</p>' +
+                        '<p class="text-xs font-semibold text-slate-500 mt-1">Treatment ID: ' + escapeHtml(item.treatment_id || '-') + '</p>' +
+                        '<p class="text-xs font-semibold text-slate-500 mt-3">Treatment Plan: ' + escapeHtml(treatmentPlanLabel) + '</p>' +
+                        '<p class="text-xs font-semibold text-slate-700 mt-3">Total Cost: ₱' + item.total_cost.toFixed(2) + '</p>' +
+                        '<p class="text-xs font-semibold text-slate-700 mt-1">Amount Paid: ₱' + item.total_paid.toFixed(2) + '</p>' +
+                        '<p class="text-xs font-semibold text-slate-700 mt-1">Remaining Balance: ₱' + item.pending_balance.toFixed(2) + '</p>'
+                    : '' +
+                        '<p class="text-xs font-semibold text-slate-500 mt-1">Patient ID: ' + escapeHtml(item.patient_id) + ' | Appointment ID: ' + escapeHtml(item.appointment_id || '-') + ' | ' + (item.is_installment_plan && item.treatment_id ? ('Treatment ID: ' + escapeHtml(item.treatment_id)) : ('Booking ID: ' + escapeHtml(item.booking_id))) + '</p>' +
+                        '<p class="text-xs font-semibold text-slate-500 mt-1">Services: ' + svcLine + '</p>' +
+                        '<p class="text-xs font-semibold text-slate-500 mt-1">Date: ' + escapeHtml(item.appointment_date || '-') + ' ' + escapeHtml(item.appointment_time || '') + '</p>' +
+                        '<p class="text-xs font-semibold text-slate-700 mt-1">Total: ₱' + item.total_cost.toFixed(2) + ' | Paid: ₱' + item.total_paid.toFixed(2) + ' | Pending: ₱' + item.pending_balance.toFixed(2) + '</p>';
                 return '' +
                     '<div class="py-3 px-1 sm:px-2">' +
                         '<div class="rounded-2xl border border-slate-200 p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">' +
                             '<div class="min-w-0">' +
                                 '<p class="text-sm font-extrabold text-slate-900 truncate">' + escapeHtml(item.patient_name) + '</p>' +
-                                '<p class="text-xs font-semibold text-slate-500 mt-1">Patient ID: ' + escapeHtml(item.patient_id) + ' | Appointment ID: ' + escapeHtml(item.appointment_id || '-') + ' | ' + (item.is_installment_plan && item.treatment_id ? ('Treatment ID: ' + escapeHtml(item.treatment_id)) : ('Booking ID: ' + escapeHtml(item.booking_id))) + '</p>' +
-                                '<p class="text-xs font-semibold text-slate-500 mt-1">Services: ' + svcLine + '</p>' +
-                                '<p class="text-xs font-semibold text-slate-500 mt-1">Date: ' + escapeHtml(item.appointment_date || '-') + ' ' + escapeHtml(item.appointment_time || '') + '</p>' +
-                                '<p class="text-xs font-semibold text-slate-700 mt-1">Total: ₱' + item.total_cost.toFixed(2) + ' | Paid: ₱' + item.total_paid.toFixed(2) + ' | Pending: ₱' + item.pending_balance.toFixed(2) + '</p>' +
+                                detailsHtml +
                             '</div>' +
                             '<div class="shrink-0 flex items-center gap-2">' +
                                 '<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ' + typeMeta.cls + '">' + escapeHtml(typeMeta.label) + '</span>' +
