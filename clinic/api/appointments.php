@@ -732,6 +732,8 @@ function createAppointment() {
                         $serviceId = trim((string) ($service['id'] ?? $service['service_id'] ?? ''));
                         $rowName = trim((string) ($service['name'] ?? $service['service_name'] ?? ''));
                         $rowPrice = isset($service['price']) ? (float) $service['price'] : 0.0;
+                        $inputServiceType = strtolower(trim((string) ($service['service_type'] ?? '')));
+                        $isIncludedPlanRow = $inputServiceType === 'included_plan';
                         $isInstallmentRow = false;
                         if ($serviceCatalogStmt !== null && $serviceId !== '') {
                             $serviceCatalogStmt->execute([$tenantId, $serviceId]);
@@ -741,9 +743,14 @@ function createAppointment() {
                                 if ($catalogName !== '') {
                                     $rowName = $catalogName;
                                 }
-                                $rowPrice = isset($serviceCatalogRow['price']) ? (float) $serviceCatalogRow['price'] : $rowPrice;
                                 $catalogServiceType = strtolower(trim((string) ($serviceCatalogRow['service_type'] ?? '')));
-                                $isInstallmentRow = !empty($serviceCatalogRow['enable_installment']) || $catalogServiceType === 'installment';
+                                if ($catalogServiceType === 'included_plan') {
+                                    $isIncludedPlanRow = true;
+                                }
+                                $isInstallmentRow = !$isIncludedPlanRow
+                                    && (!empty($serviceCatalogRow['enable_installment']) || $catalogServiceType === 'installment');
+                                $catalogPrice = isset($serviceCatalogRow['price']) ? (float) $serviceCatalogRow['price'] : $rowPrice;
+                                $rowPrice = $isIncludedPlanRow ? 0.0 : $catalogPrice;
                             }
                         }
                         if ($rowName === '') {
@@ -755,7 +762,7 @@ function createAppointment() {
                             'service_id' => $serviceId,
                             'service_name' => $rowName,
                             'price' => $rowPrice,
-                            'service_type' => $isInstallmentRow ? 'installment' : 'regular',
+                            'service_type' => $isIncludedPlanRow ? 'included_plan' : ($isInstallmentRow ? 'installment' : 'regular'),
                             'installment_duration_months' => isset($serviceCatalogRow['installment_duration_months'])
                                 ? (int) $serviceCatalogRow['installment_duration_months']
                                 : 0,
@@ -992,6 +999,8 @@ function createAppointment() {
                         . ' VALUES (' . implode(', ', $lineVals) . ')';
                     $lineInsertStmt = $pdo->prepare($lineInsertSql);
                     foreach ($normalizedServiceRows as $serviceRow) {
+                        $lineServiceType = strtolower(trim((string) ($serviceRow['service_type'] ?? 'regular')));
+                        $isInstallmentLine = $lineServiceType === 'installment';
                         $lineParams = [
                             $tenantId,
                             $bookingId,
@@ -1003,17 +1012,17 @@ function createAppointment() {
                             $lineParams[] = $appointmentRowId > 0 ? $appointmentRowId : null;
                         }
                         if (in_array('treatment_id', $appointmentServiceColumns, true)) {
-                            $lineParams[] = strtolower(trim((string) ($serviceRow['service_type'] ?? 'regular'))) === 'installment'
+                            $lineParams[] = $isInstallmentLine
                                 ? ($resolvedTreatmentId !== '' ? $resolvedTreatmentId : null)
                                 : null;
                         }
                         if (in_array('service_type', $appointmentServiceColumns, true)) {
-                            $lineParams[] = strtolower(trim((string) ($serviceRow['service_type'] ?? 'regular'))) === 'installment'
+                            $lineParams[] = $isInstallmentLine
                                 ? 'installment'
-                                : 'regular';
+                                : ($lineServiceType === 'included_plan' ? 'included_plan' : 'regular');
                         }
                         if (in_array('type', $appointmentServiceColumns, true)) {
-                            $lineParams[] = strtolower(trim((string) ($serviceRow['service_type'] ?? 'regular'))) === 'installment'
+                            $lineParams[] = $isInstallmentLine
                                 ? 'Long Term'
                                 : 'Short Term';
                         }

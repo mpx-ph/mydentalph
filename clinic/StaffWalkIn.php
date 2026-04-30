@@ -2055,11 +2055,14 @@ try {
                 appointment_date: now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()),
                 appointment_time: formatTimeForApi(now),
                 services: selectedServices.map(function (service) {
+                    const serviceType = normalizeServiceType(service && service.service_type);
+                    const isIncludedPlan = serviceType === 'included_plan';
                     return {
                         id: service.service_id || null,
                         name: service.service_name || '',
-                        price: Number(service.price || 0),
-                        category: service.category || ''
+                        price: isIncludedPlan ? 0 : Number(service.price || 0),
+                        category: service.category || '',
+                        service_type: serviceType || 'regular'
                     };
                 }),
                 service_categories: Array.from(new Set(selectedServices.map(function (service) {

@@ -212,7 +212,7 @@ try {
 
     $quotedSvc = clinic_quote_identifier($servicesCatalogTable);
     $serviceStmt = $pdo->prepare("
-        SELECT service_id, service_name, category, price, enable_installment, installment_duration_months
+        SELECT service_id, service_name, category, price, enable_installment, service_type, installment_duration_months
         FROM {$quotedSvc}
         WHERE tenant_id = ? AND service_id = ? AND status = 'active'
         LIMIT 1
@@ -228,16 +228,20 @@ try {
         if (!$serviceRow) {
             continue;
         }
-        $price = (float) ($serviceRow['price'] ?? 0);
+        $catalogServiceType = strtolower(trim((string) ($serviceRow['service_type'] ?? '')));
+        $isIncludedPlan = $catalogServiceType === 'included_plan';
+        $isInstallmentService = !$isIncludedPlan && !empty($serviceRow['enable_installment']);
+        $price = $isIncludedPlan ? 0.0 : (float) ($serviceRow['price'] ?? 0);
         $name = trim((string) ($serviceRow['service_name'] ?? ''));
         $normalizedServices[] = [
             'service_id' => (string) ($serviceRow['service_id'] ?? ''),
             'service_name' => $name,
             'price' => $price,
-            'enable_installment' => !empty($serviceRow['enable_installment']),
+            'service_type' => $isIncludedPlan ? 'included_plan' : ($isInstallmentService ? 'installment' : 'regular'),
+            'enable_installment' => $isInstallmentService,
             'installment_duration_months' => (int) ($serviceRow['installment_duration_months'] ?? 0),
         ];
-        if (!empty($serviceRow['enable_installment'])) {
+        if ($isInstallmentService) {
             $hasInstallmentService = true;
         }
         $totalCost += $price;
@@ -678,12 +682,20 @@ try {
 
             foreach ((array) ($plan['services'] ?? []) as $serviceRow) {
                 $serviceRowId = trim((string) ($serviceRow['service_id'] ?? ''));
-                $isInstallmentRow = !empty($serviceRow['enable_installment']) || ($primaryServiceId !== '' && $serviceRowId === $primaryServiceId);
-                $serviceRowType = $isInstallmentRow ? 'installment' : 'regular';
+                $serviceRowType = strtolower(trim((string) ($serviceRow['service_type'] ?? 'regular')));
+                if ($serviceRowType === '') {
+                    $serviceRowType = 'regular';
+                }
+                $isInstallmentRow = $serviceRowType === 'installment'
+                    || ($primaryServiceId !== '' && $serviceRowId === $primaryServiceId);
+                if ($isInstallmentRow) {
+                    $serviceRowType = 'installment';
+                }
+                $isIncludedPlanRow = $serviceRowType === 'included_plan';
                 // StaffPaymentRecording pending totals sum is_original=1 line items. Mark primary visit
                 // services as original; only true add-ons (extra regular services during active treatment) stay 0.
                 $isAddOnService = $primaryServiceId !== '' && $serviceRowId !== $primaryServiceId;
-                $isOriginalLine = $isInstallmentRow || !$isAddOnService;
+                $isOriginalLine = $isIncludedPlanRow ? false : ($isInstallmentRow || !$isAddOnService);
                 $rowData = [
                     'tenant_id' => $tenantId,
                     'booking_id' => $planBookingId,
@@ -750,7 +762,7 @@ try {
             FROM ' . clinic_quote_identifier($appointmentServicesTable) . "
             WHERE tenant_id = ?
               AND booking_id = ?
-              AND COALESCE(NULLIF(TRIM(service_type), ''), 'installment') NOT IN ('installment', 'regular')
+              AND COALESCE(NULLIF(TRIM(service_type), ''), 'installment') NOT IN ('installment', 'regular', 'included_plan')
         ");
     }
     foreach ($writtenByBooking as $planBookingId => $expectedRows) {
