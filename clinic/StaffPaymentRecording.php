@@ -1927,7 +1927,9 @@ try {
                                 $fallbackInstallmentAmount = round((float) $pendingBalance, 2);
                             }
                             $fallbackInstallmentAmount = max(0.01, $fallbackInstallmentAmount);
-                            $syntheticStartNumber = (is_array($inst1Row) && !$inst1Paid) ? 1 : 2;
+                            // In fallback mode (schedule rows marked settled but balance remains),
+                            // enforce DP-first flow by starting synthetic unpaid slots at #1.
+                            $syntheticStartNumber = 1;
                             $remainingSynthetic = round((float) $pendingBalance, 2);
                             $syntheticIndex = 0;
                             while ($remainingSynthetic > 0.009) {
@@ -4832,12 +4834,12 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const firstUnpaid = unpaidSched.length ? unpaidSched[0] : null;
             const fn = firstUnpaid ? Number(firstUnpaid.installment_number) : 0;
 
-            const downOk = scheduleInconsistentWithBalance ? (!inst1Paid && pending > SETTLED_BALANCE_EPSILON) : (fn === 1);
+            const downOk = scheduleInconsistentWithBalance ? (pending > SETTLED_BALANCE_EPSILON) : (fn === 1);
             const combinedOk = scheduleInconsistentWithBalance
                 ? (downOk && pending > (fallbackInstallmentAmount + SETTLED_BALANCE_EPSILON))
                 : (fn === 1 && unpaidSched.length >= 2);
             const monthlyOk = scheduleInconsistentWithBalance
-                ? (inst1Paid && pending > SETTLED_BALANCE_EPSILON)
+                ? false
                 : (fn >= 2);
             if (instOptDown) {
                 instOptDown.disabled = !downOk;
