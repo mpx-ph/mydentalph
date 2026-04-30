@@ -3594,6 +3594,10 @@ if ($paymentError === 'Please select a payment method.') {
 } elseif ($paymentError === 'Please select a pending appointment transaction first.') {
     $serverValidationPopupMessage = 'No booking selected';
     $inlinePaymentError = '';
+} elseif ($paymentError === 'Online checkout was cancelled; no payment was recorded.') {
+    // Show cancellation feedback in centered popup instead of inline top alert.
+    $serverValidationPopupMessage = 'Payment was discontinued. No payment was recorded.';
+    $inlinePaymentError = '';
 }
 ?>
 <!DOCTYPE html>
