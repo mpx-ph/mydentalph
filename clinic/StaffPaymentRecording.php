@@ -306,7 +306,9 @@ function staff_payment_recording_load_payment_settings(PDO $pdo, string $tenantI
         $row = false;
     }
     if (!$row) {
-        $cache[$tenantId] = ['regular_downpayment_percentage' => 20.0, 'long_term_min_downpayment' => 500.0];
+        // Never use hardcoded down payment values in payment recording.
+        // If settings are missing for the tenant, use zero and let configured settings drive behavior once saved.
+        $cache[$tenantId] = ['regular_downpayment_percentage' => 0.0, 'long_term_min_downpayment' => 0.0];
     } else {
         $cache[$tenantId] = [
             'regular_downpayment_percentage' => (float) $row['regular_downpayment_percentage'],
@@ -316,11 +318,10 @@ function staff_payment_recording_load_payment_settings(PDO $pdo, string $tenantI
     return $cache[$tenantId];
 }
 
-function staff_payment_recording_effective_installment_downpayment_amount(array $ps, float $price, $storedDown): float
+function staff_payment_recording_effective_installment_downpayment_amount(array $ps, float $price): float
 {
-    $base = ($storedDown !== null && $storedDown !== '')
-        ? (float) $storedDown
-        : (float) $ps['long_term_min_downpayment'];
+    // Authoritative source: tenant payment settings (tbl_payment_settings).
+    $base = (float) ($ps['long_term_min_downpayment'] ?? 0.0);
     $base = max(0.0, $base);
     if ($price > 0 && $base > $price) {
         return round($price, 2);
@@ -330,7 +331,6 @@ function staff_payment_recording_effective_installment_downpayment_amount(array 
 
 /**
  * Build a deterministic fallback installment plan from the stored treatment snapshot.
- * This never uses mutable payment settings, so existing treatment math stays stable.
  *
  * @return array{duration_months:int, months_paid:int, total_cost:float, remaining_balance:float, downpayment_amount:float, monthly_amount:float}
  */
@@ -930,18 +930,15 @@ function staff_payment_recording_ensure_installment_schedule(
                 $downpaymentAmount = (float) $snapshot['downpayment_amount'];
                 $monthlyAmount = (float) $snapshot['monthly_amount'];
 
-                // Service-level installment downpayment is authoritative when configured.
-                if ($svcRow) {
-                    $serviceDownRaw = $svcRow['installment_downpayment'] ?? null;
-                    $effectiveDown = staff_payment_recording_effective_installment_downpayment_amount(
-                        $paymentSettings,
-                        $totalCost,
-                        $serviceDownRaw
-                    );
-                    $downpaymentAmount = $effectiveDown;
-                    if ($durationMonths > 1 && $downpaymentAmount > 0.009) {
-                        $monthlyAmount = round(($totalCost - $downpaymentAmount) / max(1, $durationMonths), 2);
-                    }
+                // Authoritative down payment source for installment plans: tbl_payment_settings.
+                $downpaymentAmount = staff_payment_recording_effective_installment_downpayment_amount(
+                    $paymentSettings,
+                    $totalCost
+                );
+                if ($durationMonths > 1 && $downpaymentAmount > 0.009) {
+                    // Monthly due must use remaining balance after down payment
+                    // divided by the treatment plan month count.
+                    $monthlyAmount = round(($totalCost - $downpaymentAmount) / max(1, $durationMonths), 2);
                 }
 
                 if ($durationMonths > 0 && $totalCost > 0.009) {
@@ -990,15 +987,13 @@ function staff_payment_recording_ensure_installment_schedule(
                 return false;
             }
 
-            $storedDown = $svcRow['installment_downpayment'] ?? null;
             $effDown = staff_payment_recording_effective_installment_downpayment_amount(
                 $paymentSettings,
-                $totalCost,
-                $storedDown
+                $totalCost
             );
 
             $rawDur = $svcRow['installment_duration_months'] ?? null;
-            $durationMonths = ($rawDur === null || $rawDur === '') ? 12 : (int) $rawDur;
+            $durationMonths = ($rawDur === null || $rawDur === '') ? 0 : (int) $rawDur;
             $durationMonths = max(1, $durationMonths);
 
             $paymentOption = ($durationMonths > 1 && $effDown > 0.009) ? 'downpayment' : 'installment';
