@@ -1961,12 +1961,12 @@ try {
                             }
                             $slotCount = 1;
                         } elseif ($mode === 'monthly') {
-                            if ($fn < 2 && !$scheduleInconsistentWithBalance) {
+                            if ($fn < 2) {
                                 throw new RuntimeException('Pay the down payment before monthly installments.');
                             }
                             $slotCount = min(count($unpaid), max(1, $postedSlotCount));
                         } else {
-                            if ($fn !== 1 && !$scheduleInconsistentWithBalance) {
+                            if ($fn !== 1) {
                                 throw new RuntimeException('Combined down + monthly is only available when installment 1 (down payment) is still due.');
                             }
                             $slotCount = min(count($unpaid), max(2, $postedSlotCount));
@@ -4131,15 +4131,15 @@ This booking is installment-priced, but no installment schedule rows exist in th
 </label>
 <label class="installment-option-card flex items-start gap-3 p-4 rounded-2xl border-2 border-slate-100 bg-white/80 cursor-pointer hover:border-primary/40 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5" id="inst_opt_down_wrap">
 <input type="radio" name="installment_pay_mode_ui" value="down" class="mt-1 text-primary focus:ring-primary/30" id="inst_opt_down"/>
-<span class="min-w-0"><span class="block text-sm font-extrabold text-slate-900">Down payment</span><span class="block text-xs text-slate-500 mt-0.5">Pay only the required down (installment 1).</span></span>
+<span class="min-w-0"><span class="block text-sm font-extrabold text-slate-900">Down Payment</span><span class="block text-xs text-slate-500 mt-0.5">Pay only the required down payment amount.</span></span>
 </label>
 <label class="installment-option-card flex items-start gap-3 p-4 rounded-2xl border-2 border-slate-100 bg-white/80 cursor-pointer hover:border-primary/40 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5" id="inst_opt_combined_wrap">
 <input type="radio" name="installment_pay_mode_ui" value="combined" class="mt-1 text-primary focus:ring-primary/30" id="inst_opt_combined"/>
-<span class="min-w-0"><span class="block text-sm font-extrabold text-slate-900">Down + months ahead</span><span class="block text-xs text-slate-500 mt-0.5">Pay down payment plus month 1 or more months ahead.</span></span>
+<span class="min-w-0"><span class="block text-sm font-extrabold text-slate-900">Down Payment + Months Ahead</span><span class="block text-xs text-slate-500 mt-0.5">Pay the down payment plus one or more monthly installments ahead.</span></span>
 </label>
 <label class="installment-option-card flex items-start gap-3 p-4 rounded-2xl border-2 border-slate-100 bg-white/80 cursor-pointer hover:border-primary/40 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5" id="inst_opt_monthly_wrap">
 <input type="radio" name="installment_pay_mode_ui" value="monthly" class="mt-1 text-primary focus:ring-primary/30" id="inst_opt_monthly"/>
-<span class="min-w-0"><span class="block text-sm font-extrabold text-slate-900">Monthly payment</span><span class="block text-xs text-slate-500 mt-0.5">Pay one or more upcoming monthly installments (after down is paid).</span></span>
+<span class="min-w-0"><span class="block text-sm font-extrabold text-slate-900">Monthly Installment</span><span class="block text-xs text-slate-500 mt-0.5">Pay one or more monthly installments after the down payment is fully paid.</span></span>
 </label>
 </div>
 <div class="flex flex-col sm:flex-row sm:items-center gap-3 pt-1" id="installment_slot_row">
@@ -4836,7 +4836,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const combinedOk = scheduleInconsistentWithBalance
                 ? (downOk && pending > (fallbackInstallmentAmount + SETTLED_BALANCE_EPSILON))
                 : (fn === 1 && unpaidSched.length >= 2);
-            const monthlyOk = scheduleInconsistentWithBalance ? (pending > SETTLED_BALANCE_EPSILON) : (fn >= 2);
+            const monthlyOk = scheduleInconsistentWithBalance
+                ? (inst1Paid && pending > SETTLED_BALANCE_EPSILON)
+                : (fn >= 2);
             if (instOptDown) {
                 instOptDown.disabled = !downOk;
             }
