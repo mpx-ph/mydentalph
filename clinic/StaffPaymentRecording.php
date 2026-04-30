@@ -2236,14 +2236,30 @@ try {
                                 ],
                             ];
 
-                            $patStmt = $pdo->prepare("SELECT first_name, last_name FROM tbl_patients WHERE tenant_id = ? AND patient_id = ? LIMIT 1");
+                            $patStmt = $pdo->prepare("
+                                SELECT
+                                    p.first_name,
+                                    p.last_name,
+                                    COALESCE(NULLIF(u_linked.email, ''), NULLIF(u_owner.email, ''), '') AS patient_email
+                                FROM tbl_patients p
+                                LEFT JOIN tbl_users u_linked
+                                  ON u_linked.user_id = p.linked_user_id
+                                LEFT JOIN tbl_users u_owner
+                                  ON u_owner.user_id = p.owner_user_id
+                                WHERE p.tenant_id = ?
+                                  AND p.patient_id = ?
+                                LIMIT 1
+                            ");
                             $patStmt->execute([$tenantId, $patientId]);
                             $patRow = $patStmt->fetch(PDO::FETCH_ASSOC) ?: [];
                             $billingName = trim(trim((string) ($patRow['first_name'] ?? '')) . ' ' . trim((string) ($patRow['last_name'] ?? '')));
                             if ($billingName === '') {
                                 $billingName = 'Patient';
                             }
-                            $billingEmail = 'patient+' . preg_replace('/[^a-z0-9]/i', '', $tenantId . $patientId) . '@billing.local';
+                            $billingEmail = trim((string) ($patRow['patient_email'] ?? ''));
+                            if ($billingEmail !== '' && !filter_var($billingEmail, FILTER_VALIDATE_EMAIL)) {
+                                $billingEmail = '';
+                            }
 
                             $successUrl = BASE_URL . 'StaffPaymentPayMongoReturn.php?pid=' . rawurlencode($paymentId) . '&token=' . rawurlencode($returnToken);
                             $cancelUrl = BASE_URL . 'StaffPaymentRecording.php?paymongo_cancel=1&pid=' . rawurlencode($paymentId) . '&token=' . rawurlencode($returnToken);
@@ -2252,13 +2268,17 @@ try {
                                 $cancelUrl .= '&clinic_slug=' . rawurlencode($currentTenantSlug);
                             }
 
+                            $billingData = [
+                                'name' => $billingName,
+                            ];
+                            if ($billingEmail !== '') {
+                                $billingData['email'] = $billingEmail;
+                            }
+
                             $payload = [
                                 'data' => [
                                     'attributes' => [
-                                        'billing' => [
-                                            'name' => $billingName,
-                                            'email' => $billingEmail,
-                                        ],
+                                        'billing' => $billingData,
                                         'send_email_receipt' => false,
                                         'show_description' => true,
                                         'show_line_items' => true,
@@ -2480,14 +2500,30 @@ try {
                             'selected_transaction_type' => $selectedTransactionType,
                         ];
 
-                        $patStmt = $pdo->prepare("SELECT first_name, last_name FROM tbl_patients WHERE tenant_id = ? AND patient_id = ? LIMIT 1");
+                        $patStmt = $pdo->prepare("
+                            SELECT
+                                p.first_name,
+                                p.last_name,
+                                COALESCE(NULLIF(u_linked.email, ''), NULLIF(u_owner.email, ''), '') AS patient_email
+                            FROM tbl_patients p
+                            LEFT JOIN tbl_users u_linked
+                              ON u_linked.user_id = p.linked_user_id
+                            LEFT JOIN tbl_users u_owner
+                              ON u_owner.user_id = p.owner_user_id
+                            WHERE p.tenant_id = ?
+                              AND p.patient_id = ?
+                            LIMIT 1
+                        ");
                         $patStmt->execute([$tenantId, $patientId]);
                         $patRow = $patStmt->fetch(PDO::FETCH_ASSOC) ?: [];
                         $billingName = trim(trim((string) ($patRow['first_name'] ?? '')) . ' ' . trim((string) ($patRow['last_name'] ?? '')));
                         if ($billingName === '') {
                             $billingName = 'Patient';
                         }
-                        $billingEmail = 'patient+' . preg_replace('/[^a-z0-9]/i', '', $tenantId . $patientId) . '@billing.local';
+                        $billingEmail = trim((string) ($patRow['patient_email'] ?? ''));
+                        if ($billingEmail !== '' && !filter_var($billingEmail, FILTER_VALIDATE_EMAIL)) {
+                            $billingEmail = '';
+                        }
 
                         $successUrl = BASE_URL . 'StaffPaymentPayMongoReturn.php?pid=' . rawurlencode($paymentId) . '&token=' . rawurlencode($returnToken);
                         $cancelUrl = BASE_URL . 'StaffPaymentRecording.php?paymongo_cancel=1&pid=' . rawurlencode($paymentId) . '&token=' . rawurlencode($returnToken);
@@ -2496,13 +2532,17 @@ try {
                             $cancelUrl .= '&clinic_slug=' . rawurlencode($currentTenantSlug);
                         }
 
+                        $billingData = [
+                            'name' => $billingName,
+                        ];
+                        if ($billingEmail !== '') {
+                            $billingData['email'] = $billingEmail;
+                        }
+
                         $payload = [
                             'data' => [
                                 'attributes' => [
-                                    'billing' => [
-                                        'name' => $billingName,
-                                        'email' => $billingEmail,
-                                    ],
+                                    'billing' => $billingData,
                                     'send_email_receipt' => false,
                                     'show_description' => true,
                                     'show_line_items' => true,
