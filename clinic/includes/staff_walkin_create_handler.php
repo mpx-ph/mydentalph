@@ -264,6 +264,38 @@ try {
         $requestedDurationMinutes = 60;
     }
     $requestedStartMinutes = clinic_walkin_time_to_minutes($appointmentTime);
+    $dentistUserId = trim((string) ($dentistRow['user_id'] ?? ''));
+    if ($requestedStartMinutes !== null && $dentistUserId !== '') {
+        $requestedEndMinutes = $requestedStartMinutes + max(1, $requestedDurationMinutes);
+        $effectiveBlocks = clinic_get_effective_schedule_blocks($pdo, (string) $tenantId, $dentistUserId, $appointmentDate);
+        $activeShiftWindow = null;
+        foreach ($effectiveBlocks as $block) {
+            $blockType = strtolower(trim((string) ($block['block_type'] ?? '')));
+            if (!in_array($blockType, ['shift', 'work'], true)) {
+                continue;
+            }
+            $shiftStartMinutes = clinic_walkin_time_to_minutes((string) ($block['start_time'] ?? ''));
+            $shiftEndMinutes = clinic_walkin_time_to_minutes((string) ($block['end_time'] ?? ''));
+            if (!is_int($shiftStartMinutes) || !is_int($shiftEndMinutes) || $shiftEndMinutes <= $shiftStartMinutes) {
+                continue;
+            }
+            if ($requestedStartMinutes >= $shiftStartMinutes && $requestedStartMinutes < $shiftEndMinutes) {
+                $activeShiftWindow = [
+                    'start' => $shiftStartMinutes,
+                    'end' => $shiftEndMinutes,
+                ];
+                break;
+            }
+        }
+        if ($activeShiftWindow === null || $requestedEndMinutes > (int) $activeShiftWindow['end']) {
+            $pdo->rollBack();
+            echo json_encode([
+                'success' => false,
+                'message' => 'The selected time exceeds the dentist’s working hours. Please choose a time that fits within the shift.'
+            ]);
+            exit;
+        }
+    }
     if ($requestedStartMinutes !== null) {
         $requestedEndMinutes = $requestedStartMinutes + max(1, $requestedDurationMinutes);
         $quotedAppointments = clinic_quote_identifier($appointmentsTable);

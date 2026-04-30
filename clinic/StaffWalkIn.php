@@ -140,6 +140,7 @@ try {
                 foreach ($walkInDentists as &$dentistRow) {
                     $dentistUserId = trim((string) ($dentistRow['user_id'] ?? ''));
                     $shiftRanges = [];
+                    $shiftWindows = [];
                     $isInsideShift = false;
                     $activeBlockReason = '';
                     $activeBlockTypes = ['break', 'emergency', 'personal', 'other'];
@@ -166,6 +167,10 @@ try {
                                 continue;
                             }
                             $shiftRanges[] = $formatDisplayTime($startTime) . ' - ' . $formatDisplayTime($endTime);
+                            $shiftWindows[] = [
+                                'start' => $startTime,
+                                'end' => $endTime,
+                            ];
                             if ($todayTime >= $startTime && $todayTime < $endTime) {
                                 $isInsideShift = true;
                             }
@@ -174,6 +179,7 @@ try {
                     $dentistRow['schedule_label'] = !empty($shiftRanges)
                         ? implode(' | ', array_values(array_unique($shiftRanges)))
                         : 'No schedule';
+                    $dentistRow['shift_windows'] = $shiftWindows;
                     $isBlockedByActiveBlock = $activeBlockReason !== '';
                     $dentistRow['is_available_for_slot'] = ($isInsideShift && !$isBlockedByActiveBlock) ? 1 : 0;
                     if ($isBlockedByActiveBlock) {
@@ -958,10 +964,125 @@ try {
             return pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds());
         }
 
+        function parseDisplayTimeToMinutes(displayTime) {
+            const raw = String(displayTime || '').trim();
+            if (!raw) return NaN;
+            const match = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$/i);
+            if (!match) return NaN;
+            let hours = Number(match[1]);
+            const minutes = Number(match[2]);
+            const period = String(match[3]).toUpperCase();
+            if (!Number.isFinite(hours) || !Number.isFinite(minutes) || minutes < 0 || minutes > 59 || hours < 1 || hours > 12) {
+                return NaN;
+            }
+            if (period === 'AM') {
+                if (hours === 12) hours = 0;
+            } else if (hours !== 12) {
+                hours += 12;
+            }
+            return (hours * 60) + minutes;
+        }
+
+        function timeToMinutes(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return NaN;
+            if (/[AP]M$/i.test(raw)) {
+                return parseDisplayTimeToMinutes(raw);
+            }
+            const parts = raw.split(':');
+            if (parts.length < 2) return NaN;
+            const hours = Number(parts[0]);
+            const minutes = Number(parts[1]);
+            if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return NaN;
+            return (hours * 60) + minutes;
+        }
+
+        function computeRequiredMinutesForSelectedServices() {
+            const total = selectedServices.reduce(function (sum, service) {
+                const duration = Math.max(0, Number(service && service.service_duration ? service.service_duration : 0));
+                const buffer = Math.max(0, Number(service && service.buffer_time ? service.buffer_time : 0));
+                return sum + duration + buffer;
+            }, 0);
+            return total > 0 ? total : 60;
+        }
+
+        function getSelectedDentistSnapshot() {
+            const dentistId = selectedDentistIdInput ? String(selectedDentistIdInput.value || '').trim() : '';
+            if (!dentistId) return null;
+            return dentistsSeedData.find(function (dentist) {
+                return String(dentist && dentist.dentist_id ? dentist.dentist_id : '') === dentistId;
+            }) || null;
+        }
+
+        function validateSelectedDentistShiftFit() {
+            const selectedDentist = getSelectedDentistSnapshot();
+            if (!selectedDentist) {
+                return { ok: true };
+            }
+            const shiftWindows = Array.isArray(selectedDentist.shift_windows) ? selectedDentist.shift_windows : [];
+            if (!shiftWindows.length) {
+                return {
+                    ok: false,
+                    message: 'The selected time exceeds the dentist’s working hours. Please choose a time that fits within the shift.'
+                };
+            }
+            const selectedStartMinutes = timeToMinutes(timeInput ? String(timeInput.value || '').trim() : '');
+            if (!Number.isFinite(selectedStartMinutes)) {
+                return { ok: true };
+            }
+            const requiredMinutes = computeRequiredMinutesForSelectedServices();
+            const selectedEndMinutes = selectedStartMinutes + Math.max(1, requiredMinutes);
+            const matchingShift = shiftWindows.find(function (shift) {
+                const shiftStart = timeToMinutes(shift && shift.start ? shift.start : '');
+                const shiftEnd = timeToMinutes(shift && shift.end ? shift.end : '');
+                if (!Number.isFinite(shiftStart) || !Number.isFinite(shiftEnd) || shiftEnd <= shiftStart) {
+                    return false;
+                }
+                return selectedStartMinutes >= shiftStart && selectedStartMinutes < shiftEnd;
+            });
+            if (!matchingShift) {
+                return {
+                    ok: false,
+                    message: 'The selected time exceeds the dentist’s working hours. Please choose a time that fits within the shift.'
+                };
+            }
+            const matchingShiftEnd = timeToMinutes(matchingShift.end || '');
+            if (!Number.isFinite(matchingShiftEnd) || selectedEndMinutes > matchingShiftEnd) {
+                return {
+                    ok: false,
+                    message: 'The selected time exceeds the dentist’s working hours. Please choose a time that fits within the shift.'
+                };
+            }
+            return { ok: true };
+        }
+
+        function syncWalkInShiftValidationState() {
+            if (!createWalkInAppointmentBtn) return;
+            const shiftValidation = validateSelectedDentistShiftFit();
+            const isMissingBasics = !(selectedPatientIdInput && selectedPatientIdInput.value) || !(selectedDentistIdInput && selectedDentistIdInput.value) || !selectedServices.length;
+            createWalkInAppointmentBtn.disabled = !shiftValidation.ok || isMissingBasics;
+            createWalkInAppointmentBtn.classList.toggle('opacity-70', createWalkInAppointmentBtn.disabled);
+            createWalkInAppointmentBtn.classList.toggle('cursor-not-allowed', createWalkInAppointmentBtn.disabled);
+        }
+
+        async function validateWalkInShiftBoundaryAndAlert() {
+            const shiftValidation = validateSelectedDentistShiftFit();
+            if (shiftValidation.ok) {
+                return true;
+            }
+            await staffUiAlert({
+                title: 'Dentist working hours exceeded',
+                message: shiftValidation.message || 'The selected time exceeds the dentist’s working hours. Please choose a time that fits within the shift.',
+                variant: 'warning'
+            });
+            return false;
+        }
+
         function updateNow() {
             const now = new Date();
             if (dateInput) dateInput.value = formatDate(now);
             if (timeInput) timeInput.value = formatTime(now);
+            syncWalkInShiftValidationState();
         }
 
         function escapeHtml(value) {
@@ -1880,11 +2001,13 @@ try {
             updateTreatmentProgressCards(null);
             updatePaymentDetailsVisibility();
             updateDefaultPaymentDetails();
+            syncWalkInShiftValidationState();
         }
 
         function setSelectedDentist(dentistId, dentistName) {
             if (selectedDentistIdInput) selectedDentistIdInput.value = dentistId || '';
             if (selectedDentistLabel) selectedDentistLabel.textContent = dentistName || 'Tap to choose dentist';
+            syncWalkInShiftValidationState();
         }
 
         function setSelectedService(serviceId, serviceName) {
@@ -2033,6 +2156,10 @@ try {
             }
             if (!selectedServices.length) {
                 void staffUiAlert({ message: 'Please add at least one service.', variant: 'warning', title: 'Services required' });
+                return;
+            }
+            const shiftAllowed = await validateWalkInShiftBoundaryAndAlert();
+            if (!shiftAllowed) {
                 return;
             }
             const compatibility = validateServiceCompatibility(selectedServices);
@@ -2250,12 +2377,15 @@ try {
             });
         }
         if (dentistListContainer) {
-            dentistListContainer.addEventListener('click', function (event) {
+            dentistListContainer.addEventListener('click', async function (event) {
                 const button = event.target.closest('button[data-action="select-dentist"]');
                 if (!button) return;
                 if (button.disabled) return;
                 setSelectedDentist(button.getAttribute('data-dentist-id') || '', button.getAttribute('data-dentist-name') || '');
                 closeChooseDentistModal();
+                if (selectedServices.length) {
+                    await validateWalkInShiftBoundaryAndAlert();
+                }
             });
         }
         if (serviceListContainer) {
@@ -2307,6 +2437,10 @@ try {
                 selectedServices.push(service);
                 setSelectedService('', 'Select service');
                 renderSelectedServices();
+                syncWalkInShiftValidationState();
+                if (selectedDentistIdInput && selectedDentistIdInput.value) {
+                    void validateWalkInShiftBoundaryAndAlert();
+                }
             });
         }
         if (selectedServicesContainer) {
@@ -2318,6 +2452,10 @@ try {
                     return String(item.service_id || '') !== String(serviceId);
                 });
                 renderSelectedServices();
+                syncWalkInShiftValidationState();
+                if (selectedDentistIdInput && selectedDentistIdInput.value) {
+                    void validateWalkInShiftBoundaryAndAlert();
+                }
             });
         }
         if (createWalkInAppointmentBtn) {
@@ -2328,6 +2466,7 @@ try {
         updatePaymentDetailsVisibility();
         updateDefaultPaymentDetails();
         renderSelectedServices();
+        syncWalkInShiftValidationState();
         regLoadProvinces('');
         loadAllPatients();
         setInterval(updateNow, 1000);
