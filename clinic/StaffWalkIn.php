@@ -1317,6 +1317,9 @@ try {
         function applyServiceFilters() {
             const keyword = serviceSearchInput ? serviceSearchInput.value.trim().toLowerCase() : '';
             const filtered = allServices.filter(function (service) {
+                if (!serviceMatchesTreatmentServiceVisibility(service)) {
+                    return false;
+                }
                 const categoryKey = normalizeServiceFilterCategory(service.category);
                 const categoryMatches = selectedServiceCategoryFilter === 'all' || categoryKey === selectedServiceCategoryFilter;
                 if (!categoryMatches) {
@@ -1350,6 +1353,14 @@ try {
             if (!service) return false;
             const v = service.enable_installment;
             return v === true || v === 1 || v === '1';
+        }
+
+        function normalizeServiceType(serviceType) {
+            return String(serviceType || '').trim().toLowerCase();
+        }
+
+        function isIncludedPlanService(service) {
+            return normalizeServiceType(service && service.service_type) === 'included_plan';
         }
 
         function formatPeso(amount) {
@@ -1418,23 +1429,42 @@ try {
             return getActiveInstallmentPrimaryServiceId() !== '';
         }
 
+        function getActiveTreatmentCategoryKey() {
+            if (!activeTreatmentContext || !activeTreatmentContext.treatment) {
+                return '';
+            }
+            const treatment = activeTreatmentContext.treatment;
+            const primaryCategoryKey = normalizeServiceFilterCategory(treatment.primary_service && treatment.primary_service.category);
+            if (primaryCategoryKey) {
+                return primaryCategoryKey;
+            }
+            return normalizeServiceFilterCategory(treatment.category || treatment.treatment_category || '');
+        }
+
+        function serviceMatchesTreatmentServiceVisibility(service) {
+            const isIncludedPlan = isIncludedPlanService(service);
+            const hasInstallmentTreatment = treatmentIsInstallmentPlan(activeTreatmentContext);
+            if (!hasInstallmentTreatment) {
+                return !isIncludedPlan;
+            }
+            if (!isIncludedPlan) {
+                return true;
+            }
+            const treatmentCategoryKey = getActiveTreatmentCategoryKey();
+            if (!treatmentCategoryKey) {
+                return false;
+            }
+            return normalizeServiceFilterCategory(service && service.category) === treatmentCategoryKey;
+        }
+
         function getServiceSelectionRule(service) {
-            const serviceId = String(service && service.service_id ? service.service_id : '');
-            const isInstallment = serviceInstallmentEnabled(service);
-            const activePrimaryServiceId = getActiveInstallmentPrimaryServiceId();
-            if (!activePrimaryServiceId) {
-                return { allowed: true, reason: '' };
+            if (!serviceMatchesTreatmentServiceVisibility(service)) {
+                return {
+                    allowed: false,
+                    reason: 'This service is not available for the patient\'s active treatment category.'
+                };
             }
-            if (!isInstallment) {
-                return { allowed: true, reason: '' };
-            }
-            if (serviceId === activePrimaryServiceId) {
-                return { allowed: true, reason: '' };
-            }
-            return {
-                allowed: false,
-                reason: 'Only the ongoing installment service is allowed.'
-            };
+            return { allowed: true, reason: '' };
         }
 
         function computeTreatmentMonthsLeft(treatment) {
@@ -1919,13 +1949,21 @@ try {
                     return;
                 }
                 activeTreatmentContext = data.data;
-                const primary = data.data.treatment && data.data.treatment.primary_service ? data.data.treatment.primary_service : null;
-                if (primary && treatmentIsInstallmentPlan(activeTreatmentContext)) {
-                    selectedServices = [primary];
-                    setSelectedService(primary.service_id || '', primary.service_name || 'Installment Treatment');
-                } else {
-                    selectedServices = [];
-                    setSelectedService('', 'Select service');
+                selectedServices = [];
+                setSelectedService('', 'Select service');
+                if (treatmentIsInstallmentPlan(activeTreatmentContext)) {
+                    const treatment = data.data.treatment || {};
+                    const treatmentName = String((treatment.primary_service && treatment.primary_service.service_name) || treatment.treatment_name || 'N/A').trim();
+                    const treatmentStatus = String(treatment.status || 'Ongoing').trim() || 'Ongoing';
+                    const remainingBalanceRaw = Number(treatment.remaining_balance);
+                    const remainingBalanceLabel = Number.isFinite(remainingBalanceRaw)
+                        ? formatPeso(Math.max(0, remainingBalanceRaw))
+                        : 'N/A';
+                    await staffUiAlert({
+                        title: 'Active Treatment Detected',
+                        message: 'This patient is currently under an active installment treatment:\n\nTreatment: ' + treatmentName + '\nStatus: ' + treatmentStatus + '\nRemaining Balance: ' + remainingBalanceLabel + '\n\nPlease select the appropriate follow-up service (e.g., Adjustment or Checkup).',
+                        variant: 'warning'
+                    });
                 }
                 renderSelectedServices();
                 applyServiceFilters();
@@ -1991,32 +2029,6 @@ try {
             if (!selectedServices.length) {
                 void staffUiAlert({ message: 'Please add at least one service.', variant: 'warning', title: 'Services required' });
                 return;
-            }
-            if (hasActiveInstallmentTreatment()) {
-                const activePrimaryServiceId = getActiveInstallmentPrimaryServiceId();
-                const hasPrimaryService = selectedServices.some(function (service) {
-                    return String(service && service.service_id ? service.service_id : '') === activePrimaryServiceId;
-                });
-                if (!hasPrimaryService) {
-                    void staffUiAlert({
-                        title: 'Installment service required',
-                        message: 'Please keep the ongoing installment service in this booking.',
-                        variant: 'warning'
-                    });
-                    return;
-                }
-                const hasOtherInstallment = selectedServices.some(function (service) {
-                    const serviceId = String(service && service.service_id ? service.service_id : '');
-                    return serviceInstallmentEnabled(service) && serviceId !== activePrimaryServiceId;
-                });
-                if (hasOtherInstallment) {
-                    void staffUiAlert({
-                        title: 'Installment service restricted',
-                        message: 'Only the ongoing installment service is allowed while treatment is active. Add regular services only.',
-                        variant: 'warning'
-                    });
-                    return;
-                }
             }
             const compatibility = validateServiceCompatibility(selectedServices);
             if (!compatibility.valid) {
@@ -2275,21 +2287,6 @@ try {
                 });
                 if (alreadyAdded) return;
                 const nextServices = selectedServices.concat([service]);
-                if (hasActiveInstallmentTreatment()) {
-                    const activePrimaryServiceId = getActiveInstallmentPrimaryServiceId();
-                    const hasOtherInstallment = nextServices.some(function (item) {
-                        const serviceId = String(item && item.service_id ? item.service_id : '');
-                        return serviceInstallmentEnabled(item) && serviceId !== activePrimaryServiceId;
-                    });
-                    if (hasOtherInstallment) {
-                        void staffUiAlert({
-                            title: 'Installment service restricted',
-                            message: 'Only the ongoing installment service is allowed while treatment is active. Add regular services only.',
-                            variant: 'warning'
-                        });
-                        return;
-                    }
-                }
                 const compatibility = validateServiceCompatibility(nextServices);
                 if (!compatibility.valid) {
                     void staffUiAlert({
