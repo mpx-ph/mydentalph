@@ -1904,8 +1904,45 @@ try {
                                 $unpaid[] = $sr;
                             }
                         }
+                        $scheduleInconsistentWithBalance = false;
                         if ($unpaid === []) {
-                            throw new RuntimeException('All installments for this booking are already paid.');
+                            if ((float) $pendingBalance <= 0.009) {
+                                throw new RuntimeException('All installments for this booking are already paid.');
+                            }
+                            $scheduleInconsistentWithBalance = true;
+                            $fallbackInstallmentAmount = 0.0;
+                            if (is_array($inst1Row) && !$inst1Paid) {
+                                $fallbackInstallmentAmount = round((float) ($inst1Row['amount_due'] ?? 0), 2);
+                            }
+                            if ($fallbackInstallmentAmount <= 0.009) {
+                                foreach ($scheduleRows as $sr) {
+                                    $candidateAmount = round((float) ($sr['amount_due'] ?? 0), 2);
+                                    if ($candidateAmount > 0.009) {
+                                        $fallbackInstallmentAmount = $candidateAmount;
+                                        break;
+                                    }
+                                }
+                            }
+                            if ($fallbackInstallmentAmount <= 0.009) {
+                                $fallbackInstallmentAmount = round((float) $pendingBalance, 2);
+                            }
+                            $fallbackInstallmentAmount = max(0.01, $fallbackInstallmentAmount);
+                            $syntheticStartNumber = (is_array($inst1Row) && !$inst1Paid) ? 1 : 2;
+                            $remainingSynthetic = round((float) $pendingBalance, 2);
+                            $syntheticIndex = 0;
+                            while ($remainingSynthetic > 0.009) {
+                                $nextAmount = min($fallbackInstallmentAmount, $remainingSynthetic);
+                                $unpaid[] = [
+                                    'installment_number' => $syntheticStartNumber + $syntheticIndex,
+                                    'amount_due' => round($nextAmount, 2),
+                                    'status' => 'pending',
+                                ];
+                                $remainingSynthetic = round(max(0.0, $remainingSynthetic - $nextAmount), 2);
+                                $syntheticIndex++;
+                                if ($syntheticIndex > 240) {
+                                    break;
+                                }
+                            }
                         }
                         $firstUnpaid = $unpaid[0];
                         $fn = (int) $firstUnpaid['installment_number'];
@@ -1924,12 +1961,12 @@ try {
                             }
                             $slotCount = 1;
                         } elseif ($mode === 'monthly') {
-                            if ($fn < 2) {
+                            if ($fn < 2 && !$scheduleInconsistentWithBalance) {
                                 throw new RuntimeException('Pay the down payment before monthly installments.');
                             }
                             $slotCount = min(count($unpaid), max(1, $postedSlotCount));
                         } else {
-                            if ($fn !== 1) {
+                            if ($fn !== 1 && !$scheduleInconsistentWithBalance) {
                                 throw new RuntimeException('Combined down + monthly is only available when installment 1 (down payment) is still due.');
                             }
                             $slotCount = min(count($unpaid), max(2, $postedSlotCount));
