@@ -1118,6 +1118,10 @@ $summaryTotalPayments = 0;
 $recentPayments = [];
 $transactionCandidates = [];
 $transactionDebugRows = [];
+$paymentSettingsForUi = [
+    'regular_downpayment_percentage' => 0.0,
+    'long_term_min_downpayment' => 0.0,
+];
 $availableServices = [];
 $supportsPaymentTypeColumn = false;
 $supportsAppointmentVisitTypeColumn = false;
@@ -1168,6 +1172,8 @@ try {
     }
 
     if ($tenantId !== '') {
+        $paymentSettingsForUi = staff_payment_recording_load_payment_settings($pdo, $tenantId);
+
         $tenantProfileStmt = $pdo->prepare('SELECT clinic_name FROM tbl_tenants WHERE tenant_id = ? LIMIT 1');
         $tenantProfileStmt->execute([$tenantId]);
         $tenantProfile = $tenantProfileStmt->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -1845,6 +1851,10 @@ try {
                             }
                         }
                         $downpaymentCoveredByAmount = false;
+                        $configuredDownpaymentAmount = staff_payment_recording_effective_installment_downpayment_amount(
+                            $paymentSettingsForUi,
+                            (float) $totalCost
+                        );
                         if (is_array($inst1Row)) {
                             $inst1AmountDue = round((float) ($inst1Row['amount_due'] ?? 0), 2);
                             $downpaymentCoveredByAmount = $inst1AmountDue > 0
@@ -1905,32 +1915,44 @@ try {
                                 throw new RuntimeException('All installments for this booking are already paid.');
                             }
                             $scheduleInconsistentWithBalance = true;
-                            $fallbackInstallmentAmount = 0.0;
-                            if (is_array($inst1Row) && !$inst1Paid) {
-                                $fallbackInstallmentAmount = round((float) ($inst1Row['amount_due'] ?? 0), 2);
-                            }
-                            if ($fallbackInstallmentAmount <= 0.009) {
-                                foreach ($scheduleRows as $sr) {
-                                    $candidateAmount = round((float) ($sr['amount_due'] ?? 0), 2);
-                                    if ($candidateAmount > 0.009) {
-                                        $fallbackInstallmentAmount = $candidateAmount;
-                                        break;
-                                    }
-                                }
-                            }
-                            if ($fallbackInstallmentAmount <= 0.009) {
-                                $fallbackInstallmentAmount = round((float) $pendingBalance, 2);
-                            }
-                            $fallbackInstallmentAmount = max(0.01, $fallbackInstallmentAmount);
                             // In fallback mode (schedule rows marked settled but balance remains),
                             // enforce DP-first flow by starting synthetic unpaid slots at #1.
-                            $syntheticStartNumber = 1;
                             $remainingSynthetic = round((float) $pendingBalance, 2);
                             $syntheticIndex = 0;
-                            while ($remainingSynthetic > 0.009) {
-                                $nextAmount = min($fallbackInstallmentAmount, $remainingSynthetic);
+
+                            $existingMonthlySlots = 0;
+                            foreach ($scheduleRows as $sr) {
+                                if ((int) ($sr['installment_number'] ?? 0) >= 2) {
+                                    $existingMonthlySlots++;
+                                }
+                            }
+                            if ($existingMonthlySlots <= 0) {
+                                $existingMonthlySlots = max(1, count($scheduleRows));
+                            }
+                            $fallbackMonthlyAmount = round(
+                                max(0.0, ((float) $totalCost - $configuredDownpaymentAmount) / max(1, $existingMonthlySlots)),
+                                2
+                            );
+                            if ($fallbackMonthlyAmount <= 0.009) {
+                                $fallbackMonthlyAmount = round((float) $pendingBalance, 2);
+                            }
+                            $fallbackMonthlyAmount = max(0.01, $fallbackMonthlyAmount);
+
+                            $syntheticDownpayment = min($remainingSynthetic, max(0.0, round($configuredDownpaymentAmount, 2)));
+                            if ($syntheticDownpayment > 0.009) {
                                 $unpaid[] = [
-                                    'installment_number' => $syntheticStartNumber + $syntheticIndex,
+                                    'installment_number' => 1,
+                                    'amount_due' => round($syntheticDownpayment, 2),
+                                    'status' => 'pending',
+                                ];
+                                $remainingSynthetic = round(max(0.0, $remainingSynthetic - $syntheticDownpayment), 2);
+                                $syntheticIndex = 1;
+                            }
+
+                            while ($remainingSynthetic > 0.009) {
+                                $nextAmount = min($fallbackMonthlyAmount, $remainingSynthetic);
+                                $unpaid[] = [
+                                    'installment_number' => 1 + $syntheticIndex,
                                     'amount_due' => round($nextAmount, 2),
                                     'status' => 'pending',
                                 ];
@@ -4335,6 +4357,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
         const overlay = document.getElementById('transaction-modal-overlay');
         const hasServerError = <?php echo $inlinePaymentError !== '' ? 'true' : 'false'; ?>;
         const serverValidationPopupMessage = <?php echo json_encode($serverValidationPopupMessage, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const paymentSettings = <?php echo json_encode($paymentSettingsForUi, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const receiptModal = document.getElementById('receipt-modal');
         const receiptModalOverlay = document.getElementById('receipt-modal-overlay');
         const closeReceiptModalBtn = document.getElementById('close-receipt-modal');
@@ -4816,22 +4839,24 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 return true;
             });
             const scheduleInconsistentWithBalance = unpaidSched.length === 0 && pending > SETTLED_BALANCE_EPSILON;
-            const fallbackInstallmentAmount = (() => {
-                if (inst1 && !inst1Paid && Number(inst1.amount_due || 0) > 0) {
-                    return Number(inst1.amount_due || 0);
-                }
-                const firstPositive = sched.find((r) => Number(r && r.amount_due ? r.amount_due : 0) > 0);
-                if (firstPositive) {
-                    return Number(firstPositive.amount_due || 0);
-                }
-                return pending > 0 ? pending : 1;
-            })();
             const firstUnpaid = unpaidSched.length ? unpaidSched[0] : null;
             const fn = firstUnpaid ? Number(firstUnpaid.installment_number) : 0;
+            const configuredDownpayment = Math.max(
+                0,
+                Math.min(totalCost, Number((paymentSettings && paymentSettings.long_term_min_downpayment) || 0))
+            );
+            const existingMonthlySlots = Math.max(
+                1,
+                sched.filter((r) => Number(r.installment_number || 0) >= 2).length || (sched.length || 1)
+            );
+            const fallbackMonthlyAmount = Math.max(
+                0.01,
+                Math.round((Math.max(0, totalCost - configuredDownpayment) / existingMonthlySlots) * 100) / 100
+            );
 
             const downOk = scheduleInconsistentWithBalance ? (pending > SETTLED_BALANCE_EPSILON) : (fn === 1);
             const combinedOk = scheduleInconsistentWithBalance
-                ? (downOk && pending > (fallbackInstallmentAmount + SETTLED_BALANCE_EPSILON))
+                ? (downOk && pending > ((configuredDownpayment > 0 ? configuredDownpayment : fallbackMonthlyAmount) + SETTLED_BALANCE_EPSILON))
                 : (fn === 1 && unpaidSched.length >= 2);
             const monthlyOk = scheduleInconsistentWithBalance
                 ? false
@@ -4881,8 +4906,15 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
 
             let slotCount = 1;
+            const syntheticDownDue = configuredDownpayment > 0
+                ? Math.min(pending, configuredDownpayment)
+                : Math.min(pending, fallbackMonthlyAmount);
+            const syntheticMonthlySlots = Math.max(
+                1,
+                Math.ceil(Math.max(0, pending - syntheticDownDue) / Math.max(0.01, fallbackMonthlyAmount))
+            );
             const maxSlots = scheduleInconsistentWithBalance
-                ? Math.max(1, Math.ceil(pending / Math.max(0.01, fallbackInstallmentAmount)))
+                ? ((syntheticDownDue > 0.009 ? 1 : 0) + syntheticMonthlySlots)
                 : unpaidSched.length;
             if (mode === 'full') {
                 slotCount = maxSlots;
@@ -4942,11 +4974,14 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 if (mode === 'full') {
                     sum = pending;
                 } else if (mode === 'down') {
-                    sum = Math.min(pending, Math.max(0, fallbackInstallmentAmount));
+                    const downDue = configuredDownpayment > 0 ? configuredDownpayment : fallbackMonthlyAmount;
+                    sum = Math.min(pending, Math.max(0, downDue));
                 } else if (mode === 'combined') {
-                    sum = Math.min(pending, Math.max(0, fallbackInstallmentAmount) * Math.max(2, slotCount));
+                    const downDue = configuredDownpayment > 0 ? configuredDownpayment : fallbackMonthlyAmount;
+                    const monthlySlots = Math.max(1, Math.max(2, slotCount) - 1);
+                    sum = Math.min(pending, Math.max(0, downDue) + (fallbackMonthlyAmount * monthlySlots));
                 } else {
-                    sum = Math.min(pending, Math.max(0, fallbackInstallmentAmount) * Math.max(1, slotCount));
+                    sum = Math.min(pending, fallbackMonthlyAmount * Math.max(1, slotCount));
                 }
             } else {
                 for (let i = 0; i < Math.min(slotCount, unpaidSched.length); i += 1) {
