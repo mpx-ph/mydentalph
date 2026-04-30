@@ -1525,6 +1525,14 @@ try {
             return getActiveInstallmentPrimaryServiceId() !== '';
         }
 
+        function patientHasActiveTreatmentPlan() {
+            return Boolean(
+                activeTreatmentContext
+                && activeTreatmentContext.has_active_treatment
+                && !treatmentIsFullyPaid(activeTreatmentContext)
+            );
+        }
+
         function getActiveTreatmentCategoryKey() {
             if (!activeTreatmentContext || !activeTreatmentContext.treatment) {
                 return '';
@@ -1559,6 +1567,13 @@ try {
         }
 
         function getServiceSelectionRule(service) {
+            const serviceType = normalizeServiceType(service && service.service_type);
+            if (serviceType === 'installment' && patientHasActiveTreatmentPlan()) {
+                return {
+                    allowed: false,
+                    reason: 'This patient already has an active treatment plan. Only one active installment plan is allowed per patient.'
+                };
+            }
             if (!serviceMatchesTreatmentServiceVisibility(service)) {
                 return {
                     allowed: false,
@@ -2492,6 +2507,17 @@ try {
             }
             if (!selectedServices.length) {
                 void staffUiAlert({ message: 'Please add at least one service.', variant: 'warning', title: 'Services required' });
+                return;
+            }
+            const hasInstallmentSelection = selectedServices.some(function (service) {
+                return normalizeServiceType(service && service.service_type) === 'installment';
+            });
+            if (patientHasActiveTreatmentPlan() && hasInstallmentSelection) {
+                await staffUiAlert({
+                    title: 'Active treatment plan exists',
+                    message: 'This patient already has an active treatment plan. Only one active installment plan is allowed per patient.',
+                    variant: 'warning'
+                });
                 return;
             }
             const compatibility = validateServiceCompatibility(selectedServices);
