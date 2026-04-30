@@ -1473,11 +1473,7 @@ try {
         function serviceInstallmentEnabled(service) {
             if (!service) return false;
             const v = service.enable_installment;
-            if (v === true || v === 1 || v === '1') {
-                return true;
-            }
-            const rawServiceType = normalizeServiceType(service && service.service_type);
-            return rawServiceType === 'installment';
+            return v === true || v === 1 || v === '1';
         }
 
         function normalizeServiceType(serviceType) {
@@ -1486,13 +1482,6 @@ try {
 
         function isIncludedPlanService(service) {
             return normalizeServiceType(service && service.service_type) === 'included_plan';
-        }
-
-        function getBillableServicePrice(service) {
-            if (isIncludedPlanService(service)) {
-                return 0;
-            }
-            return Math.max(0, Number(service && service.price ? service.price : 0));
         }
 
         function formatPeso(amount) {
@@ -1686,7 +1675,7 @@ try {
         }
 
         function computeServiceDownPayment(service, configuredRegularPct, configuredMinDown) {
-            const servicePrice = getBillableServicePrice(service);
+            const servicePrice = Math.max(0, Number(service && service.price ? service.price : 0));
             if (servicePrice <= 0) return 0;
             if (!serviceInstallmentEnabled(service)) {
                 return Math.min(servicePrice, Math.max(0, servicePrice * (configuredRegularPct / 100)));
@@ -1702,20 +1691,18 @@ try {
                 return 0;
             }
             const durationMonths = Math.max(0, Number(service && service.installment_duration_months ? service.installment_duration_months : 0));
-            const servicePrice = getBillableServicePrice(service);
+            const servicePrice = Math.max(0, Number(service && service.price ? service.price : 0));
             if (durationMonths <= 0 || servicePrice <= 0) {
                 return 0;
             }
-            if (downPayment > 0 && durationMonths > 1) {
-                return Math.max(0, servicePrice - downPayment) / (durationMonths - 1);
-            }
-            return servicePrice / durationMonths;
+            const netAmountAfterDownPayment = Math.max(0, servicePrice - Math.max(0, Number(downPayment || 0)));
+            return netAmountAfterDownPayment / durationMonths;
         }
 
         function updateDefaultPaymentDetails() {
             const breakdownServices = getAddedServicesForInstallmentTreatment();
             const totalAmount = breakdownServices.reduce(function (sum, service) {
-                return sum + getBillableServicePrice(service);
+                return sum + Number(service && service.price ? service.price : 0);
             }, 0);
             const configuredRegularPctRaw = walkInPaymentSettings && walkInPaymentSettings.regular_downpayment_percentage !== undefined
                 ? Number(walkInPaymentSettings.regular_downpayment_percentage)
