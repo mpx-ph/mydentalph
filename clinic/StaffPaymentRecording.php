@@ -4720,9 +4720,13 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     const monthlySettled = hasSeparateDownpayment
                         ? Math.max(0, settled - (inst1Paid ? 1 : 0))
                         : settled;
-                    installmentProgressHint.textContent = downLabel
-                        ? (downLabel + ' ' + monthlySettled + ' of ' + monthlyTotal + ' monthly installment(s) settled.')
-                        : (monthlySettled + ' of ' + monthlyTotal + ' monthly installment(s) settled.');
+                    if (unpaidSched.length === 0 && pending > SETTLED_BALANCE_EPSILON) {
+                        installmentProgressHint.textContent = 'Installment schedule appears fully settled, but a remaining balance still exists. Choose a payment option below to proceed.';
+                    } else {
+                        installmentProgressHint.textContent = downLabel
+                            ? (downLabel + ' ' + monthlySettled + ' of ' + monthlyTotal + ' monthly installment(s) settled.')
+                            : (monthlySettled + ' of ' + monthlyTotal + ' monthly installment(s) settled.');
+                    }
                 } else if (planFlag) {
                     installmentProgressHint.textContent = 'Installment-priced treatment — pay toward the balance below.';
                 } else {
@@ -4777,12 +4781,25 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 }
                 return true;
             });
+            const scheduleInconsistentWithBalance = unpaidSched.length === 0 && pending > SETTLED_BALANCE_EPSILON;
+            const fallbackInstallmentAmount = (() => {
+                if (inst1 && !inst1Paid && Number(inst1.amount_due || 0) > 0) {
+                    return Number(inst1.amount_due || 0);
+                }
+                const firstPositive = sched.find((r) => Number(r && r.amount_due ? r.amount_due : 0) > 0);
+                if (firstPositive) {
+                    return Number(firstPositive.amount_due || 0);
+                }
+                return pending > 0 ? pending : 1;
+            })();
             const firstUnpaid = unpaidSched.length ? unpaidSched[0] : null;
             const fn = firstUnpaid ? Number(firstUnpaid.installment_number) : 0;
 
-            const downOk = fn === 1;
-            const combinedOk = fn === 1 && unpaidSched.length >= 2;
-            const monthlyOk = fn >= 2;
+            const downOk = scheduleInconsistentWithBalance ? (!inst1Paid && pending > SETTLED_BALANCE_EPSILON) : (fn === 1);
+            const combinedOk = scheduleInconsistentWithBalance
+                ? (downOk && pending > (fallbackInstallmentAmount + SETTLED_BALANCE_EPSILON))
+                : (fn === 1 && unpaidSched.length >= 2);
+            const monthlyOk = scheduleInconsistentWithBalance ? (pending > SETTLED_BALANCE_EPSILON) : (fn >= 2);
             if (instOptDown) {
                 instOptDown.disabled = !downOk;
             }
@@ -4804,32 +4821,23 @@ This booking is installment-priced, but no installment schedule rows exist in th
 
             const modeUi = document.querySelector('input[name="installment_pay_mode_ui"]:checked');
             let mode = modeUi ? modeUi.value : 'full';
-            if (fn === 1 && mode === 'monthly') {
+            if (mode === 'down' && !downOk) {
+                mode = monthlyOk ? 'monthly' : 'full';
+            }
+            if (mode === 'combined' && !combinedOk) {
+                mode = monthlyOk ? 'monthly' : 'full';
+            }
+            if (mode === 'monthly' && !monthlyOk) {
                 mode = 'full';
-                if (instOptFull) {
-                    instOptFull.checked = true;
-                }
             }
-            if (fn !== 1 && mode === 'down') {
-                mode = unpaidSched.length > 1 ? 'monthly' : 'full';
-                if (mode === 'full' && instOptFull) {
-                    instOptFull.checked = true;
-                }
-                if (mode === 'monthly' && instOptMonthly) {
-                    instOptMonthly.checked = true;
-                }
-            }
-            if (fn !== 1 && mode === 'combined') {
-                mode = 'monthly';
-                if (instOptMonthly) {
-                    instOptMonthly.checked = true;
-                }
-            }
-            if ((fn !== 1 || unpaidSched.length < 2) && mode === 'combined') {
-                mode = 'full';
-                if (instOptFull) {
-                    instOptFull.checked = true;
-                }
+            if (mode === 'full' && instOptFull) {
+                instOptFull.checked = true;
+            } else if (mode === 'monthly' && instOptMonthly) {
+                instOptMonthly.checked = true;
+            } else if (mode === 'down' && instOptDown) {
+                instOptDown.checked = true;
+            } else if (mode === 'combined' && instOptCombined) {
+                instOptCombined.checked = true;
             }
 
             if (installmentPayModeInput) {
@@ -4837,7 +4845,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
 
             let slotCount = 1;
-            const maxSlots = unpaidSched.length;
+            const maxSlots = scheduleInconsistentWithBalance
+                ? Math.max(1, Math.ceil(pending / Math.max(0.01, fallbackInstallmentAmount)))
+                : unpaidSched.length;
             if (mode === 'full') {
                 slotCount = maxSlots;
             } else if (mode === 'down') {
@@ -4892,8 +4902,20 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
 
             let sum = 0;
-            for (let i = 0; i < Math.min(slotCount, unpaidSched.length); i += 1) {
-                sum += Number(unpaidSched[i].amount_due || 0);
+            if (scheduleInconsistentWithBalance) {
+                if (mode === 'full') {
+                    sum = pending;
+                } else if (mode === 'down') {
+                    sum = Math.min(pending, Math.max(0, fallbackInstallmentAmount));
+                } else if (mode === 'combined') {
+                    sum = Math.min(pending, Math.max(0, fallbackInstallmentAmount) * Math.max(2, slotCount));
+                } else {
+                    sum = Math.min(pending, Math.max(0, fallbackInstallmentAmount) * Math.max(1, slotCount));
+                }
+            } else {
+                for (let i = 0; i < Math.min(slotCount, unpaidSched.length); i += 1) {
+                    sum += Number(unpaidSched[i].amount_due || 0);
+                }
             }
             sum = Math.round(sum * 100) / 100;
             if (slotCount >= unpaidSched.length && unpaidSched.length > 0) {
