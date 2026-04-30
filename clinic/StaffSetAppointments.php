@@ -2351,7 +2351,7 @@ try {
             if (showAlerts && hasTimeSlotConflict) {
                 await staffUiAlert({
                     title: 'Schedule conflict',
-                    message: 'There is already a scheduled appointment for the selected time. Please choose a new time slot.',
+                    message: 'There is already an existing appointment scheduled for this dentist at the selected time. Please choose a different time slot.',
                     variant: 'warning'
                 });
                 if (token !== liveValidationRequestToken) {

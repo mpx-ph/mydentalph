@@ -249,6 +249,71 @@ function getColumnType(PDO $pdo, string $tableName, string $columnName): string 
     }
 }
 
+function clinic_time_to_minutes(string $timeValue): ?int {
+    $timeValue = trim($timeValue);
+    if ($timeValue === '') return null;
+    $formats = ['H:i:s', 'H:i'];
+    foreach ($formats as $format) {
+        $dt = DateTime::createFromFormat($format, $timeValue);
+        if ($dt instanceof DateTime) {
+            return ((int) $dt->format('H') * 60) + (int) $dt->format('i');
+        }
+    }
+    return null;
+}
+
+function clinic_compute_requested_duration_minutes(array $normalizedServiceRows): int {
+    $sum = 0;
+    foreach ($normalizedServiceRows as $row) {
+        if (!is_array($row)) continue;
+        $duration = max(0, (int) ($row['service_duration'] ?? 0));
+        $buffer = max(0, (int) ($row['buffer_time'] ?? 0));
+        $sum += ($duration + $buffer);
+    }
+    return $sum > 0 ? $sum : 60;
+}
+
+function clinic_fetch_existing_appointment_duration_minutes(
+    PDO $pdo,
+    string $tenantId,
+    string $bookingId,
+    int $appointmentId,
+    ?string $appointmentServicesTableName,
+    ?string $servicesCatalogTableName
+): int {
+    if ($appointmentServicesTableName === null || $servicesCatalogTableName === null) {
+        return 60;
+    }
+    $apsCols = clinic_table_columns($pdo, $appointmentServicesTableName);
+    if (!in_array('service_id', $apsCols, true)) {
+        return 60;
+    }
+    $hasAppointmentId = in_array('appointment_id', $apsCols, true);
+    $hasBookingId = in_array('booking_id', $apsCols, true);
+    if (!$hasAppointmentId && !$hasBookingId) {
+        return 60;
+    }
+
+    $quotedAps = clinic_quote_identifier($appointmentServicesTableName);
+    $quotedSvc = clinic_quote_identifier($servicesCatalogTableName);
+    $whereSql = $hasAppointmentId
+        ? 'aps.tenant_id = ? AND aps.appointment_id = ?'
+        : 'aps.tenant_id = ? AND aps.booking_id = ?';
+    $lookupKey = $hasAppointmentId ? $appointmentId : $bookingId;
+    $stmt = $pdo->prepare("
+        SELECT
+            COALESCE(SUM(COALESCE(sv.service_duration, 0) + COALESCE(sv.buffer_time, 0)), 0) AS total_minutes
+        FROM {$quotedAps} aps
+        LEFT JOIN {$quotedSvc} sv
+          ON sv.tenant_id = aps.tenant_id
+         AND sv.service_id = aps.service_id
+        WHERE {$whereSql}
+    ");
+    $stmt->execute([$tenantId, $lookupKey]);
+    $minutes = (int) ($stmt->fetchColumn() ?? 0);
+    return $minutes > 0 ? $minutes : 60;
+}
+
 /**
  * Create installments for long-term treatment
  * @param PDO $pdo Database connection
@@ -717,7 +782,7 @@ function createAppointment() {
                     if ($isStaffSetAppointmentBooking && $appointmentServicesTableName !== null && $servicesCatalogTableName !== null) {
                         $quotedServicesCatalogTable = clinic_quote_identifier((string) $servicesCatalogTableName);
                         $serviceCatalogStmt = $pdo->prepare("
-                            SELECT service_id, service_name, price, enable_installment, service_type, installment_duration_months
+                            SELECT service_id, service_name, price, enable_installment, service_type, installment_duration_months, service_duration, buffer_time
                             FROM {$quotedServicesCatalogTable}
                             WHERE tenant_id = ?
                               AND service_id = ?
@@ -765,6 +830,12 @@ function createAppointment() {
                             'service_type' => $isIncludedPlanRow ? 'included_plan' : ($isInstallmentRow ? 'installment' : 'regular'),
                             'installment_duration_months' => isset($serviceCatalogRow['installment_duration_months'])
                                 ? (int) $serviceCatalogRow['installment_duration_months']
+                                : 0,
+                            'service_duration' => isset($serviceCatalogRow['service_duration'])
+                                ? (int) $serviceCatalogRow['service_duration']
+                                : 0,
+                            'buffer_time' => isset($serviceCatalogRow['buffer_time'])
+                                ? (int) $serviceCatalogRow['buffer_time']
                                 : 0,
                         ];
                     }
@@ -902,6 +973,42 @@ function createAppointment() {
                             } else {
                                 throw new Exception('Please select a valid assigned dentist before scheduling.');
                             }
+                        }
+                    }
+                }
+
+                $requestedStartMinutes = clinic_time_to_minutes((string) ($data['appointment_time'] ?? ''));
+                $requestedDurationMinutes = clinic_compute_requested_duration_minutes($normalizedServiceRows);
+                if ($normalizedDentistId !== '' && $requestedStartMinutes !== null) {
+                    $requestedEndMinutes = $requestedStartMinutes + max(1, $requestedDurationMinutes);
+                    $conflictStmt = $pdo->prepare("
+                        SELECT id, booking_id, appointment_time
+                        FROM {$quotedAppointmentsTable}
+                        WHERE tenant_id = ?
+                          AND dentist_id = ?
+                          AND appointment_date = ?
+                          AND LOWER(COALESCE(status, 'pending')) NOT IN ('cancelled', 'no_show', 'completed')
+                    ");
+                    $conflictStmt->execute([$tenantId, $normalizedDentistId, $data['appointment_date']]);
+                    $conflictRows = $conflictStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+                    foreach ($conflictRows as $conflictRow) {
+                        $existingStartMinutes = clinic_time_to_minutes((string) ($conflictRow['appointment_time'] ?? ''));
+                        if ($existingStartMinutes === null) {
+                            continue;
+                        }
+                        $existingDurationMinutes = clinic_fetch_existing_appointment_duration_minutes(
+                            $pdo,
+                            $tenantId,
+                            (string) ($conflictRow['booking_id'] ?? ''),
+                            (int) ($conflictRow['id'] ?? 0),
+                            $appointmentServicesTableName,
+                            $servicesCatalogTableName
+                        );
+                        $existingEndMinutes = $existingStartMinutes + max(1, $existingDurationMinutes);
+                        $isOverlap = $requestedStartMinutes < $existingEndMinutes && $existingStartMinutes < $requestedEndMinutes;
+                        if ($isOverlap) {
+                            $pdo->rollBack();
+                            jsonResponse(false, 'There is already an existing appointment scheduled for this dentist at the selected time. Please choose a different time slot.');
                         }
                     }
                 }
