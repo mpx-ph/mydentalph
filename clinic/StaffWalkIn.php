@@ -1442,10 +1442,15 @@ try {
         }
 
         function serviceMatchesTreatmentServiceVisibility(service) {
+            const serviceType = normalizeServiceType(service && service.service_type);
             const isIncludedPlan = isIncludedPlanService(service);
+            const isInstallmentType = serviceType === 'installment';
             const hasInstallmentTreatment = treatmentIsInstallmentPlan(activeTreatmentContext);
             if (!hasInstallmentTreatment) {
                 return !isIncludedPlan;
+            }
+            if (isInstallmentType) {
+                return false;
             }
             if (!isIncludedPlan) {
                 return true;
