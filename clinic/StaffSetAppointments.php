@@ -995,7 +995,8 @@ try {
         let liveValidationRequestToken = 0;
         let liveValidationState = {
             hasTimeSlotConflict: false,
-            hasPatientDuplicate: false
+            hasPatientDuplicate: false,
+            hasShiftBoundaryViolation: false
         };
         let selectedServiceCategoryFilter = 'all';
         const SERVICE_CATEGORY_FILTERS = [
@@ -1919,7 +1920,7 @@ try {
                 return {
                     ok: false,
                     reason: 'no_schedule',
-                    message: 'This dentist has no schedule on the selected date.\n\nPlease choose another date or dentist.'
+                    message: 'The selected time exceeds the dentist’s working hours. Please choose a valid time.'
                 };
             }
 
@@ -1936,21 +1937,42 @@ try {
             }
 
             if (!activeShift) {
-                return { ok: true };
+                return {
+                    ok: false,
+                    reason: 'outside_shift',
+                    message: 'The selected time exceeds the dentist’s working hours. Please choose a valid time.'
+                };
             }
 
             if (requiredEndMinutes > activeShift.end) {
                 return {
                     ok: false,
                     reason: 'insufficient_shift_time',
-                    shiftLabel: activeShift.label || (minutesToDisplayTime(activeShift.start) + ' - ' + minutesToDisplayTime(activeShift.end)),
-                    selectedTimeLabel: minutesToDisplayTime(selectedTimeMinutes),
-                    requiredEndLabel: minutesToDisplayTime(requiredEndMinutes),
-                    message: 'Not enough remaining shift time for this service.\n\nShift: ' + (activeShift.label || (minutesToDisplayTime(activeShift.start) + ' - ' + minutesToDisplayTime(activeShift.end))) + '\nSelected time: ' + minutesToDisplayTime(selectedTimeMinutes) + '\nRequired end time: ' + minutesToDisplayTime(requiredEndMinutes) + '\n\nPlease choose an earlier available time.'
+                    message: 'The selected time exceeds the dentist’s working hours. Please choose a valid time.'
                 };
             }
 
             return { ok: true };
+        }
+
+        async function runShiftBoundaryValidation(options) {
+            const opts = options || {};
+            const showAlerts = Boolean(opts.showAlerts);
+            const validation = validateShiftCapacityForSelectedSlot();
+            liveValidationState = {
+                hasTimeSlotConflict: liveValidationState.hasTimeSlotConflict,
+                hasPatientDuplicate: liveValidationState.hasPatientDuplicate,
+                hasShiftBoundaryViolation: !validation.ok
+            };
+            syncCreateAppointmentButtonState();
+            if (showAlerts && !validation.ok) {
+                await staffUiAlert({
+                    title: 'Dentist Working Hours Exceeded',
+                    message: validation.message || 'The selected time exceeds the dentist’s working hours. Please choose a valid time.',
+                    variant: 'warning'
+                });
+            }
+            return validation;
         }
 
         async function refreshDentistAvailabilityForSelection() {
@@ -2094,12 +2116,14 @@ try {
             updateTreatmentProgressCards(null);
             updatePaymentDetailsVisibility();
             updateDefaultPaymentDetails();
+            syncCreateAppointmentButtonState();
         }
 
         function setSelectedDentist(dentistId, dentistUserId, dentistName) {
             if (selectedDentistIdInput) selectedDentistIdInput.value = dentistId || '';
             if (selectedDentistUserIdInput) selectedDentistUserIdInput.value = dentistUserId || '';
             if (selectedDentistLabel) selectedDentistLabel.textContent = dentistName || 'Tap to choose dentist';
+            syncCreateAppointmentButtonState();
         }
 
         function setSelectedService(serviceId, serviceName) {
@@ -2136,7 +2160,15 @@ try {
         function syncCreateAppointmentButtonState() {
             if (!createWalkInAppointmentBtn) return;
             const hasLiveConflict = liveValidationState.hasTimeSlotConflict || liveValidationState.hasPatientDuplicate;
-            const shouldDisable = isSubmittingAppointment || hasLiveConflict;
+            const hasShiftBoundaryViolation = Boolean(liveValidationState.hasShiftBoundaryViolation);
+            const hasRequiredFields = Boolean(
+                selectedPatientIdInput && String(selectedPatientIdInput.value || '').trim()
+                && selectedDentistIdInput && String(selectedDentistIdInput.value || '').trim()
+                && dateInput && String(dateInput.value || '').trim()
+                && timeInput && String(timeInput.value || '').trim()
+                && selectedServices.length > 0
+            );
+            const shouldDisable = isSubmittingAppointment || hasLiveConflict || hasShiftBoundaryViolation || !hasRequiredFields;
             createWalkInAppointmentBtn.disabled = shouldDisable;
             createWalkInAppointmentBtn.classList.toggle('opacity-70', shouldDisable);
             createWalkInAppointmentBtn.classList.toggle('cursor-not-allowed', shouldDisable);
@@ -2507,6 +2539,10 @@ try {
                 void staffUiAlert({ message: 'Please add at least one service.', variant: 'warning', title: 'Services required' });
                 return;
             }
+            const shiftValidation = await runShiftBoundaryValidation({ showAlerts: true });
+            if (!shiftValidation.ok) {
+                return;
+            }
             const hasInstallmentSelection = selectedServices.some(function (service) {
                 return normalizeServiceType(service && service.service_type) === 'installment';
             });
@@ -2582,13 +2618,8 @@ try {
                 status: 'pending'
             };
 
-            const shiftCapacityValidation = validateShiftCapacityForSelectedSlot();
+            const shiftCapacityValidation = await runShiftBoundaryValidation({ showAlerts: true });
             if (!shiftCapacityValidation.ok) {
-                await staffUiAlert({
-                    title: 'Unable to create appointment',
-                    message: shiftCapacityValidation.message,
-                    variant: 'warning'
-                });
                 return;
             }
 
@@ -2793,6 +2824,7 @@ try {
                 const patientName = button.getAttribute('data-patient-name') || '';
                 setSelectedPatient(patientId, patientName);
                 await loadPatientTreatmentContext(patientId);
+                await runShiftBoundaryValidation({ showAlerts: true });
                 await runLiveConflictValidation({ showAlerts: true });
             });
         }
@@ -2807,6 +2839,7 @@ try {
                     button.getAttribute('data-dentist-name') || ''
                 );
                 closeChooseDentistModal();
+                await runShiftBoundaryValidation({ showAlerts: true });
                 await runLiveConflictValidation({ showAlerts: true });
             });
         }
@@ -2826,7 +2859,7 @@ try {
             });
         }
         if (addServiceBtn) {
-            addServiceBtn.addEventListener('click', function () {
+            addServiceBtn.addEventListener('click', async function () {
                 const serviceId = selectedServiceIdInput ? selectedServiceIdInput.value : '';
                 if (!serviceId) return;
                 const service = allServices.find(function (item) {
@@ -2859,10 +2892,12 @@ try {
                 selectedServices.push(service);
                 setSelectedService('', 'Select service');
                 renderSelectedServices();
+                await runShiftBoundaryValidation({ showAlerts: true });
+                await runLiveConflictValidation({ showAlerts: true });
             });
         }
         if (selectedServicesContainer) {
-            selectedServicesContainer.addEventListener('click', function (event) {
+            selectedServicesContainer.addEventListener('click', async function (event) {
                 const button = event.target.closest('button[data-action="remove-service"]');
                 if (!button) return;
                 const serviceId = button.getAttribute('data-service-id') || '';
@@ -2870,6 +2905,8 @@ try {
                     return String(item.service_id || '') !== String(serviceId);
                 });
                 renderSelectedServices();
+                await runShiftBoundaryValidation({ showAlerts: true });
+                await runLiveConflictValidation({ showAlerts: true });
             });
         }
         if (createWalkInAppointmentBtn) {
@@ -2878,12 +2915,14 @@ try {
         if (dateInput) {
             dateInput.addEventListener('change', async function () {
                 await refreshDentistAvailabilityForSelection();
+                await runShiftBoundaryValidation({ showAlerts: true });
                 await runLiveConflictValidation({ showAlerts: true });
             });
         }
         if (timeInput) {
             timeInput.addEventListener('change', async function () {
                 await refreshDentistAvailabilityForSelection();
+                await runShiftBoundaryValidation({ showAlerts: true });
                 await runLiveConflictValidation({ showAlerts: true });
             });
         }
@@ -2899,6 +2938,7 @@ try {
         updateDefaultPaymentDetails();
         renderSelectedServices();
         void refreshDentistAvailabilityForSelection();
+        void runShiftBoundaryValidation({ showAlerts: false });
         void runLiveConflictValidation({ showAlerts: false });
         regLoadProvinces('');
         loadAllPatients();
