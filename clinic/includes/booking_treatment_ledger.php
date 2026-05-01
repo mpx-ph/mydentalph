@@ -11,6 +11,76 @@ declare(strict_types=1);
 require_once __DIR__ . '/appointment_db_tables.php';
 require_once __DIR__ . '/staff_installment_helpers.php';
 
+function booking_fallback_appointment_ymd(string $appointmentDateYmd): string
+{
+    $t = trim($appointmentDateYmd);
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $t)) {
+        return $t;
+    }
+    return (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d');
+}
+
+/**
+ * Plan / ledger start date safe for INSERT. Rejects Unix-epoch sentinel and invalid strings.
+ */
+function booking_normalize_plan_start_date(?string $candidate, string $appointmentDateYmd): string
+{
+    $fb = booking_fallback_appointment_ymd($appointmentDateYmd);
+    $c = trim((string) ($candidate ?? ''));
+    if ($c === '' || strncmp($c, '0000', 4) === 0) {
+        return $fb;
+    }
+    if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $c, $m)) {
+        return $fb;
+    }
+    $yy = (int) $m[1];
+    $mo = (int) $m[2];
+    $dd = (int) $m[3];
+    if (!checkdate($mo, $dd, $yy)) {
+        return $fb;
+    }
+    if ($yy <= 1970) {
+        return $fb;
+    }
+    return sprintf('%04d-%02d-%02d', $yy, $mo, $dd);
+}
+
+/**
+ * If `started_at` is INTEGER (unix), binding "2026-05-02" can become numeric 2026 → ~33 min past epoch → UI shows year 1970.
+ *
+ * @return mixed int unix | string Y-m-d | string Y-m-d H:i:s
+ */
+function booking_started_at_bind_value_for_column(PDO $pdo, string $treatmentsTablePhys, string $ymd): mixed
+{
+    try {
+        $phys = clinic_get_physical_table_name($pdo, $treatmentsTablePhys) ?? $treatmentsTablePhys;
+        $q = clinic_quote_identifier($phys);
+        $show = $pdo->query('SHOW COLUMNS FROM ' . $q . ' LIKE \'started_at\'');
+        $row = $show ? $show->fetch(PDO::FETCH_ASSOC) : null;
+        $type = strtolower((string) ($row['Type'] ?? ''));
+
+        $tz = new DateTimeZone('Asia/Manila');
+        $dt = DateTimeImmutable::createFromFormat('Y-m-d', $ymd, $tz);
+        if (!$dt instanceof DateTimeImmutable) {
+            $dt = new DateTimeImmutable('now', $tz);
+        }
+
+        if ($type !== '' && preg_match('/\b(bigint|int|tinyint|smallint|mediumint)\b/', $type)) {
+            return $dt->setTime(12, 0, 0)->getTimestamp();
+        }
+        if (
+            strpos($type, 'date') !== false
+            && strpos($type, 'datetime') === false
+            && strpos($type, 'timestamp') === false
+        ) {
+            return $ymd;
+        }
+        return $dt->format('Y-m-d H:i:s');
+    } catch (Throwable $e) {
+        return $ymd . ' 00:00:00';
+    }
+}
+
 /**
  * @param array<string, mixed> $apptExtras
  * @param array<string, mixed> $input
@@ -55,6 +125,10 @@ function booking_ensure_long_term_schedule(array $apptExtras, string $appointmen
     if (trim((string) ($apptExtras['start_date'] ?? '')) === '') {
         $apptExtras['start_date'] = $start;
     }
+    $apptExtras['start_date'] = booking_normalize_plan_start_date(
+        isset($apptExtras['start_date']) ? (string) $apptExtras['start_date'] : null,
+        $appointmentDateYmd
+    );
 
     $isLong = strtolower(trim((string) ($apptExtras['treatment_type'] ?? ''))) === 'long_term';
 
@@ -199,7 +273,8 @@ function booking_create_treatment_row(
     string $bookingId,
     array $services,
     float $cartTotalAmount,
-    array $apptExtras
+    array $apptExtras,
+    string $bookingAppointmentYmd,
 ): array {
     $tables = clinic_resolve_appointment_db_tables($pdo);
     $treatPhys = $tables['treatments'];
@@ -266,6 +341,12 @@ function booking_create_treatment_row(
 
     $cost = round(max(0.0, $cartTotalAmount), 2);
 
+    $planStartYmd = booking_normalize_plan_start_date(
+        isset($apptExtras['start_date']) ? (string) $apptExtras['start_date'] : null,
+        $bookingAppointmentYmd
+    );
+    $startedAtBind = booking_started_at_bind_value_for_column($pdo, (string) $treatPhys, $planStartYmd);
+
     $data = [
         'tenant_id' => $tenantId,
         'treatment_id' => $tid,
@@ -279,9 +360,7 @@ function booking_create_treatment_row(
         'months_paid' => 0,
         'months_left' => $durationMonths,
         'status' => 'active',
-        'started_at' => trim((string) ($apptExtras['start_date'] ?? '')) !== ''
-            ? (string) $apptExtras['start_date']
-            : date('Y-m-d'),
+        'started_at' => $startedAtBind,
         'created_by' => $userId,
     ];
 

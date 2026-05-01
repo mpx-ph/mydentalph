@@ -92,7 +92,8 @@ try {
         $booking_id,
         $services,
         $total_amount,
-        $apptExtras
+        $apptExtras,
+        (string) $appointment_date
     );
     $treatment_id_fk = trim((string) ($ledger['treatment_id'] ?? ''));
     $treatmentFkOrNull = $treatment_id_fk !== '' ? $treatment_id_fk : null;

@@ -84,6 +84,28 @@ try {
     $stmt->execute($bind);
     $treatments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // Normalize INT unix `started_at` / etc. for mobile (JSON numbers were shown as raw digits; tiny values = 1970 bugs).
+    $tzPh = new DateTimeZone('Asia/Manila');
+    foreach ($treatments as &$tr) {
+        foreach (['started_at', 'completed_at', 'created_at', 'updated_at'] as $k) {
+            if (!array_key_exists($k, $tr)) {
+                continue;
+            }
+            $v = $tr[$k];
+            if (!is_numeric($v)) {
+                continue;
+            }
+            $ts = (int) $v;
+            if ($ts >= 946684800) {
+                $dt = (new DateTimeImmutable('@' . $ts))->setTimezone($tzPh);
+                $tr[$k] = $dt->format('Y-m-d H:i:s');
+            } elseif ($ts > 0 && $ts < 946684800) {
+                $tr[$k] = null;
+            }
+        }
+    }
+    unset($tr);
+
     echo json_encode([
         'success' => true,
         'patient_id' => $patientId,
