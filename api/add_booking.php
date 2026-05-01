@@ -2,6 +2,8 @@
 // api/add_booking.php
 require_once '../db.php';
 require_once __DIR__ . '/../clinic/includes/appointment_booking_row.php';
+require_once __DIR__ . '/../clinic/includes/appointment_db_tables.php';
+require_once __DIR__ . '/../clinic/includes/booking_treatment_ledger.php';
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -15,7 +17,11 @@ if (!$input) $input = $_POST;
 $user_id = $input['user_id'] ?? null;
 $tenant_id = $input['tenant_id'] ?? 'TNT_00025';
 $dentist_id = $input['dentist_id'] ?? 1; // Default to Dr. Sarah
-$appointment_date = $input['appointment_date'] ?? null;
+$appointment_fallback_ymd = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d');
+$appointment_date_ymd = booking_normalize_mobile_date_input($input['appointment_date'] ?? null, $appointment_fallback_ymd);
+if ($appointment_date_ymd === null || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $appointment_date_ymd)) {
+    die(json_encode(["status" => "error", "message" => "Missing or invalid appointment_date"]));
+}
 $appointment_time = $input['appointment_time'] ?? null;
 $services_json = $input['services'] ?? '[]';
 $total_amount = $input['total_amount'] ?? 0;
@@ -23,7 +29,7 @@ $payment_amount = $input['payment_amount'] ?? 0;
 $payment_method = $input['payment_method'] ?? 'gcash';
 $reference_number = $input['reference_number'] ?? null;
 
-if (!$user_id || !$appointment_date || !$appointment_time) {
+if (!$user_id || !$appointment_time) {
     die(json_encode(["status" => "error", "message" => "Missing required fields"]));
 }
 
@@ -38,13 +44,21 @@ try {
     }
     $patient_id = $patRow['patient_id'];
 
+    $tables = clinic_resolve_appointment_db_tables($pdo);
+    $appointmentsPhys = $tables['appointments'] ?? 'tbl_appointments';
+    $apptQuoted = clinic_quote_identifier((string) $appointmentsPhys);
+    $apptDatesForCompare = booking_coerce_appointment_date_columns($pdo, (string) $appointmentsPhys, [
+        'appointment_date' => $appointment_date_ymd,
+    ]);
+    $appointment_date_for_db = $apptDatesForCompare['appointment_date'];
+
     // Generate highly unique booking_id (10 chars + BK prefix)
     $booking_id = 'BK-' . strtoupper(substr(md5(microtime(true) . $user_id . mt_rand()), 0, 10));
     // Check Availability (Double-booking validation)
-    $stmt = $pdo->prepare("SELECT id FROM tbl_appointments 
+    $stmt = $pdo->prepare("SELECT id FROM {$apptQuoted} 
         WHERE dentist_id = ? AND appointment_date = ? AND appointment_time = ? 
         AND status NOT IN ('cancelled') LIMIT 1");
-    $stmt->execute([$dentist_id, $appointment_date, $appointment_time]);
+    $stmt->execute([$dentist_id, $appointment_date_for_db, $appointment_time]);
     if ($stmt->fetch()) {
         throw new Exception("This time slot is already reserved. Please choose a different time.");
     }
@@ -60,19 +74,25 @@ try {
         $pdo,
         (string) $tenant_id,
         $services,
-        (string) $appointment_date
+        (string) $appointment_date_ymd
     );
-    $stmt = $pdo->prepare("INSERT INTO tbl_appointments 
+    $apptExtras = booking_ensure_long_term_schedule($apptExtras, (string) $appointment_date_ymd);
+    $dateBinds = booking_coerce_appointment_date_columns($pdo, (string) $appointmentsPhys, [
+        'appointment_date' => $appointment_date_ymd,
+        'start_date' => $apptExtras['start_date'] ?? $appointment_date_ymd,
+        'target_completion_date' => $apptExtras['target_completion_date'] ?? null,
+    ]);
+    $stmt = $pdo->prepare('INSERT INTO ' . $apptQuoted . '
         (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, total_treatment_cost, visit_type, created_by, 
          service_type, service_description, treatment_type, duration_months, target_completion_date, start_date) 
-        VALUES (?, ?, ?, ?, ?, ?, 'confirmed', ?, 'pre_book', ?, 
-         ?, ?, ?, ?, ?, ?)");
+        VALUES (?, ?, ?, ?, ?, ?, \'confirmed\', ?, \'pre_book\', ?, 
+         ?, ?, ?, ?, ?, ?)');
     $stmt->execute([
         $tenant_id,
         $dentist_id,
         $booking_id,
         $patient_id,
-        $appointment_date,
+        $dateBinds['appointment_date'],
         $appointment_time,
         $total_amount,
         $user_id,
@@ -80,8 +100,8 @@ try {
         $apptExtras['service_description'],
         $apptExtras['treatment_type'],
         $apptExtras['duration_months'],
-        $apptExtras['target_completion_date'],
-        $apptExtras['start_date'],
+        $dateBinds['target_completion_date'] ?? $apptExtras['target_completion_date'],
+        $dateBinds['start_date'],
     ]);
     $appointment_id = $pdo->lastInsertId();
 

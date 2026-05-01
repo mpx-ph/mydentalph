@@ -22,13 +22,18 @@ if (!$input) {
 $user_id = $input['user_id'] ?? null;
 $tenant_id = trim((string) ($input['tenant_id'] ?? 'TNT_00025'));
 $dentist_id = $input['dentist_id'] ?? 1;
-$appointment_date = $input['appointment_date'] ?? null;
+$appointment_fallback_ymd = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d');
+$appointment_date = booking_normalize_mobile_date_input($input['appointment_date'] ?? null, $appointment_fallback_ymd);
+if ($appointment_date === null || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $appointment_date)) {
+    die(json_encode(["status" => "error", "message" => "Missing or invalid appointment_date"]));
+}
+
 $appointment_time = $input['appointment_time'] ?? null;
 $services_json = $input['services'] ?? '[]';
 $total_amount = isset($input['total_amount']) ? (float) $input['total_amount'] : 0.0;
 $payment_amount = isset($input['payment_amount']) ? (float) $input['payment_amount'] : 0.0;
 
-if (!$user_id || !$appointment_date || !$appointment_time) {
+if (!$user_id || !$appointment_time) {
     die(json_encode(["status" => "error", "message" => "Missing required fields"]));
 }
 
@@ -106,6 +111,13 @@ try {
         $notesCombined .= ($notesCombined !== '' ? "\n" : '') . 'treatment_id: ' . $treatmentFkOrNull;
     }
 
+    $ledgerDurationMonths = (int) ($ledger['duration_months'] ?? 0);
+    $durationForAppointment = isset($apptExtras['duration_months']) ? (int) $apptExtras['duration_months'] : null;
+    if ($treatmentFkOrNull !== null && $ledgerDurationMonths > 0) {
+        // Match tbl_treatments (max of catalog months, mobile extras, ortho/long-term defaults).
+        $durationForAppointment = $ledgerDurationMonths;
+    }
+
     $apptVals = [
         'tenant_id' => $tenant_id,
         'dentist_id' => (int) $dentist_id,
@@ -121,12 +133,14 @@ try {
         'service_description' => $apptExtras['service_description'] ?? null,
         'treatment_type' => $apptExtras['treatment_type'] ?? 'short_term',
         'total_treatment_cost' => $total_amount > 0 ? $total_amount : null,
-        'duration_months' => $apptExtras['duration_months'] ?? null,
+        'duration_months' => $durationForAppointment,
         'target_completion_date' => $apptExtras['target_completion_date'] ?? null,
         'start_date' => $apptExtras['start_date'] ?? $appointment_date,
         'notes' => $notesCombined !== '' ? $notesCombined : null,
         'installment_number' => $installmentForAppointment,
     ];
+
+    $apptVals = booking_coerce_appointment_date_columns($pdo, (string) $apptPhys, $apptVals);
 
     booking_mobile_dynamic_insert_appointment($pdo, (string) $apptPhys, $apptVals);
     $appointment_id = (int) $pdo->lastInsertId();

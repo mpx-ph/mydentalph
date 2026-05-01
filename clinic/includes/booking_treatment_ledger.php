@@ -11,6 +11,188 @@ declare(strict_types=1);
 require_once __DIR__ . '/appointment_db_tables.php';
 require_once __DIR__ . '/staff_installment_helpers.php';
 
+/**
+ * @return array<string, string> lowercase column name → MySQL type (e.g. int(11), date, varchar(…))
+ */
+function clinic_mysql_column_types_map(PDO $pdo, string $tablePreferred): array
+{
+    static $cache = [];
+    $phys = clinic_get_physical_table_name($pdo, $tablePreferred) ?? $tablePreferred;
+    $k = strtolower($phys);
+    if (isset($cache[$k])) {
+        return $cache[$k];
+    }
+    $map = [];
+    try {
+        $q = clinic_quote_identifier($phys);
+        $show = $pdo->query('SHOW COLUMNS FROM ' . $q);
+        if ($show) {
+            while ($row = $show->fetch(PDO::FETCH_ASSOC)) {
+                $field = strtolower(trim((string) ($row['Field'] ?? '')));
+                if ($field !== '') {
+                    $map[$field] = strtolower(trim((string) ($row['Type'] ?? '')));
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
+    $cache[$k] = $map;
+    return $cache[$k];
+}
+
+function clinic_mysql_column_type_string(PDO $pdo, string $tablePreferred, string $columnLc): string
+{
+    $types = clinic_mysql_column_types_map($pdo, $tablePreferred);
+    return strtolower(trim((string) ($types[strtolower($columnLc)] ?? '')));
+}
+
+/**
+ * Classify MySQL column Type for sensible date payloads.
+ *
+ * MySQL binds "2026-05-02" into INT columns as numeric 2026 → ~33 min epoch → UI shows year 1970.
+ */
+function booking_mysql_type_date_family(?string $mysqlType): string
+{
+    $type = strtolower(trim((string) $mysqlType));
+    if ($type === '') {
+        return 'unknown';
+    }
+    if (
+        strpos($type, 'datetime') !== false
+        || strpos($type, 'timestamp') !== false
+    ) {
+        return 'datetime';
+    }
+    if (preg_match('/\b(bigint|int|smallint|mediumint)\b/', $type)) {
+        return 'integer';
+    }
+    if (
+        strpos($type, 'tinyint') !== false
+        || strpos($type, 'decimal') !== false
+        || strpos($type, 'double') !== false
+        || strpos($type, 'float') !== false
+    ) {
+        return 'numeric';
+    }
+    if (strpos($type, 'date') !== false || strpos($type, 'year') !== false) {
+        return 'date';
+    }
+    return 'text';
+}
+
+/**
+ * @return mixed unix int | string Y-m-d | string Y-m-d H:i:s
+ */
+function booking_bind_dateish_value_for_mysql_type(
+    string $mysqlType,
+    DateTimeImmutable $dtNoonManila,
+    string $ymd,
+): mixed {
+    $fam = booking_mysql_type_date_family($mysqlType);
+    switch ($fam) {
+        case 'integer':
+            return $dtNoonManila->getTimestamp();
+        case 'numeric':
+            return $dtNoonManila->getTimestamp();
+        case 'date':
+            return $ymd;
+        case 'datetime':
+            return $dtNoonManila->format('Y-m-d H:i:s');
+        default:
+            return $ymd;
+    }
+}
+
+/**
+ * Normalize incoming mobile `appointment_date` (string Y-m-d, unix seconds, ms).
+ *
+ * @return non-empty-string|null
+ */
+/**
+ * @return non-empty-string|null
+ */
+function booking_normalize_mobile_date_input(mixed $raw, string $fallbackYmdWhenInvalid = ''): ?string
+{
+    if ($raw === null || $raw === '') {
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $fallbackYmdWhenInvalid)
+            ? $fallbackYmdWhenInvalid
+            : null;
+    }
+    $tz = new DateTimeZone('Asia/Manila');
+    if (is_numeric($raw)) {
+        $n = (float) $raw;
+        if ($n > 1e12) {
+            $n = (int) round($n / 1000.0);
+        } else {
+            $n = (int) round($n);
+        }
+        if ($n >= 946684800 && $n < 2147483648) {
+            return (new DateTimeImmutable('@' . $n))->setTimezone($tz)->format('Y-m-d');
+        }
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $fallbackYmdWhenInvalid)
+            ? $fallbackYmdWhenInvalid
+            : null;
+    }
+    $s = trim((string) $raw);
+    if (
+        preg_match('/^(\d{4})-(\d{2})-(\d{2})\b/', $s, $m)
+        && checkdate((int) $m[2], (int) $m[3], (int) $m[1])
+        && (int) $m[1] > 1970
+    ) {
+        return sprintf('%04d-%02d-%02d', (int) $m[1], (int) $m[2], (int) $m[3]);
+    }
+    $fbBase = preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($fallbackYmdWhenInvalid))
+        ? trim($fallbackYmdWhenInvalid)
+        : (new DateTimeImmutable('now', $tz))->format('Y-m-d');
+    $try = strtotime($s);
+    if ($try !== false) {
+        $dt = (new DateTimeImmutable('@' . $try))->setTimezone($tz);
+        if ((int) $dt->format('Y') > 1970) {
+            return $dt->format('Y-m-d');
+        }
+    }
+    return $fbBase !== '' ? $fbBase : null;
+}
+
+/**
+ * Align appointment INSERT values when DB columns are unix integers vs DATE/DATETIME strings.
+ *
+ * @param array<string, mixed> $values
+ * @return array<string, mixed>
+ */
+function booking_coerce_appointment_date_columns(PDO $pdo, string $appointmentsPhys, array $values): array
+{
+    $appointmentYmd = isset($values['appointment_date'])
+        ? (string) $values['appointment_date']
+        : '';
+    foreach (['appointment_date', 'start_date', 'target_completion_date'] as $col) {
+        if (!array_key_exists($col, $values)) {
+            continue;
+        }
+        $rawVal = $values[$col];
+        if ($rawVal === null || $rawVal === '') {
+            continue;
+        }
+        $typeStr = clinic_mysql_column_type_string($pdo, $appointmentsPhys, $col);
+        if ($typeStr === '') {
+            continue;
+        }
+        $ymd = booking_normalize_plan_start_date(
+            (string) $rawVal,
+            preg_match('/^\d{4}-\d{2}-\d{2}$/', $appointmentYmd)
+                ? $appointmentYmd
+                : booking_fallback_appointment_ymd($appointmentYmd)
+        );
+        $tz = new DateTimeZone('Asia/Manila');
+        $dt = DateTimeImmutable::createFromFormat('Y-m-d', $ymd, $tz)
+            ?: new DateTimeImmutable('now', $tz);
+        $dtNoon = $dt->setTime(12, 0, 0);
+        $values[$col] = booking_bind_dateish_value_for_mysql_type($typeStr, $dtNoon, $ymd);
+    }
+    return $values;
+}
+
 function booking_fallback_appointment_ymd(string $appointmentDateYmd): string
 {
     $t = trim($appointmentDateYmd);
@@ -53,31 +235,21 @@ function booking_normalize_plan_start_date(?string $candidate, string $appointme
 function booking_started_at_bind_value_for_column(PDO $pdo, string $treatmentsTablePhys, string $ymd): mixed
 {
     try {
-        $phys = clinic_get_physical_table_name($pdo, $treatmentsTablePhys) ?? $treatmentsTablePhys;
-        $q = clinic_quote_identifier($phys);
-        $show = $pdo->query('SHOW COLUMNS FROM ' . $q . ' LIKE \'started_at\'');
-        $row = $show ? $show->fetch(PDO::FETCH_ASSOC) : null;
-        $type = strtolower((string) ($row['Type'] ?? ''));
-
         $tz = new DateTimeZone('Asia/Manila');
         $dt = DateTimeImmutable::createFromFormat('Y-m-d', $ymd, $tz);
         if (!$dt instanceof DateTimeImmutable) {
             $dt = new DateTimeImmutable('now', $tz);
         }
+        $dtNoon = $dt->setTime(12, 0, 0);
 
-        if ($type !== '' && preg_match('/\b(bigint|int|tinyint|smallint|mediumint)\b/', $type)) {
-            return $dt->setTime(12, 0, 0)->getTimestamp();
+        $type = clinic_mysql_column_type_string($pdo, $treatmentsTablePhys, 'started_at');
+        if ($type !== '') {
+            return booking_bind_dateish_value_for_mysql_type($type, $dtNoon, $ymd);
         }
-        if (
-            strpos($type, 'date') !== false
-            && strpos($type, 'datetime') === false
-            && strpos($type, 'timestamp') === false
-        ) {
-            return $ymd;
-        }
-        return $dt->format('Y-m-d H:i:s');
+
+        return $dtNoon->format('Y-m-d H:i:s');
     } catch (Throwable $e) {
-        return $ymd . ' 00:00:00';
+        return $ymd . ' 12:00:00';
     }
 }
 
