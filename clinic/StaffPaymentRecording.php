@@ -3877,10 +3877,37 @@ if ($paymentError === 'Please select a payment method.') {
     $paymentLifecycleStatus = strtolower(trim((string) ($payment['status'] ?? '')));
     $isCompletedPayment = in_array($paymentLifecycleStatus, ['completed', 'paid'], true);
     $isExplicitInstallmentPayment = $installmentNumber > 0;
-    // A completed regular add-on payment under an installment booking is fully settled immediately.
-    // Do not downgrade it to PARTIAL using booking-level installment remaining balance.
-    if ($isCompletedPayment && $isBookingInstallmentPlan && !$isExplicitInstallmentPayment) {
+    // Rows that are not successfully settled must show that row's payment status. Booking-level
+    // PAID/PARTIAL would otherwise label abandoned checkouts (pending/cancelled) as PAID when the
+    // appointment was already fully paid from other transactions.
+    if (!$isCompletedPayment) {
+        $lifecycleLabels = [
+            'cancelled' => 'Cancelled',
+            'canceled' => 'Cancelled',
+            'pending' => 'Pending',
+            'failed' => 'Failed',
+            'refunded' => 'Refunded',
+        ];
+        if (isset($lifecycleLabels[$paymentLifecycleStatus])) {
+            $financialStatus = $lifecycleLabels[$paymentLifecycleStatus];
+        } elseif ($paymentLifecycleStatus !== '') {
+            $financialStatus = ucwords(str_replace('_', ' ', $paymentLifecycleStatus));
+        } else {
+            $financialStatus = 'Unknown';
+        }
+        $statusClasses = 'bg-slate-100 text-slate-700 border border-slate-200';
+        if ($paymentLifecycleStatus === 'cancelled' || $paymentLifecycleStatus === 'canceled') {
+            $statusClasses = 'bg-rose-50 text-rose-700 border border-rose-200';
+        } elseif ($paymentLifecycleStatus === 'pending') {
+            $statusClasses = 'bg-amber-50 text-amber-700 border border-amber-200';
+        } elseif ($paymentLifecycleStatus === 'failed') {
+            $statusClasses = 'bg-red-50 text-red-700 border border-red-200';
+        }
+    } elseif ($isBookingInstallmentPlan && !$isExplicitInstallmentPayment) {
+        // A completed regular add-on payment under an installment booking is fully settled immediately.
+        // Do not downgrade it to PARTIAL using booking-level installment remaining balance.
         $financialStatus = 'PAID';
+        $statusClasses = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
     } else {
         $financialStatus = staff_payment_recording_financial_status(
             (float) ($payment['total_treatment_cost'] ?? 0),
@@ -3889,6 +3916,14 @@ if ($paymentError === 'Please select a payment method.') {
             $isBookingInstallmentPlan,
             (array) ($payment['installment_schedule'] ?? [])
         );
+        $statusClasses = 'bg-rose-50 text-rose-700 border border-rose-200';
+        if ($financialStatus === 'PAID') {
+            $statusClasses = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+        } elseif ($financialStatus === 'PARTIAL') {
+            $statusClasses = 'bg-amber-50 text-amber-700 border border-amber-200';
+        } elseif ($financialStatus === 'UNPAID') {
+            $statusClasses = 'bg-slate-100 text-slate-700 border border-slate-200';
+        }
     }
     $serviceLabel = trim((string) ($payment['service_list'] ?? ''));
     if ($serviceLabel === '') {
@@ -3942,14 +3977,6 @@ if ($paymentError === 'Please select a payment method.') {
         'clinic_name' => $clinicDisplayName,
         'clinic_logo' => $clinicLogoUrl,
     ];
-    $statusClasses = 'bg-rose-50 text-rose-700 border border-rose-200';
-    if ($financialStatus === 'PAID') {
-        $statusClasses = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-    } elseif ($financialStatus === 'PARTIAL') {
-        $statusClasses = 'bg-amber-50 text-amber-700 border border-amber-200';
-    } elseif ($financialStatus === 'UNPAID') {
-        $statusClasses = 'bg-slate-100 text-slate-700 border border-slate-200';
-    }
 ?>
 <tr class="hover:bg-slate-50/30 transition-colors group">
 <td class="px-8 py-5">
@@ -3975,9 +4002,7 @@ if ($paymentError === 'Please select a payment method.') {
 </div>
 </td>
 <td class="px-6 py-5">
-<span class="inline-flex items-center justify-center px-3 py-1 <?php echo htmlspecialchars($statusClasses, ENT_QUOTES, 'UTF-8'); ?> text-[10px] font-black rounded-full uppercase tracking-widest">
-<?php echo htmlspecialchars($financialStatus, ENT_QUOTES, 'UTF-8'); ?>
-</span>
+<span class="inline-flex items-center justify-center px-3 py-1 <?php echo htmlspecialchars($statusClasses, ENT_QUOTES, 'UTF-8'); ?> text-[10px] font-black rounded-full tracking-widest"><?php echo htmlspecialchars($financialStatus, ENT_QUOTES, 'UTF-8'); ?></span>
 </td>
 <td class="px-8 py-5 text-right">
 <div class="flex justify-end gap-2">
