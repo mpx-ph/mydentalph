@@ -405,6 +405,51 @@ function staff_payment_recording_absolute_asset_url(string $rawPath): string
 }
 
 /**
+ * Adjust installment breakdown lines so their sum equals the posted payment amount (authoritative).
+ * Schedule rows keep older amount_due when clinic payment settings change; receipts must mirror tbl_payments.amount.
+ *
+ * @param list<array{name:string, amount:float}> $items
+ */
+function staff_payment_recording_normalize_receipt_installment_totals(array &$items, float $targetTotal): void
+{
+    $targetTotal = round(max(0.0, $targetTotal), 2);
+    if ($items === [] || $targetTotal <= 0.009) {
+        return;
+    }
+    $n = count($items);
+    $current = 0.0;
+    foreach ($items as $it) {
+        $current += round(max(0.0, (float) ($it['amount'] ?? 0)), 2);
+    }
+    $current = round($current, 2);
+    if (abs($current - $targetTotal) <= 0.05) {
+        return;
+    }
+    if ($n === 1) {
+        $items[0]['amount'] = $targetTotal;
+        return;
+    }
+    if ($current <= 0.009) {
+        $each = round($targetTotal / $n, 2);
+        $sum = 0.0;
+        for ($i = 0; $i < $n - 1; $i++) {
+            $items[$i]['amount'] = $each;
+            $sum = round($sum + $each, 2);
+        }
+        $items[$n - 1]['amount'] = round($targetTotal - $sum, 2);
+        return;
+    }
+    $scale = $targetTotal / $current;
+    $acc = 0.0;
+    for ($i = 0; $i < $n - 1; $i++) {
+        $line = round(max(0.0, (float) ($items[$i]['amount'] ?? 0)) * $scale, 2);
+        $items[$i]['amount'] = $line;
+        $acc = round($acc + $line, 2);
+    }
+    $items[$n - 1]['amount'] = round($targetTotal - $acc, 2);
+}
+
+/**
  * Build receipt breakdown from the current payment transaction only.
  *
  * @return array{service_label:string, service_items:list<array{name:string, amount:float}>, services_total:float}
@@ -517,44 +562,55 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
             }
             if ($installmentItems !== []) {
                 if ($addOnItemsFromNotes !== []) {
-                    $addOnTotal = 0.0;
+                    $addOnExplicitTotal = 0.0;
                     $addOnMissingAmountCount = 0;
                     foreach ($addOnItemsFromNotes as $addOnItem) {
                         $lineAmount = (float) ($addOnItem['amount'] ?? 0);
                         if ($lineAmount <= 0.0) {
                             $addOnMissingAmountCount++;
                         }
-                        $addOnTotal += $lineAmount;
+                        $addOnExplicitTotal += $lineAmount;
                     }
-                    if ($addOnMissingAmountCount > 0) {
-                        $inferredAddOnTotal = round(max(0.0, $amountPaid - $installmentTotal), 2);
-                        if ($inferredAddOnTotal > 0.0 && abs($inferredAddOnTotal - $addOnTotal) > 0.05) {
-                            $distributable = $inferredAddOnTotal;
-                            $updatedItems = [];
-                            foreach ($addOnItemsFromNotes as $index => $addOnItem) {
-                                $currentAmount = round(max(0.0, (float) ($addOnItem['amount'] ?? 0)), 2);
-                                if ($currentAmount > 0.0 || $addOnMissingAmountCount <= 0) {
-                                    $updatedItems[] = $addOnItem;
-                                    continue;
-                                }
-                                $fillAmount = $index === (count($addOnItemsFromNotes) - 1)
-                                    ? $distributable
-                                    : round($inferredAddOnTotal / $addOnMissingAmountCount, 2);
-                                $fillAmount = max(0.0, min($distributable, $fillAmount));
-                                $distributable = round($distributable - $fillAmount, 2);
-                                $addOnItem['amount'] = $fillAmount;
+                    $addOnExplicitTotal = round(max(0.0, $addOnExplicitTotal), 2);
+                    staff_payment_recording_normalize_receipt_installment_totals(
+                        $installmentItems,
+                        round(max(0.0, $amountPaid - $addOnExplicitTotal), 2)
+                    );
+                    $installmentTotal = 0.0;
+                    foreach ($installmentItems as $ii) {
+                        $installmentTotal += (float) ($ii['amount'] ?? 0);
+                    }
+                    $installmentTotal = round($installmentTotal, 2);
+
+                    $distributableAddons = round(max(0.0, $amountPaid - $installmentTotal - $addOnExplicitTotal), 2);
+                    if ($addOnMissingAmountCount > 0 && $distributableAddons > 0.009) {
+                        $addOnAssignable = $distributableAddons;
+                        $updatedItems = [];
+                        foreach ($addOnItemsFromNotes as $index => $addOnItem) {
+                            $currentAmount = round(max(0.0, (float) ($addOnItem['amount'] ?? 0)), 2);
+                            if ($currentAmount > 0.0) {
                                 $updatedItems[] = $addOnItem;
+                                continue;
                             }
-                            $addOnItemsFromNotes = $updatedItems;
-                            $addOnTotal = 0.0;
-                            foreach ($addOnItemsFromNotes as $addOnItem) {
-                                $addOnTotal += (float) ($addOnItem['amount'] ?? 0);
-                            }
+                            $fillAmount = $index === (count($addOnItemsFromNotes) - 1)
+                                ? $addOnAssignable
+                                : round($distributableAddons / $addOnMissingAmountCount, 2);
+                            $fillAmount = max(0.0, min($addOnAssignable, $fillAmount));
+                            $addOnAssignable = round($addOnAssignable - $fillAmount, 2);
+                            $addOnItem['amount'] = $fillAmount;
+                            $updatedItems[] = $addOnItem;
                         }
+                        $addOnItemsFromNotes = $updatedItems;
                     }
+                    $addOnTotal = 0.0;
+                    foreach ($addOnItemsFromNotes as $addOnItem) {
+                        $addOnTotal += (float) ($addOnItem['amount'] ?? 0);
+                    }
+                    $addOnTotal = round($addOnTotal, 2);
+
                     $mergedItems = array_merge($installmentItems, $addOnItemsFromNotes);
                     $mergedTotal = round($installmentTotal + $addOnTotal, 2);
-                    // Keep the receipt aligned with the posted amount if there are legacy note mismatches.
+                    // Keep the receipt aligned with the posted amount if minor rounding drift remains.
                     if ($mergedTotal <= 0.009 || abs($mergedTotal - $amountPaid) > 0.05) {
                         $mergedTotal = $amountPaid;
                     }
@@ -563,6 +619,11 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
                         'service_items' => $mergedItems,
                         'services_total' => round($mergedTotal, 2),
                     ];
+                }
+                staff_payment_recording_normalize_receipt_installment_totals($installmentItems, $amountPaid);
+                $installmentTotal = 0.0;
+                foreach ($installmentItems as $ii) {
+                    $installmentTotal += (float) ($ii['amount'] ?? 0);
                 }
                 return [
                     'service_label' => 'Installment Payments',
