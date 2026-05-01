@@ -4189,13 +4189,32 @@ if ($paymentError === 'Please select a payment method.') {
             $statusClasses = 'bg-slate-100 text-slate-700 border border-slate-200';
         }
     } else {
-        $financialStatus = staff_payment_recording_financial_status(
+        $statusTotalCost = max(
             (float) ($payment['total_treatment_cost'] ?? 0),
+            (float) ($payment['treatment_total_cost'] ?? 0)
+        );
+        $statusTotalPaid = max(
             (float) ($payment['booking_total_paid'] ?? 0),
+            (float) ($payment['treatment_amount_paid'] ?? 0)
+        );
+        $financialStatus = staff_payment_recording_financial_status(
+            $statusTotalCost,
+            $statusTotalPaid,
             trim((string) ($payment['appointment_date'] ?? '')),
             $isBookingInstallmentPlan,
             (array) ($payment['installment_schedule'] ?? [])
         );
+        $appointmentTreatmentIdRow = trim((string) ($payment['appointment_treatment_id'] ?? ''));
+        $treatmentRemainingRow = (float) ($payment['treatment_remaining_balance'] ?? 0);
+        $paymentTypeKeyRow = strtolower(trim((string) ($payment['payment_type'] ?? '')));
+        $isInstallmentDownpaymentRow = $isBookingInstallmentPlan && $paymentTypeKeyRow === 'downpayment';
+        if ($isInstallmentDownpaymentRow && $financialStatus === 'PAID') {
+            $stillUnsettled = ($appointmentTreatmentIdRow !== '' && $treatmentRemainingRow > 0.009)
+                || ($statusTotalPaid + 0.009 < $statusTotalCost);
+            if ($stillUnsettled) {
+                $financialStatus = 'PARTIAL';
+            }
+        }
         $statusClasses = 'bg-rose-50 text-rose-700 border border-rose-200';
         if ($financialStatus === 'PAID') {
             $statusClasses = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
