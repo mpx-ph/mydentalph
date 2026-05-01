@@ -552,32 +552,69 @@ try {
             return $v !== '';
         })));
 
-        $onlyIncludedPlanServices = false;
+        // True when every line is a plan visit: catalog included_plan, or a non-installment ₱0 line (mis-tagged follow-ups).
+        $walkInOnlyPlanOrFreeFollowUpServices = false;
         if ($normalizedServices !== []) {
-            $onlyIncludedPlanServices = true;
+            $walkInOnlyPlanOrFreeFollowUpServices = true;
             foreach ($normalizedServices as $sRow) {
-                if (strtolower(trim((string) ($sRow['service_type'] ?? ''))) !== 'included_plan') {
-                    $onlyIncludedPlanServices = false;
-                    break;
+                $rowType = strtolower(trim((string) ($sRow['service_type'] ?? '')));
+                $rowPrice = (float) ($sRow['price'] ?? 0);
+                if ($rowType === 'included_plan') {
+                    continue;
+                }
+                if (empty($sRow['enable_installment']) && $rowPrice <= 0.009) {
+                    continue;
+                }
+                $walkInOnlyPlanOrFreeFollowUpServices = false;
+                break;
+            }
+        }
+
+        $requestedActiveTreatmentRow = null;
+        if ($requestedTreatmentId !== '') {
+            $tidLookupStmt = $pdo->prepare("
+                SELECT *
+                FROM {$qtreat}
+                WHERE tenant_id = ?
+                  AND patient_id = ?
+                  AND treatment_id = ?
+                LIMIT 1
+            ");
+            $tidLookupStmt->execute([$tenantId, $patientId, $requestedTreatmentId]);
+            $tidRow = $tidLookupStmt->fetch(PDO::FETCH_ASSOC);
+            if (is_array($tidRow)) {
+                $tidStatus = strtolower(trim((string) ($tidRow['status'] ?? 'active')));
+                if ($tidStatus === '' || $tidStatus === 'active') {
+                    $requestedActiveTreatmentRow = $tidRow;
                 }
             }
         }
 
         if ($requestedTreatmentId !== '') {
-            $requestedMatchesActiveRow = $fetchedActiveTreatment
-                && (string) ($fetchedActiveTreatment['treatment_id'] ?? '') === $requestedTreatmentId;
-            // Plan visits (included_plan-only) attach to treatment_id but skip enable_installment; backend may classify
-            // the row as "not installment-active" even while status=active — still allow unpaid follow-ups.
-            $includedPlanContinuation = $onlyIncludedPlanServices && $requestedMatchesActiveRow && !$isFullyPaidTreatment;
-            if (
-                !$requestedMatchesActiveRow
-                || (!$isActiveInstallmentTreatment && !$includedPlanContinuation)
-            ) {
+            // Match by explicit treatment_id + patient (not only "latest active" row — ordering can diverge from the UI).
+            $requestedTreatmentIdNorm = trim($requestedTreatmentId);
+            $fetchedIdNorm = $fetchedActiveTreatment
+                ? trim((string) ($fetchedActiveTreatment['treatment_id'] ?? ''))
+                : '';
+            $strictInstallmentRequestOk = $isActiveInstallmentTreatment
+                && $fetchedActiveTreatment
+                && $requestedActiveTreatmentRow
+                && $fetchedIdNorm === $requestedTreatmentIdNorm;
+            // Plan / ₱0 follow-ups: status=active on the requested row is enough (installment "fully paid" heuristics often disagree with the UI).
+            $planOrFreeFollowUpOk = $walkInOnlyPlanOrFreeFollowUpServices && $requestedActiveTreatmentRow;
+            $reqRowRemaining = $requestedActiveTreatmentRow
+                ? (float) ($requestedActiveTreatmentRow['remaining_balance'] ?? 0)
+                : 0.0;
+            // Payable add-ons: require strict match when backend thinks installment is active; otherwise allow if this treatment still shows a balance.
+            $billableFollowUpOk = $requestedActiveTreatmentRow
+                && !$walkInOnlyPlanOrFreeFollowUpServices
+                && ($strictInstallmentRequestOk || (!$isActiveInstallmentTreatment && $reqRowRemaining > 0.009));
+            if (!$requestedActiveTreatmentRow || (!$planOrFreeFollowUpOk && !$billableFollowUpOk)) {
                 $pdo->rollBack();
                 echo json_encode(['success' => false, 'message' => 'Selected treatment is no longer active for this patient.']);
                 exit;
             }
-            $activeTreatment = $fetchedActiveTreatment;
+            $activeTreatment = $requestedActiveTreatmentRow;
             $activePrimaryServiceId = trim((string) ($activeTreatment['primary_service_id'] ?? ''));
             foreach ($selectedInstallmentServiceIds as $selectedInstallmentServiceId) {
                 if ($activePrimaryServiceId !== '' && $selectedInstallmentServiceId !== $activePrimaryServiceId) {
