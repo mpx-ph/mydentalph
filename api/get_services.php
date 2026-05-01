@@ -19,7 +19,17 @@ if (!$tenant_id) {
 
 try {
     // Fetch active services for the tenant
-    $stmt = $pdo->prepare("SELECT service_id, service_name, service_details, category, price FROM tbl_services WHERE tenant_id = ? AND status = 'active'");
+    $stmt = $pdo->prepare("
+        SELECT service_id,
+               service_name,
+               service_details,
+               category,
+               price,
+               COALESCE(enable_installment, 0) AS enable_installment,
+               COALESCE(installment_duration_months, 0) AS installment_duration_months
+        FROM tbl_services
+        WHERE tenant_id = ? AND status = 'active'
+    ");
     $stmt->execute([$tenant_id]);
     $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

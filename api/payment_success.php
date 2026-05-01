@@ -1,12 +1,39 @@
 <?php
-require_once '../db.php';
 
-$pid = $_GET['pid'] ?? null;
+declare(strict_types=1);
 
-if ($pid) {
-    // Update the payment status to 'completed'
-    $stmt = $pdo->prepare("UPDATE tbl_payments SET status = 'completed' WHERE payment_id = ?");
-    $stmt->execute([$pid]);
+require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../clinic/includes/booking_treatment_ledger.php';
+
+$pid = isset($_GET['pid']) ? trim((string) $_GET['pid']) : '';
+
+if ($pid !== '') {
+    try {
+        $tables = clinic_resolve_appointment_db_tables($pdo);
+        $payPhys = $tables['payments'] ?? 'tbl_payments';
+        $pq = clinic_quote_identifier((string) $payPhys);
+
+        $pdo->beginTransaction();
+        $st = $pdo->prepare('SELECT * FROM ' . $pq . ' WHERE payment_id = ? LIMIT 1');
+        $st->execute([$pid]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            $statusNorm = strtolower(trim((string) ($row['status'] ?? '')));
+            if ($statusNorm !== 'completed') {
+                $upd = $pdo->prepare('UPDATE ' . $pq . ' SET status = \'completed\' WHERE payment_id = ?');
+                $upd->execute([$pid]);
+            }
+            $st2 = $pdo->prepare('SELECT * FROM ' . $pq . ' WHERE payment_id = ? LIMIT 1');
+            $st2->execute([$pid]);
+            $fresh = $st2->fetch(PDO::FETCH_ASSOC) ?: $row;
+            booking_apply_completed_payment_to_treatment($pdo, $fresh);
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+    }
 }
 ?>
 <!DOCTYPE html>

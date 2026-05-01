@@ -1,170 +1,245 @@
 <?php
-// api/init_mobile_payment.php
-require_once '../db.php';
-require_once __DIR__ . '/../clinic/includes/appointment_booking_row.php';
-require_once '../paymongo_config.php';
 
-header('Content-Type: application/json');
+declare(strict_types=1);
+
+// api/init_mobile_payment.php — mobile PayMongo; writes treatment ledger + linkage like staff bookings.
+require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../clinic/includes/appointment_booking_row.php';
+require_once __DIR__ . '/../clinic/includes/booking_treatment_ledger.php';
+require_once __DIR__ . '/../paymongo_config.php';
+
+header('Content-Type: application/json; charset=utf-8');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     die(json_encode(["status" => "error", "message" => "POST required"]));
 }
 
-// Get POST data
 $input = json_decode(file_get_contents('php://input'), true);
-if (!$input)
+if (!$input) {
     $input = $_POST;
+}
 
 $user_id = $input['user_id'] ?? null;
-$tenant_id = $input['tenant_id'] ?? 'TNT_00025';
+$tenant_id = trim((string) ($input['tenant_id'] ?? 'TNT_00025'));
 $dentist_id = $input['dentist_id'] ?? 1;
 $appointment_date = $input['appointment_date'] ?? null;
 $appointment_time = $input['appointment_time'] ?? null;
 $services_json = $input['services'] ?? '[]';
-$total_amount = $input['total_amount'] ?? 0;
-$payment_amount = $input['payment_amount'] ?? 0;
+$total_amount = isset($input['total_amount']) ? (float) $input['total_amount'] : 0.0;
+$payment_amount = isset($input['payment_amount']) ? (float) $input['payment_amount'] : 0.0;
 
 if (!$user_id || !$appointment_date || !$appointment_time) {
     die(json_encode(["status" => "error", "message" => "Missing required fields"]));
 }
 
-// Ensure secret key is available
 $paymongo_secret = defined('PAYMONGO_SECRET_KEY') ? (string) PAYMONGO_SECRET_KEY : '';
-if (empty($paymongo_secret)) {
+if ($paymongo_secret === '') {
     die(json_encode(["status" => "error", "message" => "PayMongo Secret Key not configured on the server."]));
 }
 
 try {
-    // 1. Get Patient Profile & User Info for Pre-filling
-    $stmt = $pdo->prepare("SELECT p.patient_id, p.first_name, p.last_name, u.email, u.phone 
+    $stmt = $pdo->prepare(
+        'SELECT p.patient_id, p.first_name, p.last_name, u.email, u.phone 
         FROM tbl_patients p
         LEFT JOIN tbl_users u ON u.user_id = ?
-        WHERE p.owner_user_id = ? OR p.linked_user_id = ? 
-        LIMIT 1");
-    $stmt->execute([$user_id, $user_id, $user_id]);
-    $patRow = $stmt->fetch();
+        WHERE p.owner_user_id = ? OR p.linked_user_id = ?
+        LIMIT 1'
+    );
+    $stmt->execute([(string) $user_id, $user_id, $user_id]);
+    $patRow = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$patRow) {
         throw new Exception("Patient profile not found for this user. Please complete your registration.");
     }
-    $patient_id = $patRow['patient_id'];
-    $patient_name = trim($patRow['first_name'] . ' ' . $patRow['last_name']);
-    $user_email = !empty($patRow['email']) ? $patRow['email'] : 'patient@mydentalph.com';
-    $user_phone = !empty($patRow['phone']) ? $patRow['phone'] : '';
+    $patient_id = trim((string) ($patRow['patient_id'] ?? ''));
+    $patient_name = trim(trim((string) ($patRow['first_name'] ?? '')) . ' ' . trim((string) ($patRow['last_name'] ?? '')));
+    $user_email = !empty($patRow['email']) ? trim((string) $patRow['email']) : 'patient@mydentalph.com';
+    $user_phone = trim((string) ($patRow['phone'] ?? ''));
 
-    // Generate highly unique booking_id
-    $booking_id = 'BK-' . strtoupper(substr(md5(microtime(true) . $user_id . mt_rand()), 0, 10));
+    $booking_id = 'BK-' . strtoupper(substr(md5((string) microtime(true) . $user_id . mt_rand()), 0, 10));
 
-    // Check Availability (Double-booking validation)
-    $stmt = $pdo->prepare("SELECT id FROM tbl_appointments 
-        WHERE dentist_id = ? AND appointment_date = ? AND appointment_time = ? 
-        AND status NOT IN ('cancelled') LIMIT 1");
-    $stmt->execute([$dentist_id, $appointment_date, $appointment_time]);
+    $tables = clinic_resolve_appointment_db_tables($pdo);
+    $apptPhys = $tables['appointments'] ?? 'tbl_appointments';
+    $apptQuoted = clinic_quote_identifier((string) $apptPhys);
+
+    $stmt = $pdo->prepare(
+        "SELECT id FROM {$apptQuoted}
+         WHERE dentist_id = ? AND appointment_date = ? AND appointment_time = ?
+           AND LOWER(COALESCE(status, '')) NOT IN ('cancelled')
+         LIMIT 1"
+    );
+    $stmt->execute([(int) $dentist_id, $appointment_date, $appointment_time]);
     if ($stmt->fetch()) {
         throw new Exception("This time slot is already reserved. Please choose a different time.");
     }
 
-    $pdo->beginTransaction();
-
-    // 2. Insert Appointment
-    // Insert as confirmed so it shows up in their bookings list, but the payment remains pending.
-    $services = is_array($services_json) ? $services_json : json_decode($services_json, true);
+    $services = is_array($services_json) ? $services_json : json_decode((string) $services_json, true);
     if (!is_array($services)) {
         $services = [];
     }
-    $apptExtras = clinic_appointment_extras_for_booking(
-        $pdo,
-        (string) $tenant_id,
-        $services,
-        (string) $appointment_date
-    );
-    $stmt = $pdo->prepare("INSERT INTO tbl_appointments 
-        (tenant_id, dentist_id, booking_id, patient_id, appointment_date, appointment_time, status, total_treatment_cost, visit_type, created_by, 
-         service_type, service_description, treatment_type, duration_months, target_completion_date, start_date) 
-        VALUES (?, ?, ?, ?, ?, ?, 'confirmed', ?, 'pre_book', ?, 
-         ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([
-        $tenant_id,
-        $dentist_id,
-        $booking_id,
-        $patient_id,
-        $appointment_date,
-        $appointment_time,
-        $total_amount,
-        $user_id,
-        $apptExtras['service_type'],
-        $apptExtras['service_description'],
-        $apptExtras['treatment_type'],
-        $apptExtras['duration_months'],
-        $apptExtras['target_completion_date'],
-        $apptExtras['start_date'],
-    ]);
-    $appointment_id = $pdo->lastInsertId();
 
-    // 3. Insert Services Breakdown
-    $paymongo_line_items = [];
-    $serviceTypeProbeStmt = $pdo->prepare("
-        SELECT COALESCE(enable_installment, 0) AS enable_installment
-        FROM tbl_services
-        WHERE tenant_id = ? AND service_id = ?
-        LIMIT 1
-    ");
-    $apsColumns = [];
-    $apsColsStmt = $pdo->query("SHOW COLUMNS FROM tbl_appointment_services");
-    if ($apsColsStmt) {
-        foreach ($apsColsStmt->fetchAll(PDO::FETCH_ASSOC) as $colRow) {
-            $colName = strtolower(trim((string) ($colRow['Field'] ?? '')));
-            if ($colName !== '') {
-                $apsColumns[$colName] = true;
+    $apptExtras = clinic_appointment_extras_for_booking($pdo, $tenant_id, $services, (string) $appointment_date);
+    $apptExtras = booking_merge_extras_from_mobile_input($apptExtras, $input);
+    $apptExtras = booking_ensure_long_term_schedule($apptExtras, (string) $appointment_date);
+
+    $pdo->beginTransaction();
+
+    $ledger = booking_create_treatment_row(
+        $pdo,
+        $tenant_id,
+        $patient_id,
+        (string) $user_id,
+        $booking_id,
+        $services,
+        $total_amount,
+        $apptExtras
+    );
+    $treatment_id_fk = trim((string) ($ledger['treatment_id'] ?? ''));
+    $treatmentFkOrNull = $treatment_id_fk !== '' ? $treatment_id_fk : null;
+    $installmentForAppointment = (($ledger['installment_number'] ?? 0) > 0 && $treatmentFkOrNull !== null)
+        ? (int) $ledger['installment_number']
+        : null;
+
+    $notesCombined = trim((string) ($input['notes'] ?? ''));
+    if ($treatmentFkOrNull !== null) {
+        $notesCombined .= ($notesCombined !== '' ? "\n" : '') . 'treatment_id: ' . $treatmentFkOrNull;
+    }
+
+    $apptVals = [
+        'tenant_id' => $tenant_id,
+        'dentist_id' => (int) $dentist_id,
+        'booking_id' => $booking_id,
+        'patient_id' => $patient_id,
+        'treatment_id' => $treatmentFkOrNull,
+        'appointment_date' => $appointment_date,
+        'appointment_time' => $appointment_time,
+        'status' => 'confirmed',
+        'visit_type' => 'pre_book',
+        'created_by' => (string) $user_id,
+        'service_type' => $apptExtras['service_type'] ?? null,
+        'service_description' => $apptExtras['service_description'] ?? null,
+        'treatment_type' => $apptExtras['treatment_type'] ?? 'short_term',
+        'total_treatment_cost' => $total_amount > 0 ? $total_amount : null,
+        'duration_months' => $apptExtras['duration_months'] ?? null,
+        'target_completion_date' => $apptExtras['target_completion_date'] ?? null,
+        'start_date' => $apptExtras['start_date'] ?? $appointment_date,
+        'notes' => $notesCombined !== '' ? $notesCombined : null,
+        'installment_number' => $installmentForAppointment,
+    ];
+
+    booking_mobile_dynamic_insert_appointment($pdo, (string) $apptPhys, $apptVals);
+    $appointment_id = (int) $pdo->lastInsertId();
+
+    $appointmentServicesPhys = $tables['appointment_services'] ?? null;
+    if ($appointmentServicesPhys !== null) {
+        $apsQuoted = clinic_quote_identifier((string) $appointmentServicesPhys);
+        $asc = clinic_table_columns($pdo, (string) $appointmentServicesPhys);
+        $ledgerRows = $ledger['enriched_rows'] ?? [];
+        if ($ledgerRows === [] && $services !== []) {
+            $ledgerRows = booking_enrich_mobile_service_rows($pdo, $tenant_id, $services);
+        }
+
+        foreach ($ledgerRows as $er) {
+            $sid = trim((string) ($er['service_id'] ?? ''));
+            $stype = !empty($er['is_installment_line']) ? 'installment' : 'regular';
+            $label = $stype === 'installment' ? 'Long Term' : 'Short Term';
+            $svcName = (string) ($er['service_name'] ?? '');
+            $price = isset($er['price']) ? (float) $er['price'] : 0.0;
+
+            $colParts = [];
+            $ph = [];
+            $bind = [];
+
+            foreach (
+                [
+                    'tenant_id' => $tenant_id,
+                    'booking_id' => $booking_id,
+                    'appointment_id' => $appointment_id > 0 ? $appointment_id : null,
+                    'treatment_id' => ($treatmentFkOrNull !== null && $stype === 'installment') ? $treatmentFkOrNull : null,
+                    'service_id' => $sid !== '' ? $sid : null,
+                    'service_name' => $svcName,
+                    'price' => $price,
+                    'service_type' => $stype,
+                    'type' => $label,
+                    'is_original' => 1,
+                    'added_by' => (string) $user_id,
+                ] as $nm => $val
+            ) {
+                $lc = strtolower((string) $nm);
+                if (!in_array($lc, $asc, true)) {
+                    continue;
+                }
+                $colParts[] = clinic_quote_identifier($lc);
+                $ph[] = '?';
+                $bind[] = $val;
+            }
+            if (in_array('added_at', $asc, true)) {
+                $colParts[] = clinic_quote_identifier('added_at');
+                $ph[] = 'NOW()';
+            }
+            if ($colParts !== []) {
+                $sqlIns = 'INSERT INTO ' . $apsQuoted . ' (' . implode(', ', $colParts) . ') VALUES (' . implode(', ', $ph) . ')';
+                $insSt = $pdo->prepare($sqlIns);
+                $insSt->execute($bind);
             }
         }
     }
-    $hasTypeColumn = isset($apsColumns['type']);
 
-    foreach ($services as $srv) {
-        $serviceType = strtolower(trim((string) ($srv['service_type'] ?? ($srv['type'] ?? ''))));
-        if ($serviceType !== 'installment' && $serviceType !== 'regular') {
-            $serviceTypeProbeStmt->execute([$tenant_id, $srv['id']]);
-            $enableInstallment = (int) ($serviceTypeProbeStmt->fetchColumn() ?? 0);
-            $serviceType = $enableInstallment === 1 ? 'installment' : 'regular';
-        }
-        $typeLabel = $serviceType === 'installment' ? 'Long Term' : 'Short Term';
-        if ($hasTypeColumn) {
-            $stmt = $pdo->prepare("INSERT INTO tbl_appointment_services 
-                (tenant_id, booking_id, appointment_id, service_id, service_name, price, service_type, `type`) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$tenant_id, $booking_id, $appointment_id, $srv['id'], $srv['name'], $srv['price'], $serviceType, $typeLabel]);
-        } else {
-            $stmt = $pdo->prepare("INSERT INTO tbl_appointment_services 
-                (tenant_id, booking_id, appointment_id, service_id, service_name, price, service_type) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$tenant_id, $booking_id, $appointment_id, $srv['id'], $srv['name'], $srv['price'], $serviceType]);
-        }
-
-        // If paying in full, we can list individual services. If downpayment, we group it.
-        // For simplicity, we create one line item for the total payment amount requested now.
-    }
-
-    // Prepare PayMongo line items
-    $description = ($payment_amount < $total_amount) ? "Downpayment for Appointment" : "Full Payment for Appointment";
-
-    // Paymongo amount is in centavos (multiply PHP amount by 100)
-    $amount_in_cents = (int) round($payment_amount * 100);
-
+    $payment_id = 'PAY-' . strtoupper(substr(md5((string) microtime(true) . $booking_id . mt_rand()), 0, 10));
     $payment_type = ($payment_amount < $total_amount) ? 'downpayment' : 'fullpayment';
+    $payNotes = isset($ledger['payment_notes'])
+        ? (string) $ledger['payment_notes']
+        : sprintf('Mobile booking %s (PayMongo pending).', $booking_id);
 
-    // 4. Insert Payment record as 'pending'
-    $payment_id = 'PAY-' . strtoupper(substr(md5(microtime(true) . $booking_id . mt_rand()), 0, 10));
+    $paymentsPhys = $tables['payments'] ?? 'tbl_payments';
+    $ppc = clinic_table_columns($pdo, (string) $paymentsPhys);
+    $pq = clinic_quote_identifier((string) $paymentsPhys);
 
-    $stmt = $pdo->prepare("INSERT INTO tbl_payments 
-        (tenant_id, payment_id, patient_id, booking_id, amount, payment_method, status, created_by, payment_type) 
-        VALUES (?, ?, ?, ?, ?, 'gcash', 'pending', ?, ?)");
-    $stmt->execute([$tenant_id, $payment_id, $patient_id, $booking_id, $payment_amount, $user_id, $payment_type]);
+    $payColsIns = [];
+    $payBind = [];
+    $map = [
+        'tenant_id' => $tenant_id,
+        'payment_id' => $payment_id,
+        'patient_id' => $patient_id,
+        'booking_id' => $booking_id,
+        'treatment_id' => $treatmentFkOrNull,
+        'installment_number' => (($ledger['installment_number'] ?? 0) > 0) ? (int) $ledger['installment_number'] : null,
+        'amount' => $payment_amount,
+        'payment_method' => 'gcash',
+        'status' => 'pending',
+        'created_by' => (string) $user_id,
+        'payment_type' => $payment_type,
+        'notes' => $payNotes,
+        'reference_number' => null,
+    ];
+    $phParts = [];
+    foreach ($map as $c => $val) {
+        $lc = strtolower((string) $c);
+        if (!in_array($lc, $ppc, true)) {
+            continue;
+        }
+        if ($lc === 'reference_number' && ($val === null || $val === '')) {
+            continue;
+        }
+        $payColsIns[] = clinic_quote_identifier($lc);
+        $phParts[] = '?';
+        $payBind[] = $val;
+    }
+    if ($payColsIns !== []) {
+        $psql = 'INSERT INTO ' . $pq . ' (' . implode(', ', $payColsIns) . ') VALUES (' . implode(', ', $phParts) . ')';
+        $pst = $pdo->prepare($psql);
+        $pst->execute($payBind);
+    }
 
     $pdo->commit();
 
-    // 5. Create PayMongo Checkout Session
-    // We use checkout_sessions instead of links to force specific payment methods (GCash, Maya, Card) and avoid QRPh.
+    $description = ($payment_amount < $total_amount) ? 'Downpayment for Appointment' : 'Full Payment for Appointment';
+    $amount_in_cents = (int) round($payment_amount * 100);
+
+    $scheme = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http');
+    $host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+    $baseApi = ($host !== '' ? "{$scheme}://{$host}" : 'http://mydentalph.ct.ws') . '/api';
+
     $paymongo_data = [
         'data' => [
             'attributes' => [
@@ -173,11 +248,11 @@ try {
                 'show_line_items' => true,
                 'payment_method_types' => ['gcash', 'paymaya', 'card'],
                 'description' => "$description ($booking_id) - $patient_name",
-                'success_url' => "http://mydentalph.ct.ws/api/payment_success.php?pid=" . $payment_id,
+                'success_url' => $baseApi . '/payment_success.php?pid=' . rawurlencode($payment_id),
                 'billing' => [
                     'name' => $patient_name,
                     'email' => $user_email,
-                    'phone' => $user_phone
+                    'phone' => $user_phone,
                 ],
                 'line_items' => [
                     [
@@ -185,11 +260,11 @@ try {
                         'amount' => $amount_in_cents,
                         'description' => 'Payment for Booking',
                         'name' => 'Dental Services',
-                        'quantity' => 1
-                    ]
-                ]
-            ]
-        ]
+                        'quantity' => 1,
+                    ],
+                ],
+            ],
+        ],
     ];
 
     $ch = curl_init('https://api.paymongo.com/v1/checkout_sessions');
@@ -199,7 +274,7 @@ try {
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: application/json',
         'Accept: application/json',
-        'Authorization: Basic ' . base64_encode($paymongo_secret . ':')
+        'Authorization: Basic ' . base64_encode($paymongo_secret . ':'),
     ]);
 
     $response = curl_exec($ch);
@@ -207,48 +282,61 @@ try {
     $curlError = curl_error($ch);
     curl_close($ch);
 
-    if ($curlError) {
-        echo json_encode([
-            "status" => "success", // Booking created successfully, but payment link failed
-            "message" => "Booking successful, but failed to generate payment link: " . $curlError,
-            "booking_id" => $booking_id
-        ]);
+    $respond = static function (
+        array $payload
+    ): void {
+        echo json_encode($payload);
         exit;
+    };
+
+    if ($curlError) {
+        $respond([
+            'status' => 'success',
+            'message' => 'Booking saved, PayMongo checkout failed: ' . $curlError,
+            'booking_id' => $booking_id,
+            'treatment_id' => $treatment_id_fk,
+        ]);
     }
 
-    $responseData = json_decode($response, true);
+    $responseData = json_decode((string) $response, true);
 
-    if ($httpCode >= 200 && $httpCode < 300 && isset($responseData['data']['attributes']['checkout_url'])) {
+    if (
+        $httpCode >= 200
+        && $httpCode < 300
+        && is_array($responseData)
+        && isset($responseData['data']['attributes']['checkout_url'])
+    ) {
         $checkout_url = $responseData['data']['attributes']['checkout_url'];
-        // For checkout sessions, we use the session ID as the reference
-        $paymongo_reference_number = $responseData['data']['id'];
-
-        // Optionally update the payment record with PayMongo's session ID
-        $stmt = $pdo->prepare("UPDATE tbl_payments SET reference_number = ? WHERE payment_id = ?");
+        $paymongo_reference_number = (string) $responseData['data']['id'];
+        $stmt = $pdo->prepare('UPDATE ' . clinic_quote_identifier((string) $paymentsPhys)
+            . ' SET reference_number = ? WHERE payment_id = ?');
         $stmt->execute([$paymongo_reference_number, $payment_id]);
 
-        echo json_encode([
-            "status" => "success",
-            "message" => "Booking successful, redirecting to payment...",
-            "booking_id" => $booking_id,
-            "checkout_url" => $checkout_url
-        ]);
-    } else {
-        // Paymongo API returned an error, but the booking is still saved.
-        $paymongoErrorMsg = isset($responseData['errors'][0]['detail']) ? $responseData['errors'][0]['detail'] : "Unknown PayMongo Error ($httpCode)";
-        echo json_encode([
-            "status" => "success",
-            "message" => "Booking successful, but failed to generate payment link: " . $paymongoErrorMsg,
-            "booking_id" => $booking_id
+        $respond([
+            'status' => 'success',
+            'message' => 'Booking successful, redirecting to payment...',
+            'booking_id' => $booking_id,
+            'treatment_id' => $treatment_id_fk,
+            'checkout_url' => $checkout_url,
         ]);
     }
 
-} catch (Exception $e) {
-    if ($pdo->inTransaction())
+    $paymongoErrorMsg = (is_array($responseData) && isset($responseData['errors'][0]['detail']))
+        ? (string) $responseData['errors'][0]['detail']
+        : ('Unknown PayMongo Error (' . $httpCode . ')');
+
+    $respond([
+        'status' => 'success',
+        'message' => 'Booking saved, checkout session failed: ' . $paymongoErrorMsg,
+        'booking_id' => $booking_id,
+        'treatment_id' => $treatment_id_fk,
+    ]);
+} catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
         $pdo->rollBack();
+    }
     echo json_encode([
-        "status" => "error",
-        "message" => $e->getMessage()
+        'status' => 'error',
+        'message' => $e->getMessage(),
     ]);
 }
-?>
