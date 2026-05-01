@@ -1925,6 +1925,8 @@ try {
                             $downpaymentCoveredByAmount = $inst1AmountDue > 0
                                 && ((float) $totalPaid + 0.009 >= $inst1AmountDue);
                         }
+                        $downpaymentMetByTreatmentTotals = $configuredDownpaymentAmount > 0.009
+                            && ((float) $totalPaid + 0.009 >= $configuredDownpaymentAmount);
 
                         // Reconcile installment table rows against aggregate paid amount so stale statuses
                         // do not force overpayment (e.g. amount_paid already covered one or more slots).
@@ -1964,7 +1966,7 @@ try {
                             $isPaid = staff_payment_recording_installment_is_paid((string) ($sr['status'] ?? ''));
                             $installmentNumber = (int) ($sr['installment_number'] ?? 0);
                             $isDownpaymentSlot = ($installmentNumber === 1);
-                            if (!$isPaid && $isDownpaymentSlot && $downpaymentCoveredByAmount) {
+                            if (!$isPaid && $isDownpaymentSlot && ($downpaymentCoveredByAmount || $downpaymentMetByTreatmentTotals)) {
                                 $isPaid = true;
                             }
                             if (!$isPaid && isset($autoCoveredInstallmentNumbers[$installmentNumber])) {
@@ -1981,7 +1983,9 @@ try {
                             }
                             $scheduleInconsistentWithBalance = true;
                             // In fallback mode (schedule rows marked settled but balance remains),
-                            // enforce DP-first flow by starting synthetic unpaid slots at #1.
+                            // enforce DP-first flow by starting synthetic unpaid slots at #1 — unless
+                            // installment 1 (down payment) is already satisfied, then synthesize monthly
+                            // slots beginning at #2 so monthly mode matches aggregate paid totals.
                             $remainingSynthetic = round((float) $pendingBalance, 2);
                             $syntheticIndex = 0;
 
@@ -2003,7 +2007,18 @@ try {
                             }
                             $fallbackMonthlyAmount = max(0.01, $fallbackMonthlyAmount);
 
-                            $syntheticDownpayment = min($remainingSynthetic, max(0.0, round($configuredDownpaymentAmount, 2)));
+                            $inst1PaidForSynth = $downpaymentMetByTreatmentTotals
+                                || (
+                                    is_array($inst1Row)
+                                    && (
+                                        staff_payment_recording_installment_is_paid((string) ($inst1Row['status'] ?? ''))
+                                        || $downpaymentCoveredByAmount
+                                    )
+                                );
+                            $syntheticDownpayment = 0.0;
+                            if (!$inst1PaidForSynth) {
+                                $syntheticDownpayment = min($remainingSynthetic, max(0.0, round($configuredDownpaymentAmount, 2)));
+                            }
                             if ($syntheticDownpayment > 0.009) {
                                 $unpaid[] = [
                                     'installment_number' => 1,
@@ -2011,6 +2026,8 @@ try {
                                     'status' => 'pending',
                                 ];
                                 $remainingSynthetic = round(max(0.0, $remainingSynthetic - $syntheticDownpayment), 2);
+                                $syntheticIndex = 1;
+                            } elseif ($inst1PaidForSynth) {
                                 $syntheticIndex = 1;
                             }
 
@@ -4281,7 +4298,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 <label class="installment-option-card flex items-start gap-3 p-4 rounded-2xl border-2 border-slate-100 bg-white/80 cursor-pointer hover:border-primary/40 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
 <input type="radio" name="installment_pay_mode_ui" value="full" class="mt-1 text-primary focus:ring-primary/30" id="inst_opt_full"/>
-<span class="min-w-0"><span class="block text-sm font-extrabold text-slate-900">Full payment</span><span class="block text-xs text-slate-500 mt-0.5">Pay all remaining installments now.</span></span>
+<span class="min-w-0"><span class="block text-sm font-extrabold text-slate-900">Full Payment</span><span class="block text-xs text-slate-500 mt-0.5">Pay all remaining installments now.</span></span>
 </label>
 <label class="installment-option-card flex items-start gap-3 p-4 rounded-2xl border-2 border-slate-100 bg-white/80 cursor-pointer hover:border-primary/40 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5" id="inst_opt_down_wrap">
 <input type="radio" name="installment_pay_mode_ui" value="down" class="mt-1 text-primary focus:ring-primary/30" id="inst_opt_down"/>
@@ -4681,6 +4698,31 @@ This booking is installment-priced, but no installment schedule rows exist in th
             return s === 'paid' || s === 'completed';
         }
 
+        /**
+         * True when installment 1 (down payment) is satisfied for UI / flow decisions.
+         * Uses tenant min downpayment from settings plus total paid (tbl_treatments aggregate for
+         * installment bookings) when schedule row #1 amount_due or status is stale.
+         */
+        function isInstallmentScheduleDownpaymentSatisfied(sched, totalPaid, totalCost, settings, epsilon) {
+            const eps = typeof epsilon === 'number' ? epsilon : 0.05;
+            const tp = Number(totalPaid || 0);
+            const tc = Number(totalCost || 0);
+            const configuredDownpayment = Math.max(
+                0,
+                Math.min(tc, Number((settings && settings.long_term_min_downpayment) || 0))
+            );
+            if (configuredDownpayment > eps && tp + eps >= configuredDownpayment) {
+                return true;
+            }
+            const inst1 = Array.isArray(sched) ? sched.find((r) => Number(r.installment_number) === 1) : null;
+            if (!inst1) {
+                return false;
+            }
+            const inst1AmountDue = Number(inst1.amount_due || 0);
+            const downpaymentCoveredByAmount = inst1AmountDue > 0 && tp + 0.009 >= inst1AmountDue;
+            return installmentStatusPaid(inst1.status) || downpaymentCoveredByAmount;
+        }
+
         function getScheduleList(tx) {
             const raw = tx && tx.installment_schedule;
             if (!raw || !Array.isArray(raw)) {
@@ -4896,9 +4938,13 @@ This booking is installment-priced, but no installment schedule rows exist in th
             if (installmentProgressHint) {
                 if (hasSchedule) {
                     const inst1 = sched.find((r) => Number(r.installment_number) === 1);
-                    const inst1AmountDue = inst1 ? Number(inst1.amount_due || 0) : 0;
-                    const downpaymentCoveredByAmount = !!(inst1 && totalPaid + 0.009 >= inst1AmountDue);
-                    const inst1Paid = !!(inst1 && (installmentStatusPaid(inst1.status) || downpaymentCoveredByAmount));
+                    const inst1Paid = isInstallmentScheduleDownpaymentSatisfied(
+                        sched,
+                        totalPaid,
+                        totalCost,
+                        paymentSettings,
+                        SETTLED_BALANCE_EPSILON
+                    );
                     let downLabel = '';
                     if (inst1 && !inst1Paid) {
                         downLabel = 'Down payment (installment 1) is pending.';
@@ -4961,9 +5007,13 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
 
             const inst1 = sched.find((r) => Number(r.installment_number) === 1);
-            const inst1AmountDue = inst1 ? Number(inst1.amount_due || 0) : 0;
-            const downpaymentCoveredByAmount = !!(inst1 && totalPaid + 0.009 >= inst1AmountDue);
-            const inst1Paid = !!(inst1 && (installmentStatusPaid(inst1.status) || downpaymentCoveredByAmount));
+            const inst1Paid = isInstallmentScheduleDownpaymentSatisfied(
+                sched,
+                totalPaid,
+                totalCost,
+                paymentSettings,
+                SETTLED_BALANCE_EPSILON
+            );
             const unpaidSched = sched.filter((r) => {
                 if (installmentStatusPaid(r.status)) {
                     return false;
@@ -4989,12 +5039,19 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 Math.round((Math.max(0, totalCost - configuredDownpayment) / existingMonthlySlots) * 100) / 100
             );
 
-            const downOk = scheduleInconsistentWithBalance ? (pending > SETTLED_BALANCE_EPSILON) : (fn === 1);
+            // When the schedule shows no unpaid rows but there is still a balance, only offer
+            // down/combined until installment 1 (down payment) is actually satisfied — then lock
+            // those paths and allow monthly installments so processing stays sequential.
+            const downOk = scheduleInconsistentWithBalance
+                ? (!inst1Paid && pending > SETTLED_BALANCE_EPSILON)
+                : (fn === 1);
             const combinedOk = scheduleInconsistentWithBalance
-                ? (downOk && pending > ((configuredDownpayment > 0 ? configuredDownpayment : fallbackMonthlyAmount) + SETTLED_BALANCE_EPSILON))
+                ? (!inst1Paid
+                    && downOk
+                    && pending > ((configuredDownpayment > 0 ? configuredDownpayment : fallbackMonthlyAmount) + SETTLED_BALANCE_EPSILON))
                 : (fn === 1 && unpaidSched.length >= 2);
             const monthlyOk = scheduleInconsistentWithBalance
-                ? false
+                ? (inst1Paid && pending > SETTLED_BALANCE_EPSILON)
                 : (fn >= 2);
             if (instOptDown) {
                 instOptDown.disabled = !downOk;
@@ -5044,12 +5101,16 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const syntheticDownDue = configuredDownpayment > 0
                 ? Math.min(pending, configuredDownpayment)
                 : Math.min(pending, fallbackMonthlyAmount);
+            const monthlyBasisForSynthSlots =
+                scheduleInconsistentWithBalance && inst1Paid
+                    ? pending
+                    : Math.max(0, pending - syntheticDownDue);
             const syntheticMonthlySlots = Math.max(
                 1,
-                Math.ceil(Math.max(0, pending - syntheticDownDue) / Math.max(0.01, fallbackMonthlyAmount))
+                Math.ceil(monthlyBasisForSynthSlots / Math.max(0.01, fallbackMonthlyAmount))
             );
             const maxSlots = scheduleInconsistentWithBalance
-                ? ((syntheticDownDue > 0.009 ? 1 : 0) + syntheticMonthlySlots)
+                ? ((inst1Paid ? 0 : (syntheticDownDue > 0.009 ? 1 : 0)) + syntheticMonthlySlots)
                 : unpaidSched.length;
             if (mode === 'full') {
                 slotCount = maxSlots;
