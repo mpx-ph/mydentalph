@@ -4014,6 +4014,7 @@ if ($paymentError === 'Please select a payment method.') {
     title="View receipt"
     type="button"
     data-action="open-receipt"
+    data-payment-lifecycle-status="<?php echo htmlspecialchars($paymentLifecycleStatus, ENT_QUOTES, 'UTF-8'); ?>"
     data-receipt='<?php echo htmlspecialchars(json_encode($receiptPayload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8'); ?>'
 >
 <span class="material-symbols-outlined text-sm">receipt_long</span>
@@ -5518,9 +5519,13 @@ This booking is installment-priced, but no installment schedule rows exist in th
             selectorModal.classList.remove('flex');
         }
 
-        function showValidationPopup(message) {
+        function showValidationPopup(message, title) {
             if (!paymentValidationModal || !paymentValidationMessage) {
                 return;
+            }
+            const titleEl = document.getElementById('payment-validation-title');
+            if (titleEl) {
+                titleEl.textContent = title ? String(title) : 'Validation Required';
             }
             paymentValidationMessage.textContent = String(message || 'Please review your input.');
             paymentValidationModal.classList.remove('hidden');
@@ -5812,6 +5817,14 @@ This booking is installment-priced, but no installment schedule rows exist in th
         }
         document.querySelectorAll('button[data-action="open-receipt"]').forEach((btn) => {
             btn.addEventListener('click', () => {
+                const lifecycle = String(btn.getAttribute('data-payment-lifecycle-status') || '').trim().toLowerCase();
+                if (lifecycle === 'cancelled' || lifecycle === 'canceled') {
+                    showValidationPopup(
+                        'This payment was cancelled before it completed. A receipt is not available for this transaction.',
+                        'No receipt available'
+                    );
+                    return;
+                }
                 const payload = String(btn.getAttribute('data-receipt') || '');
                 if (!payload) {
                     return;
