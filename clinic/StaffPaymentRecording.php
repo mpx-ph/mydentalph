@@ -1700,6 +1700,9 @@ try {
                     $serviceTotalsStmt->execute([$tenantId, $selectedBookingId]);
                     foreach ($serviceTotalsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $serviceTotalRow) {
                         $normalizedType = strtolower(trim((string) ($serviceTotalRow['normalized_service_type'] ?? '')));
+                        if ($normalizedType === 'included_plan') {
+                            continue;
+                        }
                         if ($normalizedType !== 'regular' && $normalizedType !== 'installment') {
                             $normalizedType = 'regular';
                         }
@@ -1831,9 +1834,14 @@ try {
                             || $bookingTreatmentId !== ''
                             || ($serviceTypeTotals['installment'] ?? 0) > 0.009
                         );
-                        $selectedServiceTypeSql = "'regular' AS normalized_service_type";
+                        $includedPlanCaseSql = "LOWER(TRIM(COALESCE(service_type, ''))) = 'included_plan'";
+                        $selectedServiceTypeSql = "CASE WHEN {$includedPlanCaseSql} THEN 'included_plan' ELSE 'regular' END AS normalized_service_type";
                         if ($supportsServiceEnableInstallmentColumn) {
-                            $selectedServiceTypeSql = "CASE WHEN COALESCE(enable_installment, 0) = 1 THEN 'installment' ELSE 'regular' END AS normalized_service_type";
+                            $selectedServiceTypeSql = "CASE
+                                WHEN {$includedPlanCaseSql} THEN 'included_plan'
+                                WHEN COALESCE(enable_installment, 0) = 1 THEN 'installment'
+                                ELSE 'regular'
+                            END AS normalized_service_type";
                         }
                         $servicesSql = "
                             SELECT service_id, service_name, category, price, {$selectedServiceTypeSql}
@@ -1847,6 +1855,19 @@ try {
                         $servicesToAdd = $servicesStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
                         if (empty($servicesToAdd)) {
                             throw new RuntimeException('No valid additional services were selected.');
+                        }
+                        $blockedIncludedPlanAdds = [];
+                        foreach ($servicesToAdd as $serviceToValidate) {
+                            $svcType = strtolower(trim((string) ($serviceToValidate['normalized_service_type'] ?? 'regular')));
+                            if ($svcType === 'included_plan') {
+                                $blockedIncludedPlanAdds[] = trim((string) ($serviceToValidate['service_name'] ?? 'Included-plan service'));
+                            }
+                        }
+                        if ($blockedIncludedPlanAdds !== []) {
+                            throw new RuntimeException(
+                                'Included plan services cannot be added as payable “additional services” (they belong to the active treatment schedule). Remove: '
+                                . implode(', ', array_unique($blockedIncludedPlanAdds)) . '.'
+                            );
                         }
                         if ($hasActiveInstallmentTreatment) {
                             $blockedInstallmentSelections = [];
@@ -3447,6 +3468,8 @@ try {
                 $bookedPh = implode(',', array_fill(0, count($bookedIdList), '?'));
                 $bookedServiceTypeSelectSql = $supportsAppointmentServiceTypeColumn
                     ? "CASE
+                            WHEN LOWER(TRIM(COALESCE(aps.service_type, ''))) = 'included_plan' THEN 'included_plan'
+                            WHEN LOWER(TRIM(COALESCE(sv.service_type, ''))) = 'included_plan' THEN 'included_plan'
                             WHEN LOWER(TRIM(COALESCE(aps.service_type, ''))) = 'regular' THEN 'regular'
                             WHEN LOWER(TRIM(COALESCE(aps.service_type, ''))) = 'installment' THEN 'installment'
                             WHEN LOWER(TRIM(COALESCE(sv.service_type, ''))) = 'installment' THEN 'installment'
@@ -3455,6 +3478,7 @@ try {
                         END"
                     : ($supportsServiceEnableInstallmentColumn
                         ? "CASE
+                                WHEN LOWER(TRIM(COALESCE(sv.service_type, ''))) = 'included_plan' THEN 'included_plan'
                                 WHEN COALESCE(sv.enable_installment, 0) = 1 THEN 'installment'
                                 WHEN TRIM(COALESCE(aps.treatment_id, '')) <> '' THEN 'installment'
                                 ELSE 'regular'
@@ -3494,8 +3518,12 @@ try {
                         continue;
                     }
                     $apptId = (int) ($brow['appointment_id'] ?? 0);
-                    $stype = strtolower(trim((string) ($brow['service_type'] ?? 'installment')));
-                    if ($stype !== 'regular') {
+                    $stypeRawLine = strtolower(trim((string) ($brow['service_type'] ?? '')));
+                    if ($stypeRawLine === 'included_plan') {
+                        $stype = 'included_plan';
+                    } elseif ($stypeRawLine === 'regular') {
+                        $stype = 'regular';
+                    } else {
                         $stype = 'installment';
                     }
                     $bucketKey = $bb . '::' . $apptId . '::' . $stype;
@@ -3577,7 +3605,7 @@ try {
             $appointmentId = (int) ($candRow['appointment_id'] ?? 0);
             $tid = trim((string) ($candRow['treatment_id'] ?? ''));
             $stype = strtolower(trim((string) ($candRow['service_type'] ?? '')));
-            if ($stype !== 'regular') {
+            if ($stype !== 'regular' && $stype !== 'included_plan') {
                 $stype = 'installment';
             }
             $bucketKey = $b . '::' . $appointmentId . '::' . $stype;
@@ -5327,6 +5355,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 if (serviceType === 'installment') {
                     return false;
                 }
+                if (serviceType === 'included_plan') {
+                    return false;
+                }
                 if (primaryInstallmentServiceId !== '' && sid === primaryInstallmentServiceId) {
                     return false;
                 }
@@ -5343,7 +5374,12 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 || bookedInstallment.length > 0
                 || normalizedServiceType === 'installment'
                 || hasInstallmentSchedule;
-            const hasRegularEntry = bookedRegular.length > 0 || !hasInstallmentEntry;
+            const servicesAreOnlyIncludedPlan = bookedServicesRaw.length > 0
+                && bookedServicesRaw.every(function (s) {
+                    return String((s && s.service_type) || '').toLowerCase().trim() === 'included_plan';
+                });
+            const hasRegularEntry = bookedRegular.length > 0
+                || (!hasInstallmentEntry && (!servicesAreOnlyIncludedPlan || bookedServicesRaw.length === 0));
             const installmentScheduleRaw = Array.isArray(item.installment_schedule) ? item.installment_schedule : [];
             const installmentTotalBySchedule = installmentScheduleRaw.reduce((sum, r) => sum + Number((r && r.amount_due) || 0), 0);
             const installmentPaidBySchedule = installmentScheduleRaw.reduce((sum, r) => {
