@@ -2245,6 +2245,10 @@ try {
             if (!appointment || typeof appointment !== 'object') {
                 return 60;
             }
+            const combinedFromApi = parsePositiveMinutes(appointment.combined_duration_minutes);
+            if (Number.isFinite(combinedFromApi)) {
+                return combinedFromApi;
+            }
             const directDurationCandidates = [
                 appointment.duration_minutes,
                 appointment.appointment_duration_minutes,

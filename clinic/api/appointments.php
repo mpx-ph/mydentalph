@@ -314,6 +314,151 @@ function clinic_fetch_existing_appointment_duration_minutes(
     return $minutes > 0 ? $minutes : 60;
 }
 
+/** @return list<string> */
+function clinic_fallback_names_from_truncated_service_type(string $serviceTypeTruncatedSummary): array
+{
+    $clean = preg_replace('/\s*\(\+\d+\s+more\)/i', '', trim($serviceTypeTruncatedSummary)) ?? '';
+    if ($clean === '') {
+        return [];
+    }
+    $parts = array_map(static function ($part) {
+        return trim((string) $part);
+    }, explode(',', $clean));
+
+    return array_values(array_unique(array_filter($parts, static function ($part) {
+        return $part !== '';
+    })));
+}
+
+/**
+ * Readable service names attached to appointment line items (appointment_services rows).
+ *
+ * @return list<string>
+ */
+function clinic_collect_appointment_line_service_display_names(
+    PDO $pdo,
+    string $tenantId,
+    string $bookingId,
+    int $appointmentId,
+    ?string $appointmentServicesTableName,
+    ?string $servicesCatalogTableName
+): array {
+    if ($appointmentServicesTableName === null) {
+        return [];
+    }
+    $apsCols = clinic_table_columns($pdo, (string) $appointmentServicesTableName);
+    if (!in_array('tenant_id', $apsCols, true) || !in_array('service_id', $apsCols, true)) {
+        return [];
+    }
+    $orParts = [];
+    $params = [$tenantId];
+    if (in_array('appointment_id', $apsCols, true) && $appointmentId > 0) {
+        $orParts[] = 'aps.appointment_id = ?';
+        $params[] = $appointmentId;
+    }
+    if (in_array('booking_id', $apsCols, true) && trim($bookingId) !== '') {
+        $orParts[] = 'aps.booking_id = ?';
+        $params[] = $bookingId;
+    }
+    if ($orParts === []) {
+        return [];
+    }
+
+    $quotedAps = clinic_quote_identifier((string) $appointmentServicesTableName);
+    $whereOr = '(' . implode(' OR ', $orParts) . ')';
+
+    $svcColsOk = false;
+    $quotedSvc = null;
+    if ($servicesCatalogTableName !== null) {
+        $svcCols = clinic_table_columns($pdo, (string) $servicesCatalogTableName);
+        $svcColsOk = in_array('tenant_id', $svcCols, true)
+            && in_array('service_id', $svcCols, true)
+            && in_array('service_name', $svcCols, true);
+        if ($svcColsOk) {
+            $quotedSvc = clinic_quote_identifier((string) $servicesCatalogTableName);
+        }
+    }
+
+    $hasApsSvcName = in_array('service_name', $apsCols, true);
+
+    $nameExprSql = '';
+    $joinSql = '';
+    if ($hasApsSvcName && $svcColsOk && $quotedSvc !== null) {
+        $joinSql = "LEFT JOIN {$quotedSvc} srv
+            ON srv.tenant_id = aps.tenant_id
+           AND srv.service_id = aps.service_id ";
+        $nameExprSql = "
+            TRIM(COALESCE(
+                NULLIF(TRIM(COALESCE(aps.service_name, '')), ''),
+                NULLIF(TRIM(COALESCE(srv.service_name, '')), '')
+            ))
+        ";
+    } elseif ($svcColsOk && $quotedSvc !== null) {
+        $joinSql = "LEFT JOIN {$quotedSvc} srv
+            ON srv.tenant_id = aps.tenant_id
+           AND srv.service_id = aps.service_id ";
+        $nameExprSql = "NULLIF(TRIM(COALESCE(srv.service_name, '')), '')";
+    } elseif ($hasApsSvcName) {
+        $nameExprSql = "NULLIF(TRIM(COALESCE(aps.service_name, '')), '')";
+    } else {
+        return [];
+    }
+
+    $sql = "
+        SELECT DISTINCT {$nameExprSql} AS n
+        FROM {$quotedAps} aps
+        {$joinSql}
+        WHERE aps.tenant_id = ?
+          AND {$whereOr}
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $out = [];
+    while ($nameRow = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $n = trim((string) ($nameRow['n'] ?? ''));
+        if ($n !== '') {
+            $out[] = $n;
+        }
+    }
+
+    return array_values(array_unique($out));
+}
+
+/**
+ * @param array<string, mixed> $bookingRow
+ */
+function clinic_staff_booking_augment_combined_services(PDO $pdo, array &$bookingRow, string $tenantId, ?string $appointmentServicesTableName, ?string $servicesCatalogTableName): void
+{
+    $bookingId = trim((string) ($bookingRow['booking_id'] ?? ''));
+    $appointmentId = (int) ($bookingRow['id'] ?? 0);
+    if ($appointmentServicesTableName !== null && $servicesCatalogTableName !== null) {
+        $bookingRow['combined_duration_minutes'] = clinic_fetch_existing_appointment_duration_minutes(
+            $pdo,
+            $tenantId,
+            $bookingId,
+            $appointmentId,
+            $appointmentServicesTableName,
+            $servicesCatalogTableName
+        );
+        $bookingRow['appointment_service_names'] = clinic_collect_appointment_line_service_display_names(
+            $pdo,
+            $tenantId,
+            $bookingId,
+            $appointmentId,
+            $appointmentServicesTableName,
+            $servicesCatalogTableName
+        );
+    } else {
+        $bookingRow['combined_duration_minutes'] = null;
+        $bookingRow['appointment_service_names'] = [];
+    }
+    if (!is_array($bookingRow['appointment_service_names']) || $bookingRow['appointment_service_names'] === []) {
+        $bookingRow['appointment_service_names'] = clinic_fallback_names_from_truncated_service_type(
+            (string) ($bookingRow['service_type'] ?? '')
+        );
+    }
+}
+
 /**
  * Create installments for long-term treatment
  * @param PDO $pdo Database connection
@@ -1429,6 +1574,21 @@ function getAppointments() {
             }
             
             $mainAppointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $resolvedLineTablesStaff = clinic_resolve_appointment_db_tables($pdo);
+            $appointmentServicesTableForAgg = $resolvedLineTablesStaff['appointment_services'] ?? null;
+            $servicesCatalogTableForAgg = $resolvedLineTablesStaff['services'] ?? null;
+
+            foreach ($mainAppointments as &$aptAugment) {
+                clinic_staff_booking_augment_combined_services(
+                    $pdo,
+                    $aptAugment,
+                    $tenantId,
+                    $appointmentServicesTableForAgg,
+                    $servicesCatalogTableForAgg
+                );
+            }
+            unset($aptAugment);
             
             // Add main appointments to results
             foreach ($mainAppointments as $apt) {
@@ -1516,6 +1676,17 @@ function getAppointments() {
             }
             
             $installmentVisits = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($installmentVisits as &$visitAugment) {
+                clinic_staff_booking_augment_combined_services(
+                    $pdo,
+                    $visitAugment,
+                    $tenantId,
+                    $appointmentServicesTableForAgg,
+                    $servicesCatalogTableForAgg
+                );
+            }
+            unset($visitAugment);
             
             // Add installment visits to results
             foreach ($installmentVisits as $visit) {

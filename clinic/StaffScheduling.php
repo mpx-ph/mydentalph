@@ -122,6 +122,22 @@ function mapAppointmentStatusClass($statusValue)
     }
 }
 
+/** @return list<string> */
+function scheduling_fallback_service_display_names(string $serviceTypeTruncatedSummary): array
+{
+    $clean = preg_replace('/\s*\(\+\d+\s+more\)/i', '', trim($serviceTypeTruncatedSummary)) ?? '';
+    if ($clean === '') {
+        return [];
+    }
+    $parts = array_map(static function ($part) {
+        return trim((string) $part);
+    }, explode(',', $clean));
+
+    return array_values(array_unique(array_filter($parts, static function ($part) {
+        return $part !== '';
+    })));
+}
+
 /**
  * Place overlapping time-based entries in parallel horizontal lanes (same algorithm as work shifts).
  * Expects $sortedEntryIndexes sorted by start_min, then end_min.
@@ -1207,6 +1223,7 @@ try {
                     ? "COALESCE(NULLIF(TRIM(a.visit_type), ''), 'booking')"
                     : "'booking'";
                 $serviceMinutesExpr = "NULL";
+                $appointmentServiceNamesExpr = 'NULL';
                 $serviceDurationPart = in_array('service_duration', $servicesCols, true) ? 'COALESCE(s.service_duration, 0)' : '0';
                 $serviceBufferPart = in_array('buffer_time', $servicesCols, true) ? 'COALESCE(s.buffer_time, 0)' : '0';
                 $serviceDurationPartDirect = in_array('service_duration', $servicesCols, true) ? 'COALESCE(s2.service_duration, 0)' : '0';
@@ -1231,9 +1248,46 @@ try {
                     if (!empty($apsLinkConditions)) {
                         $serviceMinutesExpr = "
                             (
-                                SELECT SUM({$serviceDurationPart} + {$serviceBufferPart})
+                                SELECT COALESCE(SUM({$serviceDurationPart} + {$serviceBufferPart}), 0)
                                 FROM {$qAps} aps
-                                INNER JOIN {$qSrv} s
+                                LEFT JOIN {$qSrv} s
+                                    ON s.tenant_id = aps.tenant_id
+                                   AND s.service_id = aps.service_id
+                                WHERE aps.tenant_id = a.tenant_id
+                                  AND (" . implode(' OR ', $apsLinkConditions) . ")
+                            )
+                        ";
+
+                        $nameOrderExpr = in_array('service_id', $appointmentServicesCols, true)
+                            ? 'aps.service_id'
+                            : (
+                                in_array('service_name', $appointmentServicesCols, true)
+                                ? 'aps.service_name'
+                                : (
+                                    in_array('id', $appointmentServicesCols, true)
+                                        ? 'aps.id'
+                                        : '1'
+                                )
+                            );
+                        if (in_array('service_name', $appointmentServicesCols, true)) {
+                            $combinedNameSql = "
+                                COALESCE(
+                                    NULLIF(TRIM(COALESCE(aps.service_name, '')), ''),
+                                    TRIM(COALESCE(s.service_name, ''))
+                                )
+                            ";
+                        } else {
+                            $combinedNameSql = "TRIM(COALESCE(s.service_name, ''))";
+                        }
+
+                        $appointmentServiceNamesExpr = "
+                            (
+                                SELECT GROUP_CONCAT(
+                                    NULLIF(TRIM({$combinedNameSql}), '')
+                                    ORDER BY {$nameOrderExpr} SEPARATOR '||'
+                                )
+                                FROM {$qAps} aps
+                                LEFT JOIN {$qSrv} s
                                     ON s.tenant_id = aps.tenant_id
                                    AND s.service_id = aps.service_id
                                 WHERE aps.tenant_id = a.tenant_id
@@ -1285,6 +1339,7 @@ try {
                         a.appointment_date,
                         a.appointment_time,
                         a.service_type,
+                        {$appointmentServiceNamesExpr} AS appointment_service_names_agg,
                         {$serviceMinutesExpr} AS service_total_minutes,
                         COALESCE(a.status, 'pending') AS appointment_status,
                         {$patientNameExpr} AS patient_name,
@@ -1313,7 +1368,11 @@ try {
                 ";
             } else {
                 $appointmentsSql = "
-                    SELECT appointment_date, appointment_time, service_type, 0 AS service_total_minutes, COALESCE(status, 'pending') AS appointment_status, 'Patient' AS patient_name, 'Dentist' AS dentist_name, 'booking' AS visit_type, 'unpaid' AS payment_status
+                    SELECT appointment_date, appointment_time, service_type,
+                        CAST(NULL AS CHAR) AS appointment_service_names_agg,
+                        0 AS service_total_minutes,
+                        COALESCE(status, 'pending') AS appointment_status,
+                        'Patient' AS patient_name, 'Dentist' AS dentist_name, 'booking' AS visit_type, 'unpaid' AS payment_status
                     FROM tbl_appointments
                     WHERE tenant_id = ?
                       AND appointment_date BETWEEN ? AND ?
@@ -1343,7 +1402,10 @@ try {
                     $startMin += 24 * 60;
                 }
                 $serviceTotalMinutes = (int) ($row['service_total_minutes'] ?? 0);
-                $endMin = $startMin + max(0, $serviceTotalMinutes);
+                if ($serviceTotalMinutes <= 0) {
+                    $serviceTotalMinutes = 60;
+                }
+                $endMin = $startMin + $serviceTotalMinutes;
                 $mapped = mapAppointmentClass((string) ($row['service_type'] ?? ''));
                 $appointmentStatus = normalizeAppointmentStatus((string) ($row['appointment_status'] ?? 'pending'));
                 if (!$showCompletedAppointments && $appointmentStatus === 'completed') {
@@ -1364,6 +1426,22 @@ try {
                 if ($serviceName === '') {
                     $serviceName = 'Treatment';
                 }
+                $namesAggRaw = trim((string) ($row['appointment_service_names_agg'] ?? ''));
+                $tooltipServiceNames = [];
+                if ($namesAggRaw !== '') {
+                    foreach (explode('||', $namesAggRaw) as $segment) {
+                        $segmentTrim = trim((string) $segment);
+                        if ($segmentTrim !== '') {
+                            $tooltipServiceNames[] = $segmentTrim;
+                        }
+                    }
+                }
+                $tooltipServiceNames = array_values(array_unique($tooltipServiceNames));
+                if ($tooltipServiceNames === []) {
+                    $tooltipServiceNames = scheduling_fallback_service_display_names((string) ($row['service_type'] ?? ''));
+                }
+                $tooltipServicesJsonRaw = json_encode($tooltipServiceNames, JSON_UNESCAPED_UNICODE);
+                $tooltipServicesJson = is_string($tooltipServicesJsonRaw) ? $tooltipServicesJsonRaw : '[]';
                 $visitTypeLabel = formatVisitTypeLabel((string) ($row['visit_type'] ?? 'booking'));
                 $paymentStatusLabel = formatPaymentStatusLabel((string) ($row['payment_status'] ?? 'unpaid'));
                 $entriesByDate[$dateKey][] = [
@@ -1374,6 +1452,7 @@ try {
                     'patient_name' => $patientName,
                     'dentist_name' => $dentistName,
                     'service_name' => $serviceName,
+                    'tooltip_services_json' => $tooltipServicesJson,
                     'visit_type_label' => $visitTypeLabel,
                     'payment_status_label' => $paymentStatusLabel,
                     'appointment_status_label' => formatAppointmentStatusLabel($appointmentStatus),
@@ -2090,7 +2169,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                         $isSideBySideAppointment = $isAppointmentEntry && $laneTotal > 1;
                                         $apptResponsiveClass = $isSideBySideAppointment ? ' schedule-block--appt-overlap' : '';
                                         ?>
-                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo htmlspecialchars($zLayerClass, ENT_QUOTES, 'UTF-8'); ?><?php echo $blockCompactClass; ?><?php echo $apptResponsiveClass; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isWork ? ('data-shift-tooltip="1" data-shift-full-name="' . htmlspecialchars($fullDentistName, ENT_QUOTES, 'UTF-8') . '" data-shift-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '"') : ''; ?> <?php echo (!$isWork && $entryKind === 'appointment') ? ('data-appointment-tooltip="1" data-appt-patient-name="' . htmlspecialchars((string) ($entry['patient_name'] ?? 'Patient'), ENT_QUOTES, 'UTF-8') . '" data-appt-dentist-name="' . htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dentist'), ENT_QUOTES, 'UTF-8') . '" data-appt-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '" data-appt-service-name="' . htmlspecialchars((string) ($entry['service_name'] ?? 'Treatment'), ENT_QUOTES, 'UTF-8') . '" data-appt-type="' . htmlspecialchars((string) ($entry['visit_type_label'] ?? 'Booking'), ENT_QUOTES, 'UTF-8') . '" data-appt-payment-status="' . htmlspecialchars((string) ($entry['payment_status_label'] ?? 'Unpaid'), ENT_QUOTES, 'UTF-8') . '" data-appt-status="' . htmlspecialchars((string) ($entry['appointment_status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') . '"') : ''; ?> <?php echo $isBlockedEntry ? ('data-block-tooltip="1" data-block-dentist-name="' . htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dr. Dentist'), ENT_QUOTES, 'UTF-8') . '" data-block-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '" data-block-reason="' . htmlspecialchars((string) ($entry['block_reason'] ?? 'Break'), ENT_QUOTES, 'UTF-8') . '" data-block-notes="' . htmlspecialchars((string) ($entry['block_notes'] ?? ''), ENT_QUOTES, 'UTF-8') . '"') : ''; ?>>
+                                        <div class="schedule-block absolute rounded-xl border px-2 py-1.5 <?php echo htmlspecialchars($entryClass, ENT_QUOTES, 'UTF-8'); ?> <?php echo htmlspecialchars($zLayerClass, ENT_QUOTES, 'UTF-8'); ?><?php echo $blockCompactClass; ?><?php echo $apptResponsiveClass; ?>" style="<?php echo htmlspecialchars($entryStyle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isWork ? ('data-shift-tooltip="1" data-shift-full-name="' . htmlspecialchars($fullDentistName, ENT_QUOTES, 'UTF-8') . '" data-shift-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '"') : ''; ?> <?php echo (!$isWork && $entryKind === 'appointment') ? ('data-appointment-tooltip="1" data-appt-patient-name="' . htmlspecialchars((string) ($entry['patient_name'] ?? 'Patient'), ENT_QUOTES, 'UTF-8') . '" data-appt-dentist-name="' . htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dentist'), ENT_QUOTES, 'UTF-8') . '" data-appt-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '" data-appt-service-name="' . htmlspecialchars((string) ($entry['service_name'] ?? 'Treatment'), ENT_QUOTES, 'UTF-8') . '" data-appt-services-json="' . htmlspecialchars((string) ($entry['tooltip_services_json'] ?? '[]'), ENT_QUOTES, 'UTF-8') . '" data-appt-type="' . htmlspecialchars((string) ($entry['visit_type_label'] ?? 'Booking'), ENT_QUOTES, 'UTF-8') . '" data-appt-payment-status="' . htmlspecialchars((string) ($entry['payment_status_label'] ?? 'Unpaid'), ENT_QUOTES, 'UTF-8') . '" data-appt-status="' . htmlspecialchars((string) ($entry['appointment_status_label'] ?? 'Pending'), ENT_QUOTES, 'UTF-8') . '"') : ''; ?> <?php echo $isBlockedEntry ? ('data-block-tooltip="1" data-block-dentist-name="' . htmlspecialchars((string) ($entry['dentist_name'] ?? 'Dr. Dentist'), ENT_QUOTES, 'UTF-8') . '" data-block-time="' . htmlspecialchars($timeRangeLabel, ENT_QUOTES, 'UTF-8') . '" data-block-reason="' . htmlspecialchars((string) ($entry['block_reason'] ?? 'Break'), ENT_QUOTES, 'UTF-8') . '" data-block-notes="' . htmlspecialchars((string) ($entry['block_notes'] ?? ''), ENT_QUOTES, 'UTF-8') . '"') : ''; ?>>
                                             <?php if ($isWork): ?>
                                                 <p class="text-[9px] font-black uppercase tracking-[0.12em] text-current/80 leading-tight">WORK SHIFT</p>
                                                 <p class="mt-0.5 text-[10px] font-black text-current truncate"><?php echo htmlspecialchars($shortDentistName, ENT_QUOTES, 'UTF-8'); ?></p>
@@ -2469,7 +2548,8 @@ $dentistsSeedData = array_map(static function ($dentist) {
         </div>
         <div class="h-px bg-slate-200"></div>
         <div class="space-y-1.5">
-            <p id="apptTooltipServiceName" class="text-sm font-semibold text-slate-700 break-words">📌</p>
+            <p class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500">Services</p>
+            <ul id="apptTooltipServiceList" class="list-disc pl-5 m-0 mt-1 space-y-1 text-sm font-semibold text-slate-700 leading-snug break-words"></ul>
             <p id="apptTooltipType" class="text-sm font-semibold text-slate-700 break-words">📍</p>
         </div>
         <div class="space-y-1.5 pt-1">
@@ -2543,7 +2623,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
         const apptTooltipPatientName = document.getElementById('apptTooltipPatientName');
         const apptTooltipDentistName = document.getElementById('apptTooltipDentistName');
         const apptTooltipTimeRange = document.getElementById('apptTooltipTimeRange');
-        const apptTooltipServiceName = document.getElementById('apptTooltipServiceName');
+        const apptTooltipServiceList = document.getElementById('apptTooltipServiceList');
         const apptTooltipType = document.getElementById('apptTooltipType');
         const apptTooltipPaymentStatus = document.getElementById('apptTooltipPaymentStatus');
         const apptTooltipAppointmentStatus = document.getElementById('apptTooltipAppointmentStatus');
@@ -2706,14 +2786,34 @@ $dentistsSeedData = array_map(static function ($dentist) {
             appointmentInfoTooltip.style.top = Math.round(top) + 'px';
         }
 
+        function populateAppointmentTooltipServiceList(names) {
+            if (!apptTooltipServiceList) return;
+            while (apptTooltipServiceList.firstChild) {
+                apptTooltipServiceList.removeChild(apptTooltipServiceList.firstChild);
+            }
+            let list = Array.isArray(names) ? names.slice() : [];
+            list = list.map(function (n) {
+                return String(n || '').trim();
+            }).filter(Boolean);
+            if (!list.length) {
+                list = ['Treatment'];
+            }
+            list.forEach(function (svc) {
+                const li = document.createElement('li');
+                li.textContent = svc;
+                apptTooltipServiceList.appendChild(li);
+            });
+        }
+
         function showAppointmentTooltip(target, event) {
             if (!appointmentInfoTooltip || !target) return;
-            if (!apptTooltipPatientName || !apptTooltipDentistName || !apptTooltipTimeRange || !apptTooltipServiceName || !apptTooltipType || !apptTooltipPaymentStatus || !apptTooltipAppointmentStatus) return;
+            if (!apptTooltipPatientName || !apptTooltipDentistName || !apptTooltipTimeRange || !apptTooltipServiceList || !apptTooltipType || !apptTooltipPaymentStatus || !apptTooltipAppointmentStatus) return;
 
             const patientName = String(target.getAttribute('data-appt-patient-name') || '').trim();
             const dentistName = String(target.getAttribute('data-appt-dentist-name') || '').trim();
             const timeRange = String(target.getAttribute('data-appt-time') || '').trim();
             const serviceName = String(target.getAttribute('data-appt-service-name') || '').trim();
+            const rawServicesAttr = target.getAttribute('data-appt-services-json');
             const typeLabel = String(target.getAttribute('data-appt-type') || '').trim();
             const paymentStatus = String(target.getAttribute('data-appt-payment-status') || '').trim();
             const appointmentStatus = String(target.getAttribute('data-appt-status') || '').trim();
@@ -2724,7 +2824,21 @@ $dentistsSeedData = array_map(static function ($dentist) {
             apptTooltipPatientName.textContent = patientName;
             apptTooltipDentistName.textContent = '🦷 Dentist: ' + (dentistName || '-');
             apptTooltipTimeRange.textContent = '🕒 Time: ' + (timeRange || '-');
-            apptTooltipServiceName.textContent = '📌 Service: ' + (serviceName || '-');
+            let parsedServices = null;
+            if (typeof rawServicesAttr === 'string' && rawServicesAttr.trim() !== '') {
+                try {
+                    parsedServices = JSON.parse(rawServicesAttr);
+                } catch (ignored) {
+                    parsedServices = null;
+                }
+            }
+            if (Array.isArray(parsedServices) && parsedServices.length) {
+                populateAppointmentTooltipServiceList(parsedServices);
+            } else if (serviceName) {
+                populateAppointmentTooltipServiceList([serviceName]);
+            } else {
+                populateAppointmentTooltipServiceList([]);
+            }
             apptTooltipType.textContent = '📍 Type: ' + (typeLabel || '-');
             apptTooltipPaymentStatus.textContent = '💳 Status: ' + (paymentStatus || '-');
             apptTooltipAppointmentStatus.textContent = '📊 Appointment: ' + (appointmentStatus || '-');
