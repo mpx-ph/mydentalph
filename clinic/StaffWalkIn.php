@@ -1523,6 +1523,16 @@ try {
             });
         }
 
+        /** Walk-in scope for installment patients: lines other than primary. Show Payment Breakdown only if any is not included_plan. */
+        function walkInBreakdownNeedsPaymentSection() {
+            if (!treatmentIsInstallmentPlan(activeTreatmentContext)) {
+                return true;
+            }
+            return getAddedServicesForInstallmentTreatment().some(function (service) {
+                return !isIncludedPlanService(service);
+            });
+        }
+
         function treatmentIsInstallmentPlan(treatmentContext) {
             if (!treatmentContext || !treatmentContext.has_active_treatment || !treatmentContext.treatment) {
                 return false;
@@ -1662,9 +1672,9 @@ try {
 
         function updatePaymentDetailsVisibility() {
             const hasInstallmentTreatment = treatmentIsInstallmentPlan(activeTreatmentContext);
-            const hasAddedServices = getAddedServicesForInstallmentTreatment().length > 0;
+            const showPaymentBreakdown = !hasInstallmentTreatment || walkInBreakdownNeedsPaymentSection();
             if (walkInDefaultPaymentDetailsSectionEl) {
-                walkInDefaultPaymentDetailsSectionEl.classList.toggle('hidden', hasInstallmentTreatment ? !hasAddedServices : false);
+                walkInDefaultPaymentDetailsSectionEl.classList.toggle('hidden', !showPaymentBreakdown);
             }
             if (walkInTreatmentPaymentProgressSectionEl) {
                 walkInTreatmentPaymentProgressSectionEl.classList.toggle('hidden', !hasInstallmentTreatment);
