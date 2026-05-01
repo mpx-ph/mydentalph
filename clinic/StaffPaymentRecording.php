@@ -454,6 +454,55 @@ function staff_payment_recording_normalize_receipt_installment_totals(array &$it
 }
 
 /**
+ * Whether installment row #1 is a discrete downpayment (vs monthly #1) for labeling receipts.
+ *
+ * Uses tbl_treatments.duration_months when present: downpayment-flow schedules have one extra slot
+ * (row 1 down + duration_months monthly rows numbered 2..duration+1), so max(installment_number) > duration_months.
+ */
+function staff_payment_recording_schedule_row1_is_discrete_downpayment(array $schedule, int $treatmentDurationMonths): bool
+{
+    $maxInst = 0;
+    $amountByNumber = [];
+    foreach ($schedule as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $n = (int) ($row['installment_number'] ?? 0);
+        if ($n <= 0) {
+            continue;
+        }
+        $maxInst = max($maxInst, $n);
+        $amountByNumber[$n] = round(max(0.0, (float) ($row['amount_due'] ?? 0)), 2);
+    }
+    $treatDur = max(0, $treatmentDurationMonths);
+    if ($treatDur > 0 && $maxInst > $treatDur) {
+        return true;
+    }
+    $a1 = $amountByNumber[1] ?? 0.0;
+    $a2 = $amountByNumber[2] ?? 0.0;
+    if ($a1 > 0.009 && $a2 > 0.009 && abs($a1 - $a2) > 0.05) {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Map schedule installment_number to patient-facing monthly ordinal (1-based), or 0 for downpayment line.
+ *
+ * When row 1 is discrete downpayment, schedule slots 2+ are Monthly #1, #2, …
+ */
+function staff_payment_recording_schedule_num_to_monthly_display_num(int $scheduleInstNum, bool $row1IsDiscreteDown): int
+{
+    if ($scheduleInstNum <= 0) {
+        return 0;
+    }
+    if ($scheduleInstNum === 1) {
+        return $row1IsDiscreteDown ? 0 : 1;
+    }
+    return $row1IsDiscreteDown ? ($scheduleInstNum - 1) : $scheduleInstNum;
+}
+
+/**
  * Build receipt breakdown from the current payment transaction only.
  *
  * @return array{service_label:string, service_items:list<array{name:string, amount:float}>, services_total:float}
@@ -465,6 +514,7 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
     $monthsPaid = max(0, (int) ($payment['months_paid'] ?? 0));
     $paymentType = strtolower(trim((string) ($payment['payment_type'] ?? '')));
     $serviceType = strtolower(trim((string) ($payment['service_type'] ?? '')));
+    $treatmentDurationMonths = max(0, (int) ($payment['treatment_duration_months'] ?? 0));
 
     $serviceHint = trim((string) ($payment['service_description'] ?? ''));
     if ($serviceHint === '') {
@@ -479,6 +529,10 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
     $installmentSchedule = isset($payment['installment_schedule']) && is_array($payment['installment_schedule'])
         ? $payment['installment_schedule']
         : [];
+    $row1DiscreteForReceipt = staff_payment_recording_schedule_row1_is_discrete_downpayment(
+        $installmentSchedule,
+        $treatmentDurationMonths
+    );
     $regularServiceItems = [];
     if (isset($payment['regular_service_items']) && is_array($payment['regular_service_items'])) {
         foreach ($payment['regular_service_items'] as $row) {
@@ -555,9 +609,12 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
                 if ($amountForInstallment <= 0.0) {
                     continue;
                 }
-                $itemLabel = $instNum === 1
-                    ? 'Downpayment'
-                    : ('Monthly Payment #' . $instNum);
+                $disp = staff_payment_recording_schedule_num_to_monthly_display_num((int) $instNum, $row1DiscreteForReceipt);
+                if ($disp === 0) {
+                    $itemLabel = 'Downpayment';
+                } else {
+                    $itemLabel = 'Monthly Payment #' . $disp;
+                }
                 $installmentItems[] = [
                     'name' => $itemLabel,
                     'amount' => $amountForInstallment,
@@ -637,15 +694,17 @@ function staff_payment_recording_build_transaction_breakdown(array $payment): ar
             }
         }
 
-        if ($installmentNumber === 1 || $paymentType === 'downpayment') {
+        $dispInst = $installmentNumber > 0
+            ? staff_payment_recording_schedule_num_to_monthly_display_num($installmentNumber, $row1DiscreteForReceipt)
+            : -1;
+        if ($dispInst === 0 || ($dispInst < 0 && $paymentType === 'downpayment')) {
             $transactionLabel = 'Downpayment';
+        } elseif ($dispInst > 0) {
+            $transactionLabel = 'Monthly Payment #' . $dispInst;
+        } elseif ($monthsPaid > 0) {
+            $transactionLabel = 'Monthly Payment #' . $monthsPaid;
         } else {
-            $monthlyPaymentNumber = $monthsPaid > 0
-                ? $monthsPaid
-                : ($installmentNumber > 1 ? ($installmentNumber - 1) : 0);
-            $transactionLabel = $monthlyPaymentNumber > 0
-                ? ('Monthly Payment #' . $monthlyPaymentNumber)
-                : 'Monthly Payment';
+            $transactionLabel = 'Monthly Payment';
         }
     } elseif ($serviceType === 'regular' || $serviceType === '') {
         $transactionLabel = 'Regular Services';
@@ -1403,6 +1462,7 @@ try {
                         {$receiptInstallmentNumberSelectSql} AS installment_number,
                         {$receiptPaymentTypeSelectSql} AS payment_type,
                         COALESCE(t.months_paid, 0) AS months_paid,
+                        COALESCE(t.duration_months, 0) AS treatment_duration_months,
                         COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
                         COALESCE((
                             SELECT SUM(py2.amount)
@@ -2822,6 +2882,7 @@ try {
                 {$recentInstallmentNumberSelectSql} AS installment_number,
                 {$recentPaymentTypeSelectSql} AS payment_type,
                 COALESCE(t.months_paid, 0) AS months_paid,
+                COALESCE(t.duration_months, 0) AS treatment_duration_months,
                 {$recentInstallmentPlanSelectSql},
                 COALESCE(a.appointment_date, '') AS appointment_date,
                 COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
