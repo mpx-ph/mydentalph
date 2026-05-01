@@ -165,6 +165,45 @@ function staff_payment_recording_fetch_regular_services_for_booking(
 }
 
 /**
+ * Comma-separated appointment line item names for receipts (all services on the booking).
+ */
+function staff_payment_recording_fetch_appointment_service_names_summary(
+    PDO $pdo,
+    string $tenantId,
+    string $bookingId,
+    bool $supportsAppointmentServicesTable
+): string {
+    $bookingId = trim($bookingId);
+    if (!$supportsAppointmentServicesTable || $bookingId === '' || $tenantId === '') {
+        return '';
+    }
+    $stmt = $pdo->prepare("
+        SELECT service_name
+        FROM tbl_appointment_services
+        WHERE tenant_id = ?
+          AND booking_id = ?
+          AND TRIM(COALESCE(service_name, '')) <> ''
+        ORDER BY id ASC
+    ");
+    $stmt->execute([$tenantId, $bookingId]);
+    $seen = [];
+    $names = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+        $n = trim((string) ($row['service_name'] ?? ''));
+        if ($n === '') {
+            continue;
+        }
+        $key = strtolower($n);
+        if (isset($seen[$key])) {
+            continue;
+        }
+        $seen[$key] = true;
+        $names[] = $n;
+    }
+    return implode(', ', $names);
+}
+
+/**
  * Incrementally sync a treatment's financial fields when a payment is recorded.
  *
  * This should only be called for successful payments (e.g. tbl_payments.status = 'completed' or 'paid')
@@ -764,6 +803,7 @@ function staff_payment_recording_build_receipt_email_html(array $receipt): strin
     $patientId = htmlspecialchars((string) ($receipt['patient_id'] ?? 'N/A'), ENT_QUOTES, 'UTF-8');
     $reference = htmlspecialchars((string) ($receipt['reference'] ?? '-'), ENT_QUOTES, 'UTF-8');
     $paymentId = htmlspecialchars((string) ($receipt['payment_id'] ?? '-'), ENT_QUOTES, 'UTF-8');
+    $appointmentServicesLine = htmlspecialchars(trim((string) ($receipt['appointment_services'] ?? '')), ENT_QUOTES, 'UTF-8');
     $service = htmlspecialchars((string) ($receipt['service'] ?? 'Dental treatment'), ENT_QUOTES, 'UTF-8');
     $paymentDate = htmlspecialchars((string) ($receipt['payment_date'] ?? '-'), ENT_QUOTES, 'UTF-8');
     $paymentMethod = htmlspecialchars((string) ($receipt['payment_method'] ?? '-'), ENT_QUOTES, 'UTF-8');
@@ -796,6 +836,12 @@ function staff_payment_recording_build_receipt_email_html(array $receipt): strin
     if ($serviceRowsHtml === '') {
         $serviceRowsHtml = '<tr><td style="font-size:15px;line-height:21px;font-weight:600;color:#41547a;padding:0 0 8px;">Service</td><td align="right" style="font-size:15px;line-height:21px;font-weight:800;color:#0f172a;padding:0 0 8px;">' . $service . '</td></tr>';
     }
+    $appointmentServicesRowHtml = '';
+    if ($appointmentServicesLine !== '') {
+        $appointmentServicesRowHtml = '<tr><td style="font-size:14px;line-height:20px;font-weight:700;color:#0f172a;padding:0 0 10px;">Appointment services</td><td align="right" style="font-size:14px;line-height:20px;font-weight:700;color:#0f172a;padding:0 0 10px;max-width:360px;">' . $appointmentServicesLine . '</td></tr>'
+            . '<tr><td colspan="2" style="border-bottom:1px solid #e2e8f0;line-height:0;font-size:0;padding:0 0 6px">&nbsp;</td></tr>'
+            . '<tr><td height="8"></td><td></td></tr>';
+    }
 
     return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
         . '<title>Payment Receipt</title></head><body style="margin:0;padding:0;background:#f3f8ff;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">'
@@ -824,6 +870,7 @@ function staff_payment_recording_build_receipt_email_html(array $receipt): strin
         . '<tr><td style="padding:18px 24px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #dbeafe;border-radius:14px;overflow:hidden;">'
         . '<tr><td style="padding:12px 14px;background:#f9fcff;border-bottom:1px solid #dbeafe;font-size:13px;line-height:18px;letter-spacing:4px;font-weight:800;color:#4f668f;text-transform:uppercase;">Payment Breakdown</td></tr>'
         . '<tr><td style="padding:12px 14px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">'
+        . $appointmentServicesRowHtml
         . $serviceRowsHtml
         . '<tr><td style="font-size:16px;line-height:22px;font-weight:800;color:#1e3a8a;padding:2px 0 0;">Total</td><td align="right" style="font-size:16px;line-height:22px;font-weight:900;color:#1e3a8a;padding:2px 0 0;">' . $servicesTotal . '</td></tr>'
         . '<tr><td height="12"></td><td></td></tr>'
@@ -1507,6 +1554,7 @@ try {
                     $paymentError = 'Patient has no registered email address.';
                 } else {
                     $receiptBookingId = trim((string) ($receiptRow['booking_id'] ?? ''));
+                    $appointmentServicesSummary = '';
                     if ($receiptBookingId !== '' && isset($pdo) && $pdo instanceof PDO) {
                         $receiptRow['regular_service_items'] = staff_payment_recording_fetch_regular_services_for_booking(
                             $pdo,
@@ -1521,6 +1569,12 @@ try {
                             $installmentsTableName,
                             $tenantId,
                             $receiptBookingId
+                        );
+                        $appointmentServicesSummary = staff_payment_recording_fetch_appointment_service_names_summary(
+                            $pdo,
+                            $tenantId,
+                            $receiptBookingId,
+                            $supportsAppointmentServicesTable
                         );
                     } else {
                         $receiptRow['regular_service_items'] = [];
@@ -1556,10 +1610,16 @@ try {
                     $emailSubject = 'Payment Receipt - ' . $clinicDisplayName;
                     $amountPaidLabel = '₱' . number_format($amountPaid, 2);
                     $balanceLeftLabel = '₱' . number_format($balanceLeft, 2);
+                    $appointmentServicesSummaryForEmail = trim((string) $appointmentServicesSummary);
                     $emailBodyText = "Clinic: {$clinicDisplayName}\n"
                         . "Patient: {$patientFullName}\n"
                         . "Payment ID: " . (string) ($receiptRow['payment_id'] ?? '') . "\n"
                         . "Reference: {$referenceLabel}\n"
+                        . (
+                            $appointmentServicesSummaryForEmail !== ''
+                                ? ("Appointment services: {$appointmentServicesSummaryForEmail}\n")
+                                : ''
+                        )
                         . "Services: {$servicesLabel}\n"
                         . "Service Total: {$servicesTotalLabel}\n"
                         . "Amount Paid: {$amountPaidLabel}\n"
@@ -1572,6 +1632,7 @@ try {
                         'patient_id' => trim((string) ($receiptRow['patient_id'] ?? 'N/A')),
                         'reference' => $referenceLabel,
                         'payment_id' => (string) ($receiptRow['payment_id'] ?? ''),
+                        'appointment_services' => $appointmentServicesSummaryForEmail,
                         'service' => $servicesLabel,
                         'service_items' => $serviceItems,
                         'services_total' => $servicesTotalLabel,
@@ -4106,6 +4167,7 @@ if ($paymentError === 'Please select a payment method.') {
     }
     $patientEmail = trim((string) ($payment['patient_email'] ?? ''));
     $paymentBookingId = trim((string) ($payment['booking_id'] ?? ''));
+    $appointmentServicesSummaryReceipt = '';
     if ($paymentBookingId !== '' && isset($pdo) && $pdo instanceof PDO) {
         $payment['regular_service_items'] = staff_payment_recording_fetch_regular_services_for_booking(
             $pdo,
@@ -4114,6 +4176,12 @@ if ($paymentError === 'Please select a payment method.') {
             $supportsAppointmentServicesTable,
             $supportsAppointmentServiceTypeColumn,
             $supportsServiceEnableInstallmentColumn
+        );
+        $appointmentServicesSummaryReceipt = staff_payment_recording_fetch_appointment_service_names_summary(
+            $pdo,
+            $tenantId,
+            $paymentBookingId,
+            $supportsAppointmentServicesTable
         );
     } else {
         $payment['regular_service_items'] = [];
@@ -4147,6 +4215,7 @@ if ($paymentError === 'Please select a payment method.') {
         'booking_id' => (string) ($payment['booking_id'] ?? ''),
         'clinic_name' => $clinicDisplayName,
         'clinic_logo' => $clinicLogoUrl,
+        'appointment_services' => $appointmentServicesSummaryReceipt,
     ];
 ?>
 <tr class="hover:bg-slate-50/30 transition-colors group">
@@ -5832,6 +5901,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const reference = escapeHtml(receipt.reference_number || '-');
             const paymentId = escapeHtml(receipt.payment_id || '-');
             const service = escapeHtml(receipt.service || 'Dental treatment');
+            const appointmentSvc = escapeHtml(String(receipt.appointment_services || '').trim());
             const paymentDate = escapeHtml(formatReceiptDate(receipt.payment_date));
             const paymentMethod = escapeHtml(receipt.payment_method || '-');
             const amountPaid = escapeHtml(formatPeso(receipt.amount_paid));
@@ -5839,6 +5909,12 @@ This booking is installment-priced, but no installment schedule rows exist in th
             const serviceItems = Array.isArray(receipt.service_items) ? receipt.service_items : [];
             const servicesTotal = escapeHtml(formatPeso(receipt.services_total || 0));
             let serviceRowsMarkup = '';
+            let appointmentSvcRowMarkup = '';
+            if (appointmentSvc !== '') {
+                appointmentSvcRowMarkup = '<tr><td style="font-size:14px;line-height:20px;font-weight:700;color:#0f172a;padding:0 0 10px;">Appointment services</td><td align="right" style="font-size:14px;line-height:20px;font-weight:700;color:#0f172a;padding:0 0 10px;max-width:360px;word-break:break-word;">' + appointmentSvc + '</td></tr>'
+                    + '<tr><td colspan="2" style="border-bottom:1px solid #e2e8f0;line-height:0;font-size:0;padding:0 0 6px">&nbsp;</td></tr>'
+                    + '<tr><td height="8"></td><td></td></tr>';
+            }
             if (serviceItems.length) {
                 serviceRowsMarkup = serviceItems.map((item) => {
                     const itemName = escapeHtml((item && item.name) ? String(item.name) : 'Service');
@@ -5848,6 +5924,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
             } else {
                 serviceRowsMarkup = '<tr><td style="font-size:15px;line-height:21px;font-weight:600;color:#41547a;padding:0 0 8px;">Service</td><td align="right" style="font-size:15px;line-height:21px;font-weight:800;color:#0f172a;padding:0 0 8px;">' + service + '</td></tr>';
             }
+            serviceRowsMarkup = appointmentSvcRowMarkup + serviceRowsMarkup;
 
             return '' +
                 '<div style="max-width:760px;margin:0 auto;background:#fff;border:1px solid #dbeafe;border-radius:18px;overflow:hidden;font-family:Arial,sans-serif;color:#0f172a;">' +
@@ -5918,14 +5995,22 @@ This booking is installment-priced, but no installment schedule rows exist in th
             if (!container || !totalEl) {
                 return;
             }
+            const apptSvc = String(receipt && receipt.appointment_services ? receipt.appointment_services : '').trim();
+            let apptRowHtml = '';
+            if (apptSvc !== '') {
+                apptRowHtml = '<div class="flex items-start justify-between gap-4 text-sm pb-2 border-b border-slate-200">'
+                    + '<span class="font-semibold text-slate-600 shrink-0">Appointment services</span>'
+                    + '<span class="font-bold text-slate-900 text-right max-w-[60%] break-words">' + escapeHtml(apptSvc) + '</span>'
+                    + '</div>';
+            }
             const serviceItems = Array.isArray(receipt && receipt.service_items) ? receipt.service_items : [];
             if (!serviceItems.length) {
                 const fallbackService = escapeHtml((receipt && receipt.service) ? receipt.service : 'Dental treatment');
-                container.innerHTML = '<div class="flex items-start justify-between gap-4 text-sm"><span class="font-semibold text-slate-600">Service</span><span class="font-bold text-slate-900 text-right max-w-[60%] break-words">' + fallbackService + '</span></div>';
+                container.innerHTML = apptRowHtml + '<div class="flex items-start justify-between gap-4 text-sm"><span class="font-semibold text-slate-600">Service</span><span class="font-bold text-slate-900 text-right max-w-[60%] break-words">' + fallbackService + '</span></div>';
                 totalEl.textContent = formatPeso((receipt && receipt.services_total) ? receipt.services_total : 0);
                 return;
             }
-            container.innerHTML = serviceItems.map((item) => {
+            container.innerHTML = apptRowHtml + serviceItems.map((item) => {
                 const itemName = escapeHtml((item && item.name) ? String(item.name) : 'Service');
                 const itemAmount = escapeHtml(formatPeso(item && item.amount ? item.amount : 0));
                 return '<div class="flex items-start justify-between gap-4 text-sm"><span class="font-semibold text-slate-600">' + itemName + '</span><span class="font-bold text-slate-900 text-right">' + itemAmount + '</span></div>';
