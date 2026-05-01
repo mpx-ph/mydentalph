@@ -2965,6 +2965,10 @@ try {
                 {$recentPaymentTypeSelectSql} AS payment_type,
                 COALESCE(t.months_paid, 0) AS months_paid,
                 COALESCE(t.duration_months, 0) AS treatment_duration_months,
+                TRIM(COALESCE(a.treatment_id, '')) AS appointment_treatment_id,
+                COALESCE(t.total_cost, 0) AS treatment_total_cost,
+                COALESCE(t.amount_paid, 0) AS treatment_amount_paid,
+                COALESCE(t.remaining_balance, 0) AS treatment_remaining_balance,
                 {$recentInstallmentPlanSelectSql},
                 COALESCE(a.appointment_date, '') AS appointment_date,
                 COALESCE(a.total_treatment_cost, 0) AS total_treatment_cost,
@@ -4155,10 +4159,35 @@ if ($paymentError === 'Please select a payment method.') {
             $statusClasses = 'bg-red-50 text-red-700 border border-red-200';
         }
     } elseif ($isBookingInstallmentPlan && !$isExplicitInstallmentPayment) {
-        // A completed regular add-on payment under an installment booking is fully settled immediately.
-        // Do not downgrade it to PARTIAL using booking-level installment remaining balance.
-        $financialStatus = 'PAID';
-        $statusClasses = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+        // Appointment total can be ₱0 for included_plan visits; payment row must reflect treatment/installment balance.
+        $appointmentTreatmentId = trim((string) ($payment['appointment_treatment_id'] ?? ''));
+        $treatmentRemaining = (float) ($payment['treatment_remaining_balance'] ?? 0);
+        $statusTotalCost = max(
+            (float) ($payment['total_treatment_cost'] ?? 0),
+            (float) ($payment['treatment_total_cost'] ?? 0)
+        );
+        $statusTotalPaid = max(
+            (float) ($payment['booking_total_paid'] ?? 0),
+            (float) ($payment['treatment_amount_paid'] ?? 0)
+        );
+        $financialStatus = staff_payment_recording_financial_status(
+            $statusTotalCost,
+            $statusTotalPaid,
+            trim((string) ($payment['appointment_date'] ?? '')),
+            $isBookingInstallmentPlan,
+            (array) ($payment['installment_schedule'] ?? [])
+        );
+        if ($appointmentTreatmentId !== '' && $treatmentRemaining > 0.009 && $financialStatus === 'PAID') {
+            $financialStatus = 'PARTIAL';
+        }
+        $statusClasses = 'bg-rose-50 text-rose-700 border border-rose-200';
+        if ($financialStatus === 'PAID') {
+            $statusClasses = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+        } elseif ($financialStatus === 'PARTIAL') {
+            $statusClasses = 'bg-amber-50 text-amber-700 border border-amber-200';
+        } elseif ($financialStatus === 'UNPAID') {
+            $statusClasses = 'bg-slate-100 text-slate-700 border border-slate-200';
+        }
     } else {
         $financialStatus = staff_payment_recording_financial_status(
             (float) ($payment['total_treatment_cost'] ?? 0),
@@ -4209,6 +4238,8 @@ if ($paymentError === 'Please select a payment method.') {
     $isRegularAddOnReceipt = strcasecmp((string) ($receiptBreakdown['service_label'] ?? ''), 'Add-on Services') === 0;
     if ($isRegularAddOnReceipt) {
         $remainingBalance = 0.0;
+    } elseif (trim((string) ($payment['appointment_treatment_id'] ?? '')) !== '' && (float) ($payment['treatment_remaining_balance'] ?? 0) > 0.009) {
+        $remainingBalance = max(0, (float) ($payment['treatment_remaining_balance'] ?? 0));
     } else {
         $remainingBalance = max(0, (float) ($payment['total_treatment_cost'] ?? 0) - (float) ($payment['booking_total_paid'] ?? 0));
     }
