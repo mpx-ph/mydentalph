@@ -3552,7 +3552,15 @@ try {
                         aps.service_id,
                         aps.service_name,
                         aps.price,
-                        " . (in_array('is_original', $appointmentServiceColumns, true) ? "CASE WHEN COALESCE(aps.is_original, 1) = 0 THEN 1 ELSE 0 END" : "0") . " AS is_addon,
+                        " . (in_array('is_original', $appointmentServiceColumns, true)
+                            ? "CASE WHEN COALESCE(aps.is_original, 1) = 0 THEN 1 ELSE 0 END"
+                            : "CASE
+                                    WHEN TRIM(COALESCE(a2.treatment_id, '')) <> ''
+                                     AND TRIM(COALESCE(aps.treatment_id, '')) = ''
+                                     AND LOWER(TRIM(COALESCE(aps.service_type, COALESCE(sv.service_type, 'regular')))) = 'regular'
+                                    THEN 1
+                                    ELSE 0
+                                END") . " AS is_addon,
                         {$bookedServiceTypeSelectSql} AS service_type,
                         COALESCE(NULLIF(sv.category, ''), '') AS category
                     FROM tbl_appointment_services aps
@@ -5433,7 +5441,6 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 return true;
             });
             const bookedRegularOriginal = bookedRegular.filter((s) => !(s && (s.is_addon === true || s.is_addon === 1 || s.is_addon === '1')));
-            const regularCostByLines = bookedRegularOriginal.reduce((sum, s) => sum + Number((s && s.price) || 0), 0);
             const normalizedServiceType = String(item.service_type || '').toLowerCase().trim();
             const hasInstallmentSchedule = Array.isArray(item.installment_schedule) && item.installment_schedule.length > 0;
             // Do not treat a bare appointment treatment_id as installment unless there is
@@ -5443,11 +5450,15 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 || bookedInstallment.length > 0
                 || normalizedServiceType === 'installment'
                 || hasInstallmentSchedule;
+            // Add-ons inserted during installment payment should stay merged into the active installment context.
+            // They should not spawn a second "regular" pending transaction card.
+            const regularServicesForPending = hasInstallmentEntry ? bookedRegularOriginal : bookedRegular;
+            const regularCostByLines = regularServicesForPending.reduce((sum, s) => sum + Number((s && s.price) || 0), 0);
             const servicesAreOnlyIncludedPlan = bookedServicesRaw.length > 0
                 && bookedServicesRaw.every(function (s) {
                     return String((s && s.service_type) || '').toLowerCase().trim() === 'included_plan';
                 });
-            const hasRegularEntry = bookedRegular.length > 0
+            const hasRegularEntry = regularServicesForPending.length > 0
                 || (!hasInstallmentEntry && (!servicesAreOnlyIncludedPlan || bookedServicesRaw.length === 0));
             const installmentScheduleRaw = Array.isArray(item.installment_schedule) ? item.installment_schedule : [];
             const installmentTotalBySchedule = installmentScheduleRaw.reduce((sum, r) => sum + Number((r && r.amount_due) || 0), 0);
@@ -5505,8 +5516,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     pending_balance: Math.max(0, regularCost - regularPaid) <= SETTLED_BALANCE_EPSILON
                         ? 0
                         : Math.max(0, regularCost - regularPaid),
-                    booked_services: bookedRegular.length ? bookedRegular : bookedServicesRaw,
-                    booked_service_ids: (bookedRegular.length ? bookedRegular : bookedServicesRaw)
+                    booked_services: regularServicesForPending.length ? regularServicesForPending : bookedServicesRaw,
+                    booked_service_ids: (regularServicesForPending.length ? regularServicesForPending : bookedServicesRaw)
                         .map((s) => String((s && s.service_id) || '').trim())
                         .filter((id) => id !== '')
                 });
