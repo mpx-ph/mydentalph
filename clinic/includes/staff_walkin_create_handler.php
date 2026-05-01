@@ -373,6 +373,8 @@ try {
         $paymentsTable = clinic_get_physical_table_name($pdo, 'tbl_payments')
             ?? clinic_get_physical_table_name($pdo, 'payments');
         $qtreat = clinic_quote_identifier($treatmentsTable);
+        $fetchedActiveTreatment = null;
+        $isFullyPaidTreatment = false;
         $activeTreatmentStmt = $pdo->prepare("
             SELECT *
             FROM {$qtreat}
@@ -383,17 +385,18 @@ try {
             LIMIT 1
         ");
         $activeTreatmentStmt->execute([$tenantId, $patientId]);
-        $activeTreatment = $activeTreatmentStmt->fetch(PDO::FETCH_ASSOC) ?: null;
-        if ($activeTreatment) {
-            $activeDurationMonths = (int) ($activeTreatment['duration_months'] ?? 0);
-            $activeMonthsLeft = (int) ($activeTreatment['months_left'] ?? 0);
-            $activeRemaining = (float) ($activeTreatment['remaining_balance'] ?? 0);
-            $activeTotalCost = (float) ($activeTreatment['total_cost'] ?? 0);
-            $activeAmountPaid = (float) ($activeTreatment['amount_paid'] ?? 0);
-            $activeInstallmentTotalSlots = (int) ($activeTreatment['installment_total_slots'] ?? 0);
-            $activeInstallmentSettledSlots = (int) ($activeTreatment['installment_settled_slots'] ?? 0);
+        $fetchedActiveTreatment = $activeTreatmentStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        $activeTreatment = null;
+        if ($fetchedActiveTreatment) {
+            $activeDurationMonths = (int) ($fetchedActiveTreatment['duration_months'] ?? 0);
+            $activeMonthsLeft = (int) ($fetchedActiveTreatment['months_left'] ?? 0);
+            $activeRemaining = (float) ($fetchedActiveTreatment['remaining_balance'] ?? 0);
+            $activeTotalCost = (float) ($fetchedActiveTreatment['total_cost'] ?? 0);
+            $activeAmountPaid = (float) ($fetchedActiveTreatment['amount_paid'] ?? 0);
+            $activeInstallmentTotalSlots = (int) ($fetchedActiveTreatment['installment_total_slots'] ?? 0);
+            $activeInstallmentSettledSlots = (int) ($fetchedActiveTreatment['installment_settled_slots'] ?? 0);
             $allInstallmentSlotsPaid = $activeInstallmentTotalSlots > 0 && $activeInstallmentSettledSlots >= $activeInstallmentTotalSlots;
-            $activeTreatmentId = (string) ($activeTreatment['treatment_id'] ?? '');
+            $activeTreatmentId = (string) ($fetchedActiveTreatment['treatment_id'] ?? '');
             if ($paymentsTable !== null && $activeTreatmentId !== '') {
                 $paymentsCols = clinic_table_columns($pdo, $paymentsTable);
                 $appointmentsColsForPayments = clinic_table_columns($pdo, $appointmentsTable);
@@ -523,7 +526,7 @@ try {
             $fullyPaidByMonths = $activeDurationMonths > 0
                 && (
                     $activeMonthsLeft <= 0
-                    || (int) ($activeTreatment['months_paid'] ?? 0) >= $activeDurationMonths
+                    || (int) ($fetchedActiveTreatment['months_paid'] ?? 0) >= $activeDurationMonths
                 );
             $isFullyPaidTreatment = $fullyPaidByBalance || $allInstallmentSlotsPaid || $fullyPaidByAmount || $fullyPaidByMonths;
             $hasOutstandingByAmount = $activeTotalCost > 0 && $activeAmountPaid < ($activeTotalCost - 0.009);
@@ -534,8 +537,8 @@ try {
                     || $hasOutstandingByAmount
                     || $hasOutstandingBySlots
                 );
-            if (!$isActiveInstallmentTreatment) {
-                $activeTreatment = null;
+            if ($isActiveInstallmentTreatment) {
+                $activeTreatment = $fetchedActiveTreatment;
             }
         }
 
@@ -549,16 +552,32 @@ try {
             return $v !== '';
         })));
 
+        $onlyIncludedPlanServices = false;
+        if ($normalizedServices !== []) {
+            $onlyIncludedPlanServices = true;
+            foreach ($normalizedServices as $sRow) {
+                if (strtolower(trim((string) ($sRow['service_type'] ?? ''))) !== 'included_plan') {
+                    $onlyIncludedPlanServices = false;
+                    break;
+                }
+            }
+        }
+
         if ($requestedTreatmentId !== '') {
+            $requestedMatchesActiveRow = $fetchedActiveTreatment
+                && (string) ($fetchedActiveTreatment['treatment_id'] ?? '') === $requestedTreatmentId;
+            // Plan visits (included_plan-only) attach to treatment_id but skip enable_installment; backend may classify
+            // the row as "not installment-active" even while status=active — still allow unpaid follow-ups.
+            $includedPlanContinuation = $onlyIncludedPlanServices && $requestedMatchesActiveRow && !$isFullyPaidTreatment;
             if (
-                !$activeTreatment
-                || !$isActiveInstallmentTreatment
-                || (string) ($activeTreatment['treatment_id'] ?? '') !== $requestedTreatmentId
+                !$requestedMatchesActiveRow
+                || (!$isActiveInstallmentTreatment && !$includedPlanContinuation)
             ) {
                 $pdo->rollBack();
                 echo json_encode(['success' => false, 'message' => 'Selected treatment is no longer active for this patient.']);
                 exit;
             }
+            $activeTreatment = $fetchedActiveTreatment;
             $activePrimaryServiceId = trim((string) ($activeTreatment['primary_service_id'] ?? ''));
             foreach ($selectedInstallmentServiceIds as $selectedInstallmentServiceId) {
                 if ($activePrimaryServiceId !== '' && $selectedInstallmentServiceId !== $activePrimaryServiceId) {
@@ -568,6 +587,7 @@ try {
                 }
             }
             $resolvedTreatmentId = $requestedTreatmentId;
+            $isFollowUpVisitForActiveTreatment = true;
         } elseif ($hasInstallmentService && $activeTreatment && $isActiveInstallmentTreatment) {
             $pdo->rollBack();
             echo json_encode(['success' => false, 'message' => 'Patient already has an active installment treatment. Continue the ongoing installment service first.']);
@@ -576,7 +596,6 @@ try {
 
         if ($resolvedTreatmentId !== '' && $activeTreatment) {
             $primaryServiceId = (string) ($activeTreatment['primary_service_id'] ?? '');
-            $isFollowUpVisitForActiveTreatment = $isActiveInstallmentTreatment;
             foreach ($normalizedServices as $s) {
                 if (!empty($s['enable_installment']) && (string) $s['service_id'] !== $primaryServiceId) {
                     $pdo->rollBack();
@@ -715,7 +734,17 @@ try {
         'service_payment_type' => ($resolvedTreatmentId !== '' && $isFollowUpVisitForActiveTreatment) ? 'installment' : 'regular',
         'has_installment' => $hasInstallmentService,
     ]];
-    $primaryServiceId = trim((string) ($activeTreatment['primary_service_id'] ?? ''));
+    $primaryServiceId = '';
+    if ($activeTreatment) {
+        $primaryServiceId = trim((string) ($activeTreatment['primary_service_id'] ?? ''));
+    } elseif ($resolvedTreatmentId !== '' && $hasInstallmentService) {
+        foreach ($normalizedServices as $s) {
+            if (!empty($s['enable_installment'])) {
+                $primaryServiceId = trim((string) ($s['service_id'] ?? ''));
+                break;
+            }
+        }
+    }
     foreach ($storageTargets as $idx => $target) {
         $apptTbl = $target['appt'];
         $apsTbl = $target['aps'];
