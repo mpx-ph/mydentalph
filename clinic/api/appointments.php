@@ -296,10 +296,49 @@ function clinic_fetch_existing_appointment_duration_minutes(
 
     $quotedAps = clinic_quote_identifier($appointmentServicesTableName);
     $quotedSvc = clinic_quote_identifier($servicesCatalogTableName);
-    $whereSql = $hasAppointmentId
-        ? 'aps.tenant_id = ? AND aps.appointment_id = ?'
-        : 'aps.tenant_id = ? AND aps.booking_id = ?';
-    $lookupKey = $hasAppointmentId ? $appointmentId : $bookingId;
+    if ($hasAppointmentId && $appointmentId > 0) {
+        $whereSql = 'aps.tenant_id = ? AND aps.appointment_id = ?';
+        $lookupKey = $appointmentId;
+    } elseif ($hasBookingId && trim($bookingId) !== '') {
+        $whereSql = 'aps.tenant_id = ? AND aps.booking_id = ?';
+        $lookupKey = trim($bookingId);
+    } else {
+        return 60;
+    }
+
+    $schedJoinSql = '';
+    $schedTimeClause = '';
+    $appointmentsPhys = clinic_resolve_appointment_db_tables($pdo)['appointments'] ?? null;
+    if ($appointmentsPhys !== null && in_array('added_at', $apsCols, true)) {
+        $apptCols = clinic_table_columns($pdo, (string) $appointmentsPhys);
+        if (
+            in_array('created_at', $apptCols, true)
+            && in_array('id', $apptCols, true)
+            && (
+                ($hasAppointmentId && $appointmentId > 0)
+                || ($hasBookingId && trim($bookingId) !== '')
+            )
+        ) {
+            $qAppt = clinic_quote_identifier((string) $appointmentsPhys);
+            if ($appointmentId > 0 && $hasAppointmentId) {
+                $schedJoinSql = "
+                    INNER JOIN {$qAppt} ap_sa ON ap_sa.tenant_id = aps.tenant_id AND ap_sa.id = aps.appointment_id
+                ";
+            } else {
+                $schedJoinSql = "
+                    INNER JOIN {$qAppt} ap_sa ON ap_sa.tenant_id = aps.tenant_id AND ap_sa.booking_id = aps.booking_id
+                ";
+            }
+            $schedTimeClause = "
+                AND (
+                    aps.added_at IS NULL
+                    OR ap_sa.created_at IS NULL
+                    OR aps.added_at <= DATE_ADD(ap_sa.created_at, INTERVAL 10 MINUTE)
+                )
+            ";
+        }
+    }
+
     $stmt = $pdo->prepare("
         SELECT
             COALESCE(SUM(COALESCE(sv.service_duration, 0) + COALESCE(sv.buffer_time, 0)), 0) AS total_minutes
@@ -307,7 +346,9 @@ function clinic_fetch_existing_appointment_duration_minutes(
         LEFT JOIN {$quotedSvc} sv
           ON sv.tenant_id = aps.tenant_id
          AND sv.service_id = aps.service_id
+        {$schedJoinSql}
         WHERE {$whereSql}
+        {$schedTimeClause}
     ");
     $stmt->execute([$tenantId, $lookupKey]);
     $minutes = (int) ($stmt->fetchColumn() ?? 0);
@@ -404,12 +445,50 @@ function clinic_collect_appointment_line_service_display_names(
         return [];
     }
 
+    $schedJoinSql = '';
+    $schedTimeClause = '';
+    $appointmentsPhys = clinic_resolve_appointment_db_tables($pdo)['appointments'] ?? null;
+    if (
+        $appointmentsPhys !== null
+        && in_array('added_at', $apsCols, true)
+    ) {
+        $apptCols = clinic_table_columns($pdo, (string) $appointmentsPhys);
+        if (
+            in_array('created_at', $apptCols, true)
+            && in_array('id', $apptCols, true)
+            && (
+                (in_array('appointment_id', $apsCols, true) && $appointmentId > 0)
+                || (in_array('booking_id', $apsCols, true) && trim($bookingId) !== '')
+            )
+        ) {
+            $qAppt = clinic_quote_identifier((string) $appointmentsPhys);
+            if (in_array('appointment_id', $apsCols, true) && $appointmentId > 0) {
+                $schedJoinSql = "
+                    INNER JOIN {$qAppt} ap_sa ON ap_sa.tenant_id = aps.tenant_id AND ap_sa.id = aps.appointment_id
+                ";
+            } else {
+                $schedJoinSql = "
+                    INNER JOIN {$qAppt} ap_sa ON ap_sa.tenant_id = aps.tenant_id AND ap_sa.booking_id = aps.booking_id
+                ";
+            }
+            $schedTimeClause = "
+              AND (
+                  aps.added_at IS NULL
+                  OR ap_sa.created_at IS NULL
+                  OR aps.added_at <= DATE_ADD(ap_sa.created_at, INTERVAL 10 MINUTE)
+              )
+            ";
+        }
+    }
+
     $sql = "
         SELECT DISTINCT {$nameExprSql} AS n
         FROM {$quotedAps} aps
         {$joinSql}
+        {$schedJoinSql}
         WHERE aps.tenant_id = ?
           AND {$whereOr}
+          {$schedTimeClause}
     ";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);

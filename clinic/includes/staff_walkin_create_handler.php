@@ -313,6 +313,34 @@ try {
         $hasApsAppointmentId = in_array('appointment_id', $apsCols, true);
         $hasApsBookingId = in_array('booking_id', $apsCols, true);
         $quotedAps = clinic_quote_identifier($appointmentServicesTable);
+        $quotedApptForSchedDuration = clinic_quote_identifier($appointmentsTable);
+        $apptColsForConflictDuration = clinic_table_columns($pdo, $appointmentsTable);
+        $conflictDurSchedJoinAppointment = '';
+        $conflictDurSchedJoinBooking = '';
+        $conflictDurSchedWhereTail = '';
+        if (
+            in_array('added_at', $apsCols, true)
+            && in_array('created_at', $apptColsForConflictDuration, true)
+            && in_array('id', $apptColsForConflictDuration, true)
+        ) {
+            $conflictDurSchedJoinAppointment = "
+                INNER JOIN {$quotedApptForSchedDuration} ap_sa
+                   ON ap_sa.tenant_id = aps.tenant_id
+                  AND ap_sa.id = aps.appointment_id
+            ";
+            $conflictDurSchedJoinBooking = "
+                INNER JOIN {$quotedApptForSchedDuration} ap_sa
+                   ON ap_sa.tenant_id = aps.tenant_id
+                  AND ap_sa.booking_id = aps.booking_id
+            ";
+            $conflictDurSchedWhereTail = "
+                  AND (
+                      aps.added_at IS NULL
+                      OR ap_sa.created_at IS NULL
+                      OR aps.added_at <= DATE_ADD(ap_sa.created_at, INTERVAL 10 MINUTE)
+                  )
+            ";
+        }
         $durationByAppointmentStmt = null;
         $durationByBookingStmt = null;
         if (in_array('service_id', $apsCols, true) && ($hasApsAppointmentId || $hasApsBookingId)) {
@@ -323,8 +351,10 @@ try {
                     LEFT JOIN {$quotedSvc} sv
                       ON sv.tenant_id = aps.tenant_id
                      AND sv.service_id = aps.service_id
+                    {$conflictDurSchedJoinAppointment}
                     WHERE aps.tenant_id = ?
                       AND aps.appointment_id = ?
+                    {$conflictDurSchedWhereTail}
                 ");
             } elseif ($hasApsBookingId) {
                 $durationByBookingStmt = $pdo->prepare("
@@ -333,8 +363,10 @@ try {
                     LEFT JOIN {$quotedSvc} sv
                       ON sv.tenant_id = aps.tenant_id
                      AND sv.service_id = aps.service_id
+                    {$conflictDurSchedJoinBooking}
                     WHERE aps.tenant_id = ?
                       AND aps.booking_id = ?
+                    {$conflictDurSchedWhereTail}
                 ");
             }
         }

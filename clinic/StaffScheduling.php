@@ -1238,6 +1238,25 @@ try {
                 ) {
                     $qAps = clinic_quote_identifier($appointmentServicesTable);
                     $qSrv = clinic_quote_identifier($servicesTable);
+                    /** Exclude lines added later (e.g. payment popup add-ons) from calendar duration/names vs appointment.created_at */
+                    $apsSchedulingBookingAnchorJoin = '';
+                    $apsSchedulingTimeClause = '';
+                    if (
+                        in_array('added_at', $appointmentServicesCols, true)
+                        && in_array('created_at', $appointmentsCols, true)
+                        && in_array('id', $appointmentsCols, true)
+                    ) {
+                        $apsSchedulingBookingAnchorJoin = "
+                                INNER JOIN {$qAppt} ap_sched_anchor
+                                    ON ap_sched_anchor.tenant_id = a.tenant_id
+                                   AND ap_sched_anchor.id = a.id ";
+                        $apsSchedulingTimeClause = "
+                                  AND (
+                                      aps.added_at IS NULL
+                                      OR ap_sched_anchor.created_at IS NULL
+                                      OR aps.added_at <= DATE_ADD(ap_sched_anchor.created_at, INTERVAL 10 MINUTE)
+                                  ) ";
+                    }
                     $apsLinkConditions = [];
                     if (in_array('appointment_id', $appointmentServicesCols, true) && in_array('id', $appointmentsCols, true)) {
                         $apsLinkConditions[] = 'aps.appointment_id = a.id';
@@ -1253,8 +1272,10 @@ try {
                                 LEFT JOIN {$qSrv} s
                                     ON s.tenant_id = aps.tenant_id
                                    AND s.service_id = aps.service_id
+                                {$apsSchedulingBookingAnchorJoin}
                                 WHERE aps.tenant_id = a.tenant_id
                                   AND (" . implode(' OR ', $apsLinkConditions) . ")
+                                {$apsSchedulingTimeClause}
                             )
                         ";
 
@@ -1290,8 +1311,10 @@ try {
                                 LEFT JOIN {$qSrv} s
                                     ON s.tenant_id = aps.tenant_id
                                    AND s.service_id = aps.service_id
+                                {$apsSchedulingBookingAnchorJoin}
                                 WHERE aps.tenant_id = a.tenant_id
                                   AND (" . implode(' OR ', $apsLinkConditions) . ")
+                                {$apsSchedulingTimeClause}
                             )
                         ";
                     }
