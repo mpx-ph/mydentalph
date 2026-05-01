@@ -6,22 +6,44 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+date_default_timezone_set('Asia/Manila');
+
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/includes/staff_installment_helpers.php';
 require_once __DIR__ . '/includes/appointment_db_tables.php';
 
 if (!function_exists('staff_payment_recording_to_manila_datetime')) {
+    /** @see StaffPaymentRecording.php — keep naive DST handling aligned with tbl_payments storage */
     function staff_payment_recording_to_manila_datetime(string $rawValue): ?DateTimeImmutable
     {
-        $value = trim($rawValue);
-        if ($value === '') {
+        $raw = trim($rawValue);
+        if ($raw === '') {
             return null;
         }
+        $manila = new DateTimeZone('Asia/Manila');
+        if (preg_match('/(?:Z|[+\-]\d{2}:\d{2}|[+\-]\d{4})$/', $raw) === 1) {
+            try {
+                $dt = new DateTimeImmutable($raw);
+                return $dt->setTimezone($manila);
+            } catch (Throwable $e) {
+                return null;
+            }
+        }
+        $formats = [
+            'Y-m-d H:i:s',
+            'Y-m-d H:i',
+            'Y-m-d\TH:i:s',
+            'Y-m-d\TH:i',
+            'Y-m-d',
+        ];
+        foreach ($formats as $format) {
+            $dt = DateTimeImmutable::createFromFormat('!' . $format, $raw, $manila);
+            if ($dt instanceof DateTimeImmutable) {
+                return $dt;
+            }
+        }
         try {
-            $utc = new DateTimeZone('UTC');
-            $manila = new DateTimeZone('Asia/Manila');
-            $date = new DateTimeImmutable($value, $utc);
-            return $date->setTimezone($manila);
+            return new DateTimeImmutable($raw, $manila);
         } catch (Throwable $e) {
             return null;
         }

@@ -9,9 +9,16 @@ require_once __DIR__ . '/includes/staff_installment_helpers.php';
 date_default_timezone_set('Asia/Manila');
 
 /**
- * Parse a stored payment datetime and normalize it to Philippine Standard Time.
+ * Parse a stored payment datetime for display in Philippine Standard Time (PST).
  *
- * Stored payment datetimes are treated as UTC when no explicit timezone is present.
+ * Naive values (no Z / offset) are interpreted as Asia/Manila wall time, matching how
+ * tbl_payments.payment_date is written (calendar date + date('H:i:s') on this page).
+ * Values with explicit timezone are converted to Manila.
+ *
+ * Legacy note: payments created before naive time used gmdate('H:i:s') (UTC clock) with the
+ * same calendar date. For correct history in the Recent Transactions grid, migrate once, e.g.:
+ *   UPDATE tbl_payments SET payment_date = CONVERT_TZ(payment_date, '+00:00', 'Asia/Manila');
+ * (adjust scope/backup as needed — only applies to rows still stored under the old convention.)
  */
 function staff_payment_recording_to_manila_datetime(string $rawValue): ?DateTimeImmutable
 {
@@ -20,10 +27,8 @@ function staff_payment_recording_to_manila_datetime(string $rawValue): ?DateTime
         return null;
     }
 
-    $utc = new DateTimeZone('UTC');
     $manila = new DateTimeZone('Asia/Manila');
 
-    // If the timestamp already has timezone information, respect it.
     if (preg_match('/(?:Z|[+\-]\d{2}:\d{2}|[+\-]\d{4})$/', $raw) === 1) {
         try {
             $dt = new DateTimeImmutable($raw);
@@ -42,15 +47,14 @@ function staff_payment_recording_to_manila_datetime(string $rawValue): ?DateTime
     ];
 
     foreach ($formats as $format) {
-        $dt = DateTimeImmutable::createFromFormat('!' . $format, $raw, $utc);
+        $dt = DateTimeImmutable::createFromFormat('!' . $format, $raw, $manila);
         if ($dt instanceof DateTimeImmutable) {
-            return $dt->setTimezone($manila);
+            return $dt;
         }
     }
 
     try {
-        $dt = new DateTimeImmutable($raw, $utc);
-        return $dt->setTimezone($manila);
+        return new DateTimeImmutable($raw, $manila);
     } catch (Throwable $e) {
         return null;
     }
@@ -2132,7 +2136,7 @@ try {
                                 $firstInstNum > 0 ? $firstInstNum : null,
                                 $amount,
                                 $method,
-                                $paymentDate . ' ' . gmdate('H:i:s'),
+                                $paymentDate . ' ' . date('H:i:s'),
                                 $composedNotes !== '' ? $composedNotes : null,
                                 $recordStatus,
                                 $userId !== '' ? $userId : null,
@@ -2162,7 +2166,7 @@ try {
                                 $firstInstNum > 0 ? $firstInstNum : null,
                                 $amount,
                                 $method,
-                                $paymentDate . ' ' . gmdate('H:i:s'),
+                                $paymentDate . ' ' . date('H:i:s'),
                                 $composedNotes !== '' ? $composedNotes : null,
                                 $recordStatus,
                                 $userId !== '' ? $userId : null,
@@ -2190,7 +2194,7 @@ try {
                                 $selectedBookingId,
                                 $amount,
                                 $method,
-                                $paymentDate . ' ' . gmdate('H:i:s'),
+                                $paymentDate . ' ' . date('H:i:s'),
                                 $composedNotes !== '' ? $composedNotes : null,
                                 $recordStatus,
                                 $userId !== '' ? $userId : null,
@@ -2218,7 +2222,7 @@ try {
                                 $selectedBookingId,
                                 $amount,
                                 $method,
-                                $paymentDate . ' ' . gmdate('H:i:s'),
+                                $paymentDate . ' ' . date('H:i:s'),
                                 $composedNotes !== '' ? $composedNotes : null,
                                 $recordStatus,
                                 $userId !== '' ? $userId : null,
@@ -2475,7 +2479,7 @@ try {
                             $selectedBookingId,
                             $amount,
                             $method,
-                            $paymentDate . ' ' . gmdate('H:i:s'),
+                            $paymentDate . ' ' . date('H:i:s'),
                             $recordNotes !== '' ? $recordNotes : null,
                             $recordStatus,
                             $userId !== '' ? $userId : null,
@@ -2503,7 +2507,7 @@ try {
                             $selectedBookingId,
                             $amount,
                             $method,
-                            $paymentDate . ' ' . gmdate('H:i:s'),
+                            $paymentDate . ' ' . date('H:i:s'),
                             $recordNotes !== '' ? $recordNotes : null,
                             $recordStatus,
                             $userId !== '' ? $userId : null,
