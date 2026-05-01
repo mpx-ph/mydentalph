@@ -3376,7 +3376,7 @@ try {
                         FROM tbl_appointments
                         WHERE tenant_id = ?
                           AND TRIM(COALESCE(treatment_id, '')) <> ''
-                          AND LOWER(COALESCE(status, '')) <> 'cancelled'
+                          AND LOWER(COALESCE(status, '')) NOT IN ('cancelled', 'completed', 'no_show')
                         GROUP BY treatment_id
                     ) latest
                       ON latest.treatment_id = a.treatment_id
@@ -3413,12 +3413,21 @@ try {
                 $transactionCandidates[$idx]['treatment_total_cost'] = (float) ($tr['total_cost'] ?? 0);
                 $transactionCandidates[$idx]['treatment_amount_paid'] = (float) ($tr['amount_paid'] ?? 0);
                 $transactionCandidates[$idx]['treatment_remaining_balance'] = (float) ($tr['remaining_balance'] ?? 0);
+                $transactionCandidates[$idx]['primary_installment_service_name'] = (string) ($tr['primary_service_name'] ?? '');
                 if ($latestAppt !== null) {
                     $transactionCandidates[$idx]['booking_id'] = trim((string) ($latestAppt['booking_id'] ?? ($candRow['booking_id'] ?? '')));
                     $transactionCandidates[$idx]['appointment_id'] = (int) ($latestAppt['appointment_id'] ?? ($candRow['appointment_id'] ?? 0));
                     $transactionCandidates[$idx]['appointment_date'] = (string) ($latestAppt['appointment_date'] ?? ($candRow['appointment_date'] ?? ''));
                     $transactionCandidates[$idx]['appointment_time'] = (string) ($latestAppt['appointment_time'] ?? ($candRow['appointment_time'] ?? ''));
                     $transactionCandidates[$idx]['visit_type'] = (string) ($latestAppt['visit_type'] ?? ($candRow['visit_type'] ?? ''));
+                    $transactionCandidates[$idx]['hide_recent_appointment_info'] = 0;
+                } else {
+                    // Keep treatment-level pending card visible, but do not bind it to a completed recent appointment.
+                    $transactionCandidates[$idx]['appointment_id'] = 0;
+                    $transactionCandidates[$idx]['appointment_date'] = '';
+                    $transactionCandidates[$idx]['appointment_time'] = '';
+                    $transactionCandidates[$idx]['visit_type'] = '';
+                    $transactionCandidates[$idx]['hide_recent_appointment_info'] = 1;
                 }
                 $seenInstallmentTreatments[$tid] = true;
             }
@@ -3447,6 +3456,8 @@ try {
                     'treatment_total_cost' => (float) ($tr['total_cost'] ?? 0),
                     'treatment_amount_paid' => (float) ($tr['amount_paid'] ?? 0),
                     'treatment_remaining_balance' => (float) ($tr['remaining_balance'] ?? 0),
+                    'primary_installment_service_name' => (string) ($tr['primary_service_name'] ?? ''),
+                    'hide_recent_appointment_info' => 0,
                     'patient_first_name' => (string) ($tr['patient_first_name'] ?? ''),
                     'patient_last_name' => (string) ($tr['patient_last_name'] ?? ''),
                 ];
@@ -4948,6 +4959,13 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 selectedAppointmentServiceSummary.classList.add('hidden');
                 return;
             }
+            if (String(tx.transaction_type || '').toLowerCase() === 'installment' && Number(tx.hide_recent_appointment_info || 0) === 1) {
+                selectedAppointmentDetailPanel.classList.add('hidden');
+                selectedAppointmentServicesList.innerHTML = '';
+                selectedAppointmentServiceSummary.textContent = '';
+                selectedAppointmentServiceSummary.classList.add('hidden');
+                return;
+            }
             const booked = Array.isArray(tx.booked_services) ? tx.booked_services : [];
             if (booked.length) {
                 selectedAppointmentServicesList.innerHTML = booked.map((s) => {
@@ -5488,6 +5506,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 visit_type: String(item.visit_type || ''),
                 appointment_date: String(item.appointment_date || ''),
                 appointment_time: String(item.appointment_time || ''),
+                hide_recent_appointment_info: Number(item.hide_recent_appointment_info || 0) === 1,
+                primary_installment_service_name: String(item.primary_installment_service_name || '').trim(),
                 total_cost: totalCost,
                 total_paid: totalPaid,
                 pending_balance: pendingBalance,
@@ -5505,6 +5525,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     regularPaidRaw = 0;
                 }
                 const regularPaid = Math.max(0, Math.min(regularCost, regularPaidRaw));
+                const hideRecentInfo = Number(baseRow.hide_recent_appointment_info ? 1 : 0) === 1;
                 rows.push({
                     ...baseRow,
                     transaction_key: baseRow.booking_id + '::' + String(baseRow.appointment_id || 0) + '::regular',
@@ -5516,8 +5537,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     pending_balance: Math.max(0, regularCost - regularPaid) <= SETTLED_BALANCE_EPSILON
                         ? 0
                         : Math.max(0, regularCost - regularPaid),
-                    booked_services: regularServicesForPending.length ? regularServicesForPending : bookedServicesRaw,
-                    booked_service_ids: (regularServicesForPending.length ? regularServicesForPending : bookedServicesRaw)
+                    booked_services: hideRecentInfo ? [] : (regularServicesForPending.length ? regularServicesForPending : bookedServicesRaw),
+                    booked_service_ids: (hideRecentInfo ? [] : (regularServicesForPending.length ? regularServicesForPending : bookedServicesRaw))
                         .map((s) => String((s && s.service_id) || '').trim())
                         .filter((id) => id !== '')
                 });
@@ -5531,6 +5552,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 const installmentRemainingBalance = installmentRemainingBalanceRaw <= SETTLED_BALANCE_EPSILON
                     ? 0
                     : installmentRemainingBalanceRaw;
+                const hideRecentInfo = Number(baseRow.hide_recent_appointment_info ? 1 : 0) === 1;
                 rows.push({
                     ...baseRow,
                     transaction_key: (baseRow.treatment_id ? ('treatment:' + baseRow.treatment_id) : ('booking:' + baseRow.booking_id)) + '::installment',
@@ -5540,8 +5562,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
                     total_paid: installmentPaid,
                     pending_balance: installmentRemainingBalance,
                     treatment_remaining_balance: hasTreatmentRemainingBalance ? effectiveInstallmentPending : null,
-                    booked_services: bookedInstallment.length ? bookedInstallment : bookedServicesRaw,
-                    booked_service_ids: (bookedInstallment.length ? bookedInstallment : bookedServicesRaw)
+                    booked_services: hideRecentInfo ? [] : (bookedInstallment.length ? bookedInstallment : bookedServicesRaw),
+                    booked_service_ids: (hideRecentInfo ? [] : (bookedInstallment.length ? bookedInstallment : bookedServicesRaw))
                         .map((s) => String((s && s.service_id) || '').trim())
                         .filter((id) => id !== '')
                 });
@@ -5734,9 +5756,11 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 const primaryService = (Array.isArray(item.booked_services) && item.booked_services.length)
                     ? item.booked_services[0]
                     : null;
-                const treatmentPlanName = primaryService && primaryService.service_name
-                    ? String(primaryService.service_name)
-                    : 'Installment Treatment';
+                const treatmentPlanName = String(item.primary_installment_service_name || '').trim() !== ''
+                    ? String(item.primary_installment_service_name)
+                    : (primaryService && primaryService.service_name
+                        ? String(primaryService.service_name)
+                        : 'Installment Treatment');
                 const treatmentPlanCategory = primaryService && primaryService.category
                     ? String(primaryService.category)
                     : '';
