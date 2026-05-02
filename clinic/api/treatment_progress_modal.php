@@ -385,6 +385,31 @@ function treatment_progress_reconcile_payment_states(array &$steps, array $treat
 }
 
 /**
+ * tbl_installments may mark the "next" slot as book_visit when the plan is seeded; that status is for backend/workflow.
+ * In this modal, unpaid rows without a scheduled datetime should read as Pending (same as later rows), not Book visit.
+ *
+ * @param list<array<string,mixed>> $steps
+ */
+function treatment_progress_modal_flatten_book_visit_to_pending(array &$steps): void
+{
+    foreach ($steps as &$st) {
+        if (($st['payment_bucket'] ?? '') === 'paid') {
+            continue;
+        }
+        $sd = $st['schedule_display'] ?? null;
+        $hasSchedule = $sd !== null && trim((string) $sd) !== '';
+        if ($hasSchedule) {
+            continue;
+        }
+        if ((string) ($st['visit_bucket'] ?? '') === 'book_visit') {
+            $st['visit_status'] = 'Pending';
+            $st['visit_bucket'] = 'pending';
+        }
+    }
+    unset($st);
+}
+
+/**
  * Progressive unlock: prior rows must be paid; SCHEDULE only after current row paid and no visit slot yet.
  *
  * @param list<array<string,mixed>> $steps
@@ -580,6 +605,7 @@ try {
     }
 
     treatment_progress_reconcile_payment_states($steps, $treatment);
+    treatment_progress_modal_flatten_book_visit_to_pending($steps);
     treatment_progress_apply_progressive_action_flags($steps);
 
     echo json_encode([
