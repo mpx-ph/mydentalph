@@ -84,11 +84,25 @@ body { font-family: "Manrope", sans-serif; }
     to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .patient-tab-btn {
-    border-bottom: 2px solid transparent;
+    border-bottom: 3px solid transparent;
+    padding-bottom: 0.75rem;
+    margin-bottom: -1px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #94a3b8;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+.patient-tab-btn:hover {
+    color: #64748b;
 }
 .patient-tab-btn.active {
     color: #2b8beb;
     border-bottom-color: #2b8beb;
+}
+.view-patient-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    background: #ffffff;
 }
 .field-error {
     border-color: #ef4444 !important;
@@ -371,16 +385,15 @@ body { font-family: "Manrope", sans-serif; }
     </div>
 </div>
 
-<div id="viewPatientModal" class="staff-modal-overlay fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden">
-    <div id="viewPatientPanel" class="ml-auto h-full w-full max-w-5xl bg-white shadow-2xl overflow-hidden border-l border-slate-200 flex flex-col transform translate-x-full transition-transform duration-300 ease-out">
-        <div class="flex items-center justify-between p-5 border-b border-slate-200">
-            <h3 class="text-lg font-black tracking-tight text-slate-900">Patient Profile</h3>
-            <button id="closeViewPatientModal" class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><span class="material-symbols-outlined">close</span></button>
-        </div>
-        <div id="viewPatientContent" class="flex-1 overflow-y-auto p-6 text-sm text-slate-700"></div>
-        <div class="p-4 border-t border-slate-200 bg-white">
-            <button id="schedulePatientBtn" type="button" class="w-full bg-primary hover:bg-primary/90 text-white py-3 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center gap-2 transition-all">
-                <span class="material-symbols-outlined text-[18px]">calendar_add_on</span>
+<div id="viewPatientModal" class="staff-modal-overlay fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-50 hidden flex justify-end">
+    <div id="viewPatientPanel" class="relative ml-auto h-full w-full max-w-xl lg:max-w-2xl bg-white shadow-[0_0_48px_-12px_rgba(15,23,42,0.18)] overflow-hidden border-l border-slate-200/90 flex flex-col transform translate-x-full transition-transform duration-300 ease-out rounded-l-2xl">
+        <button type="button" id="closeViewPatientModal" class="absolute top-5 right-5 z-20 p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Close profile panel">
+            <span class="material-symbols-outlined text-[22px]">close</span>
+        </button>
+        <div id="viewPatientContent" class="flex-1 flex flex-col min-h-0 overflow-hidden text-slate-700"></div>
+        <div class="shrink-0 px-5 pb-5 pt-2 border-t border-slate-100 bg-white">
+            <button id="schedulePatientBtn" type="button" class="w-full bg-primary hover:bg-primary/90 text-white py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center gap-2 transition-all shadow-md shadow-primary/20">
+                <span class="material-symbols-outlined text-[20px]">calendar_add_on</span>
                 Schedule Next Appointment
             </button>
         </div>
@@ -505,10 +518,11 @@ function renderAppointmentsTab(appointments) {
     if (!section) return;
     if (!appointments.length) {
         section.innerHTML = `
-            <div class="rounded-2xl border border-slate-200 p-5">
-                <h5 class="text-lg font-black mb-3">Appointments History</h5>
-                <p class="text-slate-500 font-medium">No appointment history found for this patient.</p>
+            <div class="flex items-center gap-2 mb-4">
+                <span class="material-symbols-outlined text-slate-500 text-[22px]">event_note</span>
+                <h5 class="text-base font-bold text-slate-900">Appointments</h5>
             </div>
+            <p class="text-slate-500 text-sm font-medium">No appointment history found for this patient.</p>
         `;
         return;
     }
@@ -518,24 +532,25 @@ function renderAppointmentsTab(appointments) {
         return aKey < bKey ? 1 : -1;
     });
     section.innerHTML = `
-        <div class="rounded-2xl border border-slate-200 p-5">
-            <h5 class="text-lg font-black mb-4">Appointments History</h5>
-            <div class="space-y-3">
-                ${sorted.map((appointment) => `
-                    <div class="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
-                        <div class="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                                <p class="text-sm font-extrabold text-slate-900">${escapeHtml(formatDateTime(appointment.appointment_date, appointment.appointment_time))}</p>
-                                <p class="text-xs font-semibold text-slate-600 mt-1">Dentist: ${escapeHtml(resolveDentistLabel(appointment))}</p>
-                                <p class="text-xs font-medium text-slate-500 mt-1">Service: ${escapeHtml(appointment.service_type || appointment.service_description || 'N/A')}</p>
-                            </div>
-                            <span class="px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider ${getStatusBadgeClasses(appointment.final_status || appointment.status)}">
-                                ${escapeHtml(formatStatusLabel(appointment.final_status || appointment.status))}
-                            </span>
+        <div class="flex items-center gap-2 mb-5">
+            <span class="material-symbols-outlined text-slate-500 text-[22px]">event_note</span>
+            <h5 class="text-base font-bold text-slate-900">Appointments History</h5>
+        </div>
+        <div class="space-y-3">
+            ${sorted.map((appointment) => `
+                <div class="rounded-lg border border-slate-100 bg-slate-50/80 p-4">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <p class="text-sm font-bold text-slate-900">${escapeHtml(formatDateTime(appointment.appointment_date, appointment.appointment_time))}</p>
+                            <p class="text-xs font-semibold text-slate-600 mt-1">Dentist: ${escapeHtml(resolveDentistLabel(appointment))}</p>
+                            <p class="text-xs font-medium text-slate-500 mt-1">Service: ${escapeHtml(appointment.service_type || appointment.service_description || 'N/A')}</p>
                         </div>
+                        <span class="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${getStatusBadgeClasses(appointment.final_status || appointment.status)}">
+                            ${escapeHtml(formatStatusLabel(appointment.final_status || appointment.status))}
+                        </span>
                     </div>
-                `).join('')}
-            </div>
+                </div>
+            `).join('')}
         </div>
     `;
 }
@@ -546,10 +561,11 @@ function renderTreatmentTab(context) {
     const hasTreatment = Boolean(context && context.has_active_treatment && context.treatment);
     if (!hasTreatment) {
         section.innerHTML = `
-            <div class="rounded-2xl border border-primary/10 bg-primary/[0.03] p-5">
-                <h5 class="text-lg font-black mb-3">Active Treatment</h5>
-                <p class="text-slate-500 font-medium">No active installment treatment plan found.</p>
+            <div class="flex items-center gap-2 mb-4">
+                <span class="material-symbols-outlined text-primary text-[22px]">medical_services</span>
+                <h5 class="text-base font-bold text-slate-900">Active Treatment</h5>
             </div>
+            <p class="text-slate-500 text-sm font-medium">No active installment treatment plan found.</p>
         `;
         return;
     }
@@ -560,23 +576,26 @@ function renderTreatmentTab(context) {
         ? treatment.primary_service.service_name
         : (treatment.primary_service_name || 'Installment treatment');
     section.innerHTML = `
-        <div class="rounded-2xl border border-primary/10 bg-primary/[0.03] p-5">
-            <h5 class="text-lg font-black mb-4">Active Treatment</h5>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Treatment / Service</p><p class="text-lg font-bold text-slate-800 mt-1">${escapeHtml(serviceName)}</p></div>
-                <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Total Cost</p><p class="text-lg font-bold text-slate-800 mt-1">${escapeHtml(formatPeso(treatment.total_cost))}</p></div>
-                <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Amount Paid</p><p class="text-lg font-bold text-slate-800 mt-1">${escapeHtml(formatPeso(treatment.amount_paid))}</p></div>
-                <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Remaining Balance</p><p class="text-lg font-bold text-slate-800 mt-1">${escapeHtml(formatPeso(treatment.remaining_balance))}</p></div>
-                <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Next Due Date</p><p class="text-lg font-bold text-slate-800 mt-1">${escapeHtml(nextDueDate)}</p></div>
+        <div class="flex items-center gap-2 mb-5">
+            <span class="material-symbols-outlined text-primary text-[22px]">medical_services</span>
+            <h5 class="text-base font-bold text-slate-900">Active Treatment</h5>
+        </div>
+        <div class="rounded-lg border border-primary/15 bg-primary/[0.04] p-4 mb-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div><p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Treatment / Service</p><p class="text-[15px] font-bold text-slate-900 mt-1">${escapeHtml(serviceName)}</p></div>
+                <div><p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Total Cost</p><p class="text-[15px] font-bold text-slate-900 mt-1">${escapeHtml(formatPeso(treatment.total_cost))}</p></div>
+                <div><p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Amount Paid</p><p class="text-[15px] font-bold text-slate-900 mt-1">${escapeHtml(formatPeso(treatment.amount_paid))}</p></div>
+                <div><p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Remaining Balance</p><p class="text-[15px] font-bold text-slate-900 mt-1">${escapeHtml(formatPeso(treatment.remaining_balance))}</p></div>
+                <div class="sm:col-span-2"><p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Next Due Date</p><p class="text-[15px] font-bold text-slate-900 mt-1">${escapeHtml(nextDueDate)}</p></div>
             </div>
-            <div class="mt-5">
-                <div class="flex items-center justify-between text-xs font-bold text-slate-600 mb-2">
-                    <span>Payment Progress</span>
-                    <span>${escapeHtml(`${progress.toFixed(1)}%`)}</span>
-                </div>
-                <div class="w-full h-2.5 rounded-full bg-slate-200 overflow-hidden">
-                    <div class="h-full bg-primary rounded-full" style="width:${progress}%"></div>
-                </div>
+        </div>
+        <div>
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-600 mb-2">
+                <span>Payment Progress</span>
+                <span>${escapeHtml(`${progress.toFixed(1)}%`)}</span>
+            </div>
+            <div class="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                <div class="h-full bg-primary rounded-full transition-all" style="width:${progress}%"></div>
             </div>
         </div>
     `;
@@ -586,33 +605,34 @@ function renderFilesTab(files) {
     const section = document.getElementById('patient-tab-files');
     if (!section || !activeProfilePatient) return;
     section.innerHTML = `
-        <div class="rounded-2xl border border-slate-200 p-5">
-            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-                <h5 class="text-lg font-black">Files & Documents</h5>
-                <form id="patientFileUploadForm" class="flex flex-wrap items-center gap-2">
-                    <input id="patientFileInput" type="file" class="block text-xs font-semibold text-slate-600 file:mr-2 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary file:font-bold"/>
-                    <button type="submit" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-white text-xs font-bold uppercase tracking-wider hover:bg-primary/90 transition-all">
-                        <span class="material-symbols-outlined text-[16px]">upload_file</span> Upload File
-                    </button>
-                </form>
+        <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-slate-500 text-[22px]">folder_open</span>
+                <h5 class="text-base font-bold text-slate-900">Files & Documents</h5>
             </div>
-            <div id="patientFilesListContainer">
-                ${files.length ? `
-                    <div class="space-y-3">
-                        ${files.map((file) => `
-                            <div class="rounded-xl border border-slate-100 bg-slate-50/60 p-4 flex flex-wrap items-start justify-between gap-3">
-                                <div>
-                                    <p class="text-sm font-bold text-slate-900">${escapeHtml(file.file_name || 'Unnamed file')}</p>
-                                    <p class="text-xs text-slate-600 mt-1">Type: ${escapeHtml(file.file_type || 'Unknown')} • Uploaded: ${escapeHtml(file.formatted_date || formatDate(file.created_at))}</p>
-                                </div>
-                                <a href="${escapeHtml(file.file_url || '#')}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-100 transition-all">
-                                    <span class="material-symbols-outlined text-[16px]">download</span> View / Download
-                                </a>
+            <form id="patientFileUploadForm" class="flex flex-wrap items-center gap-2">
+                <input id="patientFileInput" type="file" class="block text-xs font-semibold text-slate-600 max-w-[200px] file:mr-2 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary file:font-bold"/>
+                <button type="submit" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-white text-xs font-bold uppercase tracking-wider hover:bg-primary/90 transition-all shadow-sm shadow-primary/20">
+                    <span class="material-symbols-outlined text-[16px]">upload_file</span> Upload File
+                </button>
+            </form>
+        </div>
+        <div id="patientFilesListContainer">
+            ${files.length ? `
+                <div class="space-y-3">
+                    ${files.map((file) => `
+                        <div class="rounded-lg border border-slate-100 bg-slate-50/80 p-4 flex flex-wrap items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="text-sm font-bold text-slate-900">${escapeHtml(file.file_name || 'Unnamed file')}</p>
+                                <p class="text-xs text-slate-600 mt-1">Type: ${escapeHtml(file.file_type || 'Unknown')} • Uploaded: ${escapeHtml(file.formatted_date || formatDate(file.created_at))}</p>
                             </div>
-                        `).join('')}
-                    </div>
-                ` : `<p class="text-slate-500 font-medium">No uploaded files yet for this patient.</p>`}
-            </div>
+                            <a href="${escapeHtml(file.file_url || '#')}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-bold hover:bg-white transition-all shrink-0">
+                                <span class="material-symbols-outlined text-[16px]">download</span> View / Download
+                            </a>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : `<p class="text-slate-500 text-sm font-medium">No uploaded files yet for this patient.</p>`}
         </div>
     `;
     const uploadForm = document.getElementById('patientFileUploadForm');
@@ -627,7 +647,7 @@ function renderFilesTab(files) {
 async function loadAppointmentsForPatient(patient) {
     const section = document.getElementById('patient-tab-appointments');
     if (section) {
-        section.innerHTML = '<div class="rounded-2xl border border-slate-200 p-5"><p class="text-slate-500 font-medium">Loading appointments...</p></div>';
+        section.innerHTML = '<p class="text-slate-500 text-sm font-medium py-2">Loading appointments...</p>';
     }
     try {
         const url = new URL(API_APPOINTMENTS_URL, window.location.origin);
@@ -639,7 +659,7 @@ async function loadAppointmentsForPatient(patient) {
         renderAppointmentsTab(list);
     } catch (error) {
         if (section) {
-            section.innerHTML = `<div class="rounded-2xl border border-slate-200 p-5"><p class="text-rose-500 font-medium">${escapeHtml(error.message || 'Failed to load appointments.')}</p></div>`;
+            section.innerHTML = `<p class="text-rose-600 text-sm font-medium py-2">${escapeHtml(error.message || 'Failed to load appointments.')}</p>`;
         }
     }
 }
@@ -647,7 +667,7 @@ async function loadAppointmentsForPatient(patient) {
 async function loadTreatmentForPatient(patient) {
     const section = document.getElementById('patient-tab-treatment');
     if (section) {
-        section.innerHTML = '<div class="rounded-2xl border border-primary/10 bg-primary/[0.03] p-5"><p class="text-slate-500 font-medium">Loading treatment details...</p></div>';
+        section.innerHTML = '<p class="text-slate-500 text-sm font-medium py-2">Loading treatment details...</p>';
     }
     try {
         const url = new URL(API_TREATMENT_CONTEXT_URL, window.location.origin);
@@ -658,7 +678,7 @@ async function loadTreatmentForPatient(patient) {
         renderTreatmentTab(data.data || null);
     } catch (error) {
         if (section) {
-            section.innerHTML = `<div class="rounded-2xl border border-primary/10 bg-primary/[0.03] p-5"><p class="text-rose-500 font-medium">${escapeHtml(error.message || 'Failed to load treatment context.')}</p></div>`;
+            section.innerHTML = `<p class="text-rose-600 text-sm font-medium py-2">${escapeHtml(error.message || 'Failed to load treatment context.')}</p>`;
         }
     }
 }
@@ -666,7 +686,7 @@ async function loadTreatmentForPatient(patient) {
 async function loadFilesForPatient(patient) {
     const section = document.getElementById('patient-tab-files');
     if (section) {
-        section.innerHTML = '<div class="rounded-2xl border border-slate-200 p-5"><p class="text-slate-500 font-medium">Loading files...</p></div>';
+        section.innerHTML = '<p class="text-slate-500 text-sm font-medium py-2">Loading files...</p>';
     }
     try {
         const url = new URL(API_PATIENT_FILES_URL, window.location.origin);
@@ -678,7 +698,7 @@ async function loadFilesForPatient(patient) {
         renderFilesTab(files);
     } catch (error) {
         if (section) {
-            section.innerHTML = `<div class="rounded-2xl border border-slate-200 p-5"><p class="text-rose-500 font-medium">${escapeHtml(error.message || 'Failed to load patient files.')}</p></div>`;
+            section.innerHTML = `<p class="text-rose-600 text-sm font-medium py-2">${escapeHtml(error.message || 'Failed to load patient files.')}</p>`;
         }
     }
 }
@@ -1034,72 +1054,148 @@ function openViewModal(patient) {
     }
     const fullName = `${patient.firstName} ${patient.lastName}`.trim() || 'Patient';
     const patientStatus = patient.status === 'inactive' ? 'Inactive' : 'Active';
-    const statusClasses = patient.status === 'inactive'
-        ? 'bg-slate-100 text-slate-600'
-        : 'bg-emerald-50 text-emerald-600';
-    const address = [patient.houseStreet, patient.barangay, patient.city, patient.province].filter(Boolean).join(', ') || 'N/A';
+    const statusBadgeClass = patient.status === 'inactive'
+        ? 'bg-slate-100 text-slate-600 border border-slate-200/80'
+        : 'bg-emerald-50 text-emerald-700 border border-emerald-100';
+    const statusDotClass = patient.status === 'inactive' ? 'bg-slate-400' : 'bg-emerald-500';
+    const genderLower = String(patient.gender || '').toLowerCase();
+    const genderIcon = genderLower.startsWith('f') ? 'female' : (genderLower.startsWith('m') ? 'male' : 'wc');
+    const houseStreet = patient.houseStreet || 'N/A';
+    const barangayCity = [patient.barangay, patient.city].filter(Boolean).join(', ') || 'N/A';
+    const province = patient.province || 'N/A';
     activeProfilePatient = patient;
     document.getElementById('viewPatientContent').innerHTML = `
-        <div class="space-y-6">
-            <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-5">
-                <div class="flex items-center gap-4">
-                    <div class="w-16 h-16 rounded-full bg-primary/10 text-primary font-black text-xl flex items-center justify-center">
-                        ${escapeHtml(`${patient.firstName?.[0] || ''}${patient.lastName?.[0] || ''}`.toUpperCase() || 'PT')}
+        <div class="flex flex-col flex-1 min-h-0">
+            <div class="shrink-0 px-6 pt-8 pb-0 pr-14 border-b border-slate-100 bg-white">
+                <div class="flex gap-4">
+                    <div class="relative shrink-0">
+                        <div class="w-[72px] h-[72px] rounded-full bg-slate-100 text-slate-700 font-bold text-xl flex items-center justify-center ring-1 ring-slate-200/80">
+                            ${escapeHtml(`${patient.firstName?.[0] || ''}${patient.lastName?.[0] || ''}`.toUpperCase() || 'PT')}
+                        </div>
+                        <span class="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full ${statusDotClass} ring-[3px] ring-white" title="${escapeHtml(patientStatus)}" aria-hidden="true"></span>
                     </div>
-                    <div>
-                        <h4 class="text-3xl font-black tracking-tight text-slate-900">${escapeHtml(fullName)}</h4>
-                        <div class="flex items-center gap-3 mt-1">
-                            <span class="text-slate-400 text-sm font-bold">#${escapeHtml(patient.patientId || patient.id)}</span>
-                            <span class="px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider ${statusClasses}">${patientStatus}</span>
+                    <div class="min-w-0 flex-1 pt-0.5">
+                        <div class="flex flex-wrap items-center gap-2 gap-y-1">
+                            <h4 class="text-[1.35rem] font-bold tracking-tight text-slate-900 leading-snug">${escapeHtml(fullName)}</h4>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass}">${patientStatus}</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 mt-2 text-slate-500 text-sm">
+                            <span class="material-symbols-outlined text-[18px] text-slate-400">badge</span>
+                            <span class="font-medium">#${escapeHtml(String(patient.patientId || patient.id))}</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mt-5">
+                            <div>
+                                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Created at</p>
+                                <div class="flex items-center gap-2 mt-1.5 text-slate-800 text-sm font-medium">
+                                    <span class="material-symbols-outlined text-slate-400 text-[18px]">calendar_today</span>
+                                    <span>${escapeHtml(formatDate(patient.createdAt))}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Last visit</p>
+                                <div class="flex items-center gap-2 mt-1.5 text-slate-800 text-sm font-medium">
+                                    <span class="material-symbols-outlined text-slate-400 text-[18px]">history</span>
+                                    <span>${escapeHtml(formatDate(patient.updatedAt || patient.createdAt))}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <button data-action="edit" data-id="${patient.id}" class="self-start inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/20 rounded-xl transition-all text-xs font-bold uppercase tracking-wider">
-                    <span class="material-symbols-outlined text-[16px]">edit_square</span>
-                    Edit
-                </button>
-            </div>
-            <div class="flex flex-wrap gap-8 text-sm border-t border-slate-200 pt-4">
-                <div>
-                    <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Created At</p>
-                    <p class="text-xl font-bold text-slate-800 mt-1">${escapeHtml(formatDate(patient.createdAt))}</p>
-                </div>
-                <div>
-                    <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Last Visit</p>
-                    <p class="text-xl font-bold text-slate-800 mt-1">${escapeHtml(formatDate(patient.updatedAt || patient.createdAt))}</p>
+                <div class="flex flex-wrap gap-6 mt-6 border-b border-slate-100">
+                    <button type="button" class="patient-tab-btn active" data-tab-target="basic">Basic Info</button>
+                    <button type="button" class="patient-tab-btn" data-tab-target="appointments">Appointments</button>
+                    <button type="button" class="patient-tab-btn" data-tab-target="treatment">Active Treatment</button>
+                    <button type="button" class="patient-tab-btn" data-tab-target="files">Files & Documents</button>
                 </div>
             </div>
-            <div class="flex items-center gap-7 border-b border-slate-200 text-base font-semibold text-slate-500">
-                <button type="button" class="patient-tab-btn active py-3" data-tab-target="basic">Basic Info</button>
-                <button type="button" class="patient-tab-btn py-3" data-tab-target="appointments">Appointments</button>
-                <button type="button" class="patient-tab-btn py-3" data-tab-target="treatment">Active Treatment</button>
-                <button type="button" class="patient-tab-btn py-3" data-tab-target="files">Files & Documents</button>
-            </div>
-            <div id="patient-tab-basic" class="space-y-4">
-                <div class="rounded-2xl border border-slate-200 p-5">
-                    <h5 class="text-lg font-black mb-4">Basic Information</h5>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
-                        <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">First Name</p><p class="text-lg font-bold text-slate-800">${escapeHtml(patient.firstName || 'N/A')}</p></div>
-                        <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Last Name</p><p class="text-lg font-bold text-slate-800">${escapeHtml(patient.lastName || 'N/A')}</p></div>
-                        <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Contact Number</p><p class="text-lg font-bold text-slate-800">${escapeHtml(patient.contact || 'N/A')}</p></div>
-                        <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Email</p><p class="text-lg font-bold text-slate-800">${escapeHtml(patient.email || 'N/A')}</p></div>
-                        <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Date of Birth</p><p class="text-lg font-bold text-slate-800">${escapeHtml(formatDate(patient.dob))}</p></div>
-                        <div><p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Gender</p><p class="text-lg font-bold text-slate-800">${escapeHtml(patient.gender || 'N/A')}</p></div>
+            <div class="flex-1 min-h-0 overflow-y-auto px-6 py-5">
+                <div class="view-patient-card p-6 shadow-sm">
+                    <div id="patient-tab-basic" class="space-y-8">
+                        <section>
+                            <div class="flex items-center gap-2 mb-5">
+                                <span class="material-symbols-outlined text-slate-500 text-[22px]">person</span>
+                                <h5 class="text-base font-bold text-slate-900">Basic Information</h5>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
+                                <div>
+                                    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">First name</p>
+                                    <p class="mt-1.5 text-[15px] font-semibold text-slate-900">${escapeHtml(patient.firstName || 'N/A')}</p>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Last name</p>
+                                    <p class="mt-1.5 text-[15px] font-semibold text-slate-900">${escapeHtml(patient.lastName || 'N/A')}</p>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Contact number</p>
+                                    <div class="flex items-center gap-2 mt-1.5 text-[15px] font-medium text-slate-900">
+                                        <span class="material-symbols-outlined text-slate-400 text-[18px] shrink-0">call</span>
+                                        <span>${escapeHtml(patient.contact || 'N/A')}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Email</p>
+                                    <div class="flex items-center gap-2 mt-1.5 text-[15px] font-medium text-slate-900 min-w-0">
+                                        <span class="material-symbols-outlined text-slate-400 text-[18px] shrink-0">mail</span>
+                                        <span class="truncate">${escapeHtml(patient.email || 'N/A')}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Date of birth</p>
+                                    <div class="flex items-center gap-2 mt-1.5 text-[15px] font-medium text-slate-900">
+                                        <span class="material-symbols-outlined text-slate-400 text-[18px] shrink-0">cake</span>
+                                        <span>${escapeHtml(formatDate(patient.dob))}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Gender</p>
+                                    <div class="flex items-center gap-2 mt-1.5 text-[15px] font-medium text-slate-900">
+                                        <span class="material-symbols-outlined text-slate-400 text-[18px] shrink-0">${genderIcon}</span>
+                                        <span>${escapeHtml(patient.gender || 'N/A')}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                        <div class="border-t border-slate-100"></div>
+                        <section>
+                            <div class="flex items-center gap-2 mb-5">
+                                <span class="material-symbols-outlined text-slate-500 text-[22px]">home</span>
+                                <h5 class="text-base font-bold text-slate-900">Address Information</h5>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
+                                <div class="sm:col-span-2">
+                                    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">House no. & street</p>
+                                    <div class="flex items-start gap-2 mt-1.5 text-[15px] font-medium text-slate-900">
+                                        <span class="material-symbols-outlined text-slate-400 text-[18px] shrink-0 mt-0.5">home_pin</span>
+                                        <span>${escapeHtml(houseStreet)}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Barangay / city</p>
+                                    <div class="flex items-start gap-2 mt-1.5 text-[15px] font-medium text-slate-900">
+                                        <span class="material-symbols-outlined text-slate-400 text-[18px] shrink-0 mt-0.5">apartment</span>
+                                        <span>${escapeHtml(barangayCity)}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Province</p>
+                                    <div class="flex items-start gap-2 mt-1.5 text-[15px] font-medium text-slate-900">
+                                        <span class="material-symbols-outlined text-slate-400 text-[18px] shrink-0 mt-0.5">map</span>
+                                        <span>${escapeHtml(province)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                    <div id="patient-tab-appointments" class="hidden">
+                        <div class="py-2"><p class="text-slate-500 text-sm font-medium">Loading appointments...</p></div>
+                    </div>
+                    <div id="patient-tab-treatment" class="hidden">
+                        <div class="py-2"><p class="text-slate-500 text-sm font-medium">Loading treatment details...</p></div>
+                    </div>
+                    <div id="patient-tab-files" class="hidden">
+                        <div class="py-2"><p class="text-slate-500 text-sm font-medium">Loading files...</p></div>
                     </div>
                 </div>
-                <div class="rounded-2xl border border-slate-200 p-5">
-                    <h5 class="text-lg font-black mb-4">Address Information</h5>
-                    <p class="text-lg font-semibold text-slate-700">${escapeHtml(address)}</p>
-                </div>
-            </div>
-            <div id="patient-tab-appointments" class="hidden">
-                <div class="rounded-2xl border border-slate-200 p-5"><p class="text-slate-500 font-medium">Loading appointments...</p></div>
-            </div>
-            <div id="patient-tab-treatment" class="hidden">
-                <div class="rounded-2xl border border-primary/10 bg-primary/[0.03] p-5"><p class="text-slate-500 font-medium">Loading treatment details...</p></div>
-            </div>
-            <div id="patient-tab-files" class="hidden">
-                <div class="rounded-2xl border border-slate-200 p-5"><p class="text-slate-500 font-medium">Loading files...</p></div>
             </div>
         </div>
     `;
@@ -1115,7 +1211,9 @@ function openViewModal(patient) {
 }
 
 function setupPatientTabs() {
-    const tabButtons = Array.from(document.querySelectorAll('[data-tab-target]'));
+    const root = document.getElementById('viewPatientContent');
+    if (!root) return;
+    const tabButtons = Array.from(root.querySelectorAll('[data-tab-target]'));
     const tabSections = {
         basic: document.getElementById('patient-tab-basic'),
         appointments: document.getElementById('patient-tab-appointments'),
