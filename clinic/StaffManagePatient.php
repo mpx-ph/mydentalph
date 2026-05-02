@@ -387,13 +387,13 @@ body { font-family: "Manrope", sans-serif; }
 
 <div id="viewPatientModal" class="staff-modal-overlay fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-50 hidden flex justify-end">
     <div id="viewPatientPanel" class="relative ml-auto h-full w-full max-w-xl lg:max-w-2xl bg-white shadow-[0_0_48px_-12px_rgba(15,23,42,0.18)] overflow-hidden border-l border-slate-200/90 flex flex-col transform translate-x-full transition-transform duration-300 ease-out rounded-l-2xl">
-        <button type="button" id="closeViewPatientModal" class="absolute top-5 right-5 z-20 p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Close profile panel">
+        <button type="button" id="closeViewPatientModal" class="absolute top-5 right-5 z-20 p-2 rounded-lg text-primary hover:text-primary/80 hover:bg-primary/10 transition-colors" aria-label="Close profile panel">
             <span class="material-symbols-outlined text-[22px]">close</span>
         </button>
         <div id="viewPatientContent" class="flex-1 flex flex-col min-h-0 overflow-hidden text-slate-700"></div>
         <div class="shrink-0 px-5 pb-5 pt-2 border-t border-slate-100 bg-white">
             <button id="schedulePatientBtn" type="button" class="w-full bg-primary hover:bg-primary/90 text-white py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center gap-2 transition-all shadow-md shadow-primary/20">
-                <span class="material-symbols-outlined text-[20px]">calendar_add_on</span>
+                <span class="material-symbols-outlined text-[20px] text-white">calendar_add_on</span>
                 Schedule Next Appointment
             </button>
         </div>
@@ -519,7 +519,7 @@ function renderAppointmentsTab(appointments) {
     if (!appointments.length) {
         section.innerHTML = `
             <div class="flex items-center gap-2 mb-4">
-                <span class="material-symbols-outlined text-slate-500 text-[22px]">event_note</span>
+                <span class="material-symbols-outlined text-primary text-[22px]">event_note</span>
                 <h5 class="text-base font-bold text-slate-900">Appointments</h5>
             </div>
             <p class="text-slate-500 text-sm font-medium">No appointment history found for this patient.</p>
@@ -533,7 +533,7 @@ function renderAppointmentsTab(appointments) {
     });
     section.innerHTML = `
         <div class="flex items-center gap-2 mb-5">
-            <span class="material-symbols-outlined text-slate-500 text-[22px]">event_note</span>
+            <span class="material-symbols-outlined text-primary text-[22px]">event_note</span>
             <h5 class="text-base font-bold text-slate-900">Appointments History</h5>
         </div>
         <div class="space-y-3">
@@ -607,13 +607,13 @@ function renderFilesTab(files) {
     section.innerHTML = `
         <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
             <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-slate-500 text-[22px]">folder_open</span>
+                <span class="material-symbols-outlined text-primary text-[22px]">folder_open</span>
                 <h5 class="text-base font-bold text-slate-900">Files & Documents</h5>
             </div>
             <form id="patientFileUploadForm" class="flex flex-wrap items-center gap-2">
                 <input id="patientFileInput" type="file" class="block text-xs font-semibold text-slate-600 max-w-[200px] file:mr-2 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary file:font-bold"/>
                 <button type="submit" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-white text-xs font-bold uppercase tracking-wider hover:bg-primary/90 transition-all shadow-sm shadow-primary/20">
-                    <span class="material-symbols-outlined text-[16px]">upload_file</span> Upload File
+                    <span class="material-symbols-outlined text-[16px] text-white">upload_file</span> Upload File
                 </button>
             </form>
         </div>
@@ -627,7 +627,7 @@ function renderFilesTab(files) {
                                 <p class="text-xs text-slate-600 mt-1">Type: ${escapeHtml(file.file_type || 'Unknown')} • Uploaded: ${escapeHtml(file.formatted_date || formatDate(file.created_at))}</p>
                             </div>
                             <a href="${escapeHtml(file.file_url || '#')}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-bold hover:bg-white transition-all shrink-0">
-                                <span class="material-symbols-outlined text-[16px]">download</span> View / Download
+                                <span class="material-symbols-outlined text-[16px] text-primary">download</span> View / Download
                             </a>
                         </div>
                     `).join('')}
@@ -1067,12 +1067,12 @@ function openViewModal(patient) {
     document.getElementById('viewPatientContent').innerHTML = `
         <div class="flex flex-col flex-1 min-h-0">
             <div class="shrink-0 px-6 pt-8 pb-0 pr-14 border-b border-slate-100 bg-white">
-                <div class="flex gap-4">
-                    <div class="relative shrink-0">
-                        <div class="w-[72px] h-[72px] rounded-full bg-slate-100 text-slate-700 font-bold text-xl flex items-center justify-center ring-1 ring-slate-200/80">
+                <div class="flex gap-4 items-start">
+                    <div class="relative h-[72px] w-[72px] shrink-0">
+                        <div class="h-full w-full rounded-full bg-slate-100 text-slate-700 font-bold text-xl flex items-center justify-center ring-1 ring-slate-200/80">
                             ${escapeHtml(`${patient.firstName?.[0] || ''}${patient.lastName?.[0] || ''}`.toUpperCase() || 'PT')}
                         </div>
-                        <span class="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full ${statusDotClass} ring-[3px] ring-white" title="${escapeHtml(patientStatus)}" aria-hidden="true"></span>
+                        <span class="absolute bottom-0 right-0 z-[1] h-3.5 w-3.5 translate-x-0.5 translate-y-0.5 rounded-full ${statusDotClass} ring-[2.5px] ring-white shadow-sm" title="${escapeHtml(patientStatus)}" aria-hidden="true"></span>
                     </div>
                     <div class="min-w-0 flex-1 pt-0.5">
                         <div class="flex flex-wrap items-center gap-2 gap-y-1">
@@ -1080,21 +1080,21 @@ function openViewModal(patient) {
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass}">${patientStatus}</span>
                         </div>
                         <div class="flex items-center gap-1.5 mt-2 text-slate-500 text-sm">
-                            <span class="material-symbols-outlined text-[18px] text-slate-400">badge</span>
+                            <span class="material-symbols-outlined text-[18px] text-primary">badge</span>
                             <span class="font-medium">#${escapeHtml(String(patient.patientId || patient.id))}</span>
                         </div>
                         <div class="grid grid-cols-2 gap-4 mt-5">
                             <div>
                                 <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Created at</p>
                                 <div class="flex items-center gap-2 mt-1.5 text-slate-800 text-sm font-medium">
-                                    <span class="material-symbols-outlined text-slate-400 text-[18px]">calendar_today</span>
+                                    <span class="material-symbols-outlined text-primary text-[18px]">calendar_today</span>
                                     <span>${escapeHtml(formatDate(patient.createdAt))}</span>
                                 </div>
                             </div>
                             <div>
                                 <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Last visit</p>
                                 <div class="flex items-center gap-2 mt-1.5 text-slate-800 text-sm font-medium">
-                                    <span class="material-symbols-outlined text-slate-400 text-[18px]">history</span>
+                                    <span class="material-symbols-outlined text-primary text-[18px]">history</span>
                                     <span>${escapeHtml(formatDate(patient.updatedAt || patient.createdAt))}</span>
                                 </div>
                             </div>
@@ -1113,7 +1113,7 @@ function openViewModal(patient) {
                     <div id="patient-tab-basic" class="space-y-8">
                         <section>
                             <div class="flex items-center gap-2 mb-5">
-                                <span class="material-symbols-outlined text-slate-500 text-[22px]">person</span>
+                                <span class="material-symbols-outlined text-primary text-[22px]">person</span>
                                 <h5 class="text-base font-bold text-slate-900">Basic Information</h5>
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
@@ -1128,28 +1128,28 @@ function openViewModal(patient) {
                                 <div>
                                     <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Contact number</p>
                                     <div class="flex items-center gap-2 mt-1.5 text-[15px] font-medium text-slate-900">
-                                        <span class="material-symbols-outlined text-slate-400 text-[18px] shrink-0">call</span>
+                                        <span class="material-symbols-outlined text-primary text-[18px] shrink-0">call</span>
                                         <span>${escapeHtml(patient.contact || 'N/A')}</span>
                                     </div>
                                 </div>
                                 <div>
                                     <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Email</p>
                                     <div class="flex items-center gap-2 mt-1.5 text-[15px] font-medium text-slate-900 min-w-0">
-                                        <span class="material-symbols-outlined text-slate-400 text-[18px] shrink-0">mail</span>
+                                        <span class="material-symbols-outlined text-primary text-[18px] shrink-0">mail</span>
                                         <span class="truncate">${escapeHtml(patient.email || 'N/A')}</span>
                                     </div>
                                 </div>
                                 <div>
                                     <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Date of birth</p>
                                     <div class="flex items-center gap-2 mt-1.5 text-[15px] font-medium text-slate-900">
-                                        <span class="material-symbols-outlined text-slate-400 text-[18px] shrink-0">cake</span>
+                                        <span class="material-symbols-outlined text-primary text-[18px] shrink-0">cake</span>
                                         <span>${escapeHtml(formatDate(patient.dob))}</span>
                                     </div>
                                 </div>
                                 <div>
                                     <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Gender</p>
                                     <div class="flex items-center gap-2 mt-1.5 text-[15px] font-medium text-slate-900">
-                                        <span class="material-symbols-outlined text-slate-400 text-[18px] shrink-0">${genderIcon}</span>
+                                        <span class="material-symbols-outlined text-primary text-[18px] shrink-0">${genderIcon}</span>
                                         <span>${escapeHtml(patient.gender || 'N/A')}</span>
                                     </div>
                                 </div>
@@ -1158,28 +1158,28 @@ function openViewModal(patient) {
                         <div class="border-t border-slate-100"></div>
                         <section>
                             <div class="flex items-center gap-2 mb-5">
-                                <span class="material-symbols-outlined text-slate-500 text-[22px]">home</span>
+                                <span class="material-symbols-outlined text-primary text-[22px]">home</span>
                                 <h5 class="text-base font-bold text-slate-900">Address Information</h5>
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
                                 <div class="sm:col-span-2">
                                     <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">House no. & street</p>
                                     <div class="flex items-start gap-2 mt-1.5 text-[15px] font-medium text-slate-900">
-                                        <span class="material-symbols-outlined text-slate-400 text-[18px] shrink-0 mt-0.5">home_pin</span>
+                                        <span class="material-symbols-outlined text-primary text-[18px] shrink-0 mt-0.5">home_pin</span>
                                         <span>${escapeHtml(houseStreet)}</span>
                                     </div>
                                 </div>
                                 <div>
                                     <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Barangay / city</p>
                                     <div class="flex items-start gap-2 mt-1.5 text-[15px] font-medium text-slate-900">
-                                        <span class="material-symbols-outlined text-slate-400 text-[18px] shrink-0 mt-0.5">apartment</span>
+                                        <span class="material-symbols-outlined text-primary text-[18px] shrink-0 mt-0.5">apartment</span>
                                         <span>${escapeHtml(barangayCity)}</span>
                                     </div>
                                 </div>
                                 <div>
                                     <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Province</p>
                                     <div class="flex items-start gap-2 mt-1.5 text-[15px] font-medium text-slate-900">
-                                        <span class="material-symbols-outlined text-slate-400 text-[18px] shrink-0 mt-0.5">map</span>
+                                        <span class="material-symbols-outlined text-primary text-[18px] shrink-0 mt-0.5">map</span>
                                         <span>${escapeHtml(province)}</span>
                                     </div>
                                 </div>
