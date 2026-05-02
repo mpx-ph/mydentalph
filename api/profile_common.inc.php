@@ -175,7 +175,14 @@ function api_profile_last_update(?string $userTs, ?string $patientTs): string
 
 function api_json_exit(bool $ok, string $message, array $data = []): void
 {
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
     $out = array_merge(['success' => $ok, 'message' => $message], $data);
-    echo json_encode($out, JSON_UNESCAPED_SLASHES);
+    $flags = JSON_UNESCAPED_SLASHES;
+    if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) {
+        $flags |= JSON_INVALID_UTF8_SUBSTITUTE;
+    }
+    echo json_encode($out, $flags);
     exit;
 }
