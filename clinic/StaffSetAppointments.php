@@ -6,6 +6,7 @@ require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/includes/tenant.php';
 require_once __DIR__ . '/includes/appointment_db_tables.php';
 require_once __DIR__ . '/includes/availability.php';
+require_once __DIR__ . '/includes/staff_treatment_schedule_constraints.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -46,6 +47,20 @@ if ($clinicSlugBoot !== '' && preg_match('/^[a-z0-9\-]+$/', strtolower($clinicSl
 $manilaNow = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
 $selectedDateValue = $manilaNow->format('Y-m-d');
 $selectedTimeValue = $manilaNow->format('H:i');
+
+$staffTreatmentScheduleMode = isset($_GET['treatment_schedule']) && (string) $_GET['treatment_schedule'] === '1';
+$staffTreatmentSchedulePatientId = trim((string) ($_GET['patient_id'] ?? ''));
+$staffTreatmentScheduleBookingId = trim((string) ($_GET['booking_id'] ?? ''));
+$staffTreatmentScheduleTreatmentId = trim((string) ($_GET['treatment_id'] ?? ''));
+$staffTreatmentPatientNameRaw = isset($_GET['patient_name']) ? rawurldecode((string) $_GET['patient_name']) : '';
+$staffTreatmentSchedulePatientDisplay = trim((string) preg_replace('/\s+/u', ' ', strip_tags($staffTreatmentPatientNameRaw)));
+if (strlen($staffTreatmentSchedulePatientDisplay) > 240) {
+    $staffTreatmentSchedulePatientDisplay = substr($staffTreatmentSchedulePatientDisplay, 0, 240);
+}
+
+$walkInAppointmentDateMin = $manilaNow->format('Y-m-d');
+$walkInAppointmentDateValue = $manilaNow->format('Y-m-d');
+$computedMinFollowup = null;
 
 $baseParams = [];
 if ($currentTenantSlug !== '') {
@@ -276,11 +291,40 @@ try {
                     $walkInPaymentSettings['long_term_min_downpayment'] = (float) $psRow['long_term_min_downpayment'];
                 }
             }
+
+            if (
+                $staffTreatmentScheduleMode
+                && $staffTreatmentSchedulePatientId !== ''
+                && ($staffTreatmentScheduleTreatmentId !== '' || $staffTreatmentScheduleBookingId !== '')
+            ) {
+                $computedMinFollowup = staff_treatment_schedule_min_date_after_gap(
+                    $pdo,
+                    (string) $tenantId,
+                    $staffTreatmentSchedulePatientId,
+                    $staffTreatmentScheduleTreatmentId,
+                    $staffTreatmentScheduleBookingId,
+                    28
+                );
+                if ($computedMinFollowup !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $computedMinFollowup)) {
+                    $walkInAppointmentDateMin = $computedMinFollowup;
+                    $walkInAppointmentDateValue = ($computedMinFollowup > $manilaToday) ? $computedMinFollowup : $manilaToday;
+                }
+            }
         }
     }
 } catch (Throwable $e) {
     $walkInDentists = [];
 }
+
+$treatmentScheduleBootstrap = [
+    'active' => $staffTreatmentScheduleMode
+        && $staffTreatmentSchedulePatientId !== ''
+        && ($staffTreatmentScheduleTreatmentId !== '' || $staffTreatmentScheduleBookingId !== ''),
+    'patient_id' => $staffTreatmentSchedulePatientId,
+    'patient_display' => $staffTreatmentSchedulePatientDisplay,
+    'appointment_date_min' => $walkInAppointmentDateMin,
+    'appointment_date_value' => $walkInAppointmentDateValue,
+];
 ?>
 <!DOCTYPE html>
 <html class="light" lang="en">
@@ -514,7 +558,7 @@ try {
                                 <span class="material-symbols-outlined text-[16px]">close</span>
                             </button>
                         </div>
-                        <div class="rounded-2xl border border-slate-100 bg-slate-50/60 flex-1 min-h-[22rem] overflow-y-auto">
+                        <div id="walkInPatientListScroll" class="rounded-2xl border border-slate-100 bg-slate-50/60 flex-1 min-h-[22rem] overflow-y-auto">
                             <div id="patientListEmptyState" class="hidden px-4 py-8 text-center text-sm font-semibold text-slate-500"></div>
                             <div id="patientListContainer" class="divide-y divide-slate-100"></div>
                         </div>
@@ -570,7 +614,12 @@ try {
                         </label>
                         <label class="block">
                             <span class="block text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/70 mb-2">Appointment Date</span>
-                            <input id="walkInDateInput" type="date" min="<?php echo htmlspecialchars($selectedDateValue, ENT_QUOTES, 'UTF-8'); ?>" class="walkin-input w-full py-3 px-4" value="<?php echo htmlspecialchars($selectedDateValue, ENT_QUOTES, 'UTF-8'); ?>"/>
+                            <input id="walkInDateInput" type="date" min="<?php echo htmlspecialchars($walkInAppointmentDateMin, ENT_QUOTES, 'UTF-8'); ?>" class="walkin-input w-full py-3 px-4" value="<?php echo htmlspecialchars($walkInAppointmentDateValue, ENT_QUOTES, 'UTF-8'); ?>"/>
+                            <?php if ($staffTreatmentScheduleMode && $computedMinFollowup !== null): ?>
+                                <p id="staffTreatmentFollowupDateHint" class="mt-1.5 text-[11px] font-semibold text-slate-500">
+                                    Monthly follow-up: next visit must be at least 28 days after the most recent plan-related appointment (minimum date <?php echo htmlspecialchars($computedMinFollowup, ENT_QUOTES, 'UTF-8'); ?>).
+                                </p>
+                            <?php endif; ?>
                         </label>
                         <label class="block">
                             <span class="block text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/70 mb-2">Appointment Time</span>
@@ -916,6 +965,7 @@ try {
 <script>
     (function () {
         const STAFF_OWNER_USER_ID = <?php echo json_encode($currentStaffUserId, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const TREATMENT_SCHEDULE_BOOTSTRAP = <?php echo json_encode($treatmentScheduleBootstrap, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const dateInput = document.getElementById('walkInDateInput');
         const timeInput = document.getElementById('walkInTimeInput');
         const registerPatientBtnTop = document.getElementById('registerPatientBtnTop');
@@ -924,6 +974,7 @@ try {
         const selectedPatientIdInput = document.getElementById('selectedPatientId');
         const patientSearchInput = document.getElementById('patientSearchInput');
         const patientListContainer = document.getElementById('patientListContainer');
+        const patientListScrollEl = document.getElementById('walkInPatientListScroll');
         const patientListEmptyState = document.getElementById('patientListEmptyState');
         const chooseDentistBtn = document.getElementById('chooseDentistBtn');
         const selectedDentistLabel = document.getElementById('selectedDentistLabel');
@@ -2041,6 +2092,36 @@ try {
             renderPatientsList(allPatients);
         }
 
+        function isTreatmentSchedulePatientLocked() {
+            return Boolean(
+                TREATMENT_SCHEDULE_BOOTSTRAP && TREATMENT_SCHEDULE_BOOTSTRAP.active &&
+                String(TREATMENT_SCHEDULE_BOOTSTRAP.patient_id || '').trim() !== ''
+            );
+        }
+
+        function applyTreatmentSchedulePatientLockUi() {
+            if (!isTreatmentSchedulePatientLocked()) {
+                return;
+            }
+            if (patientSearchInput) {
+                patientSearchInput.disabled = true;
+                patientSearchInput.readOnly = true;
+                patientSearchInput.setAttribute('aria-readonly', 'true');
+                patientSearchInput.placeholder = 'Patient locked for this treatment schedule';
+                patientSearchInput.classList.add('opacity-60', 'cursor-not-allowed', 'bg-slate-50');
+                patientSearchInput.value = '';
+            }
+            if (clearSelectedPatientBtn) {
+                clearSelectedPatientBtn.classList.add('hidden');
+            }
+            if (patientListScrollEl) {
+                patientListScrollEl.classList.add('pointer-events-none', 'opacity-75', 'select-none');
+            }
+            if (registerPatientBtnTop) {
+                registerPatientBtnTop.classList.add('hidden');
+            }
+        }
+
         async function loadAllServices() {
             setServiceEmptyState('Loading services...');
             const mergedServices = [];
@@ -2575,6 +2656,17 @@ try {
                 void staffUiAlert({ message: 'Please select an appointment date.', variant: 'warning', title: 'Date required' });
                 return;
             }
+            if (isTreatmentSchedulePatientLocked()) {
+                const minFollow = String(TREATMENT_SCHEDULE_BOOTSTRAP.appointment_date_min || '').trim();
+                if (minFollow && appointmentDate < minFollow) {
+                    void staffUiAlert({
+                        title: 'Follow-up interval',
+                        message: 'This visit must be scheduled on or after ' + minFollow + ' (28-day minimum after the most recent plan-related appointment).',
+                        variant: 'warning'
+                    });
+                    return;
+                }
+            }
             if (!appointmentTime) {
                 void staffUiAlert({ message: 'Please select an appointment time.', variant: 'warning', title: 'Time required' });
                 return;
@@ -2705,6 +2797,9 @@ try {
         }
         if (clearSelectedPatientBtn) {
             clearSelectedPatientBtn.addEventListener('click', async function () {
+                if (isTreatmentSchedulePatientLocked()) {
+                    return;
+                }
                 setSelectedPatient('', '');
                 await loadPatientTreatmentContext('');
                 await runLiveConflictValidation({ showAlerts: true });
@@ -2766,6 +2861,10 @@ try {
         }
         if (patientSearchInput) {
             patientSearchInput.addEventListener('input', function () {
+                if (isTreatmentSchedulePatientLocked()) {
+                    patientSearchInput.value = '';
+                    return;
+                }
                 const keyword = patientSearchInput.value.trim().toLowerCase();
                 if (!keyword) {
                     renderPatientsList(allPatients);
@@ -2826,6 +2925,12 @@ try {
                 if (!button) return;
                 const patientId = button.getAttribute('data-patient-id') || '';
                 const patientName = button.getAttribute('data-patient-name') || '';
+                if (isTreatmentSchedulePatientLocked()) {
+                    const lockId = String(TREATMENT_SCHEDULE_BOOTSTRAP.patient_id || '').trim();
+                    if (String(patientId || '').trim() !== lockId) {
+                        return;
+                    }
+                }
                 setSelectedPatient(patientId, patientName);
                 await loadPatientTreatmentContext(patientId);
                 await runShiftBoundaryValidation({ showAlerts: true });
@@ -2918,6 +3023,18 @@ try {
         }
         if (dateInput) {
             dateInput.addEventListener('change', async function () {
+                if (isTreatmentSchedulePatientLocked()) {
+                    const minFollow = String(TREATMENT_SCHEDULE_BOOTSTRAP.appointment_date_min || '').trim();
+                    const v = String(dateInput.value || '').trim();
+                    if (minFollow && v && v < minFollow) {
+                        dateInput.value = minFollow;
+                        void staffUiAlert({
+                            title: 'Follow-up interval',
+                            message: 'Choose a date on or after ' + minFollow + ' (28 days after the most recent plan-related visit).',
+                            variant: 'warning'
+                        });
+                    }
+                }
                 await refreshDentistAvailabilityForSelection();
                 await runShiftBoundaryValidation({ showAlerts: true });
                 await runLiveConflictValidation({ showAlerts: true });
@@ -2931,21 +3048,54 @@ try {
             });
         }
 
-        if (dateInput && !dateInput.value) {
-            dateInput.value = new Date().toISOString().slice(0, 10);
+        async function initWalkInAppointmentPage() {
+            regLoadProvinces('');
+            await loadAllPatients();
+
+            if (isTreatmentSchedulePatientLocked()) {
+                applyTreatmentSchedulePatientLockUi();
+                const pid = String(TREATMENT_SCHEDULE_BOOTSTRAP.patient_id || '').trim();
+                let display = String(TREATMENT_SCHEDULE_BOOTSTRAP.patient_display || '').trim();
+                if (!display && allPatients && allPatients.length) {
+                    const row = allPatients.find(function (p) {
+                        return String(p.patient_id || '').trim() === pid;
+                    });
+                    if (row) {
+                        display = ((row.first_name || '') + ' ' + (row.last_name || '')).trim();
+                    }
+                }
+                setSelectedPatient(pid, display || ('Patient #' + pid));
+                await loadPatientTreatmentContext(pid);
+
+                const minD = String(TREATMENT_SCHEDULE_BOOTSTRAP.appointment_date_min || '').trim();
+                const valD = String(TREATMENT_SCHEDULE_BOOTSTRAP.appointment_date_value || '').trim();
+                if (dateInput && minD) {
+                    dateInput.setAttribute('min', minD);
+                    dateInput.min = minD;
+                    if (valD) {
+                        dateInput.value = valD < minD ? minD : valD;
+                    } else if (!dateInput.value || dateInput.value < minD) {
+                        dateInput.value = minD;
+                    }
+                }
+            }
+
+            if (dateInput && !dateInput.value) {
+                dateInput.value = new Date().toISOString().slice(0, 10);
+            }
+            if (timeInput && !timeInput.value) {
+                const now = new Date();
+                timeInput.value = pad(now.getHours()) + ':' + pad(now.getMinutes());
+            }
+            updatePaymentDetailsVisibility();
+            updateDefaultPaymentDetails();
+            renderSelectedServices();
+            void refreshDentistAvailabilityForSelection();
+            void runShiftBoundaryValidation({ showAlerts: false });
+            void runLiveConflictValidation({ showAlerts: false });
         }
-        if (timeInput && !timeInput.value) {
-            const now = new Date();
-            timeInput.value = pad(now.getHours()) + ':' + pad(now.getMinutes());
-        }
-        updatePaymentDetailsVisibility();
-        updateDefaultPaymentDetails();
-        renderSelectedServices();
-        void refreshDentistAvailabilityForSelection();
-        void runShiftBoundaryValidation({ showAlerts: false });
-        void runLiveConflictValidation({ showAlerts: false });
-        regLoadProvinces('');
-        loadAllPatients();
+
+        void initWalkInAppointmentPage();
     })();
 </script>
 </body>

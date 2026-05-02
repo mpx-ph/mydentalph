@@ -436,6 +436,7 @@ const API_TREATMENT_CONTEXT_URL = <?php echo json_encode(rtrim((string) dirname(
 const API_TREATMENT_PROGRESS_MODAL_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/treatment_progress_modal.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 const API_PATIENT_FILES_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patient_files.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 const CLINIC_STAFF_BASE = <?php echo json_encode(rtrim(BASE_URL, "/\\") . '/', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+const CURRENT_CLINIC_SLUG = <?php echo json_encode($currentTenantSlug, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
 /** Matches StaffManageServices / services catalog category labels → badge colors */
 const SERVICE_CATEGORY_BADGE_BY_LABEL = {
@@ -534,7 +535,7 @@ function buildTreatmentProgressModalInnerHtml(payload, patientId, patientQueryLa
             ? ''
             : (schDis
                 ? '<button type="button" disabled class="rounded-lg border border-slate-200 bg-slate-200 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-slate-500 cursor-not-allowed shadow-none">SCHEDULE</button>'
-                : `<button type="button" data-treatment-progress-schedule="1" data-patient-id="${pidEsc}"
+                : `<button type="button" data-treatment-progress-schedule="1" data-patient-id="${pidEsc}" data-booking-id="${bidEsc}" data-treatment-id="${tidEsc}" data-patient-query="${pqEsc}"
                     class="rounded-lg bg-orange-500 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-white shadow-sm hover:bg-orange-600 transition-colors">SCHEDULE</button>`);
         const actionCell = `<div class="flex flex-wrap items-center justify-end gap-2">${payBtn}${schBtn}</div>`;
         return `
@@ -1743,8 +1744,27 @@ document.getElementById('treatmentProgressModalBody').addEventListener('click', 
     }
     const schBtn = e.target.closest('[data-treatment-progress-schedule]');
     if (schBtn) {
-        const pid = schBtn.getAttribute('data-patient-id');
-        window.location.href = CLINIC_STAFF_BASE + 'StaffSetAppointments.php?patient_id=' + encodeURIComponent(pid || '');
+        const pid = schBtn.getAttribute('data-patient-id') || '';
+        const bid = schBtn.getAttribute('data-booking-id') || '';
+        const tid = schBtn.getAttribute('data-treatment-id') || '';
+        const pq = schBtn.getAttribute('data-patient-query') || '';
+        const params = new URLSearchParams();
+        params.set('treatment_schedule', '1');
+        params.set('patient_id', pid);
+        if (bid) {
+            params.set('booking_id', bid);
+        }
+        if (tid) {
+            params.set('treatment_id', tid);
+        }
+        if (pq) {
+            params.set('patient_name', pq);
+        }
+        const slug = String(CURRENT_CLINIC_SLUG || '').trim();
+        if (slug) {
+            params.set('clinic_slug', slug);
+        }
+        window.location.href = CLINIC_STAFF_BASE + 'StaffSetAppointments.php?' + params.toString();
     }
 });
 
