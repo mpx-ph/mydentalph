@@ -39,7 +39,23 @@ try {
         api_json_exit(false, 'Profile is only available for patient accounts');
     }
 
-    $p = api_profile_fetch_patient($pdo, $userId, $tenantId);
+    $requestedPatientId = isset($_GET['patient_id']) ? trim((string) $_GET['patient_id']) : '';
+    if ($requestedPatientId !== '') {
+        $st = $pdo->prepare(
+            'SELECT * FROM tbl_patients
+             WHERE tenant_id = ?
+               AND patient_id = ?
+               AND (owner_user_id = ? OR linked_user_id = ?)
+             LIMIT 1'
+        );
+        $st->execute([$tenantId, $requestedPatientId, $userId, $userId]);
+        $p = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+        if (!$p) {
+            api_json_exit(false, 'Patient profile not found for this account.');
+        }
+    } else {
+        $p = api_profile_fetch_patient($pdo, $userId, $tenantId);
+    }
 
     $patImg    = $p ? trim((string) ($p['profile_image'] ?? '')) : '';
     $phone     = trim((string) ($user['phone'] ?? ''));
@@ -73,13 +89,22 @@ try {
     // DB columns only (tbl_patients). If house_street wrongly contains a stringified JSON object, split it for the app.
     $addr = api_profile_resolve_address_for_api($p);
 
+    $fnPatient = $p ? trim((string) ($p['first_name'] ?? '')) : '';
+    $lnPatient = $p ? trim((string) ($p['last_name'] ?? '')) : '';
+    $nameFromPatient = trim($fnPatient . ' ' . $lnPatient);
+    $displayFullName = $nameFromPatient !== ''
+        ? $nameFromPatient
+        : trim((string) ($user['full_name'] ?? ''));
+
     $profile = [
         'user_id'            => (string) $user['user_id'],
         'patient_id'         => $p && !empty($p['patient_id']) ? (string) $p['patient_id'] : null,
         'tenant_id'          => (string) $user['tenant_id'],
         'email'              => (string) ($user['email'] ?? ''),
         'username'           => (string) ($user['username'] ?? ''),
-        'full_name'          => (string) ($user['full_name'] ?? ''),
+        'full_name'          => $displayFullName,
+        'first_name'         => $fnPatient,
+        'last_name'          => $lnPatient,
         // Backward-compatible alias; now sourced from tbl_patients.profile_image only.
         'user_photo'         => $patImg,
         'patient_profile_image' => $patImg,
