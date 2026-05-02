@@ -29,6 +29,14 @@ if ($userId === '' || $tenantId === '') {
     api_json_exit(false, 'Missing user_id or tenant_id');
 }
 
+// Mobile aliases (JSON body uses birthdate / phone from the app.)
+if (!array_key_exists('contact_number', $input) && array_key_exists('phone', $input)) {
+    $input['contact_number'] = $input['phone'];
+}
+if (!array_key_exists('date_of_birth', $input) && array_key_exists('birthdate', $input)) {
+    $input['date_of_birth'] = $input['birthdate'];
+}
+
 /**
  * @param array<string,mixed>|null $p
  * @param array<string,mixed> $input
@@ -126,7 +134,28 @@ try {
         api_json_exit(false, 'Only patient accounts can update this profile');
     }
 
-    $p  = api_profile_fetch_patient($pdo, $userId, $tenantId);
+    $targetPatientId = isset($input['patient_id']) ? trim((string) $input['patient_id']) : '';
+    $syncUserRecord  = true;
+    if ($targetPatientId !== '') {
+        $stPf = $pdo->prepare(
+            'SELECT * FROM tbl_patients
+             WHERE tenant_id = ?
+               AND patient_id = ?
+               AND (owner_user_id = ? OR linked_user_id = ?)
+             LIMIT 1'
+        );
+        $stPf->execute([$tenantId, $targetPatientId, $userId, $userId]);
+        $p = $stPf->fetch(PDO::FETCH_ASSOC) ?: null;
+        if (!$p) {
+            api_json_exit(false, 'Patient not found for this account.');
+        }
+        $linkedUid = trim((string) ($p['linked_user_id'] ?? ''));
+        $syncUserRecord = ($linkedUid !== '' && $linkedUid === $userId);
+    } else {
+        $p = api_profile_fetch_patient($pdo, $userId, $tenantId);
+        $syncUserRecord = true;
+    }
+
     $m  = api_profile_merge_patient_row($p, $input, $user);
     $fn = $m['fn'];
     $ln = $m['ln'];
@@ -143,6 +172,9 @@ try {
 
     $pdo->beginTransaction();
 
+    /** @var int|null */
+    $patientRowIdForResponse = null;
+
     if (!$p) {
         $newPid = api_profile_generate_patient_id($pdo);
         $stI = $pdo->prepare(
@@ -158,7 +190,9 @@ try {
             $fn, $ln, $m['ph'], $m['dob'], $m['gen'], $m['bt'] !== '' ? $m['bt'] : null,
             $m['hs'], $m['br'], $m['city'], $m['pr'],
         ]);
+        $patientRowIdForResponse = (int) $pdo->lastInsertId();
     } else {
+        $patientRowIdForResponse = (int) $p['id'];
         $stU = $pdo->prepare(
             "UPDATE tbl_patients SET
                 first_name = ?,
@@ -177,24 +211,34 @@ try {
         $stU->execute([
             $fn, $ln, $m['ph'], $m['dob'], $m['gen'], $m['bt'] !== '' ? $m['bt'] : null,
             $m['hs'], $m['br'], $m['city'], $m['pr'],
-            (int) $p['id'], $tenantId,
+            $patientRowIdForResponse, $tenantId,
         ]);
     }
 
-    $stUser = $pdo->prepare('UPDATE tbl_users SET full_name = ?, phone = ?, updated_at = NOW() WHERE user_id = ? AND tenant_id = ?');
-    $stUser->execute([$full, $m['ph'], $userId, $tenantId]);
+    if ($syncUserRecord) {
+        $stUser = $pdo->prepare('UPDATE tbl_users SET full_name = ?, phone = ?, updated_at = NOW() WHERE user_id = ? AND tenant_id = ?');
+        $stUser->execute([$full, $m['ph'], $userId, $tenantId]);
+    }
 
     $pdo->commit();
 
-    $pAfter = api_profile_fetch_patient($pdo, $userId, $tenantId);
-    $uAfter = api_profile_fetch_user($pdo, $userId, $tenantId);
-    $lastU  = (string) ($uAfter['updated_at'] ?? '');
-    $lastP  = $pAfter ? (string) ($pAfter['updated_at'] ?? '') : '';
+    $fresh = null;
+    if ($patientRowIdForResponse !== null && $patientRowIdForResponse > 0) {
+        $sf = $pdo->prepare(
+            'SELECT patient_id, updated_at FROM tbl_patients WHERE id = ? AND tenant_id = ? LIMIT 1'
+        );
+        $sf->execute([$patientRowIdForResponse, $tenantId]);
+        $fresh = $sf->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
+    $pidOut      = $fresh && !empty($fresh['patient_id']) ? (string) $fresh['patient_id'] : null;
+    $lastPatient = $fresh ? (string) ($fresh['updated_at'] ?? '') : '';
+    $uAfter      = api_profile_fetch_user($pdo, $userId, $tenantId);
+    $lastUser    = (string) ($uAfter['updated_at'] ?? '');
 
     api_json_exit(true, 'Profile updated.', [
         'user_id'               => $userId,
-        'patient_id'            => $pAfter && !empty($pAfter['patient_id']) ? (string) $pAfter['patient_id'] : null,
-        'last_profile_update'  => api_profile_last_update($lastU, $lastP),
+        'patient_id'            => $pidOut,
+        'last_profile_update'  => api_profile_last_update($syncUserRecord ? $lastUser : '', $lastPatient),
     ]);
 } catch (InvalidArgumentException $e) {
     if ($pdo->inTransaction()) {

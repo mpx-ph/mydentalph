@@ -88,8 +88,10 @@ if (stripos($ctype, 'application/json') !== false) {
     $input = json_decode((string) file_get_contents('php://input'), true);
 }
 
-$user_id   = $input['user_id']   ?? $_POST['user_id']   ?? null;
-$tenant_id = $input['tenant_id'] ?? $_POST['tenant_id'] ?? null;
+$user_id    = $input['user_id']   ?? $_POST['user_id']   ?? null;
+$tenant_id  = $input['tenant_id'] ?? $_POST['tenant_id'] ?? null;
+$patient_id = isset($_POST['patient_id']) ? trim((string) $_POST['patient_id'])
+    : (isset($input['patient_id']) ? trim((string) $input['patient_id']) : '');
 
 if (!$user_id || !$tenant_id) {
     echo json_encode(['success' => false, 'message' => 'Missing user_id or tenant_id.']);
@@ -146,14 +148,25 @@ try {
         exit;
     }
 
-    $stmt = $pdo->prepare(
-        "SELECT id, profile_image FROM tbl_patients
-         WHERE tenant_id = ?
-           AND (owner_user_id = ? OR linked_user_id = ?)
-         ORDER BY (linked_user_id = ?) DESC, id DESC
-         LIMIT 1"
-    );
-    $stmt->execute([$tenant_id, $user_id, $user_id, $user_id]);
+    if ($patient_id !== '') {
+        $stmt = $pdo->prepare(
+            "SELECT id, profile_image FROM tbl_patients
+             WHERE tenant_id = ?
+               AND patient_id = ?
+               AND (owner_user_id = ? OR linked_user_id = ?)
+             LIMIT 1"
+        );
+        $stmt->execute([$tenant_id, $patient_id, $user_id, $user_id]);
+    } else {
+        $stmt = $pdo->prepare(
+            "SELECT id, profile_image FROM tbl_patients
+             WHERE tenant_id = ?
+               AND (owner_user_id = ? OR linked_user_id = ?)
+             ORDER BY (linked_user_id = ?) DESC, id DESC
+             LIMIT 1"
+        );
+        $stmt->execute([$tenant_id, $user_id, $user_id, $user_id]);
+    }
     $patient = $stmt->fetch(PDO::FETCH_ASSOC);
     $oldPat = $patient ? trim((string) ($patient['profile_image'] ?? '')) : '';
 
