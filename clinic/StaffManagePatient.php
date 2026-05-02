@@ -512,18 +512,17 @@ function buildTreatmentProgressModalInnerHtml(payload, patientId) {
         const visBadge = treatmentProgressVisitBadgeClass(visBucket);
         const payLabel = escapeHtml(row.payment_status || 'Unpaid');
         const visLabel = escapeHtml(row.visit_status || 'Pending');
-        const bits = [];
-        if (row.show_pay) {
-            bits.push(`<button type="button" data-treatment-progress-pay="1" data-patient-id="${pidEsc}" data-booking-id="${bidEsc}"
-                class="rounded-lg bg-primary px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-white shadow-sm hover:bg-primary/90 transition-colors">PAY</button>`);
-        }
-        if (row.show_schedule) {
-            bits.push(`<button type="button" data-treatment-progress-schedule="1" data-patient-id="${pidEsc}"
-                class="rounded-lg bg-orange-500 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-white shadow-sm hover:bg-orange-600 transition-colors">SCHEDULE</button>`);
-        }
-        const actionCell = bits.length
-            ? `<div class="flex flex-wrap items-center justify-end gap-2">${bits.join('')}</div>`
-            : '<span class="text-slate-400">—</span>';
+        const payDis = row.pay_disabled === true;
+        const schDis = row.schedule_disabled === true;
+        const payBtn = payDis
+            ? '<button type="button" disabled class="rounded-lg border border-slate-200 bg-slate-200 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-slate-500 cursor-not-allowed shadow-none">PAY</button>'
+            : `<button type="button" data-treatment-progress-pay="1" data-patient-id="${pidEsc}" data-booking-id="${bidEsc}"
+                class="rounded-lg bg-primary px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-white shadow-sm hover:bg-primary/90 transition-colors">PAY</button>`;
+        const schBtn = schDis
+            ? '<button type="button" disabled class="rounded-lg border border-slate-200 bg-slate-200 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-slate-500 cursor-not-allowed shadow-none">SCHEDULE</button>'
+            : `<button type="button" data-treatment-progress-schedule="1" data-patient-id="${pidEsc}"
+                class="rounded-lg bg-orange-500 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-white shadow-sm hover:bg-orange-600 transition-colors">SCHEDULE</button>`;
+        const actionCell = `<div class="flex flex-wrap items-center justify-end gap-2">${payBtn}${schBtn}</div>`;
         return `
             <tr class="border-b border-[#eeeeee] last:border-0">
                 <td class="px-3 py-3 text-sm font-bold text-slate-900">${escapeHtml(row.step_code || '')}</td>

@@ -92,16 +92,6 @@ function treatment_progress_build_step_row(int $installmentNumber, array $fields
         $visitBucket = 'pending';
     }
 
-    $showPay = !$isPaidInst;
-    $showSchedule = false;
-    if (!$isPaidInst) {
-        if ($visitBucket === 'book_visit') {
-            $showSchedule = true;
-        } elseif ($visitBucket === 'pending' && !$hasSchedule) {
-            $showSchedule = true;
-        }
-    }
-
     return [
         'step_code' => 'T' . $installmentNumber,
         'installment_number' => $installmentNumber,
@@ -111,9 +101,38 @@ function treatment_progress_build_step_row(int $installmentNumber, array $fields
         'visit_bucket' => $visitBucket,
         'amount_due' => $amountDue,
         'schedule_display' => $scheduleDisplay,
-        'show_pay' => $showPay,
-        'show_schedule' => $showSchedule,
     ];
+}
+
+/**
+ * Progressive unlock: prior rows must be paid; SCHEDULE only after current row paid and no visit slot yet.
+ *
+ * @param list<array<string,mixed>> $steps
+ */
+function treatment_progress_apply_progressive_action_flags(array &$steps): void
+{
+    $n = count($steps);
+    for ($i = 0; $i < $n; $i++) {
+        $priorChainPaid = true;
+        for ($j = 0; $j < $i; $j++) {
+            if (($steps[$j]['payment_bucket'] ?? '') !== 'paid') {
+                $priorChainPaid = false;
+                break;
+            }
+        }
+
+        $isPaid = (($steps[$i]['payment_bucket'] ?? '') === 'paid');
+        $vb = (string) ($steps[$i]['visit_bucket'] ?? '');
+        $sd = $steps[$i]['schedule_display'] ?? null;
+        $hasVisitSchedule = ($sd !== null && trim((string) $sd) !== '')
+            || in_array($vb, ['scheduled', 'completed'], true);
+
+        // PAY: locked if already paid, or earlier installments unpaid (progressive).
+        $steps[$i]['pay_disabled'] = $isPaid || !$priorChainPaid;
+
+        // SCHEDULE: only after this installment is paid; locked if visit already scheduled/completed or chain blocked.
+        $steps[$i]['schedule_disabled'] = !$isPaid || $hasVisitSchedule || !$priorChainPaid;
+    }
 }
 
 try {
@@ -269,6 +288,8 @@ try {
             ]);
         }
     }
+
+    treatment_progress_apply_progressive_action_flags($steps);
 
     echo json_encode([
         'success' => true,
