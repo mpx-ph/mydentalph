@@ -51,10 +51,12 @@ try {
     }
 
     $guardianPatient = api_profile_fetch_patient($pdo, $userId, $tenantId);
-    $contact         = $guardianPatient ? trim((string) ($guardianPatient['contact_number'] ?? '')) : '';
-    if ($contact === '') {
-        $contact = trim((string) ($user['phone'] ?? ''));
+    $contactFallback = $guardianPatient ? trim((string) ($guardianPatient['contact_number'] ?? '')) : '';
+    if ($contactFallback === '') {
+        $contactFallback = trim((string) ($user['phone'] ?? ''));
     }
+    $contactIn = trim((string) ($input['contact_number'] ?? $input['phone'] ?? ''));
+    $contact   = $contactIn !== '' ? $contactIn : $contactFallback;
 
     $fnRaw = trim((string) ($input['first_name'] ?? ''));
     $mn    = trim((string) ($input['middle_name'] ?? ''));
