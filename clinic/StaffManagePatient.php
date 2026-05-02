@@ -461,29 +461,19 @@ function formatDate(dateString) {
     return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 }
 
-/** Prefer API next_due_date; else estimate from started_at + duration_months when possible */
+/** Uses API target_completion_date (tbl_treatments-derived); fallback mirrors server +months logic */
 function formatTreatmentTargetCompletion(treatment) {
     if (!treatment) return 'Not available';
-    if (treatment.next_due_date) return formatDate(treatment.next_due_date);
+    const apiDate = String(treatment.target_completion_date || '').trim();
+    if (apiDate) return formatDate(apiDate);
     const startedRaw = treatment.started_at;
     const months = Number(treatment.duration_months || 0);
     if (!startedRaw || months <= 0) return 'Not available';
     const started = new Date(startedRaw);
     if (Number.isNaN(started.getTime())) return 'Not available';
-    const end = new Date(started);
+    const end = new Date(started.getTime());
     end.setMonth(end.getMonth() + months);
     return formatDate(end.toISOString());
-}
-
-function formatTreatmentPlanRef(treatment) {
-    const tid = String(treatment?.treatment_id || '').trim();
-    if (!tid) return '';
-    const digits = tid.replace(/\D/g, '');
-    const seq = digits
-        ? String(parseInt(digits, 10)).padStart(6, '0')
-        : tid.replace(/\s/g, '').slice(0, 12);
-    const y = new Date().getFullYear();
-    return `TP-${y}-${seq}`;
 }
 
 function formatDateTime(dateValue, timeValue) {
@@ -599,15 +589,18 @@ function renderTreatmentTab(context) {
         return;
     }
     const treatment = context.treatment;
-    const progress = Math.max(0, Math.min(100, Number(treatment.progress_percentage || 0)));
+    const progress = Math.max(0, Math.min(100, Number(treatment.progress_percentage ?? 0)));
     const targetCompletion = formatTreatmentTargetCompletion(treatment);
-    const nextDueDate = treatment.next_due_date ? formatDate(treatment.next_due_date) : 'Not available';
-    const serviceName = treatment.primary_service && treatment.primary_service.service_name
-        ? treatment.primary_service.service_name
-        : (treatment.primary_service_name || 'Installment treatment');
-    const dm = Number(treatment.duration_months || 0);
+    const snapshotService = String(treatment.primary_service_name || '').trim();
+    const catalogService = treatment.primary_service && treatment.primary_service.service_name
+        ? String(treatment.primary_service.service_name).trim()
+        : '';
+    const serviceName = snapshotService || catalogService || 'Installment treatment';
+    const dm = Number(treatment.duration_months ?? 0);
     const durationLabel = dm > 0 ? `${dm} Month${dm === 1 ? '' : 's'}` : '—';
-    const planRef = formatTreatmentPlanRef(treatment);
+    const planRef = String(treatment.treatment_id || '').trim();
+    const monthsPaid = Number(treatment.months_paid ?? 0);
+    const monthsLeft = Number(treatment.months_left ?? 0);
     const startedLabel = treatment.started_at ? formatDate(treatment.started_at) : 'N/A';
     const statusLabel = formatStatusLabel(treatment.status || 'active');
     section.innerHTML = `
@@ -626,7 +619,7 @@ function renderTreatmentTab(context) {
                     <span class="inline-flex max-w-[min(100%,280px)] items-center rounded-full bg-violet-100 px-3 py-1.5 text-xs font-bold text-violet-900 ring-1 ring-violet-200/80">
                         ${escapeHtml(serviceName)}
                     </span>
-                    <span class="text-xs font-medium text-slate-500">${planRef ? '#' + escapeHtml(planRef) : ''}</span>
+                    <span class="text-xs font-medium text-slate-500">${planRef ? escapeHtml('#' + planRef) : ''}</span>
                 </div>
                 <div class="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div>
@@ -668,8 +661,16 @@ function renderTreatmentTab(context) {
                     <span class="font-medium text-slate-500">${escapeHtml(statusLabel)}</span>
                 </div>
                 <div class="mt-5 border-t border-slate-100 pt-5">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Next due date</p>
-                    <p class="mt-1 text-[15px] font-bold text-slate-900">${escapeHtml(nextDueDate)}</p>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Months paid</p>
+                            <p class="mt-1 text-[15px] font-bold text-slate-900">${escapeHtml(String(monthsPaid))}</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Months remaining</p>
+                            <p class="mt-1 text-[15px] font-bold text-slate-900">${escapeHtml(String(monthsLeft))}</p>
+                        </div>
+                    </div>
                 </div>
                 <button type="button" id="viewTreatmentProgressBtn" class="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-violet-100 bg-violet-50/90 py-3 text-sm font-semibold text-primary transition-colors hover:bg-violet-100">
                     <span class="material-symbols-outlined text-[20px] text-primary">calendar_month</span>

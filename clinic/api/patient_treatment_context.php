@@ -6,6 +6,32 @@ require_once __DIR__ . '/../includes/appointment_db_tables.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
+/**
+ * Target end date from tbl_treatments: started_at + duration_months (calendar months).
+ */
+function patient_treatment_compute_target_completion_date(?string $startedAt, int $durationMonths): ?string
+{
+    $startedAt = $startedAt !== null ? trim($startedAt) : '';
+    if ($startedAt === '' || $durationMonths <= 0) {
+        return null;
+    }
+    try {
+        $tz = new DateTimeZone('Asia/Manila');
+        $start = new DateTimeImmutable($startedAt, $tz);
+    } catch (Throwable $e) {
+        try {
+            $start = new DateTimeImmutable($startedAt);
+        } catch (Throwable $e2) {
+            return null;
+        }
+    }
+    try {
+        return $start->modify('+' . $durationMonths . ' months')->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     http_response_code(405);
     echo json_encode(['success' => false, 'message' => 'Use GET.']);
@@ -125,6 +151,13 @@ try {
     }
     $progressPct = $totalCost > 0 ? min(100.0, max(0.0, ($amountPaid / $totalCost) * 100.0)) : 0.0;
 
+    $durationMonths = (int) ($treatment['duration_months'] ?? 0);
+    $targetCompletionYmd = patient_treatment_compute_target_completion_date(
+        (string) ($treatment['started_at'] ?? ''),
+        $durationMonths
+    );
+    $snapshotServiceName = trim((string) ($treatment['primary_service_name'] ?? ''));
+
     echo json_encode([
         'success' => true,
         'message' => 'Treatment context loaded.',
@@ -138,7 +171,7 @@ try {
                 'total_cost' => round($totalCost, 2),
                 'amount_paid' => round($amountPaid, 2),
                 'remaining_balance' => round($remainingBalance, 2),
-                'duration_months' => (int) ($treatment['duration_months'] ?? 0),
+                'duration_months' => $durationMonths,
                 'months_paid' => (int) ($treatment['months_paid'] ?? 0),
                 'months_left' => (int) ($treatment['months_left'] ?? 0),
                 'installment_total_slots' => null,
@@ -147,6 +180,10 @@ try {
                 'installment_paid_amount' => null,
                 'progress_percentage' => round($progressPct, 2),
                 'started_at' => (string) ($treatment['started_at'] ?? ''),
+                /** Snapshot from tbl_treatments (authoritative label at creation). */
+                'primary_service_name' => $snapshotServiceName,
+                /** Y-m-d from started_at + duration_months, matching ledger semantics. */
+                'target_completion_date' => $targetCompletionYmd,
                 'primary_service' => $service,
             ],
         ],
