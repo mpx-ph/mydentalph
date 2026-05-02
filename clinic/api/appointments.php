@@ -1092,6 +1092,14 @@ function createAppointment() {
                         $serviceDescription .= ' (Insurance: ' . $data['insurance'] . ')';
                     }
                 }
+
+                $catalogMaxInstallmentDuration = 0;
+                foreach ($normalizedServiceRows as $_catRow) {
+                    $catalogMaxInstallmentDuration = max(
+                        $catalogMaxInstallmentDuration,
+                        (int) ($_catRow['installment_duration_months'] ?? 0)
+                    );
+                }
                 
                 // Prepare treatment cost and long-term treatment fields
                 // Always set total_treatment_cost when there's a price, regardless of treatment type
@@ -1100,15 +1108,13 @@ function createAppointment() {
                 $targetCompletionDate = null;
                 $startDate = null;
                 
-                if ($treatmentType === 'long_term') {
-                    // Default duration for orthodontics: 18 months (can be adjusted later)
-                    $durationMonths = 18;
-                    
-                    // Calculate start date (appointment date) and target completion date
+                if ($treatmentType === 'long_term' && $catalogMaxInstallmentDuration > 0) {
+                    // Align with tbl_services.installment_duration_months (same source as tbl_treatments rows below).
+                    $durationMonths = $catalogMaxInstallmentDuration;
                     $startDate = $data['appointment_date'];
-                    $startDateObj = new DateTime($startDate);
+                    $startDateObj = new DateTime((string) $startDate);
                     $targetCompletionDateObj = clone $startDateObj;
-                    $targetCompletionDateObj->modify('+' . $durationMonths . ' months');
+                    $targetCompletionDateObj->modify('+' . (int) $durationMonths . ' months');
                     $targetCompletionDate = $targetCompletionDateObj->format('Y-m-d');
                 }
 
@@ -1123,7 +1129,10 @@ function createAppointment() {
                 if ($isStaffSetAppointmentBooking && $hasInstallmentService && $resolvedTreatmentId === '' && $treatmentsTableName !== '') {
                     $resolvedTreatmentId = generateTreatmentId();
                     if ($resolvedTreatmentId !== '') {
-                        $durationFromService = max(0, (int) ($primaryInstallmentServiceRow['installment_duration_months'] ?? 0));
+                        $primaryDur = max(0, (int) ($primaryInstallmentServiceRow['installment_duration_months'] ?? 0));
+                        $durationFromService = $catalogMaxInstallmentDuration > 0
+                            ? $catalogMaxInstallmentDuration
+                            : $primaryDur;
                         $pendingInstallmentTreatmentData = [
                             'tenant_id' => $tenantId,
                             'treatment_id' => $resolvedTreatmentId,
@@ -1450,14 +1459,14 @@ function createAppointment() {
         
         // Create installments for long-term treatments ONLY if payment option is 'downpayment'
         // Full payment long-term treatments should NOT have installments
-        if ($treatmentType === 'long_term' && $totalTreatmentCost > 0) {
+        if ($treatmentType === 'long_term' && $totalTreatmentCost > 0 && $durationMonths !== null && (int) $durationMonths > 0) {
             $paymentOption = isset($data['orthodontics_requirements']['payment_option']) 
                 ? $data['orthodontics_requirements']['payment_option'] 
                 : null;
             
             // Only create installments if payment option is 'downpayment'
             if ($paymentOption === 'downpayment') {
-                createInstallments($pdo, $bookingId, $totalTreatmentCost, $durationMonths, $data['appointment_date'], $data['orthodontics_requirements']);
+                createInstallments($pdo, $bookingId, $totalTreatmentCost, (int) $durationMonths, $data['appointment_date'], $data['orthodontics_requirements']);
             }
             // If payment_option is 'full', no installments are created, but treatment_type remains 'long_term'
         }

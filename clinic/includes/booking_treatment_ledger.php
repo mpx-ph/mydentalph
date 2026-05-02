@@ -307,17 +307,16 @@ function booking_ensure_long_term_schedule(array $apptExtras, string $appointmen
     $duration = isset($apptExtras['duration_months']) ? (int) $apptExtras['duration_months'] : 0;
 
     if ($isLong || $duration > 0) {
-        if ($duration <= 0) {
-            $duration = 18;
-            $apptExtras['duration_months'] = $duration;
-        }
-        try {
-            $dt = new DateTimeImmutable((string) $apptExtras['start_date'], $tz);
-            if (trim((string) ($apptExtras['target_completion_date'] ?? '')) === '') {
-                $apptExtras['target_completion_date'] = $dt->modify('+' . $duration . ' months')->format('Y-m-d');
+        // Target completion only when catalog/mobile supplied a positive duration (tbl_services.installment_duration_months path).
+        if ($duration > 0) {
+            try {
+                $dt = new DateTimeImmutable((string) $apptExtras['start_date'], $tz);
+                if (trim((string) ($apptExtras['target_completion_date'] ?? '')) === '') {
+                    $apptExtras['target_completion_date'] = $dt->modify('+' . $duration . ' months')->format('Y-m-d');
+                }
+            } catch (Throwable $e) {
+                // keep extras as-is
             }
-        } catch (Throwable $e) {
-            // keep extras as-is
         }
         $apptExtras['treatment_type'] = 'long_term';
     }
@@ -500,16 +499,23 @@ function booking_create_treatment_row(
     }
     $primary = $primaryIdx !== null ? $enriched[$primaryIdx] : null;
 
+    // Single source of truth: tbl_services.installment_duration_months (from enriched rows) + explicit mobile extras.
+    // Do not inject legacy defaults (e.g. 18) — those contradict tbl_appointments / catalog and tbl_treatments.
+    $maxFromCatalog = 0;
+    foreach ($enriched as $row) {
+        $m = (int) ($row['installment_duration_months'] ?? 0);
+        if ($m > 0) {
+            $maxFromCatalog = max($maxFromCatalog, $m);
+        }
+    }
     $durationMonths = max(
         $durationFromExtras > 0 ? $durationFromExtras : 0,
+        $maxFromCatalog,
         $primary && (int) ($primary['installment_duration_months'] ?? 0) > 0
             ? (int) $primary['installment_duration_months']
-            : 0,
-        ($anyOrtho || $tt === 'long_term') ? 18 : 0
+            : 0
     );
-    if ($durationMonths <= 0) {
-        $durationMonths = 18;
-    }
+    // $primary's months are already included in $maxFromCatalog when catalog-loaded; max() is idempotent.
 
     $cost = round(max(0.0, $cartTotalAmount), 2);
 

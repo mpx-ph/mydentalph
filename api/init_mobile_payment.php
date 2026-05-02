@@ -114,7 +114,7 @@ try {
     $ledgerDurationMonths = (int) ($ledger['duration_months'] ?? 0);
     $durationForAppointment = isset($apptExtras['duration_months']) ? (int) $apptExtras['duration_months'] : null;
     if ($treatmentFkOrNull !== null && $ledgerDurationMonths > 0) {
-        // Match tbl_treatments (max of catalog months, mobile extras, ortho/long-term defaults).
+        // Match tbl_treatments (catalog + mobile extras; no hard-coded month defaults).
         $durationForAppointment = $ledgerDurationMonths;
     }
 
