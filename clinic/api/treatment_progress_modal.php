@@ -101,7 +101,159 @@ function treatment_progress_build_step_row(int $installmentNumber, array $fields
         'visit_bucket' => $visitBucket,
         'amount_due' => $amountDue,
         'schedule_display' => $scheduleDisplay,
+        /** Lowercase raw installment row status for reconciliation (paid/completed/pending/book_visit/…) */
+        'db_raw_status' => $rawLower,
     ];
+}
+
+/**
+ * Mark a step as fully paid for both payment and visit columns (treatment progress display).
+ *
+ * @param array<string, mixed> $step
+ */
+function treatment_progress_step_mark_paid_row(array &$step): void
+{
+    $step['payment_status'] = 'Paid';
+    $step['payment_bucket'] = 'paid';
+    $step['visit_status'] = 'Completed';
+    $step['visit_bucket'] = 'completed';
+}
+
+/**
+ * Detect downpayment + monthly schedule (row 1 = down, rows 2+ = monthlies) vs equal monthly columns.
+ *
+ * @param list<array<string, mixed>> $steps
+ * @return bool
+ */
+function treatment_progress_is_discrete_downpayment_schedule(array $steps, int $treatmentDurationMonths): bool
+{
+    if (count($steps) < 2) {
+        return false;
+    }
+    $maxNum = 0;
+    $a1 = 0.0;
+    $a2 = 0.0;
+    foreach ($steps as $s) {
+        $n = (int) ($s['installment_number'] ?? 0);
+        if ($n > $maxNum) {
+            $maxNum = $n;
+        }
+    }
+    $treatDur = max(0, $treatmentDurationMonths);
+    if ($treatDur > 0 && $maxNum > $treatDur) {
+        return true;
+    }
+    foreach ($steps as $s) {
+        $n = (int) ($s['installment_number'] ?? 0);
+        $d = round(max(0.0, (float) ($s['amount_due'] ?? 0)), 2);
+        if ($n === 1) {
+            $a1 = $d;
+        } elseif ($n === 2) {
+            $a2 = $d;
+        }
+    }
+    if ($a1 > 0.009 && $a2 > 0.009 && abs($a1 - $a2) > 0.05) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Reconcile per-row payment status from aggregate treatment fields (full pay, months_paid, sequential amount).
+ * Ensures row progression (T1 → T2 → …) and PAY button state match payment progress.
+ *
+ * @param list<array<string, mixed>> $steps
+ * @param array<string, mixed> $treatment
+ */
+function treatment_progress_reconcile_payment_states(array &$steps, array $treatment): void
+{
+    $n = count($steps);
+    if ($n === 0) {
+        return;
+    }
+    $eps = 0.05;
+    $totalCost = max(0.0, (float) ($treatment['total_cost'] ?? 0));
+    $amountPaid = max(0.0, (float) ($treatment['amount_paid'] ?? 0));
+    $remainingBalance = max(0.0, (float) ($treatment['remaining_balance'] ?? 0));
+    if ($totalCost > 0 && $amountPaid > $totalCost) {
+        $amountPaid = $totalCost;
+    }
+    $monthsPaidField = max(0, (int) ($treatment['months_paid'] ?? 0));
+    $durationMonths = max(0, (int) ($treatment['duration_months'] ?? 0));
+
+    $fullySettled = $totalCost > 0 && ($remainingBalance <= $eps || $amountPaid >= $totalCost - $eps);
+    if ($fullySettled) {
+        foreach ($steps as &$st) {
+            treatment_progress_step_mark_paid_row($st);
+        }
+        unset($st);
+
+        return;
+    }
+
+    $row1Discrete = treatment_progress_is_discrete_downpayment_schedule($steps, $durationMonths);
+    $sequentialFlags = array_fill(0, $n, false);
+    $run = $amountPaid;
+    for ($i = 0; $i < $n; $i++) {
+        $due = round(max(0.0, (float) ($steps[$i]['amount_due'] ?? 0)), 2);
+        if ($due <= 0.009) {
+            $sequentialFlags[$i] = true;
+
+            continue;
+        }
+        if ($run + $eps >= $due) {
+            $sequentialFlags[$i] = true;
+            $run = round($run - $due, 2);
+            if ($run < 0) {
+                $run = 0.0;
+            }
+        } else {
+            break;
+        }
+    }
+
+    $rawPaid = [];
+    for ($i = 0; $i < $n; $i++) {
+        $num = (int) ($steps[$i]['installment_number'] ?? ($i + 1));
+        $dbPaid = (($steps[$i]['payment_bucket'] ?? '') === 'paid');
+        $seqPaid = $sequentialFlags[$i];
+        $monthsSlotPaid = false;
+        if ($row1Discrete && $num >= 2 && $monthsPaidField > 0) {
+            $monthsSlotPaid = $monthsPaidField >= ($num - 1);
+        }
+        $rawPaid[$i] = $dbPaid || $seqPaid || $monthsSlotPaid;
+    }
+
+    // Strict installment order: row T(k+1) cannot show PAID before row T(k).
+    $finalPaid = [];
+    for ($i = 0; $i < $n; $i++) {
+        if ($i === 0) {
+            $finalPaid[$i] = $rawPaid[$i];
+        } else {
+            $finalPaid[$i] = $rawPaid[$i] && $finalPaid[$i - 1];
+        }
+    }
+
+    for ($i = 0; $i < $n; $i++) {
+        if ($finalPaid[$i]) {
+            treatment_progress_step_mark_paid_row($steps[$i]);
+        } else {
+            $num = (int) ($steps[$i]['installment_number'] ?? ($i + 1));
+            $rawBack = strtolower((string) ($steps[$i]['db_raw_status'] ?? 'pending'));
+            if (in_array($rawBack, ['paid', 'completed'], true)) {
+                // Installment order guard: cannot display PAID until all prior rows are settled.
+                $rawBack = 'pending';
+            }
+            $sched = $steps[$i]['schedule_display'] ?? null;
+            $due = (float) ($steps[$i]['amount_due'] ?? 0);
+            $steps[$i] = treatment_progress_build_step_row($num, [
+                'raw_status' => $rawBack,
+                'amount_due' => $due,
+                'schedule_display' => $sched,
+            ]);
+        }
+    }
 }
 
 /**
@@ -154,6 +306,7 @@ try {
             COALESCE(amount_paid, 0) AS amount_paid,
             COALESCE(remaining_balance, 0) AS remaining_balance,
             COALESCE(duration_months, 0) AS duration_months,
+            COALESCE(months_paid, 0) AS months_paid,
             COALESCE(status, 'active') AS status
         FROM {$qt}
         WHERE tenant_id = ?
@@ -289,6 +442,7 @@ try {
         }
     }
 
+    treatment_progress_reconcile_payment_states($steps, $treatment);
     treatment_progress_apply_progressive_action_flags($steps);
 
     echo json_encode([
@@ -300,6 +454,8 @@ try {
                 'treatment_id' => (string) ($treatment['treatment_id'] ?? ''),
                 'total_cost' => round($totalCost, 2),
                 'amount_paid' => round($amountPaid, 2),
+                'remaining_balance' => round(max(0.0, (float) ($treatment['remaining_balance'] ?? 0)), 2),
+                'months_paid' => (int) ($treatment['months_paid'] ?? 0),
                 'progress_percentage' => round($progressPct, 2),
             ],
             'steps' => $steps,

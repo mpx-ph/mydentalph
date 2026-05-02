@@ -108,8 +108,11 @@ try {
         FROM {$qt} t
         WHERE t.tenant_id = ?
           AND t.patient_id = ?
-          AND LOWER(COALESCE(t.status, 'active')) = 'active'
-        ORDER BY t.started_at DESC, t.id DESC
+          AND COALESCE(t.total_cost, 0) > 0
+        ORDER BY
+            CASE WHEN LOWER(COALESCE(t.status, '')) = 'active' THEN 0 ELSE 1 END,
+            t.started_at DESC,
+            t.id DESC
         LIMIT 1
     ");
     $stmt->execute([$tenantId, $patientId]);
