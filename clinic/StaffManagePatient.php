@@ -785,11 +785,7 @@ function renderTreatmentTab(context) {
     const section = document.getElementById('patient-tab-treatment');
     if (!section) return;
     const hasTreatment = Boolean(context && context.has_active_treatment && context.treatment);
-    const eligibleNextPlan = Boolean(context && context.eligible_for_new_treatment_plan);
     if (!hasTreatment) {
-        const closedHint = eligibleNextPlan
-            ? '<p class="mt-3 text-sm font-semibold text-emerald-800 leading-relaxed">The previous installment plan is fully settled with all visits completed. This patient is eligible for a new long-term installment treatment plan when clinically appropriate.</p>'
-            : '';
         section.innerHTML = `
             <div class="rounded-xl border border-violet-200/90 bg-violet-50/70 p-4">
                 <div class="flex items-center gap-3">
@@ -799,7 +795,6 @@ function renderTreatmentTab(context) {
                     <h5 class="text-base font-bold text-slate-900">Active Treatment</h5>
                 </div>
                 <p class="mt-4 text-slate-500 text-sm font-medium">No active installment treatment plan on file.</p>
-                ${closedHint}
             </div>
         `;
         return;
