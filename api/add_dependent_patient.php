@@ -58,6 +58,16 @@ try {
     $contactIn = trim((string) ($input['contact_number'] ?? $input['phone'] ?? ''));
     $contact   = $contactIn !== '' ? $contactIn : $contactFallback;
 
+    $emailIn = trim((string) ($input['email'] ?? ''));
+    if (strtolower($emailIn) === 'null') {
+        $emailIn = '';
+    }
+    $emailFallback = trim((string) ($user['email'] ?? ''));
+    if (strtolower($emailFallback) === 'null') {
+        $emailFallback = '';
+    }
+    $email = $emailIn !== '' ? $emailIn : $emailFallback;
+
     $fnRaw = trim((string) ($input['first_name'] ?? ''));
     $mn    = trim((string) ($input['middle_name'] ?? ''));
     $ln    = trim((string) ($input['last_name'] ?? ''));
@@ -114,10 +124,10 @@ try {
     $stI = $pdo->prepare(
         "INSERT INTO tbl_patients (
             tenant_id, patient_id, owner_user_id, linked_user_id,
-            first_name, last_name, contact_number, date_of_birth, gender, blood_type,
+            first_name, last_name, contact_number, email, date_of_birth, gender, blood_type,
             house_street, barangay, city_municipality, province,
             created_at, updated_at
-        ) VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())"
+        ) VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())"
     );
     $stI->execute([
         $tenantId,
@@ -126,6 +136,7 @@ try {
         $fn,
         $ln,
         $contact !== '' ? $contact : null,
+        $email !== '' ? substr($email, 0, 255) : null,
         $dob,
         $gen,
         $bt !== '' ? substr($bt, 0, 10) : null,

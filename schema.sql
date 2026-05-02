@@ -134,6 +134,7 @@ CREATE TABLE IF NOT EXISTS tbl_patients (
     first_name VARCHAR(100),
     last_name VARCHAR(100),
     contact_number VARCHAR(20),
+    email VARCHAR(255) NULL,
     date_of_birth DATE,
     gender ENUM('Male','Female','Other','Prefer not to say'),
     blood_type VARCHAR(10),

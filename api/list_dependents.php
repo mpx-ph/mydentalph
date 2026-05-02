@@ -44,7 +44,7 @@ try {
     }
 
     $st = $pdo->prepare(
-        "SELECT patient_id, first_name, last_name, date_of_birth, gender, blood_type
+        "SELECT patient_id, first_name, last_name, COALESCE(email, '') AS email, date_of_birth, gender, blood_type
          FROM tbl_patients
          WHERE tenant_id = ?
            AND owner_user_id = ?
@@ -59,6 +59,7 @@ try {
             'patient_id'    => (string) ($r['patient_id'] ?? ''),
             'first_name'    => (string) ($r['first_name'] ?? ''),
             'last_name'     => (string) ($r['last_name'] ?? ''),
+            'email'         => (string) ($r['email'] ?? ''),
             'date_of_birth' => $r['date_of_birth'] ? (string) $r['date_of_birth'] : '',
             'gender'        => (string) ($r['gender'] ?? ''),
             'blood_type'    => (string) ($r['blood_type'] ?? ''),
