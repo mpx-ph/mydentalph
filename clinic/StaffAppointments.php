@@ -1010,15 +1010,7 @@ if ($currentTenantSlug !== '') {
                                         'raw_type' => $fallbackTypeLabel === 'Long Term' ? 'installment' : 'regular',
                                     ];
                                 }
-                                $apptTreatmentNorm = strtolower(trim((string) ($appointment['treatment_type'] ?? 'short_term')));
-                                if ($apptTreatmentNorm === 'long_term' && !empty($serviceLines)) {
-                                    $serviceLines = array_map(static function (array $line) {
-                                        $line['type_label'] = 'Long Term';
-                                        $line['raw_type'] = 'installment';
-                                        return $line;
-                                    }, $serviceLines);
-                                }
-                                $hasInstallmentInLines = ($apptTreatmentNorm === 'long_term');
+                                $hasInstallmentInLines = false;
                                 $serviceLineNames = [];
                                 foreach ($serviceLines as $line) {
                                     $serviceLineNames[] = (string) ($line['name'] ?? '');
