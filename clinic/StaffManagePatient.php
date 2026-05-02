@@ -108,6 +108,12 @@ body { font-family: "Manrope", sans-serif; }
     border-color: #ef4444 !important;
     box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15) !important;
 }
+.treatment-progress-gradient {
+    background: linear-gradient(90deg, #1d6fd4 0%, #2b8beb 55%, #4da3f5 100%);
+}
+#treatmentProgressModal:not(.hidden) {
+    animation: staff-modal-fade-in 0.25s ease forwards;
+}
 </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
@@ -400,6 +406,26 @@ body { font-family: "Manrope", sans-serif; }
     </div>
 </div>
 
+<div id="treatmentProgressModal" class="fixed inset-0 z-[90] hidden items-center justify-center bg-slate-900/55 backdrop-blur-[2px] p-4">
+    <div class="relative flex w-full max-w-3xl max-h-[92vh] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_-12px_rgba(15,23,42,0.28)] border border-slate-100">
+        <div class="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+            <div class="flex items-center gap-3 min-w-0">
+                <span class="material-symbols-outlined shrink-0 text-primary text-[26px]">calendar_month</span>
+                <h3 class="text-lg font-extrabold text-slate-900 tracking-tight">Treatment Progress</h3>
+            </div>
+            <button type="button" id="closeTreatmentProgressModalX" class="shrink-0 p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Close">
+                <span class="material-symbols-outlined text-[24px]">close</span>
+            </button>
+        </div>
+        <div id="treatmentProgressModalBody" class="flex-1 min-h-0 overflow-y-auto px-6 py-6"></div>
+        <div class="shrink-0 flex justify-end gap-3 border-t border-slate-100 px-6 py-4 bg-slate-50/80">
+            <button type="button" id="closeTreatmentProgressModalFooter" class="inline-flex items-center justify-center rounded-xl bg-slate-200/90 hover:bg-slate-200 px-8 py-2.5 text-sm font-semibold text-slate-700 transition-colors">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
 <script src="<?php echo htmlspecialchars(BASE_URL, ENT_QUOTES, 'UTF-8'); ?>js/staff-ui-dialogs.js"></script>
 <script>
 const STAFF_OWNER_USER_ID = <?php echo json_encode($currentStaffUserId, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
@@ -407,7 +433,9 @@ const API_PATIENTS_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER[
 const API_ADDRESS_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/philippine_address.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 const API_APPOINTMENTS_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/appointments.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 const API_TREATMENT_CONTEXT_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patient_treatment_context.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+const API_TREATMENT_PROGRESS_MODAL_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/treatment_progress_modal.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 const API_PATIENT_FILES_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patient_files.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+const CLINIC_STAFF_BASE = <?php echo json_encode(rtrim(BASE_URL, "/\\") . '/', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
 /** Matches StaffManageServices / services catalog category labels → badge colors */
 const SERVICE_CATEGORY_BADGE_BY_LABEL = {
@@ -442,6 +470,122 @@ function resolveInstallmentServiceCategoryBadgeClasses(treatment) {
     const lower = raw.toLowerCase();
     const hit = Object.keys(SERVICE_CATEGORY_BADGE_BY_LABEL).find(k => k.toLowerCase() === lower);
     return hit ? SERVICE_CATEGORY_BADGE_BY_LABEL[hit] : fallback;
+}
+
+function treatmentProgressStatusBadgeClass(bucket) {
+    if (bucket === 'booked') return 'bg-blue-100 text-blue-700';
+    if (bucket === 'book_visit') return 'bg-orange-100 text-orange-700';
+    return 'bg-slate-100 text-slate-600';
+}
+
+function buildTreatmentProgressModalInnerHtml(payload, patientId) {
+    const t = payload.treatment || {};
+    const steps = Array.isArray(payload.steps) ? payload.steps : [];
+    const total = Number(t.total_cost || 0);
+    const paid = Number(t.amount_paid || 0);
+    const pct = Math.max(0, Math.min(100, Number(t.progress_percentage ?? 0)));
+    const pctRounded = Math.round(pct);
+    const paidLabel = formatPeso(paid);
+    const totalLabel = formatPeso(total);
+    const rows = steps.length ? steps.map((row) => {
+        const schedule = row.schedule_display ? escapeHtml(row.schedule_display) : '—';
+        const amt = formatPeso(row.amount_due);
+        const bucket = row.status_bucket || 'pending';
+        const badgeCls = treatmentProgressStatusBadgeClass(bucket);
+        const label = escapeHtml(row.status_label || 'Pending');
+        let actionCell = '';
+        if (row.action === 'book') {
+            actionCell = `
+                <button type="button" data-treatment-progress-book="1" data-patient-id="${escapeHtml(String(patientId || ''))}"
+                    class="rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white shadow-sm hover:bg-orange-600 transition-colors">
+                    Book
+                </button>`;
+        } else if (row.action === 'pending_text') {
+            actionCell = '<span class="text-sm font-medium text-slate-400">Pending</span>';
+        } else {
+            actionCell = '<span class="text-slate-400">—</span>';
+        }
+        return `
+            <tr class="border-b border-[#eeeeee] last:border-0">
+                <td class="px-3 py-3 text-sm font-bold text-slate-900">${escapeHtml(row.step_code || '')}</td>
+                <td class="px-3 py-3">
+                    <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${badgeCls}">${label}</span>
+                </td>
+                <td class="px-3 py-3 text-sm text-slate-500">${schedule}</td>
+                <td class="px-3 py-3 text-sm font-bold text-slate-900">${escapeHtml(amt)}</td>
+                <td class="px-3 py-3 text-right">${actionCell}</td>
+            </tr>`;
+    }).join('') : `
+        <tr>
+            <td colspan="5" class="px-4 py-8 text-center text-sm text-slate-500 font-medium">No installment schedule found for this treatment.</td>
+        </tr>`;
+
+    return `
+        <div class="space-y-6">
+            <div class="treatment-progress-gradient rounded-xl px-5 py-5 text-white shadow-md">
+                <p class="text-[10px] font-bold uppercase tracking-[0.12em] text-white/90">Total payment progress</p>
+                <p class="mt-2 text-2xl font-extrabold tracking-tight">${escapeHtml(paidLabel)} / ${escapeHtml(totalLabel)}</p>
+                <div class="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-white">
+                    <div class="h-full rounded-full bg-sky-200" style="width:${pct}%"></div>
+                </div>
+                <p class="mt-2 text-right text-xs font-semibold text-white/95">${escapeHtml(String(pctRounded))}% Paid</p>
+            </div>
+            <div class="rounded-xl border border-[#eeeeee] overflow-hidden bg-white">
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[640px] text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-[#eeeeee] bg-white">
+                                <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Step</th>
+                                <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Status</th>
+                                <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Schedule</th>
+                                <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Amount</th>
+                                <th class="px-3 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-slate-500">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            </div>
+        </div>`;
+}
+
+function closeTreatmentProgressModal() {
+    const modal = document.getElementById('treatmentProgressModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    const body = document.getElementById('treatmentProgressModalBody');
+    if (body) body.innerHTML = '';
+    syncModalBodyScrollLock();
+}
+
+async function openTreatmentProgressModal(treatmentId) {
+    const modal = document.getElementById('treatmentProgressModal');
+    const body = document.getElementById('treatmentProgressModalBody');
+    if (!modal || !body || !activeProfilePatient) return;
+    const tid = String(treatmentId || '').trim();
+    const pid = String(activeProfilePatient.patientId || '').trim();
+    if (!tid || !pid) {
+        await staffUiAlert({ title: 'Treatment', message: 'Missing patient or treatment reference.', variant: 'warning' });
+        return;
+    }
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    syncModalBodyScrollLock();
+    body.innerHTML = '<div class="flex justify-center py-16 text-slate-500 text-sm font-medium">Loading treatment progress…</div>';
+    try {
+        const url = new URL(API_TREATMENT_PROGRESS_MODAL_URL, window.location.origin);
+        url.searchParams.set('patient_id', pid);
+        url.searchParams.set('treatment_id', tid);
+        const response = await fetch(url.toString(), { credentials: 'include' });
+        const data = await parseJsonResponse(response);
+        if (!response.ok || !data.success || !data.data) {
+            throw new Error(data.message || 'Failed to load treatment progress.');
+        }
+        body.innerHTML = buildTreatmentProgressModalInnerHtml(data.data, pid);
+    } catch (err) {
+        body.innerHTML = `<p class="text-center text-rose-600 text-sm font-medium py-10">${escapeHtml(err.message || 'Failed to load.')}</p>`;
+    }
 }
 
 let allPatientsData = [];
@@ -708,7 +852,7 @@ function renderTreatmentTab(context) {
                         </div>
                     </div>
                 </div>
-                <button type="button" id="viewTreatmentProgressBtn" class="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-violet-100 bg-violet-50/90 py-3 text-sm font-semibold text-primary transition-colors hover:bg-violet-100">
+                <button type="button" id="viewTreatmentProgressBtn" data-treatment-id="${escapeHtml(String(treatment.treatment_id || ''))}" class="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-violet-100 bg-violet-50/90 py-3 text-sm font-semibold text-primary transition-colors hover:bg-violet-100">
                     <span class="material-symbols-outlined text-[20px] text-primary">calendar_month</span>
                     View Treatment Progress
                 </button>
@@ -718,11 +862,7 @@ function renderTreatmentTab(context) {
     const progressBtn = section.querySelector('#viewTreatmentProgressBtn');
     if (progressBtn) {
         progressBtn.addEventListener('click', () => {
-            staffUiAlert({
-                title: 'Treatment progress',
-                message: 'Detailed progress tracking will open from the payment / treatment module.',
-                variant: 'info'
-            });
+            openTreatmentProgressModal(progressBtn.getAttribute('data-treatment-id'));
         });
     }
 }
@@ -1377,7 +1517,9 @@ function closeViewModal() {
 function syncModalBodyScrollLock() {
     const addOpen = addPatientModal && !addPatientModal.classList.contains('hidden');
     const viewOpen = viewPatientModal && !viewPatientModal.classList.contains('hidden');
-    document.body.style.overflow = (addOpen || viewOpen) ? 'hidden' : '';
+    const tpModal = document.getElementById('treatmentProgressModal');
+    const tpOpen = tpModal && !tpModal.classList.contains('hidden');
+    document.body.style.overflow = (addOpen || viewOpen || tpOpen) ? 'hidden' : '';
 }
 
 async function savePatient(event) {
@@ -1531,6 +1673,20 @@ document.getElementById('schedulePatientBtn').addEventListener('click', () => {
         message: 'Schedule workflow will be wired to appointments module.',
         variant: 'info'
     });
+});
+
+document.getElementById('closeTreatmentProgressModalX').addEventListener('click', closeTreatmentProgressModal);
+document.getElementById('closeTreatmentProgressModalFooter').addEventListener('click', closeTreatmentProgressModal);
+document.getElementById('treatmentProgressModal').addEventListener('click', function (e) {
+    if (e.target === this) {
+        closeTreatmentProgressModal();
+    }
+});
+document.getElementById('treatmentProgressModalBody').addEventListener('click', function (e) {
+    const book = e.target.closest('[data-treatment-progress-book]');
+    if (!book) return;
+    const patientId = book.getAttribute('data-patient-id');
+    window.location.href = CLINIC_STAFF_BASE + 'StaffPaymentRecording.php?patient_id=' + encodeURIComponent(patientId || '');
 });
 
 applyDobConstraints();
