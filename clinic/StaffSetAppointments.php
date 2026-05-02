@@ -1434,17 +1434,25 @@ $treatmentScheduleBootstrap = [
                 const price = Number(service.price || 0);
                 const isInstallment = serviceInstallmentEnabled(service);
                 const selectionRule = getServiceSelectionRule(service);
+                const lockReasonHtml = (!selectionRule.allowed && selectionRule.reason)
+                    ? '<p class="text-[11px] font-semibold text-amber-700 mt-1.5 leading-snug">' + escapeHtml(selectionRule.reason) + '</p>'
+                    : '';
                 const buttonDisabled = !selectionRule.allowed;
                 const buttonClass = buttonDisabled
                     ? 'shrink-0 rounded-lg bg-slate-200 text-slate-500 px-3 py-2 text-xs font-extrabold uppercase tracking-wide cursor-not-allowed'
                     : 'shrink-0 rounded-lg bg-primary text-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide hover:bg-primary/90 transition-colors';
                 return '' +
-                    '<div class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-slate-50/80 transition-colors">' +
-                        '<div class="min-w-0">' +
+                    '<div class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 hover:bg-slate-50/80 transition-colors">' +
+                        '<div class="min-w-0 flex-1">' +
                             '<p class="text-sm font-bold text-slate-900 truncate">' + serviceName + '</p>' +
-                            '<p class="text-xs font-semibold text-slate-500 mt-1 inline-flex items-center gap-2"><span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ' + categoryBadgeClass + '">' + category + '</span><span>Php ' + price.toFixed(2) + '</span>' + (isInstallment ? '<span class="text-primary">Installment</span>' : '') + (selectionRule.allowed ? '' : '<span class="text-amber-700">' + escapeHtml(selectionRule.reason || 'Not available') + '</span>') + '</p>' +
+                            '<div class="mt-1 flex flex-nowrap items-center gap-2">' +
+                                '<span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide shrink-0 whitespace-nowrap ' + categoryBadgeClass + '">' + category + '</span>' +
+                                '<span class="text-xs font-semibold text-slate-500 shrink-0 whitespace-nowrap">Php ' + price.toFixed(2) + '</span>' +
+                                (isInstallment ? '<span class="text-xs text-primary shrink-0 whitespace-nowrap">Installment</span>' : '') +
+                            '</div>' +
+                            lockReasonHtml +
                         '</div>' +
-                        '<button type="button" data-action="select-service" data-service-id="' + serviceId + '" ' + (buttonDisabled ? 'disabled' : '') + ' class="' + buttonClass + '">' + (selectionRule.allowed ? 'Select' : 'Locked') + '</button>' +
+                        '<button type="button" data-action="select-service" data-service-id="' + serviceId + '" ' + (buttonDisabled ? 'disabled' : '') + ' class="' + buttonClass + ' shrink-0 self-center sm:self-start">' + (selectionRule.allowed ? 'Select' : 'Locked') + '</button>' +
                     '</div>';
             }).join('');
         }
@@ -1631,20 +1639,20 @@ $treatmentScheduleBootstrap = [
             if (serviceType === 'installment' && patientHasActiveTreatmentPlan()) {
                 return {
                     allowed: false,
-                    reason: 'This patient already has an active treatment plan. Only one active installment plan is allowed per patient.'
+                    reason: 'One active installment plan per patient already.'
                 };
             }
             if (!serviceMatchesTreatmentServiceVisibility(service)) {
                 return {
                     allowed: false,
-                    reason: 'This service is not available for the patient\'s active treatment category.'
+                    reason: 'Not available for this treatment category.'
                 };
             }
             if (requiresTreatmentScheduleIncludedPlanOrder() && serviceType !== 'included_plan') {
                 if (!selectedServicesIncludePlanVisit()) {
                     return {
                         allowed: false,
-                        reason: 'Add an included plan visit (e.g. braces adjustment / plan follow-up) first. You can add other services afterward.'
+                        reason: 'Add plan visit first; extras afterward.'
                     };
                 }
             }
