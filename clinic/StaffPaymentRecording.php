@@ -3115,10 +3115,13 @@ try {
                 ";
             $normalizedServiceTypeSql = $supportsAppointmentServiceTypeColumn
                 ? "CASE
-                        WHEN LOWER(TRIM(COALESCE(NULLIF(aps.service_type, ''), NULLIF(a.service_type, ''), ''))) = 'regular' THEN 'regular'
+                        WHEN LOWER(TRIM(COALESCE(NULLIF(aps.service_type, ''), NULLIF(a.service_type, ''), ''))) = 'included_plan' THEN 'included_plan'
+                        WHEN LOWER(TRIM(COALESCE(sv.service_type, ''))) = 'included_plan' THEN 'included_plan'
                         WHEN LOWER(TRIM(COALESCE(NULLIF(aps.service_type, ''), NULLIF(a.service_type, ''), ''))) = 'installment' THEN 'installment'
+                        WHEN LOWER(TRIM(COALESCE(a.service_type, ''))) = 'installment' THEN 'installment'
                         WHEN LOWER(TRIM(COALESCE(sv.service_type, ''))) = 'installment' THEN 'installment'
                         WHEN TRIM(COALESCE(NULLIF(aps.treatment_id, ''), NULLIF(a.treatment_id, ''), '')) <> '' THEN 'installment'
+                        WHEN LOWER(TRIM(COALESCE(NULLIF(aps.service_type, ''), NULLIF(a.service_type, ''), ''))) = 'regular' THEN 'regular'
                         ELSE 'regular'
                     END"
                 : ($supportsServiceEnableInstallmentColumn
@@ -3546,10 +3549,10 @@ try {
                     ? "CASE
                             WHEN LOWER(TRIM(COALESCE(aps.service_type, ''))) = 'included_plan' THEN 'included_plan'
                             WHEN LOWER(TRIM(COALESCE(sv.service_type, ''))) = 'included_plan' THEN 'included_plan'
-                            WHEN LOWER(TRIM(COALESCE(aps.service_type, ''))) = 'regular' THEN 'regular'
                             WHEN LOWER(TRIM(COALESCE(aps.service_type, ''))) = 'installment' THEN 'installment'
                             WHEN LOWER(TRIM(COALESCE(sv.service_type, ''))) = 'installment' THEN 'installment'
                             WHEN TRIM(COALESCE(aps.treatment_id, '')) <> '' THEN 'installment'
+                            WHEN LOWER(TRIM(COALESCE(aps.service_type, ''))) = 'regular' THEN 'regular'
                             ELSE 'regular'
                         END"
                     : ($supportsServiceEnableInstallmentColumn
