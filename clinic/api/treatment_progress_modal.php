@@ -6,6 +6,7 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/appointment_db_tables.php';
+require_once __DIR__ . '/../includes/staff_installment_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -681,10 +682,15 @@ try {
     $durationMonths = max(0, (int) ($treatment['duration_months'] ?? 0));
     $paymentSettings = treatment_progress_load_payment_settings($pdo, $tenantId);
 
+    $installmentsTable = clinic_get_physical_table_name($pdo, 'tbl_installments')
+        ?? clinic_get_physical_table_name($pdo, 'installments');
+
     $bookingId = '';
     $appointmentDate = '';
     $appointmentTime = '';
     $appointmentRowStatus = '';
+    $appointmentStatusForOverlay = '';
+
     if ($appointmentsTable !== null) {
         $apptCols = clinic_table_columns($pdo, $appointmentsTable);
         $hasTreatmentCol = in_array('treatment_id', $apptCols, true);
@@ -700,7 +706,61 @@ try {
             $orderBy = 'a.booking_id DESC';
         }
         $statusSel = $hasStatusCol ? 'COALESCE(a.status, \'\') AS appointment_row_status' : '\'\' AS appointment_row_status';
+
+        $planBookingId = '';
+        if (
+            $hasTreatmentCol
+            && $installmentsTable !== null
+            && trim((string) $installmentsTable) !== ''
+        ) {
+            $planBookingId = staff_installments_resolve_plan_booking_id_for_patient_treatment(
+                $pdo,
+                (string) $tenantId,
+                $patientId,
+                $treatmentId,
+                (string) $appointmentsTable,
+                (string) $installmentsTable
+            );
+        }
+
+        if ($planBookingId !== '') {
+            $bookingId = $planBookingId;
+            $masterStmt = $pdo->prepare("
+                SELECT COALESCE(a.appointment_date, '') AS appointment_date,
+                       COALESCE(a.appointment_time, '') AS appointment_time,
+                       {$statusSel}
+                FROM {$qa} a
+                WHERE a.tenant_id = ?
+                  AND TRIM(COALESCE(a.booking_id, '')) = ?
+                LIMIT 1
+            ");
+            $masterStmt->execute([$tenantId, $planBookingId]);
+            $mbr = $masterStmt->fetch(PDO::FETCH_ASSOC);
+            if ($mbr) {
+                $appointmentDate = trim((string) ($mbr['appointment_date'] ?? ''));
+                $appointmentTime = trim((string) ($mbr['appointment_time'] ?? ''));
+                $appointmentRowStatus = trim((string) ($mbr['appointment_row_status'] ?? ''));
+            }
+        }
+
         if ($hasTreatmentCol) {
+            $overlayStmt = $pdo->prepare("
+                SELECT {$statusSel}
+                FROM {$qa} a
+                WHERE a.tenant_id = ?
+                  AND TRIM(COALESCE(a.patient_id, '')) = ?
+                  AND TRIM(COALESCE(a.treatment_id, '')) = ?
+                ORDER BY {$orderBy}
+                LIMIT 1
+            ");
+            $overlayStmt->execute([$tenantId, $patientId, $treatmentId]);
+            $ovr = $overlayStmt->fetch(PDO::FETCH_ASSOC);
+            if ($ovr) {
+                $appointmentStatusForOverlay = trim((string) ($ovr['appointment_row_status'] ?? ''));
+            }
+        }
+
+        if ($bookingId === '' && $hasTreatmentCol) {
             $bStmt = $pdo->prepare("
                 SELECT a.booking_id,
                        COALESCE(a.appointment_date, '') AS appointment_date,
@@ -722,11 +782,13 @@ try {
                 $appointmentRowStatus = trim((string) ($br['appointment_row_status'] ?? ''));
             }
         }
+
+        if ($appointmentStatusForOverlay === '') {
+            $appointmentStatusForOverlay = $appointmentRowStatus;
+        }
     }
 
     $steps = [];
-    $installmentsTable = clinic_get_physical_table_name($pdo, 'tbl_installments')
-        ?? clinic_get_physical_table_name($pdo, 'installments');
 
     if ($bookingId !== '' && $installmentsTable !== null) {
         $instCols = clinic_table_columns($pdo, $installmentsTable);
@@ -815,7 +877,7 @@ try {
 
     treatment_progress_reconcile_payment_states($steps, $treatment);
     treatment_progress_modal_flatten_book_visit_to_pending($steps);
-    treatment_progress_overlay_staff_appointment_visit_status($steps, $appointmentRowStatus, $appointmentDate);
+    treatment_progress_overlay_staff_appointment_visit_status($steps, $appointmentStatusForOverlay, $appointmentDate);
     treatment_progress_apply_progressive_action_flags($steps);
 
     echo json_encode([

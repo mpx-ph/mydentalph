@@ -12,6 +12,7 @@ require_once __DIR__ . '/../includes/tenant.php';
 require_once __DIR__ . '/../includes/availability.php';
 require_once __DIR__ . '/../includes/appointment_db_tables.php';
 require_once __DIR__ . '/../includes/appointment_reminder_service.php';
+require_once __DIR__ . '/../includes/staff_installment_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -1470,7 +1471,37 @@ function createAppointment() {
             }
             // If payment_option is 'full', no installments are created, but treatment_type remains 'long_term'
         }
-        
+
+        // Follow-up visits are saved as new appointment rows (new booking_id). Installment schedule slots (T2+)
+        // stay on the plan's original booking_id — stamp scheduled_date so Treatment Progress reflects the visit.
+        if (
+            $isStaffSetAppointmentBooking
+            && $resolvedTreatmentId !== ''
+            && isset($visitTypeForInsert)
+            && $visitTypeForInsert === 'pre_book'
+            && !empty($data['patient_id'])
+            && !empty($data['appointment_date'])
+        ) {
+            $hasIncludedPlanLine = false;
+            foreach ($normalizedServiceRows as $__sr) {
+                if (is_array($__sr) && strtolower(trim((string) ($__sr['service_type'] ?? ''))) === 'included_plan') {
+                    $hasIncludedPlanLine = true;
+                    break;
+                }
+            }
+            if ($hasIncludedPlanLine) {
+                staff_installments_stamp_next_followup_slot_for_staff_visit(
+                    $pdo,
+                    (string) $tenantId,
+                    trim((string) $data['patient_id']),
+                    $resolvedTreatmentId,
+                    (string) $appointmentsTableName,
+                    (string) $data['appointment_date'],
+                    (string) ($data['appointment_time'] ?? '')
+                );
+            }
+        }
+
         $pdo->commit();
 
         // Fallback trigger: process due reminders right after create so same-day

@@ -228,3 +228,221 @@ function staff_treatments_apply_payment(
         $treatmentId,
     ]);
 }
+
+/**
+ * Whether installment.scheduled_date is unset (Treatment Progress relies on this for T2+ rows).
+ */
+function staff_installment_scheduled_slot_is_empty(?string $raw): bool
+{
+    $v = trim((string) ($raw ?? ''));
+    return $v === '' || strncmp($v, '0000-00-00', 10) === 0;
+}
+
+/**
+ * booking_id that owns installment rows for this treatment (usually the originating plan appointment).
+ *
+ * Follow-up bookings use new booking IDs; installments stay on the plan booking.
+ */
+function staff_installments_resolve_plan_booking_id_for_patient_treatment(
+    PDO $pdo,
+    string $tenantId,
+    string $patientId,
+    string $treatmentId,
+    string $appointmentsTableName,
+    string $installmentsTableName
+): string {
+    $tenantId = trim($tenantId);
+    $patientId = trim($patientId);
+    $treatmentId = trim($treatmentId);
+    $appointmentsTableName = trim($appointmentsTableName);
+    $installmentsTableName = trim($installmentsTableName);
+    if (
+        $tenantId === ''
+        || $patientId === ''
+        || $treatmentId === ''
+        || $appointmentsTableName === ''
+        || $installmentsTableName === ''
+    ) {
+        return '';
+    }
+
+    $qa = clinic_quote_identifier($appointmentsTableName);
+    $qi = clinic_quote_identifier($installmentsTableName);
+
+    try {
+        $sql = "
+            SELECT TRIM(COALESCE(i.booking_id, '')) AS bid
+            FROM {$qi} i
+            INNER JOIN {$qa} a
+                ON a.tenant_id = ?
+                AND TRIM(COALESCE(a.booking_id, '')) <> ''
+                AND TRIM(COALESCE(a.booking_id, '')) = TRIM(COALESCE(i.booking_id, ''))
+            WHERE TRIM(COALESCE(i.booking_id, '')) <> ''
+              AND (
+                  i.tenant_id = ?
+                  OR i.tenant_id IS NULL
+                  OR TRIM(COALESCE(i.tenant_id, '')) = ''
+              )
+              AND TRIM(COALESCE(a.patient_id, '')) = ?
+              AND TRIM(COALESCE(a.treatment_id, '')) = ?
+            GROUP BY i.booking_id
+            ORDER BY COUNT(*) DESC
+            LIMIT 1
+        ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            $tenantId,
+            $tenantId,
+            $patientId,
+            $treatmentId,
+        ]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row ? trim((string) ($row['bid'] ?? '')) : '';
+    } catch (Throwable $e) {
+        error_log('staff_installments_resolve_plan_booking_id_for_patient_treatment: ' . $e->getMessage());
+
+        return '';
+    }
+}
+
+/**
+ * When staff saves a NEW follow-up appointment (new booking row) with a plan visit, stamp the correct
+ * tbl_installments row so Treatment Progress Schedule column stays in sync with the booked date.
+ *
+ * Skips installment #1: that row's display comes from the plan's originating appointment record.
+ *
+ * @return bool true when a DB row was updated
+ */
+function staff_installments_stamp_next_followup_slot_for_staff_visit(
+    PDO $pdo,
+    string $tenantId,
+    string $patientId,
+    string $treatmentId,
+    string $appointmentsTableName,
+    string $visitDateRaw,
+    string $visitTimeRaw
+): bool {
+    $tenantId = trim($tenantId);
+    $patientId = trim($patientId);
+    $treatmentId = trim($treatmentId);
+    $visitDateRaw = trim($visitDateRaw);
+    $visitTimeRaw = trim($visitTimeRaw);
+    if ($tenantId === '' || $patientId === '' || $treatmentId === '' || $visitDateRaw === '') {
+        return false;
+    }
+
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}/', $visitDateRaw)) {
+        return false;
+    }
+    $dateYmd = substr($visitDateRaw, 0, 10);
+
+    $installmentsPhys = clinic_get_physical_table_name($pdo, 'tbl_installments')
+        ?? clinic_get_physical_table_name($pdo, 'installments')
+        ?? '';
+    if ($installmentsPhys === '') {
+        return false;
+    }
+
+    $planBookingId = staff_installments_resolve_plan_booking_id_for_patient_treatment(
+        $pdo,
+        $tenantId,
+        $patientId,
+        $treatmentId,
+        $appointmentsTableName,
+        (string) $installmentsPhys
+    );
+    if ($planBookingId === '') {
+        return false;
+    }
+
+    $qi = clinic_quote_identifier((string) $installmentsPhys);
+    $tenantClause = '(i.tenant_id = ? OR i.tenant_id IS NULL OR TRIM(COALESCE(i.tenant_id, \'\')) = \'\')';
+
+    $sel = $pdo->prepare("
+        SELECT i.installment_number, i.status, i.scheduled_date
+        FROM {$qi} i
+        WHERE i.booking_id = ?
+          AND {$tenantClause}
+        ORDER BY i.installment_number ASC
+    ");
+    $sel->execute([$planBookingId, $tenantId]);
+    $rows = $sel->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    $targetNumber = 0;
+    foreach ($rows as $r) {
+        $num = (int) ($r['installment_number'] ?? 0);
+        if ($num <= 1) {
+            continue;
+        }
+        $st = strtolower(trim((string) ($r['status'] ?? '')));
+        if (!in_array($st, ['paid', 'book_visit'], true)) {
+            continue;
+        }
+        if (!staff_installment_scheduled_slot_is_empty((string) ($r['scheduled_date'] ?? ''))) {
+            continue;
+        }
+        $priorOk = true;
+        foreach ($rows as $p) {
+            $pn = (int) ($p['installment_number'] ?? 0);
+            if ($pn <= 0 || $pn >= $num) {
+                continue;
+            }
+            $pst = strtolower(trim((string) ($p['status'] ?? '')));
+            if ($pst !== 'completed') {
+                $priorOk = false;
+                break;
+            }
+        }
+        if (!$priorOk) {
+            continue;
+        }
+        $targetNumber = $num;
+        break;
+    }
+
+    if ($targetNumber <= 0) {
+        return false;
+    }
+
+    $instCols = clinic_table_columns($pdo, (string) $installmentsPhys);
+    $hasScheduledDate = in_array('scheduled_date', $instCols, true);
+    $hasScheduledTime = in_array('scheduled_time', $instCols, true);
+    if (!$hasScheduledDate) {
+        return false;
+    }
+
+    $timeVal = $visitTimeRaw;
+    if ($hasScheduledTime && $timeVal !== '') {
+        if (strlen($timeVal) === 5 && preg_match('/^\d{2}:\d{2}$/', $timeVal)) {
+            $timeVal .= ':00';
+        }
+    } else {
+        $timeVal = '';
+    }
+
+    $stampSet = ['i.scheduled_date = ?'];
+    $params = [$dateYmd];
+    if ($hasScheduledTime) {
+        $stampSet[] = 'i.scheduled_time = ?';
+        $params[] = $timeVal !== '' ? $timeVal : null;
+    }
+    if (in_array('updated_at', $instCols, true)) {
+        $stampSet[] = 'i.updated_at = NOW()';
+    }
+
+    $params[] = $planBookingId;
+    $params[] = $targetNumber;
+    $params[] = $tenantId;
+
+    $sql = 'UPDATE ' . $qi . ' i SET ' . implode(', ', $stampSet) . "
+        WHERE i.booking_id = ?
+          AND i.installment_number = ?
+          AND {$tenantClause}
+        LIMIT 1
+    ";
+    $upd = $pdo->prepare($sql);
+    $upd->execute($params);
+
+    return $upd->rowCount() > 0;
+}
