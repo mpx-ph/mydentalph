@@ -57,6 +57,49 @@ function staff_installments_advance_after_visit_completed(PDO $pdo, string $tena
 
     $tenantClause = '(i.tenant_id = ? OR i.tenant_id IS NULL OR TRIM(COALESCE(i.tenant_id, \'\')) = \'\')';
 
+    $tryBookingIds = [$bookingId];
+
+    try {
+        $tables = clinic_resolve_appointment_db_tables($pdo);
+        $apptTableName = $tables['appointments'] ?? null;
+        if ($apptTableName !== null && trim((string) $apptTableName) !== '') {
+            $apptCols = clinic_table_columns($pdo, (string) $apptTableName);
+            if (
+                in_array('patient_id', $apptCols, true)
+                && in_array('treatment_id', $apptCols, true)
+            ) {
+                $qa = clinic_quote_identifier((string) $apptTableName);
+                $lookupAppt = $pdo->prepare("
+                    SELECT TRIM(COALESCE(patient_id, '')) AS patient_id,
+                           TRIM(COALESCE(treatment_id, '')) AS treatment_id
+                    FROM {$qa}
+                    WHERE tenant_id = ?
+                      AND TRIM(COALESCE(booking_id, '')) = ?
+                    LIMIT 1
+                ");
+                $lookupAppt->execute([$tenantId, $bookingId]);
+                $look = $lookupAppt->fetch(PDO::FETCH_ASSOC) ?: null;
+                $pid = trim((string) ($look['patient_id'] ?? ''));
+                $tid = trim((string) ($look['treatment_id'] ?? ''));
+                if ($pid !== '' && $tid !== '') {
+                    $planBid = staff_installments_resolve_plan_booking_id_for_patient_treatment(
+                        $pdo,
+                        $tenantId,
+                        $pid,
+                        $tid,
+                        (string) $apptTableName,
+                        (string) $tableName
+                    );
+                    if ($planBid !== '' && !in_array($planBid, $tryBookingIds, true)) {
+                        $tryBookingIds[] = $planBid;
+                    }
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('staff_installments_advance_after_visit_completed plan booking lookup: ' . $e->getMessage());
+    }
+
     $sel = $pdo->prepare("
         SELECT i.installment_number
         FROM {$qtab} i
@@ -66,17 +109,6 @@ function staff_installments_advance_after_visit_completed(PDO $pdo, string $tena
         ORDER BY i.installment_number ASC
         LIMIT 1
     ");
-    $sel->execute([$bookingId, $tenantId]);
-    $hit = $sel->fetch(PDO::FETCH_ASSOC);
-    if (!$hit) {
-        return;
-    }
-
-    $currentNum = (int) ($hit['installment_number'] ?? 0);
-    if ($currentNum <= 0) {
-        return;
-    }
-
     $updPaid = $pdo->prepare("
         UPDATE {$qtab} i
         SET i.status = 'completed'
@@ -87,9 +119,6 @@ function staff_installments_advance_after_visit_completed(PDO $pdo, string $tena
           AND LOWER(TRIM(COALESCE(i.status, ''))) = 'paid'
         LIMIT 1
     ");
-    $updPaid->execute([$bookingId, $currentNum, $tenantId]);
-
-    $nextNum = $currentNum + 1;
     $unlock = $pdo->prepare("
         UPDATE {$qtab} i
         SET i.status = 'book_visit'
@@ -100,7 +129,30 @@ function staff_installments_advance_after_visit_completed(PDO $pdo, string $tena
           AND LOWER(TRIM(COALESCE(i.status, ''))) = 'pending'
         LIMIT 1
     ");
-    $unlock->execute([$bookingId, $nextNum, $tenantId]);
+
+    foreach ($tryBookingIds as $useBidRaw) {
+        $useBid = trim((string) $useBidRaw);
+        if ($useBid === '') {
+            continue;
+        }
+        $sel->execute([$useBid, $tenantId]);
+        $hit = $sel->fetch(PDO::FETCH_ASSOC);
+        if (!$hit) {
+            continue;
+        }
+
+        $currentNum = (int) ($hit['installment_number'] ?? 0);
+        if ($currentNum <= 0) {
+            continue;
+        }
+
+        $updPaid->execute([$useBid, $currentNum, $tenantId]);
+
+        $nextNum = $currentNum + 1;
+        $unlock->execute([$useBid, $nextNum, $tenantId]);
+
+        return;
+    }
 }
 
 /**
