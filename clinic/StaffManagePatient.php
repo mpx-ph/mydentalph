@@ -461,6 +461,31 @@ function formatDate(dateString) {
     return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 }
 
+/** Prefer API next_due_date; else estimate from started_at + duration_months when possible */
+function formatTreatmentTargetCompletion(treatment) {
+    if (!treatment) return 'Not available';
+    if (treatment.next_due_date) return formatDate(treatment.next_due_date);
+    const startedRaw = treatment.started_at;
+    const months = Number(treatment.duration_months || 0);
+    if (!startedRaw || months <= 0) return 'Not available';
+    const started = new Date(startedRaw);
+    if (Number.isNaN(started.getTime())) return 'Not available';
+    const end = new Date(started);
+    end.setMonth(end.getMonth() + months);
+    return formatDate(end.toISOString());
+}
+
+function formatTreatmentPlanRef(treatment) {
+    const tid = String(treatment?.treatment_id || '').trim();
+    if (!tid) return '';
+    const digits = tid.replace(/\D/g, '');
+    const seq = digits
+        ? String(parseInt(digits, 10)).padStart(6, '0')
+        : tid.replace(/\s/g, '').slice(0, 12);
+    const y = new Date().getFullYear();
+    return `TP-${y}-${seq}`;
+}
+
 function formatDateTime(dateValue, timeValue) {
     const dateText = formatDate(dateValue);
     if (!timeValue) return dateText;
@@ -561,44 +586,108 @@ function renderTreatmentTab(context) {
     const hasTreatment = Boolean(context && context.has_active_treatment && context.treatment);
     if (!hasTreatment) {
         section.innerHTML = `
-            <div class="flex items-center gap-2 mb-4">
-                <span class="material-symbols-outlined text-primary text-[22px]">medical_services</span>
-                <h5 class="text-base font-bold text-slate-900">Active Treatment</h5>
+            <div class="rounded-xl border border-violet-200/90 bg-violet-50/70 p-4">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-sm shadow-primary/25">
+                        <span class="material-symbols-outlined text-[22px]">medical_services</span>
+                    </div>
+                    <h5 class="text-base font-bold text-slate-900">Active Treatment</h5>
+                </div>
+                <p class="mt-4 text-slate-500 text-sm font-medium">No active installment treatment plan found.</p>
             </div>
-            <p class="text-slate-500 text-sm font-medium">No active installment treatment plan found.</p>
         `;
         return;
     }
     const treatment = context.treatment;
     const progress = Math.max(0, Math.min(100, Number(treatment.progress_percentage || 0)));
+    const targetCompletion = formatTreatmentTargetCompletion(treatment);
     const nextDueDate = treatment.next_due_date ? formatDate(treatment.next_due_date) : 'Not available';
     const serviceName = treatment.primary_service && treatment.primary_service.service_name
         ? treatment.primary_service.service_name
         : (treatment.primary_service_name || 'Installment treatment');
+    const dm = Number(treatment.duration_months || 0);
+    const durationLabel = dm > 0 ? `${dm} Month${dm === 1 ? '' : 's'}` : '—';
+    const planRef = formatTreatmentPlanRef(treatment);
+    const startedLabel = treatment.started_at ? formatDate(treatment.started_at) : 'N/A';
+    const statusLabel = formatStatusLabel(treatment.status || 'active');
     section.innerHTML = `
-        <div class="flex items-center gap-2 mb-5">
-            <span class="material-symbols-outlined text-primary text-[22px]">medical_services</span>
-            <h5 class="text-base font-bold text-slate-900">Active Treatment</h5>
-        </div>
-        <div class="rounded-lg border border-primary/15 bg-primary/[0.04] p-4 mb-4">
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div><p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Treatment / Service</p><p class="text-[15px] font-bold text-slate-900 mt-1">${escapeHtml(serviceName)}</p></div>
-                <div><p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Total Cost</p><p class="text-[15px] font-bold text-slate-900 mt-1">${escapeHtml(formatPeso(treatment.total_cost))}</p></div>
-                <div><p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Amount Paid</p><p class="text-[15px] font-bold text-slate-900 mt-1">${escapeHtml(formatPeso(treatment.amount_paid))}</p></div>
-                <div><p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Remaining Balance</p><p class="text-[15px] font-bold text-slate-900 mt-1">${escapeHtml(formatPeso(treatment.remaining_balance))}</p></div>
-                <div class="sm:col-span-2"><p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Next Due Date</p><p class="text-[15px] font-bold text-slate-900 mt-1">${escapeHtml(nextDueDate)}</p></div>
+        <div class="rounded-xl border border-violet-200/90 bg-gradient-to-b from-violet-50/90 to-violet-50/40 p-4 shadow-sm">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-md shadow-primary/20">
+                    <span class="material-symbols-outlined text-[22px]">work</span>
+                    <span class="absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-white text-primary ring-2 ring-violet-50">
+                        <span class="material-symbols-outlined text-[13px] leading-none font-bold">add</span>
+                    </span>
+                </div>
+                <h5 class="text-base font-bold text-slate-900">Long-Term Treatment Plans</h5>
             </div>
-        </div>
-        <div>
-            <div class="flex items-center justify-between text-xs font-semibold text-slate-600 mb-2">
-                <span>Payment Progress</span>
-                <span>${escapeHtml(`${progress.toFixed(1)}%`)}</span>
-            </div>
-            <div class="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
-                <div class="h-full bg-primary rounded-full transition-all" style="width:${progress}%"></div>
+            <div class="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+                <div class="flex flex-wrap items-center justify-between gap-3 gap-y-2">
+                    <span class="inline-flex max-w-[min(100%,280px)] items-center rounded-full bg-violet-100 px-3 py-1.5 text-xs font-bold text-violet-900 ring-1 ring-violet-200/80">
+                        ${escapeHtml(serviceName)}
+                    </span>
+                    <span class="text-xs font-medium text-slate-500">${planRef ? '#' + escapeHtml(planRef) : ''}</span>
+                </div>
+                <div class="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div>
+                        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Target completion</p>
+                        <p class="mt-1.5 text-lg font-bold text-slate-900">${escapeHtml(targetCompletion)}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Duration</p>
+                        <p class="mt-1.5 text-lg font-bold text-primary">${escapeHtml(durationLabel)}</p>
+                    </div>
+                </div>
+                <div class="mt-6 border-t border-slate-100 pt-5">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        <div>
+                            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Total cost</p>
+                            <p class="mt-1 text-[15px] font-bold text-slate-900">${escapeHtml(formatPeso(treatment.total_cost))}</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Amount paid</p>
+                            <p class="mt-1 text-[15px] font-bold text-slate-900">${escapeHtml(formatPeso(treatment.amount_paid))}</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Remaining balance</p>
+                            <p class="mt-1 text-[15px] font-bold text-slate-900">${escapeHtml(formatPeso(treatment.remaining_balance))}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6">
+                    <div class="flex items-center justify-between text-sm font-semibold text-slate-800">
+                        <span>Payment progress</span>
+                        <span class="text-sm font-medium text-slate-500">${escapeHtml(`${progress.toFixed(1)}%`)}</span>
+                    </div>
+                    <div class="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
+                        <div class="h-full rounded-full bg-primary transition-all" style="width:${progress}%"></div>
+                    </div>
+                </div>
+                <div class="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-5 text-sm">
+                    <span class="font-medium text-slate-900">Started: <span class="font-semibold text-slate-800">${escapeHtml(startedLabel)}</span></span>
+                    <span class="font-medium text-slate-500">${escapeHtml(statusLabel)}</span>
+                </div>
+                <div class="mt-5 border-t border-slate-100 pt-5">
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Next due date</p>
+                    <p class="mt-1 text-[15px] font-bold text-slate-900">${escapeHtml(nextDueDate)}</p>
+                </div>
+                <button type="button" id="viewTreatmentProgressBtn" class="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-violet-100 bg-violet-50/90 py-3 text-sm font-semibold text-primary transition-colors hover:bg-violet-100">
+                    <span class="material-symbols-outlined text-[20px] text-primary">calendar_month</span>
+                    View Treatment Progress
+                </button>
             </div>
         </div>
     `;
+    const progressBtn = section.querySelector('#viewTreatmentProgressBtn');
+    if (progressBtn) {
+        progressBtn.addEventListener('click', () => {
+            staffUiAlert({
+                title: 'Treatment progress',
+                message: 'Detailed progress tracking will open from the payment / treatment module.',
+                variant: 'info'
+            });
+        });
+    }
 }
 
 function renderFilesTab(files) {
@@ -1076,7 +1165,7 @@ function openViewModal(patient) {
                     </div>
                     <div class="min-w-0 flex-1 pt-0.5">
                         <div class="flex flex-wrap items-center gap-2 gap-y-1">
-                            <h4 class="text-[1.35rem] font-bold tracking-tight text-slate-900 leading-snug">${escapeHtml(fullName)}</h4>
+                            <h4 class="text-[1.35rem] font-extrabold tracking-tight text-slate-900 leading-snug">${escapeHtml(fullName)}</h4>
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${statusBadgeClass}">${patientStatus}</span>
                         </div>
                         <div class="flex items-center gap-1.5 mt-2 text-slate-500 text-sm">
