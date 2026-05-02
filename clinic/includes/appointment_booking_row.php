@@ -74,7 +74,10 @@ function clinic_appointment_extras_for_booking(
                 $anyOrthodontics = true;
             }
             $d = (int) ($row['duration_m'] ?? 0);
-            if ($d > 0) {
+            $enInst = !empty($row['enable_installment']);
+            $isOrthoRow = strcasecmp($cat, 'Orthodontics') === 0;
+            // Only long-term–eligible lines contribute to plan months (align with booking ledger primary line).
+            if ($d > 0 && ($enInst || $isOrthoRow)) {
                 $maxDuration = max($maxDuration, $d);
             }
             $details = trim((string) ($row['service_details'] ?? ''));

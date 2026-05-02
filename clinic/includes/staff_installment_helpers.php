@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/treatment_duration_sync.php';
+
 /**
  * Mark installment rows paid and unlock the next pending installment (book_visit), matching clinic/api/payments.php behavior.
  *
@@ -62,6 +64,12 @@ function staff_treatments_apply_payment(
     $treatmentId = trim($treatmentId);
     if ($tenantId === '' || $treatmentId === '' || $amount <= 0) {
         return;
+    }
+
+    try {
+        clinic_reconcile_tbl_treatments_duration($pdo, $tenantId, $treatmentId);
+    } catch (Throwable $e) {
+        error_log('staff_treatments_apply_payment reconcile: ' . $e->getMessage());
     }
 
     static $treatmentsTable = null;

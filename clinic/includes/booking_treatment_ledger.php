@@ -499,23 +499,15 @@ function booking_create_treatment_row(
     }
     $primary = $primaryIdx !== null ? $enriched[$primaryIdx] : null;
 
-    // Single source of truth: tbl_services.installment_duration_months (from enriched rows) + explicit mobile extras.
-    // Do not inject legacy defaults (e.g. 18) — those contradict tbl_appointments / catalog and tbl_treatments.
-    $maxFromCatalog = 0;
-    foreach ($enriched as $row) {
-        $m = (int) ($row['installment_duration_months'] ?? 0);
-        if ($m > 0) {
-            $maxFromCatalog = max($maxFromCatalog, $m);
-        }
+    // Plan length = primary line's tbl_services.installment_duration_months (same row as primary_service_id).
+    // Do not take max() across the whole cart — that could inflate duration (e.g. 12 + 12 → 24) vs one real plan.
+    // When catalog has a value it wins over mobile `duration_months` so tbl_treatments matches tbl_appointments + tbl_services.
+    $catalogPrimary = $primary !== null ? (int) ($primary['installment_duration_months'] ?? 0) : 0;
+    if ($catalogPrimary > 0) {
+        $durationMonths = $catalogPrimary;
+    } else {
+        $durationMonths = $durationFromExtras > 0 ? $durationFromExtras : 0;
     }
-    $durationMonths = max(
-        $durationFromExtras > 0 ? $durationFromExtras : 0,
-        $maxFromCatalog,
-        $primary && (int) ($primary['installment_duration_months'] ?? 0) > 0
-            ? (int) $primary['installment_duration_months']
-            : 0
-    );
-    // $primary's months are already included in $maxFromCatalog when catalog-loaded; max() is idempotent.
 
     $cost = round(max(0.0, $cartTotalAmount), 2);
 

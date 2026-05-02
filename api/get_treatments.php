@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/request_context.inc.php';
+require_once __DIR__ . '/../clinic/includes/treatment_duration_sync.php';
 
 header('Content-Type: application/json; charset=utf-8');
 api_send_no_cache_headers();
@@ -102,6 +103,21 @@ try {
             } elseif ($ts > 0 && $ts < 946684800) {
                 $tr[$k] = null;
             }
+        }
+    }
+    unset($tr);
+
+    foreach ($treatments as &$tr) {
+        $tid = trim((string) ($tr['treatment_id'] ?? ''));
+        if ($tid === '') {
+            continue;
+        }
+        try {
+            if (clinic_reconcile_tbl_treatments_duration($pdo, $tenantId, $tid)) {
+                clinic_patch_treatment_row_after_reconcile($pdo, $tenantId, $tid, $tr);
+            }
+        } catch (Throwable $e) {
+            error_log('get_treatments reconcile: ' . $e->getMessage());
         }
     }
     unset($tr);
