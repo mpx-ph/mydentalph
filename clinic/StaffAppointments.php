@@ -466,16 +466,41 @@ try {
                 a.service_description
             )"
                 : "COALESCE({$directServiceDescriptionExpr}, a.service_description)";
+            $bookingTypeJoinCatalog = '';
+            $bookingTypeWhenCatalog = '';
+            if ($qSvc !== null && in_array('service_id', $apsCols, true) && in_array('service_id', $svcCols, true)
+                && (in_array('service_type', $svcCols, true) || in_array('treatment_type', $svcCols, true))) {
+                $bookingTypeJoinCatalog = "LEFT JOIN {$qSvc} cat ON cat.tenant_id = svc.tenant_id AND cat.service_id = svc.service_id";
+                if (in_array('service_type', $svcCols, true)) {
+                    $bookingTypeWhenCatalog .= "
+                        WHEN SUM(CASE WHEN LOWER(COALESCE(NULLIF(TRIM(cat.service_type), ''), 'regular')) = 'installment' THEN 1 ELSE 0 END) > 0 THEN 'Long Term'";
+                }
+                if (in_array('treatment_type', $svcCols, true)) {
+                    $bookingTypeWhenCatalog .= "
+                        WHEN SUM(CASE WHEN LOWER(COALESCE(NULLIF(TRIM(cat.treatment_type), ''), 'short_term')) = 'long_term' THEN 1 ELSE 0 END) > 0 THEN 'Long Term'";
+                }
+            }
             $bookingTypeExpr = $qAps !== null
-                ? "(
+                ? "COALESCE(
+                (
                     SELECT CASE
                         WHEN SUM(CASE WHEN LOWER(COALESCE(NULLIF(TRIM(svc.service_type), ''), 'regular')) = 'installment' THEN 1 ELSE 0 END) > 0 THEN 'Long Term'
+                        {$bookingTypeWhenCatalog}
+                        WHEN LOWER(COALESCE(NULLIF(TRIM(a.treatment_type), ''), 'short_term')) = 'long_term' THEN 'Long Term'
                         ELSE 'Short Term'
                     END
                     FROM {$qAps} svc
+                    {$bookingTypeJoinCatalog}
                     WHERE svc.tenant_id = a.tenant_id
                       AND {$apsMatchSql}
-                )"
+                ),
+                (
+                    CASE
+                        WHEN LOWER(COALESCE(NULLIF(TRIM(a.treatment_type), ''), 'short_term')) = 'long_term' THEN 'Long Term'
+                        ELSE 'Short Term'
+                    END
+                )
+            )"
                 : "(
                     CASE
                         WHEN LOWER(COALESCE(NULLIF(TRIM(a.treatment_type), ''), 'short_term')) = 'long_term' THEN 'Long Term'
@@ -618,19 +643,32 @@ try {
                 $appointmentRowIdList = array_keys($appointmentRowIds);
                 if (!empty($bookingIdList)) {
                     $bookingPlaceholders = implode(',', array_fill(0, count($bookingIdList), '?'));
+                    $svcJoinCatalog = '';
+                    $svcSelectCatalog = '';
+                    if ($qSvc !== null && in_array('service_id', $apsCols, true) && in_array('service_id', $svcCols, true)
+                        && (in_array('service_type', $svcCols, true) || in_array('treatment_type', $svcCols, true))) {
+                        $svcJoinCatalog = "LEFT JOIN {$qSvc} cat ON cat.tenant_id = aps.tenant_id AND cat.service_id = aps.service_id";
+                        if (in_array('service_type', $svcCols, true)) {
+                            $svcSelectCatalog .= ', cat.service_type AS catalog_service_type';
+                        }
+                        if (in_array('treatment_type', $svcCols, true)) {
+                            $svcSelectCatalog .= ', cat.treatment_type AS catalog_treatment_type';
+                        }
+                    }
                     $svcSql = "
-                        SELECT booking_id, service_name, service_type" . ($supportsApsAppointmentId ? ", appointment_id" : ", NULL AS appointment_id") . "
-                        FROM {$qAps}
-                        WHERE tenant_id = ?
-                          AND booking_id IN ({$bookingPlaceholders})
+                        SELECT aps.booking_id, aps.service_name, aps.service_type" . ($supportsApsAppointmentId ? ", aps.appointment_id" : ", NULL AS appointment_id") . "{$svcSelectCatalog}
+                        FROM {$qAps} aps
+                        {$svcJoinCatalog}
+                        WHERE aps.tenant_id = ?
+                          AND aps.booking_id IN ({$bookingPlaceholders})
                     ";
                     $svcParams = array_merge([$tenantId], $bookingIdList);
                     if ($supportsApsAppointmentId && !empty($appointmentRowIdList)) {
                         $apptPlaceholders = implode(',', array_fill(0, count($appointmentRowIdList), '?'));
-                        $svcSql .= " AND (appointment_id IN ({$apptPlaceholders}) OR appointment_id IS NULL)";
+                        $svcSql .= " AND (aps.appointment_id IN ({$apptPlaceholders}) OR aps.appointment_id IS NULL)";
                         $svcParams = array_merge($svcParams, $appointmentRowIdList);
                     }
-                    $svcSql .= " ORDER BY id ASC";
+                    $svcSql .= ' ORDER BY aps.id ASC';
                     $svcStmt = $pdo->prepare($svcSql);
                     $svcStmt->execute($svcParams);
                     foreach ($svcStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $svcRow) {
@@ -643,11 +681,16 @@ try {
                             $svcName = 'General Consultation';
                         }
                         $normalizedSvcType = strtolower(trim((string) ($svcRow['service_type'] ?? 'regular')));
-                        $svcTypeLabel = $normalizedSvcType === 'installment' ? 'Long Term' : 'Short Term';
+                        $catalogSvcType = strtolower(trim((string) ($svcRow['catalog_service_type'] ?? '')));
+                        $catalogTreatmentType = strtolower(trim((string) ($svcRow['catalog_treatment_type'] ?? '')));
+                        $isLongTermLine = ($normalizedSvcType === 'installment')
+                            || ($catalogSvcType === 'installment')
+                            || ($catalogTreatmentType === 'long_term');
+                        $svcTypeLabel = $isLongTermLine ? 'Long Term' : 'Short Term';
                         $serviceEntry = [
                             'name' => $svcName,
                             'type_label' => $svcTypeLabel,
-                            'raw_type' => $normalizedSvcType,
+                            'raw_type' => $isLongTermLine ? 'installment' : $normalizedSvcType,
                         ];
                         $svcAppointmentId = (int) ($svcRow['appointment_id'] ?? 0);
                         if ($supportsApsAppointmentId && $svcAppointmentId > 0) {
@@ -967,7 +1010,15 @@ if ($currentTenantSlug !== '') {
                                         'raw_type' => $fallbackTypeLabel === 'Long Term' ? 'installment' : 'regular',
                                     ];
                                 }
-                                $hasInstallmentInLines = false;
+                                $apptTreatmentNorm = strtolower(trim((string) ($appointment['treatment_type'] ?? 'short_term')));
+                                if ($apptTreatmentNorm === 'long_term' && !empty($serviceLines)) {
+                                    $serviceLines = array_map(static function (array $line) {
+                                        $line['type_label'] = 'Long Term';
+                                        $line['raw_type'] = 'installment';
+                                        return $line;
+                                    }, $serviceLines);
+                                }
+                                $hasInstallmentInLines = ($apptTreatmentNorm === 'long_term');
                                 $serviceLineNames = [];
                                 foreach ($serviceLines as $line) {
                                     $serviceLineNames[] = (string) ($line['name'] ?? '');
