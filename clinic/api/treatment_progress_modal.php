@@ -106,6 +106,145 @@ function treatment_progress_effective_installment_downpayment(array $paymentSett
 }
 
 /**
+ * @return ''|numeric-string-date 'Y-m-d'
+ */
+function treatment_progress_normalize_visit_date(string $input): string
+{
+    $t = trim($input);
+    if ($t === '') {
+        return '';
+    }
+    if (preg_match('/^(\d{4})\-(\d{2})\-(\d{2})/', $t, $m)) {
+        return $m[1] . '-' . $m[2] . '-' . $m[3];
+    }
+    $ts = strtotime($t);
+
+    return $ts !== false ? date('Y-m-d', $ts) : '';
+}
+
+/**
+ * Mirrors StaffAppointments.php staff_appointments_resolve_status_for_ui (label + slug only for API JSON).
+ *
+ * @param array<string, string> $labelMap
+ * @return array{code: string, label: string}
+ */
+function treatment_progress_staff_appointment_status_resolve(string $raw, array $labelMap): array
+{
+    $original = (string) $raw;
+    $s = $original;
+    $s = preg_replace('/\x{FEFF}|\x{200B}|\x{00AD}/u', '', (string) $s);
+    $s = preg_replace('/\p{Zs}/u', ' ', (string) $s);
+    $s = trim((string) $s);
+
+    $slug = strtolower(str_replace([' ', '-'], '_', (string) $s));
+    $slug = (string) preg_replace('/_+/', '_', $slug);
+    if ($slug === 'inprogress' || $slug === 'ongoing') {
+        $slug = 'in_progress';
+    }
+    if ($original !== '' && $s === '' && $slug === '') {
+        $slug = 'pending';
+    }
+    if ($slug === '' || $slug === '0') {
+        $slug = 'pending';
+    } elseif (in_array($slug, ['confirmed', 'scheduled'], true)) {
+        $slug = 'pending';
+    }
+
+    $known = ['pending', 'in_progress', 'completed', 'cancelled', 'no_show'];
+    $label = $labelMap[$slug] ?? '';
+    if (trim((string) $label) === '' && in_array($slug, $known, true)) {
+        $label = $labelMap['pending'] ?? 'Pending';
+    } elseif (trim((string) $label) === '' && $slug !== '') {
+        $label = ucwords(str_replace('_', ' ', (string) $slug));
+    }
+    if (trim((string) $label) === '') {
+        $label = (string) ($labelMap['pending'] ?? 'Pending');
+    }
+
+    return [
+        'code' => $slug,
+        'label' => $label,
+    ];
+}
+
+/**
+ * Buckets consumed by StaffManagePatient treatmentProgressVisitBadgeClass (StaffAppointments color parity).
+ */
+function treatment_progress_visit_bucket_from_staff_appointment_code(string $code): string
+{
+    if ($code === 'in_progress') {
+        return 'in_progress';
+    }
+    if ($code === 'cancelled') {
+        return 'cancelled';
+    }
+    if ($code === 'no_show') {
+        return 'no_show';
+    }
+    if ($code === 'completed') {
+        return 'completed';
+    }
+
+    return 'appt_pending';
+}
+
+/**
+ * For installment rows aligned with tbl_appointments (next unpaid step or slot date equals master appointment_date),
+ * mirror Staff Appointments Daily Schedule status (visit label + badge bucket).
+ *
+ * @param list<array<string,mixed>> $steps
+ */
+function treatment_progress_overlay_staff_appointment_visit_status(array &$steps, string $appointmentStatusRaw, string $masterAppointmentDate): void
+{
+    $appointmentStatusRaw = trim($appointmentStatusRaw);
+    if ($appointmentStatusRaw === '' || $steps === []) {
+        return;
+    }
+
+    $focusNum = null;
+    foreach ($steps as $st) {
+        if ((string) ($st['payment_bucket'] ?? '') !== 'paid') {
+            $n = (int) ($st['installment_number'] ?? 0);
+            if ($n > 0) {
+                $focusNum = $n;
+            }
+            break;
+        }
+    }
+    if ($focusNum === null) {
+        return;
+    }
+
+    $masterYmd = treatment_progress_normalize_visit_date($masterAppointmentDate);
+
+    $labelMap = [
+        'pending' => 'Pending',
+        'in_progress' => 'In Progress',
+        'completed' => 'Completed',
+        'cancelled' => 'Cancelled',
+        'no_show' => 'No Show',
+        'scheduled' => 'Pending',
+        'confirmed' => 'Pending',
+    ];
+    $resolved = treatment_progress_staff_appointment_status_resolve($appointmentStatusRaw, $labelMap);
+    foreach ($steps as &$st) {
+        if ((string) ($st['payment_bucket'] ?? '') === 'paid') {
+            continue;
+        }
+        $numSt = (int) ($st['installment_number'] ?? 0);
+        $slotYmd = trim((string) ($st['visit_slot_date'] ?? ''));
+        $isFocusedUnpaid = $numSt === $focusNum;
+        $slotMatchesMaster = $masterYmd !== '' && $slotYmd !== '' && $slotYmd === $masterYmd;
+        if (!$isFocusedUnpaid && !$slotMatchesMaster) {
+            continue;
+        }
+        $st['visit_status'] = $resolved['label'];
+        $st['visit_bucket'] = treatment_progress_visit_bucket_from_staff_appointment_code($resolved['code']);
+    }
+    unset($st);
+}
+
+/**
  * Align Amount column with payment recording semantics: installment #1 = down payment (when DM>1 and down is configured).
  * Subsequent rows split the remaining balance evenly (same as tbl_installments / StaffPaymentRecording plan builder).
  *
@@ -184,7 +323,7 @@ function treatment_progress_apply_plan_amounts_for_display(array &$steps, float 
 /**
  * One table row for the Treatment Progress modal (installment or synthetic placeholder).
  *
- * @param array{raw_status:string,amount_due:float,schedule_display:?string} $fields
+ * @param array{raw_status:string,amount_due:float,schedule_display:?string,visit_slot_date?:string} $fields
  * @return array<string, mixed>
  */
 function treatment_progress_build_step_row(int $installmentNumber, array $fields): array
@@ -193,6 +332,7 @@ function treatment_progress_build_step_row(int $installmentNumber, array $fields
     if ($scheduleDisplay !== null && trim((string) $scheduleDisplay) === '') {
         $scheduleDisplay = null;
     }
+    $visitSlotDate = treatment_progress_normalize_visit_date((string) ($fields['visit_slot_date'] ?? ''));
     $rawStatus = trim((string) ($fields['raw_status'] ?? 'pending'));
     $amountDue = round(max(0.0, (float) ($fields['amount_due'] ?? 0)), 2);
 
@@ -229,6 +369,9 @@ function treatment_progress_build_step_row(int $installmentNumber, array $fields
         'visit_bucket' => $visitBucket,
         'amount_due' => $amountDue,
         'schedule_display' => $scheduleDisplay,
+        /** Y-m-d for matching parent appointment_date (progressive SCHEDULE relies on displayed slot, not this). */
+        'visit_slot_date' => $visitSlotDate,
+        'has_schedule_slot' => ($scheduleDisplay !== null && trim((string) $scheduleDisplay) !== ''),
         /** Lowercase raw installment row status for reconciliation (paid/completed/pending/book_visit/…) */
         'db_raw_status' => $rawLower,
     ];
@@ -375,10 +518,12 @@ function treatment_progress_reconcile_payment_states(array &$steps, array $treat
             }
             $sched = $steps[$i]['schedule_display'] ?? null;
             $due = (float) ($steps[$i]['amount_due'] ?? 0);
+            $slotPres = trim((string) ($steps[$i]['visit_slot_date'] ?? ''));
             $steps[$i] = treatment_progress_build_step_row($num, [
                 'raw_status' => $rawBack,
                 'amount_due' => $due,
                 'schedule_display' => $sched,
+                'visit_slot_date' => $slotPres,
             ]);
         }
     }
@@ -428,9 +573,8 @@ function treatment_progress_apply_progressive_action_flags(array &$steps): void
 
         $isPaid = (($steps[$i]['payment_bucket'] ?? '') === 'paid');
         $vb = (string) ($steps[$i]['visit_bucket'] ?? '');
-        $sd = $steps[$i]['schedule_display'] ?? null;
-        $hasVisitSchedule = ($sd !== null && trim((string) $sd) !== '')
-            || in_array($vb, ['scheduled', 'completed'], true);
+        $physSlot = ($steps[$i]['has_schedule_slot'] ?? false) === true;
+        $hasVisitSchedule = $physSlot || in_array($vb, ['scheduled', 'completed'], true);
 
         // PAY: locked if already paid, or earlier installments unpaid (progressive).
         $steps[$i]['pay_disabled'] = $isPaid || !$priorChainPaid;
@@ -488,11 +632,13 @@ try {
     $bookingId = '';
     $appointmentDate = '';
     $appointmentTime = '';
+    $appointmentRowStatus = '';
     if ($appointmentsTable !== null) {
         $apptCols = clinic_table_columns($pdo, $appointmentsTable);
         $hasTreatmentCol = in_array('treatment_id', $apptCols, true);
         $hasCreated = in_array('created_at', $apptCols, true);
         $hasApptDate = in_array('appointment_date', $apptCols, true);
+        $hasStatusCol = in_array('status', $apptCols, true);
         $qa = clinic_quote_identifier($appointmentsTable);
         if ($hasCreated) {
             $orderBy = 'a.created_at DESC';
@@ -501,11 +647,13 @@ try {
         } else {
             $orderBy = 'a.booking_id DESC';
         }
+        $statusSel = $hasStatusCol ? 'COALESCE(a.status, \'\') AS appointment_row_status' : '\'\' AS appointment_row_status';
         if ($hasTreatmentCol) {
             $bStmt = $pdo->prepare("
                 SELECT a.booking_id,
                        COALESCE(a.appointment_date, '') AS appointment_date,
-                       COALESCE(a.appointment_time, '') AS appointment_time
+                       COALESCE(a.appointment_time, '') AS appointment_time,
+                       {$statusSel}
                 FROM {$qa} a
                 WHERE a.tenant_id = ?
                   AND a.patient_id = ?
@@ -519,6 +667,7 @@ try {
                 $bookingId = trim((string) ($br['booking_id'] ?? ''));
                 $appointmentDate = trim((string) ($br['appointment_date'] ?? ''));
                 $appointmentTime = trim((string) ($br['appointment_time'] ?? ''));
+                $appointmentRowStatus = trim((string) ($br['appointment_row_status'] ?? ''));
             }
         }
     }
@@ -559,13 +708,16 @@ try {
             $amountDue = round(max(0.0, (float) ($row['amount_due'] ?? 0)), 2);
 
             $scheduleDisplay = null;
+            $visitSlotDate = '';
             if ($num === 1 && $appointmentDate !== '') {
                 $scheduleDisplay = treatment_progress_format_schedule_cell($appointmentDate, $appointmentTime);
+                $visitSlotDate = treatment_progress_normalize_visit_date($appointmentDate);
             } else {
                 $sd = trim((string) ($row['scheduled_date'] ?? ''));
                 $st = trim((string) ($row['scheduled_time'] ?? ''));
                 if ($sd !== '') {
                     $scheduleDisplay = treatment_progress_format_schedule_cell($sd, $st);
+                    $visitSlotDate = treatment_progress_normalize_visit_date($sd);
                 } else {
                     $dd = trim((string) ($row['due_date'] ?? ''));
                     if ($dd !== '') {
@@ -578,6 +730,7 @@ try {
                 'raw_status' => $rawStatus,
                 'amount_due' => $amountDue,
                 'schedule_display' => $scheduleDisplay,
+                'visit_slot_date' => $visitSlotDate,
             ]);
         }
     }
@@ -596,6 +749,7 @@ try {
                 'raw_status' => 'pending',
                 'amount_due' => $placeAmt,
                 'schedule_display' => $sched,
+                'visit_slot_date' => ($n === 1 && $appointmentDate !== '') ? treatment_progress_normalize_visit_date($appointmentDate) : '',
             ]);
         }
     }
@@ -606,6 +760,7 @@ try {
 
     treatment_progress_reconcile_payment_states($steps, $treatment);
     treatment_progress_modal_flatten_book_visit_to_pending($steps);
+    treatment_progress_overlay_staff_appointment_visit_status($steps, $appointmentRowStatus, $appointmentDate);
     treatment_progress_apply_progressive_action_flags($steps);
 
     echo json_encode([

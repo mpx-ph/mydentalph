@@ -479,13 +479,21 @@ function treatmentProgressPaymentBadgeClass(bucket) {
 function treatmentProgressVisitBadgeClass(bucket) {
     switch (bucket) {
         case 'completed':
-            return 'bg-emerald-100 text-emerald-800';
+            return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
         case 'scheduled':
             return 'bg-blue-100 text-blue-800';
         case 'book_visit':
             return 'bg-orange-100 text-orange-800';
         case 'locked':
             return 'bg-slate-200 text-slate-700';
+        case 'in_progress':
+            return 'bg-blue-50 text-blue-700 border border-blue-200';
+        case 'cancelled':
+            return 'bg-rose-50 text-rose-700 border border-rose-200';
+        case 'no_show':
+            return 'bg-slate-100 text-slate-700 border border-slate-200';
+        case 'appt_pending':
+            return 'bg-amber-50 text-amber-700 border border-amber-200';
         default:
             return 'bg-slate-100 text-slate-600';
     }
