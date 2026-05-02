@@ -30,6 +30,92 @@ if ($patientId === '' || $treatmentId === '') {
     exit;
 }
 
+/**
+ * Split total cost into N monthly amounts (remainder on last month).
+ *
+ * @return list<float>
+ */
+function treatment_progress_split_total_by_months(float $totalCost, int $months): array
+{
+    $months = max(0, $months);
+    if ($months === 0) {
+        return [];
+    }
+    $totalCents = (int) round(max(0.0, $totalCost) * 100);
+    $base = intdiv($totalCents, $months);
+    $rem = $totalCents % $months;
+    $out = [];
+    for ($i = 0; $i < $months; $i++) {
+        $cents = $base + ($i === $months - 1 ? $rem : 0);
+        $out[] = round($cents / 100, 2);
+    }
+
+    return $out;
+}
+
+/**
+ * One table row for the Treatment Progress modal (installment or synthetic placeholder).
+ *
+ * @param array{raw_status:string,amount_due:float,schedule_display:?string} $fields
+ * @return array<string, mixed>
+ */
+function treatment_progress_build_step_row(int $installmentNumber, array $fields): array
+{
+    $scheduleDisplay = $fields['schedule_display'] ?? null;
+    if ($scheduleDisplay !== null && trim((string) $scheduleDisplay) === '') {
+        $scheduleDisplay = null;
+    }
+    $rawStatus = trim((string) ($fields['raw_status'] ?? 'pending'));
+    $amountDue = round(max(0.0, (float) ($fields['amount_due'] ?? 0)), 2);
+
+    $hasSchedule = $scheduleDisplay !== null && trim((string) $scheduleDisplay) !== '';
+    $rawLower = strtolower($rawStatus);
+    $isPaidInst = in_array($rawLower, ['paid', 'completed'], true);
+
+    $paymentLabel = $isPaidInst ? 'Paid' : 'Unpaid';
+    $paymentBucket = $isPaidInst ? 'paid' : 'unpaid';
+
+    if ($isPaidInst) {
+        $visitLabel = 'Completed';
+        $visitBucket = 'completed';
+    } elseif ($hasSchedule) {
+        $visitLabel = 'Scheduled';
+        $visitBucket = 'scheduled';
+    } elseif ($rawLower === 'book_visit') {
+        $visitLabel = 'Book visit';
+        $visitBucket = 'book_visit';
+    } elseif ($rawLower === 'locked') {
+        $visitLabel = 'Locked';
+        $visitBucket = 'locked';
+    } else {
+        $visitLabel = 'Pending';
+        $visitBucket = 'pending';
+    }
+
+    $showPay = !$isPaidInst;
+    $showSchedule = false;
+    if (!$isPaidInst) {
+        if ($visitBucket === 'book_visit') {
+            $showSchedule = true;
+        } elseif ($visitBucket === 'pending' && !$hasSchedule) {
+            $showSchedule = true;
+        }
+    }
+
+    return [
+        'step_code' => 'T' . $installmentNumber,
+        'installment_number' => $installmentNumber,
+        'payment_status' => $paymentLabel,
+        'payment_bucket' => $paymentBucket,
+        'visit_status' => $visitLabel,
+        'visit_bucket' => $visitBucket,
+        'amount_due' => $amountDue,
+        'schedule_display' => $scheduleDisplay,
+        'show_pay' => $showPay,
+        'show_schedule' => $showSchedule,
+    ];
+}
+
 try {
     $pdo = getDBConnection();
     $dbTables = clinic_resolve_appointment_db_tables($pdo);
@@ -48,6 +134,7 @@ try {
             COALESCE(total_cost, 0) AS total_cost,
             COALESCE(amount_paid, 0) AS amount_paid,
             COALESCE(remaining_balance, 0) AS remaining_balance,
+            COALESCE(duration_months, 0) AS duration_months,
             COALESCE(status, 'active') AS status
         FROM {$qt}
         WHERE tenant_id = ?
@@ -159,52 +246,27 @@ try {
                 }
             }
 
-            $hasSchedule = $scheduleDisplay !== null && trim((string) $scheduleDisplay) !== '';
-            $rawLower = strtolower(trim($rawStatus));
-            $isPaidInst = in_array($rawLower, ['paid', 'completed'], true);
-
-            $paymentLabel = $isPaidInst ? 'Paid' : 'Unpaid';
-            $paymentBucket = $isPaidInst ? 'paid' : 'unpaid';
-
-            if ($isPaidInst) {
-                $visitLabel = 'Completed';
-                $visitBucket = 'completed';
-            } elseif ($hasSchedule) {
-                $visitLabel = 'Scheduled';
-                $visitBucket = 'scheduled';
-            } elseif ($rawLower === 'book_visit') {
-                $visitLabel = 'Book visit';
-                $visitBucket = 'book_visit';
-            } elseif ($rawLower === 'locked') {
-                $visitLabel = 'Locked';
-                $visitBucket = 'locked';
-            } else {
-                $visitLabel = 'Pending';
-                $visitBucket = 'pending';
-            }
-
-            $showPay = !$isPaidInst;
-            $showSchedule = false;
-            if (!$isPaidInst) {
-                if ($visitBucket === 'book_visit') {
-                    $showSchedule = true;
-                } elseif ($visitBucket === 'pending' && !$hasSchedule) {
-                    $showSchedule = true;
-                }
-            }
-
-            $steps[] = [
-                'step_code' => 'T' . $num,
-                'installment_number' => $num,
-                'payment_status' => $paymentLabel,
-                'payment_bucket' => $paymentBucket,
-                'visit_status' => $visitLabel,
-                'visit_bucket' => $visitBucket,
+            $steps[] = treatment_progress_build_step_row($num, [
+                'raw_status' => $rawStatus,
                 'amount_due' => $amountDue,
                 'schedule_display' => $scheduleDisplay,
-                'show_pay' => $showPay,
-                'show_schedule' => $showSchedule,
-            ];
+            ]);
+        }
+    }
+
+    $durationMonths = (int) ($treatment['duration_months'] ?? 0);
+    if ($steps === [] && $durationMonths > 0) {
+        $monthAmounts = treatment_progress_split_total_by_months($totalCost, $durationMonths);
+        for ($n = 1; $n <= $durationMonths; $n++) {
+            $sched = null;
+            if ($n === 1 && $appointmentDate !== '') {
+                $sched = treatment_progress_format_schedule_cell($appointmentDate, $appointmentTime);
+            }
+            $steps[] = treatment_progress_build_step_row($n, [
+                'raw_status' => 'pending',
+                'amount_due' => $monthAmounts[$n - 1] ?? 0.0,
+                'schedule_display' => $sched,
+            ]);
         }
     }
 
