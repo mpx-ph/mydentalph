@@ -224,7 +224,7 @@ $endOfWeek = $startOfWeek->modify('+6 days')->setTime(23, 59, 59);
 $monthLabel = $selectedDate->format('F Y');
 
 $gridStartMinutes = 6 * 60;
-$gridEndMinutes = 28 * 60; // 4:00 AM next day
+$gridEndMinutes = 24 * 60; // 12:00 AM (midnight)
 $pixelsPerHour = 64;
 $gridHeightPx = (int) ((($gridEndMinutes - $gridStartMinutes) / 60) * $pixelsPerHour);
 $gridHourSegments = (int) (($gridEndMinutes - $gridStartMinutes) / 60);
@@ -242,7 +242,7 @@ for ($i = 0; $i < 7; $i++) {
 }
 
 $timeSlots = [];
-for ($hour = 6; $hour <= 28; $hour++) {
+for ($hour = 6; $hour <= 24; $hour++) {
     $slotHour24 = $hour % 24;
     $timeSlots[] = formatTimeForUi(sprintf('%02d:00', $slotHour24));
 }
