@@ -637,6 +637,156 @@ function treatment_progress_apply_progressive_action_flags(array &$steps): void
     }
 }
 
+/**
+ * @param list<array<string,mixed>> $steps
+ */
+function treatment_progress_step_prior_visits_completed(array $steps, int $targetInstallmentNum): bool
+{
+    foreach ($steps as $st) {
+        $n = (int) ($st['installment_number'] ?? 0);
+        if ($n <= 0 || $n >= $targetInstallmentNum) {
+            continue;
+        }
+        if (($st['visit_completed'] ?? false) !== true) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Map extra appointment rows (new booking IDs) onto T2+ when tbl_installments.scheduled_date was never stamped.
+ *
+ * @param list<array<string,mixed>> $steps
+ */
+function treatment_progress_enrich_followup_dates_from_extra_appointments(
+    PDO $pdo,
+    array &$steps,
+    string $tenantId,
+    string $patientId,
+    string $treatmentId,
+    string $planBookingId,
+    ?string $appointmentsTableName
+): void {
+    $tenantId = trim($tenantId);
+    $patientId = trim($patientId);
+    $treatmentId = trim($treatmentId);
+    $planBookingId = trim($planBookingId);
+    if ($tenantId === '' || $patientId === '' || $treatmentId === '' || $planBookingId === '' || $steps === []) {
+        return;
+    }
+    if ($appointmentsTableName === null || trim((string) $appointmentsTableName) === '') {
+        return;
+    }
+
+    $resolved = clinic_resolve_appointment_db_tables($pdo);
+    $apsTable = $resolved['appointment_services'] ?? null;
+    if ($apsTable === null || trim((string) $apsTable) === '') {
+        return;
+    }
+    $apsCols = clinic_table_columns($pdo, (string) $apsTable);
+    if (!in_array('booking_id', $apsCols, true)) {
+        return;
+    }
+
+    $includePlanPred = '';
+    $qpAs = '`' . str_replace('`', '``', (string) $apsTable) . '`';
+    if (in_array('service_type', $apsCols, true)) {
+        $includePlanPred = "AND EXISTS (
+            SELECT 1
+            FROM {$qpAs} aps
+            WHERE aps.tenant_id = a.tenant_id
+              AND TRIM(COALESCE(aps.booking_id, '')) = TRIM(COALESCE(a.booking_id, ''))
+              AND LOWER(TRIM(COALESCE(aps.service_type, ''))) = 'included_plan'
+        )";
+    } elseif (in_array('type', $apsCols, true)) {
+        $includePlanPred = "AND EXISTS (
+            SELECT 1
+            FROM {$qpAs} aps
+            WHERE aps.tenant_id = a.tenant_id
+              AND TRIM(COALESCE(aps.booking_id, '')) = TRIM(COALESCE(a.booking_id, ''))
+              AND LOWER(TRIM(COALESCE(aps.type, ''))) LIKE '%long%term%'
+        )";
+    } else {
+        return;
+    }
+
+    $qa = clinic_quote_identifier((string) $appointmentsTableName);
+    try {
+        $extraStmt = $pdo->prepare("
+            SELECT COALESCE(a.appointment_date, '') AS ad,
+                   COALESCE(a.appointment_time, '') AS atm
+            FROM {$qa} a
+            WHERE a.tenant_id = ?
+              AND TRIM(COALESCE(a.patient_id, '')) = ?
+              AND TRIM(COALESCE(a.treatment_id, '')) = ?
+              AND TRIM(COALESCE(a.booking_id, '')) <> ?
+              AND LOWER(TRIM(COALESCE(a.status, ''))) NOT IN ('cancelled', 'no_show')
+              {$includePlanPred}
+            ORDER BY a.appointment_date ASC, a.appointment_time ASC
+        ");
+        $extraStmt->execute([$tenantId, $patientId, $treatmentId, $planBookingId]);
+        $extras = $extraStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        error_log('treatment_progress enrichment query: ' . $e->getMessage());
+
+        return;
+    }
+
+    if ($extras === []) {
+        return;
+    }
+
+    $orderPairs = [];
+    foreach ($steps as $idx => $row) {
+        $orderPairs[] = [$idx, (int) ($row['installment_number'] ?? 0)];
+    }
+    usort($orderPairs, static function (array $a, array $b): int {
+        return ($a[1] ?? 0) <=> ($b[1] ?? 0);
+    });
+
+    $ePtr = 0;
+    foreach ($orderPairs as $pair) {
+        $i = $pair[0];
+        $num = $pair[1];
+        if ($num <= 1) {
+            continue;
+        }
+        if (!treatment_progress_step_prior_visits_completed($steps, $num)) {
+            continue;
+        }
+        $sch = $steps[$i]['schedule_display'] ?? null;
+        if ($sch !== null && trim((string) $sch) !== '') {
+            continue;
+        }
+        if (($steps[$i]['payment_bucket'] ?? '') !== 'paid') {
+            continue;
+        }
+        if (($steps[$i]['visit_completed'] ?? false) === true) {
+            continue;
+        }
+
+        $slot = $extras[$ePtr] ?? null;
+        if ($slot === null) {
+            break;
+        }
+
+        $ad = trim((string) ($slot['ad'] ?? ''));
+        $atm = trim((string) ($slot['atm'] ?? ''));
+        if ($ad === '') {
+            $ePtr++;
+            continue;
+        }
+
+        $steps[$i]['schedule_display'] = treatment_progress_format_schedule_cell($ad, $atm);
+        $steps[$i]['visit_slot_date'] = treatment_progress_normalize_visit_date($ad);
+        $steps[$i]['has_schedule_slot'] = true;
+        treatment_progress_paint_visit_for_step($steps[$i]);
+        $ePtr++;
+    }
+}
+
 try {
     $pdo = getDBConnection();
     $dbTables = clinic_resolve_appointment_db_tables($pdo);
@@ -877,6 +1027,15 @@ try {
 
     treatment_progress_reconcile_payment_states($steps, $treatment);
     treatment_progress_modal_flatten_book_visit_to_pending($steps);
+    treatment_progress_enrich_followup_dates_from_extra_appointments(
+        $pdo,
+        $steps,
+        (string) $tenantId,
+        $patientId,
+        $treatmentId,
+        (string) $bookingId,
+        $appointmentsTable
+    );
     treatment_progress_overlay_staff_appointment_visit_status($steps, $appointmentStatusForOverlay, $appointmentDate);
     treatment_progress_apply_progressive_action_flags($steps);
 

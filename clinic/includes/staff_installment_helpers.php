@@ -376,7 +376,11 @@ function staff_installments_stamp_next_followup_slot_for_staff_visit(
             continue;
         }
         $st = strtolower(trim((string) ($r['status'] ?? '')));
-        if (!in_array($st, ['paid', 'book_visit'], true)) {
+        // UI can show Paid from aggregate reconcile while installment.status is still pending.
+        if (in_array($st, ['completed', 'locked'], true)) {
+            continue;
+        }
+        if (!in_array($st, ['paid', 'book_visit', 'pending'], true)) {
             continue;
         }
         if (!staff_installment_scheduled_slot_is_empty((string) ($r['scheduled_date'] ?? ''))) {
