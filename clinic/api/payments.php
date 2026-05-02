@@ -345,20 +345,6 @@ function createPayment() {
                 WHERE id = ? AND tenant_id = ?
             ");
             $stmt->execute([$paymentId, $installmentId, $tenantId]);
-            
-            // Check if there's a next installment that should be unlocked (status = 'book_visit')
-            // After paying installment 1, installment 2 should become available for booking
-            $nextInstallmentNumber = $installmentNumber + 1;
-            $stmt = $pdo->prepare("
-                UPDATE installments 
-                SET status = 'book_visit',
-                    updated_at = NOW()
-                WHERE booking_id = ? 
-                AND installment_number = ?
-                AND status = 'pending'
-                AND tenant_id = ?
-            ");
-            $stmt->execute([$data['booking_id'], $nextInstallmentNumber, $tenantId]);
         }
 
         // Keep payment lifecycle independent from appointment lifecycle.

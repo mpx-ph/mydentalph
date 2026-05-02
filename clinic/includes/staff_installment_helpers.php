@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/appointment_db_tables.php';
 require_once __DIR__ . '/treatment_duration_sync.php';
 
 /**
- * Mark installment rows paid and unlock the next pending installment (book_visit), matching clinic/api/payments.php behavior.
+ * Mark installment rows paid after a recorded payment.
+ * Unlocking the next installment (pending → book_visit) happens only after Staff marks the visit appointment completed (see staff_installments_advance_after_visit_completed).
  *
  * @param list<array{id:int, installment_number:int}> $paidItems
  */
@@ -29,22 +31,72 @@ function staff_installments_apply_paid_with_unlocks(
         }
         $mark->execute([$paymentId, $id, $bookingId, $tenantId]);
     }
-    $unlock = $pdo->prepare("
-        UPDATE {$quoted} i
-        SET i.status = 'book_visit'
+}
+
+/**
+ * When staff marks an appointment visit completed: mark the earliest open paid installment completed, then expose the next pending slot as book_visit.
+ */
+function staff_installments_advance_after_visit_completed(PDO $pdo, string $tenantId, string $bookingId): void
+{
+    $tenantId = trim($tenantId);
+    $bookingId = trim($bookingId);
+    if ($tenantId === '' || $bookingId === '') {
+        return;
+    }
+
+    $tableName = clinic_get_physical_table_name($pdo, 'tbl_installments')
+        ?? clinic_get_physical_table_name($pdo, 'installments');
+    if ($tableName === null || trim((string) $tableName) === '') {
+        return;
+    }
+    $qtab = '`' . str_replace('`', '``', (string) $tableName) . '`';
+
+    $tenantClause = '(i.tenant_id = ? OR i.tenant_id IS NULL OR TRIM(COALESCE(i.tenant_id, \'\')) = \'\')';
+
+    $sel = $pdo->prepare("
+        SELECT i.installment_number
+        FROM {$qtab} i
+        WHERE i.booking_id = ?
+          AND {$tenantClause}
+          AND LOWER(TRIM(COALESCE(i.status, ''))) = 'paid'
+        ORDER BY i.installment_number ASC
+        LIMIT 1
+    ");
+    $sel->execute([$bookingId, $tenantId]);
+    $hit = $sel->fetch(PDO::FETCH_ASSOC);
+    if (!$hit) {
+        return;
+    }
+
+    $currentNum = (int) ($hit['installment_number'] ?? 0);
+    if ($currentNum <= 0) {
+        return;
+    }
+
+    $updPaid = $pdo->prepare("
+        UPDATE {$qtab} i
+        SET i.status = 'completed',
+            i.updated_at = NOW()
         WHERE i.booking_id = ?
           AND i.installment_number = ?
-          AND LOWER(COALESCE(i.status, '')) = 'pending'
-          AND (i.tenant_id = ? OR i.tenant_id IS NULL)
+          AND {$tenantClause}
+          AND LOWER(TRIM(COALESCE(i.status, ''))) = 'paid'
+        LIMIT 1
     ");
-    foreach ($paidItems as $row) {
-        $num = (int) ($row['installment_number'] ?? 0);
-        if ($num <= 0) {
-            continue;
-        }
-        $nextNum = $num + 1;
-        $unlock->execute([$bookingId, $nextNum, $tenantId]);
-    }
+    $updPaid->execute([$bookingId, $currentNum, $tenantId]);
+
+    $nextNum = $currentNum + 1;
+    $unlock = $pdo->prepare("
+        UPDATE {$qtab} i
+        SET i.status = 'book_visit',
+            i.updated_at = NOW()
+        WHERE i.booking_id = ?
+          AND i.installment_number = ?
+          AND {$tenantClause}
+          AND LOWER(TRIM(COALESCE(i.status, ''))) = 'pending'
+        LIMIT 1
+    ");
+    $unlock->execute([$bookingId, $nextNum, $tenantId]);
 }
 
 /**

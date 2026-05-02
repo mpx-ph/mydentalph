@@ -230,6 +230,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tenantId !== '') {
                     'Status could not be saved. If you selected In Progress, your database may be missing the in_progress value on the appointment status column. Run migrations/013_appointments_status_in_progress.sql.'
                 );
             }
+            if ($newStatus === 'completed') {
+                require_once __DIR__ . '/includes/staff_installment_helpers.php';
+                staff_installments_advance_after_visit_completed($pdo, $tenantId, $bookingId);
+            }
             $notice = ['type' => 'success', 'message' => 'Appointment status updated successfully.'];
         } elseif ($postAction === 'add_services') {
             $serviceIds = isset($_POST['service_ids']) && is_array($_POST['service_ids']) ? array_values(array_unique($_POST['service_ids'])) : [];

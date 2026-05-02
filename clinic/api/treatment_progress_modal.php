@@ -203,7 +203,9 @@ function treatment_progress_overlay_staff_appointment_visit_status(array &$steps
 
     $focusNum = null;
     foreach ($steps as $st) {
-        if ((string) ($st['payment_bucket'] ?? '') !== 'paid') {
+        $p = (($st['payment_bucket'] ?? '') === 'paid');
+        $vd = (!empty($st['visit_completed']));
+        if (!$p || !$vd) {
             $n = (int) ($st['installment_number'] ?? 0);
             if ($n > 0) {
                 $focusNum = $n;
@@ -228,7 +230,7 @@ function treatment_progress_overlay_staff_appointment_visit_status(array &$steps
     ];
     $resolved = treatment_progress_staff_appointment_status_resolve($appointmentStatusRaw, $labelMap);
     foreach ($steps as &$st) {
-        if ((string) ($st['payment_bucket'] ?? '') === 'paid') {
+        if (!empty($st['visit_completed'])) {
             continue;
         }
         $numSt = (int) ($st['installment_number'] ?? 0);
@@ -321,9 +323,65 @@ function treatment_progress_apply_plan_amounts_for_display(array &$steps, float 
 }
 
 /**
+ * Paint visit column from payment_bucket, visit_completed, schedule slot, workflow db_raw_status.
+ *
+ * @param array<string, mixed> $step
+ */
+function treatment_progress_paint_visit_for_step(array &$step): void
+{
+    $paid = (($step['payment_bucket'] ?? '') === 'paid');
+    $phys = ($step['has_schedule_slot'] ?? false) === true;
+    $vc = (($step['visit_completed'] ?? false) === true);
+    $dbRaw = strtolower(trim((string) ($step['db_raw_status'] ?? '')));
+
+    if ($vc) {
+        $step['visit_status'] = 'Completed';
+        $step['visit_bucket'] = 'completed';
+
+        return;
+    }
+
+    if ($paid) {
+        if ($phys) {
+            $step['visit_status'] = 'Scheduled';
+            $step['visit_bucket'] = 'scheduled';
+        } else {
+            $step['visit_status'] = 'Pending';
+            $step['visit_bucket'] = 'pending';
+        }
+
+        return;
+    }
+
+    if ($phys) {
+        $step['visit_status'] = 'Scheduled';
+        $step['visit_bucket'] = 'scheduled';
+
+        return;
+    }
+
+    if ($dbRaw === 'book_visit') {
+        $step['visit_status'] = 'Book visit';
+        $step['visit_bucket'] = 'book_visit';
+
+        return;
+    }
+
+    if ($dbRaw === 'locked') {
+        $step['visit_status'] = 'Locked';
+        $step['visit_bucket'] = 'locked';
+
+        return;
+    }
+
+    $step['visit_status'] = 'Pending';
+    $step['visit_bucket'] = 'pending';
+}
+
+/**
  * One table row for the Treatment Progress modal (installment or synthetic placeholder).
  *
- * @param array{raw_status:string,amount_due:float,schedule_display:?string,visit_slot_date?:string} $fields
+ * @param array{raw_status:string,amount_due:float,schedule_display:?string,visit_slot_date?:string,installment_status_db?:string} $fields
  * @return array<string, mixed>
  */
 function treatment_progress_build_step_row(int $installmentNumber, array $fields): array
@@ -333,61 +391,31 @@ function treatment_progress_build_step_row(int $installmentNumber, array $fields
         $scheduleDisplay = null;
     }
     $visitSlotDate = treatment_progress_normalize_visit_date((string) ($fields['visit_slot_date'] ?? ''));
-    $rawStatus = trim((string) ($fields['raw_status'] ?? 'pending'));
+    $rawWorkflow = strtolower(trim((string) ($fields['raw_status'] ?? 'pending')));
+    $instDb = strtolower(trim((string) ($fields['installment_status_db'] ?? $fields['raw_status'] ?? 'pending')));
     $amountDue = round(max(0.0, (float) ($fields['amount_due'] ?? 0)), 2);
 
-    $hasSchedule = $scheduleDisplay !== null && trim((string) $scheduleDisplay) !== '';
-    $rawLower = strtolower($rawStatus);
-    $isPaidInst = in_array($rawLower, ['paid', 'completed'], true);
+    $paymentCleared = in_array($instDb, ['paid', 'completed'], true);
+    $visitCompleted = ($instDb === 'completed');
 
-    $paymentLabel = $isPaidInst ? 'Paid' : 'Unpaid';
-    $paymentBucket = $isPaidInst ? 'paid' : 'unpaid';
-
-    if ($isPaidInst) {
-        $visitLabel = 'Completed';
-        $visitBucket = 'completed';
-    } elseif ($hasSchedule) {
-        $visitLabel = 'Scheduled';
-        $visitBucket = 'scheduled';
-    } elseif ($rawLower === 'book_visit') {
-        $visitLabel = 'Book visit';
-        $visitBucket = 'book_visit';
-    } elseif ($rawLower === 'locked') {
-        $visitLabel = 'Locked';
-        $visitBucket = 'locked';
-    } else {
-        $visitLabel = 'Pending';
-        $visitBucket = 'pending';
-    }
-
-    return [
+    $row = [
         'step_code' => 'T' . $installmentNumber,
         'installment_number' => $installmentNumber,
-        'payment_status' => $paymentLabel,
-        'payment_bucket' => $paymentBucket,
-        'visit_status' => $visitLabel,
-        'visit_bucket' => $visitBucket,
+        'payment_status' => $paymentCleared ? 'Paid' : 'Unpaid',
+        'payment_bucket' => $paymentCleared ? 'paid' : 'unpaid',
+        'visit_completed' => $visitCompleted,
         'amount_due' => $amountDue,
         'schedule_display' => $scheduleDisplay,
-        /** Y-m-d for matching parent appointment_date (progressive SCHEDULE relies on displayed slot, not this). */
         'visit_slot_date' => $visitSlotDate,
         'has_schedule_slot' => ($scheduleDisplay !== null && trim((string) $scheduleDisplay) !== ''),
-        /** Lowercase raw installment row status for reconciliation (paid/completed/pending/book_visit/…) */
-        'db_raw_status' => $rawLower,
+        /** Authoritative lowercase installment.status from DB (never stripped during reconciliation guards). */
+        'installment_status_db' => $instDb,
+        /** Workflow label for unpaid visit states (pending / book_visit / …); may differ during order guards. */
+        'db_raw_status' => $rawWorkflow,
     ];
-}
+    treatment_progress_paint_visit_for_step($row);
 
-/**
- * Mark a step as fully paid for both payment and visit columns (treatment progress display).
- *
- * @param array<string, mixed> $step
- */
-function treatment_progress_step_mark_paid_row(array &$step): void
-{
-    $step['payment_status'] = 'Paid';
-    $step['payment_bucket'] = 'paid';
-    $step['visit_status'] = 'Completed';
-    $step['visit_bucket'] = 'completed';
+    return $row;
 }
 
 /**
@@ -456,7 +484,10 @@ function treatment_progress_reconcile_payment_states(array &$steps, array $treat
     $fullySettled = $totalCost > 0 && ($remainingBalance <= $eps || $amountPaid >= $totalCost - $eps);
     if ($fullySettled) {
         foreach ($steps as &$st) {
-            treatment_progress_step_mark_paid_row($st);
+            $st['payment_status'] = 'Paid';
+            $st['payment_bucket'] = 'paid';
+            $st['visit_completed'] = true;
+            treatment_progress_paint_visit_for_step($st);
         }
         unset($st);
 
@@ -487,7 +518,8 @@ function treatment_progress_reconcile_payment_states(array &$steps, array $treat
     $rawPaid = [];
     for ($i = 0; $i < $n; $i++) {
         $num = (int) ($steps[$i]['installment_number'] ?? ($i + 1));
-        $dbPaid = (($steps[$i]['payment_bucket'] ?? '') === 'paid');
+        $idb = strtolower(trim((string) ($steps[$i]['installment_status_db'] ?? '')));
+        $dbPaid = in_array($idb, ['paid', 'completed'], true);
         $seqPaid = $sequentialFlags[$i];
         $monthsSlotPaid = false;
         if ($row1Discrete && $num >= 2 && $monthsPaidField > 0) {
@@ -508,9 +540,14 @@ function treatment_progress_reconcile_payment_states(array &$steps, array $treat
 
     for ($i = 0; $i < $n; $i++) {
         if ($finalPaid[$i]) {
-            treatment_progress_step_mark_paid_row($steps[$i]);
+            $idb = strtolower(trim((string) ($steps[$i]['installment_status_db'] ?? '')));
+            $steps[$i]['payment_status'] = 'Paid';
+            $steps[$i]['payment_bucket'] = 'paid';
+            $steps[$i]['visit_completed'] = ($idb === 'completed');
+            treatment_progress_paint_visit_for_step($steps[$i]);
         } else {
             $num = (int) ($steps[$i]['installment_number'] ?? ($i + 1));
+            $idbKeep = strtolower(trim((string) ($steps[$i]['installment_status_db'] ?? '')));
             $rawBack = strtolower((string) ($steps[$i]['db_raw_status'] ?? 'pending'));
             if (in_array($rawBack, ['paid', 'completed'], true)) {
                 // Installment order guard: cannot display PAID until all prior rows are settled.
@@ -521,10 +558,15 @@ function treatment_progress_reconcile_payment_states(array &$steps, array $treat
             $slotPres = trim((string) ($steps[$i]['visit_slot_date'] ?? ''));
             $steps[$i] = treatment_progress_build_step_row($num, [
                 'raw_status' => $rawBack,
+                'installment_status_db' => $idbKeep !== '' ? $idbKeep : $rawBack,
                 'amount_due' => $due,
                 'schedule_display' => $sched,
                 'visit_slot_date' => $slotPres,
             ]);
+            $steps[$i]['payment_status'] = 'Unpaid';
+            $steps[$i]['payment_bucket'] = 'unpaid';
+            $steps[$i]['visit_completed'] = false;
+            treatment_progress_paint_visit_for_step($steps[$i]);
         }
     }
 }
@@ -563,24 +605,26 @@ function treatment_progress_apply_progressive_action_flags(array &$steps): void
 {
     $n = count($steps);
     for ($i = 0; $i < $n; $i++) {
-        $priorChainPaid = true;
+        $priorChainGate = true;
         for ($j = 0; $j < $i; $j++) {
-            if (($steps[$j]['payment_bucket'] ?? '') !== 'paid') {
-                $priorChainPaid = false;
+            $priorPaid = (($steps[$j]['payment_bucket'] ?? '') === 'paid');
+            $priorVisitDone = (($steps[$j]['visit_completed'] ?? false) === true);
+            if (!$priorPaid || !$priorVisitDone) {
+                $priorChainGate = false;
                 break;
             }
         }
 
         $isPaid = (($steps[$i]['payment_bucket'] ?? '') === 'paid');
-        $vb = (string) ($steps[$i]['visit_bucket'] ?? '');
         $physSlot = ($steps[$i]['has_schedule_slot'] ?? false) === true;
-        $hasVisitSchedule = $physSlot || in_array($vb, ['scheduled', 'completed'], true);
+        $visitDoneSelf = (($steps[$i]['visit_completed'] ?? false) === true);
+        $hasVisitHandled = $physSlot || $visitDoneSelf;
 
-        // PAY: locked if already paid, or earlier installments unpaid (progressive).
-        $steps[$i]['pay_disabled'] = $isPaid || !$priorChainPaid;
+        // PAY: locked once this slot is paid; earlier rows must have payment + completed visit.
+        $steps[$i]['pay_disabled'] = $isPaid || !$priorChainGate;
 
-        // SCHEDULE: only after this installment is paid; locked if visit already scheduled/completed or chain blocked.
-        $steps[$i]['schedule_disabled'] = !$isPaid || $hasVisitSchedule || !$priorChainPaid;
+        // SCHEDULE: row 1 omits button in UI; only after payment; lock if already scheduled or visit completed; prior rows must be fully done.
+        $steps[$i]['schedule_disabled'] = !$isPaid || $hasVisitHandled || !$priorChainGate;
     }
 }
 
@@ -726,8 +770,10 @@ try {
                 }
             }
 
+            $idb = strtolower(trim((string) ($row['status'] ?? '')));
             $steps[] = treatment_progress_build_step_row($num, [
                 'raw_status' => $rawStatus,
+                'installment_status_db' => $idb,
                 'amount_due' => $amountDue,
                 'schedule_display' => $scheduleDisplay,
                 'visit_slot_date' => $visitSlotDate,
@@ -747,6 +793,7 @@ try {
             }
             $steps[] = treatment_progress_build_step_row($n, [
                 'raw_status' => 'pending',
+                'installment_status_db' => 'pending',
                 'amount_due' => $placeAmt,
                 'schedule_display' => $sched,
                 'visit_slot_date' => ($n === 1 && $appointmentDate !== '') ? treatment_progress_normalize_visit_date($appointmentDate) : '',
