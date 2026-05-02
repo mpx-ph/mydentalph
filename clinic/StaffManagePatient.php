@@ -472,14 +472,28 @@ function resolveInstallmentServiceCategoryBadgeClasses(treatment) {
     return hit ? SERVICE_CATEGORY_BADGE_BY_LABEL[hit] : fallback;
 }
 
-function treatmentProgressStatusBadgeClass(bucket) {
-    if (bucket === 'booked') return 'bg-blue-100 text-blue-700';
-    if (bucket === 'book_visit') return 'bg-orange-100 text-orange-700';
-    return 'bg-slate-100 text-slate-600';
+function treatmentProgressPaymentBadgeClass(bucket) {
+    return bucket === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700';
+}
+
+function treatmentProgressVisitBadgeClass(bucket) {
+    switch (bucket) {
+        case 'completed':
+            return 'bg-emerald-100 text-emerald-800';
+        case 'scheduled':
+            return 'bg-blue-100 text-blue-800';
+        case 'book_visit':
+            return 'bg-orange-100 text-orange-800';
+        case 'locked':
+            return 'bg-slate-200 text-slate-700';
+        default:
+            return 'bg-slate-100 text-slate-600';
+    }
 }
 
 function buildTreatmentProgressModalInnerHtml(payload, patientId) {
     const t = payload.treatment || {};
+    const bookingId = String(payload.booking_id || '');
     const steps = Array.isArray(payload.steps) ? payload.steps : [];
     const total = Number(t.total_cost || 0);
     const paid = Number(t.amount_paid || 0);
@@ -487,29 +501,37 @@ function buildTreatmentProgressModalInnerHtml(payload, patientId) {
     const pctRounded = Math.round(pct);
     const paidLabel = formatPeso(paid);
     const totalLabel = formatPeso(total);
+    const pidEsc = escapeHtml(String(patientId || ''));
+    const bidEsc = escapeHtml(bookingId);
     const rows = steps.length ? steps.map((row) => {
         const schedule = row.schedule_display ? escapeHtml(row.schedule_display) : '—';
         const amt = formatPeso(row.amount_due);
-        const bucket = row.status_bucket || 'pending';
-        const badgeCls = treatmentProgressStatusBadgeClass(bucket);
-        const label = escapeHtml(row.status_label || 'Pending');
-        let actionCell = '';
-        if (row.action === 'book') {
-            actionCell = `
-                <button type="button" data-treatment-progress-book="1" data-patient-id="${escapeHtml(String(patientId || ''))}"
-                    class="rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white shadow-sm hover:bg-orange-600 transition-colors">
-                    Book
-                </button>`;
-        } else if (row.action === 'pending_text') {
-            actionCell = '<span class="text-sm font-medium text-slate-400">Pending</span>';
-        } else {
-            actionCell = '<span class="text-slate-400">—</span>';
+        const payBucket = row.payment_bucket || 'unpaid';
+        const visBucket = row.visit_bucket || 'pending';
+        const payBadge = treatmentProgressPaymentBadgeClass(payBucket);
+        const visBadge = treatmentProgressVisitBadgeClass(visBucket);
+        const payLabel = escapeHtml(row.payment_status || 'Unpaid');
+        const visLabel = escapeHtml(row.visit_status || 'Pending');
+        const bits = [];
+        if (row.show_pay) {
+            bits.push(`<button type="button" data-treatment-progress-pay="1" data-patient-id="${pidEsc}" data-booking-id="${bidEsc}"
+                class="rounded-lg bg-primary px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-white shadow-sm hover:bg-primary/90 transition-colors">PAY</button>`);
         }
+        if (row.show_schedule) {
+            bits.push(`<button type="button" data-treatment-progress-schedule="1" data-patient-id="${pidEsc}"
+                class="rounded-lg bg-orange-500 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-white shadow-sm hover:bg-orange-600 transition-colors">SCHEDULE</button>`);
+        }
+        const actionCell = bits.length
+            ? `<div class="flex flex-wrap items-center justify-end gap-2">${bits.join('')}</div>`
+            : '<span class="text-slate-400">—</span>';
         return `
             <tr class="border-b border-[#eeeeee] last:border-0">
                 <td class="px-3 py-3 text-sm font-bold text-slate-900">${escapeHtml(row.step_code || '')}</td>
                 <td class="px-3 py-3">
-                    <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${badgeCls}">${label}</span>
+                    <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${payBadge}">${payLabel}</span>
+                </td>
+                <td class="px-3 py-3">
+                    <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${visBadge}">${visLabel}</span>
                 </td>
                 <td class="px-3 py-3 text-sm text-slate-500">${schedule}</td>
                 <td class="px-3 py-3 text-sm font-bold text-slate-900">${escapeHtml(amt)}</td>
@@ -517,7 +539,7 @@ function buildTreatmentProgressModalInnerHtml(payload, patientId) {
             </tr>`;
     }).join('') : `
         <tr>
-            <td colspan="5" class="px-4 py-8 text-center text-sm text-slate-500 font-medium">No installment schedule found for this treatment.</td>
+            <td colspan="6" class="px-4 py-8 text-center text-sm text-slate-500 font-medium">No installment schedule found for this treatment.</td>
         </tr>`;
 
     return `
@@ -532,11 +554,12 @@ function buildTreatmentProgressModalInnerHtml(payload, patientId) {
             </div>
             <div class="rounded-xl border border-[#eeeeee] overflow-hidden bg-white">
                 <div class="overflow-x-auto">
-                    <table class="w-full min-w-[640px] text-left border-collapse">
+                    <table class="w-full min-w-[820px] text-left border-collapse">
                         <thead>
                             <tr class="border-b border-[#eeeeee] bg-white">
                                 <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Step</th>
-                                <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Status</th>
+                                <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Payment status</th>
+                                <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Visit status</th>
                                 <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Schedule</th>
                                 <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Amount</th>
                                 <th class="px-3 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-slate-500">Action</th>
@@ -1683,10 +1706,22 @@ document.getElementById('treatmentProgressModal').addEventListener('click', func
     }
 });
 document.getElementById('treatmentProgressModalBody').addEventListener('click', function (e) {
-    const book = e.target.closest('[data-treatment-progress-book]');
-    if (!book) return;
-    const patientId = book.getAttribute('data-patient-id');
-    window.location.href = CLINIC_STAFF_BASE + 'StaffPaymentRecording.php?patient_id=' + encodeURIComponent(patientId || '');
+    const payBtn = e.target.closest('[data-treatment-progress-pay]');
+    if (payBtn) {
+        const pid = payBtn.getAttribute('data-patient-id');
+        const bid = payBtn.getAttribute('data-booking-id');
+        let url = CLINIC_STAFF_BASE + 'StaffPaymentRecording.php?patient_id=' + encodeURIComponent(pid || '');
+        if (bid) {
+            url += '&booking_id=' + encodeURIComponent(bid);
+        }
+        window.location.href = url;
+        return;
+    }
+    const schBtn = e.target.closest('[data-treatment-progress-schedule]');
+    if (schBtn) {
+        const pid = schBtn.getAttribute('data-patient-id');
+        window.location.href = CLINIC_STAFF_BASE + 'StaffSetAppointments.php?patient_id=' + encodeURIComponent(pid || '');
+    }
 });
 
 applyDobConstraints();

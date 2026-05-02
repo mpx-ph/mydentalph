@@ -30,21 +30,6 @@ if ($patientId === '' || $treatmentId === '') {
     exit;
 }
 
-/**
- * @return 'booked'|'book_visit'|'pending'
- */
-function treatment_progress_ui_bucket(string $status): string
-{
-    $s = strtolower(trim($status));
-    if (in_array($s, ['paid', 'completed'], true)) {
-        return 'booked';
-    }
-    if ($s === 'book_visit') {
-        return 'book_visit';
-    }
-    return 'pending';
-}
-
 try {
     $pdo = getDBConnection();
     $dbTables = clinic_resolve_appointment_db_tables($pdo);
@@ -156,7 +141,6 @@ try {
         foreach ($rows as $row) {
             $num = (int) ($row['installment_number'] ?? 0);
             $rawStatus = trim((string) ($row['status'] ?? ''));
-            $bucket = treatment_progress_ui_bucket($rawStatus);
             $amountDue = round(max(0.0, (float) ($row['amount_due'] ?? 0)), 2);
 
             $scheduleDisplay = null;
@@ -175,22 +159,51 @@ try {
                 }
             }
 
-            $label = $bucket === 'booked' ? 'Booked' : ($bucket === 'book_visit' ? 'Book visit' : 'Pending');
-            $action = 'dash';
-            if ($bucket === 'book_visit') {
-                $action = 'book';
-            } elseif ($bucket === 'pending') {
-                $action = 'pending_text';
+            $hasSchedule = $scheduleDisplay !== null && trim((string) $scheduleDisplay) !== '';
+            $rawLower = strtolower(trim($rawStatus));
+            $isPaidInst = in_array($rawLower, ['paid', 'completed'], true);
+
+            $paymentLabel = $isPaidInst ? 'Paid' : 'Unpaid';
+            $paymentBucket = $isPaidInst ? 'paid' : 'unpaid';
+
+            if ($isPaidInst) {
+                $visitLabel = 'Completed';
+                $visitBucket = 'completed';
+            } elseif ($hasSchedule) {
+                $visitLabel = 'Scheduled';
+                $visitBucket = 'scheduled';
+            } elseif ($rawLower === 'book_visit') {
+                $visitLabel = 'Book visit';
+                $visitBucket = 'book_visit';
+            } elseif ($rawLower === 'locked') {
+                $visitLabel = 'Locked';
+                $visitBucket = 'locked';
+            } else {
+                $visitLabel = 'Pending';
+                $visitBucket = 'pending';
+            }
+
+            $showPay = !$isPaidInst;
+            $showSchedule = false;
+            if (!$isPaidInst) {
+                if ($visitBucket === 'book_visit') {
+                    $showSchedule = true;
+                } elseif ($visitBucket === 'pending' && !$hasSchedule) {
+                    $showSchedule = true;
+                }
             }
 
             $steps[] = [
                 'step_code' => 'T' . $num,
                 'installment_number' => $num,
-                'status_bucket' => $bucket,
-                'status_label' => $label,
+                'payment_status' => $paymentLabel,
+                'payment_bucket' => $paymentBucket,
+                'visit_status' => $visitLabel,
+                'visit_bucket' => $visitBucket,
                 'amount_due' => $amountDue,
                 'schedule_display' => $scheduleDisplay,
-                'action' => $action,
+                'show_pay' => $showPay,
+                'show_schedule' => $showSchedule,
             ];
         }
     }
