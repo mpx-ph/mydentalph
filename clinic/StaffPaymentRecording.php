@@ -1330,6 +1330,30 @@ if (isset($_POST['additional_service_ids']) && is_array($_POST['additional_servi
     $formServiceIds = array_values(array_unique($formServiceIds));
 }
 
+/** Deep link from StaffManagePatient treatment progress: open Record Payment modal with treatment selected. */
+$openPaymentDeepLink = false;
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $odl = trim((string) ($_GET['open_payment'] ?? ''));
+    if ($odl === '1') {
+        $dlBid = trim((string) ($_GET['booking_id'] ?? ''));
+        $dlTid = trim((string) ($_GET['treatment_id'] ?? ''));
+        $dlPq = trim((string) ($_GET['patient_query'] ?? ''));
+        $dlTType = strtolower(trim((string) ($_GET['selected_transaction_type'] ?? 'installment')));
+        if (!in_array($dlTType, ['regular', 'installment'], true)) {
+            $dlTType = 'installment';
+        }
+        if ($dlBid !== '' && $dlTid !== '') {
+            $formSelectedBookingId = $dlBid;
+            $formSelectedTreatmentId = $dlTid;
+            $formSelectedTransactionType = $dlTType;
+            if ($dlPq !== '') {
+                $formPatientQuery = $dlPq;
+            }
+            $openPaymentDeepLink = true;
+        }
+    }
+}
+
 try {
     $pdo = getDBConnection();
 
@@ -4754,6 +4778,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
         let isSendingReceiptEmail = false;
         const transactionCandidates = <?php echo json_encode($transactionCandidates, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const transactionDebugRows = <?php echo json_encode($transactionDebugRows, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const openPaymentDeepLink = <?php echo json_encode((bool) $openPaymentDeepLink, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const openSelectorBtn = document.getElementById('open-transaction-selector-modal');
         const selectorModal = document.getElementById('transaction-selector-modal');
         const selectorOverlay = document.getElementById('transaction-selector-overlay');
@@ -6415,6 +6440,12 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 if (selectedTransactionTypeInput) {
                     selectedTransactionTypeInput.value = pre.is_installment_plan ? 'installment' : 'regular';
                 }
+                if (selectedTransactionLabel && pre.label) {
+                    selectedTransactionLabel.textContent = pre.label;
+                }
+                if (patientQueryInput && pre.label) {
+                    patientQueryInput.value = pre.label;
+                }
                 updateAdditionalServicesVisibility();
                 if (pre.is_installment_plan) {
                     syncMainAndSelectorFilter('installment');
@@ -6425,6 +6456,19 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 syncAmountWithAdditionalServices();
                 updateAdditionalServiceEligibility();
                 renderSelectedAppointmentServices(pre);
+                if (openPaymentDeepLink) {
+                    openModal();
+                    try {
+                        const u = new URL(window.location.href);
+                        u.searchParams.delete('open_payment');
+                        u.searchParams.delete('booking_id');
+                        u.searchParams.delete('treatment_id');
+                        u.searchParams.delete('selected_transaction_type');
+                        u.searchParams.delete('patient_query');
+                        window.history.replaceState({}, '', u.pathname + u.search + u.hash);
+                    } catch (e) {
+                    }
+                }
             }
             updateAdditionalServicesVisibility();
             updateClearBookingButtonVisibility();

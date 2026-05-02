@@ -491,9 +491,10 @@ function treatmentProgressVisitBadgeClass(bucket) {
     }
 }
 
-function buildTreatmentProgressModalInnerHtml(payload, patientId) {
+function buildTreatmentProgressModalInnerHtml(payload, patientId, patientQueryLabel) {
     const t = payload.treatment || {};
     const bookingId = String(payload.booking_id || '');
+    const treatmentIdRaw = String(t.treatment_id || '').trim();
     const steps = Array.isArray(payload.steps) ? payload.steps : [];
     const total = Number(t.total_cost || 0);
     const paid = Number(t.amount_paid || 0);
@@ -503,6 +504,8 @@ function buildTreatmentProgressModalInnerHtml(payload, patientId) {
     const totalLabel = formatPeso(total);
     const pidEsc = escapeHtml(String(patientId || ''));
     const bidEsc = escapeHtml(bookingId);
+    const tidEsc = escapeHtml(treatmentIdRaw);
+    const pqEsc = escapeHtml(String(patientQueryLabel || '').trim());
     const rows = steps.length ? steps.map((row, rowIndex) => {
         const schedule = row.schedule_display ? escapeHtml(row.schedule_display) : '—';
         const amt = formatPeso(row.amount_due);
@@ -516,7 +519,7 @@ function buildTreatmentProgressModalInnerHtml(payload, patientId) {
         const schDis = row.schedule_disabled === true;
         const payBtn = payDis
             ? '<button type="button" disabled class="rounded-lg border border-slate-200 bg-slate-200 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-slate-500 cursor-not-allowed shadow-none">PAY</button>'
-            : `<button type="button" data-treatment-progress-pay="1" data-patient-id="${pidEsc}" data-booking-id="${bidEsc}"
+            : `<button type="button" data-treatment-progress-pay="1" data-patient-id="${pidEsc}" data-booking-id="${bidEsc}" data-treatment-id="${tidEsc}" data-patient-query="${pqEsc}"
                 class="rounded-lg bg-primary px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-white shadow-sm hover:bg-primary/90 transition-colors">PAY</button>`;
         const isFirstRow = rowIndex === 0;
         const schBtn = isFirstRow
@@ -607,7 +610,8 @@ async function openTreatmentProgressModal(treatmentId) {
         if (!response.ok || !data.success || !data.data) {
             throw new Error(data.message || 'Failed to load treatment progress.');
         }
-        body.innerHTML = buildTreatmentProgressModalInnerHtml(data.data, pid);
+        const pq = `${activeProfilePatient.firstName || ''} ${activeProfilePatient.lastName || ''}`.trim();
+        body.innerHTML = buildTreatmentProgressModalInnerHtml(data.data, pid, pq);
     } catch (err) {
         body.innerHTML = `<p class="text-center text-rose-600 text-sm font-medium py-10">${escapeHtml(err.message || 'Failed to load.')}</p>`;
     }
@@ -1710,11 +1714,18 @@ document.getElementById('treatmentProgressModal').addEventListener('click', func
 document.getElementById('treatmentProgressModalBody').addEventListener('click', function (e) {
     const payBtn = e.target.closest('[data-treatment-progress-pay]');
     if (payBtn) {
-        const pid = payBtn.getAttribute('data-patient-id');
+        if (payBtn.disabled) {
+            return;
+        }
         const bid = payBtn.getAttribute('data-booking-id');
-        let url = CLINIC_STAFF_BASE + 'StaffPaymentRecording.php?patient_id=' + encodeURIComponent(pid || '');
-        if (bid) {
-            url += '&booking_id=' + encodeURIComponent(bid);
+        const tid = payBtn.getAttribute('data-treatment-id');
+        const pq = payBtn.getAttribute('data-patient-query') || '';
+        let url = CLINIC_STAFF_BASE + 'StaffPaymentRecording.php?open_payment=1'
+            + '&booking_id=' + encodeURIComponent(bid || '')
+            + '&treatment_id=' + encodeURIComponent(tid || '')
+            + '&selected_transaction_type=installment';
+        if (pq) {
+            url += '&patient_query=' + encodeURIComponent(pq);
         }
         window.location.href = url;
         return;
