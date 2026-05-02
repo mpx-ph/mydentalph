@@ -503,7 +503,7 @@ function buildTreatmentProgressModalInnerHtml(payload, patientId) {
     const totalLabel = formatPeso(total);
     const pidEsc = escapeHtml(String(patientId || ''));
     const bidEsc = escapeHtml(bookingId);
-    const rows = steps.length ? steps.map((row) => {
+    const rows = steps.length ? steps.map((row, rowIndex) => {
         const schedule = row.schedule_display ? escapeHtml(row.schedule_display) : '—';
         const amt = formatPeso(row.amount_due);
         const payBucket = row.payment_bucket || 'unpaid';
@@ -518,10 +518,13 @@ function buildTreatmentProgressModalInnerHtml(payload, patientId) {
             ? '<button type="button" disabled class="rounded-lg border border-slate-200 bg-slate-200 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-slate-500 cursor-not-allowed shadow-none">PAY</button>'
             : `<button type="button" data-treatment-progress-pay="1" data-patient-id="${pidEsc}" data-booking-id="${bidEsc}"
                 class="rounded-lg bg-primary px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-white shadow-sm hover:bg-primary/90 transition-colors">PAY</button>`;
-        const schBtn = schDis
-            ? '<button type="button" disabled class="rounded-lg border border-slate-200 bg-slate-200 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-slate-500 cursor-not-allowed shadow-none">SCHEDULE</button>'
-            : `<button type="button" data-treatment-progress-schedule="1" data-patient-id="${pidEsc}"
-                class="rounded-lg bg-orange-500 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-white shadow-sm hover:bg-orange-600 transition-colors">SCHEDULE</button>`;
+        const isFirstRow = rowIndex === 0;
+        const schBtn = isFirstRow
+            ? ''
+            : (schDis
+                ? '<button type="button" disabled class="rounded-lg border border-slate-200 bg-slate-200 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-slate-500 cursor-not-allowed shadow-none">SCHEDULE</button>'
+                : `<button type="button" data-treatment-progress-schedule="1" data-patient-id="${pidEsc}"
+                    class="rounded-lg bg-orange-500 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-white shadow-sm hover:bg-orange-600 transition-colors">SCHEDULE</button>`);
         const actionCell = `<div class="flex flex-wrap items-center justify-end gap-2">${payBtn}${schBtn}</div>`;
         return `
             <tr class="border-b border-[#eeeeee] last:border-0">
