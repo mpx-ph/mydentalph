@@ -54,6 +54,134 @@ function treatment_progress_split_total_by_months(float $totalCost, int $months)
 }
 
 /**
+ * Split a total evenly across exactly N installments (remainder on the last slice).
+ *
+ * @return list<float>
+ */
+function treatment_progress_split_remainder_across_n(float $total, int $n): array
+{
+    $n = max(1, $n);
+    $totalCents = (int) round(max(0.0, $total) * 100);
+    $base = intdiv($totalCents, $n);
+    $rem = $totalCents % $n;
+    $out = [];
+    for ($i = 0; $i < $n; $i++) {
+        $cents = $base + ($i === $n - 1 ? $rem : 0);
+        $out[] = round($cents / 100, 2);
+    }
+
+    return $out;
+}
+
+/**
+ * @return array{regular_downpayment_percentage:float,long_term_min_downpayment:float}
+ */
+function treatment_progress_load_payment_settings(PDO $pdo, string $tenantId): array
+{
+    try {
+        $stmt = $pdo->prepare('SELECT regular_downpayment_percentage, long_term_min_downpayment FROM tbl_payment_settings WHERE tenant_id = ? LIMIT 1');
+        $stmt->execute([$tenantId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        $row = false;
+    }
+    if (!$row) {
+        return ['regular_downpayment_percentage' => 0.0, 'long_term_min_downpayment' => 0.0];
+    }
+
+    return [
+        'regular_downpayment_percentage' => (float) ($row['regular_downpayment_percentage'] ?? 0),
+        'long_term_min_downpayment' => (float) ($row['long_term_min_downpayment'] ?? 0),
+    ];
+}
+
+function treatment_progress_effective_installment_downpayment(array $paymentSettings, float $planTotal): float
+{
+    $base = max(0.0, (float) ($paymentSettings['long_term_min_downpayment'] ?? 0.0));
+    if ($planTotal > 0 && $base > $planTotal) {
+        return round($planTotal, 2);
+    }
+
+    return round($base, 2);
+}
+
+/**
+ * Align Amount column with payment recording semantics: installment #1 = down payment (when DM>1 and down is configured).
+ * Subsequent rows split the remaining balance evenly (same as tbl_installments / StaffPaymentRecording plan builder).
+ *
+ * @param list<array<string,mixed>> $steps
+ */
+function treatment_progress_apply_plan_amounts_for_display(array &$steps, float $totalCost, int $durationMonthsTreatment, array $paymentSettings): void
+{
+    $nSteps = count($steps);
+    if ($nSteps < 1 || $totalCost <= 0.009) {
+        return;
+    }
+
+    usort($steps, static function (array $a, array $b): int {
+        return ((int) ($a['installment_number'] ?? 0)) <=> ((int) ($b['installment_number'] ?? 0));
+    });
+
+    $dm = max(0, $durationMonthsTreatment);
+    $effDown = treatment_progress_effective_installment_downpayment($paymentSettings, $totalCost);
+
+    if ($nSteps >= 2 && $dm >= 2 && $effDown > 0.009) {
+        $downAmt = round(min($effDown, $totalCost), 2);
+        $row1Indexes = [];
+        $monthIdx = [];
+        foreach ($steps as $idx => $row) {
+            $num = (int) ($row['installment_number'] ?? ($idx + 1));
+            if ($num === 1) {
+                $row1Indexes[] = $idx;
+            } else {
+                $monthIdx[] = $idx;
+            }
+        }
+        // Legacy / odd numbering: tie downpayment to displayed first slot.
+        if ($row1Indexes === [] && $nSteps >= 2) {
+            $row1Indexes = [0];
+            $monthIdx = [];
+            for ($zi = 1; $zi < $nSteps; $zi++) {
+                $monthIdx[] = $zi;
+            }
+        }
+        foreach ($row1Indexes as $ri) {
+            $steps[$ri]['amount_due'] = $downAmt;
+        }
+        $rem = round(max(0.0, $totalCost - $downAmt), 2);
+        $mc = count($monthIdx);
+        if ($mc < 1) {
+            foreach ($steps as $i => $_) {
+                if ((int) ($steps[$i]['installment_number'] ?? 0) <= 1) {
+                    continue;
+                }
+                $steps[$i]['amount_due'] = 0.0;
+            }
+
+            return;
+        }
+        $parts = treatment_progress_split_remainder_across_n($rem, $mc);
+        foreach ($monthIdx as $j => $stepIdx) {
+            $steps[$stepIdx]['amount_due'] = round($parts[$j] ?? 0.0, 2);
+        }
+
+        return;
+    }
+
+    if ($dm <= 1 && $nSteps === 1) {
+        $steps[0]['amount_due'] = round($totalCost, 2);
+
+        return;
+    }
+
+    $parts = treatment_progress_split_remainder_across_n($totalCost, $nSteps);
+    foreach ($steps as $i => &$step) {
+        $step['amount_due'] = round($parts[$i] ?? 0.0, 2);
+    }
+    unset($step);
+}
+
+/**
  * One table row for the Treatment Progress modal (installment or synthetic placeholder).
  *
  * @param array{raw_status:string,amount_due:float,schedule_display:?string} $fields
@@ -329,6 +457,9 @@ try {
     }
     $progressPct = $totalCost > 0 ? min(100.0, max(0.0, ($amountPaid / $totalCost) * 100.0)) : 0.0;
 
+    $durationMonths = max(0, (int) ($treatment['duration_months'] ?? 0));
+    $paymentSettings = treatment_progress_load_payment_settings($pdo, $tenantId);
+
     $bookingId = '';
     $appointmentDate = '';
     $appointmentTime = '';
@@ -426,20 +557,26 @@ try {
         }
     }
 
-    $durationMonths = (int) ($treatment['duration_months'] ?? 0);
     if ($steps === [] && $durationMonths > 0) {
-        $monthAmounts = treatment_progress_split_total_by_months($totalCost, $durationMonths);
-        for ($n = 1; $n <= $durationMonths; $n++) {
+        $effDownSynth = treatment_progress_effective_installment_downpayment($paymentSettings, $totalCost);
+        $nth = ($durationMonths > 1 && $effDownSynth > 0.009) ? ($durationMonths + 1) : $durationMonths;
+        $nth = max(1, $nth);
+        $placeAmt = round($totalCost / $nth, 2);
+        for ($n = 1; $n <= $nth; $n++) {
             $sched = null;
             if ($n === 1 && $appointmentDate !== '') {
                 $sched = treatment_progress_format_schedule_cell($appointmentDate, $appointmentTime);
             }
             $steps[] = treatment_progress_build_step_row($n, [
                 'raw_status' => 'pending',
-                'amount_due' => $monthAmounts[$n - 1] ?? 0.0,
+                'amount_due' => $placeAmt,
                 'schedule_display' => $sched,
             ]);
         }
+    }
+
+    if ($steps !== []) {
+        treatment_progress_apply_plan_amounts_for_display($steps, $totalCost, $durationMonths, $paymentSettings);
     }
 
     treatment_progress_reconcile_payment_states($steps, $treatment);
