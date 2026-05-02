@@ -51,6 +51,10 @@ function staff_installments_advance_after_visit_completed(PDO $pdo, string $tena
     }
     $qtab = '`' . str_replace('`', '``', (string) $tableName) . '`';
 
+    $stampSetSql = in_array('updated_at', clinic_table_columns($pdo, (string) $tableName), true)
+        ? ', i.updated_at = NOW()'
+        : '';
+
     $tenantClause = '(i.tenant_id = ? OR i.tenant_id IS NULL OR TRIM(COALESCE(i.tenant_id, \'\')) = \'\')';
 
     $sel = $pdo->prepare("
@@ -75,8 +79,8 @@ function staff_installments_advance_after_visit_completed(PDO $pdo, string $tena
 
     $updPaid = $pdo->prepare("
         UPDATE {$qtab} i
-        SET i.status = 'completed',
-            i.updated_at = NOW()
+        SET i.status = 'completed'
+            {$stampSetSql}
         WHERE i.booking_id = ?
           AND i.installment_number = ?
           AND {$tenantClause}
@@ -88,8 +92,8 @@ function staff_installments_advance_after_visit_completed(PDO $pdo, string $tena
     $nextNum = $currentNum + 1;
     $unlock = $pdo->prepare("
         UPDATE {$qtab} i
-        SET i.status = 'book_visit',
-            i.updated_at = NOW()
+        SET i.status = 'book_visit'
+            {$stampSetSql}
         WHERE i.booking_id = ?
           AND i.installment_number = ?
           AND {$tenantClause}
