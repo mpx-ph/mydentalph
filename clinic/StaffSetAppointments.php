@@ -1511,6 +1511,14 @@ $treatmentScheduleBootstrap = [
             return normalizeServiceType(service && service.service_type) === 'included_plan';
         }
 
+        function requiresTreatmentScheduleIncludedPlanOrder() {
+            return Boolean(isTreatmentSchedulePatientLocked());
+        }
+
+        function selectedServicesIncludePlanVisit() {
+            return selectedServices.some(isIncludedPlanService);
+        }
+
         function formatPeso(amount) {
             return 'P' + Number(amount || 0).toFixed(2);
         }
@@ -1631,6 +1639,14 @@ $treatmentScheduleBootstrap = [
                     allowed: false,
                     reason: 'This service is not available for the patient\'s active treatment category.'
                 };
+            }
+            if (requiresTreatmentScheduleIncludedPlanOrder() && serviceType !== 'included_plan') {
+                if (!selectedServicesIncludePlanVisit()) {
+                    return {
+                        allowed: false,
+                        reason: 'Add an included plan visit (e.g. braces adjustment / plan follow-up) first. You can add other services afterward.'
+                    };
+                }
             }
             return { allowed: true, reason: '' };
         }
@@ -1799,6 +1815,7 @@ $treatmentScheduleBootstrap = [
             if (!selectedServices.length) {
                 selectedServicesContainer.innerHTML = '<p class="text-[11px] font-semibold text-slate-500">No services added yet.</p>';
                 updateTreatmentProgressCards(activeTreatmentContext ? activeTreatmentContext.treatment : null);
+                syncCreateAppointmentButtonState();
                 return;
             }
             selectedServicesContainer.innerHTML = selectedServices.map(function (service) {
@@ -1818,6 +1835,7 @@ $treatmentScheduleBootstrap = [
                     '</div>';
             }).join('');
             updateTreatmentProgressCards(activeTreatmentContext ? activeTreatmentContext.treatment : null);
+            syncCreateAppointmentButtonState();
         }
 
         function normalizeClinicalCategory(category) {
@@ -2213,8 +2231,8 @@ $treatmentScheduleBootstrap = [
                 const serviceRule = getServiceSelectionRule(selectedService);
                 if (!serviceRule.allowed) {
                     void staffUiAlert({
-                        title: 'Installment service locked',
-                        message: serviceRule.reason || 'Only the ongoing installment service can be selected while treatment is active.',
+                        title: 'Cannot select this service',
+                        message: serviceRule.reason || 'This service is not available for the current selection.',
                         variant: 'warning'
                     });
                     return false;
@@ -2242,12 +2260,16 @@ $treatmentScheduleBootstrap = [
             if (!createWalkInAppointmentBtn) return;
             const hasLiveConflict = liveValidationState.hasTimeSlotConflict || liveValidationState.hasPatientDuplicate;
             const hasShiftBoundaryViolation = Boolean(liveValidationState.hasShiftBoundaryViolation);
+            const needsPlanVisit = requiresTreatmentScheduleIncludedPlanOrder()
+                ? selectedServices.length > 0 && !selectedServicesIncludePlanVisit()
+                : false;
             const hasRequiredFields = Boolean(
                 selectedPatientIdInput && String(selectedPatientIdInput.value || '').trim()
                 && selectedDentistIdInput && String(selectedDentistIdInput.value || '').trim()
                 && dateInput && String(dateInput.value || '').trim()
                 && timeInput && String(timeInput.value || '').trim()
                 && selectedServices.length > 0
+                && !needsPlanVisit
             );
             const shouldDisable = isSubmittingAppointment || hasLiveConflict || hasShiftBoundaryViolation || !hasRequiredFields;
             createWalkInAppointmentBtn.disabled = shouldDisable;
@@ -2624,6 +2646,14 @@ $treatmentScheduleBootstrap = [
                 void staffUiAlert({ message: 'Please add at least one service.', variant: 'warning', title: 'Services required' });
                 return;
             }
+            if (requiresTreatmentScheduleIncludedPlanOrder() && !selectedServicesIncludePlanVisit()) {
+                void staffUiAlert({
+                    title: 'Included plan visit required',
+                    message: 'This treatment follow-up must include at least one included plan service (e.g. braces adjustment). Add that first; you may add regular services afterward.',
+                    variant: 'warning'
+                });
+                return;
+            }
             const shiftValidation = await runShiftBoundaryValidation({ showAlerts: true });
             if (!shiftValidation.ok) {
                 return;
@@ -2978,8 +3008,8 @@ $treatmentScheduleBootstrap = [
                 const serviceRule = getServiceSelectionRule(service);
                 if (!serviceRule.allowed) {
                     void staffUiAlert({
-                        title: 'Installment service locked',
-                        message: serviceRule.reason || 'Only the ongoing installment service can be used while treatment is active.',
+                        title: 'Cannot add this service',
+                        message: serviceRule.reason || 'This service is not available for the current selection.',
                         variant: 'warning'
                     });
                     return;
@@ -3010,9 +3040,24 @@ $treatmentScheduleBootstrap = [
                 const button = event.target.closest('button[data-action="remove-service"]');
                 if (!button) return;
                 const serviceId = button.getAttribute('data-service-id') || '';
-                selectedServices = selectedServices.filter(function (item) {
+                const nextList = selectedServices.filter(function (item) {
                     return String(item.service_id || '') !== String(serviceId);
                 });
+                if (requiresTreatmentScheduleIncludedPlanOrder()) {
+                    const stillHasPlan = nextList.some(isIncludedPlanService);
+                    const stillHasNonPlan = nextList.some(function (item) {
+                        return !isIncludedPlanService(item);
+                    });
+                    if (!stillHasPlan && stillHasNonPlan) {
+                        void staffUiAlert({
+                            title: 'Keep included plan visit',
+                            message: 'Remove other services first, or keep at least one included plan visit with this appointment.',
+                            variant: 'warning'
+                        });
+                        return;
+                    }
+                }
+                selectedServices = nextList;
                 renderSelectedServices();
                 await runShiftBoundaryValidation({ showAlerts: true });
                 await runLiveConflictValidation({ showAlerts: true });
