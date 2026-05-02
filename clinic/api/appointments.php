@@ -643,6 +643,7 @@ function createAppointment() {
         'dentist_id' => isset($input['dentist_id']) ? sanitize($input['dentist_id']) : null,
         'dentist_user_id' => isset($input['dentist_user_id']) ? sanitize($input['dentist_user_id']) : null,
         'booking_source' => isset($input['booking_source']) ? sanitize($input['booking_source']) : '',
+        'treatment_id' => isset($input['treatment_id']) ? sanitize($input['treatment_id']) : '',
         'appointment_date' => sanitize($input['appointment_date'] ?? ''),
         'appointment_time' => sanitize($input['appointment_time'] ?? ''),
         'procedure' => sanitize($input['procedure'] ?? ''), // Legacy support

@@ -322,6 +322,8 @@ $treatmentScheduleBootstrap = [
         && ($staffTreatmentScheduleTreatmentId !== '' || $staffTreatmentScheduleBookingId !== ''),
     'patient_id' => $staffTreatmentSchedulePatientId,
     'patient_display' => $staffTreatmentSchedulePatientDisplay,
+    'treatment_id' => $staffTreatmentScheduleTreatmentId,
+    'booking_id' => $staffTreatmentScheduleBookingId,
     'appointment_date_min' => $walkInAppointmentDateMin,
     'appointment_date_value' => $walkInAppointmentDateValue,
 ];
@@ -2722,13 +2724,29 @@ $treatmentScheduleBootstrap = [
                 });
                 return;
             }
+            const resolvedTreatmentScheduleId = (function () {
+                if (
+                    typeof TREATMENT_SCHEDULE_BOOTSTRAP !== 'undefined'
+                    && TREATMENT_SCHEDULE_BOOTSTRAP.active
+                ) {
+                    const fromBootstrap = String(TREATMENT_SCHEDULE_BOOTSTRAP.treatment_id || '').trim();
+                    if (fromBootstrap) {
+                        return fromBootstrap;
+                    }
+                }
+                if (
+                    treatmentIsInstallmentPlan(activeTreatmentContext)
+                    && activeTreatmentContext.treatment
+                ) {
+                    return String(activeTreatmentContext.treatment.treatment_id || '').trim();
+                }
+                return '';
+            })();
             const payload = {
                 patient_id: patientId,
                 clinic_slug: clinicSlug || '',
                 booking_source: 'staff_set_appointments',
-                treatment_id: treatmentIsInstallmentPlan(activeTreatmentContext) && activeTreatmentContext.treatment
-                    ? (activeTreatmentContext.treatment.treatment_id || '')
-                    : '',
+                treatment_id: resolvedTreatmentScheduleId,
                 appointment_date: appointmentDate,
                 appointment_time: appointmentTime,
                 services: selectedServices.map(function (service) {
