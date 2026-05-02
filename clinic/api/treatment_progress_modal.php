@@ -229,15 +229,23 @@ function treatment_progress_overlay_staff_appointment_visit_status(array &$steps
         'confirmed' => 'Pending',
     ];
     $resolved = treatment_progress_staff_appointment_status_resolve($appointmentStatusRaw, $labelMap);
+    /*
+     * Visit "Completed" in this modal follows installment rows (paid → … → completed after staff closes the visit),
+     * not the single tbl_appointments.status row—which often stays completed after T1 while T2 is paid but unscheduled.
+     * Never overlay appointment-level completed onto installments that are not installment_status_db=completed.
+     */
     foreach ($steps as &$st) {
         if (!empty($st['visit_completed'])) {
             continue;
         }
+        if (($resolved['code'] ?? '') === 'completed') {
+            continue;
+        }
         $numSt = (int) ($st['installment_number'] ?? 0);
         $slotYmd = trim((string) ($st['visit_slot_date'] ?? ''));
-        $isFocusedUnpaid = $numSt === $focusNum;
+        $isFocusOpenVisit = ($numSt === $focusNum);
         $slotMatchesMaster = $masterYmd !== '' && $slotYmd !== '' && $slotYmd === $masterYmd;
-        if (!$isFocusedUnpaid && !$slotMatchesMaster) {
+        if (!$isFocusOpenVisit && !$slotMatchesMaster) {
             continue;
         }
         $st['visit_status'] = $resolved['label'];
