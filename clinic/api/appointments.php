@@ -1354,14 +1354,15 @@ function createAppointment() {
                             $lineParams[] = $appointmentRowId > 0 ? $appointmentRowId : null;
                         }
                         if (in_array('treatment_id', $appointmentServiceColumns, true)) {
-                            $lineParams[] = $isInstallmentLine
-                                ? ($resolvedTreatmentId !== '' ? $resolvedTreatmentId : null)
+                            $attachTreatToLine = $isInstallmentLine || ($lineServiceType === 'included_plan');
+                            $lineParams[] = $attachTreatToLine && $resolvedTreatmentId !== ''
+                                ? $resolvedTreatmentId
                                 : null;
                         }
                         if (in_array('service_type', $appointmentServiceColumns, true)) {
-                            $lineParams[] = $isInstallmentLine
-                                ? 'installment'
-                                : ($lineServiceType === 'included_plan' ? 'included_plan' : 'regular');
+                            // Junction table is often ENUM(installment, regular) only — plan follow-ups resolve as
+                            // included_plan via tbl_services joined on service_id (see treatment_progress_modal).
+                            $lineParams[] = $isInstallmentLine ? 'installment' : 'regular';
                         }
                         if (in_array('type', $appointmentServiceColumns, true)) {
                             $lineParams[] = $isInstallmentLine

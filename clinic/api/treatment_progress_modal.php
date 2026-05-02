@@ -690,27 +690,58 @@ function treatment_progress_enrich_followup_dates_from_extra_appointments(
         return;
     }
 
-    $includePlanPred = '';
     $qpAs = '`' . str_replace('`', '``', (string) $apsTable) . '`';
+
+    $servicesPhys = clinic_get_physical_table_name($pdo, 'tbl_services')
+        ?? clinic_get_physical_table_name($pdo, 'services');
+
+    $planPredicates = [];
     if (in_array('service_type', $apsCols, true)) {
-        $includePlanPred = "AND EXISTS (
+        $planPredicates[] = "EXISTS (
             SELECT 1
-            FROM {$qpAs} aps
-            WHERE aps.tenant_id = a.tenant_id
-              AND TRIM(COALESCE(aps.booking_id, '')) = TRIM(COALESCE(a.booking_id, ''))
-              AND LOWER(TRIM(COALESCE(aps.service_type, ''))) = 'included_plan'
+            FROM {$qpAs} aps_line
+            WHERE aps_line.tenant_id = a.tenant_id
+              AND TRIM(COALESCE(aps_line.booking_id, '')) = TRIM(COALESCE(a.booking_id, ''))
+              AND LOWER(TRIM(COALESCE(aps_line.service_type, ''))) IN ('included_plan', 'included plan')
         )";
-    } elseif (in_array('type', $apsCols, true)) {
-        $includePlanPred = "AND EXISTS (
+    }
+    if (
+        $servicesPhys !== null
+        && trim((string) $servicesPhys) !== ''
+        && in_array('service_id', $apsCols, true)
+    ) {
+        $qs = '`' . str_replace('`', '``', (string) $servicesPhys) . '`';
+        $planPredicates[] = "EXISTS (
             SELECT 1
-            FROM {$qpAs} aps
-            WHERE aps.tenant_id = a.tenant_id
-              AND TRIM(COALESCE(aps.booking_id, '')) = TRIM(COALESCE(a.booking_id, ''))
-              AND LOWER(TRIM(COALESCE(aps.type, ''))) LIKE '%long%term%'
+            FROM {$qpAs} aps_srv
+            INNER JOIN {$qs} srv
+              ON srv.tenant_id = aps_srv.tenant_id
+             AND TRIM(COALESCE(srv.service_id, '')) = TRIM(COALESCE(aps_srv.service_id, ''))
+            WHERE aps_srv.tenant_id = a.tenant_id
+              AND TRIM(COALESCE(aps_srv.booking_id, '')) = TRIM(COALESCE(a.booking_id, ''))
+              AND LOWER(TRIM(COALESCE(srv.service_type, ''))) = 'included_plan'
         )";
-    } else {
+    }
+
+    if ($planPredicates === []) {
         return;
     }
+
+    $includePlanPred = 'AND (' . implode(' OR ', $planPredicates) . ')';
+
+    $bindTreatment = [$treatmentId];
+    $treatmentMatchParts = ['(TRIM(COALESCE(a.treatment_id, \'\')) = ?)'];
+    if (in_array('treatment_id', $apsCols, true)) {
+        $treatmentMatchParts[] = '(EXISTS (
+            SELECT 1
+            FROM ' . $qpAs . ' aps_tid
+            WHERE aps_tid.tenant_id = a.tenant_id
+              AND TRIM(COALESCE(aps_tid.booking_id, \'\')) = TRIM(COALESCE(a.booking_id, \'\'))
+              AND TRIM(COALESCE(aps_tid.treatment_id, \'\')) = ?
+        ))';
+        $bindTreatment[] = $treatmentId;
+    }
+    $treatmentMatchSql = '(' . implode(' OR ', $treatmentMatchParts) . ')';
 
     $qa = clinic_quote_identifier((string) $appointmentsTableName);
     try {
@@ -720,13 +751,18 @@ function treatment_progress_enrich_followup_dates_from_extra_appointments(
             FROM {$qa} a
             WHERE a.tenant_id = ?
               AND TRIM(COALESCE(a.patient_id, '')) = ?
-              AND TRIM(COALESCE(a.treatment_id, '')) = ?
+              AND {$treatmentMatchSql}
               AND TRIM(COALESCE(a.booking_id, '')) <> ?
               AND LOWER(TRIM(COALESCE(a.status, ''))) NOT IN ('cancelled', 'no_show')
               {$includePlanPred}
             ORDER BY a.appointment_date ASC, a.appointment_time ASC
         ");
-        $extraStmt->execute([$tenantId, $patientId, $treatmentId, $planBookingId]);
+        $params = [$tenantId, $patientId];
+        foreach ($bindTreatment as $tidBind) {
+            $params[] = $tidBind;
+        }
+        $params[] = $planBookingId;
+        $extraStmt->execute($params);
         $extras = $extraStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     } catch (Throwable $e) {
         error_log('treatment_progress enrichment query: ' . $e->getMessage());
