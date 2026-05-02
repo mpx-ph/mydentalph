@@ -1330,6 +1330,9 @@ if (isset($_POST['additional_service_ids']) && is_array($_POST['additional_servi
     $formServiceIds = array_values(array_unique($formServiceIds));
 }
 
+/** True when patient/transaction cannot be changed (treatment-progress deep link); preserved across POST. */
+$formSelectionLocked = isset($_POST['selection_locked']) && (string) ($_POST['selection_locked'] ?? '') === '1';
+
 /** Deep link from StaffManagePatient treatment progress: open Record Payment modal with treatment selected. */
 $openPaymentDeepLink = false;
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -1350,6 +1353,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $formPatientQuery = $dlPq;
             }
             $openPaymentDeepLink = true;
+            $formSelectionLocked = true;
         }
     }
 }
@@ -4497,18 +4501,21 @@ if ($paymentError === 'Please select a payment method.') {
 <input name="selected_transaction_type" id="selected_transaction_type_input" type="hidden" value="<?php echo htmlspecialchars($formSelectedTransactionType, ENT_QUOTES, 'UTF-8'); ?>"/>
 <input name="selected_treatment_id" id="selected_treatment_id_input" type="hidden" value="<?php echo htmlspecialchars($formSelectedTreatmentId, ENT_QUOTES, 'UTF-8'); ?>"/>
 <input name="patient_query" id="patient_query_input" type="hidden" value="<?php echo htmlspecialchars($formPatientQuery, ENT_QUOTES, 'UTF-8'); ?>"/>
-<button id="open-transaction-selector-modal" type="button" class="group w-full min-h-[3.25rem] px-5 py-3.5 rounded-2xl text-left text-base font-bold outline-none inline-flex items-center justify-between gap-3 border-2 border-primary/35 bg-gradient-to-br from-primary/[0.12] via-white to-sky-500/[0.08] text-slate-800 shadow-md shadow-primary/10 hover:border-primary hover:from-primary/[0.18] hover:shadow-lg hover:shadow-primary/15 focus-visible:ring-4 focus-visible:ring-primary/25 focus-visible:border-primary transition-all active:scale-[0.99]" aria-label="Select patient appointment">
+<input name="selection_locked" id="selection_locked_input" type="hidden" value="<?php echo $formSelectionLocked ? '1' : '0'; ?>"/>
+<button id="open-transaction-selector-modal" type="button" class="<?php echo $formSelectionLocked
+    ? 'group w-full min-h-[3.25rem] px-5 py-3.5 rounded-2xl text-left text-base font-bold outline-none inline-flex items-center justify-between gap-3 border-2 border-slate-200 bg-slate-100/90 text-slate-600 shadow-none cursor-not-allowed opacity-95'
+    : 'group w-full min-h-[3.25rem] px-5 py-3.5 rounded-2xl text-left text-base font-bold outline-none inline-flex items-center justify-between gap-3 border-2 border-primary/35 bg-gradient-to-br from-primary/[0.12] via-white to-sky-500/[0.08] text-slate-800 shadow-md shadow-primary/10 hover:border-primary hover:from-primary/[0.18] hover:shadow-lg hover:shadow-primary/15 focus-visible:ring-4 focus-visible:ring-primary/25 focus-visible:border-primary transition-all active:scale-[0.99]'; ?>" <?php echo $formSelectionLocked ? 'disabled aria-disabled="true" title="Patient and treatment plan are fixed for this payment"' : 'aria-label="Select patient appointment"'; ?>>
 <span class="inline-flex items-center gap-3 min-w-0">
-<span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-inner shadow-black/10 group-hover:bg-primary/95">
-<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">person_search</span>
+<span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl <?php echo $formSelectionLocked ? 'bg-slate-400' : 'bg-primary'; ?> text-white shadow-inner shadow-black/10 <?php echo $formSelectionLocked ? '' : 'group-hover:bg-primary/95'; ?>">
+<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;"><?php echo $formSelectionLocked ? 'lock' : 'person_search'; ?></span>
 </span>
 <span class="min-w-0 flex flex-col gap-0.5">
-<span class="text-[10px] font-black uppercase tracking-widest text-primary">Select patient</span>
+<span class="text-[10px] font-black uppercase tracking-widest <?php echo $formSelectionLocked ? 'text-slate-500' : 'text-primary'; ?>"><?php echo $formSelectionLocked ? 'Patient (locked)' : 'Select patient'; ?></span>
 <span id="selected_transaction_label" class="truncate text-[15px] font-extrabold text-slate-900"><?php echo htmlspecialchars($formPatientQuery !== '' ? $formPatientQuery : 'Tap to choose appointment with pending balance', ENT_QUOTES, 'UTF-8'); ?></span>
 </span>
 </span>
-<span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/80 border border-primary/20 text-primary group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-colors">
-<span class="material-symbols-outlined text-xl">keyboard_arrow_down</span>
+<span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg <?php echo $formSelectionLocked ? 'bg-slate-200/80 border border-slate-300 text-slate-400' : 'bg-white/80 border border-primary/20 text-primary group-hover:bg-primary group-hover:text-white group-hover:border-primary'; ?> transition-colors">
+<span class="material-symbols-outlined text-xl"><?php echo $formSelectionLocked ? 'lock' : 'keyboard_arrow_down'; ?></span>
 </span>
 </button>
 </div>
@@ -4521,7 +4528,9 @@ if ($paymentError === 'Please select a payment method.') {
 <ul class="text-sm font-semibold text-slate-800 space-y-1.5 list-none pl-0" id="selected-appointment-services-list"></ul>
 <p class="text-xs font-semibold text-slate-600 leading-relaxed hidden" id="selected-appointment-service-summary"></p>
 </div>
-<p class="text-[11px] font-semibold text-slate-500 ml-1">Only appointments with pending balance are listed.</p>
+<p class="text-[11px] font-semibold text-slate-500 ml-1"><?php echo $formSelectionLocked
+    ? 'Patient and installment plan are fixed for this payment session.'
+    : 'Only appointments with pending balance are listed.'; ?></p>
 </div>
 <input name="installment_flow" id="installment_flow_input" type="hidden" value="<?php echo htmlspecialchars($formInstallmentFlow !== '' ? $formInstallmentFlow : 'regular', ENT_QUOTES, 'UTF-8'); ?>"/>
 <input name="installment_pay_mode" id="installment_pay_mode_input" type="hidden" value="<?php echo htmlspecialchars($formInstallmentPayMode !== '' ? $formInstallmentPayMode : 'full', ENT_QUOTES, 'UTF-8'); ?>"/>
@@ -4779,6 +4788,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
         const transactionCandidates = <?php echo json_encode($transactionCandidates, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const transactionDebugRows = <?php echo json_encode($transactionDebugRows, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const openPaymentDeepLink = <?php echo json_encode((bool) $openPaymentDeepLink, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const selectionLocked = <?php echo json_encode((bool) $formSelectionLocked, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const openSelectorBtn = document.getElementById('open-transaction-selector-modal');
         const selectorModal = document.getElementById('transaction-selector-modal');
         const selectorOverlay = document.getElementById('transaction-selector-overlay');
@@ -4845,7 +4855,107 @@ This booking is installment-priced, but no installment schedule rows exist in th
             return String(d.getFullYear()) + '-' + m + '-' + day;
         }
 
+        /**
+         * Clears payment details while keeping the chosen patient/booking/treatment (deep-linked locked session).
+         */
+        function resetPaymentDetailsOnly() {
+            closeSelectorModal();
+            additionalServiceCheckboxes.forEach((checkbox) => {
+                checkbox.checked = false;
+                checkbox.disabled = false;
+                checkbox.removeAttribute('aria-disabled');
+                const label = checkbox.closest('label.additional-service-option');
+                if (label) {
+                    label.classList.remove('opacity-50', 'cursor-not-allowed');
+                    label.removeAttribute('title');
+                }
+            });
+            if (additionalServicesInstallmentLockedBadge) {
+                additionalServicesInstallmentLockedBadge.classList.add('hidden');
+            }
+            if (additionalServicesInstallmentNote) {
+                additionalServicesInstallmentNote.classList.add('hidden');
+            }
+            if (additionalServicesInstallmentGroup) {
+                additionalServicesInstallmentGroup.classList.remove('opacity-70');
+            }
+            if (modal) {
+                const payDate = modal.querySelector('input[name="payment_date"]');
+                if (payDate) {
+                    payDate.value = getTodayYmd();
+                }
+                const notesEl = modal.querySelector('textarea[name="notes"]');
+                if (notesEl) {
+                    notesEl.value = '';
+                }
+            }
+            if (amountInput) {
+                amountInput.value = '0.00';
+                amountInput.setAttribute('readonly', 'readonly');
+            }
+            if (installmentFlowInput) {
+                installmentFlowInput.value = 'regular';
+            }
+            if (installmentPayModeInput) {
+                installmentPayModeInput.value = 'full';
+            }
+            if (installmentSlotCountInput) {
+                installmentSlotCountInput.value = '1';
+            }
+            if (instOptFull) {
+                instOptFull.checked = true;
+            }
+            if (instOptDown) {
+                instOptDown.checked = false;
+                instOptDown.disabled = false;
+            }
+            if (instOptCombined) {
+                instOptCombined.checked = false;
+                instOptCombined.disabled = false;
+            }
+            if (instOptMonthly) {
+                instOptMonthly.checked = false;
+                instOptMonthly.disabled = false;
+            }
+            if (instOptDownWrap) {
+                instOptDownWrap.classList.remove('opacity-40');
+            }
+            if (instOptCombinedWrap) {
+                instOptCombinedWrap.classList.remove('opacity-40');
+            }
+            if (instOptMonthlyWrap) {
+                instOptMonthlyWrap.classList.remove('opacity-40');
+            }
+            if (installmentSlotStepper) {
+                installmentSlotStepper.value = '';
+            }
+            if (selectedTransaction && selectedTransaction.is_installment_plan) {
+                transactionTypeFilter = 'installment';
+                syncMainAndSelectorFilter('installment');
+            } else {
+                transactionTypeFilter = 'regular';
+                syncMainAndSelectorFilter('regular');
+            }
+            const methodHidden = document.getElementById('payment_method_input');
+            if (methodHidden) {
+                methodHidden.value = '';
+            }
+            document.querySelectorAll('#transaction-modal .payment-card[data-method]').forEach((card) => {
+                card.classList.remove('active');
+            });
+            renderSelectedAppointmentServices(selectedTransaction);
+            updateClearBookingButtonVisibility();
+            updateAdditionalServicesVisibility();
+            updateAdditionalServiceEligibility();
+            refreshInstallmentPaymentUi();
+            syncAmountWithAdditionalServices();
+        }
+
         function resetRecordPaymentForm() {
+            if (selectionLocked) {
+                resetPaymentDetailsOnly();
+                return;
+            }
             closeSelectorModal();
             selectedTransaction = null;
             if (selectedBookingIdInput) {
@@ -5014,7 +5124,11 @@ This booking is installment-priced, but no installment schedule rows exist in th
         function updateClearBookingButtonVisibility() {
             const hasBooking = !!(selectedBookingIdInput && String(selectedBookingIdInput.value || '').trim() !== '');
             if (clearBookingBtn) {
-                clearBookingBtn.classList.toggle('hidden', !hasBooking);
+                if (selectionLocked) {
+                    clearBookingBtn.classList.add('hidden');
+                } else {
+                    clearBookingBtn.classList.toggle('hidden', !hasBooking);
+                }
             }
         }
 
@@ -5109,6 +5223,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
         }
 
         function clearSelectedBooking() {
+            if (selectionLocked) {
+                return;
+            }
             resetRecordPaymentForm();
         }
 
@@ -6301,7 +6418,12 @@ This booking is installment-priced, but no installment schedule rows exist in th
         }
 
         if (openSelectorBtn) {
-            openSelectorBtn.addEventListener('click', openSelectorModal);
+            openSelectorBtn.addEventListener('click', () => {
+                if (selectionLocked) {
+                    return;
+                }
+                openSelectorModal();
+            });
         }
         if (closeSelectorBtn) {
             closeSelectorBtn.addEventListener('click', closeSelectorModal);
