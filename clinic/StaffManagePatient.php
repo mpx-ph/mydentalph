@@ -407,7 +407,7 @@ body { font-family: "Manrope", sans-serif; }
 </div>
 
 <div id="treatmentProgressModal" class="fixed inset-0 z-[90] hidden items-center justify-center bg-slate-900/55 backdrop-blur-[2px] p-4">
-    <div class="relative flex w-full max-w-3xl max-h-[92vh] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_-12px_rgba(15,23,42,0.28)] border border-slate-100">
+    <div class="relative flex w-full max-w-[min(96vw,1280px)] max-h-[92vh] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_-12px_rgba(15,23,42,0.28)] border border-slate-100">
         <div class="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
             <div class="flex items-center gap-3 min-w-0">
                 <span class="material-symbols-outlined shrink-0 text-primary text-[26px]">calendar_month</span>
@@ -554,7 +554,7 @@ function buildTreatmentProgressModalInnerHtml(payload, patientId) {
             </div>
             <div class="rounded-xl border border-[#eeeeee] overflow-hidden bg-white">
                 <div class="overflow-x-auto">
-                    <table class="w-full min-w-[820px] text-left border-collapse">
+                    <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="border-b border-[#eeeeee] bg-white">
                                 <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Step</th>
