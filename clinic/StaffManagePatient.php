@@ -409,6 +409,41 @@ const API_APPOINTMENTS_URL = <?php echo json_encode(rtrim((string) dirname($_SER
 const API_TREATMENT_CONTEXT_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patient_treatment_context.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 const API_PATIENT_FILES_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/patient_files.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
+/** Matches StaffManageServices / services catalog category labels → badge colors */
+const SERVICE_CATEGORY_BADGE_BY_LABEL = {
+    'General Dentistry': 'bg-blue-100 text-blue-800 ring-1 ring-blue-200/90',
+    'Restorative Dentistry': 'bg-green-100 text-green-800 ring-1 ring-green-200/90',
+    'Oral Surgery': 'bg-rose-100 text-rose-800 ring-1 ring-rose-200/90',
+    'Crowns and Bridges': 'bg-amber-100 text-amber-800 ring-1 ring-amber-200/90',
+    'Cosmetic Dentistry': 'bg-violet-100 text-violet-800 ring-1 ring-violet-200/90',
+    'Pediatric Dentistry': 'bg-pink-100 text-pink-800 ring-1 ring-pink-200/90',
+    'Orthodontics': 'bg-orange-100 text-orange-800 ring-1 ring-orange-200/90',
+    'Specialized and Others': 'bg-slate-100 text-slate-800 ring-1 ring-slate-200/90'
+};
+/** StaffWalkIn-style slug keys → canonical label */
+const SERVICE_CATEGORY_SLUG_TO_LABEL = {
+    general_dentistry: 'General Dentistry',
+    restorative_dentistry: 'Restorative Dentistry',
+    oral_surgery: 'Oral Surgery',
+    crowns_and_bridges: 'Crowns and Bridges',
+    cosmetic_dentistry: 'Cosmetic Dentistry',
+    pediatric_dentistry: 'Pediatric Dentistry',
+    orthodontics: 'Orthodontics',
+    specialized_and_others: 'Specialized and Others'
+};
+
+function resolveInstallmentServiceCategoryBadgeClasses(treatment) {
+    const fallback = 'bg-slate-100 text-slate-800 ring-1 ring-slate-200/90';
+    const raw = String(treatment?.primary_service?.category ?? '').trim();
+    if (!raw) return fallback;
+    if (SERVICE_CATEGORY_BADGE_BY_LABEL[raw]) return SERVICE_CATEGORY_BADGE_BY_LABEL[raw];
+    const bySlug = SERVICE_CATEGORY_SLUG_TO_LABEL[raw] || SERVICE_CATEGORY_SLUG_TO_LABEL[raw.toLowerCase().replace(/-/g, '_')];
+    if (bySlug && SERVICE_CATEGORY_BADGE_BY_LABEL[bySlug]) return SERVICE_CATEGORY_BADGE_BY_LABEL[bySlug];
+    const lower = raw.toLowerCase();
+    const hit = Object.keys(SERVICE_CATEGORY_BADGE_BY_LABEL).find(k => k.toLowerCase() === lower);
+    return hit ? SERVICE_CATEGORY_BADGE_BY_LABEL[hit] : fallback;
+}
+
 let allPatientsData = [];
 let viewPatientCloseTimer = null;
 let activeProfilePatient = null;
@@ -603,6 +638,7 @@ function renderTreatmentTab(context) {
     const monthsLeft = Number(treatment.months_left ?? 0);
     const startedLabel = treatment.started_at ? formatDate(treatment.started_at) : 'N/A';
     const statusLabel = formatStatusLabel(treatment.status || 'active');
+    const categoryBadgeClass = resolveInstallmentServiceCategoryBadgeClasses(treatment);
     section.innerHTML = `
         <div class="rounded-xl border border-violet-200/90 bg-gradient-to-b from-violet-50/90 to-violet-50/40 p-4 shadow-sm">
             <div class="flex items-center gap-3 mb-4">
@@ -616,7 +652,7 @@ function renderTreatmentTab(context) {
             </div>
             <div class="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
                 <div class="flex flex-wrap items-center justify-between gap-3 gap-y-2">
-                    <span class="inline-flex max-w-[min(100%,280px)] items-center rounded-full bg-violet-100 px-3 py-1.5 text-xs font-bold text-violet-900 ring-1 ring-violet-200/80">
+                    <span class="inline-flex max-w-[min(100%,280px)] items-center rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wide ${categoryBadgeClass}">
                         ${escapeHtml(serviceName)}
                     </span>
                     <span class="text-xs font-medium text-slate-500">${planRef ? escapeHtml('#' + planRef) : ''}</span>
