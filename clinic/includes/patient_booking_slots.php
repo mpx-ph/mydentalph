@@ -265,6 +265,118 @@ if (!function_exists('patient_booking_day_selectable_meta')) {
     }
 }
 
+if (!function_exists('patient_booking_day_selectable_clinic_only')) {
+    /**
+     * Calendar hint before a dentist is chosen: only tbl_clinic_hours (no dentist shift required).
+     *
+     * @return array{ok:bool, code:string}
+     */
+    function patient_booking_day_selectable_clinic_only(PDO $pdo, string $tenantId, string $dateYmd): array
+    {
+        $hours = patient_booking_clinic_hours_for_date($pdo, $tenantId, $dateYmd);
+        if ($hours['is_closed']) {
+            return ['ok' => false, 'code' => 'clinic_closed'];
+        }
+
+        return ['ok' => true, 'code' => 'ok'];
+    }
+}
+
+if (!function_exists('patient_booking_slots_clinic_hours_only')) {
+    /**
+     * One-hour ticks within tbl_clinic_hours only (all selectable — dentist chosen afterward).
+     *
+     * @return list<array{hour:int, available:bool}>
+     */
+    function patient_booking_slots_clinic_hours_only(PDO $pdo, string $tenantId, string $dateYmd): array
+    {
+        $ch = patient_booking_clinic_hours_for_date($pdo, $tenantId, $dateYmd);
+        if ($ch['is_closed'] || empty($ch['open']) || empty($ch['close'])) {
+            return [];
+        }
+        $out = [];
+        for ($h = 0; $h < 24; ++$h) {
+            $slotStart = sprintf('%02d:00:00', $h);
+            $slotEnd = sprintf('%02d:00:00', $h + 1);
+            if ($slotStart < $ch['open'] || $slotEnd > $ch['close']) {
+                continue;
+            }
+            $out[] = ['hour' => $h, 'available' => true];
+        }
+
+        return $out;
+    }
+}
+
+if (!function_exists('patient_booking_list_dentists_for_hour')) {
+    /**
+     * Dentists whose shift (+ breaks/bookings for that dentist) allows this hourly slot on this date.
+     *
+     * @return list<array{dentist_id:int, first_name:string, last_name:string}>
+     */
+    function patient_booking_list_dentists_for_hour(PDO $pdo, string $tenantId, string $dateYmd, int $hour): array
+    {
+        if ($hour < 0 || $hour > 23) {
+            return [];
+        }
+        $ch = patient_booking_clinic_hours_for_date($pdo, $tenantId, $dateYmd);
+        if ($ch['is_closed']) {
+            return [];
+        }
+
+        $dentistsTable = clinic_get_physical_table_name($pdo, 'tbl_dentists')
+            ?? clinic_get_physical_table_name($pdo, 'dentists');
+        if ($dentistsTable === null) {
+            return [];
+        }
+        $qD = clinic_quote_identifier((string) $dentistsTable);
+        $cols = clinic_table_columns($pdo, (string) $dentistsTable);
+        $hasStatus = in_array('status', $cols, true);
+        $hasIsActive = in_array('is_active', $cols, true);
+
+        $sql = "SELECT dentist_id, first_name, last_name FROM {$qD} WHERE tenant_id = ?";
+        if ($hasStatus) {
+            $sql .= " AND LOWER(COALESCE(status, '')) = 'active'";
+        } elseif ($hasIsActive) {
+            $sql .= ' AND is_active = 1';
+        }
+        $sql .= ' ORDER BY last_name ASC, first_name ASC';
+
+        try {
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$tenantId]);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($rows as $row) {
+            if (!isset($row['dentist_id'])) {
+                continue;
+            }
+            $did = (int) $row['dentist_id'];
+            if ($did <= 0) {
+                continue;
+            }
+            $uid = patient_booking_dentist_user_id($pdo, $tenantId, $did);
+            if ($uid === null) {
+                continue;
+            }
+            if (!patient_booking_hour_is_bookable($pdo, $tenantId, $did, $uid, $dateYmd, $hour)) {
+                continue;
+            }
+            $out[] = [
+                'dentist_id' => $did,
+                'first_name' => (string) ($row['first_name'] ?? ''),
+                'last_name' => (string) ($row['last_name'] ?? ''),
+            ];
+        }
+
+        return $out;
+    }
+}
+
 if (!function_exists('patient_booking_slots_for_day')) {
     /**
      * Hourly chips within clinic hours (+ shift rules); each carries availability.
