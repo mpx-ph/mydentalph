@@ -774,6 +774,17 @@ function treatment_progress_enrich_followup_dates_from_extra_appointments(
         return;
     }
 
+    // Calendar slots already shown on an installment row (from tbl_installments or row 1 master).
+    // Extra appointments must not be double-assigned when an earlier row kept its slot from the DB
+    // but did not "consume" the sequential extras pointer (enrichment only fills rows with empty schedule).
+    $claimedVisitDates = [];
+    foreach ($steps as $st) {
+        $vsd = trim((string) ($st['visit_slot_date'] ?? ''));
+        if ($vsd !== '') {
+            $claimedVisitDates[$vsd] = true;
+        }
+    }
+
     $orderPairs = [];
     foreach ($steps as $idx => $row) {
         $orderPairs[] = [$idx, (int) ($row['installment_number'] ?? 0)];
@@ -803,6 +814,24 @@ function treatment_progress_enrich_followup_dates_from_extra_appointments(
             continue;
         }
 
+        while ($ePtr < count($extras)) {
+            $cand = $extras[$ePtr];
+            $cad = trim((string) ($cand['ad'] ?? ''));
+            if ($cad === '') {
+                $ePtr++;
+
+                continue;
+            }
+            $normCand = treatment_progress_normalize_visit_date($cad);
+            if ($normCand !== '' && isset($claimedVisitDates[$normCand])) {
+                $ePtr++;
+
+                continue;
+            }
+
+            break;
+        }
+
         $slot = $extras[$ePtr] ?? null;
         if ($slot === null) {
             break;
@@ -812,6 +841,7 @@ function treatment_progress_enrich_followup_dates_from_extra_appointments(
         $atm = trim((string) ($slot['atm'] ?? ''));
         if ($ad === '') {
             $ePtr++;
+
             continue;
         }
 
@@ -819,6 +849,10 @@ function treatment_progress_enrich_followup_dates_from_extra_appointments(
         $steps[$i]['visit_slot_date'] = treatment_progress_normalize_visit_date($ad);
         $steps[$i]['has_schedule_slot'] = true;
         treatment_progress_paint_visit_for_step($steps[$i]);
+        $normAd = treatment_progress_normalize_visit_date($ad);
+        if ($normAd !== '') {
+            $claimedVisitDates[$normAd] = true;
+        }
         $ePtr++;
     }
 }
