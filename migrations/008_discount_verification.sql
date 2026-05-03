@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS tbl_discount_programs (
     discount_type ENUM('percentage','fixed') NOT NULL DEFAULT 'percentage',
     value DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     min_spend DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    age_min SMALLINT UNSIGNED NULL DEFAULT NULL,
+    age_max SMALLINT UNSIGNED NULL DEFAULT NULL,
     req_upload_proof TINYINT(1) NOT NULL DEFAULT 0,
     req_notes TINYINT(1) NOT NULL DEFAULT 0,
     enabled TINYINT(1) NOT NULL DEFAULT 1,

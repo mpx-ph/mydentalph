@@ -266,6 +266,17 @@ body { font-family: 'Manrope', sans-serif; }
                 <input id="programMinSpend" type="number" min="0" step="1" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold focus:border-primary focus:ring-2 focus:ring-primary/15" placeholder="0"/>
                 <p class="text-xs text-slate-500 mt-1.5 leading-relaxed">Cart / invoice subtotal must reach this amount before the discount applies. Use <span class="font-semibold text-slate-600">0</span> for no minimum.</p>
             </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Minimum age (years)</label>
+                    <input id="programAgeMin" type="number" min="0" max="150" step="1" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold focus:border-primary focus:ring-2 focus:ring-primary/15" placeholder="Leave blank if none"/>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Maximum age (years)</label>
+                    <input id="programAgeMax" type="number" min="0" max="150" step="1" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold focus:border-primary focus:ring-2 focus:ring-primary/15" placeholder="Leave blank if none"/>
+                </div>
+            </div>
+            <p class="text-xs text-slate-500 -mt-2 leading-relaxed">Optional eligibility window by patient age at treatment (leave both blank for any age). Values are clamped to 0–150.</p>
             <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Requirements</label>
                 <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 space-y-3">

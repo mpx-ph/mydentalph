@@ -28,6 +28,30 @@
         };
     }
 
+    /** @returns {string} */
+    function ageRuleSummarySuffix(prog) {
+        if (!prog) return '';
+        var hasMin = typeof prog.ageMin === 'number';
+        var hasMax = typeof prog.ageMax === 'number';
+        if (!hasMin && !hasMax) return '';
+        if (hasMin && hasMax) return ' · Ages ' + prog.ageMin + '–' + prog.ageMax;
+        if (hasMin) return ' · Age ' + prog.ageMin + '+';
+        return ' · Age up to ' + prog.ageMax;
+    }
+
+    /** @returns {string|null} */
+    function parseOptionalProgramAge(fieldId) {
+        var el = document.getElementById(fieldId);
+        if (!el) return null;
+        var v = String(el.value || '').trim();
+        if (v === '') return null;
+        var n = parseInt(v, 10);
+        if (isNaN(n)) return null;
+        if (n < 0) n = 0;
+        if (n > 150) n = 150;
+        return n;
+    }
+
     function maskId(num) {
         if (!num || String(num).length < 5) return '••••';
         var s = String(num);
@@ -72,6 +96,7 @@
         }
         var min = typeof prog.minSpend === 'number' && prog.minSpend > 0 ? prog.minSpend : 0;
         if (min > 0) base += ' · Min. spend ₱' + min.toLocaleString();
+        base += ageRuleSummarySuffix(prog);
         return base;
     }
 
@@ -273,7 +298,15 @@
         var minLine = (typeof prog.minSpend === 'number' && prog.minSpend > 0)
             ? ' Min. spend ₱' + prog.minSpend.toLocaleString() + '.'
             : '';
-        hint.textContent = 'Requires: ' + requirementsSummaryProgram(prog) + '.' + minLine;
+        var ageLine = '';
+        if (typeof prog.ageMin === 'number' && typeof prog.ageMax === 'number') {
+            ageLine = ' Ages ' + prog.ageMin + '–' + prog.ageMax + '.';
+        } else if (typeof prog.ageMin === 'number') {
+            ageLine = ' Minimum age ' + prog.ageMin + '.';
+        } else if (typeof prog.ageMax === 'number') {
+            ageLine = ' Maximum age ' + prog.ageMax + '.';
+        }
+        hint.textContent = 'Requires: ' + requirementsSummaryProgram(prog) + '.' + minLine + ageLine;
         hint.classList.remove('hidden');
         proofWrap.classList.toggle('hidden', !prog.reqUploadProof);
         notesWrap.classList.toggle('hidden', !prog.reqNotes);
@@ -312,6 +345,8 @@
             document.getElementById('programDiscountType').value = p.discountType;
             document.getElementById('programValue').value = p.value;
             document.getElementById('programMinSpend').value = typeof p.minSpend === 'number' && p.minSpend > 0 ? p.minSpend : '';
+            document.getElementById('programAgeMin').value = typeof p.ageMin === 'number' ? String(p.ageMin) : '';
+            document.getElementById('programAgeMax').value = typeof p.ageMax === 'number' ? String(p.ageMax) : '';
             document.getElementById('reqUploadProof').checked = !!p.reqUploadProof;
             document.getElementById('reqNotes').checked = !!p.reqNotes;
             document.getElementById('programEnabled').checked = !!p.enabled;
@@ -327,6 +362,8 @@
             document.getElementById('reqUploadProof').checked = true;
             document.getElementById('reqNotes').checked = false;
             document.getElementById('programMinSpend').value = '';
+            document.getElementById('programAgeMin').value = '';
+            document.getElementById('programAgeMax').value = '';
             document.querySelector('input[name="programScope"][value="all"]').checked = true;
             setProgramServiceChecks([]);
         }
@@ -430,6 +467,7 @@
         if (minSpend > 0) {
             discLine += ' · Min. spend ₱' + minSpend.toLocaleString();
         }
+        if (vProg) discLine += ageRuleSummarySuffix(vProg);
         document.getElementById('verifyDiscountLine').textContent = discLine;
         var pnw = document.getElementById('verifyPatientNotesWrap');
         var pnt = document.getElementById('verifyPatientNotes');
@@ -519,11 +557,19 @@
         e.preventDefault();
         var id = document.getElementById('programId').value;
         var scope = document.querySelector('input[name="programScope"]:checked').value;
+        var ageMin = parseOptionalProgramAge('programAgeMin');
+        var ageMax = parseOptionalProgramAge('programAgeMax');
+        if (ageMin !== null && ageMax !== null && ageMin > ageMax) {
+            alert('Minimum age cannot be greater than maximum age.');
+            return;
+        }
         var payload = {
             name: document.getElementById('programName').value.trim(),
             discountType: document.getElementById('programDiscountType').value,
             value: parseFloat(document.getElementById('programValue').value) || 0,
             minSpend: Math.max(0, Math.round(parseFloat(document.getElementById('programMinSpend').value) || 0)),
+            ageMin: ageMin,
+            ageMax: ageMax,
             reqUploadProof: document.getElementById('reqUploadProof').checked,
             reqNotes: document.getElementById('reqNotes').checked,
             enabled: document.getElementById('programEnabled').checked,

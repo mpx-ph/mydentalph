@@ -25,6 +25,36 @@ if (!discount_staff_can_access()) {
     jsonResponse(false, 'Unauthorized.');
 }
 
+/**
+ * Optional age bounds from JSON (null = no limit).
+ */
+function parseOptionalAgeInput(array $input, string $key): ?int {
+    if (!array_key_exists($key, $input)) {
+        return null;
+    }
+    $v = $input[$key];
+    if ($v === null || $v === '') {
+        return null;
+    }
+    if (is_string($v) && trim($v) === '') {
+        return null;
+    }
+    $n = (int) $v;
+    if ($n < 0) {
+        $n = 0;
+    }
+    if ($n > 150) {
+        $n = 150;
+    }
+    return $n;
+}
+
+function validateAgeRange(?int $ageMin, ?int $ageMax): void {
+    if ($ageMin !== null && $ageMax !== null && $ageMin > $ageMax) {
+        jsonResponse(false, 'Minimum age cannot be greater than maximum age.');
+    }
+}
+
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 try {
@@ -63,12 +93,23 @@ function mapProgramRow(PDO $pdo, string $tenantId, array $row): array {
         $serviceIds[] = (string) $s['service_id'];
     }
 
+    $ageMin = null;
+    $ageMax = null;
+    if (array_key_exists('age_min', $row) && $row['age_min'] !== null && $row['age_min'] !== '') {
+        $ageMin = (int) $row['age_min'];
+    }
+    if (array_key_exists('age_max', $row) && $row['age_max'] !== null && $row['age_max'] !== '') {
+        $ageMax = (int) $row['age_max'];
+    }
+
     return [
         'id' => (string) $id,
         'name' => (string) $row['name'],
         'discountType' => (string) $row['discount_type'],
         'value' => (float) $row['value'],
         'minSpend' => (float) $row['min_spend'],
+        'ageMin' => $ageMin,
+        'ageMax' => $ageMax,
         'reqUploadProof' => !empty($row['req_upload_proof']),
         'reqNotes' => !empty($row['req_notes']),
         'enabled' => !empty($row['enabled']),
@@ -119,6 +160,10 @@ function handleDiscountProgramsPost(PDO $pdo, string $tenantId): void {
         $minSpend = 0.0;
     }
 
+    $ageMin = parseOptionalAgeInput($input, 'ageMin');
+    $ageMax = parseOptionalAgeInput($input, 'ageMax');
+    validateAgeRange($ageMin, $ageMax);
+
     $scope = strtolower(trim((string) ($input['serviceScope'] ?? 'all')));
     if (!in_array($scope, ['all', 'selected'], true)) {
         $scope = 'all';
@@ -144,10 +189,10 @@ function handleDiscountProgramsPost(PDO $pdo, string $tenantId): void {
     try {
         $ins = $pdo->prepare(
             'INSERT INTO tbl_discount_programs (
-                tenant_id, name, discount_type, value, min_spend,
+                tenant_id, name, discount_type, value, min_spend, age_min, age_max,
                 req_upload_proof, req_notes, enabled, valid_from, valid_to,
                 service_scope, stacking
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $ins->execute([
             $tenantId,
@@ -155,6 +200,8 @@ function handleDiscountProgramsPost(PDO $pdo, string $tenantId): void {
             $discountType,
             round($value, 2),
             round($minSpend, 2),
+            $ageMin,
+            $ageMax,
             !empty($input['reqUploadProof']) ? 1 : 0,
             !empty($input['reqNotes']) ? 1 : 0,
             !empty($input['enabled']) ? 1 : 0,
@@ -240,6 +287,10 @@ function handleDiscountProgramsPut(PDO $pdo, string $tenantId): void {
         $minSpend = 0.0;
     }
 
+    $ageMin = parseOptionalAgeInput($input, 'ageMin');
+    $ageMax = parseOptionalAgeInput($input, 'ageMax');
+    validateAgeRange($ageMin, $ageMax);
+
     $scope = strtolower(trim((string) ($input['serviceScope'] ?? 'all')));
     if (!in_array($scope, ['all', 'selected'], true)) {
         $scope = 'all';
@@ -265,7 +316,7 @@ function handleDiscountProgramsPut(PDO $pdo, string $tenantId): void {
     try {
         $upd = $pdo->prepare(
             'UPDATE tbl_discount_programs SET
-                name = ?, discount_type = ?, value = ?, min_spend = ?,
+                name = ?, discount_type = ?, value = ?, min_spend = ?, age_min = ?, age_max = ?,
                 req_upload_proof = ?, req_notes = ?, enabled = ?,
                 valid_from = ?, valid_to = ?, service_scope = ?, stacking = ?
              WHERE discount_program_id = ? AND tenant_id = ?'
@@ -275,6 +326,8 @@ function handleDiscountProgramsPut(PDO $pdo, string $tenantId): void {
             $discountType,
             round($value, 2),
             round($minSpend, 2),
+            $ageMin,
+            $ageMax,
             !empty($input['reqUploadProof']) ? 1 : 0,
             !empty($input['reqNotes']) ? 1 : 0,
             !empty($input['enabled']) ? 1 : 0,
