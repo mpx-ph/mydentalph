@@ -99,9 +99,10 @@ function getProfile() {
         }
         
         if ($patient) {
-            // Patient record exists - return patient data with user account info
-            // first_name, last_name, contact_number are now in patients table
-            jsonResponse(true, 'Profile retrieved successfully.', [
+            // Patient record exists. Contact fields come from patients; login email/username
+            // only apply to the self profile (patient row linked to this user account).
+            $isSelf = ($patient['linked_user_id'] === $userUserId);
+            $payload = [
                 'patient_id' => $patient['id'],
                 'patient_display_id' => $patient['patient_id'],
                 'owner_user_id' => $patient['owner_user_id'],
@@ -117,12 +118,18 @@ function getProfile() {
                 'city_municipality' => $patient['city_municipality'] ?? '',
                 'province' => $patient['province'] ?? '',
                 'profile_image' => $patient['profile_image'] ?? '',
-                // Account info from users table (only for self profile)
-                'username' => $user['username'],
-                'email' => $user['email'],
-                'is_self' => ($patient['linked_user_id'] === $userUserId),
+                'is_self' => $isSelf,
                 'source' => 'patients'
-            ]);
+            ];
+            if ($isSelf) {
+                $payload['username'] = $user['username'];
+                $payload['email'] = $user['email'];
+            } else {
+                // Dependent / other owned patient: no account email on file here
+                $payload['username'] = '';
+                $payload['email'] = '';
+            }
+            jsonResponse(true, 'Profile retrieved successfully.', $payload);
         } else {
             // No patient record yet - return minimal data
             jsonResponse(true, 'Profile retrieved successfully.', [
