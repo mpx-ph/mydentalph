@@ -1400,22 +1400,30 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
                 </div>
                 <div class="space-y-3">
                     <div>
-                        <label for="qrCheckInInput" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                        <label for="qrCheckInScannerCapture" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
                             <span class="material-symbols-outlined text-[18px] text-slate-500">qr_code_2</span>
                             Scanner input
                         </label>
-                        <input
-                            id="qrCheckInInput"
-                            type="text"
-                            readonly
-                            tabindex="0"
-                            class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 placeholder:text-slate-400 text-[15px] font-mono shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 focus:outline-none transition-all cursor-not-allowed"
-                            autocomplete="off"
-                            autocorrect="off"
-                            autocapitalize="off"
-                            spellcheck="false"
-                            aria-describedby="qrCheckInError"
-                        />
+                        <div class="relative w-full rounded-xl border border-slate-200 bg-slate-100 shadow-sm transition-all ring-offset-2 ring-offset-white focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15">
+                            <div
+                                id="qrCheckInMirror"
+                                class="min-h-[2.875rem] px-4 py-3 text-[15px] font-mono text-slate-800 pointer-events-none select-none whitespace-pre-wrap break-all"
+                                aria-hidden="true"
+                                role="presentation"
+                            ></div>
+                            <input
+                                id="qrCheckInScannerCapture"
+                                type="text"
+                                tabindex="0"
+                                inputmode="none"
+                                class="absolute inset-0 z-[1] h-full min-h-[2.875rem] w-full cursor-default border-0 bg-transparent px-4 py-3 text-[15px] font-mono opacity-0 focus:outline-none focus:ring-0"
+                                autocomplete="off"
+                                autocorrect="off"
+                                autocapitalize="off"
+                                spellcheck="false"
+                                aria-describedby="qrCheckInError"
+                            />
+                        </div>
                     </div>
                     <div id="qrCheckInError" class="hidden rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm font-semibold text-rose-800" role="alert"></div>
                 </div>
@@ -1482,7 +1490,8 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
     const qrCheckInOpenBtn = document.getElementById('openPatientCheckInQrBtn');
     const qrCheckInCloseBtn = document.getElementById('qrCheckInCloseBtn');
     const qrCheckInCloseFooterBtn = document.getElementById('qrCheckInCloseFooterBtn');
-    const qrCheckInInput = document.getElementById('qrCheckInInput');
+    const qrCheckInScannerCapture = document.getElementById('qrCheckInScannerCapture');
+    const qrCheckInMirror = document.getElementById('qrCheckInMirror');
     const qrCheckInError = document.getElementById('qrCheckInError');
     const qrCheckInSuccessModal = document.getElementById('qrCheckInSuccessModal');
     const qrCheckInSuccessOkBtn = document.getElementById('qrCheckInSuccessOkBtn');
@@ -1506,10 +1515,28 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
         qrCheckInError.classList.remove('hidden');
     }
 
+    function syncQrCheckInMirror() {
+        if (qrCheckInMirror && qrCheckInScannerCapture) {
+            qrCheckInMirror.textContent = qrCheckInScannerCapture.value;
+        }
+    }
+
+    function clearQrScannerField() {
+        if (qrCheckInScannerCapture) {
+            qrCheckInScannerCapture.value = '';
+        }
+        syncQrCheckInMirror();
+    }
+
+    function resetQrScannerForNextScan() {
+        clearQrScannerField();
+        focusQrCheckInInput();
+    }
+
     function focusQrCheckInInput() {
         window.requestAnimationFrame(function () {
-            if (qrCheckInInput) {
-                qrCheckInInput.focus();
+            if (qrCheckInScannerCapture) {
+                qrCheckInScannerCapture.focus();
             }
         });
     }
@@ -1517,12 +1544,13 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
     function openQrCheckInModal() {
         if (!qrCheckInModal) return;
         hideQrCheckInError();
+        if (qrCheckInScannerCapture) {
+            qrCheckInScannerCapture.disabled = false;
+        }
         qrCheckInModal.classList.remove('hidden');
         qrCheckInModal.classList.add('flex');
         qrCheckInModal.setAttribute('aria-hidden', 'false');
-        if (qrCheckInInput) {
-            qrCheckInInput.value = '';
-        }
+        clearQrScannerField();
         syncModalVisualState();
         focusQrCheckInInput();
     }
@@ -1533,8 +1561,9 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
         qrCheckInModal.classList.remove('flex');
         qrCheckInModal.setAttribute('aria-hidden', 'true');
         hideQrCheckInError();
-        if (qrCheckInInput) {
-            qrCheckInInput.value = '';
+        clearQrScannerField();
+        if (qrCheckInScannerCapture) {
+            qrCheckInScannerCapture.disabled = false;
         }
         syncModalVisualState();
     }
@@ -1549,13 +1578,20 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
         qrCheckInSuccessModal.classList.remove('flex');
         qrCheckInSuccessModal.setAttribute('aria-hidden', 'true');
         syncModalVisualState();
+        if (qrCheckInScannerCapture) {
+            qrCheckInScannerCapture.disabled = false;
+        }
         if (qrCheckInModal && !qrCheckInModal.classList.contains('hidden')) {
-            focusQrCheckInInput();
+            resetQrScannerForNextScan();
         }
     }
 
     function openQrCheckInSuccessModal(data) {
         if (!qrCheckInSuccessModal) return;
+        if (qrCheckInScannerCapture) {
+            qrCheckInScannerCapture.disabled = true;
+            qrCheckInScannerCapture.blur();
+        }
         if (qrCheckInSuccessPatient) qrCheckInSuccessPatient.textContent = data.patient_name || '';
         if (qrCheckInSuccessBooking) qrCheckInSuccessBooking.textContent = data.booking_id || '';
         if (qrCheckInSuccessStatus) qrCheckInSuccessStatus.textContent = data.status_label || data.status || 'In Progress';
@@ -1586,14 +1622,17 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
                 json = await res.json();
             } catch (e) {
                 showQrCheckInError('Could not read server response.');
+                resetQrScannerForNextScan();
                 return;
             }
             if (res.status === 401) {
                 showQrCheckInError('Session expired. Please sign in again.');
+                resetQrScannerForNextScan();
                 return;
             }
             if (res.status === 403 || (json && json.data && json.data.code === 'forbidden')) {
                 showQrCheckInError('Please sign in again.');
+                resetQrScannerForNextScan();
                 return;
             }
             const code = json && json.data && json.data.code ? String(json.data.code) : '';
@@ -1610,21 +1649,20 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
                     server_error: msg,
                 };
                 showQrCheckInError(alerts[code] || msg);
+                resetQrScannerForNextScan();
                 return;
             }
             const d = json.data || {};
-            if (qrCheckInInput) {
-                qrCheckInInput.value = '';
-            }
+            clearQrScannerField();
             openQrCheckInSuccessModal({
                 patient_name: d.patient_name || '',
                 booking_id: d.booking_id || '',
                 status_label: d.status_label || 'In Progress',
                 status: d.status || 'in_progress',
             });
-            focusQrCheckInInput();
         } catch (err) {
             showQrCheckInError('Network error. Try again.');
+            resetQrScannerForNextScan();
         } finally {
             qrCheckInBusy = false;
         }
@@ -1756,27 +1794,84 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
         });
     }
     if (qrCheckInSuccessOkBtn) qrCheckInSuccessOkBtn.addEventListener('click', closeQrCheckInSuccessModal);
-    if (qrCheckInInput) {
-        qrCheckInInput.addEventListener('paste', function (event) {
+    if (qrCheckInScannerCapture) {
+        qrCheckInScannerCapture.addEventListener('input', function () {
+            syncQrCheckInMirror();
+            hideQrCheckInError();
+        });
+        qrCheckInScannerCapture.addEventListener('beforeinput', function (event) {
+            var type = event.inputType || '';
+            if (
+                type === 'insertFromPaste'
+                || type === 'insertFromDrop'
+                || type === 'deleteByCut'
+                || type === 'deleteContentBackward'
+                || type === 'deleteContentForward'
+                || type === 'historyUndo'
+                || type === 'historyRedo'
+            ) {
+                event.preventDefault();
+            }
+        });
+        qrCheckInScannerCapture.addEventListener('paste', function (event) {
             event.preventDefault();
         });
-        qrCheckInInput.addEventListener('keydown', function (event) {
+        qrCheckInScannerCapture.addEventListener('cut', function (event) {
+            event.preventDefault();
+        });
+        qrCheckInScannerCapture.addEventListener('drop', function (event) {
+            event.preventDefault();
+        });
+        qrCheckInScannerCapture.addEventListener('dragover', function (event) {
+            event.preventDefault();
+        });
+        qrCheckInScannerCapture.addEventListener('contextmenu', function (event) {
+            event.preventDefault();
+        });
+        qrCheckInScannerCapture.addEventListener('keydown', function (event) {
             if (event.key === 'Enter') {
                 event.preventDefault();
-                submitQrCheckInScan(qrCheckInInput.value);
+                submitQrCheckInScan(qrCheckInScannerCapture.value);
                 return;
             }
-            if (event.key === 'Backspace') {
+            if (event.key === 'Backspace' || event.key === 'Delete') {
                 event.preventDefault();
-                qrCheckInInput.value = qrCheckInInput.value.slice(0, -1);
-                hideQrCheckInError();
                 return;
             }
-            if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
-                event.preventDefault();
-                qrCheckInInput.value += event.key;
-                hideQrCheckInError();
+            if (event.ctrlKey || event.metaKey) {
+                var k = event.key.toLowerCase();
+                if (k === 'v' || k === 'x' || k === 'a' || k === 'z' || k === 'c') {
+                    event.preventDefault();
+                }
             }
+        });
+        qrCheckInScannerCapture.addEventListener('blur', function (event) {
+            if (!qrCheckInModal || qrCheckInModal.classList.contains('hidden')) {
+                return;
+            }
+            if (qrCheckInSuccessModal && !qrCheckInSuccessModal.classList.contains('hidden')) {
+                return;
+            }
+            var related = event.relatedTarget;
+            if (related && qrCheckInModal.contains(related) && related.closest && related.closest('button, a[href], textarea, select')) {
+                return;
+            }
+            window.setTimeout(function () {
+                if (!qrCheckInModal || qrCheckInModal.classList.contains('hidden')) {
+                    return;
+                }
+                if (qrCheckInSuccessModal && !qrCheckInSuccessModal.classList.contains('hidden')) {
+                    return;
+                }
+                var ae = document.activeElement;
+                if (ae === qrCheckInScannerCapture) {
+                    return;
+                }
+                if (ae && qrCheckInModal.contains(ae) && ae.closest && ae.closest('button, a[href], textarea, select')) {
+                    return;
+                }
+                focusQrCheckInInput();
+            }, 0);
         });
     }
     document.addEventListener('keydown', (event) => {
