@@ -722,13 +722,10 @@ function createAppointment() {
         $errors[] = 'Invalid date format.';
     } else {
         $appointmentDate = new DateTime($data['appointment_date']);
-        
-        // Check if the date is a Sunday (0 = Sunday)
-        $dayOfWeek = (int)$appointmentDate->format('w');
-        if ($dayOfWeek === 0) {
-            $errors[] = 'Sunday is unavailable. Please select another day.';
-        }
-        
+
+        // Do not hard-block Sundays: clinics may open Sundays per tbl_clinic_hours / dentist shifts.
+        // When dentist_user_id is supplied, isUserAvailable() enforces real schedule blocks below.
+
         // For walk-ins, allow current date/time. For pre-booked appointments, check if date is in the past
         if ($data['visit_type'] !== 'walk_in') {
             $today = new DateTime();
