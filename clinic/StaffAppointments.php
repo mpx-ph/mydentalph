@@ -1502,6 +1502,9 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
 
     let qrCheckInBusy = false;
     let qrCheckInSuccessTimer = null;
+    /** Timestamp of last character accepted into the wedge buffer — human typing gaps exceed this ceiling. */
+    let qrScanWedgePrevCharAt = 0;
+    const QR_SCAN_WEDGE_MAX_INTERKEY_MS = 170;
 
     function hideQrCheckInError() {
         if (!qrCheckInError) return;
@@ -1525,6 +1528,7 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
         if (qrCheckInScannerCapture) {
             qrCheckInScannerCapture.value = '';
         }
+        qrScanWedgePrevCharAt = 0;
         syncQrCheckInMirror();
     }
 
@@ -1811,6 +1815,10 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
                 || type === 'historyRedo'
             ) {
                 event.preventDefault();
+                return;
+            }
+            if (type === 'insertText') {
+                event.preventDefault();
             }
         });
         qrCheckInScannerCapture.addEventListener('paste', function (event) {
@@ -1829,8 +1837,12 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
             event.preventDefault();
         });
         qrCheckInScannerCapture.addEventListener('keydown', function (event) {
+            if (qrCheckInScannerCapture.disabled) {
+                return;
+            }
             if (event.key === 'Enter') {
                 event.preventDefault();
+                qrScanWedgePrevCharAt = 0;
                 submitQrCheckInScan(qrCheckInScannerCapture.value);
                 return;
             }
@@ -1838,12 +1850,41 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
                 event.preventDefault();
                 return;
             }
-            if (event.ctrlKey || event.metaKey) {
-                var k = event.key.toLowerCase();
-                if (k === 'v' || k === 'x' || k === 'a' || k === 'z' || k === 'c') {
-                    event.preventDefault();
-                }
+            if (event.repeat) {
+                event.preventDefault();
+                return;
             }
+            if (
+                event.key === 'ArrowLeft'
+                || event.key === 'ArrowRight'
+                || event.key === 'ArrowUp'
+                || event.key === 'ArrowDown'
+                || event.key === 'Home'
+                || event.key === 'End'
+            ) {
+                event.preventDefault();
+                return;
+            }
+            if (event.ctrlKey || event.metaKey || event.altKey) {
+                event.preventDefault();
+                return;
+            }
+            var ch = event.key;
+            var isPrintableUsAscii = typeof ch === 'string' && ch.length === 1 && ch.charCodeAt(0) >= 32 && ch.charCodeAt(0) <= 126;
+            if (!isPrintableUsAscii) {
+                event.preventDefault();
+                return;
+            }
+            event.preventDefault();
+            var now = Date.now();
+            var el = qrCheckInScannerCapture;
+            if (qrScanWedgePrevCharAt > 0 && el.value.length > 0 && (now - qrScanWedgePrevCharAt) > QR_SCAN_WEDGE_MAX_INTERKEY_MS) {
+                clearQrScannerField();
+            }
+            el.value += ch;
+            qrScanWedgePrevCharAt = Date.now();
+            syncQrCheckInMirror();
+            hideQrCheckInError();
         });
         qrCheckInScannerCapture.addEventListener('blur', function (event) {
             if (!qrCheckInModal || qrCheckInModal.classList.contains('hidden')) {
