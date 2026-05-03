@@ -907,7 +907,7 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
                         <button
                             type="button"
                             id="openPatientCheckInQrBtn"
-                            class="booking-action-btn inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 font-bold text-sm tracking-wide shadow-lg shadow-blue-600/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                            class="booking-action-btn inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-blue-500 hover:from-primary hover:to-blue-600 text-white px-5 py-3 font-bold text-sm tracking-wide shadow-lg shadow-primary/30"
                             aria-label="Open patient check-in QR"
                         >
                             <span class="material-symbols-outlined text-[20px]" aria-hidden="true">qr_code_2</span>
