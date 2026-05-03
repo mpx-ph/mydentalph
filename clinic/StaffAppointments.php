@@ -1585,6 +1585,20 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
         }
     }
 
+    function onQrCheckInSuccessOkReload() {
+        if (qrCheckInSuccessModal) {
+            qrCheckInSuccessModal.classList.add('hidden');
+            qrCheckInSuccessModal.classList.remove('flex');
+            qrCheckInSuccessModal.setAttribute('aria-hidden', 'true');
+        }
+        if (qrCheckInScannerCapture) {
+            qrCheckInScannerCapture.disabled = false;
+        }
+        syncModalVisualState();
+        closeQrCheckInModal();
+        window.location.reload();
+    }
+
     function openQrCheckInSuccessModal(data) {
         if (!qrCheckInSuccessModal) return;
         if (qrCheckInScannerCapture) {
@@ -1793,7 +1807,7 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
             }
         });
     }
-    if (qrCheckInSuccessOkBtn) qrCheckInSuccessOkBtn.addEventListener('click', closeQrCheckInSuccessModal);
+    if (qrCheckInSuccessOkBtn) qrCheckInSuccessOkBtn.addEventListener('click', onQrCheckInSuccessOkReload);
     if (qrCheckInScannerCapture) {
         qrCheckInScannerCapture.addEventListener('input', function () {
             syncQrCheckInMirror();
