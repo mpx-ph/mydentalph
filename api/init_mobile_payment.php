@@ -462,26 +462,56 @@ function mobile_api_schedule_followup_only_booking(
         throw new Exception('Installments table is not available.');
     }
 
-    $resolvedBid = staff_installments_resolve_plan_booking_id_for_patient_treatment(
+    /**
+     * Treatment Progress may expose the latest tied appointment booking_id while tbl_installments
+     * stays on the originating plan booking_id — those differ. Prefer client id when installments
+     * exist under it; else fall back to server-resolved plan booking_id.
+     */
+    $resolvedBid = trim((string) staff_installments_resolve_plan_booking_id_for_patient_treatment(
         $pdo,
         $tenant_id,
         $patient_id,
         $existing_treatment_id,
         (string) $apptPhys,
         (string) $installPhys
-    );
-    if (trim((string) $resolvedBid) !== $plan_booking_id) {
-        throw new Exception('Plan booking does not match this treatment.');
-    }
+    ));
 
     $qi = clinic_quote_identifier((string) $installPhys);
     $tenantClause = '(i.tenant_id = ? OR i.tenant_id IS NULL OR TRIM(COALESCE(i.tenant_id, \'\')) = \'\')';
-    $ichk = $pdo->prepare(
-        "SELECT 1 FROM {$qi} i WHERE i.booking_id = ? AND i.installment_number = ? AND {$tenantClause} LIMIT 1"
-    );
-    $ichk->execute([$plan_booking_id, $installment_number_for_slot, $tenant_id]);
-    if (!$ichk->fetchColumn()) {
-        throw new Exception('Installment row not found for this plan booking.');
+    $installmentRowExists = static function (string $bid) use (
+        $pdo,
+        $qi,
+        $tenantClause,
+        $tenant_id,
+        $installment_number_for_slot
+    ): bool {
+        $bid = trim($bid);
+        if ($bid === '') {
+            return false;
+        }
+        $st = $pdo->prepare(
+            "SELECT 1 FROM {$qi} i
+             WHERE LOWER(TRIM(COALESCE(i.booking_id, ''))) = LOWER(?)
+               AND i.installment_number = ?
+               AND {$tenantClause}
+             LIMIT 1"
+        );
+        $st->execute([$bid, $installment_number_for_slot, $tenant_id]);
+
+        return (bool) $st->fetchColumn();
+    };
+
+    $effectivePlanBookingId = trim((string) $plan_booking_id);
+    if (!$installmentRowExists($effectivePlanBookingId) && $resolvedBid !== ''
+        && strcasecmp($resolvedBid, $effectivePlanBookingId) !== 0) {
+        if ($installmentRowExists($resolvedBid)) {
+            $effectivePlanBookingId = $resolvedBid;
+        }
+    }
+    if (!$installmentRowExists($effectivePlanBookingId)) {
+        throw new Exception(
+            'Could not locate this installment on your treatment schedule. Staff may need to link your plan booking to appointments, or reopen Treatment Progress after data is fixed.'
+        );
     }
 
     $services = is_array($services_json) ? $services_json : json_decode((string) $services_json, true);
@@ -608,7 +638,7 @@ function mobile_api_schedule_followup_only_booking(
         staff_installments_stamp_followup_slot_explicit(
             $pdo,
             $tenant_id,
-            $plan_booking_id,
+            $effectivePlanBookingId,
             $installment_number_for_slot,
             $appointment_date,
             $appointment_time
