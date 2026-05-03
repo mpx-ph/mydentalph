@@ -66,9 +66,13 @@ try {
             "SELECT 
                 a.*,
                 COALESCE(a.service_type, (SELECT service_name FROM tbl_appointment_services WHERE appointment_id = a.id LIMIT 1)) AS display_service,
-                CONCAT(d.first_name, ' ', d.last_name) AS dentist_name
+                CONCAT(d.first_name, ' ', d.last_name) AS dentist_name,
+                TRIM(CONCAT(COALESCE(pat.first_name, ''), ' ', COALESCE(pat.last_name, ''))) AS patient_name,
+                pat.contact_number AS patient_contact,
+                pat.date_of_birth AS patient_dob
              FROM tbl_appointments a
              LEFT JOIN tbl_dentists d ON a.dentist_id = d.dentist_id
+             LEFT JOIN tbl_patients pat ON pat.tenant_id = a.tenant_id AND pat.patient_id = a.patient_id
              WHERE a.patient_id = ? AND a.tenant_id = ?
              ORDER BY a.appointment_date DESC, a.appointment_time DESC"
         );
@@ -78,9 +82,13 @@ try {
             "SELECT 
                 a.*,
                 COALESCE(a.service_type, (SELECT service_name FROM tbl_appointment_services WHERE appointment_id = a.id LIMIT 1)) AS display_service,
-                CONCAT(d.first_name, ' ', d.last_name) AS dentist_name
+                CONCAT(d.first_name, ' ', d.last_name) AS dentist_name,
+                TRIM(CONCAT(COALESCE(pat.first_name, ''), ' ', COALESCE(pat.last_name, ''))) AS patient_name,
+                pat.contact_number AS patient_contact,
+                pat.date_of_birth AS patient_dob
              FROM tbl_appointments a
              LEFT JOIN tbl_dentists d ON a.dentist_id = d.dentist_id
+             LEFT JOIN tbl_patients pat ON pat.tenant_id = a.tenant_id AND pat.patient_id = a.patient_id
              WHERE a.patient_id = ?
              ORDER BY a.appointment_date DESC, a.appointment_time DESC"
         );
