@@ -1378,73 +1378,88 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
     </div>
 </div>
 
-<div id="qrCheckInModal" class="staff-modal-overlay hidden fixed inset-0 z-[90]" aria-hidden="true">
-    <div class="staff-modal-backdrop" id="qrCheckInBackdrop"></div>
-    <div class="absolute inset-0 flex items-center justify-center p-4">
-        <div class="staff-modal-panel bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="qrCheckInTitle">
-            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                    <p class="text-[11px] font-black uppercase tracking-[0.18em] text-primary/70">Scan</p>
-                    <h4 id="qrCheckInTitle" class="text-xl font-bold text-on-background">Patient Check-In</h4>
-                </div>
-                <button type="button" id="qrCheckInCloseBtn" class="w-8 h-8 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Close">
-                    <span class="material-symbols-outlined">close</span>
-                </button>
+<div id="qrCheckInModal" class="staff-modal-overlay fixed inset-0 z-[90] hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4" aria-hidden="true">
+    <div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl overflow-hidden flex flex-col" role="dialog" aria-modal="true" aria-labelledby="qrCheckInTitle">
+        <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
+            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15" aria-hidden="true">
+                <span class="material-symbols-outlined text-2xl text-primary">qr_code_scanner</span>
             </div>
-            <div class="p-5 bg-slate-50/60 space-y-4">
-                <p class="text-sm font-medium text-slate-600">Scan the patient&apos;s booking QR code.</p>
-                <div>
-                    <label for="qrCheckInInput" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-widest mb-2">Scanner input</label>
-                    <input
-                        id="qrCheckInInput"
-                        type="text"
-                        class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary text-sm font-mono"
-                        autocomplete="off"
-                        autocorrect="off"
-                        autocapitalize="off"
-                        spellcheck="false"
-                        aria-describedby="qrCheckInError"
-                    />
-                </div>
-                <div id="qrCheckInError" class="hidden rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800" role="alert"></div>
-                <div class="flex justify-end">
-                    <button type="button" id="qrCheckInCloseFooterBtn" class="rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-sm font-bold px-5 py-2.5 transition-colors">
-                        Close
-                    </button>
-                </div>
+            <div class="min-w-0 flex-1 pr-2">
+                <h3 id="qrCheckInTitle" class="text-xl sm:text-2xl font-extrabold font-headline text-on-background tracking-tight">Patient Check-In</h3>
+                <p class="text-sm text-slate-500 mt-1 leading-relaxed">Scan the patient&apos;s booking QR code.</p>
             </div>
+            <button type="button" id="qrCheckInCloseBtn" class="shrink-0 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Close">
+                <span class="material-symbols-outlined text-[22px]">close</span>
+            </button>
+        </div>
+        <div class="px-6 sm:px-8 pt-3 pb-5 space-y-6 overflow-y-auto">
+            <section>
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="material-symbols-outlined text-primary text-[22px]">info</span>
+                    <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Scanner</h4>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        <label for="qrCheckInInput" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                            <span class="material-symbols-outlined text-[18px] text-slate-500">qr_code_2</span>
+                            Scanner input
+                        </label>
+                        <input
+                            id="qrCheckInInput"
+                            type="text"
+                            readonly
+                            tabindex="0"
+                            class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 placeholder:text-slate-400 text-[15px] font-mono shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 focus:outline-none transition-all cursor-not-allowed"
+                            autocomplete="off"
+                            autocorrect="off"
+                            autocapitalize="off"
+                            spellcheck="false"
+                            aria-describedby="qrCheckInError"
+                        />
+                    </div>
+                    <div id="qrCheckInError" class="hidden rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm font-semibold text-rose-800" role="alert"></div>
+                </div>
+            </section>
+        </div>
+        <div class="border-t border-slate-100 bg-slate-50/50 px-6 sm:px-8 py-4 flex flex-wrap items-center justify-end gap-3">
+            <button type="button" id="qrCheckInCloseFooterBtn" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+                <span class="material-symbols-outlined text-[18px]">close</span>
+                Close
+            </button>
         </div>
     </div>
 </div>
 
-<div id="qrCheckInSuccessModal" class="staff-modal-overlay hidden fixed inset-0 z-[95]" aria-hidden="true">
-    <div class="staff-modal-backdrop" id="qrCheckInSuccessBackdrop"></div>
-    <div class="absolute inset-0 flex items-center justify-center p-4">
-        <div class="staff-modal-panel bg-white w-full max-w-md rounded-3xl shadow-2xl border border-emerald-100 overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="qrCheckInSuccessTitle">
-            <div class="px-5 py-5 text-center space-y-4">
-                <span class="material-symbols-outlined text-emerald-600 text-5xl block mx-auto" style="font-variation-settings: 'FILL' 1;">check_circle</span>
-                <div>
-                    <h4 id="qrCheckInSuccessTitle" class="text-xl font-bold text-on-background">Checked in</h4>
-                    <p class="text-sm text-slate-500 mt-1">Appointment status updated.</p>
-                </div>
-                <dl class="text-left rounded-2xl border border-slate-100 bg-slate-50/80 px-4 py-3 space-y-2 text-sm">
-                    <div class="flex justify-between gap-3">
-                        <dt class="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">Patient</dt>
-                        <dd id="qrCheckInSuccessPatient" class="font-bold text-slate-900 text-right break-words"></dd>
-                    </div>
-                    <div class="flex justify-between gap-3">
-                        <dt class="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">Booking ID</dt>
-                        <dd id="qrCheckInSuccessBooking" class="font-bold text-primary text-right break-all"></dd>
-                    </div>
-                    <div class="flex justify-between gap-3">
-                        <dt class="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">Status</dt>
-                        <dd id="qrCheckInSuccessStatus" class="font-bold text-blue-700 text-right"></dd>
-                    </div>
-                </dl>
-                <button type="button" id="qrCheckInSuccessOkBtn" class="w-full rounded-xl bg-primary hover:bg-primary/90 text-white text-sm font-bold py-3 transition-colors">
-                    OK
-                </button>
+<div id="qrCheckInSuccessModal" class="staff-modal-overlay fixed inset-0 z-[95] hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4" aria-hidden="true">
+    <div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-md overflow-hidden flex flex-col" role="dialog" aria-modal="true" aria-labelledby="qrCheckInSuccessTitle">
+        <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
+            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-500/15" aria-hidden="true">
+                <span class="material-symbols-outlined text-2xl text-emerald-600" style="font-variation-settings: 'FILL' 1;">check_circle</span>
             </div>
+            <div class="min-w-0 flex-1 pr-2">
+                <h3 id="qrCheckInSuccessTitle" class="text-xl sm:text-2xl font-extrabold font-headline text-on-background tracking-tight">Checked in</h3>
+                <p class="text-sm text-slate-500 mt-1 leading-relaxed">Appointment status updated.</p>
+            </div>
+        </div>
+        <div class="px-6 sm:px-8 py-5 space-y-5">
+            <dl class="text-left rounded-2xl border border-slate-100 bg-slate-50/80 px-4 py-3 space-y-2 text-sm">
+                <div class="flex justify-between gap-3">
+                    <dt class="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">Patient</dt>
+                    <dd id="qrCheckInSuccessPatient" class="font-bold text-slate-900 text-right break-words"></dd>
+                </div>
+                <div class="flex justify-between gap-3">
+                    <dt class="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">Booking ID</dt>
+                    <dd id="qrCheckInSuccessBooking" class="font-bold text-primary text-right break-all"></dd>
+                </div>
+                <div class="flex justify-between gap-3">
+                    <dt class="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">Status</dt>
+                    <dd id="qrCheckInSuccessStatus" class="font-bold text-blue-700 text-right"></dd>
+                </div>
+            </dl>
+            <button type="button" id="qrCheckInSuccessOkBtn" class="w-full inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/92 text-white text-sm font-bold shadow-lg shadow-primary/25 transition-all">
+                <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                OK
+            </button>
         </div>
     </div>
 </div>
@@ -1464,14 +1479,12 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
     const appointmentsPageContent = document.getElementById('appointmentsPageContent');
 
     const qrCheckInModal = document.getElementById('qrCheckInModal');
-    const qrCheckInBackdrop = document.getElementById('qrCheckInBackdrop');
     const qrCheckInOpenBtn = document.getElementById('openPatientCheckInQrBtn');
     const qrCheckInCloseBtn = document.getElementById('qrCheckInCloseBtn');
     const qrCheckInCloseFooterBtn = document.getElementById('qrCheckInCloseFooterBtn');
     const qrCheckInInput = document.getElementById('qrCheckInInput');
     const qrCheckInError = document.getElementById('qrCheckInError');
     const qrCheckInSuccessModal = document.getElementById('qrCheckInSuccessModal');
-    const qrCheckInSuccessBackdrop = document.getElementById('qrCheckInSuccessBackdrop');
     const qrCheckInSuccessOkBtn = document.getElementById('qrCheckInSuccessOkBtn');
     const qrCheckInSuccessPatient = document.getElementById('qrCheckInSuccessPatient');
     const qrCheckInSuccessBooking = document.getElementById('qrCheckInSuccessBooking');
@@ -1497,7 +1510,6 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
         window.requestAnimationFrame(function () {
             if (qrCheckInInput) {
                 qrCheckInInput.focus();
-                qrCheckInInput.select();
             }
         });
     }
@@ -1506,6 +1518,7 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
         if (!qrCheckInModal) return;
         hideQrCheckInError();
         qrCheckInModal.classList.remove('hidden');
+        qrCheckInModal.classList.add('flex');
         qrCheckInModal.setAttribute('aria-hidden', 'false');
         if (qrCheckInInput) {
             qrCheckInInput.value = '';
@@ -1517,6 +1530,7 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
     function closeQrCheckInModal() {
         if (!qrCheckInModal) return;
         qrCheckInModal.classList.add('hidden');
+        qrCheckInModal.classList.remove('flex');
         qrCheckInModal.setAttribute('aria-hidden', 'true');
         hideQrCheckInError();
         if (qrCheckInInput) {
@@ -1532,6 +1546,7 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
         }
         if (!qrCheckInSuccessModal) return;
         qrCheckInSuccessModal.classList.add('hidden');
+        qrCheckInSuccessModal.classList.remove('flex');
         qrCheckInSuccessModal.setAttribute('aria-hidden', 'true');
         syncModalVisualState();
         if (qrCheckInModal && !qrCheckInModal.classList.contains('hidden')) {
@@ -1545,6 +1560,7 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
         if (qrCheckInSuccessBooking) qrCheckInSuccessBooking.textContent = data.booking_id || '';
         if (qrCheckInSuccessStatus) qrCheckInSuccessStatus.textContent = data.status_label || data.status || 'In Progress';
         qrCheckInSuccessModal.classList.remove('hidden');
+        qrCheckInSuccessModal.classList.add('flex');
         qrCheckInSuccessModal.setAttribute('aria-hidden', 'false');
         syncModalVisualState();
         if (qrCheckInSuccessTimer) clearTimeout(qrCheckInSuccessTimer);
@@ -1725,17 +1741,41 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
     if (qrCheckInOpenBtn) qrCheckInOpenBtn.addEventListener('click', openQrCheckInModal);
     if (qrCheckInCloseBtn) qrCheckInCloseBtn.addEventListener('click', closeQrCheckInModal);
     if (qrCheckInCloseFooterBtn) qrCheckInCloseFooterBtn.addEventListener('click', closeQrCheckInModal);
-    if (qrCheckInBackdrop) qrCheckInBackdrop.addEventListener('click', closeQrCheckInModal);
-    if (qrCheckInSuccessBackdrop) qrCheckInSuccessBackdrop.addEventListener('click', closeQrCheckInSuccessModal);
+    if (qrCheckInModal) {
+        qrCheckInModal.addEventListener('click', function (event) {
+            if (event.target === qrCheckInModal) {
+                closeQrCheckInModal();
+            }
+        });
+    }
+    if (qrCheckInSuccessModal) {
+        qrCheckInSuccessModal.addEventListener('click', function (event) {
+            if (event.target === qrCheckInSuccessModal) {
+                closeQrCheckInSuccessModal();
+            }
+        });
+    }
     if (qrCheckInSuccessOkBtn) qrCheckInSuccessOkBtn.addEventListener('click', closeQrCheckInSuccessModal);
     if (qrCheckInInput) {
-        qrCheckInInput.addEventListener('input', function () {
-            hideQrCheckInError();
+        qrCheckInInput.addEventListener('paste', function (event) {
+            event.preventDefault();
         });
         qrCheckInInput.addEventListener('keydown', function (event) {
             if (event.key === 'Enter') {
                 event.preventDefault();
                 submitQrCheckInScan(qrCheckInInput.value);
+                return;
+            }
+            if (event.key === 'Backspace') {
+                event.preventDefault();
+                qrCheckInInput.value = qrCheckInInput.value.slice(0, -1);
+                hideQrCheckInError();
+                return;
+            }
+            if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                event.preventDefault();
+                qrCheckInInput.value += event.key;
+                hideQrCheckInError();
             }
         });
     }
