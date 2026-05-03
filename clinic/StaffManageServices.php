@@ -1368,14 +1368,19 @@ function saveNewService() {
         if (!data.success) {
             throw new Error(data.message || 'Failed to create service.');
         }
-        const addedServiceName = payload.service_name || 'The service';
+        const createdRow = data.data && data.data.service ? data.data.service : null;
+        const addedServiceName = (createdRow && createdRow.service_name)
+            ? String(createdRow.service_name)
+            : payload.service_name;
         closeNewServiceModal();
         loadServices();
-        void staffUiAlert({
-            title: 'Service added',
-            message: 'The Service "' + addedServiceName + '" has been added.',
-            variant: 'success'
-        });
+        window.setTimeout(function () {
+            void staffUiAlert({
+                title: 'Service added',
+                message: 'The Service "' + addedServiceName + '" has been added.',
+                variant: 'success'
+            });
+        }, 0);
     }).catch(function (err) {
         void staffUiAlert({ message: err.message || 'Failed to create service.', variant: 'error', title: 'Could not create service' });
     });
