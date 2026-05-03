@@ -99,9 +99,12 @@ function getProfile() {
         }
         
         if ($patient) {
-            // Patient record exists. Contact fields come from patients; login email/username
-            // only apply to the self profile (patient row linked to this user account).
+            // Email lives on the patient row (tbl_patients / patients); never substitute tbl_users.
             $isSelf = ($patient['linked_user_id'] === $userUserId);
+            $patientEmail = $patient['email'] ?? '';
+            if ($patientEmail === null) {
+                $patientEmail = '';
+            }
             $payload = [
                 'patient_id' => $patient['id'],
                 'patient_display_id' => $patient['patient_id'],
@@ -109,6 +112,7 @@ function getProfile() {
                 'linked_user_id' => $patient['linked_user_id'],
                 'first_name' => $patient['first_name'] ?? '',
                 'last_name' => $patient['last_name'] ?? '',
+                'email' => $patientEmail,
                 'contact_number' => $patient['contact_number'] ?? '',
                 'date_of_birth' => $patient['date_of_birth'] ?? '',
                 'gender' => $patient['gender'] ?? '',
@@ -121,14 +125,8 @@ function getProfile() {
                 'is_self' => $isSelf,
                 'source' => 'patients'
             ];
-            if ($isSelf) {
-                $payload['username'] = $user['username'];
-                $payload['email'] = $user['email'];
-            } else {
-                // Dependent / other owned patient: no account email on file here
-                $payload['username'] = '';
-                $payload['email'] = '';
-            }
+            // Login username only applies to the account-linked patient row.
+            $payload['username'] = $isSelf ? $user['username'] : '';
             jsonResponse(true, 'Profile retrieved successfully.', $payload);
         } else {
             // No patient record yet - return minimal data
