@@ -118,15 +118,9 @@ if ($__hdr_role === 'dentist') {
       <p class="text-lg sm:text-[1.75rem] leading-tight font-extrabold tracking-tight text-[#0b3463] truncate"><?php echo htmlspecialchars($__clinic_name, ENT_QUOTES, 'UTF-8'); ?></p>
     </div>
     <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-      <button type="button" class="hover:bg-surface-container-low rounded-full p-2.5 transition-all relative border-0 bg-transparent cursor-pointer hidden sm:inline-flex" aria-label="Notifications">
-        <span class="material-symbols-outlined text-on-surface-variant">notifications</span>
-      </button>
       <a href="<?php echo htmlspecialchars($__staff_appointments_checkin_url, ENT_QUOTES, 'UTF-8'); ?>" id="staff-header-qr-btn" class="hover:bg-surface-container-low rounded-full p-2.5 transition-all relative border-0 bg-transparent cursor-pointer hidden sm:inline-flex items-center justify-center text-inherit no-underline shrink-0" aria-label="Open patient check-in (QR scanner)">
         <span class="material-symbols-outlined text-on-surface-variant">qr_code_2</span>
       </a>
-      <button type="button" class="hover:bg-surface-container-low rounded-full p-2.5 transition-all border-0 bg-transparent cursor-pointer hidden sm:inline-flex" aria-label="Help">
-        <span class="material-symbols-outlined text-on-surface-variant">help_outline</span>
-      </button>
       <div class="relative">
         <button id="staff-user-menu-trigger" type="button" class="group flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/80 pl-1 pr-2.5 py-1 shadow-sm text-left cursor-pointer hover:border-primary/35 hover:bg-white hover:shadow-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2" aria-label="Open account menu" aria-expanded="false" aria-haspopup="menu" aria-controls="staff-user-menu">
           <div id="staff-header-avatar" class="w-10 h-10 rounded-xl flex items-center justify-center text-primary text-xs font-bold border border-primary/10 shrink-0 bg-cover bg-center overflow-hidden <?php echo $__header_avatar_url === '' ? 'bg-primary/15' : ''; ?>"<?php echo $__header_avatar_url !== '' ? ' style="background-image:url(\'' . htmlspecialchars($__header_avatar_url, ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>>
