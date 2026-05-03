@@ -116,6 +116,7 @@ $navSections = [
         'label' => 'Patients & Services',
         'items' => [
             ['key' => 'patients',     'label' => 'Patients',           'icon' => 'group',            'href' => $buildStaffHref('StaffManagePatient.php')],
+            ['key' => 'discount_verification', 'label' => 'Discount Verification', 'icon' => 'verified_user', 'href' => $buildStaffHref('StaffDiscountVerification.php')],
             ['key' => 'services',     'label' => 'Services & Pricing', 'icon' => 'medical_services', 'href' => $buildStaffHref('StaffManageServices.php')],
         ],
     ],
@@ -143,7 +144,7 @@ $navSections = [
 ];
 
 // Dentist role: only these pages are accessible
-$dentistAllowedKeys = ['dashboard', 'patients', 'appointments', 'my_schedule', 'clinic_hours', 'profile'];
+$dentistAllowedKeys = ['dashboard', 'patients', 'discount_verification', 'appointments', 'my_schedule', 'clinic_hours', 'profile'];
 $currentUserRole = isset($_SESSION['user_role']) ? strtolower(trim((string) $_SESSION['user_role'])) : '';
 $currentUserType = isset($_SESSION['user_type']) ? strtolower(trim((string) $_SESSION['user_type'])) : '';
 if ($currentUserRole === 'dentist') {
