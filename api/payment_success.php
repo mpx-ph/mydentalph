@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../clinic/includes/booking_treatment_ledger.php';
+require_once __DIR__ . '/../clinic/includes/staff_installment_helpers.php';
 
 $pid = isset($_GET['pid']) ? trim((string) $_GET['pid']) : '';
 
@@ -27,6 +28,7 @@ if ($pid !== '') {
             $st2->execute([$pid]);
             $fresh = $st2->fetch(PDO::FETCH_ASSOC) ?: $row;
             booking_apply_completed_payment_to_treatment($pdo, $fresh);
+            staff_installments_mark_paid_from_mobile_payment_row($pdo, $fresh);
         }
         $pdo->commit();
     } catch (Throwable $e) {

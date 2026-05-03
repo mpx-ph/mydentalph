@@ -589,3 +589,50 @@ function staff_installments_stamp_followup_slot_explicit(
 
     return $upd->rowCount() > 0;
 }
+
+/**
+ * Patient PayMongo completion: mark tbl_installments row paid when payment row carries plan context.
+ */
+function staff_installments_mark_paid_from_mobile_payment_row(PDO $pdo, array $paymentRow): void
+{
+    $tenantId = trim((string) ($paymentRow['tenant_id'] ?? ''));
+    $bookingId = trim((string) ($paymentRow['booking_id'] ?? ''));
+    $paymentId = trim((string) ($paymentRow['payment_id'] ?? ''));
+    $installmentNumber = (int) ($paymentRow['installment_number'] ?? 0);
+    if ($tenantId === '' || $bookingId === '' || $paymentId === '' || $installmentNumber < 1) {
+        return;
+    }
+
+    $installmentsPhys = clinic_get_physical_table_name($pdo, 'tbl_installments')
+        ?? clinic_get_physical_table_name($pdo, 'installments')
+        ?? '';
+    if ($installmentsPhys === '') {
+        return;
+    }
+
+    $qi = '`' . str_replace('`', '``', (string) $installmentsPhys) . '`';
+    $tenantClause = '(i.tenant_id = ? OR i.tenant_id IS NULL OR TRIM(COALESCE(i.tenant_id, \'\')) = \'\')';
+
+    $sel = $pdo->prepare("
+        SELECT i.id AS id
+        FROM {$qi} i
+        WHERE i.booking_id = ?
+          AND i.installment_number = ?
+          AND {$tenantClause}
+        LIMIT 1
+    ");
+    $sel->execute([$bookingId, $installmentNumber, $tenantId]);
+    $id = $sel->fetchColumn();
+    if (!$id || (int) $id <= 0) {
+        return;
+    }
+
+    staff_installments_apply_paid_with_unlocks(
+        $pdo,
+        $tenantId,
+        $bookingId,
+        $paymentId,
+        (string) $installmentsPhys,
+        [['id' => (int) $id, 'installment_number' => $installmentNumber]]
+    );
+}
