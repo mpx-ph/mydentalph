@@ -261,6 +261,11 @@ body { font-family: 'Manrope', sans-serif; }
                 </div>
             </div>
             <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Minimum spend (₱)</label>
+                <input id="programMinSpend" type="number" min="0" step="1" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold focus:border-primary focus:ring-2 focus:ring-primary/15" placeholder="0"/>
+                <p class="text-xs text-slate-500 mt-1.5 leading-relaxed">Cart / invoice subtotal must reach this amount before the discount applies. Use <span class="font-semibold text-slate-600">0</span> for no minimum.</p>
+            </div>
+            <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Requirements</label>
                 <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 space-y-3">
                     <label class="flex items-center gap-3 cursor-pointer group">
@@ -490,7 +495,8 @@ body { font-family: 'Manrope', sans-serif; }
                 validTo: iso(12, 31),
                 serviceScope: 'all',
                 serviceIds: [],
-                stacking: 'no'
+                stacking: 'no',
+                minSpend: 0
             },
             {
                 id: uid(),
@@ -504,7 +510,8 @@ body { font-family: 'Manrope', sans-serif; }
                 validTo: iso(12, 31),
                 serviceScope: 'all',
                 serviceIds: [],
-                stacking: 'no'
+                stacking: 'no',
+                minSpend: 0
             },
             {
                 id: uid(),
@@ -518,7 +525,8 @@ body { font-family: 'Manrope', sans-serif; }
                 validTo: iso(5, 31),
                 serviceScope: 'selected',
                 serviceIds: [],
-                stacking: 'yes'
+                stacking: 'yes',
+                minSpend: 1500
             }
         ];
     }
@@ -611,10 +619,20 @@ body { font-family: 'Manrope', sans-serif; }
         } catch (e) {}
     }
 
+    function coerceMinSpend(p) {
+        var ms = parseFloat(p.minSpend);
+        if (!isFinite(ms) || ms < 0) {
+            p.minSpend = 0;
+        } else {
+            p.minSpend = Math.round(ms);
+        }
+    }
+
     function normalizeProgram(raw) {
         var p = raw;
         if (typeof p.reqUploadProof === 'boolean' && typeof p.reqNotes === 'boolean') {
             if ('eligibility' in p) delete p.eligibility;
+            coerceMinSpend(p);
             return p;
         }
         if (p.eligibility === 'promo') {
@@ -628,6 +646,7 @@ body { font-family: 'Manrope', sans-serif; }
             p.reqNotes = false;
         }
         delete p.eligibility;
+        coerceMinSpend(p);
         return p;
     }
 
@@ -660,7 +679,7 @@ body { font-family: 'Manrope', sans-serif; }
         var migrated = false;
         p = p.map(function (row) {
             var n = Object.assign({}, row);
-            if ('eligibility' in n || typeof n.reqUploadProof !== 'boolean' || typeof n.reqNotes !== 'boolean') {
+            if ('eligibility' in n || typeof n.reqUploadProof !== 'boolean' || typeof n.reqNotes !== 'boolean' || n.minSpend === undefined) {
                 migrated = true;
             }
             normalizeProgram(n);
@@ -731,8 +750,17 @@ body { font-family: 'Manrope', sans-serif; }
 
     function formatDiscountSummary(prog) {
         if (!prog) return '—';
-        if (prog.discountType === 'percentage') return prog.name + ' (' + prog.value + '%)';
-        return prog.name + ' (₱' + Number(prog.value).toLocaleString() + ' off)';
+        var base;
+        if (prog.discountType === 'percentage') {
+            base = prog.name + ' (' + prog.value + '%)';
+        } else {
+            base = prog.name + ' (₱' + Number(prog.value).toLocaleString() + ' off)';
+        }
+        var min = typeof prog.minSpend === 'number' && prog.minSpend > 0 ? prog.minSpend : 0;
+        if (min > 0) {
+            base += ' · Min. spend ₱' + min.toLocaleString();
+        }
+        return base;
     }
 
     function openOverlay(el) {
@@ -878,7 +906,10 @@ body { font-family: 'Manrope', sans-serif; }
             hint.classList.add('hidden');
             return;
         }
-        hint.textContent = 'Requires: ' + requirementsSummaryProgram(prog) + '.';
+        var minLine = (typeof prog.minSpend === 'number' && prog.minSpend > 0)
+            ? ' Min. spend ₱' + prog.minSpend.toLocaleString() + '.'
+            : '';
+        hint.textContent = 'Requires: ' + requirementsSummaryProgram(prog) + '.' + minLine;
         hint.classList.remove('hidden');
         proofWrap.classList.toggle('hidden', !prog.reqUploadProof);
         notesWrap.classList.toggle('hidden', !prog.reqNotes);
@@ -918,6 +949,7 @@ body { font-family: 'Manrope', sans-serif; }
             document.getElementById('programName').value = p.name;
             document.getElementById('programDiscountType').value = p.discountType;
             document.getElementById('programValue').value = p.value;
+            document.getElementById('programMinSpend').value = typeof p.minSpend === 'number' && p.minSpend > 0 ? p.minSpend : '';
             document.getElementById('reqUploadProof').checked = !!p.reqUploadProof;
             document.getElementById('reqNotes').checked = !!p.reqNotes;
             document.getElementById('programEnabled').checked = !!p.enabled;
@@ -932,6 +964,7 @@ body { font-family: 'Manrope', sans-serif; }
             document.getElementById('programEnabled').checked = true;
             document.getElementById('reqUploadProof').checked = true;
             document.getElementById('reqNotes').checked = false;
+            document.getElementById('programMinSpend').value = '';
             document.querySelector('input[name="programScope"][value="all"]').checked = true;
             setProgramServiceChecks([]);
         }
@@ -967,6 +1000,7 @@ body { font-family: 'Manrope', sans-serif; }
             name: document.getElementById('programName').value.trim(),
             discountType: document.getElementById('programDiscountType').value,
             value: parseFloat(document.getElementById('programValue').value) || 0,
+            minSpend: Math.max(0, Math.round(parseFloat(document.getElementById('programMinSpend').value) || 0)),
             reqUploadProof: document.getElementById('reqUploadProof').checked,
             reqNotes: document.getElementById('reqNotes').checked,
             enabled: document.getElementById('programEnabled').checked,
@@ -1155,7 +1189,12 @@ body { font-family: 'Manrope', sans-serif; }
         var eff = effectiveStatus(r);
         document.getElementById('verifyRecordId').value = r.id;
         document.getElementById('verifyPatientLine').textContent = (r.patientName || '—') + (r.patientRef ? ' · ' + r.patientRef : '');
-        document.getElementById('verifyDiscountLine').textContent = (r.programName || '—') + ' · ' + requirementsSummaryRecord(r);
+        var vProg = getPrograms().find(function (x) { return x.id === r.programId; });
+        var discLine = (r.programName || '—') + ' · ' + requirementsSummaryRecord(r);
+        if (vProg && typeof vProg.minSpend === 'number' && vProg.minSpend > 0) {
+            discLine += ' · Min. spend ₱' + vProg.minSpend.toLocaleString();
+        }
+        document.getElementById('verifyDiscountLine').textContent = discLine;
         var pnw = document.getElementById('verifyPatientNotesWrap');
         var pnt = document.getElementById('verifyPatientNotes');
         if (r.applicationNotes && String(r.applicationNotes).trim() !== '') {
