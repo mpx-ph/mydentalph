@@ -30,12 +30,34 @@ if (!is_array($input)) {
 $userId = trim((string) ($input['user_id'] ?? ''));
 $tenantId = trim((string) ($input['tenant_id'] ?? ''));
 $programId = isset($input['discount_program_id']) ? (int) $input['discount_program_id'] : 0;
+$requestedPatientId = trim((string) ($input['patient_id'] ?? ''));
 
 if ($userId === '') {
     api_json_exit(false, 'Missing user_id');
 }
 if ($programId <= 0) {
     api_json_exit(false, 'Invalid discount program');
+}
+
+/**
+ * Primary account holder or a dependent (owned) patient row the user may apply for.
+ *
+ * @return array<string,mixed>|null
+ */
+function api_discount_resolve_patient_for_user(PDO $pdo, string $userId, string $tenantId, string $patientId): ?array
+{
+    $st = $pdo->prepare(
+        'SELECT * FROM tbl_patients
+         WHERE tenant_id = ? AND patient_id = ?
+           AND (
+                 linked_user_id = ?
+              OR (owner_user_id = ? AND linked_user_id IS NULL)
+           )
+         LIMIT 1'
+    );
+    $st->execute([$tenantId, $patientId, $userId, $userId]);
+    $row = $st->fetch(PDO::FETCH_ASSOC);
+    return $row ?: null;
 }
 
 function patient_proof_upload_relative(string $tenantId, int $verificationId, string $dataUrlOrBase64): ?string
@@ -111,9 +133,16 @@ try {
         api_json_exit(false, 'Only patient accounts may submit applications');
     }
 
-    $patient = api_profile_fetch_patient($pdo, $userId, $tenantId);
-    if (!$patient || empty($patient['patient_id'])) {
-        api_json_exit(false, 'Complete your patient profile before applying for a discount.');
+    if ($requestedPatientId !== '') {
+        $patient = api_discount_resolve_patient_for_user($pdo, $userId, $tenantId, $requestedPatientId);
+        if (!$patient) {
+            api_json_exit(false, 'Invalid patient selection.');
+        }
+    } else {
+        $patient = api_profile_fetch_patient($pdo, $userId, $tenantId);
+        if (!$patient || empty($patient['patient_id'])) {
+            api_json_exit(false, 'Complete your patient profile before applying for a discount.');
+        }
     }
 
     $patientId = trim((string) $patient['patient_id']);

@@ -151,6 +151,55 @@ try {
         $displayName = trim((string) ($user['full_name'] ?? ''));
     }
 
+    /** @var list<array{patient_id: string, display_name: string}> */
+    $familyPatients = [];
+    if ($patientId !== '') {
+        $familyPatients[] = [
+            'patient_id' => $patientId,
+            'display_name' => $displayName !== '' ? $displayName : trim($fn . ' ' . $ln),
+        ];
+    }
+    $depNamesStmt = $pdo->prepare(
+        'SELECT patient_id, first_name, last_name FROM tbl_patients
+         WHERE tenant_id = ?
+           AND owner_user_id = ?
+           AND linked_user_id IS NULL
+         ORDER BY first_name ASC, last_name ASC, patient_id ASC'
+    );
+    $depNamesStmt->execute([$tenantId, $userId]);
+    while ($dr = $depNamesStmt->fetch(PDO::FETCH_ASSOC)) {
+        $dpid = trim((string) ($dr['patient_id'] ?? ''));
+        if ($dpid === '') {
+            continue;
+        }
+        $dup = false;
+        foreach ($familyPatients as $fp) {
+            if (($fp['patient_id'] ?? '') === $dpid) {
+                $dup = true;
+                break;
+            }
+        }
+        if ($dup) {
+            continue;
+        }
+        $dfn = trim((string) ($dr['first_name'] ?? ''));
+        $dln = trim((string) ($dr['last_name'] ?? ''));
+        $dn = trim($dfn . ' ' . $dln);
+        $familyPatients[] = [
+            'patient_id' => $dpid,
+            'display_name' => $dn !== '' ? $dn : $dpid,
+        ];
+    }
+
+    /** @var list<string> */
+    $familyPatientRefs = [];
+    foreach ($familyPatients as $fp) {
+        $pid = trim((string) ($fp['patient_id'] ?? ''));
+        if ($pid !== '') {
+            $familyPatientRefs[] = $pid;
+        }
+    }
+
     $progStmt = $pdo->prepare(
         'SELECT * FROM tbl_discount_programs
          WHERE tenant_id = ?
@@ -169,7 +218,7 @@ try {
     $verifications = [];
     $verifiedLabels = [];
 
-    if ($patientId !== '' || $displayName !== '') {
+    if ($patientId !== '' || $displayName !== '' || $familyPatientRefs !== []) {
         $vSql = '
             SELECT v.*,
                 p.valid_to AS program_valid_to,
@@ -185,26 +234,22 @@ try {
         ';
         $vParams = [$tenantId];
 
-        if ($patientId !== '') {
-            if ($displayName !== '') {
-                $vSql .= '
-                  AND (
-                        v.patient_ref = ?
-                     OR (
-                          (v.patient_ref IS NULL OR TRIM(v.patient_ref) = \'\')
-                          AND LOWER(TRIM(v.patient_name)) = LOWER(?)
-                        )
-                  )
-                ';
-                $vParams[] = $patientId;
-                $vParams[] = $displayName;
-            } else {
-                $vSql .= ' AND v.patient_ref = ? ';
-                $vParams[] = $patientId;
+        $orParts = [];
+        if ($familyPatientRefs !== []) {
+            $placeholders = implode(',', array_fill(0, count($familyPatientRefs), '?'));
+            $orParts[] = "v.patient_ref IN ($placeholders)";
+            foreach ($familyPatientRefs as $ref) {
+                $vParams[] = $ref;
             }
-        } else {
-            $vSql .= ' AND LOWER(TRIM(v.patient_name)) = LOWER(?) ';
+        }
+        if ($displayName !== '') {
+            $orParts[] = '( (v.patient_ref IS NULL OR TRIM(v.patient_ref) = \'\') AND LOWER(TRIM(v.patient_name)) = LOWER(?) )';
             $vParams[] = $displayName;
+        }
+        if ($orParts !== []) {
+            $vSql .= ' AND (' . implode(' OR ', $orParts) . ') ';
+        } else {
+            $vSql .= ' AND 1=0 ';
         }
 
         $vSql .= ' ORDER BY v.date_applied DESC, v.discount_verification_id DESC LIMIT 100';
@@ -233,6 +278,7 @@ try {
         'verifications' => $verifications,
         'verified_discount_labels' => $verifiedList,
         'patient_id' => $patientId !== '' ? $patientId : null,
+        'family_patients' => $familyPatients,
     ]);
 } catch (Throwable $e) {
     api_json_exit(false, 'Error: ' . $e->getMessage());

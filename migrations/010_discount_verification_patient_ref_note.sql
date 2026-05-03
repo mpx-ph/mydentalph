@@ -1,0 +1,4 @@
+-- No schema change required: tbl_discount_verifications.patient_ref already stores
+-- the applying patient's patient_id (account holder or dependent). Mobile app and
+-- submit_discount_application.php now send optional JSON patient_id to attach the
+-- application to the selected tbl_patients row; history uses patient_ref IN (...).
