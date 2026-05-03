@@ -117,6 +117,9 @@ if ($__hdr_role === 'dentist') {
       <button type="button" class="hover:bg-surface-container-low rounded-full p-2.5 transition-all relative border-0 bg-transparent cursor-pointer hidden sm:inline-flex" aria-label="Notifications">
         <span class="material-symbols-outlined text-on-surface-variant">notifications</span>
       </button>
+      <button type="button" id="staff-header-qr-btn" class="hover:bg-surface-container-low rounded-full p-2.5 transition-all relative border-0 bg-transparent cursor-pointer hidden sm:inline-flex" aria-label="QR code">
+        <span class="material-symbols-outlined text-on-surface-variant">qr_code_2</span>
+      </button>
       <button type="button" class="hover:bg-surface-container-low rounded-full p-2.5 transition-all border-0 bg-transparent cursor-pointer hidden sm:inline-flex" aria-label="Help">
         <span class="material-symbols-outlined text-on-surface-variant">help_outline</span>
       </button>
