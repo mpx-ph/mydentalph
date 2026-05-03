@@ -101,28 +101,18 @@ if (isset($_SESSION['clinic_hours_message']) && is_array($_SESSION['clinic_hours
     unset($_SESSION['clinic_hours_message']);
 }
 
+$currentTenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
+
 $fallbackRowsByDayIndex = $defaultClinicHoursRows;
 $clinicHoursRowsByDate = [];
 
 try {
     $pdo = getDBConnection();
-    try {
-        $pdo->exec("ALTER TABLE tbl_clinic_hours ADD COLUMN clinic_date DATE NULL AFTER clinic_hours_id");
-    } catch (Throwable $e) {
-        // Column may already exist.
-    }
-    try {
-        $pdo->exec("ALTER TABLE tbl_clinic_hours DROP INDEX unique_day");
-    } catch (Throwable $e) {
-        // Index may not exist or already dropped.
-    }
-    try {
-        $pdo->exec("ALTER TABLE tbl_clinic_hours ADD UNIQUE KEY unique_clinic_date (clinic_date)");
-    } catch (Throwable $e) {
-        // Index may already exist.
-    }
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_apply_clinic_hours'])) {
+        if ($currentTenantId === '') {
+            throw new RuntimeException('You must be signed in under a clinic to update clinic hours.');
+        }
         $weekStartForRedirect = isset($_POST['week_start']) ? trim((string) $_POST['week_start']) : '';
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $weekStartForRedirect)) {
             $weekStartForRedirect = '';
@@ -162,10 +152,10 @@ try {
             $closeTime = $closeTimeDt->format('H:i:s');
         }
 
-        $checkStmt = $pdo->prepare('SELECT clinic_hours_id FROM tbl_clinic_hours WHERE clinic_date = ? LIMIT 1');
+        $checkStmt = $pdo->prepare('SELECT clinic_hours_id FROM tbl_clinic_hours WHERE tenant_id = ? AND clinic_date = ? LIMIT 1');
         $insertStmt = $pdo->prepare('
-            INSERT INTO tbl_clinic_hours (clinic_date, day_of_week, open_time, close_time, is_closed, notes)
-            VALUES (?, ?, ?, ?, ?, NULL)
+            INSERT INTO tbl_clinic_hours (tenant_id, clinic_date, day_of_week, open_time, close_time, is_closed, notes)
+            VALUES (?, ?, ?, ?, ?, ?, NULL)
         ');
         $updateStmt = $pdo->prepare('
             UPDATE tbl_clinic_hours
@@ -174,7 +164,8 @@ try {
                 close_time = ?,
                 is_closed = ?,
                 updated_at = CURRENT_TIMESTAMP
-            WHERE clinic_date = ?
+            WHERE tenant_id = ?
+              AND clinic_date = ?
         ');
 
         $inserted = 0;
@@ -186,7 +177,7 @@ try {
             for ($d = $dateFrom; $d <= $dateTo; $d = $d->modify('+1 day')) {
                 $dow = (int) $d->format('w');
                 $clinicDateStr = $d->format('Y-m-d');
-                $checkStmt->execute([$clinicDateStr]);
+                $checkStmt->execute([$currentTenantId, $clinicDateStr]);
                 $exists = (bool) $checkStmt->fetchColumn();
 
                 if ($exists) {
@@ -196,6 +187,7 @@ try {
                             $isClosed ? null : $openTime,
                             $isClosed ? null : $closeTime,
                             $isClosed ? 1 : 0,
+                            $currentTenantId,
                             $clinicDateStr,
                         ]);
                         $updated++;
@@ -204,6 +196,7 @@ try {
                     }
                 } else {
                     $insertStmt->execute([
+                        $currentTenantId,
                         $clinicDateStr,
                         $dow,
                         $isClosed ? null : $openTime,
@@ -251,6 +244,9 @@ try {
     }
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_clinic_hours'])) {
+        if ($currentTenantId === '') {
+            throw new RuntimeException('You must be signed in under a clinic to update clinic hours.');
+        }
         $weekStartForRedirect = isset($_POST['week_start']) ? trim((string) $_POST['week_start']) : '';
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $weekStartForRedirect)) {
             $weekStartForRedirect = '';
@@ -290,8 +286,8 @@ try {
         }
 
         $upsertSql = "
-            INSERT INTO tbl_clinic_hours (clinic_date, day_of_week, open_time, close_time, is_closed, notes)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO tbl_clinic_hours (tenant_id, clinic_date, day_of_week, open_time, close_time, is_closed, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 day_of_week = VALUES(day_of_week),
                 open_time = VALUES(open_time),
@@ -302,6 +298,7 @@ try {
         ";
         $upsertStmt = $pdo->prepare($upsertSql);
         $upsertStmt->execute([
+            $currentTenantId,
             $clinicDate,
             $dayOfWeek,
             $isClosed ? null : $openTime,
@@ -322,9 +319,11 @@ try {
         exit;
     }
 
-    $legacyStmt = $pdo->query('SELECT day_of_week, open_time, close_time, is_closed, notes FROM tbl_clinic_hours WHERE clinic_date IS NULL');
-    $legacyRows = $legacyStmt->fetchAll(PDO::FETCH_ASSOC);
-    foreach ($legacyRows as $dbRow) {
+    if ($currentTenantId !== '') {
+        $legacyStmt = $pdo->prepare('SELECT day_of_week, open_time, close_time, is_closed, notes FROM tbl_clinic_hours WHERE tenant_id = ? AND clinic_date IS NULL');
+        $legacyStmt->execute([$currentTenantId]);
+        $legacyRows = $legacyStmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($legacyRows as $dbRow) {
         $dayIndex = isset($dbRow['day_of_week']) ? (int) $dbRow['day_of_week'] : -1;
         if (!isset($fallbackRowsByDayIndex[$dayIndex])) {
             continue;
@@ -343,36 +342,39 @@ try {
             'close_time_raw' => $isClosedFromDb ? '' : substr((string) $dbRow['close_time'], 0, 5),
             'notes' => isset($dbRow['notes']) ? trim((string) $dbRow['notes']) : '',
         ];
-    }
-
-    $weekHoursStmt = $pdo->prepare("
-        SELECT clinic_date, day_of_week, open_time, close_time, is_closed, notes
-        FROM tbl_clinic_hours
-        WHERE clinic_date IS NOT NULL
-          AND clinic_date BETWEEN ? AND ?
-    ");
-    $weekHoursStmt->execute([
-        $selectedWeekStart->format('Y-m-d'),
-        $selectedWeekEnd->format('Y-m-d'),
-    ]);
-    $weekRows = $weekHoursStmt->fetchAll(PDO::FETCH_ASSOC);
-    foreach ($weekRows as $weekRow) {
-        $dateKey = isset($weekRow['clinic_date']) ? trim((string) $weekRow['clinic_date']) : '';
-        if ($dateKey === '') {
-            continue;
         }
-        $dayIndex = isset($weekRow['day_of_week']) ? (int) $weekRow['day_of_week'] : -1;
-        $dayFallback = isset($fallbackRowsByDayIndex[$dayIndex]) ? $fallbackRowsByDayIndex[$dayIndex] : ['open_time' => '08:00 AM', 'close_time' => '05:00 PM'];
-        $isClosedFromDb = isset($weekRow['is_closed']) && (int) $weekRow['is_closed'] === 1;
 
-        $clinicHoursRowsByDate[$dateKey] = [
-            'open_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($weekRow['open_time'], $dayFallback['open_time']),
-            'close_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($weekRow['close_time'], $dayFallback['close_time']),
-            'is_closed' => $isClosedFromDb,
-            'open_time_raw' => $isClosedFromDb ? '' : substr((string) $weekRow['open_time'], 0, 5),
-            'close_time_raw' => $isClosedFromDb ? '' : substr((string) $weekRow['close_time'], 0, 5),
-            'notes' => isset($weekRow['notes']) ? trim((string) $weekRow['notes']) : '',
-        ];
+        $weekHoursStmt = $pdo->prepare("
+            SELECT clinic_date, day_of_week, open_time, close_time, is_closed, notes
+            FROM tbl_clinic_hours
+            WHERE tenant_id = ?
+              AND clinic_date IS NOT NULL
+              AND clinic_date BETWEEN ? AND ?
+        ");
+        $weekHoursStmt->execute([
+            $currentTenantId,
+            $selectedWeekStart->format('Y-m-d'),
+            $selectedWeekEnd->format('Y-m-d'),
+        ]);
+        $weekRows = $weekHoursStmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($weekRows as $weekRow) {
+            $dateKey = isset($weekRow['clinic_date']) ? trim((string) $weekRow['clinic_date']) : '';
+            if ($dateKey === '') {
+                continue;
+            }
+            $dayIndex = isset($weekRow['day_of_week']) ? (int) $weekRow['day_of_week'] : -1;
+            $dayFallback = isset($fallbackRowsByDayIndex[$dayIndex]) ? $fallbackRowsByDayIndex[$dayIndex] : ['open_time' => '08:00 AM', 'close_time' => '05:00 PM'];
+            $isClosedFromDb = isset($weekRow['is_closed']) && (int) $weekRow['is_closed'] === 1;
+
+            $clinicHoursRowsByDate[$dateKey] = [
+                'open_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($weekRow['open_time'], $dayFallback['open_time']),
+                'close_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($weekRow['close_time'], $dayFallback['close_time']),
+                'is_closed' => $isClosedFromDb,
+                'open_time_raw' => $isClosedFromDb ? '' : substr((string) $weekRow['open_time'], 0, 5),
+                'close_time_raw' => $isClosedFromDb ? '' : substr((string) $weekRow['close_time'], 0, 5),
+                'notes' => isset($weekRow['notes']) ? trim((string) $weekRow['notes']) : '',
+            ];
+        }
     }
 } catch (Throwable $e) {
     error_log('Staff clinic hours load/save error: ' . $e->getMessage());
@@ -615,6 +617,15 @@ try {
                 </div>
             </div>
         </section>
+
+        <?php if ($currentTenantId === ''): ?>
+            <section class="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-900">
+                <p class="text-sm font-semibold">
+                    You are not associated with a clinic in this session, so schedules here are placeholders only.
+                    Staff sign-in should set tenant_id before saving clinic hours.
+                </p>
+            </section>
+        <?php endif; ?>
 
         <?php if ($formMessage !== '' && $formMessageType === 'error'): ?>
             <section class="rounded-2xl border px-5 py-4 <?php echo $formMessageType === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'; ?>">

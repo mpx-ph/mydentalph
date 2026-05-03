@@ -574,15 +574,24 @@ CREATE TABLE IF NOT EXISTS tbl_schedule_blocks (
 -- ============================================
 CREATE TABLE IF NOT EXISTS tbl_clinic_hours (
     clinic_hours_id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(20) NOT NULL,
     clinic_date DATE NULL COMMENT 'Specific calendar date for weekly view entries',
     day_of_week TINYINT NOT NULL COMMENT '0=Sunday, 1=Monday, ..., 6=Saturday',
     open_time TIME NULL,
     close_time TIME NULL,
     is_closed TINYINT(1) DEFAULT 0 COMMENT '1 = closed, 0 = open',
     notes VARCHAR(255) NULL,
+    scope_key VARCHAR(32) GENERATED ALWAYS AS (
+        CASE
+            WHEN clinic_date IS NOT NULL THEN CONCAT('D', DATE_FORMAT(clinic_date, '%Y-%m-%d'))
+            ELSE CONCAT('W', CAST(day_of_week AS CHAR))
+        END
+    ) STORED,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_clinic_date (clinic_date)
+    UNIQUE KEY uq_clinic_hours_tenant_scope (tenant_id, scope_key),
+    KEY idx_clinic_hours_tenant_clinic_date (tenant_id, clinic_date),
+    CONSTRAINT fk_clinic_hours_tenant FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id) ON DELETE CASCADE
 );
 
 -- ============================================

@@ -292,6 +292,7 @@ foreach ($weekDays as $day) {
 
 try {
     $pdo = getDBConnection();
+
     $defaultClinicHoursByDayIndex = [
         0 => ['open_time_raw' => '09:00', 'close_time_raw' => '17:00', 'is_closed' => false],
         1 => ['open_time_raw' => '08:00', 'close_time_raw' => '17:00', 'is_closed' => false],
@@ -301,26 +302,13 @@ try {
         5 => ['open_time_raw' => '08:00', 'close_time_raw' => '17:00', 'is_closed' => false],
         6 => ['open_time_raw' => '09:00', 'close_time_raw' => '15:00', 'is_closed' => false],
     ];
-    $legacyClinicHoursByDayIndex = $defaultClinicHoursByDayIndex;
-
-    $legacyHoursStmt = $pdo->query('SELECT day_of_week, open_time, close_time, is_closed FROM tbl_clinic_hours WHERE clinic_date IS NULL');
-    $legacyHoursRows = $legacyHoursStmt->fetchAll(PDO::FETCH_ASSOC);
-    foreach ($legacyHoursRows as $legacyHoursRow) {
-        $legacyDayIndex = isset($legacyHoursRow['day_of_week']) ? (int) $legacyHoursRow['day_of_week'] : -1;
-        if (!isset($legacyClinicHoursByDayIndex[$legacyDayIndex])) {
-            continue;
+    $resolveClinicHoursByDate = function ($dateValue, $effectiveTenantId = '') use ($pdo, $tz, $defaultClinicHoursByDayIndex, $tenantId) {
+        static $legacyCache = [];
+        $tid = trim((string) $effectiveTenantId);
+        if ($tid === '') {
+            $tid = trim((string) $tenantId);
         }
-        $legacyIsClosed = isset($legacyHoursRow['is_closed']) && (int) $legacyHoursRow['is_closed'] === 1;
-        $legacyOpen = $legacyIsClosed ? '' : substr((string) ($legacyHoursRow['open_time'] ?? ''), 0, 5);
-        $legacyClose = $legacyIsClosed ? '' : substr((string) ($legacyHoursRow['close_time'] ?? ''), 0, 5);
-        $legacyClinicHoursByDayIndex[$legacyDayIndex] = [
-            'open_time_raw' => $legacyOpen,
-            'close_time_raw' => $legacyClose,
-            'is_closed' => $legacyIsClosed,
-        ];
-    }
 
-    $resolveClinicHoursByDate = static function ($dateValue) use ($pdo, $tz, $legacyClinicHoursByDayIndex, $defaultClinicHoursByDayIndex) {
         $dateText = trim((string) $dateValue);
         $dateObj = DateTimeImmutable::createFromFormat('Y-m-d', $dateText, $tz);
         if (!($dateObj instanceof DateTimeImmutable)) {
@@ -335,16 +323,43 @@ try {
         }
 
         $dayIndex = (int) $dateObj->format('w');
-        $fallback = $legacyClinicHoursByDayIndex[$dayIndex] ?? $defaultClinicHoursByDayIndex[$dayIndex] ?? ['open_time_raw' => '08:00', 'close_time_raw' => '17:00', 'is_closed' => false];
 
-        $hoursStmt = $pdo->prepare("
-            SELECT open_time, close_time, is_closed
-            FROM tbl_clinic_hours
-            WHERE clinic_date = ?
-            LIMIT 1
-        ");
-        $hoursStmt->execute([$dateText]);
-        $hoursRow = $hoursStmt->fetch(PDO::FETCH_ASSOC);
+        if ($tid !== '' && !isset($legacyCache[$tid])) {
+            $mapByDay = $defaultClinicHoursByDayIndex;
+            $legacyHoursStmt = $pdo->prepare('SELECT day_of_week, open_time, close_time, is_closed FROM tbl_clinic_hours WHERE tenant_id = ? AND clinic_date IS NULL');
+            $legacyHoursStmt->execute([$tid]);
+            foreach ($legacyHoursStmt->fetchAll(PDO::FETCH_ASSOC) as $legacyHoursRow) {
+                $legacyDayIndex = isset($legacyHoursRow['day_of_week']) ? (int) $legacyHoursRow['day_of_week'] : -1;
+                if (!isset($mapByDay[$legacyDayIndex])) {
+                    continue;
+                }
+                $legacyIsClosed = isset($legacyHoursRow['is_closed']) && (int) $legacyHoursRow['is_closed'] === 1;
+                $legacyOpen = $legacyIsClosed ? '' : substr((string) ($legacyHoursRow['open_time'] ?? ''), 0, 5);
+                $legacyClose = $legacyIsClosed ? '' : substr((string) ($legacyHoursRow['close_time'] ?? ''), 0, 5);
+                $mapByDay[$legacyDayIndex] = [
+                    'open_time_raw' => $legacyOpen,
+                    'close_time_raw' => $legacyClose,
+                    'is_closed' => $legacyIsClosed,
+                ];
+            }
+            $legacyCache[$tid] = $mapByDay;
+        }
+
+        $legacyPerDay = ($tid !== '' && isset($legacyCache[$tid])) ? $legacyCache[$tid] : $defaultClinicHoursByDayIndex;
+        $fallback = $legacyPerDay[$dayIndex] ?? $defaultClinicHoursByDayIndex[$dayIndex] ?? ['open_time_raw' => '08:00', 'close_time_raw' => '17:00', 'is_closed' => false];
+
+        $hoursRow = null;
+        if ($tid !== '') {
+            $hoursStmt = $pdo->prepare("
+                SELECT open_time, close_time, is_closed
+                FROM tbl_clinic_hours
+                WHERE tenant_id = ?
+                  AND clinic_date = ?
+                LIMIT 1
+            ");
+            $hoursStmt->execute([$tid, $dateText]);
+            $hoursRow = $hoursStmt->fetch(PDO::FETCH_ASSOC);
+        }
 
         $hasRecord = is_array($hoursRow) && !empty($hoursRow);
         $isClosed = $hasRecord
@@ -464,7 +479,23 @@ try {
             exit;
         }
 
-        $resolvedHours = $resolveClinicHoursByDate($lookupDate);
+        $resolvedLookupTenant = $tenantId;
+        if ($resolvedLookupTenant === '') {
+            $resolvedWalkinTenant = clinic_resolve_walkin_tenant_id($pdo);
+            if (is_string($resolvedWalkinTenant) && $resolvedWalkinTenant !== '') {
+                $resolvedLookupTenant = $resolvedWalkinTenant;
+            }
+        }
+        if ($resolvedLookupTenant === '') {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Unable to resolve tenant.',
+            ]);
+            exit;
+        }
+
+        $resolvedHours = $resolveClinicHoursByDate($lookupDate, $resolvedLookupTenant);
 
         echo json_encode([
             'success' => true,
