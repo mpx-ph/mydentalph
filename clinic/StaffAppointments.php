@@ -755,6 +755,7 @@ $setAppointmentHref = BASE_URL . 'StaffSetAppointments.php';
 if ($currentTenantSlug !== '') {
     $setAppointmentHref .= '?' . http_build_query(['clinic_slug' => $currentTenantSlug]);
 }
+$qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
 ?>
 <!DOCTYPE html>
 <html class="light" lang="en">
@@ -1377,6 +1378,77 @@ if ($currentTenantSlug !== '') {
     </div>
 </div>
 
+<div id="qrCheckInModal" class="staff-modal-overlay hidden fixed inset-0 z-[90]" aria-hidden="true">
+    <div class="staff-modal-backdrop" id="qrCheckInBackdrop"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="staff-modal-panel bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="qrCheckInTitle">
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                    <p class="text-[11px] font-black uppercase tracking-[0.18em] text-primary/70">Scan</p>
+                    <h4 id="qrCheckInTitle" class="text-xl font-bold text-on-background">Patient Check-In</h4>
+                </div>
+                <button type="button" id="qrCheckInCloseBtn" class="w-8 h-8 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Close">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-5 bg-slate-50/60 space-y-4">
+                <p class="text-sm font-medium text-slate-600">Scan the patient&apos;s booking QR code.</p>
+                <div>
+                    <label for="qrCheckInInput" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-widest mb-2">Scanner input</label>
+                    <input
+                        id="qrCheckInInput"
+                        type="text"
+                        class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary text-sm font-mono"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                        aria-describedby="qrCheckInError"
+                    />
+                </div>
+                <div id="qrCheckInError" class="hidden rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800" role="alert"></div>
+                <div class="flex justify-end">
+                    <button type="button" id="qrCheckInCloseFooterBtn" class="rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-sm font-bold px-5 py-2.5 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="qrCheckInSuccessModal" class="staff-modal-overlay hidden fixed inset-0 z-[95]" aria-hidden="true">
+    <div class="staff-modal-backdrop" id="qrCheckInSuccessBackdrop"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="staff-modal-panel bg-white w-full max-w-md rounded-3xl shadow-2xl border border-emerald-100 overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="qrCheckInSuccessTitle">
+            <div class="px-5 py-5 text-center space-y-4">
+                <span class="material-symbols-outlined text-emerald-600 text-5xl block mx-auto" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                <div>
+                    <h4 id="qrCheckInSuccessTitle" class="text-xl font-bold text-on-background">Checked in</h4>
+                    <p class="text-sm text-slate-500 mt-1">Appointment status updated.</p>
+                </div>
+                <dl class="text-left rounded-2xl border border-slate-100 bg-slate-50/80 px-4 py-3 space-y-2 text-sm">
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">Patient</dt>
+                        <dd id="qrCheckInSuccessPatient" class="font-bold text-slate-900 text-right break-words"></dd>
+                    </div>
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">Booking ID</dt>
+                        <dd id="qrCheckInSuccessBooking" class="font-bold text-primary text-right break-all"></dd>
+                    </div>
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">Status</dt>
+                        <dd id="qrCheckInSuccessStatus" class="font-bold text-blue-700 text-right"></dd>
+                    </div>
+                </dl>
+                <button type="button" id="qrCheckInSuccessOkBtn" class="w-full rounded-xl bg-primary hover:bg-primary/90 text-white text-sm font-bold py-3 transition-colors">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     const modal = document.getElementById('treatmentModal');
     const modalBackdrop = document.getElementById('modalBackdrop');
@@ -1390,6 +1462,157 @@ if ($currentTenantSlug !== '') {
     const bookingTypeWalkInBtn = document.getElementById('bookingTypeWalkInBtn');
     const bookingTypeAppointmentBtn = document.getElementById('bookingTypeAppointmentBtn');
     const appointmentsPageContent = document.getElementById('appointmentsPageContent');
+
+    const qrCheckInModal = document.getElementById('qrCheckInModal');
+    const qrCheckInBackdrop = document.getElementById('qrCheckInBackdrop');
+    const qrCheckInOpenBtn = document.getElementById('openPatientCheckInQrBtn');
+    const qrCheckInCloseBtn = document.getElementById('qrCheckInCloseBtn');
+    const qrCheckInCloseFooterBtn = document.getElementById('qrCheckInCloseFooterBtn');
+    const qrCheckInInput = document.getElementById('qrCheckInInput');
+    const qrCheckInError = document.getElementById('qrCheckInError');
+    const qrCheckInSuccessModal = document.getElementById('qrCheckInSuccessModal');
+    const qrCheckInSuccessBackdrop = document.getElementById('qrCheckInSuccessBackdrop');
+    const qrCheckInSuccessOkBtn = document.getElementById('qrCheckInSuccessOkBtn');
+    const qrCheckInSuccessPatient = document.getElementById('qrCheckInSuccessPatient');
+    const qrCheckInSuccessBooking = document.getElementById('qrCheckInSuccessBooking');
+    const qrCheckInSuccessStatus = document.getElementById('qrCheckInSuccessStatus');
+    const qrCheckinApiUrl = <?php echo json_encode($qrCheckinApiUrl, JSON_UNESCAPED_SLASHES); ?>;
+
+    let qrCheckInBusy = false;
+    let qrCheckInSuccessTimer = null;
+
+    function hideQrCheckInError() {
+        if (!qrCheckInError) return;
+        qrCheckInError.textContent = '';
+        qrCheckInError.classList.add('hidden');
+    }
+
+    function showQrCheckInError(message) {
+        if (!qrCheckInError) return;
+        qrCheckInError.textContent = message;
+        qrCheckInError.classList.remove('hidden');
+    }
+
+    function focusQrCheckInInput() {
+        window.requestAnimationFrame(function () {
+            if (qrCheckInInput) {
+                qrCheckInInput.focus();
+                qrCheckInInput.select();
+            }
+        });
+    }
+
+    function openQrCheckInModal() {
+        if (!qrCheckInModal) return;
+        hideQrCheckInError();
+        qrCheckInModal.classList.remove('hidden');
+        qrCheckInModal.setAttribute('aria-hidden', 'false');
+        if (qrCheckInInput) {
+            qrCheckInInput.value = '';
+        }
+        syncModalVisualState();
+        focusQrCheckInInput();
+    }
+
+    function closeQrCheckInModal() {
+        if (!qrCheckInModal) return;
+        qrCheckInModal.classList.add('hidden');
+        qrCheckInModal.setAttribute('aria-hidden', 'true');
+        hideQrCheckInError();
+        if (qrCheckInInput) {
+            qrCheckInInput.value = '';
+        }
+        syncModalVisualState();
+    }
+
+    function closeQrCheckInSuccessModal() {
+        if (qrCheckInSuccessTimer) {
+            clearTimeout(qrCheckInSuccessTimer);
+            qrCheckInSuccessTimer = null;
+        }
+        if (!qrCheckInSuccessModal) return;
+        qrCheckInSuccessModal.classList.add('hidden');
+        qrCheckInSuccessModal.setAttribute('aria-hidden', 'true');
+        syncModalVisualState();
+        if (qrCheckInModal && !qrCheckInModal.classList.contains('hidden')) {
+            focusQrCheckInInput();
+        }
+    }
+
+    function openQrCheckInSuccessModal(data) {
+        if (!qrCheckInSuccessModal) return;
+        if (qrCheckInSuccessPatient) qrCheckInSuccessPatient.textContent = data.patient_name || '';
+        if (qrCheckInSuccessBooking) qrCheckInSuccessBooking.textContent = data.booking_id || '';
+        if (qrCheckInSuccessStatus) qrCheckInSuccessStatus.textContent = data.status_label || data.status || 'In Progress';
+        qrCheckInSuccessModal.classList.remove('hidden');
+        qrCheckInSuccessModal.setAttribute('aria-hidden', 'false');
+        syncModalVisualState();
+        if (qrCheckInSuccessTimer) clearTimeout(qrCheckInSuccessTimer);
+        qrCheckInSuccessTimer = window.setTimeout(function () {
+            closeQrCheckInSuccessModal();
+        }, 2600);
+    }
+
+    async function submitQrCheckInScan(raw) {
+        const payload = typeof raw === 'string' ? raw.trim() : '';
+        if (payload === '' || qrCheckInBusy) return;
+        qrCheckInBusy = true;
+        hideQrCheckInError();
+        try {
+            const res = await fetch(qrCheckinApiUrl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ scan: payload }),
+            });
+            let json = null;
+            try {
+                json = await res.json();
+            } catch (e) {
+                showQrCheckInError('Could not read server response.');
+                return;
+            }
+            if (res.status === 401) {
+                showQrCheckInError('Session expired. Please sign in again.');
+                return;
+            }
+            if (res.status === 403 || (json && json.data && json.data.code === 'forbidden')) {
+                showQrCheckInError('Please sign in again.');
+                return;
+            }
+            const code = json && json.data && json.data.code ? String(json.data.code) : '';
+            const msg = json && json.message ? String(json.message) : 'Check-in failed.';
+            if (!json || json.success !== true) {
+                const alerts = {
+                    invalid_qr: 'Invalid QR code.',
+                    not_found: 'Booking not found.',
+                    wrong_date: 'Appointment is not scheduled for today.',
+                    cancelled: 'This appointment was cancelled.',
+                    completed: 'This appointment is already completed.',
+                    status_save_failed: msg,
+                    forbidden: 'Please sign in again.',
+                    server_error: msg,
+                };
+                showQrCheckInError(alerts[code] || msg);
+                return;
+            }
+            const d = json.data || {};
+            if (qrCheckInInput) {
+                qrCheckInInput.value = '';
+            }
+            openQrCheckInSuccessModal({
+                patient_name: d.patient_name || '',
+                booking_id: d.booking_id || '',
+                status_label: d.status_label || 'In Progress',
+                status: d.status || 'in_progress',
+            });
+            focusQrCheckInInput();
+        } catch (err) {
+            showQrCheckInError('Network error. Try again.');
+        } finally {
+            qrCheckInBusy = false;
+        }
+    }
 
     function setText(id, value) {
         const node = document.getElementById(id);
@@ -1407,7 +1630,9 @@ if ($currentTenantSlug !== '') {
     function syncModalVisualState() {
         const treatmentOpen = modal && !modal.classList.contains('hidden');
         const bookingTypeOpen = bookingTypeModal && !bookingTypeModal.classList.contains('hidden');
-        const hasOpenModal = treatmentOpen || bookingTypeOpen;
+        const qrOpen = qrCheckInModal && !qrCheckInModal.classList.contains('hidden');
+        const qrSuccessOpen = qrCheckInSuccessModal && !qrCheckInSuccessModal.classList.contains('hidden');
+        const hasOpenModal = treatmentOpen || bookingTypeOpen || qrOpen || qrSuccessOpen;
         document.body.classList.toggle('appointments-modal-open', hasOpenModal);
         if (appointmentsPageContent) {
             appointmentsPageContent.classList.toggle('appointments-page-blurred', hasOpenModal);
@@ -1497,7 +1722,34 @@ if ($currentTenantSlug !== '') {
             window.location.href = <?php echo json_encode($setAppointmentHref, JSON_UNESCAPED_SLASHES); ?>;
         });
     }
+    if (qrCheckInOpenBtn) qrCheckInOpenBtn.addEventListener('click', openQrCheckInModal);
+    if (qrCheckInCloseBtn) qrCheckInCloseBtn.addEventListener('click', closeQrCheckInModal);
+    if (qrCheckInCloseFooterBtn) qrCheckInCloseFooterBtn.addEventListener('click', closeQrCheckInModal);
+    if (qrCheckInBackdrop) qrCheckInBackdrop.addEventListener('click', closeQrCheckInModal);
+    if (qrCheckInSuccessBackdrop) qrCheckInSuccessBackdrop.addEventListener('click', closeQrCheckInSuccessModal);
+    if (qrCheckInSuccessOkBtn) qrCheckInSuccessOkBtn.addEventListener('click', closeQrCheckInSuccessModal);
+    if (qrCheckInInput) {
+        qrCheckInInput.addEventListener('input', function () {
+            hideQrCheckInError();
+        });
+        qrCheckInInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                submitQrCheckInScan(qrCheckInInput.value);
+            }
+        });
+    }
     document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && qrCheckInSuccessModal && !qrCheckInSuccessModal.classList.contains('hidden')) {
+            closeQrCheckInSuccessModal();
+            event.preventDefault();
+            return;
+        }
+        if (event.key === 'Escape' && qrCheckInModal && !qrCheckInModal.classList.contains('hidden')) {
+            closeQrCheckInModal();
+            event.preventDefault();
+            return;
+        }
         if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
             closeModal();
         }
