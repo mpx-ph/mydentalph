@@ -60,8 +60,23 @@ try {
     $patImg    = $p ? trim((string) ($p['profile_image'] ?? '')) : '';
     $phone     = trim((string) ($user['phone'] ?? ''));
     $contact   = $p ? trim((string) ($p['contact_number'] ?? '')) : '';
-    if ($contact === '') {
+    // Only merge account phone into patient contact when loading the default profile (not a specific patient_id).
+    if ($contact === '' && $requestedPatientId === '') {
         $contact = $phone;
+    }
+
+    // Self = patient row linked to this login. No patient row yet → treat as account-only (legacy).
+    $isSelf = $p ? (trim((string) ($p['linked_user_id'] ?? '')) === $userId) : true;
+    $patientEmail = $p ? trim((string) ($p['email'] ?? '')) : '';
+
+    if (!$p) {
+        $profileEmail = (string) ($user['email'] ?? '');
+    } elseif ($patientEmail !== '' || !$isSelf) {
+        // Per-patient email from tbl_patients (dependents: never substitute tbl_users).
+        $profileEmail = $patientEmail;
+    } else {
+        // Self profile, empty patient.email → legacy: show login email
+        $profileEmail = (string) ($user['email'] ?? '');
     }
 
     $uCreated = (string) ($user['created_at'] ?? '');
@@ -100,11 +115,12 @@ try {
         'user_id'            => (string) $user['user_id'],
         'patient_id'         => $p && !empty($p['patient_id']) ? (string) $p['patient_id'] : null,
         'tenant_id'          => (string) $user['tenant_id'],
-        'email'              => (string) ($user['email'] ?? ''),
-        'username'           => (string) ($user['username'] ?? ''),
+        'email'              => $profileEmail,
+        'username'           => $isSelf ? (string) ($user['username'] ?? '') : '',
         'full_name'          => $displayFullName,
         'first_name'         => $fnPatient,
         'last_name'          => $lnPatient,
+        'is_self'            => $isSelf,
         // Backward-compatible alias; now sourced from tbl_patients.profile_image only.
         'user_photo'         => $patImg,
         'patient_profile_image' => $patImg,
@@ -112,8 +128,8 @@ try {
         'personal'           => $pObj,
         'address'            => $addr,
         'account'            => [
-            'email'                 => (string) ($user['email'] ?? ''),
-            'username'              => (string) ($user['username'] ?? ''),
+            'email'                 => $profileEmail,
+            'username'              => $isSelf ? (string) ($user['username'] ?? '') : '',
             'phone'                 => $phone,
             'registration_date'     => $uCreated,
             'last_profile_update'   => api_profile_last_update($uUpd, $p ? $pUpd : null),

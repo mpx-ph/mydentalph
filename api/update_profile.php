@@ -40,7 +40,7 @@ if (!array_key_exists('date_of_birth', $input) && array_key_exists('birthdate', 
 /**
  * @param array<string,mixed>|null $p
  * @param array<string,mixed> $input
- * @return array{fn: string, ln: string, ph: string, dob: ?string, gen: ?string, bt: string, pr: string, city: string, br: string, hs: string}
+ * @return array{fn: string, ln: string, ph: string, em: string, dob: ?string, gen: ?string, bt: string, pr: string, city: string, br: string, hs: string}
  */
 function api_profile_merge_patient_row(?array $p, array $input, array $user): array
 {
@@ -48,6 +48,7 @@ function api_profile_merge_patient_row(?array $p, array $input, array $user): ar
     $fn  = (string) ($p['first_name'] ?? '');
     $ln  = (string) ($p['last_name'] ?? '');
     $ph  = (string) ($p['contact_number'] ?? ($user['phone'] ?? ''));
+    $em  = trim((string) ($p['email'] ?? ''));
     $dob = isset($p['date_of_birth']) && $p['date_of_birth'] ? (string) $p['date_of_birth'] : null;
     $gen = isset($p['gender']) && $p['gender'] ? (string) $p['gender'] : null;
     $bt  = (string) ($p['blood_type'] ?? '');
@@ -64,6 +65,12 @@ function api_profile_merge_patient_row(?array $p, array $input, array $user): ar
     }
     if (array_key_exists('contact_number', $input)) {
         $ph = trim((string) $input['contact_number']);
+    }
+    if (array_key_exists('email', $input)) {
+        $em = trim((string) $input['email']);
+        if ($em !== '' && !filter_var($em, FILTER_VALIDATE_EMAIL)) {
+            throw new InvalidArgumentException('Invalid email format.');
+        }
     }
     if (array_key_exists('date_of_birth', $input)) {
         $dob = trim((string) $input['date_of_birth']);
@@ -107,11 +114,11 @@ function api_profile_merge_patient_row(?array $p, array $input, array $user): ar
             : trim((string) $input['street_address']);
     }
 
-    return ['fn' => $fn, 'ln' => $ln, 'ph' => $ph, 'dob' => $dob, 'gen' => $gen, 'bt' => $bt, 'pr' => $pr, 'city' => $city, 'br' => $br, 'hs' => $hs];
+    return ['fn' => $fn, 'ln' => $ln, 'ph' => $ph, 'em' => $em, 'dob' => $dob, 'gen' => $gen, 'bt' => $bt, 'pr' => $pr, 'city' => $city, 'br' => $br, 'hs' => $hs];
 }
 
 $patientFieldKeys = [
-    'first_name', 'last_name', 'date_of_birth', 'gender', 'contact_number', 'blood_type',
+    'first_name', 'last_name', 'date_of_birth', 'gender', 'contact_number', 'email', 'blood_type',
     'province', 'city_municipality', 'city', 'barangay', 'house_street', 'street_address',
 ];
 $wantsUpdate = false;
@@ -122,7 +129,7 @@ foreach ($patientFieldKeys as $k) {
     }
 }
 if (!$wantsUpdate) {
-    api_json_exit(false, 'No profile fields to update. Send at least one of: first_name, last_name, date_of_birth, gender, contact_number, blood_type, province, city_municipality, city, barangay, house_street (street_address is accepted as an alias for house_street only)');
+    api_json_exit(false, 'No profile fields to update. Send at least one of: first_name, last_name, date_of_birth, gender, contact_number, email, blood_type, province, city_municipality, city, barangay, house_street (street_address is accepted as an alias for house_street only)');
 }
 
 try {
@@ -177,26 +184,29 @@ try {
 
     if (!$p) {
         $newPid = api_profile_generate_patient_id($pdo);
+        $emIns = $m['em'] !== '' ? $m['em'] : null;
         $stI = $pdo->prepare(
             "INSERT INTO tbl_patients (
                 tenant_id, patient_id, owner_user_id, linked_user_id,
-                first_name, last_name, contact_number, date_of_birth, gender, blood_type,
+                first_name, last_name, email, contact_number, date_of_birth, gender, blood_type,
                 house_street, barangay, city_municipality, province,
                 created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())"
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())"
         );
         $stI->execute([
             $tenantId, $newPid, $userId, $userId,
-            $fn, $ln, $m['ph'], $m['dob'], $m['gen'], $m['bt'] !== '' ? $m['bt'] : null,
+            $fn, $ln, $emIns, $m['ph'], $m['dob'], $m['gen'], $m['bt'] !== '' ? $m['bt'] : null,
             $m['hs'], $m['br'], $m['city'], $m['pr'],
         ]);
         $patientRowIdForResponse = (int) $pdo->lastInsertId();
     } else {
         $patientRowIdForResponse = (int) $p['id'];
+        $emUp = $m['em'] !== '' ? $m['em'] : null;
         $stU = $pdo->prepare(
             "UPDATE tbl_patients SET
                 first_name = ?,
                 last_name = ?,
+                email = ?,
                 contact_number = ?,
                 date_of_birth = ?,
                 gender = ?,
@@ -209,15 +219,23 @@ try {
             WHERE id = ? AND tenant_id = ?"
         );
         $stU->execute([
-            $fn, $ln, $m['ph'], $m['dob'], $m['gen'], $m['bt'] !== '' ? $m['bt'] : null,
+            $fn, $ln, $emUp, $m['ph'], $m['dob'], $m['gen'], $m['bt'] !== '' ? $m['bt'] : null,
             $m['hs'], $m['br'], $m['city'], $m['pr'],
             $patientRowIdForResponse, $tenantId,
         ]);
     }
 
     if ($syncUserRecord) {
-        $stUser = $pdo->prepare('UPDATE tbl_users SET full_name = ?, phone = ?, updated_at = NOW() WHERE user_id = ? AND tenant_id = ?');
-        $stUser->execute([$full, $m['ph'], $userId, $tenantId]);
+        // Login row: update email only when a non-empty email was submitted (avoid wiping login email when clearing dependent-only fields).
+        if (array_key_exists('email', $input) && $m['em'] !== '') {
+            $stUser = $pdo->prepare(
+                'UPDATE tbl_users SET full_name = ?, phone = ?, email = ?, updated_at = NOW() WHERE user_id = ? AND tenant_id = ?'
+            );
+            $stUser->execute([$full, $m['ph'], $m['em'], $userId, $tenantId]);
+        } else {
+            $stUser = $pdo->prepare('UPDATE tbl_users SET full_name = ?, phone = ?, updated_at = NOW() WHERE user_id = ? AND tenant_id = ?');
+            $stUser->execute([$full, $m['ph'], $userId, $tenantId]);
+        }
     }
 
     $pdo->commit();
