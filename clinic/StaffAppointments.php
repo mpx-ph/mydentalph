@@ -898,15 +898,31 @@ if ($currentTenantSlug !== '') {
                         Daily schedule with status tracking and treatment details.
                     </p>
                 </div>
-                <div class="shrink-0 pt-10">
-                    <button
-                        type="button"
-                        id="openBookingTypeModalBtn"
-                        class="booking-action-btn inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-blue-500 hover:from-primary hover:to-blue-600 text-white px-5 py-3 font-bold text-sm tracking-wide shadow-lg shadow-primary/30"
-                    >
-                        <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">add_circle</span>
-                        Add New Booking
-                    </button>
+                <div class="shrink-0 pt-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-4 lg:gap-5">
+                    <div class="flex flex-col gap-2">
+                        <label for="openPatientCheckInQrBtn" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-widest">
+                            Check In for Patient
+                        </label>
+                        <button
+                            type="button"
+                            id="openPatientCheckInQrBtn"
+                            class="booking-action-btn inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 font-bold text-sm tracking-wide shadow-lg shadow-blue-600/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                            aria-label="Open patient check-in QR"
+                        >
+                            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">qr_code_2</span>
+                        </button>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <span class="block text-[10px] font-black uppercase tracking-widest invisible pointer-events-none select-none" aria-hidden="true">&nbsp;</span>
+                        <button
+                            type="button"
+                            id="openBookingTypeModalBtn"
+                            class="booking-action-btn inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-blue-500 hover:from-primary hover:to-blue-600 text-white px-5 py-3 font-bold text-sm tracking-wide shadow-lg shadow-primary/30"
+                        >
+                            <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+                            Add New Booking
+                        </button>
+                    </div>
                 </div>
             </div>
         </section>
