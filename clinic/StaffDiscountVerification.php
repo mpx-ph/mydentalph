@@ -137,7 +137,7 @@ body { font-family: 'Manrope', sans-serif; }
     <section class="space-y-4">
         <div class="flex items-center justify-between gap-4 flex-wrap">
             <h3 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em]">A. Discount programs</h3>
-            <p class="text-xs text-slate-500 max-w-xl">Define eligibility, amounts, validity, which services apply, and whether discounts can stack. Use the toggle for quick enable/disable.</p>
+            <p class="text-xs text-slate-500 max-w-xl">Define requirements, amounts, validity, which services apply, and whether discounts can stack. Use the toggle for quick enable/disable.</p>
         </div>
         <div id="programsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             <p class="text-slate-500 col-span-full py-6 text-center text-sm">Loading programs…</p>
@@ -159,12 +159,12 @@ body { font-family: 'Manrope', sans-serif; }
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                 <div>
-                    <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">D. Card type</label>
-                    <select id="filterCardType" class="w-full bg-slate-50 border-none rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 text-sm font-bold">
+                    <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">D. Requirements</label>
+                    <select id="filterRequirements" class="w-full bg-slate-50 border-none rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 text-sm font-bold">
                         <option value="all">All</option>
-                        <option value="pwd">PWD</option>
-                        <option value="senior">Senior</option>
-                        <option value="promo">Promo</option>
+                        <option value="proof">Upload proof required</option>
+                        <option value="notes">Notes required</option>
+                        <option value="both">Both required</option>
                     </select>
                 </div>
                 <div>
@@ -261,12 +261,18 @@ body { font-family: 'Manrope', sans-serif; }
                 </div>
             </div>
             <div>
-                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Eligibility type</label>
-                <select id="programEligibility" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold bg-white">
-                    <option value="pwd">PWD ID</option>
-                    <option value="senior">Senior Citizen ID</option>
-                    <option value="promo">Custom / Seasonal Promo</option>
-                </select>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Requirements</label>
+                <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 space-y-3">
+                    <label class="flex items-center gap-3 cursor-pointer group">
+                        <input id="reqUploadProof" type="checkbox" class="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4"/>
+                        <span class="text-sm font-semibold text-slate-800 group-hover:text-slate-900">Upload proof</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer group">
+                        <input id="reqNotes" type="checkbox" class="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4"/>
+                        <span class="text-sm font-semibold text-slate-800 group-hover:text-slate-900">Notes</span>
+                    </label>
+                    <p class="text-xs text-slate-500 leading-relaxed pt-1">Staff/patients must satisfy checked items before approval (e.g. image upload and/or written notes).</p>
+                </div>
             </div>
             <div class="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 p-4 bg-slate-50/80">
                 <div>
@@ -351,16 +357,21 @@ body { font-family: 'Manrope', sans-serif; }
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Discount type applied</label>
                 <select id="appDiscountProgram" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold bg-white"></select>
             </div>
+            <p id="appReqHint" class="text-xs text-slate-500 -mt-2 hidden"></p>
             <div>
-                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">ID number (PWD / Senior)</label>
-                <input id="appIdNumber" type="text" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold" placeholder="Government ID number"/>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">ID number (reference)</label>
+                <input id="appIdNumber" type="text" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold" placeholder="Government or membership ID (if applicable)"/>
             </div>
-            <div>
-                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Uploaded proof (image)</label>
+            <div id="appProofWrap">
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Uploaded proof <span id="appProofRequiredTag" class="text-red-500 font-black hidden">*</span></label>
                 <input id="appProofFile" type="file" accept="image/*" class="w-full text-sm"/>
                 <div id="appProofPreview" class="mt-3 hidden rounded-xl overflow-hidden border border-slate-200 max-h-40 bg-slate-100">
                     <img id="appProofImg" src="" alt="Proof preview" class="w-full h-full object-contain"/>
                 </div>
+            </div>
+            <div id="appNotesWrap" class="hidden">
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Notes <span class="text-red-500 font-black">*</span></label>
+                <textarea id="appNotes" rows="3" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium resize-y min-h-[88px]" placeholder="Patient or staff notes required by this discount program"></textarea>
             </div>
             <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Date applied</label>
@@ -387,7 +398,7 @@ body { font-family: 'Manrope', sans-serif; }
             </div>
             <div class="min-w-0 flex-1">
                 <h2 id="verifyModalTitle" class="text-xl sm:text-2xl font-extrabold font-headline text-on-background tracking-tight">Application &amp; verification</h2>
-                <p class="text-sm text-slate-500 mt-1">Review proof and eligibility before approving a discount.</p>
+                <p class="text-sm text-slate-500 mt-1">Review proof, notes, and program requirements before approving a discount.</p>
             </div>
             <button type="button" id="verifyModalClose" class="shrink-0 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100" aria-label="Close">
                 <span class="material-symbols-outlined text-[22px]">close</span>
@@ -411,6 +422,10 @@ body { font-family: 'Manrope', sans-serif; }
                 <div class="rounded-2xl border border-slate-200 p-4 bg-slate-50/50">
                     <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Date applied · Staff assigned</p>
                     <p id="verifyMetaLine" class="text-sm font-semibold text-slate-800">—</p>
+                </div>
+                <div class="hidden md:col-span-2 rounded-2xl border border-slate-200 p-4 bg-white" id="verifyPatientNotesWrap">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Patient / application notes</p>
+                    <p id="verifyPatientNotes" class="text-sm text-slate-800 whitespace-pre-wrap">—</p>
                 </div>
             </div>
             <div>
@@ -468,7 +483,8 @@ body { font-family: 'Manrope', sans-serif; }
                 name: 'Senior Citizen Discount',
                 discountType: 'percentage',
                 value: 20,
-                eligibility: 'senior',
+                reqUploadProof: true,
+                reqNotes: false,
                 enabled: true,
                 validFrom: iso(1, 1),
                 validTo: iso(12, 31),
@@ -481,7 +497,8 @@ body { font-family: 'Manrope', sans-serif; }
                 name: 'PWD Relief Rate',
                 discountType: 'percentage',
                 value: 20,
-                eligibility: 'pwd',
+                reqUploadProof: true,
+                reqNotes: true,
                 enabled: true,
                 validFrom: iso(1, 1),
                 validTo: iso(12, 31),
@@ -494,7 +511,8 @@ body { font-family: 'Manrope', sans-serif; }
                 name: 'Summer Smile Promo',
                 discountType: 'fixed',
                 value: 500,
-                eligibility: 'promo',
+                reqUploadProof: false,
+                reqNotes: true,
                 enabled: false,
                 validFrom: iso(4, 1),
                 validTo: iso(5, 31),
@@ -505,17 +523,29 @@ body { font-family: 'Manrope', sans-serif; }
         ];
     }
 
+    function snapshotRequirements(prog) {
+        if (!prog) return { reqUploadProof: false, reqNotes: false };
+        return {
+            reqUploadProof: !!prog.reqUploadProof,
+            reqNotes: !!prog.reqNotes
+        };
+    }
+
     function defaultRecords(programs) {
-        var pSenior = programs.find(function (x) { return x.eligibility === 'senior'; }) || programs[0];
-        var pPwd = programs.find(function (x) { return x.eligibility === 'pwd'; }) || programs[0];
+        var pA = programs[0];
+        var pB = programs[1] || programs[0];
+        var snapA = snapshotRequirements(pA);
+        var snapB = snapshotRequirements(pB);
         return [
             {
                 id: uid(),
                 patientName: 'Ana L. Reyes',
                 patientRef: 'PT-10492',
-                programId: pSenior.id,
-                programName: pSenior.name,
-                cardType: 'senior',
+                programId: pA.id,
+                programName: pA.name,
+                reqUploadProof: snapA.reqUploadProof,
+                reqNotes: snapA.reqNotes,
+                applicationNotes: '',
                 idNumber: 'SC-FR-882934',
                 proofDataUrl: '',
                 dateApplied: new Date().toISOString().slice(0, 10),
@@ -529,9 +559,11 @@ body { font-family: 'Manrope', sans-serif; }
                 id: uid(),
                 patientName: 'Miguel Santos',
                 patientRef: 'PT-8812',
-                programId: pPwd.id,
-                programName: pPwd.name,
-                cardType: 'pwd',
+                programId: pB.id,
+                programName: pB.name,
+                reqUploadProof: snapB.reqUploadProof,
+                reqNotes: snapB.reqNotes,
+                applicationNotes: 'PWD ID presented at front desk.',
                 idNumber: 'PWD-PH-112299',
                 proofDataUrl: '',
                 dateApplied: new Date(Date.now() - 86400000 * 4).toISOString().slice(0, 10),
@@ -545,9 +577,11 @@ body { font-family: 'Manrope', sans-serif; }
                 id: uid(),
                 patientName: 'Lourdes Guevara',
                 patientRef: '',
-                programId: pSenior.id,
-                programName: pSenior.name,
-                cardType: 'senior',
+                programId: pA.id,
+                programName: pA.name,
+                reqUploadProof: snapA.reqUploadProof,
+                reqNotes: snapA.reqNotes,
+                applicationNotes: '',
                 idNumber: 'SC-NCR-009921',
                 proofDataUrl: '',
                 dateApplied: new Date(Date.now() - 86400000 * 10).toISOString().slice(0, 10),
@@ -577,12 +611,62 @@ body { font-family: 'Manrope', sans-serif; }
         } catch (e) {}
     }
 
+    function normalizeProgram(raw) {
+        var p = raw;
+        if (typeof p.reqUploadProof === 'boolean' && typeof p.reqNotes === 'boolean') {
+            if ('eligibility' in p) delete p.eligibility;
+            return p;
+        }
+        if (p.eligibility === 'promo') {
+            p.reqUploadProof = false;
+            p.reqNotes = true;
+        } else if (p.eligibility === 'pwd' || p.eligibility === 'senior') {
+            p.reqUploadProof = true;
+            p.reqNotes = false;
+        } else {
+            p.reqUploadProof = true;
+            p.reqNotes = false;
+        }
+        delete p.eligibility;
+        return p;
+    }
+
+    function normalizeRecord(raw) {
+        var r = raw;
+        if (typeof r.reqUploadProof === 'boolean' && typeof r.reqNotes === 'boolean') {
+            if ('cardType' in r) delete r.cardType;
+            if (r.applicationNotes === undefined) r.applicationNotes = '';
+            return r;
+        }
+        if (r.cardType === 'promo') {
+            r.reqUploadProof = false;
+            r.reqNotes = true;
+        } else {
+            r.reqUploadProof = true;
+            r.reqNotes = false;
+        }
+        delete r.cardType;
+        if (r.applicationNotes === undefined) r.applicationNotes = '';
+        return r;
+    }
+
     function getPrograms() {
         var p = loadJson(LS_PROGRAMS, null);
         if (!p || !p.length) {
             p = defaultPrograms();
             saveJson(LS_PROGRAMS, p);
+            return p;
         }
+        var migrated = false;
+        p = p.map(function (row) {
+            var n = Object.assign({}, row);
+            if ('eligibility' in n || typeof n.reqUploadProof !== 'boolean' || typeof n.reqNotes !== 'boolean') {
+                migrated = true;
+            }
+            normalizeProgram(n);
+            return n;
+        });
+        if (migrated) persistPrograms(p);
         return p;
     }
 
@@ -592,7 +676,18 @@ body { font-family: 'Manrope', sans-serif; }
         if (!r || !r.length) {
             r = defaultRecords(programs);
             saveJson(LS_RECORDS, r);
+            return r;
         }
+        var migrated = false;
+        r = r.map(function (row) {
+            var n = Object.assign({}, row);
+            if ('cardType' in n || typeof n.reqUploadProof !== 'boolean' || typeof n.reqNotes !== 'boolean' || n.applicationNotes === undefined) {
+                migrated = true;
+            }
+            normalizeRecord(n);
+            return n;
+        });
+        if (migrated) persistRecords(r);
         return r;
     }
 
@@ -605,14 +700,21 @@ body { font-family: 'Manrope', sans-serif; }
         return s.slice(0, 3) + '••••' + s.slice(-2);
     }
 
-    function eligibilityLabel(el) {
-        if (el === 'pwd') return 'PWD ID';
-        if (el === 'senior') return 'Senior Citizen ID';
-        return 'Custom / Seasonal Promo';
+    function requirementsSummaryFromFlags(upload, notes) {
+        var parts = [];
+        if (upload) parts.push('Upload proof');
+        if (notes) parts.push('Notes');
+        return parts.length ? parts.join(' · ') : 'No requirements set';
     }
 
-    function cardTypeFromRecord(r) {
-        return r.cardType || 'promo';
+    function requirementsSummaryProgram(p) {
+        if (!p) return '—';
+        return requirementsSummaryFromFlags(!!p.reqUploadProof, !!p.reqNotes);
+    }
+
+    function requirementsSummaryRecord(r) {
+        if (!r) return '—';
+        return requirementsSummaryFromFlags(!!r.reqUploadProof, !!r.reqNotes);
     }
 
     function effectiveStatus(r) {
@@ -714,7 +816,7 @@ body { font-family: 'Manrope', sans-serif; }
                 '<div class="flex items-start justify-between gap-3">' +
                 '<div class="min-w-0">' +
                 '<h4 class="font-headline font-bold text-lg text-slate-900 leading-tight">' + p.name.replace(/</g, '&lt;') + '</h4>' +
-                '<p class="text-xs font-bold text-primary mt-1 uppercase tracking-wide">' + eligibilityLabel(p.eligibility) + '</p>' +
+                '<p class="text-xs font-bold text-primary mt-1 uppercase tracking-wide">' + requirementsSummaryProgram(p).replace(/</g, '&lt;') + '</p>' +
                 '</div>' +
                 '<span class="shrink-0 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border ' + statusCls + '">' + (p.enabled ? 'Enabled' : 'Disabled') + '</span>' +
                 '</div>' +
@@ -760,6 +862,31 @@ body { font-family: 'Manrope', sans-serif; }
         });
     }
 
+    function updateAppFormForProgram() {
+        var sel = document.getElementById('appDiscountProgram');
+        var hint = document.getElementById('appReqHint');
+        var proofWrap = document.getElementById('appProofWrap');
+        var notesWrap = document.getElementById('appNotesWrap');
+        var proofTag = document.getElementById('appProofRequiredTag');
+        var proofInput = document.getElementById('appProofFile');
+        var notesTa = document.getElementById('appNotes');
+        if (!sel || !hint || !proofWrap || !notesWrap || !proofInput || !notesTa) return;
+        var pid = sel.value;
+        var programs = getPrograms();
+        var prog = programs.find(function (x) { return x.id === pid; });
+        if (!prog) {
+            hint.classList.add('hidden');
+            return;
+        }
+        hint.textContent = 'Requires: ' + requirementsSummaryProgram(prog) + '.';
+        hint.classList.remove('hidden');
+        proofWrap.classList.toggle('hidden', !prog.reqUploadProof);
+        notesWrap.classList.toggle('hidden', !prog.reqNotes);
+        if (proofTag) proofTag.classList.toggle('hidden', !prog.reqUploadProof);
+        if (prog.reqNotes) notesTa.setAttribute('required', 'required'); else notesTa.removeAttribute('required');
+        if (prog.reqUploadProof) proofInput.setAttribute('required', 'required'); else proofInput.removeAttribute('required');
+    }
+
     function populateApplicationPrograms() {
         var sel = document.getElementById('appDiscountProgram');
         if (!sel) return;
@@ -770,6 +897,7 @@ body { font-family: 'Manrope', sans-serif; }
         if (!programs.length) {
             sel.innerHTML = '<option value="">No enabled programs — add one first</option>';
         }
+        updateAppFormForProgram();
     }
 
     function updateProgramValueLabel() {
@@ -790,7 +918,8 @@ body { font-family: 'Manrope', sans-serif; }
             document.getElementById('programName').value = p.name;
             document.getElementById('programDiscountType').value = p.discountType;
             document.getElementById('programValue').value = p.value;
-            document.getElementById('programEligibility').value = p.eligibility;
+            document.getElementById('reqUploadProof').checked = !!p.reqUploadProof;
+            document.getElementById('reqNotes').checked = !!p.reqNotes;
             document.getElementById('programEnabled').checked = !!p.enabled;
             document.getElementById('programStart').value = p.validFrom || '';
             document.getElementById('programEnd').value = p.validTo || '';
@@ -801,6 +930,8 @@ body { font-family: 'Manrope', sans-serif; }
             form.reset();
             document.getElementById('programId').value = '';
             document.getElementById('programEnabled').checked = true;
+            document.getElementById('reqUploadProof').checked = true;
+            document.getElementById('reqNotes').checked = false;
             document.querySelector('input[name="programScope"][value="all"]').checked = true;
             setProgramServiceChecks([]);
         }
@@ -836,7 +967,8 @@ body { font-family: 'Manrope', sans-serif; }
             name: document.getElementById('programName').value.trim(),
             discountType: document.getElementById('programDiscountType').value,
             value: parseFloat(document.getElementById('programValue').value) || 0,
-            eligibility: document.getElementById('programEligibility').value,
+            reqUploadProof: document.getElementById('reqUploadProof').checked,
+            reqNotes: document.getElementById('reqNotes').checked,
             enabled: document.getElementById('programEnabled').checked,
             validFrom: document.getElementById('programStart').value,
             validTo: document.getElementById('programEnd').value,
@@ -857,12 +989,16 @@ body { font-family: 'Manrope', sans-serif; }
     document.querySelectorAll('.application-modal-close').forEach(function (b) {
         b.addEventListener('click', function () { closeOverlay(document.getElementById('applicationModal')); });
     });
+    document.getElementById('appDiscountProgram').addEventListener('change', updateAppFormForProgram);
+
     document.getElementById('btnNewApplication').addEventListener('click', function () {
-        populateApplicationPrograms();
         document.getElementById('applicationForm').reset();
         document.getElementById('appStaffAssigned').value = STAFF_NAME;
         document.getElementById('appDateApplied').value = new Date().toISOString().slice(0, 10);
         document.getElementById('appProofPreview').classList.add('hidden');
+        var imgEl = document.getElementById('appProofImg');
+        if (imgEl) imgEl.removeAttribute('src');
+        populateApplicationPrograms();
         openOverlay(document.getElementById('applicationModal'));
     });
 
@@ -891,17 +1027,30 @@ body { font-family: 'Manrope', sans-serif; }
         }
         var programs = getPrograms();
         var prog = programs.find(function (x) { return x.id === pid; });
-        var records = getRecords();
+        if (!prog) return;
+        var snap = snapshotRequirements(prog);
         var proof = '';
         var imgEl = document.getElementById('appProofImg');
         if (imgEl && imgEl.src && imgEl.src.indexOf('data:') === 0) proof = imgEl.src;
+        var notesVal = document.getElementById('appNotes').value.trim();
+        if (snap.reqUploadProof && !proof) {
+            alert('This discount program requires an uploaded proof image.');
+            return;
+        }
+        if (snap.reqNotes && !notesVal) {
+            alert('This discount program requires notes.');
+            return;
+        }
+        var records = getRecords();
         records.push({
             id: uid(),
             patientName: document.getElementById('appPatientName').value.trim(),
             patientRef: document.getElementById('appPatientRef').value.trim(),
             programId: pid,
-            programName: prog ? prog.name : '',
-            cardType: prog ? prog.eligibility : 'promo',
+            programName: prog.name,
+            reqUploadProof: snap.reqUploadProof,
+            reqNotes: snap.reqNotes,
+            applicationNotes: notesVal,
             idNumber: document.getElementById('appIdNumber').value.trim(),
             proofDataUrl: proof,
             dateApplied: document.getElementById('appDateApplied').value,
@@ -918,7 +1067,7 @@ body { font-family: 'Manrope', sans-serif; }
 
     function renderHistory() {
         var records = getRecords();
-        var fCard = document.getElementById('filterCardType').value;
+        var fReq = document.getElementById('filterRequirements').value;
         var fStat = document.getElementById('filterStatus').value;
         var fFrom = document.getElementById('filterDateFrom').value;
         var fTo = document.getElementById('filterDateTo').value;
@@ -941,8 +1090,9 @@ body { font-family: 'Manrope', sans-serif; }
 
         var filtered = records.filter(function (r) {
             var eff = effectiveStatus(r);
-            var ct = cardTypeFromRecord(r);
-            if (fCard !== 'all' && ct !== fCard) return false;
+            if (fReq === 'proof' && !r.reqUploadProof) return false;
+            if (fReq === 'notes' && !r.reqNotes) return false;
+            if (fReq === 'both' && (!r.reqUploadProof || !r.reqNotes)) return false;
             if (fStat !== 'all' && eff !== fStat) return false;
             if (fPatient && (r.patientName || '').toLowerCase().indexOf(fPatient) === -1) return false;
             if (fStaff !== 'all' && (eff !== 'approved' || r.approvedBy !== fStaff)) return false;
@@ -1005,7 +1155,15 @@ body { font-family: 'Manrope', sans-serif; }
         var eff = effectiveStatus(r);
         document.getElementById('verifyRecordId').value = r.id;
         document.getElementById('verifyPatientLine').textContent = (r.patientName || '—') + (r.patientRef ? ' · ' + r.patientRef : '');
-        document.getElementById('verifyDiscountLine').textContent = (r.programName || '—') + ' · ' + eligibilityLabel(cardTypeFromRecord(r));
+        document.getElementById('verifyDiscountLine').textContent = (r.programName || '—') + ' · ' + requirementsSummaryRecord(r);
+        var pnw = document.getElementById('verifyPatientNotesWrap');
+        var pnt = document.getElementById('verifyPatientNotes');
+        if (r.applicationNotes && String(r.applicationNotes).trim() !== '') {
+            pnw.classList.remove('hidden');
+            pnt.textContent = r.applicationNotes;
+        } else {
+            pnw.classList.add('hidden');
+        }
         document.getElementById('verifyIdFull').textContent = r.idNumber || '—';
         document.getElementById('verifyMetaLine').textContent = (r.dateApplied || '—') + ' · Assigned: ' + (r.staffAssigned || '—');
         var box = document.getElementById('verifyProofBox');
@@ -1070,7 +1228,7 @@ body { font-family: 'Manrope', sans-serif; }
         patchRecord(id, { status: 'pending', approvedBy: '', remarks: note || 'Additional information requested.' });
     });
 
-    ['filterCardType', 'filterStatus', 'filterDateFrom', 'filterDateTo', 'filterStaff', 'filterPatient'].forEach(function (fid) {
+    ['filterRequirements', 'filterStatus', 'filterDateFrom', 'filterDateTo', 'filterStaff', 'filterPatient'].forEach(function (fid) {
         var el = document.getElementById(fid);
         if (el) el.addEventListener('input', renderHistory);
         if (el) el.addEventListener('change', renderHistory);
