@@ -61,7 +61,11 @@
         if (root) return;
         root = document.createElement('div');
         root.id = 'staff-ui-dialog-root';
-        root.className = 'fixed inset-0 z-[95] hidden';
+        // Inline position + z-index: Tailwind Play CDN doesn't reliably JIT-compile utilities that only appear in external .js; without them the overlay rendered under sidebar (z-40) / header (z-30) or flowed in normal layout.
+        root.className = 'hidden';
+        root.style.position = 'fixed';
+        root.style.left = root.style.right = root.style.top = root.style.bottom = '0';
+        root.style.zIndex = '100050';
         root.setAttribute('aria-hidden', 'true');
         root.innerHTML =
             '<div class="absolute inset-0 flex items-center justify-center p-4 sm:p-6">' +

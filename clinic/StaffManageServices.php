@@ -680,6 +680,24 @@ Save Changes
 
 <script src="<?php echo htmlspecialchars(BASE_URL, ENT_QUOTES, 'UTF-8'); ?>js/staff-ui-dialogs.js"></script>
 <script>
+if (typeof window.staffUiAlert !== 'function') {
+    window.staffUiAlert = function (arg) {
+        var o = arg && typeof arg === 'object' ? arg : {};
+        var title = typeof arg === 'string' ? '' : (o.title != null ? String(o.title) : '');
+        var msg = typeof arg === 'string' ? String(arg) : (o.message != null ? String(o.message) : '');
+        window.alert(title ? title + '\n\n' + msg : msg || 'Notice');
+        return Promise.resolve();
+    };
+}
+if (typeof window.staffUiConfirm !== 'function') {
+    window.staffUiConfirm = function (opts) {
+        opts = opts || {};
+        var headline = opts.title != null ? String(opts.title) : 'Confirm';
+        var body = opts.message != null ? String(opts.message) : '';
+        var ok = window.confirm(body ? headline + '\n\n' + body : headline);
+        return Promise.resolve(!!ok);
+    };
+}
 let allServices = [];
 let filteredServices = [];
 let currentPage = 1;
