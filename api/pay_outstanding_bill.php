@@ -45,14 +45,45 @@ try {
     $user_email = !empty($patRow['email']) ? $patRow['email'] : 'patient@mydentalph.com';
     $user_phone = !empty($patRow['phone']) ? $patRow['phone'] : '';
 
-    // 2. Generate a new Payment Record
-    $payment_id = 'PAY-' . strtoupper(substr(md5(microtime(true) . $booking_id . mt_rand()), 0, 10));
-    
-    // We record this as 'pending' fullpayment (or simply settling balance)
-    $stmt = $pdo->prepare("INSERT INTO tbl_payments 
-        (tenant_id, payment_id, patient_id, booking_id, amount, payment_method, status, created_by, payment_type) 
-        VALUES (?, ?, ?, ?, ?, 'gcash', 'pending', ?, 'fullpayment')");
-    $stmt->execute([$tenant_id, $payment_id, $patient_id, $booking_id, $payment_amount, $user_id]);
+    // 2. Reuse an existing pending PayMongo row for this booking when present (e.g. abandoned checkout
+    //    from Booking/Checkout). Otherwise a second INSERT leaves the old row stuck "pending" forever.
+    $stmt = $pdo->prepare(
+        "SELECT payment_id FROM tbl_payments
+         WHERE tenant_id = ? AND booking_id = ? AND LOWER(TRIM(COALESCE(status, ''))) = 'pending'
+         ORDER BY id DESC
+         LIMIT 1"
+    );
+    $stmt->execute([$tenant_id, $booking_id]);
+    $existingPending = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($existingPending && !empty($existingPending['payment_id'])) {
+        $payment_id = (string) $existingPending['payment_id'];
+        $stmt = $pdo->prepare(
+            "UPDATE tbl_payments
+             SET amount = ?, payment_method = 'gcash', payment_type = 'fullpayment', patient_id = ?, created_by = ?
+             WHERE payment_id = ?"
+        );
+        $stmt->execute([$payment_amount, $patient_id, $user_id, $payment_id]);
+
+        // Drop duplicate abandoned pending sessions for the same booking so history does not show stale Pending lines.
+        $stmt = $pdo->prepare(
+            "UPDATE tbl_payments SET status = 'cancelled'
+             WHERE tenant_id = ? AND booking_id = ? AND LOWER(TRIM(COALESCE(status, ''))) = 'pending' AND payment_id <> ?"
+        );
+        $stmt->execute([$tenant_id, $booking_id, $payment_id]);
+    } else {
+        $payment_id = 'PAY-' . strtoupper(substr(md5((string) microtime(true) . $booking_id . mt_rand()), 0, 10));
+        $stmt = $pdo->prepare(
+            "INSERT INTO tbl_payments
+            (tenant_id, payment_id, patient_id, booking_id, amount, payment_method, status, created_by, payment_type)
+            VALUES (?, ?, ?, ?, ?, 'gcash', 'pending', ?, 'fullpayment')"
+        );
+        $stmt->execute([$tenant_id, $payment_id, $patient_id, $booking_id, $payment_amount, $user_id]);
+    }
+
+    $scheme = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http');
+    $host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+    $baseApi = ($host !== '' ? "{$scheme}://{$host}" : 'http://mydentalph.ct.ws') . '/api';
 
     // 3. Create PayMongo Checkout Session
     $description = "Settling Outstanding Balance for $booking_id";
@@ -66,7 +97,7 @@ try {
                 'show_line_items' => true,
                 'payment_method_types' => ['gcash', 'paymaya', 'card'],
                 'description' => "$description - $patient_name",
-                'success_url' => "http://mydentalph.ct.ws/api/payment_success.php?pid=" . $payment_id,
+                'success_url' => $baseApi . '/payment_success.php?pid=' . rawurlencode($payment_id),
                 'billing' => [
                     'name' => $patient_name,
                     'email' => $user_email,

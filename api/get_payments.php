@@ -13,7 +13,7 @@ $tenant_id = trim((string) ($_GET['tenant_id'] ?? ''));
 $user_id = trim((string) ($_GET['user_id'] ?? ''));
 $payment_id = $_GET['payment_id'] ?? null;
 $booking_id = $_GET['booking_id'] ?? null;
-$patient_id = $_GET['patient_id'] ?? null;
+$filter_patient_id = isset($_GET['patient_id']) ? trim((string) $_GET['patient_id']) : null;
 $status = $_GET['status'] ?? null;
 
 if ($user_id === '') {
@@ -36,17 +36,34 @@ try {
     );
     $stmt->execute([$user_id, $user_id, $tenant_id]);
     $patientRow = $stmt->fetch(PDO::FETCH_ASSOC);
+    $resolved_patient_id = isset($patientRow['patient_id']) ? (string) $patientRow['patient_id'] : null;
+
+    // Avoid `patient_id = NULL` (never matches in SQL); allow payments tied by created_by when no profile exists.
+    $accessOr = 'p.created_by = ?';
+    $params = [$tenant_id];
+    if ($resolved_patient_id !== null && $resolved_patient_id !== '') {
+        $accessOr = '(p.created_by = ? OR p.patient_id = ?)';
+        $params[] = $user_id;
+        $params[] = $resolved_patient_id;
+    } else {
+        $params[] = $user_id;
+    }
 
     $sql = "
-        SELECT p.*
+        SELECT
+            p.*,
+            a.appointment_date AS appt_date,
+            a.service_type AS appt_service_type,
+            a.service_description AS appt_service_description,
+            TRIM(CONCAT(COALESCE(dent.first_name, ''), ' ', COALESCE(dent.last_name, ''))) AS dentist_display_name
         FROM tbl_payments p
+        LEFT JOIN tbl_appointments a
+            ON a.booking_id = p.booking_id AND a.tenant_id = p.tenant_id
+        LEFT JOIN tbl_dentists dent
+            ON dent.dentist_id = a.dentist_id AND dent.tenant_id = a.tenant_id
         WHERE p.tenant_id = ?
-          AND (
-                p.created_by = ?
-                OR p.patient_id = ?
-              )
+          AND ($accessOr)
     ";
-    $params = [$tenant_id, $user_id, $patientRow['patient_id'] ?? null];
 
     if (!empty($payment_id)) {
         $sql .= " AND p.payment_id = ? ";
@@ -56,9 +73,9 @@ try {
         $sql .= " AND p.booking_id = ? ";
         $params[] = $booking_id;
     }
-    if (!empty($patient_id)) {
+    if ($filter_patient_id !== null && $filter_patient_id !== '') {
         $sql .= " AND p.patient_id = ? ";
-        $params[] = $patient_id;
+        $params[] = $filter_patient_id;
     }
     if (!empty($status)) {
         $sql .= " AND p.status = ? ";
