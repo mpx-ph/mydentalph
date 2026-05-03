@@ -1368,8 +1368,14 @@ function saveNewService() {
         if (!data.success) {
             throw new Error(data.message || 'Failed to create service.');
         }
+        const addedServiceName = payload.service_name || 'The service';
         closeNewServiceModal();
         loadServices();
+        void staffUiAlert({
+            title: 'Service added',
+            message: 'The Service "' + addedServiceName + '" has been added.',
+            variant: 'success'
+        });
     }).catch(function (err) {
         void staffUiAlert({ message: err.message || 'Failed to create service.', variant: 'error', title: 'Could not create service' });
     });
