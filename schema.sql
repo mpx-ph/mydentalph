@@ -594,6 +594,10 @@ CREATE TABLE IF NOT EXISTS tbl_clinic_hours (
     CONSTRAINT fk_clinic_hours_tenant FOREIGN KEY (tenant_id) REFERENCES tbl_tenants(tenant_id) ON DELETE CASCADE
 );
 
+-- Migration note: some deployments still ship UNIQUE KEY `unique_day_date` (day_of_week, clinic_date), which rejects
+-- a second INSERT for the same calendar day/weekday even when locating rows only by tenant_id + clinic_date.
+-- Replace that index with uniqueness scoped by tenant: e.g. UNIQUE (tenant_id, clinic_date), or migrate to scope_key above.
+
 -- ============================================
 -- PATIENT QUEUE
 -- ============================================

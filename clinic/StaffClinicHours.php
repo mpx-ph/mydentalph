@@ -165,20 +165,25 @@ try {
             $closeTime = $closeTimeDt->format('H:i:s');
         }
 
-        $checkStmt = $pdo->prepare('SELECT clinic_hours_id FROM tbl_clinic_hours WHERE tenant_id = ? AND clinic_date = ? LIMIT 1');
+        // Existence must match UNIQUE unique_day_date (day_of_week, clinic_date) on many hosts—not only (tenant_id, clinic_date).
+        $findDayDateStmt = $pdo->prepare(
+            'SELECT clinic_hours_id, tenant_id FROM tbl_clinic_hours WHERE day_of_week = ? AND clinic_date = ? LIMIT 1'
+        );
         $insertStmt = $pdo->prepare('
             INSERT INTO tbl_clinic_hours (tenant_id, clinic_date, day_of_week, open_time, close_time, is_closed, notes)
             VALUES (?, ?, ?, ?, ?, ?, NULL)
         ');
         $updateStmt = $pdo->prepare('
             UPDATE tbl_clinic_hours
-            SET day_of_week = ?,
+            SET tenant_id = ?,
+                clinic_date = ?,
+                day_of_week = ?,
                 open_time = ?,
                 close_time = ?,
                 is_closed = ?,
                 updated_at = CURRENT_TIMESTAMP
-            WHERE tenant_id = ?
-              AND clinic_date = ?
+            WHERE clinic_hours_id = ?
+              AND tenant_id = ?
         ');
 
         $inserted = 0;
@@ -190,18 +195,32 @@ try {
             for ($d = $dateFrom; $d <= $dateTo; $d = $d->modify('+1 day')) {
                 $dow = (int) $d->format('w');
                 $clinicDateStr = $d->format('Y-m-d');
-                $checkStmt->execute([$currentTenantId, $clinicDateStr]);
-                $exists = (bool) $checkStmt->fetchColumn();
+                $findDayDateStmt->execute([$dow, $clinicDateStr]);
+                $existing = $findDayDateStmt->fetch(PDO::FETCH_ASSOC);
+                $findDayDateStmt->closeCursor();
+                $existingId = null;
+                if (is_array($existing) && isset($existing['clinic_hours_id'])) {
+                    $existingTid = isset($existing['tenant_id']) ? trim((string) $existing['tenant_id']) : '';
+                    if ($existingTid !== '' && strcasecmp($existingTid, $currentTenantId) !== 0) {
+                        throw new RuntimeException(
+                            'This date already has clinic hours tied to another tenant ('
+                            . substr($existingTid, 0, 48) . '). Migrate unique_day_date to include tenant_id, or delete the conflicting row in tbl_clinic_hours.'
+                        );
+                    }
+                    $existingId = (int) $existing['clinic_hours_id'];
+                }
 
-                if ($exists) {
+                if ($existingId !== null) {
                     if ($overwrite) {
                         $updateStmt->execute([
+                            $currentTenantId,
+                            $clinicDateStr,
                             $dow,
                             $isClosed ? null : $openTime,
                             $isClosed ? null : $closeTime,
                             $isClosed ? 1 : 0,
+                            $existingId,
                             $currentTenantId,
-                            $clinicDateStr,
                         ]);
                         $updated++;
                     } else {
@@ -298,9 +317,22 @@ try {
             throw new RuntimeException('Invalid clinic date selected for clinic hours.');
         }
 
-        $checkOneStmt = $pdo->prepare('SELECT clinic_hours_id FROM tbl_clinic_hours WHERE tenant_id = ? AND clinic_date = ? LIMIT 1');
-        $checkOneStmt->execute([$currentTenantId, $clinicDate]);
-        $alreadyHasDateRow = (bool) $checkOneStmt->fetchColumn();
+        $findOneDayDateStmt = $pdo->prepare(
+            'SELECT clinic_hours_id, tenant_id FROM tbl_clinic_hours WHERE day_of_week = ? AND clinic_date = ? LIMIT 1'
+        );
+        $findOneDayDateStmt->execute([$dayOfWeek, $clinicDate]);
+        $existingOne = $findOneDayDateStmt->fetch(PDO::FETCH_ASSOC);
+        $findOneDayDateStmt->closeCursor();
+        $existingOneId = null;
+        if (is_array($existingOne) && isset($existingOne['clinic_hours_id'])) {
+            $existingOneTid = isset($existingOne['tenant_id']) ? trim((string) $existingOne['tenant_id']) : '';
+            if ($existingOneTid !== '' && strcasecmp($existingOneTid, $currentTenantId) !== 0) {
+                throw new RuntimeException(
+                    'This date already has clinic hours tied to another tenant. Migrate unique_day_date to include tenant_id, or remove the conflicting row.'
+                );
+            }
+            $existingOneId = (int) $existingOne['clinic_hours_id'];
+        }
 
         $insertOneStmt = $pdo->prepare('
             INSERT INTO tbl_clinic_hours (tenant_id, clinic_date, day_of_week, open_time, close_time, is_closed, notes)
@@ -308,25 +340,29 @@ try {
         ');
         $updateOneStmt = $pdo->prepare('
             UPDATE tbl_clinic_hours
-            SET day_of_week = ?,
+            SET tenant_id = ?,
+                clinic_date = ?,
+                day_of_week = ?,
                 open_time = ?,
                 close_time = ?,
                 is_closed = ?,
                 notes = ?,
                 updated_at = CURRENT_TIMESTAMP
-            WHERE tenant_id = ?
-              AND clinic_date = ?
+            WHERE clinic_hours_id = ?
+              AND tenant_id = ?
         ');
 
-        if ($alreadyHasDateRow) {
+        if ($existingOneId !== null) {
             $updateOneStmt->execute([
+                $currentTenantId,
+                $clinicDate,
                 $dayOfWeek,
                 $isClosed ? null : $openTime,
                 $isClosed ? null : $closeTime,
                 $isClosed ? 1 : 0,
                 $notes,
+                $existingOneId,
                 $currentTenantId,
-                $clinicDate,
             ]);
         } else {
             $insertOneStmt->execute([
@@ -672,6 +708,9 @@ try {
                     <h2 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em]">Weekly Hours</h2>
                     <p class="text-sm font-semibold text-slate-600">
                         <?php echo htmlspecialchars($selectedWeekStart->format('F j, Y') . ' - ' . $selectedWeekEnd->format('F j, Y'), ENT_QUOTES, 'UTF-8'); ?>
+                    </p>
+                    <p class="text-xs font-medium text-slate-500 leading-relaxed max-w-xl">
+                        Times with no row in the database yet show <span class="font-semibold text-slate-600">default hours</span> for today and past days (this week), and “<span class="font-semibold text-slate-600">-</span>” for future dates. Use edit or bulk apply to save a date into the database.
                     </p>
                 </div>
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
