@@ -1990,6 +1990,24 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
     })();
 
     syncModalVisualState();
+
+    (function maybeOpenPatientCheckInFromStaffHeader() {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('open_patient_check_in') !== '1') {
+            return;
+        }
+        params.delete('open_patient_check_in');
+        var query = params.toString();
+        var base = window.location.pathname + (query ? ('?' + query) : '') + (window.location.hash || '');
+        try {
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState(null, '', base);
+            }
+        } catch (e) {}
+        window.requestAnimationFrame(function () {
+            openQrCheckInModal();
+        });
+    })();
 </script>
 </body>
 </html>

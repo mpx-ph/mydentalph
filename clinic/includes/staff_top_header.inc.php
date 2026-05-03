@@ -79,6 +79,10 @@ $__staff_profile_url = 'StaffMyProfile.php';
 if ($__slug_title !== '') {
     $__staff_profile_url .= '?clinic_slug=' . rawurlencode($__slug_title);
 }
+$__staff_appointments_checkin_url = 'StaffAppointments.php?open_patient_check_in=1';
+if ($__slug_title !== '') {
+    $__staff_appointments_checkin_url .= '&clinic_slug=' . rawurlencode($__slug_title);
+}
 $__staff_logout_url = '/clinic/api/logout.php';
 
 $__clinic_name = '';
@@ -117,9 +121,9 @@ if ($__hdr_role === 'dentist') {
       <button type="button" class="hover:bg-surface-container-low rounded-full p-2.5 transition-all relative border-0 bg-transparent cursor-pointer hidden sm:inline-flex" aria-label="Notifications">
         <span class="material-symbols-outlined text-on-surface-variant">notifications</span>
       </button>
-      <button type="button" id="staff-header-qr-btn" class="hover:bg-surface-container-low rounded-full p-2.5 transition-all relative border-0 bg-transparent cursor-pointer hidden sm:inline-flex" aria-label="QR code">
+      <a href="<?php echo htmlspecialchars($__staff_appointments_checkin_url, ENT_QUOTES, 'UTF-8'); ?>" id="staff-header-qr-btn" class="hover:bg-surface-container-low rounded-full p-2.5 transition-all relative border-0 bg-transparent cursor-pointer hidden sm:inline-flex items-center justify-center text-inherit no-underline shrink-0" aria-label="Open patient check-in (QR scanner)">
         <span class="material-symbols-outlined text-on-surface-variant">qr_code_2</span>
-      </button>
+      </a>
       <button type="button" class="hover:bg-surface-container-low rounded-full p-2.5 transition-all border-0 bg-transparent cursor-pointer hidden sm:inline-flex" aria-label="Help">
         <span class="material-symbols-outlined text-on-surface-variant">help_outline</span>
       </button>
