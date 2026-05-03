@@ -49,6 +49,31 @@ switch ($method) {
 }
 
 /**
+ * Resolve client `patient_id` to DB primary key `patients.id`.
+ * Accepts numeric id OR business display id (e.g. P-2026-00022 from list_dependents.php).
+ */
+function profileResolveOwnedPatientId(PDO $pdo, string $ownerUserId, $raw): ?int {
+    $raw = trim((string) ($raw ?? ''));
+    if ($raw === '') {
+        return null;
+    }
+    if (ctype_digit($raw)) {
+        $id = (int) $raw;
+        if ($id <= 0) {
+            return null;
+        }
+        $stmt = $pdo->prepare("SELECT id FROM patients WHERE id = ? AND owner_user_id = ? LIMIT 1");
+        $stmt->execute([$id, $ownerUserId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ? (int) $row['id'] : null;
+    }
+    $stmt = $pdo->prepare("SELECT id FROM patients WHERE patient_id = ? AND owner_user_id = ? LIMIT 1");
+    $stmt->execute([$raw, $ownerUserId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ? (int) $row['id'] : null;
+}
+
+/**
  * Get profile data
  * Returns data for a specific patient profile (by patient_id) or default self profile
  */
@@ -73,18 +98,20 @@ function getProfile() {
         
         $userUserId = $user['user_id'];
         
-        // Get patient_id from query parameter (if specified)
-        $patientId = isset($_GET['patient_id']) ? intval($_GET['patient_id']) : null;
+        // Query param may be numeric id OR display patient_id (e.g. P-2026-00022 from the mobile app).
+        $rawPatientKey = isset($_GET['patient_id']) ? trim((string) $_GET['patient_id']) : '';
         
-        if ($patientId) {
-            // Get specific patient profile (must be owned by logged-in user)
+        if ($rawPatientKey !== '') {
+            $resolvedId = profileResolveOwnedPatientId($pdo, $userUserId, $rawPatientKey);
+            if ($resolvedId === null) {
+                jsonResponse(false, 'Patient profile not found or access denied.');
+            }
             $stmt = $pdo->prepare("
                 SELECT * FROM patients 
                 WHERE id = ? AND owner_user_id = ?
             ");
-            $stmt->execute([$patientId, $userUserId]);
+            $stmt->execute([$resolvedId, $userUserId]);
             $patient = $stmt->fetch();
-            
             if (!$patient) {
                 jsonResponse(false, 'Patient profile not found or access denied.');
             }
@@ -204,8 +231,15 @@ function updatePersonalDetails($userId, $input) {
             jsonResponse(false, 'Only client accounts can manage patient profiles. Staff accounts use a different profile system.');
         }
         
-        // Get patient_id from input (if updating a specific patient profile)
-        $patientId = isset($input['patient_id']) ? intval($input['patient_id']) : null;
+        // patient_id in JSON may be numeric id OR display id (P-2026-…)
+        $rawPatientRef = isset($input['patient_id']) ? trim((string) $input['patient_id']) : '';
+        $patientId = null;
+        if ($rawPatientRef !== '') {
+            $patientId = profileResolveOwnedPatientId($pdo, $userUserId, $rawPatientRef);
+            if ($patientId === null) {
+                jsonResponse(false, 'Patient profile not found or access denied.');
+            }
+        }
         
         // Extract and sanitize patient data (no first_name/last_name - they're in users table)
         // Note: date_of_birth cannot be updated after registration
@@ -891,8 +925,14 @@ function uploadPhoto() {
             jsonResponse(false, 'Only client accounts can upload patient profile photos.');
         }
         
-        // Get patient_id from input (if updating a specific patient profile)
-        $patientId = isset($input['patient_id']) ? intval($input['patient_id']) : null;
+        $rawPatientRef = isset($input['patient_id']) ? trim((string) $input['patient_id']) : '';
+        $patientId = null;
+        if ($rawPatientRef !== '') {
+            $patientId = profileResolveOwnedPatientId($pdo, $userUserId, $rawPatientRef);
+            if ($patientId === null) {
+                jsonResponse(false, 'Patient profile not found or access denied.');
+            }
+        }
         
         // Save the photo using saveBase64Image function
         require_once __DIR__ . '/../includes/functions.php';
