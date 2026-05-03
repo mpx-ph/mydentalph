@@ -11,6 +11,8 @@ date_default_timezone_set('Asia/Manila');
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/includes/staff_installment_helpers.php';
 require_once __DIR__ . '/includes/appointment_db_tables.php';
+require_once __DIR__ . '/../paymongo_config.php';
+require_once __DIR__ . '/../mail_config.php';
 
 if (!function_exists('staff_payment_recording_to_manila_datetime')) {
     /** @see StaffPaymentRecording.php — keep naive DST handling aligned with tbl_payments storage */
@@ -136,6 +138,45 @@ if (!function_exists('staff_payment_recording_build_receipt_email_html')) {
             . '<p style="margin:12px 0 0;font-size:34px;line-height:38px;font-weight:800;color:#b45309;">' . $remainingBalance . '</p></td>'
             . '</tr></table></td></tr>'
             . '</table></td></tr></table></body></html>';
+    }
+}
+
+if (!function_exists('staff_paymongo_get_checkout_billing_email')) {
+    /**
+     * Email entered on PayMongo Hosted Checkout (Customer Information) is returned on the session resource.
+     */
+    function staff_paymongo_get_checkout_billing_email(string $checkoutSessionId, string $secret): string
+    {
+        $checkoutSessionId = trim($checkoutSessionId);
+        if ($checkoutSessionId === '' || $secret === '' || strpos($secret, 'YOUR_') !== false) {
+            return '';
+        }
+        if (strncmp($checkoutSessionId, 'cs_', 3) !== 0) {
+            return '';
+        }
+        $endpoint = 'https://api.paymongo.com/v1/checkout_sessions/' . rawurlencode($checkoutSessionId);
+        $ch = curl_init($endpoint);
+        if ($ch === false) {
+            return '';
+        }
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Accept: application/json',
+                'Authorization: Basic ' . base64_encode($secret . ':'),
+            ],
+        ]);
+        $response = curl_exec($ch);
+        curl_close($ch);
+        $data = json_decode((string) $response, true);
+        if (!is_array($data)) {
+            return '';
+        }
+        $email = trim((string) ($data['data']['attributes']['billing']['email'] ?? ''));
+        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $email;
+        }
+        return '';
     }
 }
 
@@ -346,7 +387,17 @@ try {
             $patientEmail = '';
         }
 
-        if ($patientEmail !== '' && function_exists('send_smtp_gmail')) {
+        $recipientEmail = '';
+        $paymongoSecret = defined('PAYMONGO_SECRET_KEY') ? (string) PAYMONGO_SECRET_KEY : '';
+        $checkoutSessionId = trim((string) ($payRow['reference_number'] ?? ''));
+        if ($paymongoSecret !== '' && $checkoutSessionId !== '') {
+            $recipientEmail = staff_paymongo_get_checkout_billing_email($checkoutSessionId, $paymongoSecret);
+        }
+        if ($recipientEmail === '') {
+            $recipientEmail = $patientEmail;
+        }
+
+        if ($recipientEmail !== '' && function_exists('send_smtp_gmail')) {
             $patientName = trim(trim((string) ($patientRow['first_name'] ?? '')) . ' ' . trim((string) ($patientRow['last_name'] ?? '')));
             if ($patientName === '') {
                 $patientName = 'Patient';
@@ -422,7 +473,7 @@ try {
                 'remaining_balance' => $remainingLabel,
             ]);
 
-            if (send_smtp_gmail($patientEmail, $emailSubject, $emailBodyText, $emailBodyHtml)) {
+            if (send_smtp_gmail($recipientEmail, $emailSubject, $emailBodyText, $emailBodyHtml)) {
                 $_SESSION['staff_last_receipt_email'] = [
                     'tenant_id' => $tenantId,
                     'payment_id' => $paymentId,
