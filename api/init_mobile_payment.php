@@ -32,6 +32,9 @@ $appointment_time = $input['appointment_time'] ?? null;
 $services_json = $input['services'] ?? '[]';
 $total_amount = isset($input['total_amount']) ? (float) $input['total_amount'] : 0.0;
 $payment_amount = isset($input['payment_amount']) ? (float) $input['payment_amount'] : 0.0;
+$wallet_amount_in = isset($input['wallet_amount']) ? (float) $input['wallet_amount'] : 0.0;
+/** Patient-facing obligation after discounts (full booking). When set, downpayment vs full is based on this, not gross total_amount. */
+$discounted_subtotal_in = isset($input['discounted_subtotal']) ? (float) $input['discounted_subtotal'] : 0.0;
 
 if (!$user_id || !$appointment_time) {
     die(json_encode(["status" => "error", "message" => "Missing required fields"]));
@@ -89,6 +92,8 @@ try {
 
     $pdo->beginTransaction();
 
+    $treatment_cart_total = ($discounted_subtotal_in > 0.009) ? $discounted_subtotal_in : $total_amount;
+
     $ledger = booking_create_treatment_row(
         $pdo,
         $tenant_id,
@@ -96,7 +101,7 @@ try {
         (string) $user_id,
         $booking_id,
         $services,
-        $total_amount,
+        $treatment_cart_total,
         $apptExtras,
         (string) $appointment_date
     );
@@ -132,7 +137,7 @@ try {
         'service_type' => $apptExtras['service_type'] ?? null,
         'service_description' => $apptExtras['service_description'] ?? null,
         'treatment_type' => $apptExtras['treatment_type'] ?? 'short_term',
-        'total_treatment_cost' => $total_amount > 0 ? $total_amount : null,
+        'total_treatment_cost' => $treatment_cart_total > 0 ? $treatment_cart_total : null,
         'duration_months' => $durationForAppointment,
         'target_completion_date' => $apptExtras['target_completion_date'] ?? null,
         'start_date' => $apptExtras['start_date'] ?? $appointment_date,
@@ -201,7 +206,10 @@ try {
     }
 
     $payment_id = 'PAY-' . strtoupper(substr(md5((string) microtime(true) . $booking_id . mt_rand()), 0, 10));
-    $payment_type = ($payment_amount < $total_amount) ? 'downpayment' : 'fullpayment';
+    $obligation_total = ($discounted_subtotal_in > 0.009) ? $discounted_subtotal_in : $total_amount;
+    $paid_now_total = $wallet_amount_in + $payment_amount;
+    // Full payment when wallet + online covers the discounted obligation (not gross catalog total).
+    $payment_type = ($paid_now_total + 0.02 >= $obligation_total) ? 'fullpayment' : 'downpayment';
     $payNotes = isset($ledger['payment_notes'])
         ? (string) $ledger['payment_notes']
         : sprintf('Mobile booking %s (PayMongo pending).', $booking_id);
@@ -248,7 +256,9 @@ try {
 
     $pdo->commit();
 
-    $description = ($payment_amount < $total_amount) ? 'Downpayment for Appointment' : 'Full Payment for Appointment';
+    $description = $payment_type === 'downpayment'
+        ? 'Downpayment for Appointment'
+        : 'Full Payment for Appointment';
     $amount_in_cents = (int) round($payment_amount * 100);
 
     $scheme = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http');
