@@ -502,3 +502,90 @@ function staff_installments_stamp_next_followup_slot_for_staff_visit(
 
     return $upd->rowCount() > 0;
 }
+
+/**
+ * Stamp scheduled_date/time for an explicit installment (patient app follow-up after paying a plan row).
+ * Row #1 stays driven by the plan master appointment; no-op when installment_number &lt;= 1.
+ */
+function staff_installments_stamp_followup_slot_explicit(
+    PDO $pdo,
+    string $tenantId,
+    string $planBookingId,
+    int $installmentNumber,
+    string $visitDateRaw,
+    string $visitTimeRaw
+): bool {
+    $tenantId = trim($tenantId);
+    $planBookingId = trim($planBookingId);
+    $visitDateRaw = trim($visitDateRaw);
+    $visitTimeRaw = trim($visitTimeRaw);
+    if ($tenantId === '' || $planBookingId === '' || $installmentNumber <= 1) {
+        return true;
+    }
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}/', $visitDateRaw)) {
+        return false;
+    }
+    $dateYmd = substr($visitDateRaw, 0, 10);
+
+    $installmentsPhys = clinic_get_physical_table_name($pdo, 'tbl_installments')
+        ?? clinic_get_physical_table_name($pdo, 'installments')
+        ?? '';
+    if ($installmentsPhys === '') {
+        return false;
+    }
+
+    $qi = clinic_quote_identifier((string) $installmentsPhys);
+    $tenantClause = '(i.tenant_id = ? OR i.tenant_id IS NULL OR TRIM(COALESCE(i.tenant_id, \'\')) = \'\')';
+
+    $chk = $pdo->prepare(
+        "SELECT i.installment_number FROM {$qi} i
+         WHERE i.booking_id = ? AND i.installment_number = ? AND {$tenantClause}
+         LIMIT 1"
+    );
+    $chk->execute([$planBookingId, $installmentNumber, $tenantId]);
+    $found = $chk->fetch(PDO::FETCH_ASSOC);
+    if (!$found) {
+        return false;
+    }
+
+    $instCols = clinic_table_columns($pdo, (string) $installmentsPhys);
+    $hasScheduledDate = in_array('scheduled_date', $instCols, true);
+    $hasScheduledTime = in_array('scheduled_time', $instCols, true);
+    if (!$hasScheduledDate) {
+        return false;
+    }
+
+    $timeVal = $visitTimeRaw;
+    if ($hasScheduledTime && $timeVal !== '') {
+        if (strlen($timeVal) === 5 && preg_match('/^\d{2}:\d{2}$/', $timeVal)) {
+            $timeVal .= ':00';
+        }
+    } else {
+        $timeVal = '';
+    }
+
+    $stampSet = ['i.scheduled_date = ?'];
+    $params = [$dateYmd];
+    if ($hasScheduledTime) {
+        $stampSet[] = 'i.scheduled_time = ?';
+        $params[] = $timeVal !== '' ? $timeVal : null;
+    }
+    if (in_array('updated_at', $instCols, true)) {
+        $stampSet[] = 'i.updated_at = NOW()';
+    }
+
+    $params[] = $planBookingId;
+    $params[] = $installmentNumber;
+    $params[] = $tenantId;
+
+    $sql = 'UPDATE ' . $qi . ' i SET ' . implode(', ', $stampSet) . "
+        WHERE i.booking_id = ?
+          AND i.installment_number = ?
+          AND {$tenantClause}
+        LIMIT 1
+    ";
+    $upd = $pdo->prepare($sql);
+    $upd->execute($params);
+
+    return $upd->rowCount() > 0;
+}

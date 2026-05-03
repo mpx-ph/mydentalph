@@ -854,6 +854,15 @@ function treatment_progress_modal_resolve_payload(PDO $pdo, string $tenantId, st
     }
 
     $qt = clinic_quote_identifier($treatmentsTable);
+    $tc = clinic_table_columns($pdo, $treatmentsTable);
+    $pkCol = 'COALESCE(primary_service_id, \'\') AS primary_service_id';
+    if (!in_array('primary_service_id', $tc, true)) {
+        $pkCol = '\'\' AS primary_service_id';
+    }
+    $pnCol = 'COALESCE(primary_service_name, \'\') AS primary_service_name';
+    if (!in_array('primary_service_name', $tc, true)) {
+        $pnCol = '\'\' AS primary_service_name';
+    }
     $tStmt = $pdo->prepare("
         SELECT
             treatment_id,
@@ -863,7 +872,9 @@ function treatment_progress_modal_resolve_payload(PDO $pdo, string $tenantId, st
             COALESCE(remaining_balance, 0) AS remaining_balance,
             COALESCE(duration_months, 0) AS duration_months,
             COALESCE(months_paid, 0) AS months_paid,
-            COALESCE(status, 'active') AS status
+            COALESCE(status, 'active') AS status,
+            {$pkCol},
+            {$pnCol}
         FROM {$qt}
         WHERE tenant_id = ?
           AND patient_id = ?
@@ -1100,8 +1111,11 @@ function treatment_progress_modal_resolve_payload(PDO $pdo, string $tenantId, st
                 'total_cost' => round($totalCost, 2),
                 'amount_paid' => round($amountPaid, 2),
                 'remaining_balance' => round(max(0.0, (float) ($treatment['remaining_balance'] ?? 0)), 2),
+                'duration_months' => $durationMonths,
                 'months_paid' => (int) ($treatment['months_paid'] ?? 0),
                 'progress_percentage' => round($progressPct, 2),
+                'primary_service_id' => trim((string) ($treatment['primary_service_id'] ?? '')),
+                'primary_service_name' => trim((string) ($treatment['primary_service_name'] ?? '')),
             ],
             'steps' => $steps,
         ];

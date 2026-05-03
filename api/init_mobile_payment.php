@@ -36,12 +36,29 @@ $wallet_amount_in = isset($input['wallet_amount']) ? (float) $input['wallet_amou
 /** Patient-facing obligation after discounts (full booking). When set, downpayment vs full is based on this, not gross total_amount. */
 $discounted_subtotal_in = isset($input['discounted_subtotal']) ? (float) $input['discounted_subtotal'] : 0.0;
 
+$schedule_followup_only = !empty($input['schedule_followup_only']);
+$existing_treatment_id_in = trim((string) ($input['existing_treatment_id'] ?? ''));
+$plan_booking_id_in = trim((string) ($input['plan_booking_id'] ?? ''));
+$installment_number_for_slot = (int) ($input['installment_number_for_slot'] ?? 0);
+
+if ($schedule_followup_only) {
+    $payment_amount = 0.0;
+    $wallet_amount_in = 0.0;
+    if ($existing_treatment_id_in === '' || $plan_booking_id_in === '' || $installment_number_for_slot < 1) {
+        die(json_encode([
+            'status' => 'error',
+            'message' => 'Missing plan follow-up fields (existing_treatment_id, plan_booking_id, installment_number_for_slot).',
+        ]));
+    }
+}
+
 if (!$user_id || !$appointment_time) {
     die(json_encode(["status" => "error", "message" => "Missing required fields"]));
 }
 
 $paymongo_secret = defined('PAYMONGO_SECRET_KEY') ? (string) PAYMONGO_SECRET_KEY : '';
-if ($paymongo_secret === '') {
+$needs_paymongo = !$schedule_followup_only && $payment_amount > 0.009;
+if ($needs_paymongo && $paymongo_secret === '') {
     die(json_encode(["status" => "error", "message" => "PayMongo Secret Key not configured on the server."]));
 }
 
@@ -63,6 +80,24 @@ try {
     $patient_name = trim(trim((string) ($patRow['first_name'] ?? '')) . ' ' . trim((string) ($patRow['last_name'] ?? '')));
     $user_email = !empty($patRow['email']) ? trim((string) $patRow['email']) : 'patient@mydentalph.com';
     $user_phone = trim((string) ($patRow['phone'] ?? ''));
+
+    if ($schedule_followup_only) {
+        mobile_api_schedule_followup_only_booking(
+            $pdo,
+            (string) $tenant_id,
+            $user_id,
+            $patient_id,
+            $patient_name,
+            (int) $dentist_id,
+            (string) $appointment_date,
+            (string) $appointment_time,
+            $input,
+            $services_json,
+            $existing_treatment_id_in,
+            $plan_booking_id_in,
+            $installment_number_for_slot
+        );
+    }
 
     $booking_id = 'BK-' . strtoupper(substr(md5((string) microtime(true) . $user_id . mt_rand()), 0, 10));
 
@@ -364,4 +399,234 @@ try {
         'status' => 'error',
         'message' => $e->getMessage(),
     ]);
+}
+
+/**
+ * Long-term plan visit already paid via installments: create appointment under existing treatment, no PayMongo.
+ */
+function mobile_api_schedule_followup_only_booking(
+    PDO $pdo,
+    string $tenant_id,
+    mixed $user_id,
+    string $patient_id,
+    string $patient_name,
+    int $dentist_id,
+    string $appointment_date,
+    string $appointment_time,
+    array $input,
+    mixed $services_json,
+    string $existing_treatment_id,
+    string $plan_booking_id,
+    int $installment_number_for_slot,
+): void {
+    $tenant_id = trim($tenant_id);
+    $patient_id = trim($patient_id);
+    $existing_treatment_id = trim($existing_treatment_id);
+    $plan_booking_id = trim($plan_booking_id);
+
+    $tables = clinic_resolve_appointment_db_tables($pdo);
+    $apptPhys = $tables['appointments'] ?? 'tbl_appointments';
+    $apptQuoted = clinic_quote_identifier((string) $apptPhys);
+    $treatmentsPhys = $tables['treatments'] ?? 'tbl_treatments';
+
+    $stmt = $pdo->prepare(
+        "SELECT id FROM {$apptQuoted}
+         WHERE dentist_id = ? AND appointment_date = ? AND appointment_time = ?
+           AND LOWER(COALESCE(status, '')) NOT IN ('cancelled')
+         LIMIT 1"
+    );
+    $stmt->execute([(int) $dentist_id, $appointment_date, $appointment_time]);
+    if ($stmt->fetch()) {
+        throw new Exception('This time slot is already reserved. Please choose a different time.');
+    }
+
+    $qt = clinic_quote_identifier((string) $treatmentsPhys);
+    $tstmt = $pdo->prepare(
+        "SELECT COALESCE(duration_months, 0) AS duration_months, COALESCE(total_cost, 0) AS total_cost
+         FROM {$qt}
+         WHERE tenant_id = ?
+           AND patient_id = ?
+           AND treatment_id = ?
+         LIMIT 1"
+    );
+    $tstmt->execute([$tenant_id, $patient_id, $existing_treatment_id]);
+    $tRow = $tstmt->fetch(PDO::FETCH_ASSOC);
+    if (!$tRow) {
+        throw new Exception('Treatment not found for this patient.');
+    }
+
+    $installPhys = clinic_get_physical_table_name($pdo, 'tbl_installments')
+        ?? clinic_get_physical_table_name($pdo, 'installments')
+        ?? '';
+    if ($installPhys === '') {
+        throw new Exception('Installments table is not available.');
+    }
+
+    $resolvedBid = staff_installments_resolve_plan_booking_id_for_patient_treatment(
+        $pdo,
+        $tenant_id,
+        $patient_id,
+        $existing_treatment_id,
+        (string) $apptPhys,
+        (string) $installPhys
+    );
+    if (trim((string) $resolvedBid) !== $plan_booking_id) {
+        throw new Exception('Plan booking does not match this treatment.');
+    }
+
+    $qi = clinic_quote_identifier((string) $installPhys);
+    $tenantClause = '(i.tenant_id = ? OR i.tenant_id IS NULL OR TRIM(COALESCE(i.tenant_id, \'\')) = \'\')';
+    $ichk = $pdo->prepare(
+        "SELECT 1 FROM {$qi} i WHERE i.booking_id = ? AND i.installment_number = ? AND {$tenantClause} LIMIT 1"
+    );
+    $ichk->execute([$plan_booking_id, $installment_number_for_slot, $tenant_id]);
+    if (!$ichk->fetchColumn()) {
+        throw new Exception('Installment row not found for this plan booking.');
+    }
+
+    $services = is_array($services_json) ? $services_json : json_decode((string) $services_json, true);
+    if (!is_array($services)) {
+        $services = [];
+    }
+
+    $durTr = max(0, (int) ($tRow['duration_months'] ?? 0));
+    if ($durTr >= 1) {
+        $input['treatment_type'] = 'long_term';
+        if (empty($input['duration_months']) || (int) $input['duration_months'] < 1) {
+            $input['duration_months'] = $durTr;
+        }
+    }
+
+    $treatment_cart_total = (float) ($tRow['total_cost'] ?? 0.0);
+    if ($treatment_cart_total <= 0.0) {
+        $treatment_cart_total = max(0.0, (float) ($input['total_amount'] ?? 0.0));
+    }
+
+    $apptExtras = clinic_appointment_extras_for_booking($pdo, $tenant_id, $services, (string) $appointment_date);
+    $apptExtras = booking_merge_extras_from_mobile_input($apptExtras, $input);
+    $apptExtras = booking_ensure_long_term_schedule($apptExtras, (string) $appointment_date);
+
+    $ledgerDurationMonths = (int) ($apptExtras['duration_months'] ?? 0);
+    $durationForAppointment = isset($apptExtras['duration_months']) ? (int) $apptExtras['duration_months'] : null;
+    if ($ledgerDurationMonths > 0) {
+        $durationForAppointment = $ledgerDurationMonths;
+    }
+
+    $treatmentFkOrNull = $existing_treatment_id;
+    $installmentForAppointment = $installment_number_for_slot > 0 ? $installment_number_for_slot : null;
+
+    $notesCombined = trim((string) ($input['notes'] ?? ''));
+    if ($treatmentFkOrNull !== '') {
+        $notesCombined .= ($notesCombined !== '' ? "\n" : '') . 'treatment_id: ' . $treatmentFkOrNull;
+    }
+    $notesCombined .= ($notesCombined !== '' ? "\n" : '') . 'plan_follow_up_installment:' . $installment_number_for_slot;
+
+    $booking_id = 'BK-' . strtoupper(substr(md5((string) microtime(true) . $user_id . mt_rand()), 0, 10));
+
+    $apptVals = [
+        'tenant_id' => $tenant_id,
+        'dentist_id' => (int) $dentist_id,
+        'booking_id' => $booking_id,
+        'patient_id' => $patient_id,
+        'treatment_id' => $treatmentFkOrNull,
+        'appointment_date' => $appointment_date,
+        'appointment_time' => $appointment_time,
+        'status' => 'confirmed',
+        'visit_type' => 'pre_book',
+        'created_by' => (string) $user_id,
+        'service_type' => $apptExtras['service_type'] ?? null,
+        'service_description' => $apptExtras['service_description'] ?? null,
+        'treatment_type' => $apptExtras['treatment_type'] ?? 'short_term',
+        'total_treatment_cost' => $treatment_cart_total > 0 ? $treatment_cart_total : null,
+        'duration_months' => $durationForAppointment,
+        'target_completion_date' => $apptExtras['target_completion_date'] ?? null,
+        'start_date' => $apptExtras['start_date'] ?? $appointment_date,
+        'notes' => $notesCombined !== '' ? $notesCombined : null,
+        'installment_number' => $installmentForAppointment,
+    ];
+
+    $apptVals = booking_coerce_appointment_date_columns($pdo, (string) $apptPhys, $apptVals);
+
+    $pdo->beginTransaction();
+
+    try {
+        booking_mobile_dynamic_insert_appointment($pdo, (string) $apptPhys, $apptVals);
+        $appointment_id = (int) $pdo->lastInsertId();
+
+        $appointmentServicesPhys = $tables['appointment_services'] ?? null;
+        if ($appointmentServicesPhys !== null) {
+            $apsQuoted = clinic_quote_identifier((string) $appointmentServicesPhys);
+            $asc = clinic_table_columns($pdo, (string) $appointmentServicesPhys);
+            $ledgerRows = booking_enrich_mobile_service_rows($pdo, $tenant_id, $services);
+
+            foreach ($ledgerRows as $er) {
+                $sid = trim((string) ($er['service_id'] ?? ''));
+                $stype = !empty($er['is_installment_line']) ? 'installment' : 'regular';
+                $label = $stype === 'installment' ? 'Long Term' : 'Short Term';
+                $svcName = (string) ($er['service_name'] ?? '');
+                $price = isset($er['price']) ? (float) $er['price'] : 0.0;
+
+                $colParts = [];
+                $ph = [];
+                $bind = [];
+
+                foreach (
+                    [
+                        'tenant_id' => $tenant_id,
+                        'booking_id' => $booking_id,
+                        'appointment_id' => $appointment_id > 0 ? $appointment_id : null,
+                        'treatment_id' => ($treatmentFkOrNull !== '' && $stype === 'installment') ? $treatmentFkOrNull : null,
+                        'service_id' => $sid !== '' ? $sid : null,
+                        'service_name' => $svcName,
+                        'price' => $price,
+                        'service_type' => $stype,
+                        'type' => $label,
+                        'is_original' => 1,
+                        'added_by' => (string) $user_id,
+                    ] as $nm => $val
+                ) {
+                    $lc = strtolower((string) $nm);
+                    if (!in_array($lc, $asc, true)) {
+                        continue;
+                    }
+                    $colParts[] = clinic_quote_identifier($lc);
+                    $ph[] = '?';
+                    $bind[] = $val;
+                }
+                if (in_array('added_at', $asc, true)) {
+                    $colParts[] = clinic_quote_identifier('added_at');
+                    $ph[] = 'NOW()';
+                }
+                if ($colParts !== []) {
+                    $sqlIns = 'INSERT INTO ' . $apsQuoted . ' (' . implode(', ', $colParts) . ') VALUES (' . implode(', ', $ph) . ')';
+                    $insSt = $pdo->prepare($sqlIns);
+                    $insSt->execute($bind);
+                }
+            }
+        }
+
+        staff_installments_stamp_followup_slot_explicit(
+            $pdo,
+            $tenant_id,
+            $plan_booking_id,
+            $installment_number_for_slot,
+            $appointment_date,
+            $appointment_time
+        );
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+
+    echo json_encode([
+        'status' => 'success',
+        'message' => 'Visit scheduled (included with your plan).',
+        'booking_id' => $booking_id,
+        'treatment_id' => $treatmentFkOrNull,
+    ]);
+    exit;
 }
