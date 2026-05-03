@@ -1501,7 +1501,6 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
     const qrCheckinApiUrl = <?php echo json_encode($qrCheckinApiUrl, JSON_UNESCAPED_SLASHES); ?>;
 
     let qrCheckInBusy = false;
-    let qrCheckInSuccessTimer = null;
     /** Timestamp of last character accepted into the wedge buffer — human typing gaps exceed this ceiling. */
     let qrScanWedgePrevCharAt = 0;
     const QR_SCAN_WEDGE_MAX_INTERKEY_MS = 170;
@@ -1573,10 +1572,6 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
     }
 
     function closeQrCheckInSuccessModal() {
-        if (qrCheckInSuccessTimer) {
-            clearTimeout(qrCheckInSuccessTimer);
-            qrCheckInSuccessTimer = null;
-        }
         if (!qrCheckInSuccessModal) return;
         qrCheckInSuccessModal.classList.add('hidden');
         qrCheckInSuccessModal.classList.remove('flex');
@@ -1603,10 +1598,11 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
         qrCheckInSuccessModal.classList.add('flex');
         qrCheckInSuccessModal.setAttribute('aria-hidden', 'false');
         syncModalVisualState();
-        if (qrCheckInSuccessTimer) clearTimeout(qrCheckInSuccessTimer);
-        qrCheckInSuccessTimer = window.setTimeout(function () {
-            closeQrCheckInSuccessModal();
-        }, 2600);
+        window.requestAnimationFrame(function () {
+            if (qrCheckInSuccessOkBtn) {
+                qrCheckInSuccessOkBtn.focus();
+            }
+        });
     }
 
     async function submitQrCheckInScan(raw) {
