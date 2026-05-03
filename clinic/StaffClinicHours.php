@@ -102,12 +102,23 @@ if (isset($_SESSION['clinic_hours_message']) && is_array($_SESSION['clinic_hours
 }
 
 $currentTenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
+if ($currentTenantId === '' && isset($_SESSION['public_tenant_id'])) {
+    $currentTenantId = trim((string) $_SESSION['public_tenant_id']);
+}
 
 $fallbackRowsByDayIndex = $defaultClinicHoursRows;
 $clinicHoursRowsByDate = [];
 
 try {
     $pdo = getDBConnection();
+
+    if ($currentTenantId === '') {
+        require_once __DIR__ . '/includes/appointment_db_tables.php';
+        $resolvedTenantId = clinic_resolve_walkin_tenant_id($pdo);
+        if (is_string($resolvedTenantId) && $resolvedTenantId !== '') {
+            $currentTenantId = trim($resolvedTenantId);
+        }
+    }
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_apply_clinic_hours'])) {
         if ($currentTenantId === '') {

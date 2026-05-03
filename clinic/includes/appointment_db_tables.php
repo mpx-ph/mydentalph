@@ -112,6 +112,7 @@ if (!function_exists('clinic_quote_identifier')) {
 if (!function_exists('clinic_resolve_walkin_tenant_id')) {
     /**
      * Tenant for walk-in API: SSO session, public session, or clinic_slug lookup (no tenant_bootstrap required).
+     * Resolves slug from ?clinic_slug= or path-style staff URLs (/slug/StaffPage.php).
      *
      * @return string|null
      */
@@ -130,7 +131,28 @@ if (!function_exists('clinic_resolve_walkin_tenant_id')) {
             return (string) $_SESSION['public_tenant_id'];
         }
         $slug = isset($_GET['clinic_slug']) ? strtolower(trim((string) $_GET['clinic_slug'])) : '';
-        if ($slug === '' || !preg_match('/^[a-z0-9\-]+$/', $slug)) {
+        if (!preg_match('/^[a-z0-9\-]+$/', $slug)) {
+            $slug = '';
+        }
+        if ($slug === '') {
+            $scriptName = isset($_SERVER['SCRIPT_NAME']) ? (string) $_SERVER['SCRIPT_NAME'] : '';
+            $requestUri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+            if ($scriptName !== '' && $requestUri !== '') {
+                $uriPath = parse_url($requestUri, PHP_URL_PATH);
+                if (is_string($uriPath) && $uriPath !== '') {
+                    $segments = array_values(array_filter(explode('/', trim($uriPath, '/')), 'strlen'));
+                    $scriptBase = basename($scriptName);
+                    $scriptIdx = array_search($scriptBase, $segments, true);
+                    if ($scriptIdx !== false && $scriptIdx > 0) {
+                        $candidate = strtolower(trim((string) $segments[$scriptIdx - 1]));
+                        if ($candidate !== '' && preg_match('/^[a-z0-9\-]+$/', $candidate)) {
+                            $slug = $candidate;
+                        }
+                    }
+                }
+            }
+        }
+        if ($slug === '') {
             return null;
         }
         $tenantsTable = clinic_get_physical_table_name($pdo, 'tbl_tenants')
