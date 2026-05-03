@@ -5,6 +5,13 @@ require_once __DIR__ . '/config/config.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+require_once __DIR__ . '/includes/tenant.php';
+
+$currentTenantId = '';
+$tRes = getClinicTenantId();
+if ($tRes !== null && trim((string) $tRes) !== '') {
+    $currentTenantId = trim((string) $tRes);
+}
 
 $manilaTz = new DateTimeZone('Asia/Manila');
 
@@ -99,11 +106,6 @@ if (isset($_SESSION['clinic_hours_message']) && is_array($_SESSION['clinic_hours
         $formMessageType = $flashMessage['type'];
     }
     unset($_SESSION['clinic_hours_message']);
-}
-
-$currentTenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
-if ($currentTenantId === '' && isset($_SESSION['public_tenant_id'])) {
-    $currentTenantId = trim((string) $_SESSION['public_tenant_id']);
 }
 
 $fallbackRowsByDayIndex = $defaultClinicHoursRows;
@@ -296,27 +298,47 @@ try {
             throw new RuntimeException('Invalid clinic date selected for clinic hours.');
         }
 
-        $upsertSql = "
+        $checkOneStmt = $pdo->prepare('SELECT clinic_hours_id FROM tbl_clinic_hours WHERE tenant_id = ? AND clinic_date = ? LIMIT 1');
+        $checkOneStmt->execute([$currentTenantId, $clinicDate]);
+        $alreadyHasDateRow = (bool) $checkOneStmt->fetchColumn();
+
+        $insertOneStmt = $pdo->prepare('
             INSERT INTO tbl_clinic_hours (tenant_id, clinic_date, day_of_week, open_time, close_time, is_closed, notes)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                day_of_week = VALUES(day_of_week),
-                open_time = VALUES(open_time),
-                close_time = VALUES(close_time),
-                is_closed = VALUES(is_closed),
-                notes = VALUES(notes),
+        ');
+        $updateOneStmt = $pdo->prepare('
+            UPDATE tbl_clinic_hours
+            SET day_of_week = ?,
+                open_time = ?,
+                close_time = ?,
+                is_closed = ?,
+                notes = ?,
                 updated_at = CURRENT_TIMESTAMP
-        ";
-        $upsertStmt = $pdo->prepare($upsertSql);
-        $upsertStmt->execute([
-            $currentTenantId,
-            $clinicDate,
-            $dayOfWeek,
-            $isClosed ? null : $openTime,
-            $isClosed ? null : $closeTime,
-            $isClosed ? 1 : 0,
-            $notes,
-        ]);
+            WHERE tenant_id = ?
+              AND clinic_date = ?
+        ');
+
+        if ($alreadyHasDateRow) {
+            $updateOneStmt->execute([
+                $dayOfWeek,
+                $isClosed ? null : $openTime,
+                $isClosed ? null : $closeTime,
+                $isClosed ? 1 : 0,
+                $notes,
+                $currentTenantId,
+                $clinicDate,
+            ]);
+        } else {
+            $insertOneStmt->execute([
+                $currentTenantId,
+                $clinicDate,
+                $dayOfWeek,
+                $isClosed ? null : $openTime,
+                $isClosed ? null : $closeTime,
+                $isClosed ? 1 : 0,
+                $notes,
+            ]);
+        }
 
         $_SESSION['clinic_hours_message'] = [
             'type' => 'success',
