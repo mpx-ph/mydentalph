@@ -122,16 +122,49 @@ function psm_last_message_preview(string $patientUserId, string $partnerDisplayN
     return $label . ': ' . $message;
 }
 
-/** HTTPS-aware origin for building absolute asset URLs (same idea as clinic staff header). */
-function psm_origin_from_request(): string {
-    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https');
-    $host = trim((string) ($_SERVER['HTTP_HOST'] ?? ''));
-    if ($host === '') {
-        return 'http://mydentalph.ct.ws';
+/**
+ * Public site base URL including any folder above /api (mirrors clinic/config.php BASE_URL).
+ * Staff photos are stored as paths relative to the clinic tree (e.g. uploads/staffs/…); joining
+ * only protocol+host produced http://host/uploads/… instead of http://host/clinic/uploads/… and
+ * the Android client could not load images.
+ */
+function psm_site_public_base_url(): string {
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
     }
 
-    return ($https ? 'https' : 'http') . '://' . $host;
+    $_s = isset($_SERVER) ? $_SERVER : [];
+    $https = (!empty($_s['HTTPS']) && $_s['HTTPS'] !== 'off')
+        || (isset($_s['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_s['HTTP_X_FORWARDED_PROTO']) === 'https');
+    $host = trim((string) ($_s['HTTP_HOST'] ?? ''));
+    if ($host === '') {
+        $cached = 'http://mydentalph.ct.ws/';
+        return $cached;
+    }
+
+    $basePath = '';
+    $docRootFs = isset($_s['DOCUMENT_ROOT']) ? @realpath((string) $_s['DOCUMENT_ROOT']) : false;
+    $clinicFs = @realpath(__DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'clinic');
+    if ($clinicFs && $docRootFs) {
+        $c = rtrim(str_replace('\\', '/', $clinicFs), '/');
+        $d = rtrim(str_replace('\\', '/', $docRootFs), '/');
+        if (strpos($c, $d) === 0) {
+            $tail = trim(substr($c, strlen($d)), '/');
+            $basePath = $tail !== '' ? '/' . $tail : '';
+        }
+    }
+    if ($basePath === '') {
+        $script = isset($_s['SCRIPT_NAME']) ? (string) $_s['SCRIPT_NAME'] : '';
+        $bp = $script !== '' ? rtrim(dirname($script), '/\\') : '';
+        $bp = '/' . trim(str_replace('\\', '/', $bp), '/');
+        if ($bp !== '/' && preg_match('#/api$#', $bp)) {
+            $basePath = preg_replace('#/api$#', '', $bp);
+        }
+    }
+
+    $cached = ($https ? 'https' : 'http') . '://' . $host . $basePath . '/';
+    return $cached;
 }
 
 /** DB may store relative paths; the Android app needs a fetchable absolute URL. */
@@ -147,7 +180,7 @@ function psm_public_asset_url(string $rel): string {
         return 'https:' . $rel;
     }
 
-    return rtrim(psm_origin_from_request(), '/') . '/' . ltrim($rel, '/');
+    return rtrim(psm_site_public_base_url(), '/') . '/' . ltrim($rel, '/');
 }
 
 if ($method === 'POST') {
