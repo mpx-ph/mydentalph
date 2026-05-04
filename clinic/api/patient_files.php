@@ -14,8 +14,6 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/appointment_db_tables.php';
 
-header('Content-Type: application/json');
-
 $patientFilesTableName = null;
 $patientsTableName = null;
 $patientFilesHasUpdatedAt = false;
@@ -128,8 +126,9 @@ try {
             uploadPatientFile();
             break;
         case 'GET':
-            // Check if this is a verification status request
-            if (isset($_GET['verification_status']) && $_GET['verification_status'] == '1') {
+            if (isset($_GET['file_id']) && trim((string) $_GET['file_id']) !== '') {
+                downloadPatientFile();
+            } elseif (isset($_GET['verification_status']) && $_GET['verification_status'] == '1') {
                 getVerificationStatus();
             } else {
                 getFiles();
@@ -332,6 +331,141 @@ function uploadPatientFile() {
 }
 
 /**
+ * Stream a patient file (avoids relying on direct /uploads/ URLs, which may 404).
+ * Access: same roles as getFiles; staff/manager/doctor should pass patient_id matching the file.
+ */
+function downloadPatientFile() {
+    global $pdo, $patientFilesTableName, $patientsTableName, $patientFilesHasUpdatedAt;
+    $quotedPatientFilesTable = clinic_quote_identifier((string) $patientFilesTableName);
+    $quotedPatientsTable = clinic_quote_identifier((string) $patientsTableName);
+
+    if (!isLoggedIn('client') && !isLoggedIn('manager') && !isLoggedIn('doctor') && !isLoggedIn('staff')) {
+        http_response_code(401);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'Unauthorized.';
+        exit;
+    }
+
+    $userId = getCurrentUserId();
+    if (!$userId) {
+        http_response_code(401);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'Unauthorized.';
+        exit;
+    }
+
+    $stmt = $pdo->prepare('SELECT user_id FROM tbl_users WHERE user_id = ?');
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch();
+    if (!$user) {
+        http_response_code(401);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'User not found.';
+        exit;
+    }
+
+    $userUserId = (string) $user['user_id'];
+    $userType = $_SESSION['user_type'] ?? 'client';
+
+    $fileId = isset($_GET['file_id']) ? (int) $_GET['file_id'] : 0;
+    if ($fileId <= 0) {
+        http_response_code(400);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'Invalid file ID.';
+        exit;
+    }
+
+    $activeFilterSql = $patientFilesHasUpdatedAt ? 'AND pf.updated_at IS NULL' : '';
+    $sql = "
+        SELECT pf.*, p.owner_user_id
+        FROM {$quotedPatientFilesTable} pf
+        INNER JOIN {$quotedPatientsTable} p ON pf.patient_id = p.patient_id
+        WHERE pf.id = ?
+        {$activeFilterSql}
+        LIMIT 1
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$fileId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        http_response_code(404);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'File not found.';
+        exit;
+    }
+
+    if ($userType === 'client') {
+        if (trim((string) $row['owner_user_id']) !== trim($userUserId)) {
+            http_response_code(403);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'Access denied.';
+            exit;
+        }
+    } elseif ($userType === 'manager' || $userType === 'doctor' || $userType === 'staff') {
+        $pidParam = isset($_GET['patient_id']) ? trim((string) sanitize($_GET['patient_id'])) : '';
+        if ($pidParam === '' || $pidParam !== trim((string) $row['patient_id'])) {
+            http_response_code(403);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'Access denied.';
+            exit;
+        }
+    } else {
+        http_response_code(403);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'Access denied.';
+        exit;
+    }
+
+    $relative = (string) ($row['file_path'] ?? '');
+    $relative = ltrim(str_replace('\\', '/', $relative), '/');
+    if ($relative === '') {
+        http_response_code(404);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'File not found.';
+        exit;
+    }
+
+    $fullPath = ROOT_PATH . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+    $realRoot = realpath(ROOT_PATH);
+    $realFile = realpath($fullPath);
+    if ($realRoot === false || $realFile === false || !is_file($realFile) || !is_readable($realFile)) {
+        http_response_code(404);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'File not found.';
+        exit;
+    }
+    $rootNorm = rtrim(str_replace('\\', '/', $realRoot), '/') . '/';
+    $fileNorm = str_replace('\\', '/', $realFile);
+    if (strpos($fileNorm, $rootNorm) !== 0) {
+        http_response_code(404);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'File not found.';
+        exit;
+    }
+
+    $mime = trim((string) ($row['file_type'] ?? ''));
+    if ($mime === '') {
+        $mime = 'application/octet-stream';
+    }
+    $downloadName = (string) ($row['file_name'] ?? basename($realFile));
+    $downloadName = str_replace(["\r", "\n", '"'], '', $downloadName);
+    if ($downloadName === '') {
+        $downloadName = 'download';
+    }
+
+    $length = filesize($realFile);
+    header('Content-Type: ' . $mime);
+    if ($length !== false) {
+        header('Content-Length: ' . (string) $length);
+    }
+    header('Content-Disposition: inline; filename="' . str_replace('"', '', $downloadName) . '"');
+    header('Cache-Control: private, max-age=0, must-revalidate');
+
+    readfile($realFile);
+    exit;
+}
+
+/**
  * Get patient files
  */
 function getFiles() {
@@ -464,8 +598,10 @@ function getFiles() {
         error_log("Patient Files Query - patient_id: " . $patientId . ", files found: " . count($files));
         
         // Format file data
+        $patientQueryId = rawurlencode($patientId);
         foreach ($files as &$file) {
-            $file['file_url'] = BASE_URL . $file['file_path'];
+            $fid = (int) ($file['id'] ?? 0);
+            $file['file_url'] = BASE_URL . 'api/patient_files.php?file_id=' . $fid . '&patient_id=' . $patientQueryId;
             $file['formatted_size'] = formatFileSize($file['file_size']);
             $file['formatted_date'] = date('M j, Y', strtotime($file['created_at']));
         }

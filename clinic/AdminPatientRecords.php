@@ -1963,7 +1963,9 @@ Save Changes
 
         // Render each file
         files.forEach(file => {
-            const fileUrl = `<?php echo BASE_URL; ?>${file.file_path}`;
+            const fileUrl = (file.file_url && String(file.file_url).trim() !== '')
+                ? String(file.file_url)
+                : `<?php echo BASE_URL; ?>${file.file_path}`;
             const fileSize = formatFileSize(file.file_size);
             // Format upload date (handle datetime format)
             const uploadDate = formatFileDate(file.created_at);
