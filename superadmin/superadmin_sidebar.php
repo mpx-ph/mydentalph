@@ -1,7 +1,7 @@
 <?php
 /**
  * Shared superadmin sidebar. Set $superadmin_nav before include:
- * dashboard | messages | tenantmanagement | salesreport | reports | auditlogs | superadmin_approval | adddevs | settings
+ * dashboard | messages | tenantmanagement | subscriptions | salesreport | reports | auditlogs | superadmin_approval | adddevs | settings
  */
 if (!isset($pdo)) {
     require_once __DIR__ . '/../db.php';
@@ -23,6 +23,7 @@ $navMain = [
     ['key' => 'dashboard', 'href' => 'dashboard.php', 'icon' => 'dashboard', 'label' => 'Dashboard Analytics'],
     ['key' => 'messages', 'href' => 'SAMessage.php', 'icon' => 'chat', 'label' => 'Messages'],
     ['key' => 'tenantmanagement', 'href' => 'tenantmanagement.php', 'icon' => 'groups', 'label' => 'Tenant Management'],
+    ['key' => 'subscriptions', 'href' => 'subscriptions.php', 'icon' => 'subscriptions', 'label' => 'Subscriptions'],
     ['key' => 'salesreport', 'href' => 'salesreport.php', 'icon' => 'payments', 'label' => 'Sales Report'],
     ['key' => 'reports', 'href' => 'reports.php', 'icon' => 'assessment', 'label' => 'Reports'],
     ['key' => 'auditlogs', 'href' => 'auditlogs.php', 'icon' => 'history_edu', 'label' => 'Audit Logs'],
