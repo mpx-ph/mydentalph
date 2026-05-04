@@ -68,8 +68,8 @@ if ($staffUserId === '') {
 
 if ($action === 'approve') {
     try {
-        $pdo->beginTransaction();
         refund_requests_ensure_table($pdo);
+        $pdo->beginTransaction();
 
         $st = $pdo->prepare(
             "SELECT * FROM tbl_refund_requests WHERE id = ? AND tenant_id = ? AND status = 'pending' LIMIT 1 FOR UPDATE"

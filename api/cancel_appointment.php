@@ -33,6 +33,9 @@ if (!$tenant_id || !$user_id || (!$appointment_id && !$booking_id)) {
 }
 
 try {
+    // DDL (CREATE TABLE) implicitly commits in MySQL — must run before beginTransaction().
+    refund_requests_ensure_table($pdo);
+
     $pdo->beginTransaction();
 
     $stmt = $pdo->prepare(
@@ -85,8 +88,6 @@ try {
     $dbStatusLower = strtolower((string) ($appointment['status'] ?? ''));
 
     if ($requestRefundOnly) {
-        refund_requests_ensure_table($pdo);
-
         $allowedForRequest = ['pending', 'confirmed', 'scheduled'];
         if (!in_array($dbStatusLower, $allowedForRequest, true)) {
             throw new Exception('This booking cannot request cancel & refund in its current state.');
