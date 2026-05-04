@@ -2429,7 +2429,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                             <input id="<?php echo htmlspecialchars($setShiftEndId, ENT_QUOTES, 'UTF-8'); ?>" name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_end" type="time" step="60" value="<?php echo htmlspecialchars($setShiftDefaultEnd, ENT_QUOTES, 'UTF-8'); ?>" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
                                         </div>
                                     </div>
-                                    <div class="flex shrink-0 items-center justify-end gap-2 pt-3 lg:pt-0 border-t border-slate-100/80 lg:border-t-0 lg:pl-1 lg:pr-3 min-w-0">
+                                    <div class="flex shrink-0 items-center justify-end gap-2 pt-3 lg:pt-0 border-t border-slate-100/80 lg:border-t-0 lg:pl-1 pr-5 sm:pr-6 lg:pr-10 min-w-0">
                                         <span
                                             id="<?php echo htmlspecialchars($setShiftLoaderId, ENT_QUOTES, 'UTF-8'); ?>"
                                             class="set-shift-day-loader inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50/90 text-slate-400 shadow-sm"
