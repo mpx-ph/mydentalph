@@ -30,6 +30,7 @@ if ($staffDisplayName === '') {
 $servicesApiUrl = PROVIDER_BASE_URL . 'clinic/api/services.php';
 $discountProgramsApiUrl = PROVIDER_BASE_URL . 'clinic/api/discount_programs.php';
 $discountVerificationsApiUrl = PROVIDER_BASE_URL . 'clinic/api/discount_verifications.php';
+$patientsApiPath = rtrim((string) dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\') . '/api/patients.php';
 ?>
 <!DOCTYPE html>
 <html class="light" lang="en">
@@ -364,11 +365,14 @@ body { font-family: 'Manrope', sans-serif; }
         <form id="applicationForm" class="flex-1 min-h-0 overflow-y-auto px-6 py-6 space-y-5">
             <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Patient name</label>
-                <input id="appPatientName" required type="text" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold" placeholder="Full name"/>
+                <select id="appPatientSelect" required class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold bg-white outline-none focus:ring-2 focus:ring-primary/20">
+                    <option value="">Select Registered Patient</option>
+                </select>
+                <input id="appPatientName" type="hidden" value=""/>
             </div>
             <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Patient ID (optional)</label>
-                <input id="appPatientRef" type="text" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold" placeholder="Internal chart / record ID"/>
+                <input id="appPatientRef" type="text" readonly class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold bg-slate-50 text-slate-600 cursor-not-allowed" placeholder="Filled when you select a patient" autocomplete="off"/>
             </div>
             <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Discount type applied</label>
@@ -480,6 +484,7 @@ window.STAFF_DISCOUNT_V = <?php echo json_encode(array(
     'programsApi' => $discountProgramsApiUrl,
     'verificationsApi' => $discountVerificationsApiUrl,
     'servicesApi' => $servicesApiUrl,
+    'patientsApi' => $patientsApiPath,
     'staffName' => $staffDisplayName,
 ), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_UNESCAPED_UNICODE); ?>;
 </script>

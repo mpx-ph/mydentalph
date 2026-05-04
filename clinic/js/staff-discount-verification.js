@@ -6,6 +6,101 @@
     var programsCache = [];
     var recordsCache = [];
     var approversCache = [];
+    var applicationPatientsCache = [];
+
+    /** @param {object|null|undefined} p */
+    function patientDisplayName(p) {
+        if (!p) return '';
+        var n = (String(p.first_name || '') + ' ' + String(p.last_name || '')).trim();
+        if (n) return n;
+        var ref = String(p.patient_id || '').trim();
+        if (ref) return ref;
+        return 'Patient #' + String(p.id != null ? p.id : '');
+    }
+
+    function syncApplicationPatientFieldsFromSelect() {
+        var sel = document.getElementById('appPatientSelect');
+        var nameEl = document.getElementById('appPatientName');
+        var refEl = document.getElementById('appPatientRef');
+        if (!sel || !nameEl || !refEl) return;
+        var id = sel.value;
+        if (!id) {
+            nameEl.value = '';
+            refEl.value = '';
+            return;
+        }
+        var p = applicationPatientsCache.find(function (x) { return String(x.id) === String(id); });
+        if (!p) {
+            nameEl.value = '';
+            refEl.value = '';
+            return;
+        }
+        nameEl.value = patientDisplayName(p);
+        refEl.value = String(p.patient_id != null ? p.patient_id : '').trim();
+    }
+
+    function populateApplicationPatientSelect() {
+        var sel = document.getElementById('appPatientSelect');
+        if (!sel) return;
+        var keep = sel.value;
+        sel.innerHTML = '';
+        var ph = document.createElement('option');
+        ph.value = '';
+        ph.textContent = 'Select Registered Patient';
+        sel.appendChild(ph);
+        applicationPatientsCache.forEach(function (p) {
+            var rid = p.id != null ? String(p.id) : '';
+            if (!rid) return;
+            var opt = document.createElement('option');
+            opt.value = rid;
+            opt.textContent = patientDisplayName(p);
+            sel.appendChild(opt);
+        });
+        if (keep && Array.prototype.some.call(sel.options, function (o) { return o.value === keep; })) {
+            sel.value = keep;
+        } else {
+            sel.value = '';
+        }
+        syncApplicationPatientFieldsFromSelect();
+    }
+
+    function loadApplicationPatients() {
+        if (!CFG.patientsApi) {
+            return Promise.resolve();
+        }
+        var merged = [];
+        var page = 1;
+        var totalPages = 1;
+
+        function step() {
+            if (page > totalPages) {
+                merged.sort(function (a, b) {
+                    return patientDisplayName(a).toLowerCase().localeCompare(patientDisplayName(b).toLowerCase());
+                });
+                applicationPatientsCache = merged;
+                populateApplicationPatientSelect();
+                return Promise.resolve();
+            }
+            return apiJson(CFG.patientsApi + '?page=' + page + '&limit=100').then(function (data) {
+                if (!data.success || !data.data) {
+                    applicationPatientsCache = [];
+                    populateApplicationPatientSelect();
+                    return;
+                }
+                var pagePatients = Array.isArray(data.data.patients) ? data.data.patients : [];
+                merged.push.apply(merged, pagePatients);
+                var pagesCount = Number(data.data.pagination && data.data.pagination.pages);
+                totalPages = Number.isFinite(pagesCount) && pagesCount > 0 ? pagesCount : 1;
+                page += 1;
+                return step();
+            });
+        }
+
+        return step().catch(function () {
+            applicationPatientsCache = [];
+            populateApplicationPatientSelect();
+        });
+    }
 
     function apiJson(url, options) {
         options = options || {};
@@ -601,6 +696,11 @@
     });
     document.getElementById('appDiscountProgram').addEventListener('change', updateAppFormForProgram);
 
+    var appPatientSelect = document.getElementById('appPatientSelect');
+    if (appPatientSelect) {
+        appPatientSelect.addEventListener('change', syncApplicationPatientFieldsFromSelect);
+    }
+
     document.getElementById('btnNewApplication').addEventListener('click', function () {
         document.getElementById('applicationForm').reset();
         document.getElementById('appStaffAssigned').value = CFG.staffName || '';
@@ -608,7 +708,12 @@
         document.getElementById('appProofPreview').classList.add('hidden');
         var imgEl = document.getElementById('appProofImg');
         if (imgEl) imgEl.removeAttribute('src');
+        syncApplicationPatientFieldsFromSelect();
         populateApplicationPrograms();
+        var pSel = document.getElementById('appPatientSelect');
+        if (pSel && !applicationPatientsCache.length && CFG.patientsApi) {
+            loadApplicationPatients();
+        }
         openOverlay(document.getElementById('applicationModal'));
     });
 
@@ -650,11 +755,16 @@
             alert('This discount program requires notes.');
             return;
         }
+        var pname = document.getElementById('appPatientName').value.trim();
+        if (!pname) {
+            alert('Select a registered patient.');
+            return;
+        }
         apiJson(CFG.verificationsApi, {
             method: 'POST',
             body: {
                 discount_program_id: parseInt(pid, 10),
-                patient_name: document.getElementById('appPatientName').value.trim(),
+                patient_name: pname,
                 patient_ref: document.getElementById('appPatientRef').value.trim(),
                 id_number: document.getElementById('appIdNumber').value.trim(),
                 application_notes: notesVal,
@@ -717,7 +827,7 @@
     document.getElementById('programsGrid').innerHTML = '<p class="text-slate-500 col-span-full py-6 text-center text-sm">Loading programs…</p>';
     document.getElementById('historyTableBody').innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-slate-500">Loading…</td></tr>';
 
-    loadPrograms().then(function () {
+    Promise.all([loadPrograms(), loadApplicationPatients()]).then(function () {
         renderPrograms();
         populateApplicationPrograms();
         return loadVerifications();
