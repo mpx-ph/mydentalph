@@ -32,38 +32,37 @@ if ($user_id === '') {
 try {
     $tenant_id = api_resolve_tenant_id($pdo, $user_id, $tenant_id);
 
-    // 1. Find the patient record linked to the logged-in user
-    // We match by user_id across owner or linked fields; scope by tenant when provided.
+    // 1. All patient rows for this login: account holder (linked_user_id / owner) + dependents (same owner_user_id).
     if ($tenant_id !== null && $tenant_id !== '') {
         $stmt = $pdo->prepare(
             "SELECT patient_id FROM tbl_patients 
-             WHERE tenant_id = ? AND (owner_user_id = ? OR linked_user_id = ?)
-             LIMIT 1"
+             WHERE tenant_id = ? AND (owner_user_id = ? OR linked_user_id = ?)"
         );
         $stmt->execute([$tenant_id, $user_id, $user_id]);
     } else {
         $stmt = $pdo->prepare(
             "SELECT patient_id FROM tbl_patients 
-             WHERE owner_user_id = ? OR linked_user_id = ?
-             LIMIT 1"
+             WHERE owner_user_id = ? OR linked_user_id = ?"
         );
         $stmt->execute([$user_id, $user_id]);
     }
-    $patient = $stmt->fetch(PDO::FETCH_ASSOC);
+    $patient_ids = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+    $patient_ids = array_values(array_unique(array_filter(array_map('strval', $patient_ids), static function ($v) {
+        return $v !== '';
+    })));
 
-    if (!$patient) {
+    if (empty($patient_ids)) {
         echo json_encode(["status" => "success", "appointments" => [], "message" => "No patient record found for this user."]);
         exit;
     }
 
-    $patient_id = $patient['patient_id'];
+    $placeholders = implode(',', array_fill(0, count($patient_ids), '?'));
 
-    // 2. Fetch appointments
+    // 2. Fetch appointments for every linked patient (guardian + dependents).
     // We use a subquery to grab the first service name from tbl_appointment_services 
     // since tbl_appointments.service_type is often null in the mobile booking flow.
     if ($tenant_id !== null && $tenant_id !== '') {
-        $stmt = $pdo->prepare(
-            "SELECT 
+        $sql = "SELECT 
                 a.*,
                 COALESCE(a.service_type, (SELECT service_name FROM tbl_appointment_services WHERE appointment_id = a.id LIMIT 1)) AS display_service,
                 CONCAT(d.first_name, ' ', d.last_name) AS dentist_name,
@@ -73,13 +72,12 @@ try {
              FROM tbl_appointments a
              LEFT JOIN tbl_dentists d ON a.dentist_id = d.dentist_id
              LEFT JOIN tbl_patients pat ON pat.tenant_id = a.tenant_id AND pat.patient_id = a.patient_id
-             WHERE a.patient_id = ? AND a.tenant_id = ?
-             ORDER BY a.appointment_date DESC, a.appointment_time DESC"
-        );
-        $stmt->execute([$patient_id, $tenant_id]);
+             WHERE a.patient_id IN ($placeholders) AND a.tenant_id = ?
+             ORDER BY a.appointment_date DESC, a.appointment_time DESC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(array_merge($patient_ids, [$tenant_id]));
     } else {
-        $stmt = $pdo->prepare(
-            "SELECT 
+        $sql = "SELECT 
                 a.*,
                 COALESCE(a.service_type, (SELECT service_name FROM tbl_appointment_services WHERE appointment_id = a.id LIMIT 1)) AS display_service,
                 CONCAT(d.first_name, ' ', d.last_name) AS dentist_name,
@@ -89,10 +87,10 @@ try {
              FROM tbl_appointments a
              LEFT JOIN tbl_dentists d ON a.dentist_id = d.dentist_id
              LEFT JOIN tbl_patients pat ON pat.tenant_id = a.tenant_id AND pat.patient_id = a.patient_id
-             WHERE a.patient_id = ?
-             ORDER BY a.appointment_date DESC, a.appointment_time DESC"
-        );
-        $stmt->execute([$patient_id]);
+             WHERE a.patient_id IN ($placeholders)
+             ORDER BY a.appointment_date DESC, a.appointment_time DESC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($patient_ids);
     }
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -116,6 +114,8 @@ try {
         $item['service_name'] = $row['display_service'] ?: 'Appointment';
         $item['dentist_name']  = $row['dentist_name'] ? 'DR. ' . strtoupper($row['dentist_name']) : 'CLINIC';
         $item['price']         = number_format((float)($row['total_treatment_cost'] ?? 0), 2);
+        // Explicit for mobile filtering (a.* may already include patient_id).
+        $item['patient_id']    = (string)($row['patient_id'] ?? '');
         $appointments[] = $item;
     }
 
