@@ -2409,38 +2409,46 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                 $setShiftLoaderId = 'setShiftWeek' . ucfirst($setShiftDaySlug) . 'Loader';
                                 $setShiftStatusId = 'setShiftWeek' . ucfirst($setShiftDaySlug) . 'Status';
                                 ?>
-                            <div class="px-4 py-3.5 sm:px-5 sm:py-4 bg-white/80">
-                                <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-5">
-                                    <div class="w-full lg:w-36 shrink-0 flex lg:items-center">
-                                        <p class="text-sm font-bold text-slate-800"><?php echo htmlspecialchars($setShiftDayLabel, ENT_QUOTES, 'UTF-8'); ?></p>
+                            <div class="px-4 py-3 sm:px-5 sm:py-3.5 bg-white/80">
+                                <div class="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:gap-5">
+                                    <div class="w-full lg:w-32 shrink-0 flex items-center min-h-[2.5rem] lg:min-h-0">
+                                        <p class="text-sm font-bold text-slate-800 leading-tight"><?php echo htmlspecialchars($setShiftDayLabel, ENT_QUOTES, 'UTF-8'); ?></p>
                                     </div>
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 min-w-0">
-                                        <div>
-                                            <label for="<?php echo htmlspecialchars($setShiftStartId, ENT_QUOTES, 'UTF-8'); ?>" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
-                                                <span class="material-symbols-outlined text-[18px] text-slate-500">timer</span>
-                                                Start Time
+                                    <div class="grid grid-cols-2 gap-2.5 sm:gap-4 flex-1 min-w-0 items-start">
+                                        <div class="min-w-0 flex flex-col">
+                                            <label for="<?php echo htmlspecialchars($setShiftStartId, ENT_QUOTES, 'UTF-8'); ?>" class="flex items-center gap-1 text-xs sm:text-sm font-semibold text-slate-800 mb-1.5 sm:mb-2 min-h-[1.25rem] min-w-0">
+                                                <span class="material-symbols-outlined text-[16px] sm:text-[18px] text-slate-500 shrink-0">timer</span>
+                                                <span class="min-w-0 leading-tight">Start Time</span>
                                             </label>
-                                            <input id="<?php echo htmlspecialchars($setShiftStartId, ENT_QUOTES, 'UTF-8'); ?>" name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_start" type="time" step="60" value="<?php echo htmlspecialchars($setShiftDefaultStart, ENT_QUOTES, 'UTF-8'); ?>" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+                                            <input id="<?php echo htmlspecialchars($setShiftStartId, ENT_QUOTES, 'UTF-8'); ?>" name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_start" type="time" step="60" value="<?php echo htmlspecialchars($setShiftDefaultStart, ENT_QUOTES, 'UTF-8'); ?>" class="set-shift-time-input w-full h-12 min-h-[3rem] box-border px-2.5 sm:px-4 py-0 rounded-xl border border-slate-200 bg-white text-slate-900 text-[13px] sm:text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
                                         </div>
-                                        <div>
-                                            <label for="<?php echo htmlspecialchars($setShiftEndId, ENT_QUOTES, 'UTF-8'); ?>" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
-                                                <span class="material-symbols-outlined text-[18px] text-slate-500">timer_off</span>
-                                                End Time
+                                        <div class="min-w-0 flex flex-col">
+                                            <label for="<?php echo htmlspecialchars($setShiftEndId, ENT_QUOTES, 'UTF-8'); ?>" class="flex items-center gap-1 text-xs sm:text-sm font-semibold text-slate-800 mb-1.5 sm:mb-2 min-h-[1.25rem] min-w-0">
+                                                <span class="material-symbols-outlined text-[16px] sm:text-[18px] text-slate-500 shrink-0">timer_off</span>
+                                                <span class="min-w-0 leading-tight">End Time</span>
                                             </label>
-                                            <input id="<?php echo htmlspecialchars($setShiftEndId, ENT_QUOTES, 'UTF-8'); ?>" name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_end" type="time" step="60" value="<?php echo htmlspecialchars($setShiftDefaultEnd, ENT_QUOTES, 'UTF-8'); ?>" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+                                            <input id="<?php echo htmlspecialchars($setShiftEndId, ENT_QUOTES, 'UTF-8'); ?>" name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_end" type="time" step="60" value="<?php echo htmlspecialchars($setShiftDefaultEnd, ENT_QUOTES, 'UTF-8'); ?>" class="set-shift-time-input w-full h-12 min-h-[3rem] box-border px-2.5 sm:px-4 py-0 rounded-xl border border-slate-200 bg-white text-slate-900 text-[13px] sm:text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
                                         </div>
                                     </div>
-                                    <div class="flex shrink-0 items-center justify-end gap-2 pt-3 lg:pt-0 border-t border-slate-100/80 lg:border-t-0 lg:pl-1 pr-5 sm:pr-6 lg:pr-10 min-w-0">
+                                    <div class="flex shrink-0 items-center justify-end gap-2 sm:gap-2.5 pt-2 sm:pt-3 lg:pt-0 border-t border-slate-100/80 lg:border-t-0 lg:pl-1 pr-4 sm:pr-6 lg:pr-10 min-w-0">
                                         <span
                                             id="<?php echo htmlspecialchars($setShiftLoaderId, ENT_QUOTES, 'UTF-8'); ?>"
-                                            class="set-shift-day-loader inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50/90 text-slate-400 shadow-sm"
+                                            class="set-shift-day-state relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50/90 shadow-sm"
                                             aria-hidden="true"
                                         >
-                                            <span class="material-symbols-outlined set-shift-day-loader-icon text-[20px] leading-none text-slate-400">progress_activity</span>
+                                            <span class="set-shift-day-layer set-shift-day-loading absolute inset-0 flex items-center justify-center hidden">
+                                                <span class="material-symbols-outlined set-shift-day-spinner text-[20px] leading-none text-slate-500 animate-spin">progress_activity</span>
+                                            </span>
+                                            <span class="set-shift-day-layer set-shift-day-success absolute inset-0 flex items-center justify-center hidden">
+                                                <span class="material-symbols-outlined text-[22px] leading-none text-emerald-600" aria-hidden="true">check_circle</span>
+                                            </span>
+                                            <span class="set-shift-day-layer set-shift-day-error absolute inset-0 flex items-center justify-center hidden">
+                                                <span class="material-symbols-outlined text-[22px] leading-none text-rose-600" aria-hidden="true">cancel</span>
+                                            </span>
                                         </span>
                                         <span
                                             id="<?php echo htmlspecialchars($setShiftStatusId, ENT_QUOTES, 'UTF-8'); ?>"
-                                            class="set-shift-day-status text-[11px] sm:text-xs font-semibold text-right leading-snug min-w-0 max-w-[11rem] sm:max-w-[13rem] text-slate-400"
+                                            class="set-shift-day-status text-[11px] sm:text-xs font-semibold text-right leading-snug min-w-0 max-w-[10rem] sm:max-w-[13rem] text-slate-400"
                                             aria-live="polite"
                                         ></span>
                                     </div>
@@ -3061,16 +3069,25 @@ $dentistsSeedData = array_map(static function ($dentist) {
             }
         }
 
-        function setSetShiftRowLoading(row, isLoading) {
-            const loaderEl = document.getElementById(row.loaderId);
-            const iconEl = loaderEl ? loaderEl.querySelector('.set-shift-day-loader-icon') : null;
-            if (!iconEl) {
+        function setSetShiftRowIndicator(row, state) {
+            const wrap = document.getElementById(row.loaderId);
+            if (!wrap) {
                 return;
             }
-            if (isLoading) {
-                iconEl.classList.add('animate-spin');
-            } else {
-                iconEl.classList.remove('animate-spin');
+            const loadLayer = wrap.querySelector('.set-shift-day-loading');
+            const okLayer = wrap.querySelector('.set-shift-day-success');
+            const errLayer = wrap.querySelector('.set-shift-day-error');
+            [loadLayer, okLayer, errLayer].forEach(function (layer) {
+                if (layer) {
+                    layer.classList.add('hidden');
+                }
+            });
+            if (state === 'loading' && loadLayer) {
+                loadLayer.classList.remove('hidden');
+            } else if (state === 'valid' && okLayer) {
+                okLayer.classList.remove('hidden');
+            } else if (state === 'invalid' && errLayer) {
+                errLayer.classList.remove('hidden');
             }
         }
 
@@ -3081,38 +3098,43 @@ $dentistsSeedData = array_map(static function ($dentist) {
             const start = String(startEl && startEl.value ? startEl.value : '').trim();
             const end = String(endEl && endEl.value ? endEl.value : '').trim();
 
-            setSetShiftRowLoading(row, false);
-
             if (start === '' && end === '') {
+                setSetShiftRowIndicator(row, 'idle');
                 applySetShiftRowStatus(statusEl, '', 'neutral');
                 return;
             }
             if (start === '' || end === '') {
+                setSetShiftRowIndicator(row, 'idle');
                 applySetShiftRowStatus(statusEl, '', 'neutral');
                 return;
             }
             if (!/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end)) {
+                setSetShiftRowIndicator(row, 'invalid');
                 applySetShiftRowStatus(statusEl, 'Invalid times', 'invalid');
                 return;
             }
             const shiftStartMinutes = toMinutes(start);
             const shiftEndMinutes = toMinutes(end);
             if (shiftEndMinutes <= shiftStartMinutes) {
+                setSetShiftRowIndicator(row, 'invalid');
                 applySetShiftRowStatus(statusEl, 'Invalid times', 'invalid');
                 return;
             }
 
             const snap = clinicHoursSnapshotByDayName[row.dayName];
             if (!snap || snap.is_closed || !snap.open_time_raw || !snap.close_time_raw) {
+                setSetShiftRowIndicator(row, 'invalid');
                 applySetShiftRowStatus(statusEl, 'Clinic Closed', 'closed');
                 return;
             }
             const clinicOpenMinutes = toMinutes(snap.open_time_raw);
             const clinicCloseMinutes = toMinutes(snap.close_time_raw);
             if (shiftStartMinutes < clinicOpenMinutes || shiftEndMinutes > clinicCloseMinutes) {
+                setSetShiftRowIndicator(row, 'invalid');
                 applySetShiftRowStatus(statusEl, 'Outside Clinic Hours', 'outside');
                 return;
             }
+            setSetShiftRowIndicator(row, 'valid');
             applySetShiftRowStatus(statusEl, 'Valid', 'valid');
         }
 
@@ -3130,17 +3152,17 @@ $dentistsSeedData = array_map(static function ($dentist) {
             const end = String(endEl && endEl.value ? endEl.value : '').trim();
 
             if (start === '' && end === '') {
-                setSetShiftRowLoading(row, false);
+                setSetShiftRowIndicator(row, 'idle');
                 applySetShiftRowStatus(statusEl, '', 'neutral');
                 return;
             }
             if (start === '' || end === '') {
-                setSetShiftRowLoading(row, false);
+                setSetShiftRowIndicator(row, 'idle');
                 applySetShiftRowStatus(statusEl, '', 'neutral');
                 return;
             }
 
-            setSetShiftRowLoading(row, true);
+            setSetShiftRowIndicator(row, 'loading');
             applySetShiftRowStatus(statusEl, '', 'neutral');
             setShiftRowValidateTimers[dayKey] = setTimeout(function () {
                 setShiftRowValidateTimers[dayKey] = null;
@@ -3154,7 +3176,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     clearTimeout(setShiftRowValidateTimers[row.dayName]);
                     setShiftRowValidateTimers[row.dayName] = null;
                 }
-                setSetShiftRowLoading(row, false);
+                setSetShiftRowIndicator(row, 'idle');
                 applySetShiftRowStatus(document.getElementById(row.statusId), '', 'neutral');
             });
         }
