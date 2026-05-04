@@ -18,11 +18,33 @@ if (!isset($currentTenantSlug)) {
 }
 
 /**
+ * Formatted amount for UI (uses HTML entity so peso always renders).
+ *
  * @param float $amount
  */
-function staff_reports_money($amount)
+function staff_reports_money_html($amount)
 {
-    return '₱' . number_format((float) $amount, 2, '.', ',');
+    $n = number_format((float) $amount, 2, '.', ',');
+
+    return '<span class="staff-reports-money" translate="no"><span class="staff-reports-peso" aria-hidden="true">&#8369;</span><span class="tabular-nums">' . htmlspecialchars($n, ENT_QUOTES, 'UTF-8') . '</span></span>';
+}
+
+/**
+ * Fix broken currency in free-text notes (e.g. "(?1,500.00)" when peso byte/glyph failed).
+ *
+ * @param string|null $text
+ * @return string
+ */
+function staff_reports_normalize_service_note($text)
+{
+    $text = trim((string) $text);
+    if ($text === '') {
+        return '';
+    }
+    $text = preg_replace('/\(\?\s*([\d,]+(?:\.\d{1,2})?)\s*\)/u', '(₱$1)', $text);
+    $text = preg_replace('/\(\s*\x{FFFD}\s*([\d,]+(?:\.\d{1,2})?)\s*\)/u', '(₱$1)', $text);
+
+    return $text;
 }
 
 /**
@@ -254,7 +276,14 @@ $reportsTableTruncated = $tenantId !== '' && $totalAppointments > count($allAppo
         }
     </script>
 <style>
-        body { font-family: 'Manrope', sans-serif; }
+.staff-reports-money {
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: "tnum" 1;
+            white-space: nowrap;
+        }
+        .staff-reports-peso {
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif;
+        }
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
             vertical-align: middle;
@@ -335,11 +364,16 @@ $reportsTableTruncated = $tenantId !== '' && $totalAppointments > count($allAppo
                 font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             }
             .staff-reports-print-header h1 {
-                margin: 0 0 4px 0;
-                font-size: 1.5rem;
-                font-weight: 800;
-                letter-spacing: -0.02em;
+                margin: 0 0 6px 0;
+                font-size: 1.125rem;
+                font-weight: 700;
+                letter-spacing: -0.01em;
                 color: #0f172a;
+                line-height: 1.3;
+            }
+            .staff-reports-print-header .staff-reports-print-accent {
+                color: #0f766e;
+                font-weight: 600;
             }
             .staff-reports-print-header .staff-reports-print-sub {
                 margin: 0 0 12px 0;
@@ -361,9 +395,20 @@ $reportsTableTruncated = $tenantId !== '' && $totalAppointments > count($allAppo
                 color: #475569 !important;
                 border-bottom: 1px solid #cbd5e1 !important;
             }
+            .staff-reports-kpi-grid .staff-reports-kpi-value {
+                font-size: 1.375rem !important;
+                line-height: 1.2 !important;
+            }
+            .staff-reports-kpi-grid .staff-reports-kpi-card {
+                padding: 14px 16px !important;
+            }
             .staff-reports-print-table tbody td {
                 border-bottom: 1px solid #e2e8f0 !important;
                 color: #111827 !important;
+            }
+            .staff-reports-print-table {
+                min-width: 0 !important;
+                table-layout: auto !important;
             }
         }
     </style>
@@ -374,8 +419,8 @@ $reportsTableTruncated = $tenantId !== '' && $totalAppointments > count($allAppo
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
 <div class="p-10 space-y-8 print:p-0">
 <div class="staff-reports-print-header">
-<h1><?php echo htmlspecialchars($reportClinicName !== '' ? $reportClinicName : 'Clinic', ENT_QUOTES, 'UTF-8'); ?> <span style="color:#0d9488;font-weight:700">Staff reports</span></h1>
-<p class="staff-reports-print-sub">Generated on <?php echo htmlspecialchars(strtoupper($generatedReportLine), ENT_QUOTES, 'UTF-8'); ?></p>
+<h1><?php echo htmlspecialchars($reportClinicName !== '' ? $reportClinicName : 'Clinic', ENT_QUOTES, 'UTF-8'); ?> <span class="staff-reports-print-accent">· Appointments report</span></h1>
+<p class="staff-reports-print-sub">Generated <?php echo htmlspecialchars(strtoupper($generatedReportLine), ENT_QUOTES, 'UTF-8'); ?></p>
 <p class="staff-reports-print-filters"><?php echo htmlspecialchars($filterSummaryText, ENT_QUOTES, 'UTF-8'); ?></p>
 </div>
 
@@ -459,64 +504,64 @@ $reportsTableTruncated = $tenantId !== '' && $totalAppointments > count($allAppo
 </section>
 </form>
 
-<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-<div class="elevated-card p-7 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
+<section class="staff-reports-kpi-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<div class="staff-reports-kpi-card elevated-card p-7 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 transition-colors group-hover:bg-emerald-500 group-hover:text-white">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">payments</span>
 </div>
-<span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full uppercase tracking-widest"><?php echo $hasActiveFilters ? 'Filtered' : 'Completed'; ?></span>
+<span class="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md tracking-wide uppercase"><?php echo $hasActiveFilters ? 'Filtered' : 'Completed only'; ?></span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo staff_reports_money($totalRevenue); ?></p>
-<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Treatment total (completed)</p>
+<p class="staff-reports-kpi-value text-4xl sm:text-5xl font-extrabold font-headline text-on-background tracking-tight"><?php echo staff_reports_money_html($totalRevenue); ?></p>
+<p class="text-xs font-semibold text-slate-500 mt-2 tracking-wide uppercase">Treatment total</p>
 </div>
 </div>
 
-<div class="elevated-card p-7 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
+<div class="staff-reports-kpi-card elevated-card p-7 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event_available</span>
 </div>
-<span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest"><?php echo $hasActiveFilters ? 'Filtered' : 'All'; ?></span>
+<span class="text-[10px] font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-md tracking-wide uppercase"><?php echo $hasActiveFilters ? 'Filtered' : 'In period'; ?></span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo number_format($totalAppointments); ?></p>
-<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Appointments</p>
+<p class="staff-reports-kpi-value text-4xl sm:text-5xl font-extrabold font-headline text-on-background tabular-nums tracking-tight"><?php echo number_format($totalAppointments); ?></p>
+<p class="text-xs font-semibold text-slate-500 mt-2 tracking-wide uppercase">Appointments</p>
 </div>
 </div>
 
-<div class="elevated-card p-7 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
+<div class="staff-reports-kpi-card elevated-card p-7 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">group</span>
 </div>
-<span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest"><?php echo $hasActiveFilters ? 'Filtered' : 'Distinct'; ?></span>
+<span class="text-[10px] font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-md tracking-wide uppercase"><?php echo $hasActiveFilters ? 'Filtered' : 'Distinct'; ?></span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo number_format($totalPatients); ?></p>
-<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Patients in view</p>
+<p class="staff-reports-kpi-value text-4xl sm:text-5xl font-extrabold font-headline text-on-background tabular-nums tracking-tight"><?php echo number_format($totalPatients); ?></p>
+<p class="text-xs font-semibold text-slate-500 mt-2 tracking-wide uppercase">Patients</p>
 </div>
 </div>
 </section>
 
 <section class="elevated-card rounded-3xl overflow-hidden staff-reports-print-table-wrap">
 <div class="px-8 py-6 border-b border-slate-100 bg-white">
-<h3 class="text-2xl font-bold font-headline text-on-background">All appointments</h3>
+<h3 class="text-xl sm:text-2xl font-semibold font-headline text-slate-900">Appointments</h3>
 <?php if ($reportsTableTruncated): ?>
 <p class="text-xs text-slate-500 font-medium mt-1">Showing the first <?php echo number_format(count($allAppointments)); ?> of <?php echo number_format($totalAppointments); ?> matching rows. Narrow filters for a shorter list.</p>
 <?php endif; ?>
 </div>
 <div class="overflow-x-auto">
-<table class="staff-reports-print-table w-full text-left border-collapse">
+<table class="staff-reports-print-table w-full min-w-[960px] text-left border-collapse table-fixed">
 <thead>
 <tr class="bg-slate-50/50">
-<th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Patient Details</th>
-<th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Appointment Info (Date and Time)</th>
-<th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Treatment/Service (Details)</th>
-<th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Assigned Staff</th>
-<th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-<th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
+<th class="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-[18%]">Patient</th>
+<th class="px-4 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-[12%]">Schedule</th>
+<th class="px-4 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-[32%]">Service</th>
+<th class="px-4 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-[14%]">Provider</th>
+<th class="px-4 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap w-[10%]">Status</th>
+<th class="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-right whitespace-nowrap w-[14%]">Amount</th>
 </tr>
 </thead>
 <tbody class="divide-y divide-slate-100">
@@ -556,53 +601,52 @@ if ($tenantId === '') {
     if ($serviceMain === '') {
         $serviceMain = 'General Consultation';
     }
-    $serviceDetails = trim((string) ($appointment['service_description'] ?? ''));
-    $serviceLabel = $serviceDetails !== '' ? ($serviceMain . ' - ' . $serviceDetails) : $serviceMain;
+    $serviceDetails = staff_reports_normalize_service_note(trim((string) ($appointment['service_description'] ?? '')));
+    $serviceMainEsc = htmlspecialchars($serviceMain, ENT_QUOTES, 'UTF-8');
+    $serviceDetailHtml = $serviceDetails !== '' ? nl2br(htmlspecialchars($serviceDetails, ENT_QUOTES, 'UTF-8')) : '';
     $dentistName = trim(((string) ($appointment['dentist_first_name'] ?? '')) . ' ' . ((string) ($appointment['dentist_last_name'] ?? '')));
     if ($dentistName === '') {
         $dentistName = 'Unassigned Dentist';
     }
     $status = strtolower(trim((string) ($appointment['status'] ?? 'pending')));
     $statusLabel = $status !== '' ? ucfirst(str_replace('_', ' ', $status)) : 'Pending';
-    $statusClasses = 'bg-amber-50 text-amber-600';
-    $dotClass = 'bg-amber-500';
+    $statusClasses = 'bg-amber-50 text-amber-800';
     if ($status === 'completed') {
-        $statusClasses = 'bg-emerald-50 text-emerald-600';
-        $dotClass = 'bg-emerald-500';
+        $statusClasses = 'bg-emerald-50 text-emerald-800';
     } elseif ($status === 'confirmed') {
-        $statusClasses = 'bg-primary/10 text-primary';
-        $dotClass = 'bg-primary';
+        $statusClasses = 'bg-sky-50 text-sky-800';
     } elseif ($status === 'cancelled' || $status === 'no_show') {
-        $statusClasses = 'bg-slate-100 text-slate-600';
-        $dotClass = 'bg-slate-500';
+        $statusClasses = 'bg-slate-100 text-slate-700';
     }
     $amount = (float) ($appointment['total_treatment_cost'] ?? 0);
 ?>
-<tr class="hover:bg-slate-50/30 transition-colors group">
-<td class="px-8 py-6">
-<div class="flex items-center gap-4">
-<div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary text-xs"><?php echo htmlspecialchars($patientInitials, ENT_QUOTES, 'UTF-8'); ?></div>
+<tr class="hover:bg-slate-50/40 transition-colors group">
+<td class="px-6 py-5 align-top">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center font-bold text-primary text-[10px] shrink-0"><?php echo htmlspecialchars($patientInitials, ENT_QUOTES, 'UTF-8'); ?></div>
+<div class="flex flex-col min-w-0">
+<span class="text-sm font-semibold text-slate-900 group-hover:text-primary transition-colors truncate"><?php echo htmlspecialchars($patientName, ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="text-[10px] text-slate-500 font-medium mt-0.5 tabular-nums"><?php echo $patientId !== '' ? htmlspecialchars($patientId, ENT_QUOTES, 'UTF-8') : '—'; ?></span>
+</div>
+</div>
+</td>
+<td class="px-4 py-5 align-top whitespace-nowrap">
 <div class="flex flex-col">
-<span class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors"><?php echo htmlspecialchars($patientName, ENT_QUOTES, 'UTF-8'); ?></span>
-<span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5"><?php echo $patientId !== '' ? 'ID: #' . htmlspecialchars($patientId, ENT_QUOTES, 'UTF-8') : 'ID: N/A'; ?></span>
-</div>
-</div>
-</td>
-<td class="px-6 py-6">
-<div class="flex flex-col">
-<span class="text-sm font-bold text-slate-700"><?php echo htmlspecialchars($dateLabel, ENT_QUOTES, 'UTF-8'); ?></span>
-<span class="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-0.5"><?php echo htmlspecialchars($timeLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="text-sm font-semibold text-slate-800 tabular-nums"><?php echo htmlspecialchars($dateLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="text-xs text-slate-500 font-medium mt-0.5 tabular-nums"><?php echo htmlspecialchars($timeLabel, ENT_QUOTES, 'UTF-8'); ?></span>
 </div>
 </td>
-<td class="px-6 py-6 text-sm font-semibold text-slate-700"><?php echo htmlspecialchars($serviceLabel, ENT_QUOTES, 'UTF-8'); ?></td>
-<td class="px-6 py-6 text-sm font-medium text-slate-700"><?php echo htmlspecialchars($dentistName, ENT_QUOTES, 'UTF-8'); ?></td>
-<td class="px-6 py-6">
-<span class="inline-flex items-center gap-1.5 px-3 py-1 <?php echo $statusClasses; ?> text-[10px] font-black rounded-full uppercase tracking-widest">
-<span class="w-1.5 h-1.5 rounded-full <?php echo $dotClass; ?>"></span>
-<?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?>
-</span>
+<td class="px-4 py-5 align-top min-w-0">
+<div class="text-sm font-semibold text-slate-900 leading-snug"><?php echo $serviceMainEsc; ?></div>
+<?php if ($serviceDetailHtml !== ''): ?>
+<div class="text-xs text-slate-600 mt-1.5 leading-relaxed break-words"><?php echo $serviceDetailHtml; ?></div>
+<?php endif; ?>
 </td>
-<td class="px-8 py-6 text-right text-sm font-extrabold text-slate-900"><?php echo staff_reports_money($amount); ?></td>
+<td class="px-4 py-5 align-top text-sm font-medium text-slate-800 break-words"><?php echo htmlspecialchars($dentistName, ENT_QUOTES, 'UTF-8'); ?></td>
+<td class="px-4 py-5 align-middle whitespace-nowrap">
+<span class="inline-flex items-center px-2.5 py-1 <?php echo $statusClasses; ?> text-xs font-medium rounded-md ring-1 ring-inset ring-black/[0.06]"><?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+</td>
+<td class="px-6 py-5 text-right align-middle text-sm font-semibold text-slate-900"><?php echo staff_reports_money_html($amount); ?></td>
 </tr>
 <?php endforeach; ?>
 <?php endif; ?>
