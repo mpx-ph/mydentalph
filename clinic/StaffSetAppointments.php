@@ -45,8 +45,7 @@ if ($clinicSlugBoot !== '' && preg_match('/^[a-z0-9\-]+$/', strtolower($clinicSl
 }
 
 $manilaNow = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
-$manilaTomorrow = $manilaNow->modify('+1 day')->format('Y-m-d');
-$selectedDateValue = $manilaTomorrow;
+$selectedDateValue = $manilaNow->format('Y-m-d');
 $selectedTimeValue = $manilaNow->format('H:i');
 
 $staffTreatmentScheduleMode = isset($_GET['treatment_schedule']) && (string) $_GET['treatment_schedule'] === '1';
@@ -59,8 +58,8 @@ if (strlen($staffTreatmentSchedulePatientDisplay) > 240) {
     $staffTreatmentSchedulePatientDisplay = substr($staffTreatmentSchedulePatientDisplay, 0, 240);
 }
 
-$walkInAppointmentDateMin = $manilaTomorrow;
-$walkInAppointmentDateValue = $manilaTomorrow;
+$walkInAppointmentDateMin = $manilaNow->format('Y-m-d');
+$walkInAppointmentDateValue = $manilaNow->format('Y-m-d');
 $computedMinFollowup = null;
 
 $baseParams = [];
@@ -307,9 +306,8 @@ try {
                     28
                 );
                 if ($computedMinFollowup !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $computedMinFollowup)) {
-                    // Same-day booking is not allowed; follow-up minimum cannot be earlier than tomorrow (Manila).
-                    $walkInAppointmentDateMin = max($computedMinFollowup, $manilaTomorrow);
-                    $walkInAppointmentDateValue = max($computedMinFollowup, $manilaTomorrow);
+                    $walkInAppointmentDateMin = $computedMinFollowup;
+                    $walkInAppointmentDateValue = ($computedMinFollowup > $manilaToday) ? $computedMinFollowup : $manilaToday;
                 }
             }
         }
@@ -2709,15 +2707,6 @@ $treatmentScheduleBootstrap = [
                 void staffUiAlert({ message: 'Please select an appointment date.', variant: 'warning', title: 'Date required' });
                 return;
             }
-            const minBookableDate = String(dateInput && dateInput.min ? dateInput.min : '').trim();
-            if (minBookableDate && appointmentDate < minBookableDate) {
-                void staffUiAlert({
-                    title: 'Date not allowed',
-                    message: 'Appointments must be scheduled for a future day. Choose a date on or after ' + minBookableDate + '.',
-                    variant: 'warning'
-                });
-                return;
-            }
             if (isTreatmentSchedulePatientLocked()) {
                 const minFollow = String(TREATMENT_SCHEDULE_BOOTSTRAP.appointment_date_min || '').trim();
                 if (minFollow && appointmentDate < minFollow) {
@@ -3173,18 +3162,8 @@ $treatmentScheduleBootstrap = [
                 }
             }
 
-            if (dateInput) {
-                const minBook = String(dateInput.getAttribute('min') || dateInput.min || '').trim();
-                if (minBook) {
-                    dateInput.min = minBook;
-                    if (!dateInput.value || dateInput.value < minBook) {
-                        dateInput.value = minBook;
-                    }
-                } else if (!dateInput.value) {
-                    const t = new Date();
-                    t.setDate(t.getDate() + 1);
-                    dateInput.value = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
-                }
+            if (dateInput && !dateInput.value) {
+                dateInput.value = new Date().toISOString().slice(0, 10);
             }
             if (timeInput && !timeInput.value) {
                 const now = new Date();
