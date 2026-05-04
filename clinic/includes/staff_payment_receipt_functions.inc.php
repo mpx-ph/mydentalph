@@ -5,6 +5,34 @@
  * Loaded by StaffPaymentRecording.php and StaffPaymentPayMongoReturn.php.
  */
 
+/**
+ * Human-readable payment method for receipts, recent transactions, exports (includes mobile wallet combos).
+ */
+function staff_payment_recording_format_payment_method_display(?string $methodRaw): string
+{
+    $key = strtolower(trim((string) $methodRaw));
+    $map = [
+        'gcash' => 'GCash',
+        'cash' => 'Cash',
+        'bank_transfer' => 'Bank Transfer',
+        'credit_card' => 'Credit Card',
+        'wallet' => 'Wallet',
+        /** Mobile app combined checkout (PayMongo + MyDental Wallet). */
+        'wallet_gcash' => 'GCash + Wallet',
+        'wallet+gcash' => 'GCash + Wallet',
+        'wallet+paymongo' => 'GCash + Wallet',
+        'wallet_paymongo' => 'GCash + Wallet',
+    ];
+    if (isset($map[$key])) {
+        return $map[$key];
+    }
+    if ($key === '') {
+        return '-';
+    }
+
+    return ucfirst(str_replace('_', ' ', $key));
+}
+
 function staff_payment_recording_to_manila_datetime(string $rawValue): ?DateTimeImmutable
 {
     $raw = trim($rawValue);

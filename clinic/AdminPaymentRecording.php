@@ -652,7 +652,11 @@ require_once __DIR__ . '/includes/header.php';
             'gcash': 'GCash',
             'paymaya': 'PayMaya',
             'bank_transfer': 'Bank Transfer',
-            'check': 'Check'
+            'check': 'Check',
+            'wallet': 'Wallet',
+            'wallet_gcash': 'GCash + Wallet',
+            'wallet+paymongo': 'GCash + Wallet',
+            'wallet+gcash': 'GCash + Wallet',
         };
         return methodMap[method.toLowerCase()] || method.charAt(0).toUpperCase() + method.slice(1);
     }

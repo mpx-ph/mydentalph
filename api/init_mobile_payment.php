@@ -280,6 +280,20 @@ try {
     $payNotes = isset($ledger['payment_notes'])
         ? (string) $ledger['payment_notes']
         : sprintf('Mobile booking %s (PayMongo pending).', $booking_id);
+    if ($wallet_amount_in > 0.009) {
+        $payNotes .= ($payNotes !== '' ? ' ' : '')
+            . sprintf('[Wallet applied: ₱%s]', number_format($wallet_amount_in, 2, '.', ''));
+    }
+
+    /** Stored on tbl_payments for staff UI (see staff_payment_recording_format_payment_method_display). */
+    $clientPm = strtolower(trim((string) ($input['payment_method'] ?? 'paymongo')));
+    if ($clientPm === 'wallet') {
+        $stored_payment_method = 'wallet';
+    } elseif ($clientPm === 'wallet+paymongo') {
+        $stored_payment_method = 'wallet_gcash';
+    } else {
+        $stored_payment_method = 'gcash';
+    }
 
     $paymentsPhys = $tables['payments'] ?? 'tbl_payments';
     $ppc = clinic_table_columns($pdo, (string) $paymentsPhys);
@@ -295,7 +309,7 @@ try {
         'treatment_id' => $treatmentFkOrNull,
         'installment_number' => (($ledger['installment_number'] ?? 0) > 0) ? (int) $ledger['installment_number'] : null,
         'amount' => $payment_amount,
-        'payment_method' => 'gcash',
+        'payment_method' => $stored_payment_method,
         'status' => 'pending',
         'created_by' => (string) $user_id,
         'payment_type' => $payment_type,
@@ -322,6 +336,17 @@ try {
     }
 
     $pdo->commit();
+
+    if (!$needs_paymongo) {
+        echo json_encode([
+            'status' => 'success',
+            'message' => 'Booking saved.',
+            'booking_id' => $booking_id,
+            'treatment_id' => $treatment_id_fk,
+            'checkout_url' => '',
+        ]);
+        exit;
+    }
 
     $description = $payment_type === 'downpayment'
         ? 'Downpayment for Appointment'
