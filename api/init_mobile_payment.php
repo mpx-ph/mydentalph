@@ -9,6 +9,7 @@ require_once __DIR__ . '/../clinic/includes/appointment_booking_row.php';
 require_once __DIR__ . '/../clinic/includes/booking_treatment_ledger.php';
 require_once __DIR__ . '/../clinic/includes/staff_installment_helpers.php';
 require_once __DIR__ . '/includes/mobile_wallet_payment.inc.php';
+require_once __DIR__ . '/includes/mobile_booking_confirmation_email.inc.php';
 require_once __DIR__ . '/../paymongo_config.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -367,6 +368,26 @@ try {
     }
 
     $pdo->commit();
+
+    // Email: same SMTP as staff receipts (mail_config.php). Wallet-only settles here; PayMongo completes in payment_success.php.
+    if (
+        $paymentInserted
+        && !$needs_paymongo
+        && $payment_insert_status === 'completed'
+        && !$schedule_followup_only
+    ) {
+        try {
+            mobile_try_send_booking_confirmation_email($pdo, [
+                'tenant_id' => $tenant_id,
+                'patient_id' => $patient_id,
+                'booking_id' => $booking_id,
+                'amount' => $paid_now_total,
+                'payment_type' => $payment_type,
+            ]);
+        } catch (Throwable $e) {
+            // Non-fatal
+        }
+    }
 
     if (!$needs_paymongo) {
         echo json_encode([

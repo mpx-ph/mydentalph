@@ -6,8 +6,11 @@ require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../clinic/includes/booking_treatment_ledger.php';
 require_once __DIR__ . '/../clinic/includes/staff_installment_helpers.php';
 require_once __DIR__ . '/includes/mobile_wallet_payment.inc.php';
+require_once __DIR__ . '/includes/mobile_booking_confirmation_email.inc.php';
 
 $pid = isset($_GET['pid']) ? trim((string) $_GET['pid']) : '';
+/** @var string For deep link back to the app after online payment */
+$bookingIdForDeepLink = '';
 
 if ($pid !== '') {
     try {
@@ -63,6 +66,15 @@ if ($pid !== '') {
 
             booking_apply_completed_payment_to_treatment($pdo, $fresh);
             staff_installments_mark_paid_from_mobile_payment_row($pdo, $fresh);
+
+            $bookingIdForDeepLink = trim((string) ($fresh['booking_id'] ?? ''));
+            if ($wasIncomplete) {
+                try {
+                    mobile_try_send_booking_confirmation_email($pdo, $fresh);
+                } catch (Throwable $mailEx) {
+                    // Non-fatal: payment already recorded.
+                }
+            }
         }
         $pdo->commit();
     } catch (Throwable $e) {
@@ -91,8 +103,14 @@ if ($pid !== '') {
     <div class="card">
         <div class="icon">✨</div>
         <h1>Payment Successful!</h1>
-        <p>Your transaction has been securely processed and recorded. You can now return to your Dento Cleene app dashboard.</p>
-        <a href="mydentalph://app" class="btn">Return to App Settings</a>
+        <p>Your transaction has been securely processed and recorded. A confirmation email will be sent to your registered email when available.</p>
+        <?php
+        $backHref = 'mydentalph://app/payment-complete';
+        if ($bookingIdForDeepLink !== '') {
+            $backHref .= '?booking_id=' . rawurlencode($bookingIdForDeepLink);
+        }
+        ?>
+        <a href="<?= htmlspecialchars($backHref, ENT_QUOTES, 'UTF-8') ?>" class="btn">Return to app</a>
     </div>
 </body>
 </html>
