@@ -122,6 +122,34 @@ function psm_last_message_preview(string $patientUserId, string $partnerDisplayN
     return $label . ': ' . $message;
 }
 
+/** HTTPS-aware origin for building absolute asset URLs (same idea as clinic staff header). */
+function psm_origin_from_request(): string {
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https');
+    $host = trim((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    if ($host === '') {
+        return 'http://mydentalph.ct.ws';
+    }
+
+    return ($https ? 'https' : 'http') . '://' . $host;
+}
+
+/** DB may store relative paths; the Android app needs a fetchable absolute URL. */
+function psm_public_asset_url(string $rel): string {
+    $rel = trim(str_replace('\\', '/', $rel));
+    if ($rel === '') {
+        return '';
+    }
+    if (preg_match('#^https?://#i', $rel)) {
+        return $rel;
+    }
+    if (strlen($rel) >= 2 && substr($rel, 0, 2) === '//') {
+        return 'https:' . $rel;
+    }
+
+    return rtrim(psm_origin_from_request(), '/') . '/' . ltrim($rel, '/');
+}
+
 if ($method === 'POST') {
     $raw = file_get_contents('php://input') ?: '';
     $input = json_decode($raw, true);
@@ -199,18 +227,23 @@ if ($with !== '') {
                 m.status,
                 m.created_at,
                 COALESCE(
-                    NULLIF(TRIM(us.photo), ''),
+                    NULLIF(TRIM(dd_uid.profile_image), ''),
+                    NULLIF(TRIM(dd_em.profile_image), ''),
                     NULLIF(TRIM(ss.profile_image), ''),
-                    NULLIF(TRIM(dd.profile_image), ''),
-                    NULLIF(TRIM(mm.profile_image), '')
+                    NULLIF(TRIM(mm.profile_image), ''),
+                    NULLIF(TRIM(us.photo), '')
                 ) AS sender_photo
             FROM tbl_messages m
             LEFT JOIN tbl_users us
                 ON us.user_id = m.sender_id AND us.tenant_id = m.tenant_id
             LEFT JOIN tbl_staffs ss
                 ON ss.tenant_id = us.tenant_id AND ss.user_id = us.user_id
-            LEFT JOIN tbl_dentists dd
-                ON dd.tenant_id = us.tenant_id AND dd.user_id = us.user_id
+            LEFT JOIN tbl_dentists dd_uid
+                ON dd_uid.tenant_id = us.tenant_id AND dd_uid.user_id = us.user_id
+            LEFT JOIN tbl_dentists dd_em
+                ON dd_em.tenant_id = us.tenant_id
+                AND LOWER(TRIM(COALESCE(us.role, ''))) = 'dentist'
+                AND LOWER(TRIM(COALESCE(dd_em.email, ''))) = LOWER(TRIM(COALESCE(us.email, '')))
             LEFT JOIN tbl_managers mm
                 ON mm.tenant_id = us.tenant_id AND mm.user_id = us.user_id
             WHERE m.tenant_id = ?
@@ -237,6 +270,7 @@ if ($with !== '') {
         $out = [];
         foreach ($rows as $m) {
             $sid = (string) ($m['sender_id'] ?? '');
+            $sp = trim((string) ($m['sender_photo'] ?? ''));
             $out[] = [
                 'id' => (int) ($m['id'] ?? 0),
                 'sender_id' => $sid,
@@ -244,7 +278,8 @@ if ($with !== '') {
                 'message' => (string) ($m['message'] ?? ''),
                 'created_at' => (string) ($m['created_at'] ?? ''),
                 'mine' => $sid === $userId,
-                'sender_photo' => trim((string) ($m['sender_photo'] ?? '')),
+                'sender_photo' => $sp,
+                'sender_photo_absolute' => psm_public_asset_url($sp),
             ];
         }
         psm_json(true, 'Messages loaded.', ['messages' => $out]);
@@ -262,14 +297,18 @@ try {
             u.full_name,
             u.role,
             COALESCE(
-                NULLIF(TRIM(u.photo), ''),
+                NULLIF(TRIM(d_uid.profile_image), ''),
+                NULLIF(TRIM(d_em.profile_image), ''),
                 NULLIF(TRIM(s.profile_image), ''),
-                NULLIF(TRIM(d.profile_image), ''),
-                NULLIF(TRIM(mg.profile_image), '')
+                NULLIF(TRIM(mg.profile_image), ''),
+                NULLIF(TRIM(u.photo), '')
             ) AS photo
         FROM tbl_users u
         LEFT JOIN tbl_staffs s ON s.tenant_id = u.tenant_id AND s.user_id = u.user_id
-        LEFT JOIN tbl_dentists d ON d.tenant_id = u.tenant_id AND d.user_id = u.user_id
+        LEFT JOIN tbl_dentists d_uid ON d_uid.tenant_id = u.tenant_id AND d_uid.user_id = u.user_id
+        LEFT JOIN tbl_dentists d_em ON d_em.tenant_id = u.tenant_id
+            AND LOWER(TRIM(COALESCE(u.role, ''))) = 'dentist'
+            AND LOWER(TRIM(COALESCE(d_em.email, ''))) = LOWER(TRIM(COALESCE(u.email, '')))
         LEFT JOIN tbl_managers mg ON mg.tenant_id = u.tenant_id AND mg.user_id = u.user_id
         WHERE u.tenant_id = ?
           AND u.role IN ('tenant_owner', 'manager', 'staff', 'dentist')
@@ -345,14 +384,18 @@ try {
                     u.full_name,
                     u.role,
                     COALESCE(
-                        NULLIF(TRIM(u.photo), ''),
+                        NULLIF(TRIM(d_uid.profile_image), ''),
+                        NULLIF(TRIM(d_em.profile_image), ''),
                         NULLIF(TRIM(s.profile_image), ''),
-                        NULLIF(TRIM(d.profile_image), ''),
-                        NULLIF(TRIM(mg.profile_image), '')
+                        NULLIF(TRIM(mg.profile_image), ''),
+                        NULLIF(TRIM(u.photo), '')
                     ) AS photo
                 FROM tbl_users u
                 LEFT JOIN tbl_staffs s ON s.tenant_id = u.tenant_id AND s.user_id = u.user_id
-                LEFT JOIN tbl_dentists d ON d.tenant_id = u.tenant_id AND d.user_id = u.user_id
+                LEFT JOIN tbl_dentists d_uid ON d_uid.tenant_id = u.tenant_id AND d_uid.user_id = u.user_id
+                LEFT JOIN tbl_dentists d_em ON d_em.tenant_id = u.tenant_id
+                    AND LOWER(TRIM(COALESCE(u.role, ''))) = 'dentist'
+                    AND LOWER(TRIM(COALESCE(d_em.email, ''))) = LOWER(TRIM(COALESCE(u.email, '')))
                 LEFT JOIN tbl_managers mg ON mg.tenant_id = u.tenant_id AND mg.user_id = u.user_id
                 WHERE u.tenant_id = ? AND u.user_id = ?
                   AND u.role IN ('tenant_owner', 'manager', 'staff', 'dentist')
@@ -398,6 +441,7 @@ try {
             'unread_count' => $unread,
             'last_message_at' => $lastAt,
             'photo' => $photo,
+            'photo_absolute' => psm_public_asset_url($photo),
             'last_message_preview' => $preview,
         ];
     }
