@@ -636,3 +636,162 @@ function staff_installments_mark_paid_from_mobile_payment_row(PDO $pdo, array $p
         [['id' => (int) $id, 'installment_number' => $installmentNumber]]
     );
 }
+
+/**
+ * @return list<array{number:int, amount:float, status:string}>
+ */
+function staff_installment_helpers_build_installments_plan(float $totalCost, int $durationMonths, string $paymentOption, float $downpaymentAmount): array
+{
+    $installments = [];
+    $remainingAmount = $totalCost;
+
+    if ($paymentOption === 'downpayment' && $downpaymentAmount > 0) {
+        $installments[] = [
+            'number' => 1,
+            'amount' => round($downpaymentAmount, 2),
+            'status' => 'pending',
+        ];
+        $remainingAmount -= $downpaymentAmount;
+        $installmentCount = $durationMonths;
+    } else {
+        $installmentCount = $durationMonths;
+    }
+
+    if ($installmentCount > 0) {
+        $monthlyAmount = $remainingAmount / $installmentCount;
+        $startNumber = ($paymentOption === 'downpayment' && $downpaymentAmount > 0) ? 2 : 1;
+        for ($i = 0; $i < $installmentCount; $i++) {
+            $installmentNumber = $startNumber + $i;
+            if ($i === $installmentCount - 1) {
+                $amount = $remainingAmount - ($monthlyAmount * ($installmentCount - 1));
+            } else {
+                $amount = $monthlyAmount;
+            }
+            $status = 'pending';
+            if ($paymentOption === 'downpayment' && $downpaymentAmount > 0 && $installmentNumber === 2) {
+                $status = 'book_visit';
+            }
+            $installments[] = [
+                'number' => $installmentNumber,
+                'amount' => round($amount, 2),
+                'status' => $status,
+            ];
+        }
+    }
+
+    return $installments;
+}
+
+/**
+ * @param array{long_term_min_downpayment?: float, regular_downpayment_percentage?: float} $paymentSettings
+ */
+function staff_installment_helpers_effective_downpayment(array $paymentSettings, float $price): float
+{
+    $base = (float) ($paymentSettings['long_term_min_downpayment'] ?? 0.0);
+    $base = max(0.0, $base);
+    if ($price > 0 && $base > $price) {
+        return round($price, 2);
+    }
+
+    return round($base, 2);
+}
+
+/**
+ * After the first installment payment with PWD/Senior: lower treatment total and rewrite schedule dues from discounted plan.
+ */
+function staff_payment_recording_apply_installment_pwd_reprice(
+    PDO $pdo,
+    string $tenantId,
+    string $bookingId,
+    string $treatmentId,
+    string $installmentsTableName,
+    array $paymentSettings,
+    float $pwdDiscountAmountConfirmed
+): void {
+    $tenantId = trim($tenantId);
+    $bookingId = trim($bookingId);
+    $treatmentId = trim($treatmentId);
+    $installmentsTableName = trim($installmentsTableName);
+    $pwdDiscountAmountConfirmed = round(max(0.0, $pwdDiscountAmountConfirmed), 2);
+    if (
+        $tenantId === ''
+        || $bookingId === ''
+        || $treatmentId === ''
+        || $installmentsTableName === ''
+        || $pwdDiscountAmountConfirmed <= 0.009
+    ) {
+        return;
+    }
+
+    $treatTblStmt = $pdo->prepare("
+        SELECT TABLE_NAME
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME IN ('tbl_treatments', 'treatments')
+        ORDER BY FIELD(TABLE_NAME, 'tbl_treatments', 'treatments')
+        LIMIT 1
+    ");
+    $treatTblStmt->execute();
+    $treatTable = trim((string) ($treatTblStmt->fetchColumn() ?: ''));
+    if ($treatTable === '') {
+        return;
+    }
+    $qt = '`' . str_replace('`', '``', $treatTable) . '`';
+    $sel = $pdo->prepare("
+        SELECT
+            COALESCE(total_cost, 0) AS total_cost,
+            COALESCE(amount_paid, 0) AS amount_paid,
+            COALESCE(duration_months, 0) AS duration_months
+        FROM {$qt}
+        WHERE tenant_id = ?
+          AND treatment_id = ?
+        LIMIT 1
+    ");
+    $sel->execute([$tenantId, $treatmentId]);
+    $tr = $sel->fetch(PDO::FETCH_ASSOC);
+    if (!$tr) {
+        return;
+    }
+    $gross = round((float) ($tr['total_cost'] ?? 0), 2);
+    $amountPaid = round((float) ($tr['amount_paid'] ?? 0), 2);
+    $durationMonths = max(1, (int) ($tr['duration_months'] ?? 1));
+
+    $expectedDisc = round($gross * 0.20, 2);
+    if (abs($expectedDisc - $pwdDiscountAmountConfirmed) > 0.05) {
+        throw new RuntimeException('PWD/Senior installment discount must equal 20% of the current treatment total.');
+    }
+
+    $newTotal = round(max(0.0, $gross - $pwdDiscountAmountConfirmed), 2);
+    $downNominal = staff_installment_helpers_effective_downpayment($paymentSettings, $gross);
+    if ($downNominal > $newTotal - 0.009) {
+        $downNominal = max(0.0, $newTotal);
+    }
+    $paymentOption = ($downNominal > 0.009 && $durationMonths > 1) ? 'downpayment' : 'installment';
+    $plan = staff_installment_helpers_build_installments_plan($newTotal, $durationMonths, $paymentOption, $downNominal);
+
+    $qi = '`' . str_replace('`', '``', $installmentsTableName) . '`';
+    foreach ($plan as $p) {
+        $num = (int) ($p['number'] ?? 0);
+        $amt = round((float) ($p['amount'] ?? 0), 2);
+        if ($num <= 0) {
+            continue;
+        }
+        $upd = $pdo->prepare("
+            UPDATE {$qi} i
+            SET i.amount_due = ?
+            WHERE i.booking_id = ?
+              AND i.installment_number = ?
+              AND (
+                  i.tenant_id = ?
+                  OR i.tenant_id IS NULL
+                  OR TRIM(COALESCE(i.tenant_id, '')) = ''
+              )
+            LIMIT 1
+        ");
+        $upd->execute([$amt, $bookingId, $num, $tenantId]);
+    }
+
+    $newRemaining = round(max(0.0, $newTotal - $amountPaid), 2);
+    $updT = $pdo->prepare("UPDATE {$qt} SET total_cost = ?, remaining_balance = ? WHERE tenant_id = ? AND treatment_id = ? LIMIT 1");
+    $updT->execute([$newTotal, $newRemaining, $tenantId, $treatmentId]);
+}

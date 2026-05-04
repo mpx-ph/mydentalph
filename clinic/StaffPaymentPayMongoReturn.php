@@ -184,6 +184,33 @@ try {
             $selectedTransactionType = is_array($stash['installment_finalize'] ?? null) ? 'installment' : 'regular';
         }
 
+        $finalizePre = $stash['installment_finalize'] ?? null;
+        $instTablePre = is_array($finalizePre) ? trim((string) ($finalizePre['installments_table'] ?? '')) : '';
+        $settingsSnap = $stash['payment_settings_snapshot'] ?? null;
+        if (!is_array($settingsSnap)) {
+            $settingsSnap = [
+                'long_term_min_downpayment' => 0.0,
+                'regular_downpayment_percentage' => 0.0,
+            ];
+        }
+        $pwdDiscStash = round((float) ($stash['pwd_discount_amount'] ?? 0), 2);
+        $pwdWantsInstallment = !empty($stash['use_pwd_senior_discount'])
+            && $selectedTransactionType === 'installment'
+            && $pwdDiscStash > 0.009
+            && $bookingTreatmentId !== ''
+            && $instTablePre !== '';
+        if ($pwdWantsInstallment) {
+            staff_payment_recording_apply_installment_pwd_reprice(
+                $pdo,
+                $tenantId,
+                $bookingId,
+                $bookingTreatmentId,
+                $instTablePre,
+                $settingsSnap,
+                $pwdDiscStash
+            );
+        }
+
         // Apply to treatment progress only for installment transactions.
         if ($selectedTransactionType === 'installment' && $bookingTreatmentId !== '' && $amount > 0) {
             $monthsPaidIncrement = 0;

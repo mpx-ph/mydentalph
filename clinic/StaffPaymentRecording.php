@@ -346,6 +346,65 @@ function staff_payment_recording_build_installments_plan(float $totalCost, int $
 }
 
 /**
+ * Count posted installment payments (installment_number > 0) for a booking.
+ */
+function staff_payment_recording_count_booking_installment_number_payments(PDO $pdo, string $tenantId, string $bookingId): int
+{
+    $tenantId = trim($tenantId);
+    $bookingId = trim($bookingId);
+    if ($tenantId === '' || $bookingId === '') {
+        return 0;
+    }
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) AS c
+        FROM tbl_payments
+        WHERE tenant_id = ?
+          AND booking_id = ?
+          AND status IN ('completed', 'paid')
+          AND COALESCE(installment_number, 0) > 0
+    ");
+    $stmt->execute([$tenantId, $bookingId]);
+
+    return (int) ($stmt->fetchColumn() ?: 0);
+}
+
+/**
+ * Sum expected installment dues from the repriced plan (after gross × 20% PWD) for selected slot rows.
+ *
+ * @param list<array{installment_number:int}> $toPaySlice
+ */
+function staff_payment_recording_sum_plan_amounts_for_installment_slots(
+    float $grossTreatmentTotal,
+    int $durationMonths,
+    array $paymentSettings,
+    float $pwdDiscountAmount,
+    array $toPaySlice
+): float {
+    $pwdDiscountAmount = round(max(0.0, $pwdDiscountAmount), 2);
+    $newTotal = round(max(0.0, $grossTreatmentTotal - $pwdDiscountAmount), 2);
+    $downNominal = staff_payment_recording_effective_installment_downpayment_amount($paymentSettings, $grossTreatmentTotal);
+    if ($downNominal > $newTotal - 0.009) {
+        $downNominal = max(0.0, $newTotal);
+    }
+    $dur = max(1, $durationMonths);
+    $paymentOption = ($downNominal > 0.009 && $dur > 1) ? 'downpayment' : 'installment';
+    $plan = staff_payment_recording_build_installments_plan($newTotal, $dur, $paymentOption, $downNominal);
+    $byNum = [];
+    foreach ($plan as $p) {
+        $byNum[(int) ($p['number'] ?? 0)] = (float) ($p['amount'] ?? 0);
+    }
+    $sum = 0.0;
+    foreach ($toPaySlice as $tp) {
+        $n = (int) ($tp['installment_number'] ?? 0);
+        if ($n > 0 && isset($byNum[$n])) {
+            $sum += $byNum[$n];
+        }
+    }
+
+    return round($sum, 2);
+}
+
+/**
  * Create missing installment rows for a booking that is installment-priced via tbl_appointment_services + tbl_services
  * but has no rows yet (mirrors clinic/api/appointments.php createInstallments).
  */
@@ -1139,13 +1198,15 @@ try {
             $totalCost = (float) ($bookingRow['total_treatment_cost'] ?? 0);
             $totalPaid = (float) ($bookingRow['total_paid'] ?? 0);
             $pendingBalance = 0.0;
+            $treatmentDurationMonths = 0;
             if ($selectedTransactionType === 'installment' && $selectedTreatmentId !== '') {
                 $treatmentStmt = $pdo->prepare("
                     SELECT
                         patient_id,
                         COALESCE(total_cost, 0) AS total_cost,
                         COALESCE(amount_paid, 0) AS amount_paid,
-                        COALESCE(remaining_balance, 0) AS remaining_balance
+                        COALESCE(remaining_balance, 0) AS remaining_balance,
+                        COALESCE(duration_months, 0) AS duration_months
                     FROM tbl_treatments
                     WHERE tenant_id = ?
                       AND treatment_id = ?
@@ -1159,6 +1220,7 @@ try {
                     $totalCost = max(0, (float) ($treatmentRow['total_cost'] ?? 0));
                     $totalPaid = max(0, (float) ($treatmentRow['amount_paid'] ?? 0));
                     $pendingBalance = max(0, (float) ($treatmentRow['remaining_balance'] ?? 0));
+                    $treatmentDurationMonths = max(0, (int) ($treatmentRow['duration_months'] ?? 0));
                 }
             } else {
                 $serviceTypeTotals = [
@@ -1680,21 +1742,50 @@ try {
                             throw new RuntimeException('Payment amount must include at least the selected installment amount.');
                         }
                         $pwdSeniorRate = 0.20;
-                        $expectedAfterPwd = $wantsPwdSeniorDiscount
-                            ? round(max(0.0, $expected * (1 - $pwdSeniorRate)), 2)
-                            : $expected;
-                        $expectedFromScheduleAfterPwd = $wantsPwdSeniorDiscount
-                            ? round(max(0.0, $expectedFromSchedule * (1 - $pwdSeniorRate)), 2)
-                            : $expectedFromSchedule;
-                        $matchesExpected = abs($installmentPaymentAmount - $expected) <= 0.05;
-                        if (!$matchesExpected && $wantsPwdSeniorDiscount) {
-                            $matchesExpected = abs($installmentPaymentAmount - $expectedAfterPwd) <= 0.05;
+                        $priorCompletedInstPayCount = staff_payment_recording_count_booking_installment_number_payments(
+                            $pdo,
+                            $tenantId,
+                            $selectedBookingId
+                        );
+                        if ($wantsPwdSeniorDiscount && $priorCompletedInstPayCount > 0) {
+                            throw new RuntimeException('PWD/Senior discount is only available on the first installment payment.');
                         }
+
+                        $durationForPwdPlan = max(1, (int) $treatmentDurationMonths);
+                        $grossTreatmentForPwd = round((float) $totalCost, 2);
+                        if ($wantsPwdSeniorDiscount) {
+                            if ($selectedTransactionType !== 'installment' || $bookingTreatmentId === '') {
+                                throw new RuntimeException('PWD/Senior installment discount requires an installment treatment.');
+                            }
+                            $expectedPwdBaseInst = $grossTreatmentForPwd;
+                            $expectedPwdAmtInst = round($grossTreatmentForPwd * $pwdSeniorRate, 2);
+                            if (abs($pwdBaseIn - $expectedPwdBaseInst) > 0.05 || abs($pwdAmtIn - $expectedPwdAmtInst) > 0.05) {
+                                throw new RuntimeException('PWD/Senior discount does not match the treatment balance.');
+                            }
+                        }
+
+                        $matchesExpected = abs($installmentPaymentAmount - $expected) <= 0.05;
                         if (!$matchesExpected && $mode === 'full') {
                             $matchesExpected = abs($installmentPaymentAmount - $expectedFromSchedule) <= 0.05;
                         }
-                        if (!$matchesExpected && $mode === 'full' && $wantsPwdSeniorDiscount) {
-                            $matchesExpected = abs($installmentPaymentAmount - $expectedFromScheduleAfterPwd) <= 0.05;
+                        if (
+                            !$matchesExpected
+                            && $wantsPwdSeniorDiscount
+                            && $priorCompletedInstPayCount === 0
+                        ) {
+                            $expectedFromPwdPlan = staff_payment_recording_sum_plan_amounts_for_installment_slots(
+                                $grossTreatmentForPwd,
+                                $durationForPwdPlan,
+                                $paymentSettingsForUi,
+                                (float) $pwdAmtIn,
+                                $toPay
+                            );
+                            $matchesExpected = abs($installmentPaymentAmount - $expectedFromPwdPlan) <= 0.05;
+                            if (!$matchesExpected && $mode === 'full') {
+                                $discountedObligation = round(max(0.0, $grossTreatmentForPwd - (float) $pwdAmtIn), 2);
+                                $expectedFullPwd = round(max(0.0, $discountedObligation - (float) $totalPaid), 2);
+                                $matchesExpected = abs($installmentPaymentAmount - $expectedFullPwd) <= 0.05;
+                            }
                         }
                         if (!$matchesExpected) {
                             throw new RuntimeException('Payment amount must be ₱' . number_format($expected, 2) . ' for the selected installment option.');
@@ -1847,6 +1938,26 @@ try {
                         $insertStmt = $pdo->prepare($insertSql);
                         $insertStmt->execute($insertParams);
 
+                        if (
+                            strtolower((string) $recordStatus) === 'completed'
+                            && $wantsPwdSeniorDiscount
+                            && $selectedTransactionType === 'installment'
+                            && $bookingTreatmentId !== ''
+                            && $installmentsTableName !== null
+                            && trim((string) $installmentsTableName) !== ''
+                            && (float) $pwdAmtIn > 0.009
+                        ) {
+                            staff_payment_recording_apply_installment_pwd_reprice(
+                                $pdo,
+                                $tenantId,
+                                $selectedBookingId,
+                                $bookingTreatmentId,
+                                (string) $installmentsTableName,
+                                $paymentSettingsForUi,
+                                (float) $pwdAmtIn
+                            );
+                        }
+
                         $finalizeItems = [];
                         foreach ($toPay as $tp) {
                             $finalizeItems[] = [
@@ -1911,6 +2022,7 @@ try {
                                 'selected_transaction_type' => $selectedTransactionType,
                                 'use_pwd_senior_discount' => $wantsPwdSeniorDiscount,
                                 'pwd_discount_amount' => $wantsPwdSeniorDiscount ? round((float) ($pwdAmtIn ?? 0), 2) : 0.0,
+                                'payment_settings_snapshot' => $paymentSettingsForUi,
                                 'installment_finalize' => [
                                     'installments_table' => $installmentsTableName,
                                     'paid_items' => $finalizeItems,
@@ -2663,6 +2775,7 @@ try {
                     COALESCE(t.total_cost, 0) AS treatment_total_cost,
                     COALESCE(t.amount_paid, 0) AS treatment_amount_paid,
                     COALESCE(t.remaining_balance, 0) AS treatment_remaining_balance,
+                    COALESCE(t.duration_months, 0) AS treatment_duration_months,
                     p.first_name AS patient_first_name,
                     p.last_name AS patient_last_name
                 FROM tbl_appointments a
@@ -2705,6 +2818,7 @@ try {
                     t.total_cost,
                     t.amount_paid,
                     t.remaining_balance,
+                    t.duration_months,
                     p.first_name,
                     p.last_name
                 ORDER BY a.appointment_date DESC, a.appointment_time DESC, a.created_at DESC
@@ -2728,6 +2842,7 @@ try {
                     COALESCE(t.total_cost, 0) AS treatment_total_cost,
                     COALESCE(t.amount_paid, 0) AS treatment_amount_paid,
                     COALESCE(t.remaining_balance, 0) AS treatment_remaining_balance,
+                    COALESCE(t.duration_months, 0) AS treatment_duration_months,
                     p.first_name AS patient_first_name,
                     p.last_name AS patient_last_name
                 FROM tbl_appointments a
@@ -2762,6 +2877,7 @@ try {
                     t.total_cost,
                     t.amount_paid,
                     t.remaining_balance,
+                    t.duration_months,
                     p.first_name,
                     p.last_name
                 ORDER BY a.appointment_date DESC, a.appointment_time DESC, a.created_at DESC
@@ -2773,6 +2889,7 @@ try {
         $transactionCandidates = $transactionsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         $paymentSplitByBooking = [];
+        $installmentNumberPaymentCountByBooking = [];
         if ($transactionCandidates !== []) {
             $bookingIdsForSplit = [];
             foreach ($transactionCandidates as $candRow) {
@@ -2822,6 +2939,25 @@ try {
                         'regular_paid_amount' => round((float) ($splitRow['regular_paid_amount'] ?? 0), 2),
                     ];
                 }
+                if ($supportsPaymentsInstallmentNumberColumn) {
+                    $ipcSql = "
+                        SELECT booking_id, COUNT(*) AS cnt
+                        FROM tbl_payments
+                        WHERE tenant_id = ?
+                          AND booking_id IN ({$splitPlaceholders})
+                          AND status IN ('completed', 'paid')
+                          AND COALESCE(installment_number, 0) > 0
+                        GROUP BY booking_id
+                    ";
+                    $ipcStmt = $pdo->prepare($ipcSql);
+                    $ipcStmt->execute(array_merge([$tenantId], $bookingIdListForSplit));
+                    foreach ($ipcStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $ipcRow) {
+                        $ib = trim((string) ($ipcRow['booking_id'] ?? ''));
+                        if ($ib !== '') {
+                            $installmentNumberPaymentCountByBooking[$ib] = (int) ($ipcRow['cnt'] ?? 0);
+                        }
+                    }
+                }
             }
         }
 
@@ -2846,6 +2982,7 @@ try {
                     COALESCE(t.total_cost, 0) AS total_cost,
                     COALESCE(t.amount_paid, 0) AS amount_paid,
                     COALESCE(t.remaining_balance, 0) AS remaining_balance,
+                    COALESCE(t.duration_months, 0) AS duration_months,
                     COALESCE(t.primary_service_name, '') AS primary_service_name,
                     p.first_name AS patient_first_name,
                     p.last_name AS patient_last_name
@@ -2920,6 +3057,7 @@ try {
                 $transactionCandidates[$idx]['treatment_total_cost'] = (float) ($tr['total_cost'] ?? 0);
                 $transactionCandidates[$idx]['treatment_amount_paid'] = (float) ($tr['amount_paid'] ?? 0);
                 $transactionCandidates[$idx]['treatment_remaining_balance'] = (float) ($tr['remaining_balance'] ?? 0);
+                $transactionCandidates[$idx]['treatment_duration_months'] = (int) ($tr['duration_months'] ?? 0);
                 $transactionCandidates[$idx]['primary_installment_service_name'] = (string) ($tr['primary_service_name'] ?? '');
                 if ($latestAppt !== null) {
                     $transactionCandidates[$idx]['booking_id'] = trim((string) ($latestAppt['booking_id'] ?? ($candRow['booking_id'] ?? '')));
@@ -2963,6 +3101,7 @@ try {
                     'treatment_total_cost' => (float) ($tr['total_cost'] ?? 0),
                     'treatment_amount_paid' => (float) ($tr['amount_paid'] ?? 0),
                     'treatment_remaining_balance' => (float) ($tr['remaining_balance'] ?? 0),
+                    'treatment_duration_months' => (int) ($tr['duration_months'] ?? 0),
                     'primary_installment_service_name' => (string) ($tr['primary_service_name'] ?? ''),
                     'hide_recent_appointment_info' => 0,
                     'patient_first_name' => (string) ($tr['patient_first_name'] ?? ''),
@@ -3217,6 +3356,10 @@ try {
             $transactionCandidates[$ic]['payment_total_paid_amount'] = is_array($splitMeta)
                 ? (float) ($splitMeta['total_paid_amount'] ?? 0)
                 : (float) ($candRow['total_paid'] ?? 0);
+            $transactionCandidates[$ic]['treatment_duration_months'] = (int) ($candRow['treatment_duration_months'] ?? 0);
+            $transactionCandidates[$ic]['installment_pwd_discount_locked'] = ($supportsPaymentsInstallmentNumberColumn && $b !== '' && (($installmentNumberPaymentCountByBooking[$b] ?? 0) > 0))
+                ? 1
+                : 0;
             $transactionCandidates[$ic]['treatment_remaining_balance'] = is_array($primaryInstallmentMeta)
                 ? (isset($primaryInstallmentMeta['remaining_balance']) ? (float) $primaryInstallmentMeta['remaining_balance'] : null)
                 : null;
@@ -4083,6 +4226,7 @@ if ($paymentError === 'Please select a payment method.') {
                 <p class="text-sm font-bold text-slate-900 min-w-0">Use PWD/Senior Citizen Discount</p>
                 <div class="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 shrink-0">
                     <span class="hidden text-xs font-semibold text-amber-800 text-right max-w-[14rem] sm:max-w-xs leading-snug" id="pwd_senior_discount_ineligible_label" role="status">This patient is not eligible for discount.</span>
+                    <span class="hidden text-xs font-semibold text-slate-600 text-right max-w-[14rem] sm:max-w-xs leading-snug" id="pwd_senior_discount_locked_label" role="status">Patient has already used the discount.</span>
                     <div class="flex items-center gap-2 shrink-0">
                         <span class="text-[11px] font-black uppercase tracking-widest tabular-nums w-9 text-right text-slate-400 transition-colors" id="pwd_senior_discount_state">Off</span>
                         <label id="pwd_senior_discount_switch_label" class="relative inline-flex h-7 w-12 cursor-pointer items-center shrink-0">
@@ -4431,6 +4575,7 @@ Close
         const pwdSeniorDiscountToggle = document.getElementById('pwd_senior_discount_toggle');
         const pwdSeniorDiscountState = document.getElementById('pwd_senior_discount_state');
         const pwdSeniorDiscountIneligibleLabel = document.getElementById('pwd_senior_discount_ineligible_label');
+        const pwdSeniorDiscountLockedLabel = document.getElementById('pwd_senior_discount_locked_label');
         const pwdSeniorDiscountSwitchLabel = document.getElementById('pwd_senior_discount_switch_label');
         const pwdDiscountBaseInput = document.getElementById('pwd_discount_base_input');
         const pwdDiscountAmountInput = document.getElementById('pwd_discount_amount_input');
@@ -4497,14 +4642,21 @@ Close
                 return;
             }
             const eligible = selectedTransaction && Number(selectedTransaction.pwd_senior_discount_eligible) === 1;
+            const installmentLocked = !!(selectedTransaction
+                && String(selectedTransaction.transaction_type || '') === 'installment'
+                && Number(selectedTransaction.installment_pwd_discount_locked || 0) === 1);
             if (pwdSeniorDiscountIneligibleLabel) {
                 pwdSeniorDiscountIneligibleLabel.classList.toggle('hidden', !selectedTransaction || eligible);
             }
-            if (pwdSeniorDiscountSwitchLabel) {
-                pwdSeniorDiscountSwitchLabel.classList.toggle('opacity-50', !selectedTransaction || !eligible);
-                pwdSeniorDiscountSwitchLabel.classList.toggle('cursor-not-allowed', !selectedTransaction || !eligible);
+            if (pwdSeniorDiscountLockedLabel) {
+                pwdSeniorDiscountLockedLabel.classList.toggle('hidden', !selectedTransaction || !eligible || !installmentLocked);
             }
-            if (!selectedTransaction || !eligible) {
+            if (pwdSeniorDiscountSwitchLabel) {
+                const switchLocked = !selectedTransaction || !eligible || installmentLocked;
+                pwdSeniorDiscountSwitchLabel.classList.toggle('opacity-50', switchLocked);
+                pwdSeniorDiscountSwitchLabel.classList.toggle('cursor-not-allowed', switchLocked);
+            }
+            if (!selectedTransaction || !eligible || installmentLocked) {
                 pwdSeniorDiscountToggle.checked = false;
                 pwdSeniorDiscountToggle.disabled = true;
                 pwdSeniorDiscountToggle.setAttribute('aria-disabled', 'true');
@@ -4517,6 +4669,71 @@ Close
 
         const PWD_SENIOR_DISCOUNT_RATE = 0.20;
 
+        function buildStaffInstallmentsPlanJs(totalCost, durationMonths, paymentOption, downpaymentAmount) {
+            const installments = [];
+            let remainingAmount = totalCost;
+            let installmentCount;
+            if (paymentOption === 'downpayment' && downpaymentAmount > 0.009) {
+                installments.push({
+                    number: 1,
+                    amount: Math.round(downpaymentAmount * 100) / 100,
+                    status: 'pending',
+                });
+                remainingAmount -= downpaymentAmount;
+                installmentCount = durationMonths;
+            } else {
+                installmentCount = durationMonths;
+            }
+            if (installmentCount > 0) {
+                const monthlyAmount = remainingAmount / installmentCount;
+                const startNumber = (paymentOption === 'downpayment' && downpaymentAmount > 0.009) ? 2 : 1;
+                for (let i = 0; i < installmentCount; i += 1) {
+                    const installmentNumber = startNumber + i;
+                    let amt;
+                    if (i === installmentCount - 1) {
+                        amt = remainingAmount - (monthlyAmount * (installmentCount - 1));
+                    } else {
+                        amt = monthlyAmount;
+                    }
+                    let st = 'pending';
+                    if (paymentOption === 'downpayment' && downpaymentAmount > 0.009 && installmentNumber === 2) {
+                        st = 'book_visit';
+                    }
+                    installments.push({
+                        number: installmentNumber,
+                        amount: Math.round(amt * 100) / 100,
+                        status: st,
+                    });
+                }
+            }
+            return installments;
+        }
+
+        function getPwdDiscountedInstallmentPlanPreview(tx) {
+            if (!tx || String(tx.transaction_type || '') !== 'installment') {
+                return null;
+            }
+            const gross = Number(tx.total_cost || 0);
+            if (!(gross > 0)) {
+                return null;
+            }
+            const disc = Math.round(gross * PWD_SENIOR_DISCOUNT_RATE * 100) / 100;
+            const newTotal = Math.round((gross - disc) * 100) / 100;
+            const dur = Math.max(1, parseInt(String(tx.treatment_duration_months || 0), 10) || 1);
+            const cfg = Math.max(0, Math.min(gross, Number((paymentSettings && paymentSettings.long_term_min_downpayment) || 0)));
+            let downNominal = Math.round(cfg * 100) / 100;
+            if (downNominal > newTotal - 0.009) {
+                downNominal = Math.max(0, newTotal);
+            }
+            const payOpt = (downNominal > 0.009 && dur > 1) ? 'downpayment' : 'installment';
+            const plan = buildStaffInstallmentsPlanJs(newTotal, dur, payOpt, downNominal);
+            const byNum = {};
+            plan.forEach((p) => {
+                byNum[p.number] = p.amount;
+            });
+            return { gross: gross, disc: disc, newTotal: newTotal, byNum: byNum, plan: plan };
+        }
+
         function getBookedServicesPriceSum(tx) {
             if (!tx || !Array.isArray(tx.booked_services)) {
                 return 0;
@@ -4525,11 +4742,24 @@ Close
         }
 
         function isPwdSeniorDiscountApplying() {
+            let instPwdLocked = false;
+            if (selectedTransaction && String(selectedTransaction.transaction_type || '') === 'installment') {
+                instPwdLocked = Number(selectedTransaction.installment_pwd_discount_locked || 0) === 1;
+            }
             return !!(pwdSeniorDiscountToggle
                 && pwdSeniorDiscountToggle.checked
                 && !pwdSeniorDiscountToggle.disabled
                 && selectedTransaction
-                && Number(selectedTransaction.pwd_senior_discount_eligible) === 1);
+                && Number(selectedTransaction.pwd_senior_discount_eligible) === 1
+                && !instPwdLocked);
+        }
+
+        function shouldUsePwdInstallmentPlanPreview() {
+            return !!(selectedTransaction
+                && String(selectedTransaction.transaction_type || '') === 'installment'
+                && getScheduleList(selectedTransaction).length > 0
+                && Number(selectedTransaction.installment_pwd_discount_locked || 0) !== 1
+                && isPwdSeniorDiscountApplying());
         }
 
         function updateAppointmentPwdDiscountBreakdown(active, data) {
@@ -5022,10 +5252,13 @@ Close
             const totalCost = Number(selectedTransaction.total_cost || 0);
             const totalPaid = Number(selectedTransaction.total_paid || 0);
             const pending = Math.max(0, totalCost - totalPaid);
-            const pwdForProgress = isPwdSeniorDiscountApplying();
-            const progressDenom = pwdForProgress
-                ? Math.max(0, Math.round(totalCost * (1 - PWD_SENIOR_DISCOUNT_RATE) * 100) / 100)
-                : totalCost;
+            const pwdInstPreview = shouldUsePwdInstallmentPlanPreview()
+                ? getPwdDiscountedInstallmentPlanPreview(selectedTransaction)
+                : null;
+            const pendingForInstallmentUi = pwdInstPreview
+                ? Math.max(0, Math.round((pwdInstPreview.newTotal - totalPaid) * 100) / 100)
+                : pending;
+            const progressDenom = pwdInstPreview ? pwdInstPreview.newTotal : totalCost;
             const pct = progressDenom > 0
                 ? Math.min(100, Math.round((totalPaid / progressDenom) * 1000) / 10)
                 : 0;
@@ -5038,13 +5271,7 @@ Close
             if (installmentProgressPaidLine) {
                 installmentProgressPaidLine.textContent = 'Paid ₱' + totalPaid.toFixed(2);
             }
-            let displayPendingForProgress = pending;
-            if (pwdForProgress) {
-                displayPendingForProgress = Math.max(
-                    0,
-                    Math.round(pending * (1 - PWD_SENIOR_DISCOUNT_RATE) * 100) / 100
-                );
-            }
+            const displayPendingForProgress = pwdInstPreview ? pendingForInstallmentUi : pending;
             if (installmentProgressRemainLine) {
                 installmentProgressRemainLine.textContent =
                     'Remaining ₱' + displayPendingForProgress.toFixed(2);
@@ -5281,18 +5508,24 @@ Close
             }
 
             let sum = 0;
+            const pendUse = pwdInstPreview ? pendingForInstallmentUi : pending;
             if (scheduleInconsistentWithBalance) {
                 if (mode === 'full') {
-                    sum = pending;
+                    sum = pendUse;
                 } else if (mode === 'down') {
                     const downDue = configuredDownpayment > 0 ? configuredDownpayment : fallbackMonthlyAmount;
-                    sum = Math.min(pending, Math.max(0, downDue));
+                    sum = Math.min(pendUse, Math.max(0, downDue));
                 } else if (mode === 'combined') {
                     const downDue = configuredDownpayment > 0 ? configuredDownpayment : fallbackMonthlyAmount;
                     const monthlySlots = Math.max(1, Math.max(2, slotCount) - 1);
-                    sum = Math.min(pending, Math.max(0, downDue) + (fallbackMonthlyAmount * monthlySlots));
+                    sum = Math.min(pendUse, Math.max(0, downDue) + (fallbackMonthlyAmount * monthlySlots));
                 } else {
-                    sum = Math.min(pending, fallbackMonthlyAmount * Math.max(1, slotCount));
+                    sum = Math.min(pendUse, fallbackMonthlyAmount * Math.max(1, slotCount));
+                }
+            } else if (pwdInstPreview) {
+                for (let i = 0; i < Math.min(slotCount, unpaidSched.length); i += 1) {
+                    const n = Number(unpaidSched[i].installment_number || 0);
+                    sum += Number(pwdInstPreview.byNum[n] || 0);
                 }
             } else {
                 for (let i = 0; i < Math.min(slotCount, unpaidSched.length); i += 1) {
@@ -5302,11 +5535,11 @@ Close
             sum = Math.round(sum * 100) / 100;
             if (slotCount >= unpaidSched.length && unpaidSched.length > 0) {
                 // Avoid cumulative rounding drift when all remaining installments are selected.
-                sum = pending;
+                sum = pendUse;
             }
             if (mode === 'full') {
                 // For full payment, display the persisted remaining balance.
-                sum = pending;
+                sum = pendUse;
             }
             if (amountInput) {
                 amountInput.value = sum.toFixed(2);
@@ -5435,6 +5668,8 @@ Close
                 patient_id: String(item.patient_id || ''),
                 patient_name: patientName,
                 pwd_senior_discount_eligible: Number(item.pwd_senior_discount_eligible) === 1 ? 1 : 0,
+                treatment_duration_months: Math.max(0, parseInt(String(item.treatment_duration_months || 0), 10) || 0),
+                installment_pwd_discount_locked: Number(item.installment_pwd_discount_locked || 0) === 1 ? 1 : 0,
                 service_type: String(item.service_type || '-'),
                 visit_type: String(item.visit_type || ''),
                 appointment_date: String(item.appointment_date || ''),
@@ -5763,6 +5998,28 @@ Close
             }
             const hasSchedule = getScheduleList(selectedTransaction).length > 0;
             refreshInstallmentPaymentUi();
+            if (shouldUsePwdInstallmentPlanPreview()) {
+                const prev = getPwdDiscountedInstallmentPlanPreview(selectedTransaction);
+                if (prev) {
+                    const instSlice = Math.max(0, Math.round(Number(amountInput.value || 0) * 100) / 100);
+                    const finalTotal = Math.max(0, Math.round((instSlice + servicesTotal) * 100) / 100);
+                    amountInput.value = finalTotal.toFixed(2);
+                    if (pwdDiscountBaseInput) {
+                        pwdDiscountBaseInput.value = String(prev.gross);
+                    }
+                    if (pwdDiscountAmountInput) {
+                        pwdDiscountAmountInput.value = String(prev.disc);
+                    }
+                    updateAppointmentPwdDiscountBreakdown(true, {
+                        basePreAddon: prev.gross,
+                        discountAmt: prev.disc,
+                        servicesTotal: servicesTotal,
+                        finalTotal: finalTotal,
+                        bookedSum: 0,
+                    });
+                    return;
+                }
+            }
             const basePreAddon = Math.max(
                 0,
                 Math.round((hasSchedule
