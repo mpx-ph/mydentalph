@@ -2,7 +2,9 @@
 $staff_nav_active = 'reviews';
 require_once __DIR__ . '/config/config.php';
 // Dentist role restriction: redirect to dashboard
-if (session_status() === PHP_SESSION_NONE) { clinic_session_start(); }
+if (session_status() === PHP_SESSION_NONE) {
+    clinic_session_start();
+}
 if (isset($_SESSION['user_role']) && strtolower(trim((string) $_SESSION['user_role'])) === 'dentist') {
     header('Location: StaffDashboard.php');
     exit;
@@ -16,6 +18,168 @@ if (!isset($currentTenantSlug)) {
         }
     }
 }
+
+$tenantId = trim((string) ($_SESSION['tenant_id'] ?? $_SESSION['public_tenant_id'] ?? ''));
+$reviews = [];
+$avgRating = 0.0;
+$totalReviewsAll = 0;
+$positivePct = 0;
+$reviewsListTotal = 0;
+$reviewLoadError = '';
+$page = max(1, (int) ($_GET['page'] ?? 1));
+$perPage = 15;
+$searchQ = trim((string) ($_GET['q'] ?? ''));
+$ratingFilter = trim((string) ($_GET['rating'] ?? ''));
+$allowedRatings = ['', '5', '4', '3', '2', '1'];
+if (!in_array($ratingFilter, $allowedRatings, true)) {
+    $ratingFilter = '';
+}
+
+if ($tenantId === '') {
+    $reviewLoadError = 'missing_tenant';
+} else {
+    try {
+        $pdo = getDBConnection();
+        $aggStmt = $pdo->prepare(
+            'SELECT COUNT(*) AS cnt, COALESCE(AVG(rating), 0) AS avgr,
+                SUM(CASE WHEN rating >= 4 THEN 1 ELSE 0 END) AS pos
+             FROM tbl_reviews WHERE tenant_id = ?'
+        );
+        $aggStmt->execute([$tenantId]);
+        $agg = $aggStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $totalReviewsAll = (int) ($agg['cnt'] ?? 0);
+        $avgRating = $totalReviewsAll > 0 ? round((float) ($agg['avgr'] ?? 0), 1) : 0.0;
+        $positivePct = $totalReviewsAll > 0
+            ? (int) round(100 * (int) ($agg['pos'] ?? 0) / $totalReviewsAll)
+            : 0;
+
+        $where = 'WHERE r.tenant_id = ?';
+        $listParams = [$tenantId];
+        if ($ratingFilter !== '') {
+            $where .= ' AND r.rating = ?';
+            $listParams[] = (int) $ratingFilter;
+        }
+        if ($searchQ !== '') {
+            $where .= ' AND (
+                r.comment LIKE ? OR p.first_name LIKE ? OR p.last_name LIKE ?
+                OR r.booking_id LIKE ? OR r.review_id LIKE ?
+            )';
+            $term = '%' . $searchQ . '%';
+            $listParams[] = $term;
+            $listParams[] = $term;
+            $listParams[] = $term;
+            $listParams[] = $term;
+            $listParams[] = $term;
+        }
+
+        $countSql = 'SELECT COUNT(DISTINCT r.id) FROM tbl_reviews r
+            LEFT JOIN tbl_patients p ON r.patient_id = p.patient_id AND p.tenant_id = r.tenant_id
+            ' . $where;
+        $countStmt = $pdo->prepare($countSql);
+        $countStmt->execute($listParams);
+        $reviewsListTotal = (int) $countStmt->fetchColumn();
+
+        $totalPages = $reviewsListTotal > 0 ? (int) ceil($reviewsListTotal / $perPage) : 0;
+        if ($totalPages > 0) {
+            $page = min($page, $totalPages);
+        } else {
+            $page = 1;
+        }
+        $offset = ($page - 1) * $perPage;
+
+        $listSql = 'SELECT r.id, r.review_id, r.appointment_id, r.booking_id, r.patient_id, r.rating, r.comment, r.created_at,
+                p.first_name, p.last_name,
+                a.appointment_date, a.appointment_time,
+                GROUP_CONCAT(DISTINCT s.service_name ORDER BY s.service_name SEPARATOR \', \') AS service_names
+            FROM tbl_reviews r
+            LEFT JOIN tbl_patients p ON r.patient_id = p.patient_id AND p.tenant_id = r.tenant_id
+            LEFT JOIN tbl_appointments a ON r.appointment_id = a.id AND a.tenant_id = r.tenant_id
+            LEFT JOIN tbl_appointment_services aps ON a.id = aps.appointment_id AND aps.tenant_id = r.tenant_id
+            LEFT JOIN tbl_services s ON aps.service_id = s.service_id AND s.tenant_id = r.tenant_id
+            ' . $where . '
+            GROUP BY r.id
+            ORDER BY r.created_at DESC
+            LIMIT ' . (int) $perPage . ' OFFSET ' . (int) $offset;
+        $listStmt = $pdo->prepare($listSql);
+        $listStmt->execute($listParams);
+        $reviews = $listStmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        error_log('StaffManageReview: ' . $e->getMessage());
+        $reviewLoadError = 'query_failed';
+        $reviews = [];
+        $reviewsListTotal = 0;
+        $totalReviewsAll = 0;
+        $avgRating = 0.0;
+        $positivePct = 0;
+    }
+}
+
+$totalPages = $reviewsListTotal > 0 ? (int) ceil($reviewsListTotal / $perPage) : 0;
+
+$queryBase = [];
+if ($searchQ !== '') {
+    $queryBase['q'] = $searchQ;
+}
+if ($ratingFilter !== '') {
+    $queryBase['rating'] = $ratingFilter;
+}
+$buildReviewsPageUrl = function ($targetPage) use ($queryBase) {
+    $q = $queryBase;
+    if ($targetPage > 1) {
+        $q['page'] = (string) $targetPage;
+    }
+    $qs = http_build_query($q);
+    $self = htmlspecialchars((string) ($_SERVER['SCRIPT_NAME'] ?? 'StaffManageReview.php'), ENT_QUOTES, 'UTF-8');
+    return $self . ($qs !== '' ? '?' . $qs : '');
+};
+
+$staffReviewsSelfUrl = htmlspecialchars((string) ($_SERVER['SCRIPT_NAME'] ?? 'StaffManageReview.php'), ENT_QUOTES, 'UTF-8');
+
+$esc = static function ($s) {
+    return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
+};
+
+$starsHtml = static function ($rating) {
+    $rating = max(0, min(5, (int) $rating));
+    $buf = '';
+    for ($i = 1; $i <= 5; $i++) {
+        $cls = $i <= $rating ? 'text-primary' : 'text-slate-200';
+        $buf .= '<span class="material-symbols-outlined ' . $cls . ' text-xl" style="font-variation-settings: \'FILL\' 1;">star</span>';
+    }
+    return $buf;
+};
+
+$patientLabel = static function (array $row) use ($esc) {
+    $fn = trim((string) ($row['first_name'] ?? ''));
+    $ln = trim((string) ($row['last_name'] ?? ''));
+    $name = trim($fn . ' ' . $ln);
+    return $name !== '' ? $esc($name) : 'Patient';
+};
+
+$patientInitials = static function (array $row) {
+    $fn = trim((string) ($row['first_name'] ?? ''));
+    $ln = trim((string) ($row['last_name'] ?? ''));
+    $ini = '';
+    if ($fn !== '') {
+        $ini .= strtoupper(substr($fn, 0, 1));
+    }
+    if ($ln !== '') {
+        $ini .= strtoupper(substr($ln, 0, 1));
+    }
+    return $ini !== '' ? $ini : '?';
+};
+
+$formatReviewDate = static function ($row) {
+    $raw = $row['created_at'] ?? '';
+    if ($raw === '') {
+        return '';
+    }
+    $t = strtotime((string) $raw);
+    if ($t === false) {
+        return $raw;
+    }
+    return date('M j, Y', $t);
+};
 ?>
 <!DOCTYPE html>
 
@@ -104,6 +268,15 @@ if (!isset($currentTenantSlug)) {
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
 <!-- Scrollable Content -->
 <div class="p-10 space-y-10">
+<?php if ($reviewLoadError === 'missing_tenant') { ?>
+<div class="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+    No clinic workspace in your session. Sign in again from the provider portal so reviews can load for your tenant.
+</div>
+<?php } elseif ($reviewLoadError === 'query_failed') { ?>
+<div class="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-900">
+    Reviews could not be loaded. Check the database connection or server logs.
+</div>
+<?php } ?>
 <!-- Page Header (High-contrast typography) -->
 <section class="flex flex-col gap-4 mb-4">
 <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
@@ -120,169 +293,133 @@ if (!isset($currentTenantSlug)) {
 </div>
 </div>
 </section>
-<!-- Stats Grid (Card depths/spacing from SCREEN_142) -->
+<!-- Stats Grid — from tbl_reviews -->
 <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
-<!-- Average Rating -->
 <div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
 </div>
-<span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">Active</span>
+<span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">All time</span>
 </div>
 <div>
 <div class="flex items-baseline gap-2">
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">4.8</p>
+<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo $esc($totalReviewsAll > 0 ? (string) $avgRating : '—'); ?></p>
 <p class="text-sm font-bold text-on-surface-variant/40">/ 5.0</p>
 </div>
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Average Rating</p>
 </div>
 </div>
-<!-- Total Reviews -->
 <div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">forum</span>
 </div>
-<span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">+12%</span>
+<span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">Clinic total</span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">242</p>
+<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo (int) $totalReviewsAll; ?></p>
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Total Reviews</p>
 </div>
 </div>
-<!-- Positive Feedback -->
 <div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 transition-colors group-hover:bg-emerald-500 group-hover:text-white">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">recommend</span>
 </div>
-<span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full uppercase tracking-widest">Top Rated</span>
+<span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full uppercase tracking-widest">4★ &amp; up</span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">96%</p>
+<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo $totalReviewsAll > 0 ? (int) $positivePct : '—'; ?><?php echo $totalReviewsAll > 0 ? '%' : ''; ?></p>
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Positive Feedback</p>
 </div>
 </div>
 </section>
-<!-- Filters Bar -->
-<div class="elevated-card p-5 rounded-2xl flex flex-wrap items-center gap-4">
+<!-- Filters -->
+<form method="get" class="elevated-card p-5 rounded-2xl flex flex-wrap items-end gap-4" action="<?php echo $staffReviewsSelfUrl; ?>">
 <div class="flex-1 relative min-w-[300px]">
-<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">search</span>
-<input class="w-full pl-12 pr-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Search keywords..." type="text"/>
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">search</span>
+<input name="q" value="<?php echo $esc($searchQ); ?>" class="w-full pl-12 pr-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Search name, comment, booking ID…" type="text"/>
 </div>
-<div class="flex gap-3">
-<select class="bg-slate-50 border-none rounded-xl py-2.5 px-5 pr-10 text-xs font-bold uppercase tracking-wider text-slate-600 focus:ring-2 focus:ring-primary/20 cursor-pointer">
-<option>All Ratings</option>
-<option>5 Stars</option>
-<option>4 Stars</option>
+<div class="flex flex-wrap gap-3 items-center">
+<label class="sr-only" for="rating-filter">Rating</label>
+<select id="rating-filter" name="rating" class="bg-slate-50 border-none rounded-xl py-2.5 px-5 pr-10 text-xs font-bold uppercase tracking-wider text-slate-600 focus:ring-2 focus:ring-primary/20 cursor-pointer">
+<option value=""<?php echo $ratingFilter === '' ? ' selected' : ''; ?>>All ratings</option>
+<option value="5"<?php echo $ratingFilter === '5' ? ' selected' : ''; ?>>5 stars</option>
+<option value="4"<?php echo $ratingFilter === '4' ? ' selected' : ''; ?>>4 stars</option>
+<option value="3"<?php echo $ratingFilter === '3' ? ' selected' : ''; ?>>3 stars</option>
+<option value="2"<?php echo $ratingFilter === '2' ? ' selected' : ''; ?>>2 stars</option>
+<option value="1"<?php echo $ratingFilter === '1' ? ' selected' : ''; ?>>1 star</option>
 </select>
-<select class="bg-slate-50 border-none rounded-xl py-2.5 px-5 pr-10 text-xs font-bold uppercase tracking-wider text-slate-600 focus:ring-2 focus:ring-primary/20 cursor-pointer">
-<option>All Services</option>
-<option>Cleaning</option>
-<option>Root Canal</option>
-</select>
-<button class="px-5 py-2.5 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all flex items-center gap-2">
-<span class="material-symbols-outlined text-sm">filter_list</span> Filter
-                    </button>
+<button type="submit" class="px-5 py-2.5 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">filter_list</span> Apply
+</button>
+<?php if ($searchQ !== '' || $ratingFilter !== '') { ?>
+<a class="px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-primary hover:underline" href="<?php echo $staffReviewsSelfUrl; ?>">Reset</a>
+<?php } ?>
 </div>
-</div>
-<!-- Reviews Feed (Styled like Recent Bookings table/rows) -->
+</form>
+<!-- Reviews list -->
 <section class="elevated-card rounded-3xl overflow-hidden divide-y divide-slate-100">
-<!-- Review Card 1 -->
+<?php if ($reviewLoadError !== '' && $reviewLoadError !== 'missing_tenant') { ?>
+<div class="p-12 text-center text-on-surface-variant">Unable to load reviews.</div>
+<?php } elseif ($tenantId !== '' && $reviewLoadError === '' && count($reviews) === 0) { ?>
+<div class="p-12 text-center text-on-surface-variant">
+<?php if ($totalReviewsAll === 0) { ?>
+<p class="font-headline font-bold text-lg text-on-background">No reviews yet</p>
+<p class="mt-2 text-sm max-w-md mx-auto">When patients submit ratings after appointments, they will appear here.</p>
+<?php } else { ?>
+<p class="font-headline font-bold text-lg text-on-background">No matching reviews</p>
+<p class="mt-2 text-sm max-w-md mx-auto">Try changing search or rating filters.</p>
+<?php } ?>
+</div>
+<?php } else { foreach ($reviews as $row) {
+    $svc = trim((string) ($row['service_names'] ?? ''));
+    if ($svc === '') {
+        $svc = 'Services (not linked)';
+    }
+    $commentRaw = trim((string) ($row['comment'] ?? ''));
+?>
 <div class="p-8 hover:bg-slate-50/30 transition-colors group">
-<div class="flex justify-between items-start mb-6">
+<div class="flex justify-between items-start mb-6 flex-wrap gap-4">
 <div class="flex gap-4 items-center">
-<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-headline font-bold text-sm ring-2 ring-primary/5">SJ</div>
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-headline font-bold text-sm ring-2 ring-primary/5"><?php echo $esc($patientInitials($row)); ?></div>
 <div>
-<h4 class="font-headline font-extrabold text-lg group-hover:text-primary transition-colors">Sarah J.</h4>
-<p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Oct 24, 2023 • Verified Patient</p>
+<h4 class="font-headline font-extrabold text-lg group-hover:text-primary transition-colors"><?php echo $patientLabel($row); ?></h4>
+<p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5"><?php echo $esc($formatReviewDate($row)); ?> · <?php echo $esc((string) ($row['review_id'] ?? '')); ?></p>
 </div>
 </div>
-<div class="flex gap-0.5">
-<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">star</span>
-<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">star</span>
-<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">star</span>
-<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">star</span>
-<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">star</span>
-</div>
+<div class="flex gap-0.5"><?php echo $starsHtml((int) ($row['rating'] ?? 0)); ?></div>
 </div>
 <div class="mb-6">
-<span class="inline-block px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full uppercase tracking-widest mb-3">Teeth Whitening</span>
-<p class="text-on-surface-variant font-medium leading-relaxed italic text-base">"Exceptional care and a very modern facility. Dr. Vance was very thorough and made the whole process incredibly comfortable. Highly recommend!"</p>
+<span class="inline-block px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full uppercase tracking-widest mb-3"><?php echo $esc($svc); ?></span>
+<?php if ($commentRaw !== '') { ?>
+<p class="text-on-surface-variant font-medium leading-relaxed italic text-base">“<?php echo nl2br($esc($commentRaw)); ?>”</p>
+<?php } else { ?>
+<p class="text-slate-400 font-medium italic text-sm">No written comment.</p>
+<?php } ?>
 </div>
-<div class="flex justify-end pt-6 border-t border-slate-100">
-<button class="px-6 py-2.5 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2">
-<span class="material-symbols-outlined text-sm">reply</span> Reply
-                        </button>
-</div>
-</div>
-<!-- Review Card 2 -->
-<div class="p-8 hover:bg-slate-50/30 transition-colors group">
-<div class="flex justify-between items-start mb-6">
-<div class="flex gap-4 items-center">
-<div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-headline font-bold text-sm ring-2 ring-primary/5">MC</div>
-<div>
-<h4 class="font-headline font-extrabold text-lg group-hover:text-primary transition-colors">Michael C.</h4>
-<p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Oct 20, 2023 • Verified Patient</p>
+<div class="flex flex-wrap items-center justify-between gap-3 pt-6 border-t border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+<span>Booking <?php echo $esc((string) ($row['booking_id'] ?? '')); ?> · Appt #<?php echo (int) ($row['appointment_id'] ?? 0); ?></span>
 </div>
 </div>
-<div class="flex gap-0.5">
-<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">star</span>
-<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">star</span>
-<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">star</span>
-<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">star</span>
-<span class="material-symbols-outlined text-slate-200 text-xl" style="font-variation-settings: 'FILL' 1;">star</span>
-</div>
-</div>
-<div class="mb-6">
-<span class="inline-block px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full uppercase tracking-widest mb-3">General Cleaning</span>
-<p class="text-on-surface-variant font-medium leading-relaxed italic text-base">"The waiting room feels more like a lounge. Staff is very professional and prompt. A bit of a wait for the appointment but the quality of care is worth it."</p>
-</div>
-<div class="flex justify-end pt-6 border-t border-slate-100">
-<button class="px-6 py-2.5 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2">
-<span class="material-symbols-outlined text-sm">reply</span> Reply
-                        </button>
-</div>
-</div>
-<!-- Review Card 3 -->
-<div class="p-8 hover:bg-slate-50/30 transition-colors group">
-<div class="flex justify-between items-start mb-6">
-<div class="flex gap-4 items-center">
-<div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-headline font-bold text-sm ring-2 ring-primary/5">AL</div>
-<div>
-<h4 class="font-headline font-extrabold text-lg group-hover:text-primary transition-colors">Anita L.</h4>
-<p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Oct 15, 2023 • Verified Patient</p>
-</div>
-</div>
-<div class="flex gap-0.5">
-<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">star</span>
-<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">star</span>
-<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">star</span>
-<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">star</span>
-<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">star</span>
-</div>
-</div>
-<div class="mb-6">
-<span class="inline-block px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full uppercase tracking-widest mb-3">Root Canal</span>
-<p class="text-on-surface-variant font-medium leading-relaxed italic text-base">"I was terrified of having a root canal but the technology they use here is incredible. Painless experience and wonderful follow-up."</p>
-</div>
-<div class="flex justify-between items-center pt-6 border-t border-slate-100">
-<div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-<span class="material-symbols-outlined text-primary text-base">check_circle</span>
-                            Replied by Clinic on Oct 16
-                        </div>
-<button class="px-6 py-2.5 bg-slate-50 text-slate-900 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-100 transition-all border border-slate-200">
-                            Edit Reply
-                        </button>
-</div>
-</div>
+<?php } } ?>
 </section>
 <!-- Pagination -->
-<div class="flex justify-center pt-4">
-<button class="px-10 py-4 bg-primary/10 text-primary font-black text-xs uppercase tracking-[0.2em] rounded-2xl hover:bg-primary hover:text-white transition-all duration-300 shadow-sm">
-                    Load More Reviews
-                </button>
+<div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+<?php if ($totalPages > 1) { ?>
+<p class="text-xs text-on-surface-variant font-medium">Page <?php echo (int) $page; ?> of <?php echo (int) $totalPages; ?> (<?php echo (int) $reviewsListTotal; ?> reviews)</p>
+<div class="flex gap-2">
+<?php if ($page > 1) { ?>
+<a class="px-6 py-3 bg-primary/10 text-primary font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-primary hover:text-white transition-all" href="<?php echo $esc($buildReviewsPageUrl($page - 1)); ?>">Previous</a>
+<?php } ?>
+<?php if ($page < $totalPages) { ?>
+<a class="px-6 py-3 bg-primary/10 text-primary font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-primary hover:text-white transition-all" href="<?php echo $esc($buildReviewsPageUrl($page + 1)); ?>">Next</a>
+<?php } ?>
+</div>
+<?php } elseif ($reviewsListTotal > 0) { ?>
+<p class="text-xs text-on-surface-variant font-medium"><?php echo (int) $reviewsListTotal; ?> review<?php echo $reviewsListTotal === 1 ? '' : 's'; ?> total</p>
+<?php } ?>
 </div>
 </div>
 </main>
