@@ -120,7 +120,7 @@ body { font-family: 'Manrope', sans-serif; }
                     Configure clinic discount programs, verify ID-backed applications, and review approval history.
                 </p>
             </div>
-            <div class="flex flex-wrap gap-3 shrink-0">
+            <div class="flex flex-wrap gap-3 shrink-0 relative z-40">
                 <button type="button" id="btnNewProgram" class="bg-primary hover:bg-primary/90 text-white px-6 py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-primary/30 flex items-center gap-2">
                     <span class="material-symbols-outlined text-sm">add_circle</span>
                     New discount program

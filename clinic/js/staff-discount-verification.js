@@ -503,46 +503,74 @@
     }
 
     function openProgramModal(editId) {
-        document.getElementById('programModalTitle').textContent = editId ? 'Edit discount program' : 'New discount program';
-        document.getElementById('programId').value = editId || '';
+        var modal = document.getElementById('programModal');
+        var titleEl = document.getElementById('programModalTitle');
+        var idEl = document.getElementById('programId');
+        if (!modal || !titleEl || !idEl) return;
+
+        titleEl.textContent = editId ? 'Edit discount program' : 'New discount program';
+        idEl.value = editId || '';
         if (editId) {
             var p = programsCache.find(function (x) { return String(x.id) === String(editId); });
             if (!p) return;
-            document.getElementById('programName').value = p.name;
-            document.getElementById('programDiscountType').value = p.discountType;
-            document.getElementById('programValue').value = p.value;
-            document.getElementById('programMinSpend').value = typeof p.minSpend === 'number' && p.minSpend > 0 ? p.minSpend : '';
-            document.getElementById('programAgeMin').value = typeof p.ageMin === 'number' ? String(p.ageMin) : '';
-            document.getElementById('programAgeMax').value = typeof p.ageMax === 'number' ? String(p.ageMax) : '';
-            document.getElementById('reqUploadProof').checked = !!p.reqUploadProof;
-            document.getElementById('reqNotes').checked = !!p.reqNotes;
-            document.getElementById('programEnabled').checked = !!p.enabled;
-            document.getElementById('programStart').value = p.validFrom || '';
-            document.getElementById('programEnd').value = p.validTo || '';
-            document.getElementById('programStacking').value = p.stacking || 'no';
+            var setVal = function (nid, v) {
+                var el = document.getElementById(nid);
+                if (el) el.value = v;
+            };
+            var setChk = function (nid, on) {
+                var el = document.getElementById(nid);
+                if (el) el.checked = !!on;
+            };
+            setVal('programName', p.name);
+            var pdt = document.getElementById('programDiscountType');
+            if (pdt) pdt.value = p.discountType;
+            setVal('programValue', p.value);
+            setVal('programMinSpend', typeof p.minSpend === 'number' && p.minSpend > 0 ? p.minSpend : '');
+            setVal('programAgeMin', typeof p.ageMin === 'number' ? String(p.ageMin) : '');
+            setVal('programAgeMax', typeof p.ageMax === 'number' ? String(p.ageMax) : '');
+            setChk('reqUploadProof', p.reqUploadProof);
+            setChk('reqNotes', p.reqNotes);
+            setChk('programEnabled', p.enabled);
+            setVal('programStart', p.validFrom || '');
+            setVal('programEnd', p.validTo || '');
+            var ps = document.getElementById('programStacking');
+            if (ps) ps.value = p.stacking || 'no';
             var mode = programApplyModeFromProg(p);
             var modeInput = document.querySelector('input[name="programApplyMode"][value="' + mode + '"]');
             if (modeInput) modeInput.checked = true;
             var promoTrim = (p.promoCode && String(p.promoCode).trim() !== '') ? String(p.promoCode).trim() : '';
-            document.getElementById('programPromoCode').value = promoTrim;
+            var pCode = document.getElementById('programPromoCode');
+            if (pCode) pCode.value = promoTrim;
             setProgramServiceChecks(p.serviceIds || []);
         } else {
-            document.getElementById('programForm').reset();
-            document.getElementById('programId').value = '';
-            document.getElementById('programEnabled').checked = true;
-            document.getElementById('reqUploadProof').checked = true;
-            document.getElementById('reqNotes').checked = false;
-            document.getElementById('programMinSpend').value = '';
-            document.getElementById('programAgeMin').value = '';
-            document.getElementById('programAgeMax').value = '';
-            document.querySelector('input[name="programApplyMode"][value="all"]').checked = true;
-            document.getElementById('programPromoCode').value = '';
+            var formEl = document.getElementById('programForm');
+            if (formEl) formEl.reset();
+            idEl.value = '';
+            var pe = document.getElementById('programEnabled');
+            if (pe) pe.checked = true;
+            var rup = document.getElementById('reqUploadProof');
+            if (rup) rup.checked = true;
+            var rn = document.getElementById('reqNotes');
+            if (rn) rn.checked = false;
+            var setValNew = function (nid, v) {
+                var el = document.getElementById(nid);
+                if (el) el.value = v;
+            };
+            setValNew('programMinSpend', '');
+            setValNew('programAgeMin', '');
+            setValNew('programAgeMax', '');
+            var allMode = document.querySelector('input[name="programApplyMode"][value="all"]');
+            if (allMode) allMode.checked = true;
+            var pCodeNew = document.getElementById('programPromoCode');
+            if (pCodeNew) pCodeNew.value = '';
             setProgramServiceChecks([]);
         }
         updateProgramValueLabel();
         syncProgramApplyModeUi();
-        document.getElementById('programEnabledLabel').textContent = document.getElementById('programEnabled').checked ? 'Enabled' : 'Disabled';
-        openOverlay(document.getElementById('programModal'));
+        var penLab = document.getElementById('programEnabledLabel');
+        var pen = document.getElementById('programEnabled');
+        if (penLab && pen) penLab.textContent = pen.checked ? 'Enabled' : 'Disabled';
+        openOverlay(modal);
     }
 
     function refreshStaffFilterOptions() {
@@ -721,7 +749,10 @@
     document.querySelectorAll('.program-modal-close').forEach(function (b) {
         b.addEventListener('click', function () { closeOverlay(document.getElementById('programModal')); });
     });
-    document.getElementById('btnNewProgram').addEventListener('click', function () { openProgramModal(null); });
+    var btnNew = document.getElementById('btnNewProgram');
+    if (btnNew) {
+        btnNew.addEventListener('click', function () { openProgramModal(null); });
+    }
 
     document.getElementById('programDiscountType').addEventListener('change', updateProgramValueLabel);
     document.getElementById('programEnabled').addEventListener('change', function () {
