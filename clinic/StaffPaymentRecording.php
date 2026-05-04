@@ -4995,7 +4995,13 @@ Close
             const totalCost = Number(selectedTransaction.total_cost || 0);
             const totalPaid = Number(selectedTransaction.total_paid || 0);
             const pending = Math.max(0, totalCost - totalPaid);
-            const pct = totalCost > 0 ? Math.min(100, Math.round((totalPaid / totalCost) * 1000) / 10) : 0;
+            const pwdForProgress = isPwdSeniorDiscountApplying();
+            const progressDenom = pwdForProgress
+                ? Math.max(0, Math.round(totalCost * (1 - PWD_SENIOR_DISCOUNT_RATE) * 100) / 100)
+                : totalCost;
+            const pct = progressDenom > 0
+                ? Math.min(100, Math.round((totalPaid / progressDenom) * 1000) / 10)
+                : 0;
             if (installmentProgressBar) {
                 installmentProgressBar.style.width = pct + '%';
             }
@@ -5006,7 +5012,7 @@ Close
                 installmentProgressPaidLine.textContent = 'Paid ₱' + totalPaid.toFixed(2);
             }
             let displayPendingForProgress = pending;
-            if (isPwdSeniorDiscountApplying()) {
+            if (pwdForProgress) {
                 displayPendingForProgress = Math.max(
                     0,
                     Math.round(pending * (1 - PWD_SENIOR_DISCOUNT_RATE) * 100) / 100
@@ -5729,9 +5735,7 @@ Close
                 return;
             }
             const hasSchedule = getScheduleList(selectedTransaction).length > 0;
-            if (hasSchedule) {
-                refreshInstallmentPaymentUi();
-            }
+            refreshInstallmentPaymentUi();
             const basePreAddon = Math.max(
                 0,
                 Math.round((hasSchedule
