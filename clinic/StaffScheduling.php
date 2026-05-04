@@ -2401,9 +2401,6 @@ $dentistsSeedData = array_map(static function ($dentist) {
                             foreach ($setShiftWeekRows as $setShiftWeekRow) {
                                 $setShiftDayLabel = $setShiftWeekRow[0];
                                 $setShiftDaySlug = $setShiftWeekRow[1];
-                                $setShiftDefaultPair = in_array($setShiftDaySlug, ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'], true);
-                                $setShiftDefaultStart = $setShiftDefaultPair ? '09:00' : '';
-                                $setShiftDefaultEnd = $setShiftDefaultPair ? '17:00' : '';
                                 $setShiftStartId = 'setShiftWeek' . ucfirst($setShiftDaySlug) . 'Start';
                                 $setShiftEndId = 'setShiftWeek' . ucfirst($setShiftDaySlug) . 'End';
                                 $setShiftLoaderId = 'setShiftWeek' . ucfirst($setShiftDaySlug) . 'Loader';
@@ -2420,14 +2417,14 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                                 <span class="material-symbols-outlined text-[16px] sm:text-[18px] text-slate-500 shrink-0">timer</span>
                                                 <span class="min-w-0 leading-tight">Start Time</span>
                                             </label>
-                                            <input id="<?php echo htmlspecialchars($setShiftStartId, ENT_QUOTES, 'UTF-8'); ?>" name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_start" type="time" step="60" value="<?php echo htmlspecialchars($setShiftDefaultStart, ENT_QUOTES, 'UTF-8'); ?>" class="set-shift-time-input w-full h-12 min-h-[3rem] box-border px-2.5 sm:px-4 py-0 rounded-xl border border-slate-200 bg-white text-slate-900 text-[13px] sm:text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+                                            <input id="<?php echo htmlspecialchars($setShiftStartId, ENT_QUOTES, 'UTF-8'); ?>" name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_start" type="time" step="60" value="" class="set-shift-time-input w-full h-12 min-h-[3rem] box-border px-2.5 sm:px-4 py-0 rounded-xl border border-slate-200 bg-white text-slate-900 text-[13px] sm:text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
                                         </div>
                                         <div class="min-w-0 flex flex-col">
                                             <label for="<?php echo htmlspecialchars($setShiftEndId, ENT_QUOTES, 'UTF-8'); ?>" class="flex items-center gap-1 text-xs sm:text-sm font-semibold text-slate-800 mb-1.5 sm:mb-2 min-h-[1.25rem] min-w-0">
                                                 <span class="material-symbols-outlined text-[16px] sm:text-[18px] text-slate-500 shrink-0">timer_off</span>
                                                 <span class="min-w-0 leading-tight">End Time</span>
                                             </label>
-                                            <input id="<?php echo htmlspecialchars($setShiftEndId, ENT_QUOTES, 'UTF-8'); ?>" name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_end" type="time" step="60" value="<?php echo htmlspecialchars($setShiftDefaultEnd, ENT_QUOTES, 'UTF-8'); ?>" class="set-shift-time-input w-full h-12 min-h-[3rem] box-border px-2.5 sm:px-4 py-0 rounded-xl border border-slate-200 bg-white text-slate-900 text-[13px] sm:text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+                                            <input id="<?php echo htmlspecialchars($setShiftEndId, ENT_QUOTES, 'UTF-8'); ?>" name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_end" type="time" step="60" value="" class="set-shift-time-input w-full h-12 min-h-[3rem] box-border px-2.5 sm:px-4 py-0 rounded-xl border border-slate-200 bg-white text-slate-900 text-[13px] sm:text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
                                         </div>
                                     </div>
                                     <div class="flex w-full shrink-0 items-center justify-end gap-2 sm:gap-2.5 pt-2 sm:pt-3 lg:pt-0 border-t border-slate-100/80 lg:border-t-0 lg:pl-1 pr-4 sm:pr-6 lg:pr-4 lg:w-[14rem] lg:flex-none">
@@ -3216,24 +3213,6 @@ $dentistsSeedData = array_map(static function ($dentist) {
             resetAllSetShiftRowStatuses();
         }
 
-        function applyDefaultSetShiftWeekFields() {
-            const weekdayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-            setShiftWeekFieldDefs.forEach(function (row) {
-                const startEl = document.getElementById(row.startId);
-                const endEl = document.getElementById(row.endId);
-                if (!startEl || !endEl) {
-                    return;
-                }
-                if (weekdayNames.indexOf(row.dayName) !== -1) {
-                    startEl.value = '09:00';
-                    endEl.value = '17:00';
-                } else {
-                    startEl.value = '';
-                    endEl.value = '';
-                }
-            });
-        }
-
         async function loadWeeklyShiftEditorFromServer() {
             if (!setShiftDentistId) {
                 return;
@@ -3261,31 +3240,25 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     throw new Error((payload && payload.message) ? payload.message : 'Unable to load weekly shift.');
                 }
                 const shifts = payload.shifts && typeof payload.shifts === 'object' ? payload.shifts : {};
-                const shiftKeys = Object.keys(shifts);
-                if (!shiftKeys.length) {
-                    applyDefaultSetShiftWeekFields();
-                } else {
-                    setShiftWeekFieldDefs.forEach(function (row) {
-                        const slot = shifts[row.dayName];
-                        const startEl = document.getElementById(row.startId);
-                        const endEl = document.getElementById(row.endId);
-                        if (!startEl || !endEl) {
-                            return;
-                        }
-                        if (slot && slot.start_time_raw && slot.end_time_raw) {
-                            startEl.value = String(slot.start_time_raw || '').slice(0, 5);
-                            endEl.value = String(slot.end_time_raw || '').slice(0, 5);
-                        } else {
-                            startEl.value = '';
-                            endEl.value = '';
-                        }
-                    });
-                }
+                setShiftWeekFieldDefs.forEach(function (row) {
+                    const slot = shifts[row.dayName];
+                    const startEl = document.getElementById(row.startId);
+                    const endEl = document.getElementById(row.endId);
+                    if (!startEl || !endEl) {
+                        return;
+                    }
+                    if (slot && slot.start_time_raw && slot.end_time_raw) {
+                        startEl.value = String(slot.start_time_raw || '').slice(0, 5);
+                        endEl.value = String(slot.end_time_raw || '').slice(0, 5);
+                    } else {
+                        startEl.value = '';
+                        endEl.value = '';
+                    }
+                });
                 if (setShiftNotes && typeof payload.notes === 'string') {
                     setShiftNotes.value = payload.notes;
                 }
             } catch (ignored) {
-                applyDefaultSetShiftWeekFields();
                 if (setShiftNotes) {
                     setShiftNotes.value = '';
                 }
