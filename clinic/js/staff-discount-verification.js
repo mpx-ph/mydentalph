@@ -166,7 +166,44 @@
 
     function getProgramApplyMode() {
         var r = document.querySelector('input[name="programApplyMode"]:checked');
-        return r ? r.value : 'all';
+        if (r && r.value) return String(r.value);
+        var legacy = document.querySelector('input[name="programScope"]:checked');
+        if (legacy && legacy.value) return String(legacy.value);
+        return 'all';
+    }
+
+    function selectRadioByNameValue(groupName, value) {
+        if (!groupName) return false;
+        var want = String(value);
+        var list = document.getElementsByName(groupName);
+        for (var i = 0; i < list.length; i++) {
+            var inp = list[i];
+            if (!inp || inp.tagName !== 'INPUT' || inp.type !== 'radio') continue;
+            if (inp.value === want) {
+                inp.checked = true;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function selectApplyModeForForm(mode) {
+        var m = String(mode || 'all');
+        if (m === 'promo') {
+            if (selectRadioByNameValue('programApplyMode', 'promo')) return;
+            selectRadioByNameValue('programScope', 'all');
+            return;
+        }
+        if (selectRadioByNameValue('programApplyMode', m)) return;
+        selectRadioByNameValue('programScope', m);
+    }
+
+    function safeInputCheckedById(id, on) {
+        var el = document.getElementById(id);
+        if (!el || el.tagName !== 'INPUT') return;
+        var t = (el.type || '').toLowerCase();
+        if (t !== 'checkbox' && t !== 'radio') return;
+        el.checked = !!on;
     }
 
     function syncProgramApplyModeUi() {
@@ -357,7 +394,10 @@
         var set = {};
         (ids || []).forEach(function (id) { set[id] = true; });
         document.querySelectorAll('#programServicesList .svc-cb').forEach(function (cb) {
-            cb.checked = !!set[cb.getAttribute('data-id')];
+            if (!cb || cb.tagName !== 'INPUT' || cb.type !== 'checkbox') return;
+            try {
+                cb.checked = !!set[String(cb.getAttribute('data-id') || '')];
+            } catch (ignore) {}
         });
     }
 
@@ -517,10 +557,6 @@
                 var el = document.getElementById(nid);
                 if (el) el.value = v;
             };
-            var setChk = function (nid, on) {
-                var el = document.getElementById(nid);
-                if (el) el.checked = !!on;
-            };
             setVal('programName', p.name);
             var pdt = document.getElementById('programDiscountType');
             if (pdt) pdt.value = p.discountType;
@@ -528,16 +564,15 @@
             setVal('programMinSpend', typeof p.minSpend === 'number' && p.minSpend > 0 ? p.minSpend : '');
             setVal('programAgeMin', typeof p.ageMin === 'number' ? String(p.ageMin) : '');
             setVal('programAgeMax', typeof p.ageMax === 'number' ? String(p.ageMax) : '');
-            setChk('reqUploadProof', p.reqUploadProof);
-            setChk('reqNotes', p.reqNotes);
-            setChk('programEnabled', p.enabled);
+            safeInputCheckedById('reqUploadProof', p.reqUploadProof);
+            safeInputCheckedById('reqNotes', p.reqNotes);
+            safeInputCheckedById('programEnabled', p.enabled);
             setVal('programStart', p.validFrom || '');
             setVal('programEnd', p.validTo || '');
             var ps = document.getElementById('programStacking');
             if (ps) ps.value = p.stacking || 'no';
             var mode = programApplyModeFromProg(p);
-            var modeInput = document.querySelector('input[name="programApplyMode"][value="' + mode + '"]');
-            if (modeInput) modeInput.checked = true;
+            selectApplyModeForForm(mode);
             var promoTrim = (p.promoCode && String(p.promoCode).trim() !== '') ? String(p.promoCode).trim() : '';
             var pCode = document.getElementById('programPromoCode');
             if (pCode) pCode.value = promoTrim;
@@ -546,12 +581,9 @@
             var formEl = document.getElementById('programForm');
             if (formEl) formEl.reset();
             idEl.value = '';
-            var pe = document.getElementById('programEnabled');
-            if (pe) pe.checked = true;
-            var rup = document.getElementById('reqUploadProof');
-            if (rup) rup.checked = true;
-            var rn = document.getElementById('reqNotes');
-            if (rn) rn.checked = false;
+            safeInputCheckedById('programEnabled', true);
+            safeInputCheckedById('reqUploadProof', true);
+            safeInputCheckedById('reqNotes', false);
             var setValNew = function (nid, v) {
                 var el = document.getElementById(nid);
                 if (el) el.value = v;
@@ -559,8 +591,7 @@
             setValNew('programMinSpend', '');
             setValNew('programAgeMin', '');
             setValNew('programAgeMax', '');
-            var allMode = document.querySelector('input[name="programApplyMode"][value="all"]');
-            if (allMode) allMode.checked = true;
+            selectApplyModeForForm('all');
             var pCodeNew = document.getElementById('programPromoCode');
             if (pCodeNew) pCodeNew.value = '';
             setProgramServiceChecks([]);
@@ -569,7 +600,9 @@
         syncProgramApplyModeUi();
         var penLab = document.getElementById('programEnabledLabel');
         var pen = document.getElementById('programEnabled');
-        if (penLab && pen) penLab.textContent = pen.checked ? 'Enabled' : 'Disabled';
+        if (penLab && pen && pen.tagName === 'INPUT') {
+            penLab.textContent = pen.checked ? 'Enabled' : 'Disabled';
+        }
         openOverlay(modal);
     }
 
@@ -754,15 +787,21 @@
         btnNew.addEventListener('click', function () { openProgramModal(null); });
     }
 
-    document.getElementById('programDiscountType').addEventListener('change', updateProgramValueLabel);
-    document.getElementById('programEnabled').addEventListener('change', function () {
-        document.getElementById('programEnabledLabel').textContent = document.getElementById('programEnabled').checked ? 'Enabled' : 'Disabled';
-    });
-    document.querySelectorAll('input[name="programApplyMode"]').forEach(function (r) {
+    var pDiscountType = document.getElementById('programDiscountType');
+    if (pDiscountType) pDiscountType.addEventListener('change', updateProgramValueLabel);
+    var pEnabledEl = document.getElementById('programEnabled');
+    if (pEnabledEl) {
+        pEnabledEl.addEventListener('change', function () {
+            var lab = document.getElementById('programEnabledLabel');
+            if (lab && pEnabledEl.tagName === 'INPUT') lab.textContent = pEnabledEl.checked ? 'Enabled' : 'Disabled';
+        });
+    }
+    document.querySelectorAll('input[name="programApplyMode"], input[name="programScope"]').forEach(function (r) {
         r.addEventListener('change', syncProgramApplyModeUi);
     });
 
-    document.getElementById('programForm').addEventListener('submit', function (e) {
+    var programFormEl = document.getElementById('programForm');
+    if (programFormEl) programFormEl.addEventListener('submit', function (e) {
         e.preventDefault();
         var id = document.getElementById('programId').value;
         var ageMin = parseOptionalProgramAge('programAgeMin');
