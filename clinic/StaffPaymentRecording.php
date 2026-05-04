@@ -3378,9 +3378,14 @@ if ($paymentError === 'Please select a payment method.') {
                         Record and track all clinic payment transactions
                     </p>
 </div>
+<div class="flex items-center gap-3 shrink-0">
+<button class="px-6 py-3 bg-primary text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all" id="open-refund-request-modal" type="button">
+                    View Refund Request
+                </button>
 <button class="px-6 py-3 bg-primary text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all" id="open-transaction-modal" type="button">
                     New Transaction
                 </button>
+</div>
 </div>
 </section>
 <!-- Summary Cards -->
