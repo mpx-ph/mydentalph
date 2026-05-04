@@ -64,18 +64,36 @@ if ($needs_paymongo && $paymongo_secret === '') {
 }
 
 try {
-    $stmt = $pdo->prepare(
-        'SELECT p.patient_id, p.first_name, p.last_name, u.email, u.phone 
-        FROM tbl_patients p
-        LEFT JOIN tbl_users u ON u.user_id = ?
-        WHERE p.owner_user_id = ? OR p.linked_user_id = ?
-        LIMIT 1'
-    );
-    $stmt->execute([(string) $user_id, $user_id, $user_id]);
-    $patRow = $stmt->fetch(PDO::FETCH_ASSOC);
+    /** Mobile app sends `patient_id` (holder or dependent). The old query used LIMIT 1 and always picked one arbitrary row. */
+    $patient_id_in = trim((string) ($input['patient_id'] ?? ''));
 
-    if (!$patRow) {
-        throw new Exception("Patient profile not found for this user. Please complete your registration.");
+    if ($patient_id_in !== '') {
+        $stmt = $pdo->prepare(
+            'SELECT p.patient_id, p.first_name, p.last_name, u.email, u.phone
+            FROM tbl_patients p
+            LEFT JOIN tbl_users u ON u.user_id = ?
+            WHERE (p.owner_user_id = ? OR p.linked_user_id = ?)
+              AND TRIM(p.patient_id) = ?
+            LIMIT 1'
+        );
+        $stmt->execute([(string) $user_id, $user_id, $user_id, $patient_id_in]);
+        $patRow = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$patRow) {
+            throw new Exception('That patient is not on your account. Pick yourself or a dependent from the list.');
+        }
+    } else {
+        $stmt = $pdo->prepare(
+            'SELECT p.patient_id, p.first_name, p.last_name, u.email, u.phone
+            FROM tbl_patients p
+            LEFT JOIN tbl_users u ON u.user_id = ?
+            WHERE p.owner_user_id = ? OR p.linked_user_id = ?
+            LIMIT 1'
+        );
+        $stmt->execute([(string) $user_id, $user_id, $user_id]);
+        $patRow = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$patRow) {
+            throw new Exception("Patient profile not found for this user. Please complete your registration.");
+        }
     }
     $patient_id = trim((string) ($patRow['patient_id'] ?? ''));
     $patient_name = trim(trim((string) ($patRow['first_name'] ?? '')) . ' ' . trim((string) ($patRow['last_name'] ?? '')));

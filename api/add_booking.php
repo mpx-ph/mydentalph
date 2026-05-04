@@ -33,14 +33,26 @@ if (!$user_id || !$appointment_time) {
     die(json_encode(["status" => "error", "message" => "Missing required fields"]));
 }
 
-// Map User ID to Patient ID
+// Map User ID to Patient ID (honour explicit patient_id when caller sends it — same as init_mobile_payment.php)
 try {
-    $stmt = $pdo->prepare("SELECT patient_id, first_name, last_name FROM tbl_patients WHERE owner_user_id = ? OR linked_user_id = ? LIMIT 1");
-    $stmt->execute([$user_id, $user_id]);
+    $patient_id_in = isset($input['patient_id']) ? trim((string) $input['patient_id']) : '';
+    if ($patient_id_in !== '') {
+        $stmt = $pdo->prepare(
+            "SELECT patient_id, first_name, last_name FROM tbl_patients
+             WHERE (owner_user_id = ? OR linked_user_id = ?) AND TRIM(patient_id) = ?
+             LIMIT 1"
+        );
+        $stmt->execute([$user_id, $user_id, $patient_id_in]);
+    } else {
+        $stmt = $pdo->prepare("SELECT patient_id, first_name, last_name FROM tbl_patients WHERE owner_user_id = ? OR linked_user_id = ? LIMIT 1");
+        $stmt->execute([$user_id, $user_id]);
+    }
     $patRow = $stmt->fetch();
-    
+
     if (!$patRow) {
-        throw new Exception("Patient profile not found for this user. Please complete your registration.");
+        throw new Exception($patient_id_in !== ''
+            ? "That patient is not linked to this account."
+            : "Patient profile not found for this user. Please complete your registration.");
     }
     $patient_id = $patRow['patient_id'];
 
