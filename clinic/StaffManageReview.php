@@ -123,17 +123,34 @@ if ($searchQ !== '') {
 if ($ratingFilter !== '') {
     $queryBase['rating'] = $ratingFilter;
 }
-$buildReviewsPageUrl = function ($targetPage) use ($queryBase) {
+
+/**
+ * Request path as seen in the browser (e.g. /my-clinic/StaffManageReview.php).
+ * Using SCRIPT_NAME breaks GET forms when rewritten “slug” URLs differ from the real file path.
+ */
+$staff_reviews_request_path_raw = static function () {
+    $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+    $path = $uri !== '' ? parse_url($uri, PHP_URL_PATH) : '';
+    if (!is_string($path) || $path === '') {
+        $path = isset($_SERVER['SCRIPT_NAME']) ? (string) $_SERVER['SCRIPT_NAME'] : '/StaffManageReview.php';
+    }
+    $path = str_replace('\\', '/', $path);
+    if ($path === '' || $path[0] !== '/') {
+        $path = '/' . ltrim($path, '/');
+    }
+    return $path;
+};
+
+$staffReviewsRequestPath = $staff_reviews_request_path_raw();
+
+$buildReviewsPageUrl = function ($targetPage) use ($queryBase, $staffReviewsRequestPath) {
     $q = $queryBase;
     if ($targetPage > 1) {
         $q['page'] = (string) $targetPage;
     }
     $qs = http_build_query($q);
-    $self = htmlspecialchars((string) ($_SERVER['SCRIPT_NAME'] ?? 'StaffManageReview.php'), ENT_QUOTES, 'UTF-8');
-    return $self . ($qs !== '' ? '?' . $qs : '');
+    return $staffReviewsRequestPath . ($qs !== '' ? '?' . $qs : '');
 };
-
-$staffReviewsSelfUrl = htmlspecialchars((string) ($_SERVER['SCRIPT_NAME'] ?? 'StaffManageReview.php'), ENT_QUOTES, 'UTF-8');
 
 $esc = static function ($s) {
     return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
@@ -336,7 +353,7 @@ $formatReviewDate = static function ($row) {
 </div>
 </section>
 <!-- Filters -->
-<form method="get" class="elevated-card p-5 rounded-2xl flex flex-wrap items-end gap-4" action="<?php echo $staffReviewsSelfUrl; ?>">
+<form method="get" class="elevated-card p-5 rounded-2xl flex flex-wrap items-end gap-4" action="<?php echo $esc($staffReviewsRequestPath); ?>">
 <div class="flex-1 relative min-w-[300px]">
 <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">search</span>
 <input name="q" value="<?php echo $esc($searchQ); ?>" class="w-full pl-12 pr-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Search name, comment, booking ID…" type="text"/>
@@ -355,7 +372,7 @@ $formatReviewDate = static function ($row) {
 <span class="material-symbols-outlined text-sm">filter_list</span> Apply
 </button>
 <?php if ($searchQ !== '' || $ratingFilter !== '') { ?>
-<a class="px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-primary hover:underline" href="<?php echo $staffReviewsSelfUrl; ?>">Reset</a>
+<a class="px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-primary hover:underline" href="<?php echo $esc($staffReviewsRequestPath); ?>">Reset</a>
 <?php } ?>
 </div>
 </form>
