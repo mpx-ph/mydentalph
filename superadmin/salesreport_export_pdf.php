@@ -1,10 +1,19 @@
 <?php
 /**
- * PDF export for superadmin sales report (paid subscriptions).
+ * PDF export for superadmin sales report (clinic patient payments).
  * Uses TCPDF when available, with FPDF fallback.
  */
 require_once __DIR__ . '/require_superadmin.php';
 require_once __DIR__ . '/../db.php';
+
+/**
+ * Patient payments counted as revenue (matches clinic-facing reports).
+ */
+function salesreport_pdf_sql_payment_settled(string $alias = ''): string
+{
+    $p = $alias !== '' ? $alias . '.' : '';
+    return '(' . $p . "status IN ('completed','paid'))";
+}
 
 @ini_set('memory_limit', '128M');
 @set_time_limit(60);
@@ -165,12 +174,13 @@ $topClinics = [];
 $dbError = null;
 
 try {
+    $paidFrag = salesreport_pdf_sql_payment_settled();
     $sumStmt = $pdo->prepare("
-        SELECT COALESCE(SUM(amount_paid), 0) AS revenue
-        FROM tbl_tenant_subscriptions
-        WHERE payment_status = 'paid'
-          AND created_at >= ?
-          AND created_at < ?
+        SELECT COALESCE(SUM(amount), 0) AS revenue
+        FROM tbl_payments
+        WHERE {$paidFrag}
+          AND payment_date >= ?
+          AND payment_date < ?
     ");
     $sumStmt->execute([$todayStart->format('Y-m-d H:i:s'), $todayEnd->format('Y-m-d H:i:s')]);
     $todayRevenue = (float) ($sumStmt->fetchColumn() ?: 0);
@@ -185,12 +195,12 @@ try {
         $dailyStart = clone $todayStart;
         $dailyStart->modify('-4 days');
         $dailyMapStmt = $pdo->prepare("
-            SELECT DATE(created_at) AS d, COALESCE(SUM(amount_paid), 0) AS revenue
-            FROM tbl_tenant_subscriptions
-            WHERE payment_status = 'paid'
-              AND created_at >= ?
-              AND created_at < ?
-            GROUP BY DATE(created_at)
+            SELECT DATE(payment_date) AS d, COALESCE(SUM(amount), 0) AS revenue
+            FROM tbl_payments
+            WHERE {$paidFrag}
+              AND payment_date >= ?
+              AND payment_date < ?
+            GROUP BY DATE(payment_date)
             ORDER BY d DESC
         ");
         $dailyMapStmt->execute([$dailyStart->format('Y-m-d H:i:s'), $todayEnd->format('Y-m-d H:i:s')]);
@@ -210,31 +220,34 @@ try {
     }
 
     if ($includeTransactions) {
+        $tpPaid = salesreport_pdf_sql_payment_settled('tp');
         $txStmt = $pdo->prepare("
             SELECT
-                ts.created_at,
-                ts.amount_paid,
-                ts.payment_status,
-                ts.reference_number,
+                tp.payment_date AS created_at,
+                tp.amount AS amount_paid,
+                tp.status AS payment_status,
+                COALESCE(NULLIF(TRIM(tp.reference_number), ''), tp.payment_id) AS reference_number,
                 t.clinic_name,
-                sp.plan_name
-            FROM tbl_tenant_subscriptions ts
-            LEFT JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
-            LEFT JOIN tbl_subscription_plans sp ON ts.plan_id = sp.plan_id
-            WHERE ts.payment_status = 'paid'
-            ORDER BY ts.created_at DESC, ts.id DESC
+                COALESCE(NULLIF(TRIM(a.service_type), ''), 'Patient payment') AS plan_name
+            FROM tbl_payments tp
+            LEFT JOIN tbl_tenants t ON tp.tenant_id = t.tenant_id
+            LEFT JOIN tbl_appointments a
+                ON a.tenant_id = tp.tenant_id AND a.booking_id = tp.booking_id
+            WHERE {$tpPaid}
+            ORDER BY tp.payment_date DESC, tp.id DESC
         ");
         $txStmt->execute();
         $transactionRows = $txStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     if ($includeCustomPeriod && $customPeriodError === null && $customRangeStart !== null && $customRangeEndExclusive !== null) {
+        $tpPaidClause = salesreport_pdf_sql_payment_settled('tp');
         $periodSumStmt = $pdo->prepare("
-            SELECT COALESCE(SUM(amount_paid), 0) AS revenue
-            FROM tbl_tenant_subscriptions
-            WHERE payment_status = 'paid'
-              AND created_at >= ?
-              AND created_at < ?
+            SELECT COALESCE(SUM(amount), 0) AS revenue
+            FROM tbl_payments
+            WHERE {$paidFrag}
+              AND payment_date >= ?
+              AND payment_date < ?
         ");
         $periodSumStmt->execute([
             $customRangeStart->format('Y-m-d H:i:s'),
@@ -244,18 +257,19 @@ try {
 
         $periodTxStmt = $pdo->prepare("
             SELECT
-                ts.created_at,
-                ts.amount_paid,
-                ts.reference_number,
+                tp.payment_date AS created_at,
+                tp.amount AS amount_paid,
+                COALESCE(NULLIF(TRIM(tp.reference_number), ''), tp.payment_id) AS reference_number,
                 t.clinic_name,
-                sp.plan_name
-            FROM tbl_tenant_subscriptions ts
-            LEFT JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
-            LEFT JOIN tbl_subscription_plans sp ON ts.plan_id = sp.plan_id
-            WHERE ts.payment_status = 'paid'
-              AND ts.created_at >= ?
-              AND ts.created_at < ?
-            ORDER BY ts.created_at DESC, ts.id DESC
+                COALESCE(NULLIF(TRIM(a.service_type), ''), 'Patient payment') AS plan_name
+            FROM tbl_payments tp
+            LEFT JOIN tbl_tenants t ON tp.tenant_id = t.tenant_id
+            LEFT JOIN tbl_appointments a
+                ON a.tenant_id = tp.tenant_id AND a.booking_id = tp.booking_id
+            WHERE {$tpPaidClause}
+              AND tp.payment_date >= ?
+              AND tp.payment_date < ?
+            ORDER BY tp.payment_date DESC, tp.id DESC
         ");
         $periodTxStmt->execute([
             $customRangeStart->format('Y-m-d H:i:s'),
@@ -265,17 +279,17 @@ try {
     }
 
     if ($includeTopClinics) {
-        $topStmt = $pdo->prepare("
+        $topStmt = $pdo->prepare('
             SELECT
                 t.clinic_name,
-                COUNT(ts.id) AS paid_transactions,
-                COALESCE(SUM(ts.amount_paid), 0) AS total_spend
-            FROM tbl_tenant_subscriptions ts
-            INNER JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
-            WHERE ts.payment_status = 'paid'
-            GROUP BY ts.tenant_id, t.clinic_name
+                COUNT(tp.id) AS paid_transactions,
+                COALESCE(SUM(tp.amount), 0) AS total_spend
+            FROM tbl_payments tp
+            INNER JOIN tbl_tenants t ON tp.tenant_id = t.tenant_id
+            WHERE ' . salesreport_pdf_sql_payment_settled('tp') . '
+            GROUP BY tp.tenant_id, t.clinic_name
             ORDER BY total_spend DESC, paid_transactions DESC, t.clinic_name ASC
-        ");
+        ');
         $topStmt->execute();
         $topClinics = $topStmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -311,7 +325,7 @@ if ($tcpdfPath !== null) {
         $pdf = new SalesReportExportPDF('P', 'mm', 'A4', true, 'UTF-8', false);
         $pdf->SetCreator('MyDental');
         $pdf->SetAuthor('MyDental Platform');
-        $pdf->SetTitle('Sales Report - Paid Subscriptions');
+        $pdf->SetTitle('Sales Report - Clinic Payments');
         $pdf->setPrintHeader(false);
         $pdf->setPrintFooter(true);
         $pdf->SetFooterMargin(12);
@@ -325,7 +339,7 @@ if ($tcpdfPath !== null) {
         $pdf->Cell(0, 8, 'MyDental Sales Report', 0, 1, 'L');
         $pdf->SetFont('helvetica', '', 10);
         $pdf->SetTextColor(80, 90, 100);
-        $pdf->Cell(0, 6, 'Paid subscription analytics across all clinics', 0, 1, 'L');
+        $pdf->Cell(0, 6, 'Clinic payment collections across all tenants', 0, 1, 'L');
         $pdf->Cell(0, 6, 'Generated: ' . date('M j, Y g:i A'), 0, 1, 'L');
         $pdf->Ln(2);
         $pdf->SetDrawColor(0, 102, 255);
@@ -373,11 +387,11 @@ if ($tcpdfPath !== null) {
 
             if ($includeTopClinics) {
                 $pdf->SetFont('helvetica', 'B', 11);
-                $pdf->Cell(0, 6, 'Top clinics by total subscription spend', 0, 1, 'L');
+                $pdf->Cell(0, 6, 'Top clinics by collected patient payments', 0, 1, 'L');
                 $html = '<table border="1" cellpadding="5" cellspacing="0" width="100%" style="font-size:8.8pt;">';
                 $html .= '<tr style="background-color:#1e293b;color:#ffffff;"><th width="12%">Rank</th><th width="44%">Clinic</th><th width="20%" align="right">Transactions</th><th width="24%" align="right">Total Spend</th></tr>';
                 if (empty($topClinics)) {
-                    $html .= '<tr><td colspan="4" align="center">No paid subscription data found.</td></tr>';
+                    $html .= '<tr><td colspan="4" align="center">No clinic payment data found.</td></tr>';
                 } else {
                     foreach ($topClinics as $i => $c) {
                         $html .= '<tr>';
@@ -396,11 +410,11 @@ if ($tcpdfPath !== null) {
             if ($includeTransactions) {
                 $pdf->AddPage();
                 $pdf->SetFont('helvetica', 'B', 11);
-                $pdf->Cell(0, 6, 'Full transaction log (paid subscriptions)', 0, 1, 'L');
+                $pdf->Cell(0, 6, 'Full transaction log (clinic payments)', 0, 1, 'L');
                 $html = '<table border="1" cellpadding="3" cellspacing="0" width="100%" style="font-size:8.3pt;">';
-                $html .= '<tr style="background-color:#1e293b;color:#ffffff;"><th width="24%">Date</th><th width="28%">Clinic</th><th width="20%">Plan</th><th width="14%" align="right">Amount</th><th width="14%">Reference</th></tr>';
+                $html .= '<tr style="background-color:#1e293b;color:#ffffff;"><th width="24%">Date</th><th width="28%">Clinic</th><th width="20%">Service</th><th width="14%" align="right">Amount</th><th width="14%">Reference</th></tr>';
                 if (empty($transactionRows)) {
-                    $html .= '<tr><td colspan="5" align="center">No paid subscription transactions found.</td></tr>';
+                    $html .= '<tr><td colspan="5" align="center">No clinic payment transactions found.</td></tr>';
                 } else {
                     foreach ($transactionRows as $row) {
                         $ts = strtotime((string) ($row['created_at'] ?? ''));
@@ -440,9 +454,9 @@ if ($tcpdfPath !== null) {
                     );
                     $pdf->Ln(3);
                     $html = '<table border="1" cellpadding="3" cellspacing="0" width="100%" style="font-size:8.3pt;">';
-                    $html .= '<tr style="background-color:#1e293b;color:#ffffff;"><th width="24%">Date</th><th width="28%">Clinic</th><th width="20%">Plan</th><th width="14%" align="right">Amount</th><th width="14%">Reference</th></tr>';
+                    $html .= '<tr style="background-color:#1e293b;color:#ffffff;"><th width="24%">Date</th><th width="28%">Clinic</th><th width="20%">Service</th><th width="14%" align="right">Amount</th><th width="14%">Reference</th></tr>';
                     if (empty($customPeriodTransactions)) {
-                        $html .= '<tr><td colspan="5" align="center">No paid subscription transactions found for the selected period.</td></tr>';
+                        $html .= '<tr><td colspan="5" align="center">No clinic payment transactions found for the selected period.</td></tr>';
                     } else {
                         foreach ($customPeriodTransactions as $row) {
                             $ts = strtotime((string) ($row['created_at'] ?? ''));
@@ -501,7 +515,7 @@ try {
     $pdf->Cell(0, 8, salesreport_pdf_latin1_safe('MyDental Sales Report'), 0, 1, 'L');
     $pdf->SetFont('Helvetica', '', 10);
     $pdf->SetTextColor(80, 90, 100);
-    $pdf->Cell(0, 6, salesreport_pdf_latin1_safe('Paid subscription analytics across all clinics'), 0, 1, 'L');
+    $pdf->Cell(0, 6, salesreport_pdf_latin1_safe('Clinic payment collections across all tenants'), 0, 1, 'L');
     $pdf->SetFont('Helvetica', '', 9);
     $pdf->Cell(0, 5, salesreport_pdf_latin1_safe('Generated: ' . date('M j, Y g:i A')), 0, 1, 'L');
     $pdf->Ln(6);
@@ -556,7 +570,7 @@ try {
         if ($includeTopClinics) {
             $pdf->SetFont('Helvetica', '', 11);
             $pdf->SetTextColor(25, 35, 50);
-            $pdf->Cell(0, 6, salesreport_pdf_latin1_safe('Top clinics by total subscription spend'), 0, 1, 'L');
+            $pdf->Cell(0, 6, salesreport_pdf_latin1_safe('Top clinics by collected patient payments'), 0, 1, 'L');
             $pdf->SetFont('Helvetica', '', 8.5);
             $pdf->SetFillColor(30, 41, 59);
             $pdf->SetTextColor(255, 255, 255);
@@ -566,7 +580,7 @@ try {
             $pdf->Cell(42, 7, salesreport_pdf_latin1_safe('Total Spend'), 1, 1, 'R', true);
             $pdf->SetTextColor(35, 45, 55);
             if (empty($topClinics)) {
-                $pdf->Cell(180, 7, salesreport_pdf_latin1_safe('No paid subscription data found.'), 1, 1, 'C');
+                $pdf->Cell(180, 7, salesreport_pdf_latin1_safe('No clinic payment data found.'), 1, 1, 'C');
             } else {
                 $rowToggle = false;
                 foreach ($topClinics as $i => $c) {
@@ -585,18 +599,18 @@ try {
             $pdf->AddPage();
             $pdf->SetFont('Helvetica', '', 11);
             $pdf->SetTextColor(25, 35, 50);
-            $pdf->Cell(0, 6, salesreport_pdf_latin1_safe('Full transaction log (paid subscriptions)'), 0, 1, 'L');
+            $pdf->Cell(0, 6, salesreport_pdf_latin1_safe('Full transaction log (clinic payments)'), 0, 1, 'L');
             $pdf->SetFont('Helvetica', '', 7.8);
             $pdf->SetFillColor(30, 41, 59);
             $pdf->SetTextColor(255, 255, 255);
             $pdf->Cell(40, 7, salesreport_pdf_latin1_safe('Date'), 1, 0, 'L', true);
             $pdf->Cell(50, 7, salesreport_pdf_latin1_safe('Clinic'), 1, 0, 'L', true);
-            $pdf->Cell(34, 7, salesreport_pdf_latin1_safe('Plan'), 1, 0, 'L', true);
+            $pdf->Cell(34, 7, salesreport_pdf_latin1_safe('Service'), 1, 0, 'L', true);
             $pdf->Cell(28, 7, salesreport_pdf_latin1_safe('Amount'), 1, 0, 'R', true);
             $pdf->Cell(28, 7, salesreport_pdf_latin1_safe('Reference'), 1, 1, 'L', true);
             $pdf->SetTextColor(35, 45, 55);
             if (empty($transactionRows)) {
-                $pdf->Cell(180, 7, salesreport_pdf_latin1_safe('No paid subscription transactions found.'), 1, 1, 'C');
+                $pdf->Cell(180, 7, salesreport_pdf_latin1_safe('No clinic payment transactions found.'), 1, 1, 'C');
             } else {
                 $rowToggle = false;
                 foreach ($transactionRows as $row) {
@@ -634,12 +648,12 @@ try {
                 $pdf->SetTextColor(255, 255, 255);
                 $pdf->Cell(40, 7, salesreport_pdf_latin1_safe('Date'), 1, 0, 'L', true);
                 $pdf->Cell(50, 7, salesreport_pdf_latin1_safe('Clinic'), 1, 0, 'L', true);
-                $pdf->Cell(34, 7, salesreport_pdf_latin1_safe('Plan'), 1, 0, 'L', true);
+                $pdf->Cell(34, 7, salesreport_pdf_latin1_safe('Service'), 1, 0, 'L', true);
                 $pdf->Cell(28, 7, salesreport_pdf_latin1_safe('Amount'), 1, 0, 'R', true);
                 $pdf->Cell(28, 7, salesreport_pdf_latin1_safe('Reference'), 1, 1, 'L', true);
                 $pdf->SetTextColor(35, 45, 55);
                 if (empty($customPeriodTransactions)) {
-                    $pdf->Cell(180, 7, salesreport_pdf_latin1_safe('No paid subscription transactions found for the selected period.'), 1, 1, 'C');
+                    $pdf->Cell(180, 7, salesreport_pdf_latin1_safe('No clinic payment transactions found for the selected period.'), 1, 1, 'C');
                 } else {
                     $rowToggle = false;
                     foreach ($customPeriodTransactions as $row) {

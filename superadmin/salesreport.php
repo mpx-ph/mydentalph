@@ -203,10 +203,18 @@ function salesreport_format_datetime_for_table(string $dateTime): string
 }
 
 /**
- * Build subscription filter SQL fragments and positional params.
- * Supports date range and clinic filters.
+ * Counted patient payments across clinics (tbl_payments — not SaaS subscriptions).
  */
-function salesreport_build_subscription_filters(
+function salesreport_sql_payment_settled(string $alias = ''): string
+{
+    $p = $alias !== '' ? $alias . '.' : '';
+    return '(' . $p . "status IN ('completed','paid'))";
+}
+
+/**
+ * Build tbl_payments filter fragments and positional params (payment_date half-open ranges).
+ */
+function salesreport_build_payment_filters(
     ?DateTime $rangeStart,
     ?DateTime $rangeEnd,
     ?string $clinicId,
@@ -216,11 +224,11 @@ function salesreport_build_subscription_filters(
     $where = [];
     $params = [];
     if ($rangeStart !== null) {
-        $where[] = $prefix . "created_at >= ?";
+        $where[] = $prefix . "payment_date >= ?";
         $params[] = $rangeStart->format('Y-m-d H:i:s');
     }
     if ($rangeEnd !== null) {
-        $where[] = $prefix . "created_at < ?";
+        $where[] = $prefix . "payment_date < ?";
         $params[] = $rangeEnd->format('Y-m-d H:i:s');
     }
     if ($clinicId !== null) {
@@ -289,7 +297,7 @@ function salesreport_pagination_controls(
     <?php
 }
 
-// Revenue stats use paid subscription payments across all tenants.
+// Revenue stats: collected patient payments (tbl_payments), all tenants unless clinic filter applies.
 $todayStart = new DateTime('today');
 $todayStart->setTime(0, 0, 0);
 $todayEnd = clone $todayStart;
@@ -364,9 +372,9 @@ $dailyAvailableYears = [];
 $currentYear = (int) $todayStart->format('Y');
 try {
     $yearStmt = $pdo->query("
-        SELECT DISTINCT YEAR(created_at) AS year_num
-        FROM tbl_tenant_subscriptions
-        WHERE payment_status = 'paid'
+        SELECT DISTINCT YEAR(payment_date) AS year_num
+        FROM tbl_payments
+        WHERE " . salesreport_sql_payment_settled() . "
         ORDER BY year_num DESC
     ");
     foreach (($yearStmt->fetchAll(PDO::FETCH_ASSOC) ?: []) as $yearRow) {
@@ -405,31 +413,32 @@ if ($dailyFilterMonth !== null && $dailyFilterYear === null) {
 }
 
 try {
-    $stmt = $pdo->prepare("
-        SELECT COALESCE(SUM(amount_paid), 0) as revenue
-        FROM tbl_tenant_subscriptions
-        WHERE payment_status = 'paid'
-          AND created_at >= ?
-          AND created_at < ?
-    ");
+    $paidClause = salesreport_sql_payment_settled();
 
-    // NOTE: tbl_tenant_subscriptions uses created_at as the transaction date.
+    $stmt = $pdo->prepare("
+        SELECT COALESCE(SUM(amount), 0)
+        FROM tbl_payments
+        WHERE {$paidClause}
+          AND payment_date >= ?
+          AND payment_date < ?
+    ");
+    // Summary cards ignore top-level clinic filter: always platform-wide aggregates.
     $stmt->execute([$todayStart->format('Y-m-d H:i:s'), $todayEnd->format('Y-m-d H:i:s')]);
-    $todayRevenue = (float) ($stmt->fetch()['revenue'] ?? 0);
+    $todayRevenue = (float) ($stmt->fetchColumn() ?: 0);
 
     $stmt->execute([$weekStart->format('Y-m-d H:i:s'), $weekEnd->format('Y-m-d H:i:s')]);
-    $weekRevenue = (float) ($stmt->fetch()['revenue'] ?? 0);
+    $weekRevenue = (float) ($stmt->fetchColumn() ?: 0);
 
     $stmt->execute([$monthStart->format('Y-m-d H:i:s'), $monthEnd->format('Y-m-d H:i:s')]);
-    $monthRevenue = (float) ($stmt->fetch()['revenue'] ?? 0);
+    $monthRevenue = (float) ($stmt->fetchColumn() ?: 0);
 
     $stmt->execute([$yearStart->format('Y-m-d H:i:s'), $yearEnd->format('Y-m-d H:i:s')]);
-    $yearRevenue = (float) ($stmt->fetch()['revenue'] ?? 0);
+    $yearRevenue = (float) ($stmt->fetchColumn() ?: 0);
 } catch (Exception $e) {
     error_log('salesreport revenue stats error: ' . $e->getMessage());
 }
 
-// Recent daily revenue: paginated calendar days (newest first), paid subscriptions.
+// Recent daily revenue: paginated calendar days (newest first), settled patient payments.
 $dailyPerPage = 5;
 $maxDaysBack = 365;
 $dailyWindowStart = null;
@@ -498,23 +507,23 @@ try {
 
     $rows = [];
     if ($rangeStart < $rangeEnd) {
-        [$dailyWhere, $dailyParams] = salesreport_build_subscription_filters(
+        [$dailyWhere, $dailyParams] = salesreport_build_payment_filters(
             $rangeStart,
             $rangeEnd,
             $selectedClinicId
         );
         $dailySql = "
             SELECT
-                DATE(created_at) as payment_day,
-                COALESCE(SUM(amount_paid), 0) as revenue
-            FROM tbl_tenant_subscriptions
-            WHERE payment_status = 'paid'
+                DATE(payment_date) as payment_day,
+                COALESCE(SUM(amount), 0) as revenue
+            FROM tbl_payments
+            WHERE " . salesreport_sql_payment_settled() . "
         ";
         if (!empty($dailyWhere)) {
             $dailySql .= " AND " . implode(" AND ", $dailyWhere);
         }
         $dailySql .= "
-            GROUP BY DATE(created_at)
+            GROUP BY DATE(payment_date)
             ORDER BY payment_day ASC
         ";
         $stmt = $pdo->prepare($dailySql);
@@ -562,7 +571,7 @@ try {
     error_log('salesreport recent daily revenue error: ' . $e->getMessage());
 }
 
-// Recent transactions table: paid subscription records across all tenants (paginated).
+// Recent transactions: settled patient payments across clinics (paginated).
 $txPerPage = 10;
 $recentTransactions = [];
 $totalTxCount = 0;
@@ -572,18 +581,18 @@ if ($txPage === false || $txPage < 1) {
     $txPage = 1;
 }
 try {
-    [$txWhere, $txParams] = salesreport_build_subscription_filters(
+    [$txWhere, $txParams] = salesreport_build_payment_filters(
         $filterRangeStart,
         $filterRangeEnd,
         $selectedClinicId,
-        'ts'
+        'tp'
     );
-    $txWhereSql = "ts.payment_status = 'paid'";
+    $txWhereSql = salesreport_sql_payment_settled('tp');
     if (!empty($txWhere)) {
         $txWhereSql .= " AND " . implode(" AND ", $txWhere);
     }
     $cntStmt = $pdo->prepare("
-        SELECT COUNT(*) FROM tbl_tenant_subscriptions ts WHERE $txWhereSql
+        SELECT COUNT(*) FROM tbl_payments tp WHERE $txWhereSql
     ");
     $cntStmt->execute($txParams);
     $totalTxCount = (int) $cntStmt->fetchColumn();
@@ -597,18 +606,19 @@ try {
     $txOffset = ($txPage - 1) * $txPerPage;
     $stmt = $pdo->prepare("
         SELECT
-            ts.created_at as payment_date,
-            ts.amount_paid as amount,
-            ts.payment_status as status,
-            ts.reference_number as payment_id,
-            NULL as booking_id,
-            sp.plan_name as service_type,
+            tp.payment_date AS payment_date,
+            tp.amount AS amount,
+            tp.status AS status,
+            COALESCE(NULLIF(TRIM(tp.reference_number), ''), tp.payment_id) AS payment_id,
+            tp.booking_id AS booking_id,
+            COALESCE(NULLIF(TRIM(a.service_type), ''), 'Patient payment') AS service_type,
             t.clinic_name
-        FROM tbl_tenant_subscriptions ts
-        LEFT JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
-        LEFT JOIN tbl_subscription_plans sp ON ts.plan_id = sp.plan_id
+        FROM tbl_payments tp
+        LEFT JOIN tbl_tenants t ON tp.tenant_id = t.tenant_id
+        LEFT JOIN tbl_appointments a
+            ON a.tenant_id = tp.tenant_id AND a.booking_id = tp.booking_id
         WHERE $txWhereSql
-        ORDER BY ts.created_at DESC, ts.id DESC
+        ORDER BY tp.payment_date DESC, tp.id DESC
         LIMIT " . (int) $txPerPage . " OFFSET " . (int) $txOffset . "
     ");
     $stmt->execute($txParams);
@@ -617,7 +627,7 @@ try {
     error_log('salesreport recent transactions error: ' . $e->getMessage());
 }
 
-// Top clinics ranking by total paid subscription spend (paginated).
+// Top clinics by collected patient payments in the filtered period (paginated).
 $clinicsPerPage = 10;
 $topClinics = [];
 $totalClinicsCount = 0;
@@ -628,26 +638,26 @@ if ($clinicsPage === false || $clinicsPage < 1) {
     $clinicsPage = 1;
 }
 try {
-    [$clinicsWhereBase, $clinicsParamsBase] = salesreport_build_subscription_filters(
+    [$clinicsWhereBase, $clinicsParamsBase] = salesreport_build_payment_filters(
         $filterRangeStart,
         $filterRangeEnd,
         $selectedClinicId,
-        'ts'
+        'tp'
     );
-    $rankWhereSql = "ts.payment_status = 'paid'";
+    $rankWhereSql = salesreport_sql_payment_settled('tp');
     if (!empty($clinicsWhereBase)) {
         $rankWhereSql .= " AND " . implode(" AND ", $clinicsWhereBase);
     }
     $rankStmt = $pdo->prepare("
         SELECT
-            ts.tenant_id,
+            tp.tenant_id,
             t.clinic_name,
-            COUNT(ts.id) as paid_transactions,
-            COALESCE(SUM(ts.amount_paid), 0) as total_spend
-        FROM tbl_tenant_subscriptions ts
-        INNER JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
+            COUNT(tp.id) as paid_transactions,
+            COALESCE(SUM(tp.amount), 0) as total_spend
+        FROM tbl_payments tp
+        INNER JOIN tbl_tenants t ON tp.tenant_id = t.tenant_id
         WHERE $rankWhereSql
-        GROUP BY ts.tenant_id, t.clinic_name
+        GROUP BY tp.tenant_id, t.clinic_name
         ORDER BY total_spend DESC, paid_transactions DESC, t.clinic_name ASC
     ");
     $rankStmt->execute($clinicsParamsBase);
@@ -661,7 +671,7 @@ try {
 
     $clinicsWhere = $clinicsWhereBase;
     $clinicsParams = $clinicsParamsBase;
-    $clinicsWhereSql = "ts.payment_status = 'paid'";
+    $clinicsWhereSql = salesreport_sql_payment_settled('tp');
     if ($topClinicsSearch !== '') {
         $clinicsWhere[] = "t.clinic_name LIKE ?";
         $clinicsParams[] = '%' . $topClinicsSearch . '%';
@@ -671,11 +681,11 @@ try {
     }
     $cntStmt = $pdo->prepare("
         SELECT COUNT(*) FROM (
-            SELECT ts.tenant_id
-            FROM tbl_tenant_subscriptions ts
-            INNER JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
+            SELECT tp.tenant_id
+            FROM tbl_payments tp
+            INNER JOIN tbl_tenants t ON tp.tenant_id = t.tenant_id
             WHERE $clinicsWhereSql
-            GROUP BY ts.tenant_id, t.clinic_name
+            GROUP BY tp.tenant_id, t.clinic_name
         ) ranked_clinics
     ");
     $cntStmt->execute($clinicsParams);
@@ -690,14 +700,14 @@ try {
     $clinicsOffset = ($clinicsPage - 1) * $clinicsPerPage;
     $stmt = $pdo->prepare("
         SELECT
-            ts.tenant_id,
+            tp.tenant_id,
             t.clinic_name,
-            COUNT(ts.id) as paid_transactions,
-            COALESCE(SUM(ts.amount_paid), 0) as total_spend
-        FROM tbl_tenant_subscriptions ts
-        INNER JOIN tbl_tenants t ON ts.tenant_id = t.tenant_id
+            COUNT(tp.id) as paid_transactions,
+            COALESCE(SUM(tp.amount), 0) as total_spend
+        FROM tbl_payments tp
+        INNER JOIN tbl_tenants t ON tp.tenant_id = t.tenant_id
         WHERE $clinicsWhereSql
-        GROUP BY ts.tenant_id, t.clinic_name
+        GROUP BY tp.tenant_id, t.clinic_name
         ORDER BY total_spend DESC, paid_transactions DESC, t.clinic_name ASC
         LIMIT " . (int) $clinicsPerPage . " OFFSET " . (int) $clinicsOffset . "
     ");
@@ -829,7 +839,7 @@ require __DIR__ . '/superadmin_header.php';
 <div class="flex items-start justify-between gap-4">
 <div>
 <h3 class="text-xl font-extrabold font-headline text-on-surface tracking-tight">Recent Daily Revenue</h3>
-<p class="text-sm text-on-surface-variant font-medium mt-1">Revenue per day, paid subscriptions (<?php echo (int) $dailyPerPage; ?> days per page, up to <?php echo (int) $maxDaysBack; ?> days)</p>
+<p class="text-sm text-on-surface-variant font-medium mt-1">Revenue per day from completed clinic payments (<?php echo (int) $dailyPerPage; ?> days per page, up to <?php echo (int) $maxDaysBack; ?> days)</p>
 </div>
 <div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-60">
 <span class="material-symbols-outlined text-lg">insights</span>
@@ -903,7 +913,7 @@ require __DIR__ . '/superadmin_header.php';
 <div class="px-4 sm:px-6 lg:px-10 py-8 flex items-center justify-between border-b border-white/50">
 <div>
 <h3 class="text-xl font-extrabold font-headline text-on-surface tracking-tight">Top Clinics</h3>
-<p class="text-sm text-on-surface-variant font-medium mt-1">Ranked by total paid subscription spend</p>
+<p class="text-sm text-on-surface-variant font-medium mt-1">Ranked by collected patient payments in this period</p>
 </div>
 <div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-60">
 <span class="material-symbols-outlined text-lg">leaderboard</span>
@@ -935,7 +945,7 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 <div class="md:hidden px-4 sm:px-6 py-5 space-y-4">
 <?php if (empty($topClinics)): ?>
-<div class="rounded-2xl border border-outline-variant/20 bg-white/70 px-4 py-5 text-sm text-on-surface-variant font-medium">No paid subscription data found.</div>
+<div class="rounded-2xl border border-outline-variant/20 bg-white/70 px-4 py-5 text-sm text-on-surface-variant font-medium">No payment data found for this period.</div>
 <?php else: ?>
 <?php foreach ($topClinics as $idx => $clinic): ?>
 <?php
@@ -990,7 +1000,7 @@ if ($rank === 1) {
 <tbody class="divide-y divide-white/40">
 <?php if (empty($topClinics)): ?>
 <tr>
-<td class="px-10 py-6 text-sm font-bold text-on-surface-variant" colspan="4">No paid subscription data found.</td>
+<td class="px-10 py-6 text-sm font-bold text-on-surface-variant" colspan="4">No payment data found for this period.</td>
 </tr>
 <?php else: ?>
 <?php foreach ($topClinics as $idx => $clinic): ?>
@@ -1045,7 +1055,7 @@ $status = (string) ($tx['status'] ?? '');
 $badgeLabel = 'Unknown';
 $badgeClasses = 'bg-on-surface-variant/5 text-on-surface-variant';
 $dotClasses = 'bg-on-surface-variant';
-if ($status === 'paid') {
+if ($status === 'paid' || $status === 'completed') {
     $badgeLabel = 'Paid';
     $badgeClasses = 'bg-green-50 text-green-600';
     $dotClasses = 'bg-green-600';
@@ -1126,7 +1136,7 @@ $status = (string) ($tx['status'] ?? '');
 $badgeLabel = 'Unknown';
 $badgeClasses = 'bg-on-surface-variant/5 text-on-surface-variant';
 $dotClasses = 'bg-on-surface-variant';
-if ($status === 'paid') {
+if ($status === 'paid' || $status === 'completed') {
     $badgeLabel = 'Paid';
     $badgeClasses = 'bg-green-50 text-green-600';
     $dotClasses = 'bg-green-600';
@@ -1249,7 +1259,7 @@ $amount = (float) ($tx['amount'] ?? 0);
 <label class="export-option-card rounded-3xl p-5 flex items-center gap-3 cursor-pointer">
 <input type="hidden" name="include_transactions" value="0"/>
 <input type="checkbox" name="include_transactions" value="1" class="w-5 h-5 rounded border-outline-variant bg-white text-primary focus:ring-primary/30"/>
-<span class="font-extrabold text-on-surface">Full Transaction Log (Paid Subscriptions)</span>
+<span class="font-extrabold text-on-surface">Full Transaction Log (Clinic Payments)</span>
 </label>
 <div class="export-option-card rounded-3xl p-5 space-y-4">
 <label class="flex items-center gap-3 cursor-pointer">
