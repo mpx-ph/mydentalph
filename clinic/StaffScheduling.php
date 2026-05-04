@@ -1061,6 +1061,23 @@ try {
                 if ($shiftStart === '' && $shiftEnd === '') {
                     continue;
                 }
+
+                $refDate = $dateByDayName[$dayName] ?? '';
+                if ($refDate === '') {
+                    throw new RuntimeException($dayName . ': Unable to resolve that weekday for clinic hours.');
+                }
+                $resolvedShiftClinicHours = $resolveClinicHoursByDate($refDate);
+                $clinicOpen = (string) ($resolvedShiftClinicHours['open_time_raw'] ?? '');
+                $clinicClose = (string) ($resolvedShiftClinicHours['close_time_raw'] ?? '');
+                $clinicUnavailable = !empty($resolvedShiftClinicHours['is_closed'])
+                    || $clinicOpen === ''
+                    || $clinicClose === '';
+
+                if ($clinicUnavailable) {
+                    // Clinic closed or hours not configured for this calendar weekday: clear weekly shift for this day only; do not block saving other days.
+                    continue;
+                }
+
                 if ($shiftStart === '' || $shiftEnd === '') {
                     throw new RuntimeException($dayName . ': Enter both start and end times, or leave both empty for a day off.');
                 }
@@ -1069,20 +1086,6 @@ try {
                 }
                 if (toMinutes($shiftEnd) <= toMinutes($shiftStart)) {
                     throw new RuntimeException($dayName . ': End time must be later than start time.');
-                }
-
-                $refDate = $dateByDayName[$dayName] ?? '';
-                if ($refDate === '') {
-                    throw new RuntimeException($dayName . ': Unable to resolve that weekday for clinic hours.');
-                }
-                $resolvedShiftClinicHours = $resolveClinicHoursByDate($refDate);
-                if (!empty($resolvedShiftClinicHours['is_closed'])) {
-                    throw new RuntimeException($dayName . ': The clinic is closed on this weekday for the selected week.');
-                }
-                $clinicOpen = (string) ($resolvedShiftClinicHours['open_time_raw'] ?? '');
-                $clinicClose = (string) ($resolvedShiftClinicHours['close_time_raw'] ?? '');
-                if ($clinicOpen === '' || $clinicClose === '') {
-                    throw new RuntimeException($dayName . ': Clinic hours are not configured for this weekday.');
                 }
                 $clinicOpenMinutes = toMinutes($clinicOpen);
                 $clinicCloseMinutes = toMinutes($clinicClose);
@@ -1770,6 +1773,16 @@ $dentistsSeedData = array_map(static function ($dentist) {
         .schedule-block {
             box-sizing: border-box;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .set-shift-time-input--clinic-closed {
+            cursor: not-allowed;
+            background-color: #f1f5f9;
+            color: #94a3b8;
+            border-color: #e2e8f0;
+        }
+        .set-shift-time-input--clinic-closed::placeholder {
+            color: #cbd5e1;
+            letter-spacing: 0.02em;
         }
         /* Keep schedule blocks below sticky top header (z-30) while preserving in-grid layering */
         .schedule-block-layer-appointment,
@@ -2463,7 +2476,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                             <span class="material-symbols-outlined text-primary text-[22px]">calendar_month</span>
                             <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Weekly schedule</h4>
                         </div>
-                        <p class="text-xs text-slate-500 mb-4 leading-relaxed">Leave both times empty on a day off. Shift times are validated against clinic hours for each weekday in the week you are viewing.</p>
+                        <p class="text-xs text-slate-500 mb-4 leading-relaxed">Leave both times empty on a day off. Shift times are validated against clinic hours for each weekday in the week you are viewing. Days when the clinic is closed or has no hours cannot be edited; saving still applies shifts for the other days.</p>
                         <div class="rounded-2xl border border-slate-200 bg-slate-50/40 divide-y divide-slate-200/80 overflow-hidden">
                             <?php
                             $setShiftWeekRows = [
@@ -2494,14 +2507,14 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                                 <span class="material-symbols-outlined text-[16px] sm:text-[18px] text-slate-500 shrink-0">timer</span>
                                                 <span class="min-w-0 leading-tight">Start Time</span>
                                             </label>
-                                            <input id="<?php echo htmlspecialchars($setShiftStartId, ENT_QUOTES, 'UTF-8'); ?>" name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_start" type="time" step="60" value="" class="set-shift-time-input w-full h-12 min-h-[3rem] box-border px-2.5 sm:px-4 py-0 rounded-xl border border-slate-200 bg-white text-slate-900 text-[13px] sm:text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+                                            <input id="<?php echo htmlspecialchars($setShiftStartId, ENT_QUOTES, 'UTF-8'); ?>" name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_start" type="time" step="60" value="" data-set-shift-input-name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_start" class="set-shift-time-input w-full h-12 min-h-[3rem] box-border px-2.5 sm:px-4 py-0 rounded-xl border border-slate-200 bg-white text-slate-900 text-[13px] sm:text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
                                         </div>
                                         <div class="min-w-0 flex flex-col">
                                             <label for="<?php echo htmlspecialchars($setShiftEndId, ENT_QUOTES, 'UTF-8'); ?>" class="flex items-center gap-1 text-xs sm:text-sm font-semibold text-slate-800 mb-1.5 sm:mb-2 min-h-[1.25rem] min-w-0">
                                                 <span class="material-symbols-outlined text-[16px] sm:text-[18px] text-slate-500 shrink-0">timer_off</span>
                                                 <span class="min-w-0 leading-tight">End Time</span>
                                             </label>
-                                            <input id="<?php echo htmlspecialchars($setShiftEndId, ENT_QUOTES, 'UTF-8'); ?>" name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_end" type="time" step="60" value="" class="set-shift-time-input w-full h-12 min-h-[3rem] box-border px-2.5 sm:px-4 py-0 rounded-xl border border-slate-200 bg-white text-slate-900 text-[13px] sm:text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+                                            <input id="<?php echo htmlspecialchars($setShiftEndId, ENT_QUOTES, 'UTF-8'); ?>" name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_end" type="time" step="60" value="" data-set-shift-input-name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_end" class="set-shift-time-input w-full h-12 min-h-[3rem] box-border px-2.5 sm:px-4 py-0 rounded-xl border border-slate-200 bg-white text-slate-900 text-[13px] sm:text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
                                         </div>
                                     </div>
                                     <div class="flex w-full shrink-0 items-center justify-end gap-2 sm:gap-2.5 pt-2 sm:pt-3 lg:pt-0 border-t border-slate-100/80 lg:border-t-0 lg:pl-1 pr-4 sm:pr-6 lg:pr-4 lg:w-[14rem] lg:flex-none">
@@ -2837,6 +2850,76 @@ $dentistsSeedData = array_map(static function ($dentist) {
             { dayName: 'Friday', startId: 'setShiftWeekFridayStart', endId: 'setShiftWeekFridayEnd', loaderId: 'setShiftWeekFridayLoader', statusId: 'setShiftWeekFridayStatus' },
             { dayName: 'Saturday', startId: 'setShiftWeekSaturdayStart', endId: 'setShiftWeekSaturdayEnd', loaderId: 'setShiftWeekSaturdayLoader', statusId: 'setShiftWeekSaturdayStatus' }
         ];
+        const SET_SHIFT_CLOSED_PLACEHOLDER = '_ _ : _ _';
+
+        function isSetShiftRowClinicUnavailable(row) {
+            const snap = clinicHoursSnapshotByDayName[row.dayName];
+            if (!snap) {
+                return true;
+            }
+            if (snap.is_closed) {
+                return true;
+            }
+            const openRaw = String(snap.open_time_raw || '').trim();
+            const closeRaw = String(snap.close_time_raw || '').trim();
+            return openRaw === '' || closeRaw === '';
+        }
+
+        function syncSetShiftRowClinicLock(row) {
+            const startEl = document.getElementById(row.startId);
+            const endEl = document.getElementById(row.endId);
+            if (!startEl || !endEl) {
+                return;
+            }
+            const startName = String(startEl.getAttribute('data-set-shift-input-name') || '').trim();
+            const endName = String(endEl.getAttribute('data-set-shift-input-name') || '').trim();
+            if (isSetShiftRowClinicUnavailable(row)) {
+                startEl.value = '';
+                endEl.value = '';
+                startEl.disabled = true;
+                endEl.disabled = true;
+                startEl.removeAttribute('name');
+                endEl.removeAttribute('name');
+                startEl.setAttribute('type', 'text');
+                endEl.setAttribute('type', 'text');
+                startEl.setAttribute('placeholder', SET_SHIFT_CLOSED_PLACEHOLDER);
+                endEl.setAttribute('placeholder', SET_SHIFT_CLOSED_PLACEHOLDER);
+                startEl.setAttribute('autocomplete', 'off');
+                endEl.setAttribute('autocomplete', 'off');
+                startEl.setAttribute('inputmode', 'none');
+                endEl.setAttribute('inputmode', 'none');
+                startEl.classList.add('set-shift-time-input--clinic-closed');
+                endEl.classList.add('set-shift-time-input--clinic-closed');
+                const statusEl = document.getElementById(row.statusId);
+                setSetShiftRowIndicator(row, 'idle');
+                applySetShiftRowStatus(statusEl, 'Clinic closed', 'closed');
+            } else {
+                startEl.disabled = false;
+                endEl.disabled = false;
+                startEl.setAttribute('type', 'time');
+                endEl.setAttribute('type', 'time');
+                startEl.setAttribute('step', '60');
+                endEl.setAttribute('step', '60');
+                startEl.removeAttribute('placeholder');
+                endEl.removeAttribute('placeholder');
+                startEl.removeAttribute('autocomplete');
+                endEl.removeAttribute('autocomplete');
+                startEl.removeAttribute('inputmode');
+                endEl.removeAttribute('inputmode');
+                startEl.classList.remove('set-shift-time-input--clinic-closed');
+                endEl.classList.remove('set-shift-time-input--clinic-closed');
+                if (startName) {
+                    startEl.setAttribute('name', startName);
+                }
+                if (endName) {
+                    endEl.setAttribute('name', endName);
+                }
+            }
+        }
+
+        function syncSetShiftRowClinicLockForAllRows() {
+            setShiftWeekFieldDefs.forEach(syncSetShiftRowClinicLock);
+        }
         let selectedWorkShiftForBlockTime = {
             hasRecord: false,
             startTimeRaw: '',
@@ -3169,6 +3252,14 @@ $dentistsSeedData = array_map(static function ($dentist) {
             const startEl = document.getElementById(row.startId);
             const endEl = document.getElementById(row.endId);
             const statusEl = document.getElementById(row.statusId);
+            if (!startEl || !endEl || !statusEl) {
+                return;
+            }
+            if (isSetShiftRowClinicUnavailable(row) || startEl.disabled) {
+                setSetShiftRowIndicator(row, 'idle');
+                applySetShiftRowStatus(statusEl, 'Clinic closed', 'closed');
+                return;
+            }
             const start = String(startEl && startEl.value ? startEl.value : '').trim();
             const end = String(endEl && endEl.value ? endEl.value : '').trim();
 
@@ -3197,8 +3288,8 @@ $dentistsSeedData = array_map(static function ($dentist) {
 
             const snap = clinicHoursSnapshotByDayName[row.dayName];
             if (!snap || snap.is_closed || !snap.open_time_raw || !snap.close_time_raw) {
-                setSetShiftRowIndicator(row, 'invalid');
-                applySetShiftRowStatus(statusEl, 'Clinic Closed', 'closed');
+                setSetShiftRowIndicator(row, 'idle');
+                applySetShiftRowStatus(statusEl, 'Clinic closed', 'closed');
                 return;
             }
             const clinicOpenMinutes = toMinutes(snap.open_time_raw);
@@ -3220,6 +3311,15 @@ $dentistsSeedData = array_map(static function ($dentist) {
             if (setShiftRowValidateTimers[dayKey]) {
                 clearTimeout(setShiftRowValidateTimers[dayKey]);
                 setShiftRowValidateTimers[dayKey] = null;
+            }
+
+            if (!startEl || !endEl || !statusEl) {
+                return;
+            }
+            if (isSetShiftRowClinicUnavailable(row) || startEl.disabled) {
+                setSetShiftRowIndicator(row, 'idle');
+                applySetShiftRowStatus(statusEl, 'Clinic closed', 'closed');
+                return;
             }
 
             const start = String(startEl && startEl.value ? startEl.value : '').trim();
@@ -3249,6 +3349,10 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 if (setShiftRowValidateTimers[row.dayName]) {
                     clearTimeout(setShiftRowValidateTimers[row.dayName]);
                     setShiftRowValidateTimers[row.dayName] = null;
+                }
+                const startEl = document.getElementById(row.startId);
+                if (startEl && startEl.disabled) {
+                    return;
                 }
                 setSetShiftRowIndicator(row, 'idle');
                 applySetShiftRowStatus(document.getElementById(row.statusId), '', 'neutral');
@@ -3280,13 +3384,14 @@ $dentistsSeedData = array_map(static function ($dentist) {
             setShiftWeekFieldDefs.forEach(function (row) {
                 const startEl = document.getElementById(row.startId);
                 const endEl = document.getElementById(row.endId);
-                if (startEl) {
+                if (startEl && !startEl.disabled) {
                     startEl.value = '';
                 }
-                if (endEl) {
+                if (endEl && !endEl.disabled) {
                     endEl.value = '';
                 }
             });
+            syncSetShiftRowClinicLockForAllRows();
             resetAllSetShiftRowStatuses();
         }
 
@@ -3324,6 +3429,11 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     if (!startEl || !endEl) {
                         return;
                     }
+                    if (isSetShiftRowClinicUnavailable(row)) {
+                        startEl.value = '';
+                        endEl.value = '';
+                        return;
+                    }
                     if (slot && slot.start_time_raw && slot.end_time_raw) {
                         startEl.value = String(slot.start_time_raw || '').slice(0, 5);
                         endEl.value = String(slot.end_time_raw || '').slice(0, 5);
@@ -3340,6 +3450,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     setShiftNotes.value = '';
                 }
             }
+            syncSetShiftRowClinicLockForAllRows();
             refreshAllSetShiftRowValidations();
         }
 
@@ -3659,6 +3770,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     if (!startEl || !endEl) {
                         continue;
                     }
+                    if (startEl.disabled || endEl.disabled) {
+                        continue;
+                    }
                     const selectedStart = String(startEl.value || '').trim();
                     const selectedEnd = String(endEl.value || '').trim();
                     if (selectedStart === '' && selectedEnd === '') {
@@ -3674,8 +3788,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     }
                     const snap = clinicHoursSnapshotByDayName[row.dayName];
                     if (!snap || snap.is_closed || !snap.open_time_raw || !snap.close_time_raw) {
-                        showPageAlert(row.dayName + ': Clinic hours are not available for that weekday. Check clinic hours configuration.');
-                        return;
+                        continue;
                     }
                     const clinicOpenMinutes = toMinutes(snap.open_time_raw);
                     const clinicCloseMinutes = toMinutes(snap.close_time_raw);
