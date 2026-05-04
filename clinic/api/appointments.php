@@ -736,6 +736,16 @@ function createAppointment() {
                 $errors[] = 'Appointment date cannot be in the past.';
             }
         }
+
+        // Staff "Set Appointment" page: earliest bookable day is tomorrow (Manila), not today.
+        if ($isStaffSetAppointmentBooking) {
+            $manilaTz = new DateTimeZone('Asia/Manila');
+            $tomorrowManila = (new DateTimeImmutable('now', $manilaTz))->modify('+1 day')->setTime(0, 0);
+            $selectedDay = DateTimeImmutable::createFromFormat('Y-m-d', $data['appointment_date'], $manilaTz);
+            if ($selectedDay instanceof DateTimeImmutable && $selectedDay->setTime(0, 0) < $tomorrowManila) {
+                $errors[] = 'Appointment date must be the next calendar day or later (same-day booking is not allowed).';
+            }
+        }
     }
     
     if (empty($data['appointment_time'])) {
