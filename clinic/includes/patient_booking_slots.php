@@ -322,7 +322,8 @@ if (!function_exists('patient_booking_day_selectable_clinic_only')) {
 
 if (!function_exists('patient_booking_slots_clinic_hours_only')) {
     /**
-     * One-hour ticks within tbl_clinic_hours only (all selectable — dentist chosen afterward).
+     * One-hour ticks within clinic open/close. An hour is available only if at least one dentist
+     * can take it (shift + breaks + existing appointments) — same rules as dentists_for_slot.
      *
      * @return list<array{hour:int, available:bool}>
      */
@@ -339,7 +340,8 @@ if (!function_exists('patient_booking_slots_clinic_hours_only')) {
             if ($slotStart < $ch['open'] || $slotEnd > $ch['close']) {
                 continue;
             }
-            $out[] = ['hour' => $h, 'available' => true];
+            $bookable = patient_booking_list_dentists_for_hour($pdo, $tenantId, $dateYmd, $h) !== [];
+            $out[] = ['hour' => $h, 'available' => $bookable];
         }
 
         return $out;
