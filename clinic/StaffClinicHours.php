@@ -462,7 +462,6 @@ try {
                         <p class="mt-1.5 text-[11px] font-semibold text-slate-400">Must be after open time the same day.</p>
                     </div>
                 </div>
-                <p id="modalTimeRangeError" class="hidden text-sm font-semibold text-red-600" role="alert"></p>
                 <div class="rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5">
                     <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
                         <input id="modalClosedCheckbox" name="is_closed" type="checkbox" value="1" class="rounded-md border-slate-300 text-primary focus:ring-primary/20"/>
@@ -479,6 +478,23 @@ try {
                 <button type="submit" class="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-[0.16em] shadow-sm shadow-primary/30">Save</button>
             </div>
         </form>
+    </div>
+</div>
+
+<div id="clinicHoursValidationModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-slate-900/45 p-4">
+    <div class="success-popup-enter w-full max-w-md rounded-3xl border border-red-200 bg-white shadow-2xl overflow-hidden">
+        <div class="px-6 py-5 flex items-start gap-4">
+            <span class="inline-flex w-11 h-11 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-red-700">
+                <span class="material-symbols-outlined text-[22px]">error</span>
+            </span>
+            <div class="min-w-0">
+                <h3 class="font-headline text-xl font-extrabold text-slate-900">Invalid times</h3>
+                <p id="clinicHoursValidationMessage" class="mt-1 text-sm font-semibold text-slate-600">Closing time must be later than opening time on the same day.</p>
+            </div>
+        </div>
+        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50/70 flex justify-end">
+            <button type="button" id="closeClinicHoursValidationModal" class="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-[0.16em] shadow-sm shadow-primary/30">OK</button>
+        </div>
     </div>
 </div>
 
@@ -631,20 +647,20 @@ try {
         return (h * 60) + m;
     }
 
+    function closeValidationAlert() {
+        closeModal('clinicHoursValidationModal');
+    }
+
     function clearModalTimeRangeError() {
-        const err = document.getElementById('modalTimeRangeError');
-        if (err) {
-            err.textContent = '';
-            err.classList.add('hidden');
-        }
+        closeValidationAlert();
     }
 
     function showModalTimeRangeError(message) {
-        const err = document.getElementById('modalTimeRangeError');
-        if (err) {
-            err.textContent = message;
-            err.classList.remove('hidden');
+        const msgEl = document.getElementById('clinicHoursValidationMessage');
+        if (msgEl) {
+            msgEl.textContent = message || 'Closing time must be later than opening time on the same day.';
         }
+        openModal('clinicHoursValidationModal');
     }
 
     const editClinicHoursForm = document.getElementById('editClinicHoursForm');
@@ -691,9 +707,25 @@ try {
 
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
+            const validationModal = document.getElementById('clinicHoursValidationModal');
+            if (validationModal && !validationModal.classList.contains('hidden')) {
+                closeValidationAlert();
+                return;
+            }
             closeModal('editClinicHoursModal');
         }
     });
+
+    const clinicHoursValidationModal = document.getElementById('clinicHoursValidationModal');
+    const closeClinicHoursValidationModal = document.getElementById('closeClinicHoursValidationModal');
+    if (clinicHoursValidationModal && closeClinicHoursValidationModal) {
+        closeClinicHoursValidationModal.addEventListener('click', closeValidationAlert);
+        clinicHoursValidationModal.addEventListener('click', (event) => {
+            if (event.target === clinicHoursValidationModal) {
+                closeValidationAlert();
+            }
+        });
+    }
 
     const clinicHoursSuccessModal = document.getElementById('clinicHoursSuccessModal');
     const closeClinicHoursSuccessModal = document.getElementById('closeClinicHoursSuccessModal');
