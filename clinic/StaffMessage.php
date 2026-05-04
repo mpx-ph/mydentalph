@@ -99,7 +99,6 @@ $patientDisplayFromRow = static function (array $row): array {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $content = trim((string) ($_POST['message'] ?? ''));
-    $subject = trim((string) ($_POST['subject'] ?? ''));
     $receiverId = trim((string) ($_POST['receiver_id'] ?? ''));
 
     if ($content === '') {
@@ -145,7 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $tenantId,
                         $staffUserId,
                         $verified,
-                        $subject !== '' ? $subject : null,
+                        null,
                         $content,
                     ]);
                     $flashSuccess = 'Message sent.';
@@ -314,7 +313,7 @@ $messages = [];
 if ($selectedPatientId !== '') {
     try {
         $msgStmt = $pdo->prepare("
-            SELECT id, sender_id, receiver_id, subject, message, is_read, status, created_at
+            SELECT id, sender_id, receiver_id, message, is_read, status, created_at
             FROM tbl_messages
             WHERE tenant_id = ?
               AND (
@@ -482,9 +481,6 @@ if ($selectedPatientId !== '') {
                         ?>
                             <div class="flex <?php echo $mine ? 'justify-end' : 'justify-start'; ?>">
                                 <div class="max-w-[90%] sm:max-w-[82%] rounded-2xl px-4 py-3 shadow-sm <?php echo $mine ? 'bg-primary text-white' : 'bg-white border border-slate-200 text-on-background'; ?>">
-                                    <?php if (trim((string) ($m['subject'] ?? '')) !== ''): ?>
-                                        <p class="text-[11px] font-bold uppercase tracking-wide opacity-90 mb-1"><?php echo htmlspecialchars((string) $m['subject'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                    <?php endif; ?>
                                     <p class="text-sm leading-relaxed whitespace-pre-wrap break-words"><?php echo htmlspecialchars((string) ($m['message'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
                                     <p class="text-[11px] mt-2 <?php echo $mine ? 'text-white/80' : 'text-on-surface-variant'; ?>">
                                         <?php echo htmlspecialchars(date('M j, Y g:i A', strtotime((string) ($m['created_at'] ?? 'now'))), ENT_QUOTES, 'UTF-8'); ?>
@@ -525,27 +521,17 @@ if ($selectedPatientId !== '') {
                             });
                         })();
                     </script>
-                    <div class="grid grid-cols-1 md:grid-cols-[1fr,auto] gap-3">
-                        <input
-                            type="text"
-                            name="subject"
-                            maxlength="255"
-                            placeholder="Subject (optional)"
-                            class="w-full rounded-xl border-slate-200 text-sm focus:border-primary focus:ring-primary/25"
-                        />
-                        <button type="submit" class="hidden md:inline-flex items-center justify-center rounded-xl bg-primary px-6 text-white text-sm font-bold hover:bg-primary/90 transition shadow-md shadow-primary/20">
-                            Send
-                        </button>
-                    </div>
-                    <div class="mt-3 flex gap-2">
+                    <div class="flex gap-2">
                         <textarea
                             name="message"
                             rows="3"
                             required
                             placeholder="Write a message to the patient..."
-                            class="w-full rounded-xl border-slate-200 text-sm focus:border-primary focus:ring-primary/25 resize-none"
+                            class="flex-1 min-w-0 rounded-xl border-slate-200 text-sm focus:border-primary focus:ring-primary/25 resize-none"
                         ></textarea>
-                        <button type="submit" class="md:hidden inline-flex items-center justify-center self-end rounded-xl bg-primary px-4 h-11 text-white text-sm font-bold shrink-0">Send</button>
+                        <button type="submit" class="inline-flex items-center justify-center self-end rounded-xl bg-primary px-5 h-11 md:h-auto md:self-stretch md:px-6 text-white text-sm font-bold hover:bg-primary/90 transition shadow-md shadow-primary/20 shrink-0">
+                            Send
+                        </button>
                     </div>
                 </form>
                 <?php endif; ?>
