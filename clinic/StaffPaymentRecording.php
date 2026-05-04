@@ -3889,9 +3889,20 @@ if ($paymentError === 'Please select a payment method.') {
 <span id="installment_progress_paid_line"></span>
 <span id="installment_progress_remain_line"></span>
 </div>
-<p class="text-[11px] font-semibold text-slate-500" id="installment_progress_hint"></p>
-</div>
-<p class="hidden rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-xs font-semibold text-amber-900 leading-relaxed" id="installment-flag-only-note">
+            <p class="text-[11px] font-semibold text-slate-500" id="installment_progress_hint"></p>
+            </div>
+            <div class="flex items-center justify-between gap-4 pt-4 border-t border-slate-200/80">
+                <p class="text-sm font-bold text-slate-900 min-w-0">Use PWD/Senior Citizen Discount</p>
+                <div class="flex items-center gap-2 shrink-0">
+                    <span class="text-[11px] font-black uppercase tracking-widest tabular-nums w-9 text-right text-slate-400 transition-colors" id="pwd_senior_discount_state">Off</span>
+                    <label class="relative inline-flex h-7 w-12 cursor-pointer items-center shrink-0">
+                        <input type="checkbox" name="use_pwd_senior_discount" value="1" class="peer sr-only" id="pwd_senior_discount_toggle" autocomplete="off"/>
+                        <span class="absolute inset-0 rounded-full bg-slate-300 transition-colors peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary/35"></span>
+                        <span class="pointer-events-none absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-md ring-1 ring-slate-900/10 transition-transform duration-200 ease-out peer-checked:translate-x-5"></span>
+                    </label>
+                </div>
+            </div>
+            <p class="hidden rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-xs font-semibold text-amber-900 leading-relaxed" id="installment-flag-only-note">
 This booking is installment-priced, but no installment schedule rows exist in the database yet. Record payments against the treatment balance below (same as a standard balance payment). When schedule lines are added, detailed down/monthly options will appear here.
 </p>
 <div class="hidden border-t border-slate-200/80 pt-4 space-y-3" id="installment-advanced-options">
@@ -4226,6 +4237,8 @@ Close
         const installmentProgressPaidLine = document.getElementById('installment_progress_paid_line');
         const installmentProgressRemainLine = document.getElementById('installment_progress_remain_line');
         const installmentProgressHint = document.getElementById('installment_progress_hint');
+        const pwdSeniorDiscountToggle = document.getElementById('pwd_senior_discount_toggle');
+        const pwdSeniorDiscountState = document.getElementById('pwd_senior_discount_state');
         const installmentSlotRow = document.getElementById('installment_slot_row');
         const installmentSlotLabel = document.getElementById('installment_slot_label');
         const installmentSlotStepper = document.getElementById('installment_slot_stepper');
@@ -4265,6 +4278,16 @@ Close
             const m = String(d.getMonth() + 1).padStart(2, '0');
             const day = String(d.getDate()).padStart(2, '0');
             return String(d.getFullYear()) + '-' + m + '-' + day;
+        }
+
+        function syncPwdSeniorDiscountStateLabel() {
+            if (!pwdSeniorDiscountState || !pwdSeniorDiscountToggle) {
+                return;
+            }
+            const on = pwdSeniorDiscountToggle.checked;
+            pwdSeniorDiscountState.textContent = on ? 'On' : 'Off';
+            pwdSeniorDiscountState.classList.toggle('text-primary', on);
+            pwdSeniorDiscountState.classList.toggle('text-slate-400', !on);
         }
 
         /**
@@ -4341,6 +4364,10 @@ Close
             if (installmentSlotStepper) {
                 installmentSlotStepper.value = '';
             }
+            if (pwdSeniorDiscountToggle) {
+                pwdSeniorDiscountToggle.checked = false;
+            }
+            syncPwdSeniorDiscountStateLabel();
             if (selectedTransaction && selectedTransaction.is_installment_plan) {
                 transactionTypeFilter = 'installment';
                 syncMainAndSelectorFilter('installment');
@@ -4454,6 +4481,10 @@ Close
             if (installmentSlotStepper) {
                 installmentSlotStepper.value = '';
             }
+            if (pwdSeniorDiscountToggle) {
+                pwdSeniorDiscountToggle.checked = false;
+            }
+            syncPwdSeniorDiscountStateLabel();
             transactionTypeFilter = 'regular';
             syncMainAndSelectorFilter('regular');
             const methodHidden = document.getElementById('payment_method_input');
@@ -5770,6 +5801,10 @@ Close
             receiptEmailConfirmModal.classList.remove('flex');
         }
 
+        if (pwdSeniorDiscountToggle) {
+            pwdSeniorDiscountToggle.addEventListener('change', syncPwdSeniorDiscountStateLabel);
+            syncPwdSeniorDiscountStateLabel();
+        }
         if (openBtn) {
             openBtn.addEventListener('click', openModal);
         }
