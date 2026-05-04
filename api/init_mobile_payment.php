@@ -383,6 +383,8 @@ try {
                 'booking_id' => $booking_id,
                 'amount' => $paid_now_total,
                 'payment_type' => $payment_type,
+                'payment_id' => $payment_id,
+                'notes' => $payNotes,
             ]);
         } catch (Throwable $e) {
             // Non-fatal

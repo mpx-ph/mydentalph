@@ -68,11 +68,12 @@ if ($pid !== '') {
             staff_installments_mark_paid_from_mobile_payment_row($pdo, $fresh);
 
             $bookingIdForDeepLink = trim((string) ($fresh['booking_id'] ?? ''));
-            if ($wasIncomplete) {
+            $payStatus = strtolower(trim((string) ($fresh['status'] ?? '')));
+            if ($payStatus === 'completed') {
                 try {
                     mobile_try_send_booking_confirmation_email($pdo, $fresh);
                 } catch (Throwable $mailEx) {
-                    // Non-fatal: payment already recorded.
+                    error_log('mobile_booking_confirmation: ' . $mailEx->getMessage());
                 }
             }
         }

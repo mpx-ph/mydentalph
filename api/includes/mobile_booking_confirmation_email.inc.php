@@ -25,10 +25,13 @@ function mobile_booking_confirmation_load_mail(): bool
     return function_exists('send_smtp_gmail');
 }
 
+/** Appended to tbl_payments.notes after a confirmation email sends successfully (avoid duplicate sends). */
+const MOBILE_BOOKING_CONF_EMAIL_NOTE_TAG = '[booking_conf_mail:sent]';
+
 /**
- * Registered account email for a patient (owner / linked user), aligned with receipt flows.
+ * Email on file for the chart row — tbl_patients.email (not tbl_users).
  */
-function mobile_booking_confirmation_patient_email(PDO $pdo, string $patientId): string
+function mobile_booking_confirmation_patient_email(PDO $pdo, string $tenantId, string $patientId): string
 {
     $patientId = trim($patientId);
     if ($patientId === '') {
@@ -39,20 +42,45 @@ function mobile_booking_confirmation_patient_email(PDO $pdo, string $patientId):
     if ($patPhys === null || $patPhys === '') {
         $patPhys = 'tbl_patients';
     }
-    $pq = clinic_quote_identifier((string) $patPhys);
-    $stmt = $pdo->prepare(
-        "SELECT COALESCE(NULLIF(TRIM(u_linked.email), ''), NULLIF(TRIM(u_owner.email), ''), '') AS patient_email,
-                TRIM(CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(p.last_name, ''))) AS patient_display
-         FROM {$pq} p
-         LEFT JOIN tbl_users u_owner ON u_owner.user_id = p.owner_user_id
-         LEFT JOIN tbl_users u_linked ON u_linked.user_id = p.linked_user_id
-         WHERE TRIM(p.patient_id) = ?
-         LIMIT 1"
-    );
-    $stmt->execute([$patientId]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $asc = clinic_table_columns($pdo, (string) $patPhys);
+    if (!in_array('email', $asc, true)) {
+        return '';
+    }
 
-    return trim((string) ($row['patient_email'] ?? ''));
+    $pq = clinic_quote_identifier((string) $patPhys);
+    $tenantId = trim($tenantId);
+    try {
+        if ($tenantId !== '') {
+            $stmt = $pdo->prepare(
+                "SELECT NULLIF(TRIM(p.email), '') AS patient_email
+                 FROM {$pq} p
+                 WHERE TRIM(p.patient_id) = ?
+                   AND TRIM(COALESCE(p.tenant_id, '')) = TRIM(?)
+                 LIMIT 1"
+            );
+            $stmt->execute([$patientId, $tenantId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $em = trim((string) ($row['patient_email'] ?? ''));
+            if ($em !== '') {
+                return $em;
+            }
+        }
+
+        $stmt = $pdo->prepare(
+            "SELECT NULLIF(TRIM(p.email), '') AS patient_email
+             FROM {$pq} p
+             WHERE TRIM(p.patient_id) = ?
+             LIMIT 1"
+        );
+        $stmt->execute([$patientId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return trim((string) ($row['patient_email'] ?? ''));
+    } catch (Throwable $e) {
+        error_log('mobile_booking_confirmation_patient_email failed: ' . $e->getMessage());
+
+        return '';
+    }
 }
 
 /** @return array{0: string, 1: string} [display_name, doctor_label] */
@@ -134,10 +162,50 @@ function mobile_booking_confirmation_clinic_name(PDO $pdo, string $tenantId): st
 function mobile_booking_confirmation_send_safe(string $toEmail, string $subject, string $bodyText, string $bodyHtml): bool
 {
     if (!mobile_booking_confirmation_load_mail()) {
+        error_log('mobile_booking_confirmation: mail_config.php missing or send_smtp_gmail undefined (path tried: ' . dirname(__DIR__, 2) . '/mail_config.php)');
+
         return false;
     }
 
-    return send_smtp_gmail($toEmail, $subject, $bodyText, $bodyHtml);
+    $ok = send_smtp_gmail($toEmail, $subject, $bodyText, $bodyHtml);
+    if (!$ok) {
+        $err = isset($GLOBALS['smtp_last_error']) ? (string) $GLOBALS['smtp_last_error'] : '';
+        error_log('mobile_booking_confirmation: SMTP failed — ' . ($err !== '' ? $err : 'unknown'));
+    }
+
+    return $ok;
+}
+
+/**
+ * Idempotent: sets notes tag when send succeeds (prevents duplicate mail on payment_success refresh).
+ */
+function mobile_booking_confirmation_mark_payment_email_sent(PDO $pdo, string $paymentId): void
+{
+    $paymentId = trim($paymentId);
+    if ($paymentId === '') {
+        return;
+    }
+    $tables = clinic_resolve_appointment_db_tables($pdo);
+    $paymentsPhys = $tables['payments'] ?? 'tbl_payments';
+    if ($paymentsPhys === null || $paymentsPhys === '') {
+        $paymentsPhys = 'tbl_payments';
+    }
+    $quoted = clinic_quote_identifier((string) $paymentsPhys);
+    $tag = MOBILE_BOOKING_CONF_EMAIL_NOTE_TAG;
+    $asc = clinic_table_columns($pdo, (string) $paymentsPhys);
+    if (!in_array('notes', $asc, true)) {
+        return;
+    }
+
+    try {
+        $sql = 'UPDATE ' . $quoted . ' SET notes = TRIM(CONCAT(COALESCE(notes, \'\'), ?
+            )) WHERE payment_id = ?
+             AND (COALESCE(notes, \'\') NOT LIKE ?)';
+        $st = $pdo->prepare($sql);
+        $st->execute([' ' . $tag . ' ', $paymentId, '%' . $tag . '%']);
+    } catch (Throwable $e) {
+        error_log('mobile_booking_confirmation_mark_payment_email_sent: ' . $e->getMessage());
+    }
 }
 
 /**
@@ -150,11 +218,18 @@ function mobile_try_send_booking_confirmation_email(PDO $pdo, array $paymentLike
     $bookingId = trim((string) ($paymentLikeRow['booking_id'] ?? ''));
     $patientId = trim((string) ($paymentLikeRow['patient_id'] ?? ''));
     $tenantId = trim((string) ($paymentLikeRow['tenant_id'] ?? ''));
+    $paymentId = trim((string) ($paymentLikeRow['payment_id'] ?? ''));
+    $notes = (string) ($paymentLikeRow['notes'] ?? '');
+    if ($paymentId !== '' && strpos($notes, MOBILE_BOOKING_CONF_EMAIL_NOTE_TAG) !== false) {
+        return true;
+    }
     if ($bookingId === '' || $patientId === '') {
         return false;
     }
-    $to = mobile_booking_confirmation_patient_email($pdo, $patientId);
+    $to = mobile_booking_confirmation_patient_email($pdo, $tenantId, $patientId);
     if ($to === '' || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        error_log('mobile_booking_confirmation: no tbl_patients.email for booking ' . $bookingId . ' patient ' . $patientId);
+
         return false;
     }
     $clinicName = htmlspecialchars(mobile_booking_confirmation_clinic_name($pdo, $tenantId), ENT_QUOTES, 'UTF-8');
@@ -202,5 +277,10 @@ function mobile_try_send_booking_confirmation_email(PDO $pdo, array $paymentLike
     $bodyHtml = '<div style="font-family:Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.5;color:#0f172a;">'
         . implode('', $htmlBits) . '</div>';
 
-    return mobile_booking_confirmation_send_safe($to, $subject, $bodyText, $bodyHtml);
+    $sent = mobile_booking_confirmation_send_safe($to, $subject, $bodyText, $bodyHtml);
+    if ($sent && $paymentId !== '') {
+        mobile_booking_confirmation_mark_payment_email_sent($pdo, $paymentId);
+    }
+
+    return $sent;
 }
