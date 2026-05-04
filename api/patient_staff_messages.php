@@ -93,6 +93,35 @@ function psm_initials(string $name, string $email): string {
     return '?';
 }
 
+/** One-line preview for inbox: "You: …" or "FirstName: …" */
+function psm_last_message_preview(string $patientUserId, string $partnerDisplayName, string $lastSenderId, string $message): string {
+    $message = trim(preg_replace('/\s+/u', ' ', $message) ?? '');
+    if ($message === '') {
+        return '';
+    }
+    if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+        if (mb_strlen($message, 'UTF-8') > 120) {
+            $message = mb_substr($message, 0, 117, 'UTF-8') . '…';
+        }
+    } elseif (strlen($message) > 120) {
+        $message = substr($message, 0, 117) . '...';
+    }
+    if ($lastSenderId !== '' && $lastSenderId === $patientUserId) {
+        return 'You: ' . $message;
+    }
+    $name = trim($partnerDisplayName);
+    $parts = $name !== '' ? (preg_split('/\s+/u', $name) ?: []) : [];
+    $label = $parts[0] ?? 'Clinic';
+    if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+        if (mb_strlen($label, 'UTF-8') > 18) {
+            $label = mb_substr($label, 0, 15, 'UTF-8') . '…';
+        }
+    } elseif (strlen($label) > 18) {
+        $label = substr($label, 0, 15) . '...';
+    }
+    return $label . ': ' . $message;
+}
+
 if ($method === 'POST') {
     $raw = file_get_contents('php://input') ?: '';
     $input = json_decode($raw, true);
@@ -161,15 +190,25 @@ if ($with !== '') {
     }
     try {
         $msgStmt = $pdo->prepare("
-            SELECT id, sender_id, receiver_id, message, is_read, status, created_at
-            FROM tbl_messages
-            WHERE tenant_id = ?
+            SELECT
+                m.id,
+                m.sender_id,
+                m.receiver_id,
+                m.message,
+                m.is_read,
+                m.status,
+                m.created_at,
+                u.photo AS sender_photo
+            FROM tbl_messages m
+            LEFT JOIN tbl_users u
+                ON u.user_id = m.sender_id AND u.tenant_id = m.tenant_id
+            WHERE m.tenant_id = ?
               AND (
-                (sender_id = ? AND receiver_id = ?)
+                (m.sender_id = ? AND m.receiver_id = ?)
                 OR
-                (sender_id = ? AND receiver_id = ?)
+                (m.sender_id = ? AND m.receiver_id = ?)
               )
-            ORDER BY created_at ASC, id ASC
+            ORDER BY m.created_at ASC, m.id ASC
         ");
         $msgStmt->execute([$tenantId, $userId, $with, $with, $userId]);
         $rows = $msgStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -194,6 +233,7 @@ if ($with !== '') {
                 'message' => (string) ($m['message'] ?? ''),
                 'created_at' => (string) ($m['created_at'] ?? ''),
                 'mine' => $sid === $userId,
+                'sender_photo' => trim((string) ($m['sender_photo'] ?? '')),
             ];
         }
         psm_json(true, 'Messages loaded.', ['messages' => $out]);
@@ -205,7 +245,7 @@ if ($with !== '') {
 // Contacts list
 try {
     $listStmt = $pdo->prepare("
-        SELECT user_id, email, full_name, role
+        SELECT user_id, email, full_name, role, photo
         FROM tbl_users
         WHERE tenant_id = ?
           AND role IN ('tenant_owner', 'manager', 'staff', 'dentist')
@@ -229,16 +269,29 @@ try {
 try {
     $convStmt = $pdo->prepare("
         SELECT
-            CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END AS partner_id,
-            MAX(m.created_at) AS last_message_at
-        FROM tbl_messages m
+            lm.partner_id,
+            lm.message AS last_message,
+            lm.sender_id AS last_sender_id,
+            lm.created_at AS last_message_at
+        FROM (
+            SELECT
+                CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END AS partner_id,
+                m.message,
+                m.sender_id,
+                m.created_at,
+                ROW_NUMBER() OVER (
+                    PARTITION BY CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END
+                    ORDER BY m.created_at DESC, m.id DESC
+                ) AS rn
+            FROM tbl_messages m
+            WHERE m.tenant_id = ?
+              AND (m.sender_id = ? OR m.receiver_id = ?)
+        ) lm
         INNER JOIN tbl_users su
-            ON su.user_id = CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END
-        WHERE m.tenant_id = ?
-          AND (m.sender_id = ? OR m.receiver_id = ?)
-          AND su.tenant_id = ?
-          AND su.role IN ('tenant_owner', 'manager', 'staff', 'dentist')
-        GROUP BY partner_id
+            ON su.user_id = lm.partner_id
+           AND su.tenant_id = ?
+           AND su.role IN ('tenant_owner', 'manager', 'staff', 'dentist')
+        WHERE lm.rn = 1
     ");
     $convStmt->execute([$userId, $userId, $tenantId, $userId, $userId, $tenantId]);
     $conversations = $convStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -262,7 +315,7 @@ try {
     foreach (array_keys($convMap) as $pid) {
         if ($pid !== '' && !isset($staffById[$pid])) {
             $extraStmt = $pdo->prepare("
-                SELECT user_id, email, full_name, role
+                SELECT user_id, email, full_name, role, photo
                 FROM tbl_users
                 WHERE tenant_id = ? AND user_id = ?
                   AND role IN ('tenant_owner', 'manager', 'staff', 'dentist')
@@ -279,6 +332,8 @@ try {
     $contacts = [];
     foreach ($staffById as $sid => $person) {
         $lastAt = isset($convMap[$sid]['last_message_at']) ? (string) $convMap[$sid]['last_message_at'] : '';
+        $lastMsg = isset($convMap[$sid]['last_message']) ? (string) $convMap[$sid]['last_message'] : '';
+        $lastSender = isset($convMap[$sid]['last_sender_id']) ? (string) $convMap[$sid]['last_sender_id'] : '';
 
         $unreadStmt = $pdo->prepare("
             SELECT COUNT(*) FROM tbl_messages
@@ -294,6 +349,8 @@ try {
         $em = trim((string) ($person['email'] ?? ''));
         $name = $fn !== '' ? $fn : ($em !== '' ? $em : 'Clinic');
         $role = psm_role_label((string) ($person['role'] ?? ''));
+        $photo = trim((string) ($person['photo'] ?? ''));
+        $preview = psm_last_message_preview($userId, $name, $lastSender, $lastMsg);
 
         $contacts[] = [
             'user_id' => $sid,
@@ -303,6 +360,8 @@ try {
             'initials' => psm_initials($fn, $em),
             'unread_count' => $unread,
             'last_message_at' => $lastAt,
+            'photo' => $photo,
+            'last_message_preview' => $preview,
         ];
     }
 
