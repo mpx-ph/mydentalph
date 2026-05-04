@@ -1049,7 +1049,8 @@ $treatmentScheduleBootstrap = [
         let liveValidationState = {
             hasTimeSlotConflict: false,
             hasPatientDuplicate: false,
-            hasShiftBoundaryViolation: false
+            hasShiftBoundaryViolation: false,
+            hasPastTodayTime: false
         };
         let selectedServiceCategoryFilter = 'all';
         const SERVICE_CATEGORY_FILTERS = [
@@ -1076,6 +1077,59 @@ $treatmentScheduleBootstrap = [
 
         function pad(number) {
             return String(number).padStart(2, '0');
+        }
+
+        function getManilaTodayYmd() {
+            return new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Manila',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            }).format(new Date());
+        }
+
+        function manilaSlotUtcMs(ymd, timeApi) {
+            const d = String(ymd || '').trim();
+            const raw = String(timeApi || '').trim();
+            if (!d || !raw) return NaN;
+            const hm = raw.slice(0, 5);
+            if (!/^\d{2}:\d{2}$/.test(hm)) return NaN;
+            return new Date(d + 'T' + hm + ':00+08:00').getTime();
+        }
+
+        function computeHasPastTodayTime(ymd, timeApi) {
+            const dateStr = String(ymd || '').trim();
+            const t = String(timeApi || '').trim();
+            if (!dateStr || !t || dateStr !== getManilaTodayYmd()) return false;
+            const ms = manilaSlotUtcMs(dateStr, t);
+            if (!Number.isFinite(ms)) return false;
+            return ms < Date.now();
+        }
+
+        function updateWalkInTimeMinForManilaToday() {
+            if (!timeInput || !dateInput) return;
+            const d = String(dateInput.value || '').trim();
+            if (d === getManilaTodayYmd()) {
+                const parts = new Intl.DateTimeFormat('en-GB', {
+                    timeZone: 'Asia/Manila',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                }).formatToParts(new Date());
+                const get = function (type) {
+                    const found = parts.find(function (p) {
+                        return p.type === type;
+                    });
+                    return found ? found.value : '';
+                };
+                const h = get('hour');
+                const m = get('minute');
+                if (h !== '' && m !== '') {
+                    timeInput.min = pad(Number(h)) + ':' + pad(Number(m));
+                }
+            } else {
+                timeInput.removeAttribute('min');
+            }
         }
 
         function formatTimeForApi(timeValue) {
@@ -2041,7 +2095,8 @@ $treatmentScheduleBootstrap = [
             liveValidationState = {
                 hasTimeSlotConflict: liveValidationState.hasTimeSlotConflict,
                 hasPatientDuplicate: liveValidationState.hasPatientDuplicate,
-                hasShiftBoundaryViolation: !validation.ok
+                hasShiftBoundaryViolation: !validation.ok,
+                hasPastTodayTime: Boolean(liveValidationState.hasPastTodayTime)
             };
             syncCreateAppointmentButtonState();
             if (showAlerts && !validation.ok) {
@@ -2268,7 +2323,9 @@ $treatmentScheduleBootstrap = [
 
         function syncCreateAppointmentButtonState() {
             if (!createWalkInAppointmentBtn) return;
-            const hasLiveConflict = liveValidationState.hasTimeSlotConflict || liveValidationState.hasPatientDuplicate;
+            const hasLiveConflict = liveValidationState.hasTimeSlotConflict
+                || liveValidationState.hasPatientDuplicate
+                || Boolean(liveValidationState.hasPastTodayTime);
             const hasShiftBoundaryViolation = Boolean(liveValidationState.hasShiftBoundaryViolation);
             const needsPlanVisit = requiresTreatmentScheduleIncludedPlanOrder()
                 ? selectedServices.length > 0 && !selectedServicesIncludePlanVisit()
@@ -2429,9 +2486,16 @@ $treatmentScheduleBootstrap = [
             if (!appointmentDate) {
                 const previousNoDateState = {
                     hasTimeSlotConflict: liveValidationState.hasTimeSlotConflict,
-                    hasPatientDuplicate: liveValidationState.hasPatientDuplicate
+                    hasPatientDuplicate: liveValidationState.hasPatientDuplicate,
+                    hasPastTodayTime: false
                 };
-                liveValidationState = { hasTimeSlotConflict: false, hasPatientDuplicate: false };
+                const preservedShiftNoDate = Boolean(liveValidationState.hasShiftBoundaryViolation);
+                liveValidationState = {
+                    hasTimeSlotConflict: false,
+                    hasPatientDuplicate: false,
+                    hasShiftBoundaryViolation: preservedShiftNoDate,
+                    hasPastTodayTime: false
+                };
                 syncCreateAppointmentButtonState();
                 return previousNoDateState;
             }
@@ -2452,21 +2516,30 @@ $treatmentScheduleBootstrap = [
                 if (token !== liveValidationRequestToken) {
                     return {
                         hasTimeSlotConflict: liveValidationState.hasTimeSlotConflict,
-                        hasPatientDuplicate: liveValidationState.hasPatientDuplicate
+                        hasPatientDuplicate: liveValidationState.hasPatientDuplicate,
+                        hasPastTodayTime: Boolean(liveValidationState.hasPastTodayTime)
                     };
                 }
-                liveValidationState = { hasTimeSlotConflict: false, hasPatientDuplicate: false };
+                const preservedShiftErr = Boolean(liveValidationState.hasShiftBoundaryViolation);
+                liveValidationState = {
+                    hasTimeSlotConflict: false,
+                    hasPatientDuplicate: false,
+                    hasShiftBoundaryViolation: preservedShiftErr,
+                    hasPastTodayTime: false
+                };
                 syncCreateAppointmentButtonState();
                 return {
                     hasTimeSlotConflict: false,
-                    hasPatientDuplicate: false
+                    hasPatientDuplicate: false,
+                    hasPastTodayTime: false
                 };
             }
 
             if (token !== liveValidationRequestToken) {
                 return {
                     hasTimeSlotConflict: liveValidationState.hasTimeSlotConflict,
-                    hasPatientDuplicate: liveValidationState.hasPatientDuplicate
+                    hasPatientDuplicate: liveValidationState.hasPatientDuplicate,
+                    hasPastTodayTime: Boolean(liveValidationState.hasPastTodayTime)
                 };
             }
 
@@ -2504,13 +2577,25 @@ $treatmentScheduleBootstrap = [
             const previousState = {
                 hasPatientDuplicate: liveValidationState.hasPatientDuplicate
             };
+            const hadPastTodayTime = Boolean(liveValidationState.hasPastTodayTime);
+            const hasPastTodayTime = computeHasPastTodayTime(appointmentDate, appointmentTime);
+            const preservedShiftBoundary = Boolean(liveValidationState.hasShiftBoundaryViolation);
             liveValidationState = {
                 hasTimeSlotConflict: hasTimeSlotConflict,
-                hasPatientDuplicate: hasPatientDuplicate
+                hasPatientDuplicate: hasPatientDuplicate,
+                hasShiftBoundaryViolation: preservedShiftBoundary,
+                hasPastTodayTime: hasPastTodayTime
             };
             syncCreateAppointmentButtonState();
 
-            if (showAlerts && hasTimeSlotConflict) {
+            if (showAlerts && hasPastTodayTime && !hadPastTodayTime) {
+                await staffUiAlert({
+                    title: 'Invalid time',
+                    message: 'The selected time has already passed. Please choose a future time slot.',
+                    variant: 'warning'
+                });
+            }
+            if (showAlerts && !hasPastTodayTime && hasTimeSlotConflict) {
                 await staffUiAlert({
                     title: 'Schedule conflict',
                     message: 'There is already an existing appointment scheduled for this dentist at the selected time. Please choose a different time slot.',
@@ -2519,7 +2604,8 @@ $treatmentScheduleBootstrap = [
                 if (token !== liveValidationRequestToken) {
                     return {
                         hasTimeSlotConflict: liveValidationState.hasTimeSlotConflict,
-                        hasPatientDuplicate: liveValidationState.hasPatientDuplicate
+                        hasPatientDuplicate: liveValidationState.hasPatientDuplicate,
+                        hasPastTodayTime: Boolean(liveValidationState.hasPastTodayTime)
                     };
                 }
                 if (timeInput) {
@@ -2527,13 +2613,15 @@ $treatmentScheduleBootstrap = [
                 }
                 liveValidationState = {
                     hasTimeSlotConflict: false,
-                    hasPatientDuplicate: liveValidationState.hasPatientDuplicate
+                    hasPatientDuplicate: liveValidationState.hasPatientDuplicate,
+                    hasShiftBoundaryViolation: Boolean(liveValidationState.hasShiftBoundaryViolation),
+                    hasPastTodayTime: Boolean(liveValidationState.hasPastTodayTime)
                 };
                 syncCreateAppointmentButtonState();
                 await refreshDentistAvailabilityForSelection();
                 return runLiveConflictValidation({ showAlerts: false });
             }
-            if (showAlerts && !previousState.hasPatientDuplicate && hasPatientDuplicate) {
+            if (showAlerts && !hasPastTodayTime && !previousState.hasPatientDuplicate && hasPatientDuplicate) {
                 await staffUiAlert({
                     title: 'Schedule conflict',
                     message: 'This patient already has an appointment that overlaps with the selected time. Please choose a different time slot.',
@@ -2542,7 +2630,8 @@ $treatmentScheduleBootstrap = [
                 if (token !== liveValidationRequestToken) {
                     return {
                         hasTimeSlotConflict: liveValidationState.hasTimeSlotConflict,
-                        hasPatientDuplicate: liveValidationState.hasPatientDuplicate
+                        hasPatientDuplicate: liveValidationState.hasPatientDuplicate,
+                        hasPastTodayTime: Boolean(liveValidationState.hasPastTodayTime)
                     };
                 }
                 if (timeInput) {
@@ -2550,7 +2639,9 @@ $treatmentScheduleBootstrap = [
                 }
                 liveValidationState = {
                     hasTimeSlotConflict: false,
-                    hasPatientDuplicate: false
+                    hasPatientDuplicate: false,
+                    hasShiftBoundaryViolation: Boolean(liveValidationState.hasShiftBoundaryViolation),
+                    hasPastTodayTime: false
                 };
                 syncCreateAppointmentButtonState();
                 await refreshDentistAvailabilityForSelection();
@@ -2560,6 +2651,7 @@ $treatmentScheduleBootstrap = [
             return {
                 hasTimeSlotConflict: hasTimeSlotConflict,
                 hasPatientDuplicate: hasPatientDuplicate,
+                hasPastTodayTime: hasPastTodayTime,
                 patientHasSameDayAppointment: patientHasSameDayAppointment,
                 overlappingPatientAppointment: overlappingPatientAppointment,
                 firstPatientAppointment: sameDayPatientAppointments.length ? sameDayPatientAppointments[0] : null
@@ -2722,17 +2814,26 @@ $treatmentScheduleBootstrap = [
                 void staffUiAlert({ message: 'Please select an appointment time.', variant: 'warning', title: 'Time required' });
                 return;
             }
-            const selectedDateTime = new Date(appointmentDate + 'T' + appointmentTime);
-            if (Number.isNaN(selectedDateTime.getTime())) {
+            const slotUtcMs = manilaSlotUtcMs(appointmentDate, appointmentTime);
+            if (!Number.isFinite(slotUtcMs)) {
                 void staffUiAlert({ message: 'Please provide a valid appointment schedule.', variant: 'warning', title: 'Invalid schedule' });
                 return;
             }
-            if (selectedDateTime.getTime() < Date.now()) {
-                void staffUiAlert({
-                    title: 'Schedule must be current or future',
-                    message: 'Please choose a current or future time slot.',
-                    variant: 'warning'
-                });
+            if (slotUtcMs < Date.now()) {
+                const isTodayManila = appointmentDate === getManilaTodayYmd();
+                if (isTodayManila) {
+                    await staffUiAlert({
+                        title: 'Invalid time',
+                        message: 'The selected time has already passed. Please choose a future time slot.',
+                        variant: 'warning'
+                    });
+                } else {
+                    await staffUiAlert({
+                        title: 'Schedule must be current or future',
+                        message: 'Please choose a current or future time slot.',
+                        variant: 'warning'
+                    });
+                }
                 return;
             }
             const resolvedTreatmentScheduleId = (function () {
@@ -2787,7 +2888,7 @@ $treatmentScheduleBootstrap = [
             }
 
             const liveConflicts = await runLiveConflictValidation({ showAlerts: true });
-            if (liveConflicts.hasTimeSlotConflict || liveConflicts.hasPatientDuplicate) {
+            if (liveConflicts.hasTimeSlotConflict || liveConflicts.hasPatientDuplicate || liveConflicts.hasPastTodayTime) {
                 return;
             }
             if (liveConflicts.patientHasSameDayAppointment) {
@@ -3118,11 +3219,15 @@ $treatmentScheduleBootstrap = [
                     }
                 }
                 await refreshDentistAvailabilityForSelection();
+                updateWalkInTimeMinForManilaToday();
                 await runShiftBoundaryValidation({ showAlerts: true });
                 await runLiveConflictValidation({ showAlerts: true });
             });
         }
         if (timeInput) {
+            timeInput.addEventListener('focus', function () {
+                updateWalkInTimeMinForManilaToday();
+            });
             timeInput.addEventListener('change', async function () {
                 await refreshDentistAvailabilityForSelection();
                 await runShiftBoundaryValidation({ showAlerts: true });
@@ -3163,12 +3268,24 @@ $treatmentScheduleBootstrap = [
             }
 
             if (dateInput && !dateInput.value) {
-                dateInput.value = new Date().toISOString().slice(0, 10);
+                dateInput.value = getManilaTodayYmd();
             }
             if (timeInput && !timeInput.value) {
-                const now = new Date();
-                timeInput.value = pad(now.getHours()) + ':' + pad(now.getMinutes());
+                const parts = new Intl.DateTimeFormat('en-GB', {
+                    timeZone: 'Asia/Manila',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                }).formatToParts(new Date());
+                const getPart = function (type) {
+                    const found = parts.find(function (p) {
+                        return p.type === type;
+                    });
+                    return found ? found.value : '';
+                };
+                timeInput.value = pad(Number(getPart('hour'))) + ':' + pad(Number(getPart('minute')));
             }
+            updateWalkInTimeMinForManilaToday();
             updatePaymentDetailsVisibility();
             updateDefaultPaymentDetails();
             renderSelectedServices();
