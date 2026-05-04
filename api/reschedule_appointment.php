@@ -96,9 +96,15 @@ try {
 
     $resolvedId = trim((string) ($row['id'] ?? ''));
     $resolvedBookingId = trim((string) ($row['booking_id'] ?? ''));
-    $currentStatus = strtoupper(trim((string) ($row['status'] ?? '')));
-    if (!in_array($currentStatus, ['SCHEDULED', 'PENDING'], true)) {
-        throw new Exception('Only scheduled bookings can be rescheduled.');
+    /** Raw tbl_appointments.status — get_appointments maps e.g. confirmed → SCHEDULED for the app. */
+    $dbStatus = strtolower(trim((string) ($row['status'] ?? '')));
+    if ($dbStatus === '') {
+        $dbStatus = 'pending';
+    }
+    /** Block terminal visits only — raw DB values (e.g. `confirmed`) differ from app display labels (`SCHEDULED`). */
+    $nonReschedulable = ['completed', 'cancelled', 'canceled', 'no_show', 'no-show'];
+    if (in_array($dbStatus, $nonReschedulable, true)) {
+        throw new Exception('This booking cannot be rescheduled because it is completed or cancelled.');
     }
 
     $dentist_id = patient_booking_resolve_mobile_dentist_choice(
