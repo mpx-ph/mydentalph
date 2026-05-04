@@ -22,6 +22,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 
 $userId = isset($_GET['user_id']) ? trim((string) $_GET['user_id']) : '';
 $tenantId = isset($_GET['tenant_id']) ? trim((string) $_GET['tenant_id']) : '';
+// Optional: checkout passes this so PWD/Senior eligibility matches the booked patient, not the whole family.
+$forPatientId = isset($_GET['for_patient_id']) ? trim((string) $_GET['for_patient_id']) : '';
 
 if ($userId === '') {
     api_json_exit(false, 'Missing user_id');
@@ -235,16 +237,29 @@ try {
         $vParams = [$tenantId];
 
         $orParts = [];
-        if ($familyPatientRefs !== []) {
-            $placeholders = implode(',', array_fill(0, count($familyPatientRefs), '?'));
-            $orParts[] = "v.patient_ref IN ($placeholders)";
-            foreach ($familyPatientRefs as $ref) {
-                $vParams[] = $ref;
+        if ($forPatientId !== '') {
+            if ($familyPatientRefs === [] || !in_array($forPatientId, $familyPatientRefs, true)) {
+                api_json_exit(false, 'for_patient_id is not in this account family');
             }
-        }
-        if ($displayName !== '') {
-            $orParts[] = '( (v.patient_ref IS NULL OR TRIM(v.patient_ref) = \'\') AND LOWER(TRIM(v.patient_name)) = LOWER(?) )';
-            $vParams[] = $displayName;
+            $orParts[] = 'TRIM(v.patient_ref) = ?';
+            $vParams[] = $forPatientId;
+            // Legacy: verifications with no patient_ref stored, keyed by account holder display name (primary only).
+            if ($forPatientId === $patientId && $displayName !== '') {
+                $orParts[] = '( (v.patient_ref IS NULL OR TRIM(v.patient_ref) = \'\') AND LOWER(TRIM(v.patient_name)) = LOWER(?) )';
+                $vParams[] = $displayName;
+            }
+        } else {
+            if ($familyPatientRefs !== []) {
+                $placeholders = implode(',', array_fill(0, count($familyPatientRefs), '?'));
+                $orParts[] = "v.patient_ref IN ($placeholders)";
+                foreach ($familyPatientRefs as $ref) {
+                    $vParams[] = $ref;
+                }
+            }
+            if ($displayName !== '') {
+                $orParts[] = '( (v.patient_ref IS NULL OR TRIM(v.patient_ref) = \'\') AND LOWER(TRIM(v.patient_name)) = LOWER(?) )';
+                $vParams[] = $displayName;
+            }
         }
         if ($orParts !== []) {
             $vSql .= ' AND (' . implode(' OR ', $orParts) . ') ';
