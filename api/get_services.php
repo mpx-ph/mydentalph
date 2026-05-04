@@ -42,6 +42,8 @@ try {
                price,
                COALESCE(enable_installment, 0) AS enable_installment,
                COALESCE(installment_duration_months, 0) AS installment_duration_months,
+               downpayment_percentage,
+               installment_downpayment,
                LOWER(TRIM(COALESCE(service_type, 'regular'))) AS service_type
         FROM tbl_services
         WHERE tenant_id = ? AND status = 'active'
