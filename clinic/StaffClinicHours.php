@@ -26,47 +26,6 @@ $defaultClinicHoursRows = [
 ];
 
 $today = new DateTimeImmutable('today', $manilaTz);
-$weekStartInput = isset($_GET['week_start']) ? trim((string) $_GET['week_start']) : '';
-$selectedDate = null;
-if ($weekStartInput !== '') {
-    $selectedDate = DateTimeImmutable::createFromFormat('!Y-m-d', $weekStartInput, $manilaTz);
-    if (!($selectedDate instanceof DateTimeImmutable)) {
-        $selectedDate = null;
-    }
-}
-if (!($selectedDate instanceof DateTimeImmutable)) {
-    $selectedDate = $today;
-}
-
-$selectedWeekStart = $selectedDate->modify('last sunday');
-if ((int) $selectedDate->format('w') === 0) {
-    $selectedWeekStart = $selectedDate;
-}
-$currentWeekStart = $today->modify('last sunday');
-if ((int) $today->format('w') === 0) {
-    $currentWeekStart = $today;
-}
-$currentWeekStartTs = (int) $currentWeekStart->format('U');
-$selectedWeekStartTs = (int) $selectedWeekStart->format('U');
-if ($selectedWeekStartTs < $currentWeekStartTs) {
-    $selectedWeekStart = $currentWeekStart;
-}
-
-$selectedWeekEnd = $selectedWeekStart->modify('+6 days');
-$prevWeekStart = $selectedWeekStart->modify('-7 days')->format('Y-m-d');
-$nextWeekStart = $selectedWeekStart->modify('+7 days')->format('Y-m-d');
-$isCurrentWeek = $selectedWeekStart->format('Y-m-d') === $currentWeekStart->format('Y-m-d');
-
-$weekOptions = [];
-for ($offset = 0; $offset <= 16; $offset++) {
-    $optionStart = $currentWeekStart->modify(($offset * 7) . ' days');
-    $optionEnd = $optionStart->modify('+6 days');
-    $optionValue = $optionStart->format('Y-m-d');
-    $weekOptions[] = [
-        'value' => $optionValue,
-        'label' => $optionStart->format('M j') . ' - ' . $optionEnd->format('M j, Y'),
-    ];
-}
 
 $formatTimeForDisplay = static function ($timeValue, $fallback) {
     $raw = trim((string) $timeValue);
@@ -109,7 +68,6 @@ if (isset($_SESSION['clinic_hours_message']) && is_array($_SESSION['clinic_hours
 }
 
 $fallbackRowsByDayIndex = $defaultClinicHoursRows;
-$clinicHoursRowsByDate = [];
 
 try {
     $pdo = getDBConnection();
@@ -122,170 +80,11 @@ try {
         }
     }
 
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_apply_clinic_hours'])) {
-        if ($currentTenantId === '') {
-            throw new RuntimeException('You must be signed in under a clinic to update clinic hours.');
-        }
-        $weekStartForRedirect = isset($_POST['week_start']) ? trim((string) $_POST['week_start']) : '';
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $weekStartForRedirect)) {
-            $weekStartForRedirect = '';
-        }
-
-        $dateFromRaw = isset($_POST['bulk_date_from']) ? trim((string) $_POST['bulk_date_from']) : '';
-        $dateToRaw = isset($_POST['bulk_date_to']) ? trim((string) $_POST['bulk_date_to']) : '';
-        $openTimeRaw = isset($_POST['bulk_open_time']) ? trim((string) $_POST['bulk_open_time']) : '';
-        $closeTimeRaw = isset($_POST['bulk_close_time']) ? trim((string) $_POST['bulk_close_time']) : '';
-        $isClosed = isset($_POST['bulk_is_closed']) && $_POST['bulk_is_closed'] === '1';
-        $overwrite = isset($_POST['bulk_overwrite']) && $_POST['bulk_overwrite'] === '1';
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFromRaw) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateToRaw)) {
-            throw new RuntimeException('Please select a valid date range.');
-        }
-        $dateFrom = DateTimeImmutable::createFromFormat('!Y-m-d', $dateFromRaw, $manilaTz);
-        $dateTo = DateTimeImmutable::createFromFormat('!Y-m-d', $dateToRaw, $manilaTz);
-        if (!($dateFrom instanceof DateTimeImmutable) || !($dateTo instanceof DateTimeImmutable)) {
-            throw new RuntimeException('Please select a valid date range.');
-        }
-        if ($dateFrom > $dateTo) {
-            throw new RuntimeException('The start date must be on or before the end date.');
-        }
-        $openTime = null;
-        $closeTime = null;
-        if (!$isClosed) {
-            $openTimeDt = $parseClockTime($openTimeRaw);
-            $closeTimeDt = $parseClockTime($closeTimeRaw);
-            if (!($openTimeDt instanceof DateTimeImmutable) || !($closeTimeDt instanceof DateTimeImmutable)) {
-                throw new RuntimeException('Please select valid opening and closing times.');
-            }
-            $openMinutes = ((int) $openTimeDt->format('H')) * 60 + (int) $openTimeDt->format('i');
-            $closeMinutes = ((int) $closeTimeDt->format('H')) * 60 + (int) $closeTimeDt->format('i');
-            if ($openMinutes === $closeMinutes) {
-                throw new RuntimeException('Opening and closing times cannot be the same.');
-            }
-            $openTime = $openTimeDt->format('H:i:s');
-            $closeTime = $closeTimeDt->format('H:i:s');
-        }
-
-        // Existence must match UNIQUE unique_day_date (day_of_week, clinic_date) on many hosts—not only (tenant_id, clinic_date).
-        $findDayDateStmt = $pdo->prepare(
-            'SELECT clinic_hours_id, tenant_id FROM tbl_clinic_hours WHERE day_of_week = ? AND clinic_date = ? LIMIT 1'
-        );
-        $insertStmt = $pdo->prepare('
-            INSERT INTO tbl_clinic_hours (tenant_id, clinic_date, day_of_week, open_time, close_time, is_closed, notes)
-            VALUES (?, ?, ?, ?, ?, ?, NULL)
-        ');
-        $updateStmt = $pdo->prepare('
-            UPDATE tbl_clinic_hours
-            SET tenant_id = ?,
-                clinic_date = ?,
-                day_of_week = ?,
-                open_time = ?,
-                close_time = ?,
-                is_closed = ?,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE clinic_hours_id = ?
-              AND tenant_id = ?
-        ');
-
-        $inserted = 0;
-        $updated = 0;
-        $skipped = 0;
-
-        $pdo->beginTransaction();
-        try {
-            for ($d = $dateFrom; $d <= $dateTo; $d = $d->modify('+1 day')) {
-                $dow = (int) $d->format('w');
-                $clinicDateStr = $d->format('Y-m-d');
-                $findDayDateStmt->execute([$dow, $clinicDateStr]);
-                $existing = $findDayDateStmt->fetch(PDO::FETCH_ASSOC);
-                $findDayDateStmt->closeCursor();
-                $existingId = null;
-                if (is_array($existing) && isset($existing['clinic_hours_id'])) {
-                    $existingTid = isset($existing['tenant_id']) ? trim((string) $existing['tenant_id']) : '';
-                    if ($existingTid !== '' && strcasecmp($existingTid, $currentTenantId) !== 0) {
-                        throw new RuntimeException(
-                            'This date already has clinic hours tied to another tenant ('
-                            . substr($existingTid, 0, 48) . '). Migrate unique_day_date to include tenant_id, or delete the conflicting row in tbl_clinic_hours.'
-                        );
-                    }
-                    $existingId = (int) $existing['clinic_hours_id'];
-                }
-
-                if ($existingId !== null) {
-                    if ($overwrite) {
-                        $updateStmt->execute([
-                            $currentTenantId,
-                            $clinicDateStr,
-                            $dow,
-                            $isClosed ? null : $openTime,
-                            $isClosed ? null : $closeTime,
-                            $isClosed ? 1 : 0,
-                            $existingId,
-                            $currentTenantId,
-                        ]);
-                        $updated++;
-                    } else {
-                        $skipped++;
-                    }
-                } else {
-                    $insertStmt->execute([
-                        $currentTenantId,
-                        $clinicDateStr,
-                        $dow,
-                        $isClosed ? null : $openTime,
-                        $isClosed ? null : $closeTime,
-                        $isClosed ? 1 : 0,
-                    ]);
-                    $inserted++;
-                }
-            }
-            $pdo->commit();
-        } catch (Throwable $e) {
-            $pdo->rollBack();
-            throw $e;
-        }
-
-        $msgParts = [];
-        if ($inserted > 0) {
-            $msgParts[] = $inserted . ' new date' . ($inserted === 1 ? '' : 's');
-        }
-        if ($updated > 0) {
-            $msgParts[] = $updated . ' updated';
-        }
-        if ($skipped > 0) {
-            $msgParts[] = $skipped . ' skipped (existing hours, overwrite off)';
-        }
-        if ($inserted === 0 && $updated === 0 && $skipped === 0) {
-            $_SESSION['clinic_hours_message'] = [
-                'type' => 'success',
-                'text' => 'No dates matched your range and day selection. Nothing was changed.',
-            ];
-        } else {
-            $summary = $msgParts !== [] ? implode('; ', $msgParts) . '.' : 'Done.';
-            $_SESSION['clinic_hours_message'] = [
-                'type' => 'success',
-                'text' => 'Bulk apply complete. ' . $summary,
-            ];
-        }
-
-        $redirectUrl = 'StaffClinicHours.php';
-        if ($weekStartForRedirect !== '') {
-            $redirectUrl .= '?week_start=' . rawurlencode($weekStartForRedirect);
-        }
-        header('Location: ' . $redirectUrl);
-        exit;
-    }
-
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_clinic_hours'])) {
         if ($currentTenantId === '') {
             throw new RuntimeException('You must be signed in under a clinic to update clinic hours.');
         }
-        $weekStartForRedirect = isset($_POST['week_start']) ? trim((string) $_POST['week_start']) : '';
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $weekStartForRedirect)) {
-            $weekStartForRedirect = '';
-        }
-
         $dayOfWeek = isset($_POST['day_of_week']) ? (int) $_POST['day_of_week'] : -1;
-        $clinicDate = isset($_POST['clinic_date']) ? trim((string) $_POST['clinic_date']) : '';
         $openTimeRaw = isset($_POST['open_time']) ? trim((string) $_POST['open_time']) : '';
         $closeTimeRaw = isset($_POST['close_time']) ? trim((string) $_POST['close_time']) : '';
         $notesInput = isset($_POST['notes']) ? trim((string) $_POST['notes']) : '';
@@ -313,37 +112,24 @@ try {
         if ($dayOfWeek < 0 || $dayOfWeek > 6) {
             throw new RuntimeException('Invalid day selected for clinic hours.');
         }
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $clinicDate)) {
-            throw new RuntimeException('Invalid clinic date selected for clinic hours.');
-        }
 
-        $findOneDayDateStmt = $pdo->prepare(
-            'SELECT clinic_hours_id, tenant_id FROM tbl_clinic_hours WHERE day_of_week = ? AND clinic_date = ? LIMIT 1'
+        $findWeeklyStmt = $pdo->prepare(
+            'SELECT clinic_hours_id FROM tbl_clinic_hours WHERE tenant_id = ? AND clinic_date IS NULL AND day_of_week = ? LIMIT 1'
         );
-        $findOneDayDateStmt->execute([$dayOfWeek, $clinicDate]);
-        $existingOne = $findOneDayDateStmt->fetch(PDO::FETCH_ASSOC);
-        $findOneDayDateStmt->closeCursor();
-        $existingOneId = null;
-        if (is_array($existingOne) && isset($existingOne['clinic_hours_id'])) {
-            $existingOneTid = isset($existingOne['tenant_id']) ? trim((string) $existingOne['tenant_id']) : '';
-            if ($existingOneTid !== '' && strcasecmp($existingOneTid, $currentTenantId) !== 0) {
-                throw new RuntimeException(
-                    'This date already has clinic hours tied to another tenant. Migrate unique_day_date to include tenant_id, or remove the conflicting row.'
-                );
-            }
-            $existingOneId = (int) $existingOne['clinic_hours_id'];
-        }
+        $findWeeklyStmt->execute([$currentTenantId, $dayOfWeek]);
+        $existingWeekly = $findWeeklyStmt->fetch(PDO::FETCH_ASSOC);
+        $findWeeklyStmt->closeCursor();
+        $existingWeeklyId = is_array($existingWeekly) && isset($existingWeekly['clinic_hours_id'])
+            ? (int) $existingWeekly['clinic_hours_id']
+            : null;
 
         $insertOneStmt = $pdo->prepare('
             INSERT INTO tbl_clinic_hours (tenant_id, clinic_date, day_of_week, open_time, close_time, is_closed, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, NULL, ?, ?, ?, ?, ?)
         ');
         $updateOneStmt = $pdo->prepare('
             UPDATE tbl_clinic_hours
-            SET tenant_id = ?,
-                clinic_date = ?,
-                day_of_week = ?,
-                open_time = ?,
+            SET open_time = ?,
                 close_time = ?,
                 is_closed = ?,
                 notes = ?,
@@ -352,22 +138,18 @@ try {
               AND tenant_id = ?
         ');
 
-        if ($existingOneId !== null) {
+        if ($existingWeeklyId !== null) {
             $updateOneStmt->execute([
-                $currentTenantId,
-                $clinicDate,
-                $dayOfWeek,
                 $isClosed ? null : $openTime,
                 $isClosed ? null : $closeTime,
                 $isClosed ? 1 : 0,
                 $notes,
-                $existingOneId,
+                $existingWeeklyId,
                 $currentTenantId,
             ]);
         } else {
             $insertOneStmt->execute([
                 $currentTenantId,
-                $clinicDate,
                 $dayOfWeek,
                 $isClosed ? null : $openTime,
                 $isClosed ? null : $closeTime,
@@ -378,13 +160,9 @@ try {
 
         $_SESSION['clinic_hours_message'] = [
             'type' => 'success',
-            'text' => 'Clinic hours updated successfully.',
+            'text' => 'Weekly clinic hours updated. This schedule applies to every matching weekday going forward.',
         ];
-        $redirectUrl = 'StaffClinicHours.php';
-        if ($weekStartForRedirect !== '') {
-            $redirectUrl .= '?week_start=' . rawurlencode($weekStartForRedirect);
-        }
-        header('Location: ' . $redirectUrl);
+        header('Location: StaffClinicHours.php');
         exit;
     }
 
@@ -393,55 +171,23 @@ try {
         $legacyStmt->execute([$currentTenantId]);
         $legacyRows = $legacyStmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($legacyRows as $dbRow) {
-        $dayIndex = isset($dbRow['day_of_week']) ? (int) $dbRow['day_of_week'] : -1;
-        if (!isset($fallbackRowsByDayIndex[$dayIndex])) {
-            continue;
-        }
-
-        $fallbackOpen = $defaultClinicHoursRows[$dayIndex]['open_time'];
-        $fallbackClose = $defaultClinicHoursRows[$dayIndex]['close_time'];
-        $isClosedFromDb = isset($dbRow['is_closed']) && (int) $dbRow['is_closed'] === 1;
-
-        $fallbackRowsByDayIndex[$dayIndex] = [
-            'day' => $defaultClinicHoursRows[$dayIndex]['day'],
-            'open_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($dbRow['open_time'], $fallbackOpen),
-            'close_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($dbRow['close_time'], $fallbackClose),
-            'is_closed' => $isClosedFromDb,
-            'open_time_raw' => $isClosedFromDb ? '' : substr((string) $dbRow['open_time'], 0, 5),
-            'close_time_raw' => $isClosedFromDb ? '' : substr((string) $dbRow['close_time'], 0, 5),
-            'notes' => isset($dbRow['notes']) ? trim((string) $dbRow['notes']) : '',
-        ];
-        }
-
-        $weekHoursStmt = $pdo->prepare("
-            SELECT clinic_date, day_of_week, open_time, close_time, is_closed, notes
-            FROM tbl_clinic_hours
-            WHERE tenant_id = ?
-              AND clinic_date IS NOT NULL
-              AND clinic_date BETWEEN ? AND ?
-        ");
-        $weekHoursStmt->execute([
-            $currentTenantId,
-            $selectedWeekStart->format('Y-m-d'),
-            $selectedWeekEnd->format('Y-m-d'),
-        ]);
-        $weekRows = $weekHoursStmt->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($weekRows as $weekRow) {
-            $dateKey = isset($weekRow['clinic_date']) ? trim((string) $weekRow['clinic_date']) : '';
-            if ($dateKey === '') {
+            $dayIndex = isset($dbRow['day_of_week']) ? (int) $dbRow['day_of_week'] : -1;
+            if (!isset($fallbackRowsByDayIndex[$dayIndex])) {
                 continue;
             }
-            $dayIndex = isset($weekRow['day_of_week']) ? (int) $weekRow['day_of_week'] : -1;
-            $dayFallback = isset($fallbackRowsByDayIndex[$dayIndex]) ? $fallbackRowsByDayIndex[$dayIndex] : ['open_time' => '08:00 AM', 'close_time' => '05:00 PM'];
-            $isClosedFromDb = isset($weekRow['is_closed']) && (int) $weekRow['is_closed'] === 1;
 
-            $clinicHoursRowsByDate[$dateKey] = [
-                'open_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($weekRow['open_time'], $dayFallback['open_time']),
-                'close_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($weekRow['close_time'], $dayFallback['close_time']),
+            $fallbackOpen = $defaultClinicHoursRows[$dayIndex]['open_time'];
+            $fallbackClose = $defaultClinicHoursRows[$dayIndex]['close_time'];
+            $isClosedFromDb = isset($dbRow['is_closed']) && (int) $dbRow['is_closed'] === 1;
+
+            $fallbackRowsByDayIndex[$dayIndex] = [
+                'day' => $defaultClinicHoursRows[$dayIndex]['day'],
+                'open_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($dbRow['open_time'], $fallbackOpen),
+                'close_time' => $isClosedFromDb ? '--' : $formatTimeForDisplay($dbRow['close_time'], $fallbackClose),
                 'is_closed' => $isClosedFromDb,
-                'open_time_raw' => $isClosedFromDb ? '' : substr((string) $weekRow['open_time'], 0, 5),
-                'close_time_raw' => $isClosedFromDb ? '' : substr((string) $weekRow['close_time'], 0, 5),
-                'notes' => isset($weekRow['notes']) ? trim((string) $weekRow['notes']) : '',
+                'open_time_raw' => $isClosedFromDb ? '' : substr((string) $dbRow['open_time'], 0, 5),
+                'close_time_raw' => $isClosedFromDb ? '' : substr((string) $dbRow['close_time'], 0, 5),
+                'notes' => isset($dbRow['notes']) ? trim((string) $dbRow['notes']) : '',
             ];
         }
     }
@@ -558,109 +304,11 @@ try {
             background: linear-gradient(90deg, rgba(43, 139, 235, 0.09), rgba(43, 139, 235, 0.03));
             border: 1px solid rgba(147, 197, 253, 0.45);
         }
-        .bulk-calendar-day {
-            position: relative;
-            border: 1px solid transparent;
-            border-radius: 0.9rem;
-            min-height: 2.6rem;
-            font-size: 0.92rem;
-            font-weight: 700;
-            color: #1e293b;
-            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-        }
-        .bulk-calendar-day:hover {
-            border-color: rgba(99, 102, 241, 0.28);
-            background: rgba(99, 102, 241, 0.08);
-        }
-        .bulk-calendar-day.is-muted {
-            color: #94a3b8;
-        }
-        .bulk-calendar-day.is-in-range {
-            background: rgba(79, 70, 229, 0.12);
-            border-radius: 0;
-        }
-        .bulk-calendar-day.is-range-start,
-        .bulk-calendar-day.is-range-end {
-            background: #4f46e5;
-            color: #ffffff;
-            border-color: #4f46e5;
-            z-index: 2;
-        }
-        .bulk-calendar-day.is-range-start {
-            border-top-left-radius: 9999px;
-            border-bottom-left-radius: 9999px;
-        }
-        .bulk-calendar-day.is-range-end {
-            border-top-right-radius: 9999px;
-            border-bottom-right-radius: 9999px;
-        }
-        .bulk-calendar-day.is-range-single {
-            border-radius: 9999px;
-        }
-        .bulk-date-input {
-            border: 1px solid #e2e8f0;
-            background: #ffffff;
-            border-radius: 0.75rem;
-            min-height: 3.1rem;
-            font-size: 0.9375rem;
-            font-weight: 600;
-            color: #0f172a;
-            width: 100%;
-            padding: 0 2.75rem 0 1rem;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
-            appearance: none;
-            -webkit-appearance: none;
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-        }
-        .bulk-date-input:hover {
-            border-color: #e2e8f0;
-            background: #ffffff;
-        }
-        .bulk-date-input:focus {
-            outline: none;
-            border-color: #2b8beb;
-            box-shadow: 0 0 0 2px rgba(43, 139, 235, 0.15);
-        }
-        .bulk-date-input.is-active {
-            border-color: #2b8beb;
-            background: #ffffff;
-            box-shadow: 0 0 0 2px rgba(43, 139, 235, 0.15);
-        }
-        .bulk-date-input::-webkit-calendar-picker-indicator {
-            opacity: 0;
-            cursor: pointer;
-        }
-        .bulk-date-icon {
-            position: absolute;
-            right: 0.95rem;
-            top: 50%;
-            transform: translateY(-50%);
-            pointer-events: none;
-        }
-        .bulk-calendar-day.is-disabled {
-            color: #94a3b8;
-            background: #f8fafc;
-            border-color: transparent;
-            cursor: not-allowed;
-            opacity: 0.65;
-        }
-        .bulk-calendar-day.is-disabled:hover {
-            background: #f8fafc;
-            border-color: transparent;
-        }
         .success-popup-enter {
             animation: success-popup-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
-        .clinic-hours-popup-enter {
-            animation: clinic-hours-popup-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-            transform-origin: center;
-        }
         @keyframes success-popup-in {
             from { opacity: 0; transform: translateY(10px) scale(0.98); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes clinic-hours-popup-in {
-            from { opacity: 0; transform: translateY(14px) scale(0.97); }
             to { opacity: 1; transform: translateY(0) scale(1); }
         }
     </style>
@@ -681,7 +329,7 @@ try {
                         Clinic <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Hours</span>
                     </h1>
                     <p class="font-body text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3">
-                        Manage clinic operating hours per day
+                        Set a recurring weekly schedule—changes apply to every matching weekday on the calendar.
                     </p>
                 </div>
             </div>
@@ -703,67 +351,17 @@ try {
         <?php endif; ?>
 
         <section class="elevated-card rounded-3xl p-7">
-            <div class="flex flex-col gap-4 mb-6 lg:flex-row lg:items-center lg:justify-between">
+            <div class="flex flex-col gap-4 mb-6">
                 <div class="space-y-2">
                     <h2 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em]">Weekly Hours</h2>
-                    <p class="text-sm font-semibold text-slate-600">
-                        <?php echo htmlspecialchars($selectedWeekStart->format('F j, Y') . ' - ' . $selectedWeekEnd->format('F j, Y'), ENT_QUOTES, 'UTF-8'); ?>
+                    <p class="text-xs font-medium text-slate-500 leading-relaxed max-w-2xl">
+                        Edit a weekday to set open and close times for <span class="font-semibold text-slate-600">every</span> future occurrence of that day (Sunday through Saturday). Days without a saved template show <span class="font-semibold text-slate-600">default hours</span> until you save.
                     </p>
-                    <p class="text-xs font-medium text-slate-500 leading-relaxed max-w-xl">
-                        Times with no row in the database yet show <span class="font-semibold text-slate-600">default hours</span> for today and past days (this week), and “<span class="font-semibold text-slate-600">-</span>” for future dates. Use edit or bulk apply to save a date into the database.
-                    </p>
-                </div>
-                <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <div class="inline-flex items-center rounded-xl border border-slate-200 bg-white p-1">
-                        <?php if ($isCurrentWeek): ?>
-                            <button
-                                type="button"
-                                class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-300 cursor-not-allowed"
-                                aria-label="Previous week unavailable"
-                                disabled
-                            >
-                                <span class="material-symbols-outlined text-[20px]">chevron_left</span>
-                            </button>
-                        <?php else: ?>
-                            <a
-                                href="?week_start=<?php echo htmlspecialchars($prevWeekStart, ENT_QUOTES, 'UTF-8'); ?>"
-                                class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-600 hover:text-primary hover:bg-primary/10 transition-colors"
-                                aria-label="Previous week"
-                            >
-                                <span class="material-symbols-outlined text-[20px]">chevron_left</span>
-                            </a>
-                        <?php endif; ?>
-                        <a
-                            href="?week_start=<?php echo htmlspecialchars($nextWeekStart, ENT_QUOTES, 'UTF-8'); ?>"
-                            class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-600 hover:text-primary hover:bg-primary/10 transition-colors"
-                            aria-label="Next week"
-                        >
-                            <span class="material-symbols-outlined text-[20px]">chevron_right</span>
-                        </a>
-                    </div>
-                    <form method="get" class="flex items-center gap-2">
-                        <label for="week_start" class="text-[10px] font-black text-on-surface-variant/70 uppercase tracking-[0.2em]">Week Range</label>
-                        <select id="week_start" name="week_start" class="schedule-input py-2.5 pl-3 pr-9 text-xs min-w-[190px]" onchange="this.form.submit()">
-                            <?php foreach ($weekOptions as $option): ?>
-                                <option value="<?php echo htmlspecialchars($option['value'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo $option['value'] === $selectedWeekStart->format('Y-m-d') ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($option['label'], ENT_QUOTES, 'UTF-8'); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </form>
-                    <button
-                        type="button"
-                        data-open-modal="applyClinicHoursModal"
-                        class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-white font-black text-xs uppercase tracking-[0.16em] shadow-sm shadow-primary/30 hover:bg-primary/90 transition-colors w-full sm:w-auto"
-                    >
-                        <span class="material-symbols-outlined text-[18px]">event_repeat</span>
-                        Apply Clinic Hours
-                    </button>
                 </div>
             </div>
 
             <div class="overflow-x-auto">
-                <div class="min-w-[780px] border border-slate-200 rounded-2xl overflow-hidden bg-white">
+                <div class="min-w-[640px] border border-slate-200 rounded-2xl overflow-hidden bg-white">
                     <table class="w-full text-sm">
                         <thead class="bg-slate-50 border-b border-slate-200">
                         <tr>
@@ -775,31 +373,12 @@ try {
                         </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
-                        <?php for ($dayOffset = 0; $dayOffset < 7; $dayOffset++): ?>
+                        <?php for ($dayOfWeekIndex = 0; $dayOfWeekIndex < 7; $dayOfWeekIndex++): ?>
                             <?php
-                            $dayDate = $selectedWeekStart->modify('+' . $dayOffset . ' days');
-                            $dateKey = $dayDate->format('Y-m-d');
-                            $dayOfWeekIndex = (int) $dayDate->format('w');
-                            $dayName = $dayDate->format('l');
-                            $hasSavedClinicHours = isset($clinicHoursRowsByDate[$dateKey]);
-                            $isFutureDateWithoutSchedule = !$hasSavedClinicHours && $dateKey > $today->format('Y-m-d');
-                            if ($hasSavedClinicHours) {
-                                $row = $clinicHoursRowsByDate[$dateKey];
-                            } elseif ($isFutureDateWithoutSchedule) {
-                                $row = [
-                                    'open_time' => '-',
-                                    'close_time' => '-',
-                                    'is_closed' => false,
-                                    'open_time_raw' => '',
-                                    'close_time_raw' => '',
-                                    'notes' => '',
-                                ];
-                            } else {
-                                $row = isset($fallbackRowsByDayIndex[$dayOfWeekIndex])
-                                    ? $fallbackRowsByDayIndex[$dayOfWeekIndex]
-                                    : ['open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false, 'notes' => ''];
-                            }
-                            $fullDayLabel = $dayDate->format('F j, Y') . ' (' . $dayName . ')';
+                            $row = isset($fallbackRowsByDayIndex[$dayOfWeekIndex])
+                                ? $fallbackRowsByDayIndex[$dayOfWeekIndex]
+                                : ['open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false, 'notes' => '', 'open_time_raw' => '', 'close_time_raw' => ''];
+                            $dayNameLabel = isset($row['day']) ? (string) $row['day'] : $defaultClinicHoursRows[$dayOfWeekIndex]['day'];
                             $statusLabel = $row['is_closed'] ? 'Closed' : 'Open';
                             $statusClass = $row['is_closed']
                                 ? 'border-rose-200 bg-rose-50 text-rose-700'
@@ -807,7 +386,7 @@ try {
                             ?>
                             <tr class="hover:bg-slate-50/70 transition-colors">
                                 <td class="px-5 py-4 text-sm font-bold text-slate-800">
-                                    <?php echo htmlspecialchars($fullDayLabel, ENT_QUOTES, 'UTF-8'); ?>
+                                    <?php echo htmlspecialchars($dayNameLabel, ENT_QUOTES, 'UTF-8'); ?>
                                 </td>
                                 <td class="px-5 py-4 text-sm font-semibold text-slate-700">
                                     <?php echo htmlspecialchars($row['open_time'], ENT_QUOTES, 'UTF-8'); ?>
@@ -824,9 +403,8 @@ try {
                                     <button
                                         type="button"
                                         data-open-modal="editClinicHoursModal"
-                                        data-day="<?php echo htmlspecialchars($fullDayLabel, ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-day="<?php echo htmlspecialchars($dayNameLabel, ENT_QUOTES, 'UTF-8'); ?>"
                                         data-day-index="<?php echo htmlspecialchars((string) $dayOfWeekIndex, ENT_QUOTES, 'UTF-8'); ?>"
-                                        data-date="<?php echo htmlspecialchars($dateKey, ENT_QUOTES, 'UTF-8'); ?>"
                                         data-open-time="<?php echo htmlspecialchars($row['open_time'], ENT_QUOTES, 'UTF-8'); ?>"
                                         data-close-time="<?php echo htmlspecialchars($row['close_time'], ENT_QUOTES, 'UTF-8'); ?>"
                                         data-open-time-raw="<?php echo htmlspecialchars(isset($row['open_time_raw']) ? (string) $row['open_time_raw'] : '', ENT_QUOTES, 'UTF-8'); ?>"
@@ -858,7 +436,7 @@ try {
                     Clinic Schedule
                 </span>
                 <h3 class="font-headline text-2xl font-extrabold tracking-tight text-slate-900 mt-2">Edit Clinic Hours</h3>
-                <p class="text-xs font-semibold text-slate-500 mt-1">Set your exact opening and closing time for this day.</p>
+                <p class="text-xs font-semibold text-slate-500 mt-1">Applies to every week—this weekday on all future dates.</p>
             </div>
             <button type="button" data-close-modal="editClinicHoursModal" class="w-10 h-10 inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors">
                 <span class="material-symbols-outlined text-lg">close</span>
@@ -867,8 +445,6 @@ try {
         <form method="post">
             <input type="hidden" name="save_clinic_hours" value="1"/>
             <input type="hidden" id="modalDayOfWeekInput" name="day_of_week" value="1"/>
-            <input type="hidden" id="modalClinicDateInput" name="clinic_date" value="<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
-            <input type="hidden" name="week_start" value="<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
             <div class="p-6 sm:p-7 space-y-5">
                 <div class="rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5">
                     <label class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Day</label>
@@ -894,126 +470,12 @@ try {
                 </div>
                 <div class="rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5">
                     <label for="modalNotes" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Notes (Optional)</label>
-                    <textarea id="modalNotes" name="notes" rows="3" maxlength="255" class="modal-time-input w-full px-4 py-3 resize-none" placeholder="Add optional clinic-hours notes for this day..."></textarea>
+                    <textarea id="modalNotes" name="notes" rows="3" maxlength="255" class="modal-time-input w-full px-4 py-3 resize-none" placeholder="Optional notes for this weekday template..."></textarea>
                 </div>
             </div>
             <div class="px-6 sm:px-7 py-4 border-t border-slate-200/80 bg-slate-50/70 flex justify-end gap-2">
                 <button type="button" data-close-modal="editClinicHoursModal" class="px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-600 font-black text-xs uppercase tracking-[0.16em] hover:border-slate-400">Cancel</button>
                 <button type="submit" class="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-[0.16em] shadow-sm shadow-primary/30">Save</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div id="applyClinicHoursModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/50 backdrop-blur-[2px]">
-    <div class="staff-modal-panel clinic-hours-popup-enter bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-5xl max-h-[92vh] overflow-y-auto overflow-x-hidden flex flex-col">
-        <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
-            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
-                <span class="material-symbols-outlined text-2xl text-primary">calendar_month</span>
-            </div>
-            <div class="min-w-0 flex-1 pr-2">
-                <h3 class="text-xl sm:text-2xl font-extrabold font-headline text-on-background tracking-tight">Apply Clinic Hours</h3>
-                <p class="text-sm text-slate-500 mt-1 leading-relaxed">Set clinic hours for a custom date range</p>
-            </div>
-            <button type="button" data-close-modal="applyClinicHoursModal" class="shrink-0 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Close">
-                <span class="material-symbols-outlined text-[22px]">close</span>
-            </button>
-        </div>
-        <form method="post" id="applyClinicHoursForm">
-            <input type="hidden" name="bulk_apply_clinic_hours" value="1"/>
-            <input type="hidden" name="week_start" value="<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
-            <div class="px-6 sm:px-8 pt-3 pb-5 space-y-6 overflow-y-auto">
-                <section>
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="material-symbols-outlined text-primary text-[22px]">info</span>
-                        <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Basic Information</h4>
-                    </div>
-                <div class="grid grid-cols-1 xl:grid-cols-[1.28fr_1fr] gap-6">
-                    <div>
-                        <div class="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-sm">
-                            <div class="flex items-center justify-between mb-4">
-                                <button type="button" id="bulkCalendarPrevMonth" class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 transition-colors" aria-label="Previous month">
-                                    <span class="material-symbols-outlined text-[20px]">chevron_left</span>
-                                </button>
-                                <p id="bulkCalendarMonthLabel" class="text-xl font-extrabold tracking-tight text-slate-900">Month Year</p>
-                                <button type="button" id="bulkCalendarNextMonth" class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 transition-colors" aria-label="Next month">
-                                    <span class="material-symbols-outlined text-[20px]">chevron_right</span>
-                                </button>
-                            </div>
-                            <div class="grid grid-cols-7 gap-2 mb-2">
-                                <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Sun</div>
-                                <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Mon</div>
-                                <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Tue</div>
-                                <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Wed</div>
-                                <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Thu</div>
-                                <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Fri</div>
-                                <div class="text-center text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Sat</div>
-                            </div>
-                            <div id="bulkCalendarGrid" class="grid grid-cols-7 gap-2"></div>
-                        </div>
-                    </div>
-                    <div class="space-y-4">
-                        <div class="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 space-y-4 shadow-sm">
-                            <div>
-                                <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
-                                    <span class="material-symbols-outlined text-[18px] text-slate-500">event</span>
-                                    Start Date <span class="text-red-500 font-bold">*</span>
-                                </label>
-                                <div class="relative">
-                                    <input id="bulkDateFrom" name="bulk_date_from" type="date" required class="bulk-date-input" min="<?php echo htmlspecialchars($today->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" value="<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
-                                    <span class="material-symbols-outlined text-[18px] text-slate-500 bulk-date-icon">calendar_month</span>
-                                </div>
-                            </div>
-                            <div>
-                                <label for="bulkOpenTime" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
-                                    <span class="material-symbols-outlined text-[18px] text-slate-500">timer</span>
-                                    Start Time <span class="text-red-500 font-bold">*</span>
-                                </label>
-                                <input id="bulkOpenTime" name="bulk_open_time" type="time" step="60" class="modal-time-input w-full px-4 bulk-time-field" value="08:00"/>
-                            </div>
-                            <div>
-                                <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
-                                    <span class="material-symbols-outlined text-[18px] text-slate-500">event</span>
-                                    End Date <span class="text-red-500 font-bold">*</span>
-                                </label>
-                                <div class="relative">
-                                    <input id="bulkDateTo" name="bulk_date_to" type="date" required class="bulk-date-input" min="<?php echo htmlspecialchars($today->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" value="<?php echo htmlspecialchars($selectedWeekEnd->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"/>
-                                    <span class="material-symbols-outlined text-[18px] text-slate-500 bulk-date-icon">calendar_month</span>
-                                </div>
-                            </div>
-                            <div>
-                                <label for="bulkCloseTime" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
-                                    <span class="material-symbols-outlined text-[18px] text-slate-500">timer_off</span>
-                                    End Time <span class="text-red-500 font-bold">*</span>
-                                </label>
-                                <input id="bulkCloseTime" name="bulk_close_time" type="time" step="60" class="modal-time-input w-full px-4 bulk-time-field" value="17:00"/>
-                            </div>
-                        </div>
-                        <div class="rounded-2xl border border-slate-200/90 bg-white px-4 py-3.5 space-y-3 shadow-sm">
-                            <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
-                                <input id="bulkClosedCheckbox" name="bulk_is_closed" type="checkbox" value="1" class="rounded-md border-slate-300 text-primary focus:ring-primary/20"/>
-                                Mark as Closed
-                            </label>
-                            <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
-                                <input id="bulkOverwriteCheckbox" name="bulk_overwrite" type="checkbox" value="1" class="rounded-md border-slate-300 text-primary focus:ring-primary/20"/>
-                                Overwrite existing clinic hours
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                </section>
-            </div>
-            <div class="border-t border-slate-100 bg-slate-50/50 px-6 sm:px-8 py-4 flex justify-end">
-                <div class="flex items-center gap-2">
-                    <button type="button" data-close-modal="applyClinicHoursModal" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
-                        <span class="material-symbols-outlined text-[18px]">close</span>
-                        Cancel
-                    </button>
-                    <button type="submit" class="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/92 text-white text-sm font-bold shadow-lg shadow-primary/25 transition-all">
-                        <span class="material-symbols-outlined text-[18px]">check_circle</span>
-                        Apply Hours
-                    </button>
-                </div>
             </div>
         </form>
     </div>
@@ -1114,183 +576,9 @@ try {
         if (closeEl) closeEl.disabled = !!isClosed;
     }
 
-    function setBulkClosedState(isClosed) {
-        const openEl = document.getElementById('bulkOpenTime');
-        const closeEl = document.getElementById('bulkCloseTime');
-        if (openEl) openEl.disabled = !!isClosed;
-        if (closeEl) closeEl.disabled = !!isClosed;
-    }
-
-    function parseISODate(isoDate) {
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate || '')) return null;
-        const [y, m, d] = isoDate.split('-').map((v) => parseInt(v, 10));
-        return new Date(y, m - 1, d, 12, 0, 0, 0);
-    }
-
-    function toISODate(dateObj) {
-        const y = dateObj.getFullYear();
-        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const d = String(dateObj.getDate()).padStart(2, '0');
-        return `${y}-${m}-${d}`;
-    }
-
-    function formatDateLong(isoDate) {
-        const d = parseISODate(isoDate);
-        if (!d) return '-';
-        return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-    }
-
-    function formatDateShortNoYear(isoDate) {
-        const d = parseISODate(isoDate);
-        if (!d) return '-';
-        return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-    }
-
-    function formatTimeForSummary(timeVal) {
-        if (!timeVal || !/^\d{2}:\d{2}$/.test(timeVal)) return '--';
-        const [hourRaw, minute] = timeVal.split(':');
-        let hour = parseInt(hourRaw, 10);
-        const period = hour >= 12 ? 'PM' : 'AM';
-        hour = hour % 12;
-        if (hour === 0) hour = 12;
-        return `${hour}:${minute} ${period}`;
-    }
-
-    const bulkCalendarState = {
-        viewDate: null,
-        startDate: '',
-        endDate: '',
-        selectionStep: 'start',
-        todayIso: '<?php echo htmlspecialchars($today->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>'
-    };
-
-    function syncBulkDateFields() {
-        const startInput = document.getElementById('bulkDateFrom');
-        const endInput = document.getElementById('bulkDateTo');
-        if (startInput) startInput.value = bulkCalendarState.startDate;
-        if (endInput) endInput.value = bulkCalendarState.endDate || '';
-    }
-
-    function setActiveDateTarget(targetKey) {
-        const startDisplay = document.getElementById('bulkDateFrom');
-        const endDisplay = document.getElementById('bulkDateTo');
-        const activeTarget = targetKey === 'end' ? 'end' : 'start';
-        if (startDisplay) startDisplay.classList.toggle('is-active', activeTarget === 'start');
-        if (endDisplay) endDisplay.classList.toggle('is-active', activeTarget === 'end');
-    }
-
-    function updateBulkEventSummary() {
-        const summaryEl = document.getElementById('bulkEventSummary');
-        if (!summaryEl) return;
-        const start = bulkCalendarState.startDate;
-        const end = bulkCalendarState.endDate || bulkCalendarState.startDate;
-        const openTime = (document.getElementById('bulkOpenTime') || {}).value || '';
-        const closeTime = (document.getElementById('bulkCloseTime') || {}).value || '';
-        if (!start) {
-            summaryEl.textContent = 'Event: -';
-            return;
-        }
-        if (!bulkCalendarState.endDate) {
-            summaryEl.textContent = `Event: ${formatDateLong(start)}`;
-            return;
-        }
-        summaryEl.textContent = `Event: ${formatDateShortNoYear(start)} - ${parseISODate(start).getFullYear() === parseISODate(end).getFullYear() ? formatDateShortNoYear(end) : formatDateLong(end)}, from ${formatTimeForSummary(openTime)} - ${formatTimeForSummary(closeTime)}`;
-    }
-
-    function renderBulkCalendar() {
-        const monthLabel = document.getElementById('bulkCalendarMonthLabel');
-        const grid = document.getElementById('bulkCalendarGrid');
-        if (!monthLabel || !grid || !bulkCalendarState.viewDate) return;
-
-        monthLabel.textContent = bulkCalendarState.viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-        grid.innerHTML = '';
-
-        const year = bulkCalendarState.viewDate.getFullYear();
-        const month = bulkCalendarState.viewDate.getMonth();
-        const firstOfMonth = new Date(year, month, 1, 12);
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const firstWeekday = firstOfMonth.getDay();
-
-        for (let i = 0; i < firstWeekday; i++) {
-            const placeholder = document.createElement('div');
-            grid.appendChild(placeholder);
-        }
-
-        const start = bulkCalendarState.startDate;
-        const end = bulkCalendarState.endDate || bulkCalendarState.startDate;
-        for (let day = 1; day <= daysInMonth; day++) {
-            const d = new Date(year, month, day, 12);
-            const iso = toISODate(d);
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'bulk-calendar-day';
-            btn.textContent = String(day);
-            btn.dataset.date = iso;
-
-            const inRange = start && end && iso >= start && iso <= end;
-            const isStart = start && iso === start;
-            const isEnd = end && iso === end;
-            const isSingle = isStart && isEnd;
-            const isDisabled = iso < bulkCalendarState.todayIso;
-            if (inRange) btn.classList.add('is-in-range');
-            if (isStart) btn.classList.add('is-range-start');
-            if (isEnd) btn.classList.add('is-range-end');
-            if (isSingle) btn.classList.add('is-range-single');
-            if (isDisabled) btn.classList.add('is-disabled');
-
-            btn.addEventListener('click', () => {
-                if (isDisabled) return;
-                if (bulkCalendarState.selectionStep === 'start' || !bulkCalendarState.startDate) {
-                    bulkCalendarState.startDate = iso;
-                    bulkCalendarState.endDate = '';
-                    bulkCalendarState.selectionStep = 'end';
-                    setActiveDateTarget('end');
-                } else {
-                    if (iso < bulkCalendarState.startDate) {
-                        bulkCalendarState.endDate = bulkCalendarState.startDate;
-                        bulkCalendarState.startDate = iso;
-                    } else {
-                        bulkCalendarState.endDate = iso;
-                    }
-                    bulkCalendarState.selectionStep = 'start';
-                    setActiveDateTarget('start');
-                }
-                syncBulkDateFields();
-                updateBulkEventSummary();
-                renderBulkCalendar();
-            });
-
-            grid.appendChild(btn);
-        }
-    }
-
-    function initializeBulkCalendar() {
-        const startInput = document.getElementById('bulkDateFrom');
-        const endInput = document.getElementById('bulkDateTo');
-        if (!startInput || !endInput) return;
-
-        const defaultStart = '<?php echo htmlspecialchars($selectedWeekStart->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>';
-        const startVal = startInput.value || defaultStart;
-        bulkCalendarState.startDate = startVal < bulkCalendarState.todayIso ? bulkCalendarState.todayIso : startVal;
-        bulkCalendarState.endDate = '';
-        const view = parseISODate(bulkCalendarState.startDate) || new Date();
-        bulkCalendarState.viewDate = new Date(view.getFullYear(), view.getMonth(), 1, 12);
-        bulkCalendarState.selectionStep = 'start';
-
-        syncBulkDateFields();
-        updateBulkEventSummary();
-        setActiveDateTarget('start');
-        renderBulkCalendar();
-    }
-
     document.querySelectorAll('[data-open-modal]').forEach((button) => {
         button.addEventListener('click', () => {
             const targetModal = button.getAttribute('data-open-modal');
-            if (targetModal === 'applyClinicHoursModal') {
-                const closedEl = document.getElementById('bulkClosedCheckbox');
-                setBulkClosedState(closedEl && closedEl.checked);
-                initializeBulkCalendar();
-            }
             if (targetModal === 'editClinicHoursModal') {
                 const day = button.getAttribute('data-day') || 'Monday';
                 const openTime = button.getAttribute('data-open-time') || '08:00 AM';
@@ -1300,14 +588,12 @@ try {
                 const notes = button.getAttribute('data-notes') || '';
                 const isClosed = button.getAttribute('data-is-closed') === '1';
                 const dayIndex = button.getAttribute('data-day-index') || '1';
-                const clinicDate = button.getAttribute('data-date') || '';
 
                 const dayEl = document.getElementById('modalDayLabel');
                 const openEl = document.getElementById('modalOpenTime');
                 const closeEl = document.getElementById('modalCloseTime');
                 const closedEl = document.getElementById('modalClosedCheckbox');
                 const dayOfWeekEl = document.getElementById('modalDayOfWeekInput');
-                const clinicDateEl = document.getElementById('modalClinicDateInput');
                 const notesEl = document.getElementById('modalNotes');
 
                 if (dayEl) dayEl.textContent = day;
@@ -1315,7 +601,6 @@ try {
                 if (closeEl) closeEl.value = closeTimeRaw || twelveHourToTwentyFour(closeTime);
                 if (closedEl) closedEl.checked = isClosed;
                 if (dayOfWeekEl) dayOfWeekEl.value = dayIndex;
-                if (clinicDateEl) clinicDateEl.value = clinicDate;
                 if (notesEl) notesEl.value = notes;
                 setClosedState(isClosed);
             }
@@ -1329,161 +614,6 @@ try {
             setClosedState(modalClosedCheckbox.checked);
         });
     }
-
-    const bulkClosedCheckbox = document.getElementById('bulkClosedCheckbox');
-    if (bulkClosedCheckbox) {
-        bulkClosedCheckbox.addEventListener('change', () => {
-            setBulkClosedState(bulkClosedCheckbox.checked);
-        });
-    }
-
-    const applyClinicHoursForm = document.getElementById('applyClinicHoursForm');
-    if (applyClinicHoursForm) {
-        applyClinicHoursForm.addEventListener('submit', (e) => {
-            const fromVal = (document.getElementById('bulkDateFrom') || {}).value;
-            const toVal = (document.getElementById('bulkDateTo') || {}).value;
-            const todayIso = bulkCalendarState.todayIso;
-            if (!fromVal || !toVal) {
-                e.preventDefault();
-                alert('Please select both start and end dates.');
-                return;
-            }
-            if (fromVal < todayIso || toVal < todayIso) {
-                e.preventDefault();
-                alert('Please select current or future dates only.');
-                return;
-            }
-            if (fromVal && toVal && fromVal > toVal) {
-                e.preventDefault();
-                alert('The start date must be on or before the end date.');
-                return;
-            }
-            const closed = bulkClosedCheckbox && bulkClosedCheckbox.checked;
-            if (!closed) {
-                const o = (document.getElementById('bulkOpenTime') || {}).value;
-                const c = (document.getElementById('bulkCloseTime') || {}).value;
-                if (o && c && o >= c) {
-                    e.preventDefault();
-                    alert('Closing time must be later than opening time.');
-                }
-            }
-        });
-    }
-
-    const bulkPrevBtn = document.getElementById('bulkCalendarPrevMonth');
-    const bulkNextBtn = document.getElementById('bulkCalendarNextMonth');
-    if (bulkPrevBtn) {
-        bulkPrevBtn.addEventListener('click', () => {
-            if (!bulkCalendarState.viewDate) return;
-            bulkCalendarState.viewDate = new Date(
-                bulkCalendarState.viewDate.getFullYear(),
-                bulkCalendarState.viewDate.getMonth() - 1,
-                1,
-                12
-            );
-            renderBulkCalendar();
-        });
-    }
-    if (bulkNextBtn) {
-        bulkNextBtn.addEventListener('click', () => {
-            if (!bulkCalendarState.viewDate) return;
-            bulkCalendarState.viewDate = new Date(
-                bulkCalendarState.viewDate.getFullYear(),
-                bulkCalendarState.viewDate.getMonth() + 1,
-                1,
-                12
-            );
-            renderBulkCalendar();
-        });
-    }
-
-    const bulkStartDateInput = document.getElementById('bulkDateFrom');
-    const bulkEndDateInput = document.getElementById('bulkDateTo');
-
-    function openNativeDatePicker(inputEl) {
-        if (!inputEl) return;
-        if (typeof inputEl.showPicker === 'function') {
-            try {
-                inputEl.showPicker();
-            } catch (e) {
-                // Some browsers block showPicker without direct user gesture.
-            }
-        }
-    }
-
-    if (bulkStartDateInput) {
-        bulkStartDateInput.addEventListener('click', () => {
-            bulkCalendarState.selectionStep = 'start';
-            setActiveDateTarget('start');
-            openNativeDatePicker(bulkStartDateInput);
-        });
-        bulkStartDateInput.addEventListener('focus', () => {
-            bulkCalendarState.selectionStep = 'start';
-            setActiveDateTarget('start');
-        });
-        bulkStartDateInput.addEventListener('change', () => {
-            const selected = bulkStartDateInput.value || '';
-            if (!selected) return;
-            const startIso = selected < bulkCalendarState.todayIso ? bulkCalendarState.todayIso : selected;
-            bulkCalendarState.startDate = startIso;
-            if (bulkCalendarState.endDate && bulkCalendarState.endDate < startIso) {
-                bulkCalendarState.endDate = '';
-            }
-            const view = parseISODate(startIso);
-            if (view) {
-                bulkCalendarState.viewDate = new Date(view.getFullYear(), view.getMonth(), 1, 12);
-            }
-            bulkCalendarState.selectionStep = 'end';
-            syncBulkDateFields();
-            updateBulkEventSummary();
-            setActiveDateTarget('end');
-            renderBulkCalendar();
-        });
-    }
-
-    if (bulkEndDateInput) {
-        bulkEndDateInput.addEventListener('click', () => {
-            bulkCalendarState.selectionStep = 'end';
-            setActiveDateTarget('end');
-            openNativeDatePicker(bulkEndDateInput);
-        });
-        bulkEndDateInput.addEventListener('focus', () => {
-            bulkCalendarState.selectionStep = 'end';
-            setActiveDateTarget('end');
-        });
-        bulkEndDateInput.addEventListener('change', () => {
-            const selected = bulkEndDateInput.value || '';
-            if (!selected) return;
-            const endIso = selected < bulkCalendarState.todayIso ? bulkCalendarState.todayIso : selected;
-            if (!bulkCalendarState.startDate) {
-                bulkCalendarState.startDate = endIso;
-                bulkCalendarState.endDate = '';
-                bulkCalendarState.selectionStep = 'end';
-                setActiveDateTarget('end');
-            } else if (endIso < bulkCalendarState.startDate) {
-                bulkCalendarState.startDate = endIso;
-                bulkCalendarState.endDate = '';
-                bulkCalendarState.selectionStep = 'end';
-                setActiveDateTarget('end');
-            } else {
-                bulkCalendarState.endDate = endIso;
-                bulkCalendarState.selectionStep = 'start';
-                setActiveDateTarget('start');
-            }
-            const view = parseISODate(endIso);
-            if (view) {
-                bulkCalendarState.viewDate = new Date(view.getFullYear(), view.getMonth(), 1, 12);
-            }
-            syncBulkDateFields();
-            updateBulkEventSummary();
-            renderBulkCalendar();
-        });
-    }
-
-    const bulkOpenTimeInput = document.getElementById('bulkOpenTime');
-    const bulkCloseTimeInput = document.getElementById('bulkCloseTime');
-    if (bulkOpenTimeInput) bulkOpenTimeInput.addEventListener('input', updateBulkEventSummary);
-    if (bulkCloseTimeInput) bulkCloseTimeInput.addEventListener('input', updateBulkEventSummary);
 
     document.querySelectorAll('[data-close-modal]').forEach((button) => {
         button.addEventListener('click', () => {
@@ -1502,7 +632,6 @@ try {
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             closeModal('editClinicHoursModal');
-            closeModal('applyClinicHoursModal');
         }
     });
 

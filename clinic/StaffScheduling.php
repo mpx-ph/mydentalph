@@ -326,6 +326,7 @@ try {
 
         if ($tid !== '' && !isset($legacyCache[$tid])) {
             $mapByDay = $defaultClinicHoursByDayIndex;
+            $weeklyFromDb = array_fill(0, 7, false);
             $legacyHoursStmt = $pdo->prepare('SELECT day_of_week, open_time, close_time, is_closed FROM tbl_clinic_hours WHERE tenant_id = ? AND clinic_date IS NULL');
             $legacyHoursStmt->execute([$tid]);
             foreach ($legacyHoursStmt->fetchAll(PDO::FETCH_ASSOC) as $legacyHoursRow) {
@@ -333,6 +334,7 @@ try {
                 if (!isset($mapByDay[$legacyDayIndex])) {
                     continue;
                 }
+                $weeklyFromDb[$legacyDayIndex] = true;
                 $legacyIsClosed = isset($legacyHoursRow['is_closed']) && (int) $legacyHoursRow['is_closed'] === 1;
                 $legacyOpen = $legacyIsClosed ? '' : substr((string) ($legacyHoursRow['open_time'] ?? ''), 0, 5);
                 $legacyClose = $legacyIsClosed ? '' : substr((string) ($legacyHoursRow['close_time'] ?? ''), 0, 5);
@@ -342,35 +344,19 @@ try {
                     'is_closed' => $legacyIsClosed,
                 ];
             }
-            $legacyCache[$tid] = $mapByDay;
+            $legacyCache[$tid] = ['map' => $mapByDay, 'weekly_from_db' => $weeklyFromDb];
         }
 
-        $legacyPerDay = ($tid !== '' && isset($legacyCache[$tid])) ? $legacyCache[$tid] : $defaultClinicHoursByDayIndex;
+        $cachedEntry = ($tid !== '' && isset($legacyCache[$tid])) ? $legacyCache[$tid] : null;
+        $legacyPerDay = $cachedEntry ? $cachedEntry['map'] : $defaultClinicHoursByDayIndex;
+        $weeklyFromDbDay = $cachedEntry ? $cachedEntry['weekly_from_db'] : array_fill(0, 7, false);
         $fallback = $legacyPerDay[$dayIndex] ?? $defaultClinicHoursByDayIndex[$dayIndex] ?? ['open_time_raw' => '08:00', 'close_time_raw' => '17:00', 'is_closed' => false];
 
-        $hoursRow = null;
-        if ($tid !== '') {
-            $hoursStmt = $pdo->prepare("
-                SELECT open_time, close_time, is_closed
-                FROM tbl_clinic_hours
-                WHERE tenant_id = ?
-                  AND clinic_date = ?
-                LIMIT 1
-            ");
-            $hoursStmt->execute([$tid, $dateText]);
-            $hoursRow = $hoursStmt->fetch(PDO::FETCH_ASSOC);
-        }
-
-        $hasRecord = is_array($hoursRow) && !empty($hoursRow);
-        $isClosed = $hasRecord
-            ? (isset($hoursRow['is_closed']) && (int) $hoursRow['is_closed'] === 1)
-            : (bool) ($fallback['is_closed'] ?? false);
-        $openTimeRaw = $isClosed
-            ? ''
-            : ($hasRecord ? substr((string) ($hoursRow['open_time'] ?? ''), 0, 5) : (string) ($fallback['open_time_raw'] ?? ''));
-        $closeTimeRaw = $isClosed
-            ? ''
-            : ($hasRecord ? substr((string) ($hoursRow['close_time'] ?? ''), 0, 5) : (string) ($fallback['close_time_raw'] ?? ''));
+        // Weekly template only (clinic_date IS NULL). No per-calendar-date overrides.
+        $hasRecord = !empty($weeklyFromDbDay[$dayIndex]);
+        $isClosed = (bool) ($fallback['is_closed'] ?? false);
+        $openTimeRaw = $isClosed ? '' : (string) ($fallback['open_time_raw'] ?? '');
+        $closeTimeRaw = $isClosed ? '' : (string) ($fallback['close_time_raw'] ?? '');
         $hasValidTimes = $openTimeRaw !== '' && $closeTimeRaw !== '';
 
         return [

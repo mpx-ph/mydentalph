@@ -83,23 +83,6 @@ if (!function_exists('patient_booking_clinic_hours_for_date')) {
         }
         $qh = clinic_quote_identifier($hoursTable);
 
-        $stmt = $pdo->prepare("SELECT open_time, close_time, is_closed FROM {$qh} WHERE tenant_id = ? AND clinic_date = ? LIMIT 1");
-        $stmt->execute([$tenantId, $dateYmd]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (is_array($row) && !empty($row)) {
-            $closed = isset($row['is_closed']) && (int) $row['is_closed'] === 1;
-            if ($closed) {
-                return ['is_closed' => true, 'open' => null, 'close' => null];
-            }
-            $o = patient_booking_normalize_time($row['open_time'] ?? null);
-            $c = patient_booking_normalize_time($row['close_time'] ?? null);
-            if ($o === null || $c === null || $o >= $c) {
-                return ['is_closed' => true, 'open' => null, 'close' => null];
-            }
-
-            return ['is_closed' => false, 'open' => $o, 'close' => $c];
-        }
-
         $stmt2 = $pdo->prepare("SELECT open_time, close_time, is_closed FROM {$qh} WHERE tenant_id = ? AND clinic_date IS NULL AND day_of_week = ? LIMIT 1");
         $stmt2->execute([$tenantId, $dow]);
         $row2 = $stmt2->fetch(PDO::FETCH_ASSOC);
