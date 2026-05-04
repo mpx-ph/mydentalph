@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 // api/init_mobile_payment.php — mobile PayMongo; writes treatment ledger + linkage like staff bookings.
 require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../clinic/includes/patient_booking_slots.php';
 require_once __DIR__ . '/../clinic/includes/appointment_booking_row.php';
 require_once __DIR__ . '/../clinic/includes/booking_treatment_ledger.php';
 require_once __DIR__ . '/../paymongo_config.php';
@@ -21,7 +22,6 @@ if (!$input) {
 
 $user_id = $input['user_id'] ?? null;
 $tenant_id = trim((string) ($input['tenant_id'] ?? 'TNT_00025'));
-$dentist_id = $input['dentist_id'] ?? 1;
 $appointment_fallback_ymd = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d');
 $appointment_date = booking_normalize_mobile_date_input($input['appointment_date'] ?? null, $appointment_fallback_ymd);
 if ($appointment_date === null || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $appointment_date)) {
@@ -29,6 +29,7 @@ if ($appointment_date === null || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $appointm
 }
 
 $appointment_time = $input['appointment_time'] ?? null;
+$dentist_id_in = isset($input['dentist_id']) ? (int) $input['dentist_id'] : 1;
 $services_json = $input['services'] ?? '[]';
 $total_amount = isset($input['total_amount']) ? (float) $input['total_amount'] : 0.0;
 $payment_amount = isset($input['payment_amount']) ? (float) $input['payment_amount'] : 0.0;
@@ -80,6 +81,19 @@ try {
     $patient_name = trim(trim((string) ($patRow['first_name'] ?? '')) . ' ' . trim((string) ($patRow['last_name'] ?? '')));
     $user_email = !empty($patRow['email']) ? trim((string) $patRow['email']) : 'patient@mydentalph.com';
     $user_phone = trim((string) ($patRow['phone'] ?? ''));
+
+    $dentist_id = patient_booking_resolve_mobile_dentist_choice(
+        $pdo,
+        (string) $tenant_id,
+        (string) $appointment_date,
+        (string) $appointment_time,
+        $dentist_id_in
+    );
+    if ($dentist_id <= 0) {
+        throw new Exception(
+            'No dentist is available for this date and time. Please choose another slot or pick a specific dentist.'
+        );
+    }
 
     if ($schedule_followup_only) {
         mobile_api_schedule_followup_only_booking(

@@ -44,13 +44,24 @@ try {
     $available = !$exists;
 
     if ($available && $tenant_id !== '') {
-        $available = patient_booking_slot_available_at_time(
-            $pdo,
-            $tenant_id,
-            $dentistIdInt,
-            $appointment_date,
-            $appointment_time
-        );
+        if ($dentistIdInt <= 0) {
+            $norm = patient_booking_normalize_time($appointment_time);
+            if ($norm !== null) {
+                $hour = (int) substr($norm, 0, 2);
+                $candidates = patient_booking_list_dentists_for_hour($pdo, $tenant_id, $appointment_date, $hour);
+                $available = $candidates !== [];
+            } else {
+                $available = false;
+            }
+        } else {
+            $available = patient_booking_slot_available_at_time(
+                $pdo,
+                $tenant_id,
+                $dentistIdInt,
+                $appointment_date,
+                $appointment_time
+            );
+        }
     }
 
     echo json_encode([

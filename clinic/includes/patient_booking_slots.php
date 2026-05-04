@@ -78,6 +78,32 @@ if (!function_exists('patient_booking_dentist_user_id')) {
     }
 }
 
+if (!function_exists('patient_booking_resolve_mobile_dentist_choice')) {
+    /**
+     * Mobile "Any available dentist" sends dentist_id 0 — assign first dentist who passes
+     * patient_booking_list_dentists_for_hour (same ordering as the picker API).
+     */
+    function patient_booking_resolve_mobile_dentist_choice(
+        PDO $pdo,
+        string $tenantId,
+        string $dateYmd,
+        string $appointmentTime,
+        int $dentistId
+    ): int {
+        if ($dentistId > 0) {
+            return $dentistId;
+        }
+        $norm = patient_booking_normalize_time($appointmentTime);
+        if ($norm === null) {
+            return 0;
+        }
+        $hour = (int) substr($norm, 0, 2);
+        $list = patient_booking_list_dentists_for_hour($pdo, $tenantId, $dateYmd, $hour);
+
+        return isset($list[0]['dentist_id']) ? (int) $list[0]['dentist_id'] : 0;
+    }
+}
+
 if (!function_exists('patient_booking_clinic_hours_for_date')) {
     /**
      * @return array{is_closed:bool, open:?string, close:?string}
