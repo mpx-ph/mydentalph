@@ -133,6 +133,27 @@ function handleDiscountVerificationsGet(PDO $pdo, string $tenantId): void {
     $dateTo = trim((string) ($_GET['date_to'] ?? ''));
     $patientQ = trim((string) ($_GET['patient'] ?? ''));
 
+    // Minimal payload for "Record application" patient picker: exclude patients who already have an approved verification.
+    $blocklistFlag = trim((string) ($_GET['approved_patient_blocklist'] ?? ''));
+    if ($blocklistFlag === '1') {
+        $blStmt = $pdo->prepare(
+            'SELECT DISTINCT v.patient_ref, v.patient_name
+             FROM tbl_discount_verifications v
+             WHERE v.tenant_id = ? AND v.status = ?'
+        );
+        $blStmt->execute([$tenantId, 'approved']);
+        $blRows = $blStmt->fetchAll(PDO::FETCH_ASSOC);
+        $blocklist = [];
+        foreach ($blRows as $r) {
+            $blocklist[] = [
+                'patient_ref' => $r['patient_ref'] !== null ? (string) $r['patient_ref'] : '',
+                'patient_name' => isset($r['patient_name']) ? (string) $r['patient_name'] : '',
+            ];
+        }
+        jsonResponse(true, 'OK', ['approvedPatientBlocklist' => $blocklist]);
+        return;
+    }
+
     $sql = '
         SELECT v.*,
             p.valid_to AS program_valid_to,

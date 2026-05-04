@@ -7,6 +7,50 @@
     var recordsCache = [];
     var approversCache = [];
     var applicationPatientsCache = [];
+    /** @type {Set<string>} */
+    var approvedPatientBlocklistRefs = new Set();
+    /** @type {Set<string>} */
+    var approvedPatientBlocklistNames = new Set();
+
+    function normalizePatientNameForMatch(s) {
+        return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    }
+
+    function ingestApprovedPatientBlocklist(rows) {
+        approvedPatientBlocklistRefs = new Set();
+        approvedPatientBlocklistNames = new Set();
+        if (!Array.isArray(rows)) return;
+        rows.forEach(function (row) {
+            var ref = String(row.patient_ref || '').trim();
+            if (ref) approvedPatientBlocklistRefs.add(ref);
+            var n = normalizePatientNameForMatch(row.patient_name || '');
+            if (n) approvedPatientBlocklistNames.add(n);
+        });
+    }
+
+    function patientHasApprovedDiscountVerification(p) {
+        if (!p) return false;
+        var ref = String(p.patient_id != null ? p.patient_id : '').trim();
+        if (ref && approvedPatientBlocklistRefs.has(ref)) return true;
+        var nameKey = normalizePatientNameForMatch(patientDisplayName(p));
+        if (nameKey && approvedPatientBlocklistNames.has(nameKey)) return true;
+        return false;
+    }
+
+    function loadApprovedPatientBlocklist() {
+        if (!CFG.verificationsApi) {
+            ingestApprovedPatientBlocklist([]);
+            return Promise.resolve();
+        }
+        return apiJson(CFG.verificationsApi + '?approved_patient_blocklist=1').then(function (data) {
+            var rows = data && data.success && data.data && Array.isArray(data.data.approvedPatientBlocklist)
+                ? data.data.approvedPatientBlocklist
+                : [];
+            ingestApprovedPatientBlocklist(rows);
+        }).catch(function () {
+            ingestApprovedPatientBlocklist([]);
+        });
+    }
 
     /** @param {object|null|undefined} p */
     function patientDisplayName(p) {
@@ -51,6 +95,7 @@
         applicationPatientsCache.forEach(function (p) {
             var rid = p.id != null ? String(p.id) : '';
             if (!rid) return;
+            if (patientHasApprovedDiscountVerification(p)) return;
             var opt = document.createElement('option');
             opt.value = rid;
             opt.textContent = patientDisplayName(p);
@@ -78,13 +123,11 @@
                     return patientDisplayName(a).toLowerCase().localeCompare(patientDisplayName(b).toLowerCase());
                 });
                 applicationPatientsCache = merged;
-                populateApplicationPatientSelect();
                 return Promise.resolve();
             }
             return apiJson(CFG.patientsApi + '?page=' + page + '&limit=100').then(function (data) {
                 if (!data.success || !data.data) {
                     applicationPatientsCache = [];
-                    populateApplicationPatientSelect();
                     return;
                 }
                 var pagePatients = Array.isArray(data.data.patients) ? data.data.patients : [];
@@ -98,7 +141,6 @@
 
         return step().catch(function () {
             applicationPatientsCache = [];
-            populateApplicationPatientSelect();
         });
     }
 
@@ -613,6 +655,12 @@
             return loadVerifications().then(function () {
                 renderHistory();
                 closeOverlay(document.getElementById('verifyModal'));
+            }).then(function () {
+                if (action === 'approve') {
+                    return loadApprovedPatientBlocklist().then(function () {
+                        populateApplicationPatientSelect();
+                    });
+                }
             });
         }).catch(function () {
             alert('Network error.');
@@ -710,9 +758,15 @@
         if (imgEl) imgEl.removeAttribute('src');
         syncApplicationPatientFieldsFromSelect();
         populateApplicationPrograms();
-        var pSel = document.getElementById('appPatientSelect');
-        if (pSel && !applicationPatientsCache.length && CFG.patientsApi) {
-            loadApplicationPatients();
+        var openPickerLoads = [];
+        if (CFG.verificationsApi) openPickerLoads.push(loadApprovedPatientBlocklist());
+        if (!applicationPatientsCache.length && CFG.patientsApi) openPickerLoads.push(loadApplicationPatients());
+        if (openPickerLoads.length) {
+            Promise.all(openPickerLoads).then(function () {
+                populateApplicationPatientSelect();
+            });
+        } else {
+            populateApplicationPatientSelect();
         }
         openOverlay(document.getElementById('applicationModal'));
     });
@@ -827,7 +881,8 @@
     document.getElementById('programsGrid').innerHTML = '<p class="text-slate-500 col-span-full py-6 text-center text-sm">Loading programs…</p>';
     document.getElementById('historyTableBody').innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-slate-500">Loading…</td></tr>';
 
-    Promise.all([loadPrograms(), loadApplicationPatients()]).then(function () {
+    Promise.all([loadPrograms(), loadApplicationPatients(), loadApprovedPatientBlocklist()]).then(function () {
+        populateApplicationPatientSelect();
         renderPrograms();
         populateApplicationPrograms();
         return loadVerifications();
