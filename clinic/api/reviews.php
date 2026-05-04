@@ -48,7 +48,7 @@ function generateReviewId() {
     $year = date('Y');
     
     // Get the last review ID for this year
-    $stmt = $pdo->prepare("SELECT review_id FROM reviews WHERE review_id LIKE ? AND tenant_id = ? ORDER BY review_id DESC LIMIT 1");
+    $stmt = $pdo->prepare("SELECT review_id FROM tbl_reviews WHERE review_id LIKE ? AND tenant_id = ? ORDER BY review_id DESC LIMIT 1");
     $pattern = $prefix . '-' . $year . '-%';
     $stmt->execute([$pattern, $tenantId]);
     $lastReview = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -89,7 +89,7 @@ function createReview() {
     $userUserId = $user['user_id'];
     
     // Get patient_id from patients table
-    $stmt = $pdo->prepare("SELECT patient_id FROM patients WHERE owner_user_id = ? AND tenant_id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT patient_id FROM tbl_patients WHERE owner_user_id = ? AND tenant_id = ? LIMIT 1");
     $stmt->execute([$userUserId, $tenantId]);
     $patient = $stmt->fetch(PDO::FETCH_ASSOC);
     
@@ -116,7 +116,7 @@ function createReview() {
     // Verify appointment exists and belongs to this patient
     $stmt = $pdo->prepare("
         SELECT a.id, a.booking_id, a.patient_id, a.status 
-        FROM appointments a 
+        FROM tbl_appointments a 
         WHERE a.id = ? AND a.patient_id = ? AND a.tenant_id = ?
     ");
     $stmt->execute([$appointmentId, $patientId, $tenantId]);
@@ -127,7 +127,7 @@ function createReview() {
     }
     
     // Check if review already exists for this appointment
-    $stmt = $pdo->prepare("SELECT id FROM reviews WHERE appointment_id = ? AND tenant_id = ?");
+    $stmt = $pdo->prepare("SELECT id FROM tbl_reviews WHERE appointment_id = ? AND tenant_id = ?");
     $stmt->execute([$appointmentId, $tenantId]);
     if ($stmt->fetch()) {
         jsonResponse(false, 'You have already reviewed this appointment.');
@@ -139,7 +139,7 @@ function createReview() {
     // Insert review
     try {
         $stmt = $pdo->prepare("
-            INSERT INTO reviews (tenant_id, review_id, appointment_id, booking_id, patient_id, rating, comment)
+            INSERT INTO tbl_reviews (tenant_id, review_id, appointment_id, booking_id, patient_id, rating, comment)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ");
         
@@ -192,9 +192,9 @@ function getReviews() {
                 SELECT r.*,
                        p.first_name, p.last_name,
                        a.booking_id, a.appointment_date, a.appointment_time
-                FROM reviews r
-                LEFT JOIN patients p ON r.patient_id = p.patient_id AND p.tenant_id = r.tenant_id
-                LEFT JOIN appointments a ON r.appointment_id = a.id AND a.tenant_id = r.tenant_id
+                FROM tbl_reviews r
+                LEFT JOIN tbl_patients p ON r.patient_id = p.patient_id AND p.tenant_id = r.tenant_id
+                LEFT JOIN tbl_appointments a ON r.appointment_id = a.id AND a.tenant_id = r.tenant_id
                 WHERE r.review_id = ? AND r.tenant_id = ?
             ";
             
@@ -206,7 +206,7 @@ function getReviews() {
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);
                 $userUserId = $user['user_id'] ?? null;
                 
-                $stmt = $pdo->prepare("SELECT patient_id FROM patients WHERE owner_user_id = ? AND tenant_id = ? LIMIT 1");
+                $stmt = $pdo->prepare("SELECT patient_id FROM tbl_patients WHERE owner_user_id = ? AND tenant_id = ? LIMIT 1");
                 $stmt->execute([$userUserId, $tenantId]);
                 $patient = $stmt->fetch(PDO::FETCH_ASSOC);
                 $patientId = $patient['patient_id'] ?? null;
@@ -237,11 +237,11 @@ function getReviews() {
                        p.first_name, p.last_name,
                        a.booking_id, a.appointment_date, a.appointment_time,
                        GROUP_CONCAT(DISTINCT s.service_name SEPARATOR ', ') as service_names
-                FROM reviews r
-                LEFT JOIN patients p ON r.patient_id = p.patient_id AND p.tenant_id = r.tenant_id
-                LEFT JOIN appointments a ON r.appointment_id = a.id AND a.tenant_id = r.tenant_id
-                LEFT JOIN appointment_services aps ON a.id = aps.appointment_id AND aps.tenant_id = r.tenant_id
-                LEFT JOIN services s ON aps.service_id = s.id AND s.tenant_id = r.tenant_id
+                FROM tbl_reviews r
+                LEFT JOIN tbl_patients p ON r.patient_id = p.patient_id AND p.tenant_id = r.tenant_id
+                LEFT JOIN tbl_appointments a ON r.appointment_id = a.id AND a.tenant_id = r.tenant_id
+                LEFT JOIN tbl_appointment_services aps ON a.id = aps.appointment_id AND aps.tenant_id = r.tenant_id
+                LEFT JOIN tbl_services s ON aps.service_id = s.service_id AND s.tenant_id = r.tenant_id
                 WHERE r.tenant_id = ?
             ";
             
@@ -270,7 +270,7 @@ function getReviews() {
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);
                 $userUserId = $user['user_id'] ?? null;
                 
-                $stmt = $pdo->prepare("SELECT patient_id FROM patients WHERE owner_user_id = ? AND tenant_id = ? LIMIT 1");
+                $stmt = $pdo->prepare("SELECT patient_id FROM tbl_patients WHERE owner_user_id = ? AND tenant_id = ? LIMIT 1");
                 $stmt->execute([$userUserId, $tenantId]);
                 $patient = $stmt->fetch(PDO::FETCH_ASSOC);
                 $patientId = $patient['patient_id'] ?? null;
@@ -352,12 +352,12 @@ function updateReview() {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         $userUserId = $user['user_id'] ?? null;
         
-        $stmt = $pdo->prepare("SELECT patient_id FROM patients WHERE owner_user_id = ? AND tenant_id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT patient_id FROM tbl_patients WHERE owner_user_id = ? AND tenant_id = ? LIMIT 1");
         $stmt->execute([$userUserId, $tenantId]);
         $patient = $stmt->fetch(PDO::FETCH_ASSOC);
         $patientId = $patient['patient_id'] ?? null;
         
-        $stmt = $pdo->prepare("SELECT patient_id FROM reviews WHERE review_id = ? AND tenant_id = ?");
+        $stmt = $pdo->prepare("SELECT patient_id FROM tbl_reviews WHERE review_id = ? AND tenant_id = ?");
         $stmt->execute([$reviewId, $tenantId]);
         $review = $stmt->fetch(PDO::FETCH_ASSOC);
         
@@ -368,8 +368,8 @@ function updateReview() {
     
     try {
         $stmt = $pdo->prepare("
-            UPDATE reviews 
-            SET rating = ?, comment = ?, updated_at = CURRENT_TIMESTAMP
+            UPDATE tbl_reviews 
+            SET rating = ?, comment = ?
             WHERE review_id = ? AND tenant_id = ?
         ");
         
@@ -409,12 +409,12 @@ function deleteReview() {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         $userUserId = $user['user_id'] ?? null;
         
-        $stmt = $pdo->prepare("SELECT patient_id FROM patients WHERE owner_user_id = ? AND tenant_id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT patient_id FROM tbl_patients WHERE owner_user_id = ? AND tenant_id = ? LIMIT 1");
         $stmt->execute([$userUserId, $tenantId]);
         $patient = $stmt->fetch(PDO::FETCH_ASSOC);
         $patientId = $patient['patient_id'] ?? null;
         
-        $stmt = $pdo->prepare("SELECT patient_id FROM reviews WHERE review_id = ? AND tenant_id = ?");
+        $stmt = $pdo->prepare("SELECT patient_id FROM tbl_reviews WHERE review_id = ? AND tenant_id = ?");
         $stmt->execute([$reviewId, $tenantId]);
         $review = $stmt->fetch(PDO::FETCH_ASSOC);
         
@@ -424,7 +424,7 @@ function deleteReview() {
     }
     
     try {
-        $stmt = $pdo->prepare("DELETE FROM reviews WHERE review_id = ? AND tenant_id = ?");
+        $stmt = $pdo->prepare("DELETE FROM tbl_reviews WHERE review_id = ? AND tenant_id = ?");
         $stmt->execute([$reviewId, $tenantId]);
         
         jsonResponse(true, 'Review deleted successfully.');
