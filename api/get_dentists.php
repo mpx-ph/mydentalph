@@ -38,7 +38,7 @@ try {
             WHERE d.tenant_id = ?
         ";
         if (clinic_table_exists($pdo, $dTable) && in_array('status', clinic_table_columns($pdo, $dTable), true)) {
-            $sql .= " AND LOWER(COALESCE(d.status, '')) = 'active' ";
+            $sql .= " AND LOWER(COALESCE(NULLIF(TRIM(COALESCE(d.status, '')), ''), 'active')) = 'active' ";
         } elseif (clinic_table_exists($pdo, $dTable) && in_array('is_active', clinic_table_columns($pdo, $dTable), true)) {
             $sql .= ' AND d.is_active = 1 ';
         }

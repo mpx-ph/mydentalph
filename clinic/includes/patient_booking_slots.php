@@ -319,7 +319,8 @@ if (!function_exists('patient_booking_list_dentists_for_hour')) {
 
         $sql = "SELECT dentist_id, first_name, last_name FROM {$qD} WHERE tenant_id = ?";
         if ($hasStatus) {
-            $sql .= " AND LOWER(COALESCE(status, '')) = 'active'";
+            // NULL/blank status must count as active (schema default + legacy rows); strict '' = 'active' hid every such dentist.
+            $sql .= " AND LOWER(COALESCE(NULLIF(TRIM(COALESCE(status, '')), ''), 'active')) = 'active'";
         } elseif ($hasIsActive) {
             $sql .= ' AND is_active = 1';
         }
