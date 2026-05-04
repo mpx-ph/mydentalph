@@ -11,9 +11,10 @@ ini_set('display_errors', 0);
 
 require_once '../db.php';
 
-$user_id       = $_POST['user_id']       ?? null;
-$tenant_id     = $_POST['tenant_id']     ?? null;
-$file_category = trim($_POST['file_category'] ?? 'General');
+$user_id         = $_POST['user_id']       ?? null;
+$tenant_id       = $_POST['tenant_id']     ?? null;
+$file_category   = trim($_POST['file_category'] ?? 'General');
+$postpatient_raw = trim((string)($_POST['patient_id'] ?? ''));
 
 if (!$user_id || !$tenant_id) {
     echo json_encode(["success" => false, "message" => "Missing user_id or tenant_id."]);
@@ -42,16 +43,34 @@ if (!in_array($mimeType, $allowed)) {
     exit;
 }
 
-// Resolve patient_id from tbl_patients (linked to this user)
+// Resolve patient_id: optional POST (household / dependent booking) must match tenant + user access
+$patientId = null;
 try {
-    $stmt = $pdo->prepare("
-        SELECT patient_id FROM tbl_patients
-        WHERE linked_user_id = ? AND tenant_id = ?
-        ORDER BY patient_id DESC LIMIT 1
-    ");
-    $stmt->execute([$user_id, $tenant_id]);
-    $patient = $stmt->fetch(PDO::FETCH_ASSOC);
-    $patientId = $patient['patient_id'] ?? null;
+    if ($postpatient_raw !== '') {
+        $stmt = $pdo->prepare("
+            SELECT patient_id FROM tbl_patients
+            WHERE tenant_id = ? AND patient_id = ?
+              AND (owner_user_id = ? OR linked_user_id = ?)
+            LIMIT 1
+        ");
+        $stmt->execute([$tenant_id, $postpatient_raw, $user_id, $user_id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row && !empty($row['patient_id'])) {
+            $patientId = (string)$row['patient_id'];
+        }
+    }
+    if ($patientId === null) {
+        $stmt = $pdo->prepare("
+            SELECT patient_id FROM tbl_patients
+            WHERE linked_user_id = ? AND tenant_id = ?
+            ORDER BY patient_id DESC LIMIT 1
+        ");
+        $stmt->execute([$user_id, $tenant_id]);
+        $patient = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($patient && !empty($patient['patient_id'])) {
+            $patientId = (string)$patient['patient_id'];
+        }
+    }
 } catch (PDOException $e) {
     $patientId = null;
 }
