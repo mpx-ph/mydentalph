@@ -388,6 +388,22 @@ try {
         $clinicHoursByDate[$weekDayRef['date_key']] = $resolveClinicHoursByDate($weekDayRef['date_key']);
     }
 
+    $clinicHoursSnapshotByDayName = [];
+    foreach ($weekDays as $wd) {
+        $snap = $clinicHoursByDate[$wd['date_key']] ?? [
+            'has_record' => false,
+            'is_closed' => true,
+            'open_time_raw' => '',
+            'close_time_raw' => '',
+        ];
+        $clinicHoursSnapshotByDayName[$wd['day_name']] = [
+            'has_record' => (bool) ($snap['has_record'] ?? false),
+            'is_closed' => (bool) ($snap['is_closed'] ?? true),
+            'open_time_raw' => (string) ($snap['open_time_raw'] ?? ''),
+            'close_time_raw' => (string) ($snap['close_time_raw'] ?? ''),
+        ];
+    }
+
     if (isset($_GET['dentist_shift_lookup']) && (string) $_GET['dentist_shift_lookup'] === '1') {
         header('Content-Type: application/json; charset=utf-8');
 
@@ -506,6 +522,75 @@ try {
             'close_time' => $resolvedHours['close_time'],
             'open_time_raw' => $resolvedHours['open_time_raw'],
             'close_time_raw' => $resolvedHours['close_time_raw'],
+        ]);
+        exit;
+    }
+
+    if (isset($_GET['weekly_shift_editor_lookup']) && (string) $_GET['weekly_shift_editor_lookup'] === '1') {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $lookupUserId = isset($_GET['dentist_user_id']) ? trim((string) $_GET['dentist_user_id']) : '';
+        if ($lookupUserId === '') {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Invalid dentist supplied.',
+            ]);
+            exit;
+        }
+        if ($tenantId === '') {
+            $resolvedWalkinTenant = clinic_resolve_walkin_tenant_id($pdo);
+            if (is_string($resolvedWalkinTenant) && $resolvedWalkinTenant !== '') {
+                $tenantId = $resolvedWalkinTenant;
+            }
+        }
+        if ($tenantId === '') {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Unable to resolve tenant.',
+            ]);
+            exit;
+        }
+
+        $weeklyShiftStmt = $pdo->prepare("
+            SELECT day_of_week, start_time, end_time, notes
+            FROM tbl_schedule_blocks
+            WHERE tenant_id = ?
+              AND user_id = ?
+              AND block_type = 'shift'
+              AND is_active = 1
+              AND (block_date IS NULL OR block_date = '0000-00-00')
+              AND day_of_week IS NOT NULL
+              AND TRIM(day_of_week) <> ''
+            ORDER BY updated_at DESC, created_at DESC
+        ");
+        $weeklyShiftStmt->execute([$tenantId, $lookupUserId]);
+        $weeklyRows = $weeklyShiftStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $shiftsByDay = [];
+        $mergedNotes = '';
+        foreach ($weeklyRows as $wrow) {
+            $dowName = trim((string) ($wrow['day_of_week'] ?? ''));
+            if ($dowName === '') {
+                continue;
+            }
+            $startRaw = substr(formatDisplayTime((string) ($wrow['start_time'] ?? '')), 0, 5);
+            $endRaw = substr(formatDisplayTime((string) ($wrow['end_time'] ?? '')), 0, 5);
+            $shiftsByDay[$dowName] = [
+                'start_time_raw' => $startRaw,
+                'end_time_raw' => $endRaw,
+            ];
+            $noteRow = trim((string) ($wrow['notes'] ?? ''));
+            if ($mergedNotes === '' && $noteRow !== '') {
+                $mergedNotes = $noteRow;
+            }
+        }
+
+        echo json_encode([
+            'success' => true,
+            'shifts' => $shiftsByDay,
+            'notes' => $mergedNotes,
         ]);
         exit;
     }
@@ -794,10 +879,7 @@ try {
 
         $shiftDentistId = isset($_POST['dentist_id']) ? trim((string) $_POST['dentist_id']) : '';
         $shiftDentistUserId = isset($_POST['dentist_user_id']) ? trim((string) $_POST['dentist_user_id']) : '';
-        $shiftDate = isset($_POST['shift_date']) ? trim((string) $_POST['shift_date']) : '';
-        $shiftStart = isset($_POST['start_time']) ? trim((string) $_POST['start_time']) : '';
-        $shiftEnd = isset($_POST['end_time']) ? trim((string) $_POST['end_time']) : '';
-        $shiftRepeat = isset($_POST['repeat']) ? trim((string) $_POST['repeat']) : 'one_day';
+        $shiftWeekAnchor = isset($_POST['shift_week_anchor']) ? trim((string) $_POST['shift_week_anchor']) : '';
         $shiftNotesInput = isset($_POST['notes']) ? trim((string) $_POST['notes']) : '';
         $shiftNotes = $shiftNotesInput !== '' ? $shiftNotesInput : null;
 
@@ -806,28 +888,10 @@ try {
             echo json_encode(['success' => false, 'message' => 'Please select a dentist.']);
             exit;
         }
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $shiftDate)) {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $shiftWeekAnchor)) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Please select a valid shift date.']);
+            echo json_encode(['success' => false, 'message' => 'Please select a week on the schedule, then try again.']);
             exit;
-        }
-        if ($shiftDate < $todayDateOnly) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Shift date must be today or a future date.']);
-            exit;
-        }
-        if (!preg_match('/^\d{2}:\d{2}$/', $shiftStart) || !preg_match('/^\d{2}:\d{2}$/', $shiftEnd)) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Please select valid start and end times.']);
-            exit;
-        }
-        if (toMinutes($shiftEnd) <= toMinutes($shiftStart)) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Shift end time must be later than start time.']);
-            exit;
-        }
-        if (!in_array($shiftRepeat, ['one_day', 'weekly'], true)) {
-            $shiftRepeat = 'one_day';
         }
 
         $shiftUserId = '';
@@ -849,7 +913,6 @@ try {
             }
         }
 
-        // Resolve missing pieces from dentist table when possible.
         if ($shiftUserId === '' || $resolvedShiftDentistId === '') {
             $dentistLookupStmt = $pdo->prepare("
                 SELECT tenant_id, user_id, dentist_id
@@ -880,7 +943,6 @@ try {
             }
         }
 
-        // Legacy-data fallback: resolve by dentist profile email within tenant.
         if ($shiftUserId === '' && $shiftDentistId !== '') {
             $dentistEmailLookupStmt = $pdo->prepare("
                 SELECT
@@ -918,114 +980,117 @@ try {
             $tenantId = $resolvedDentistTenantId;
         }
 
-        $resolvedShiftClinicHours = $resolveClinicHoursByDate($shiftDate);
-        if ($resolvedShiftClinicHours['is_closed']) {
+        $anchorObj = DateTimeImmutable::createFromFormat('Y-m-d', $shiftWeekAnchor, $tz);
+        if (!($anchorObj instanceof DateTimeImmutable)) {
             http_response_code(400);
-            echo json_encode([
-                'success' => false,
-                'message' => 'The clinic is marked closed for this date.',
-            ]);
+            echo json_encode(['success' => false, 'message' => 'Invalid week reference for shift saving.']);
             exit;
+        }
+        $sundayObj = $anchorObj->modify('-' . $anchorObj->format('w') . ' days')->setTime(0, 0, 0);
+        $dateByDayName = [];
+        foreach ($dayNameMap as $idx => $name) {
+            $dateByDayName[$name] = $sundayObj->modify('+' . $idx . ' days')->format('Y-m-d');
         }
 
-        $clinicOpen = (string) ($resolvedShiftClinicHours['open_time_raw'] ?? '');
-        $clinicClose = (string) ($resolvedShiftClinicHours['close_time_raw'] ?? '');
-        if ($clinicOpen === '' || $clinicClose === '') {
-            http_response_code(400);
-            echo json_encode([
-                'success' => false,
-                'message' => 'Clinic opening and closing times are incomplete for this date.',
-            ]);
-            exit;
-        }
-        $clinicOpenMinutes = toMinutes($clinicOpen);
-        $clinicCloseMinutes = toMinutes($clinicClose);
-        $shiftStartMinutes = toMinutes($shiftStart);
-        $shiftEndMinutes = toMinutes($shiftEnd);
-        if ($shiftStartMinutes < $clinicOpenMinutes || $shiftEndMinutes > $clinicCloseMinutes) {
-            http_response_code(400);
-            echo json_encode([
-                'success' => false,
-                'message' => 'Shift time must be within clinic operating hours for the selected day.',
-            ]);
-            exit;
-        }
-
-        $shiftDateObj = DateTimeImmutable::createFromFormat('Y-m-d', $shiftDate, $tz);
-        $shiftDayName = $shiftDateObj instanceof DateTimeImmutable ? $shiftDateObj->format('l') : null;
         $createdByUserId = isset($_SESSION['user_id']) ? trim((string) $_SESSION['user_id']) : null;
         if ($createdByUserId === '') {
             $createdByUserId = null;
         }
 
-        if ($shiftRepeat === 'one_day') {
-            $disableExistingStmt = $pdo->prepare("
-                UPDATE tbl_schedule_blocks
-                SET is_active = 0
-                WHERE tenant_id = ?
-                  AND user_id = ?
-                  AND block_type = 'shift'
-                  AND block_date = ?
-            ");
-            $disableExistingStmt->execute([$tenantId, $shiftUserId, $shiftDate]);
+        $disableExistingWeeklyStmt = $pdo->prepare("
+            UPDATE tbl_schedule_blocks
+            SET is_active = 0
+            WHERE tenant_id = ?
+              AND user_id = ?
+              AND block_type = 'shift'
+              AND day_of_week = ?
+              AND (block_date IS NULL OR block_date = '0000-00-00')
+        ");
+        $insertWeeklyShiftStmt = $pdo->prepare("
+            INSERT INTO tbl_schedule_blocks
+                (tenant_id, user_id, block_date, day_of_week, start_time, end_time, block_type, is_active, notes, created_by)
+            VALUES
+                (?, ?, NULL, ?, ?, ?, 'shift', 1, ?, ?)
+        ");
 
-            $insertShiftStmt = $pdo->prepare("
-                INSERT INTO tbl_schedule_blocks
-                    (tenant_id, user_id, block_date, day_of_week, start_time, end_time, block_type, is_active, notes, created_by)
-                VALUES
-                    (?, ?, ?, NULL, ?, ?, 'shift', 1, ?, ?)
-            ");
-            $insertShiftStmt->execute([
-                $tenantId,
-                $shiftUserId,
-                $shiftDate,
-                $shiftStart . ':00',
-                $shiftEnd . ':00',
-                $shiftNotes,
-                $createdByUserId,
-            ]);
-        } else {
-            if (!in_array($shiftDayName, $dayNameMap, true)) {
-                http_response_code(400);
-                echo json_encode([
-                    'success' => false,
-                    'message' => 'Unable to determine weekly repeat day.',
+        $failJson = static function (int $code, string $message) {
+            http_response_code($code);
+            echo json_encode(['success' => false, 'message' => $message]);
+            exit;
+        };
+
+        try {
+            $pdo->beginTransaction();
+
+            foreach ($dayNameMap as $dayName) {
+                $slug = strtolower($dayName);
+                $startField = 'week_shift_' . $slug . '_start';
+                $endField = 'week_shift_' . $slug . '_end';
+                $shiftStart = isset($_POST[$startField]) ? trim((string) $_POST[$startField]) : '';
+                $shiftEnd = isset($_POST[$endField]) ? trim((string) $_POST[$endField]) : '';
+
+                $disableExistingWeeklyStmt->execute([$tenantId, $shiftUserId, $dayName]);
+
+                if ($shiftStart === '' && $shiftEnd === '') {
+                    continue;
+                }
+                if ($shiftStart === '' || $shiftEnd === '') {
+                    throw new RuntimeException($dayName . ': Enter both start and end times, or leave both empty for a day off.');
+                }
+                if (!preg_match('/^\d{2}:\d{2}$/', $shiftStart) || !preg_match('/^\d{2}:\d{2}$/', $shiftEnd)) {
+                    throw new RuntimeException($dayName . ': Please use valid start and end times.');
+                }
+                if (toMinutes($shiftEnd) <= toMinutes($shiftStart)) {
+                    throw new RuntimeException($dayName . ': End time must be later than start time.');
+                }
+
+                $refDate = $dateByDayName[$dayName] ?? '';
+                if ($refDate === '') {
+                    throw new RuntimeException($dayName . ': Unable to resolve that weekday for clinic hours.');
+                }
+                $resolvedShiftClinicHours = $resolveClinicHoursByDate($refDate);
+                if (!empty($resolvedShiftClinicHours['is_closed'])) {
+                    throw new RuntimeException($dayName . ': The clinic is closed on this weekday for the selected week.');
+                }
+                $clinicOpen = (string) ($resolvedShiftClinicHours['open_time_raw'] ?? '');
+                $clinicClose = (string) ($resolvedShiftClinicHours['close_time_raw'] ?? '');
+                if ($clinicOpen === '' || $clinicClose === '') {
+                    throw new RuntimeException($dayName . ': Clinic hours are not configured for this weekday.');
+                }
+                $clinicOpenMinutes = toMinutes($clinicOpen);
+                $clinicCloseMinutes = toMinutes($clinicClose);
+                $shiftStartMinutes = toMinutes($shiftStart);
+                $shiftEndMinutes = toMinutes($shiftEnd);
+                if ($shiftStartMinutes < $clinicOpenMinutes || $shiftEndMinutes > $clinicCloseMinutes) {
+                    throw new RuntimeException($dayName . ': Shift must fall within clinic operating hours for that day.');
+                }
+
+                $insertWeeklyShiftStmt->execute([
+                    $tenantId,
+                    $shiftUserId,
+                    $dayName,
+                    $shiftStart . ':00',
+                    $shiftEnd . ':00',
+                    $shiftNotes,
+                    $createdByUserId,
                 ]);
-                exit;
             }
 
-            $disableExistingWeeklyStmt = $pdo->prepare("
-                UPDATE tbl_schedule_blocks
-                SET is_active = 0
-                WHERE tenant_id = ?
-                  AND user_id = ?
-                  AND block_type = 'shift'
-                  AND day_of_week = ?
-                  AND (block_date IS NULL OR block_date = '0000-00-00')
-            ");
-            $disableExistingWeeklyStmt->execute([$tenantId, $shiftUserId, $shiftDayName]);
-
-            $insertWeeklyShiftStmt = $pdo->prepare("
-                INSERT INTO tbl_schedule_blocks
-                    (tenant_id, user_id, block_date, day_of_week, start_time, end_time, block_type, is_active, notes, created_by)
-                VALUES
-                    (?, ?, NULL, ?, ?, ?, 'shift', 1, ?, ?)
-            ");
-            $insertWeeklyShiftStmt->execute([
-                $tenantId,
-                $shiftUserId,
-                $shiftDayName,
-                $shiftStart . ':00',
-                $shiftEnd . ':00',
-                $shiftNotes,
-                $createdByUserId,
-            ]);
+            $pdo->commit();
+        } catch (RuntimeException $e) {
+            $pdo->rollBack();
+            $failJson(400, $e->getMessage());
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            $failJson(500, 'Unable to save weekly shifts. Please try again.');
         }
 
         echo json_encode([
             'success' => true,
-            'message' => 'Shift saved successfully.',
-            'selected_date' => $shiftDate,
+            'message' => 'Weekly shift saved successfully.',
+            'selected_date' => $shiftWeekAnchor,
             'dentist_id' => $resolvedShiftDentistId !== '' ? $resolvedShiftDentistId : $shiftDentistId,
             'dentist_user_id' => $shiftUserId,
         ]);
@@ -2285,14 +2350,14 @@ $dentistsSeedData = array_map(static function ($dentist) {
 <div id="setShiftModal" class="hidden fixed inset-0 z-[70]">
     <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"></div>
     <div class="relative h-full w-full flex items-center justify-center p-4">
-        <div class="staff-modal-panel schedule-popup-enter bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col">
+        <div class="staff-modal-panel schedule-popup-enter bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col">
             <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
                 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
                     <span class="material-symbols-outlined text-2xl text-primary">schedule</span>
                 </div>
                 <div class="min-w-0 flex-1 pr-2">
                     <h3 class="text-xl sm:text-2xl font-extrabold font-headline text-on-background tracking-tight">Set Dentist Shift</h3>
-                    <p class="text-sm text-slate-500 mt-1 leading-relaxed">Define a one-day or weekly working schedule</p>
+                    <p class="text-sm text-slate-500 mt-1 leading-relaxed">Set recurring weekly hours for each day of the week</p>
                 </div>
                 <button id="closeSetShiftModalBtn" type="button" class="shrink-0 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Close">
                     <span class="material-symbols-outlined text-[22px]">close</span>
@@ -2306,7 +2371,6 @@ $dentistsSeedData = array_map(static function ($dentist) {
                             <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Basic Information</h4>
                         </div>
                         <div class="space-y-4">
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                             <div>
                                 <label for="setShiftDentistId" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
                                     <span class="material-symbols-outlined text-[18px] text-slate-500">badge</span>
@@ -2331,74 +2395,65 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            <div>
-                                <label for="setShiftDate" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
-                                    <span class="material-symbols-outlined text-[18px] text-slate-500">event</span>
-                                    Date
-                                </label>
-                                <div class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 transition-all inline-flex items-center gap-2.5">
-                                    <input id="setShiftDate" type="date" min="<?php echo htmlspecialchars($todayDateOnly, ENT_QUOTES, 'UTF-8'); ?>" value="<?php echo htmlspecialchars($setShiftDefaultDate, ENT_QUOTES, 'UTF-8'); ?>" class="w-full bg-transparent p-0 border-0 text-[15px] font-semibold text-slate-900 focus:ring-0"/>
+                        </div>
+                        <div class="flex items-center gap-2 mb-3 mt-6">
+                            <span class="material-symbols-outlined text-primary text-[22px]">calendar_month</span>
+                            <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-wide">Weekly schedule</h4>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-4 leading-relaxed">Leave both times empty on a day off. Shift times are validated against clinic hours for each weekday in the week you are viewing.</p>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50/40 divide-y divide-slate-200/80 overflow-hidden">
+                            <?php
+                            $setShiftWeekRows = [
+                                ['Sunday', 'sunday'],
+                                ['Monday', 'monday'],
+                                ['Tuesday', 'tuesday'],
+                                ['Wednesday', 'wednesday'],
+                                ['Thursday', 'thursday'],
+                                ['Friday', 'friday'],
+                                ['Saturday', 'saturday'],
+                            ];
+                            foreach ($setShiftWeekRows as $setShiftWeekRow) {
+                                $setShiftDayLabel = $setShiftWeekRow[0];
+                                $setShiftDaySlug = $setShiftWeekRow[1];
+                                $setShiftDefaultPair = in_array($setShiftDaySlug, ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'], true);
+                                $setShiftDefaultStart = $setShiftDefaultPair ? '09:00' : '';
+                                $setShiftDefaultEnd = $setShiftDefaultPair ? '17:00' : '';
+                                $setShiftStartId = 'setShiftWeek' . ucfirst($setShiftDaySlug) . 'Start';
+                                $setShiftEndId = 'setShiftWeek' . ucfirst($setShiftDaySlug) . 'End';
+                                ?>
+                            <div class="px-4 py-3.5 sm:px-5 sm:py-4 bg-white/80">
+                                <div class="flex flex-col lg:flex-row lg:items-end gap-4">
+                                    <div class="w-full lg:w-36 shrink-0">
+                                        <p class="text-sm font-bold text-slate-800 pt-0 lg:pt-2"><?php echo htmlspecialchars($setShiftDayLabel, ENT_QUOTES, 'UTF-8'); ?></p>
+                                    </div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
+                                        <div>
+                                            <label for="<?php echo htmlspecialchars($setShiftStartId, ENT_QUOTES, 'UTF-8'); ?>" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                                <span class="material-symbols-outlined text-[18px] text-slate-500">timer</span>
+                                                Start Time
+                                            </label>
+                                            <input id="<?php echo htmlspecialchars($setShiftStartId, ENT_QUOTES, 'UTF-8'); ?>" name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_start" type="time" step="60" value="<?php echo htmlspecialchars($setShiftDefaultStart, ENT_QUOTES, 'UTF-8'); ?>" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+                                        </div>
+                                        <div>
+                                            <label for="<?php echo htmlspecialchars($setShiftEndId, ENT_QUOTES, 'UTF-8'); ?>" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
+                                                <span class="material-symbols-outlined text-[18px] text-slate-500">timer_off</span>
+                                                End Time
+                                            </label>
+                                            <input id="<?php echo htmlspecialchars($setShiftEndId, ENT_QUOTES, 'UTF-8'); ?>" name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_end" type="time" step="60" value="<?php echo htmlspecialchars($setShiftDefaultEnd, ENT_QUOTES, 'UTF-8'); ?>" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+                                <?php
+                            }
+                            ?>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5 space-y-3">
-                            <p id="setShiftClinicHoursLabel" class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Clinic Hours for the day <?php echo htmlspecialchars((new DateTimeImmutable($setShiftDefaultDate, $tz))->format('F j, Y'), ENT_QUOTES, 'UTF-8'); ?></p>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-                                <div>
-                                    <label for="setShiftClinicOpenTime" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
-                                        <span class="material-symbols-outlined text-[18px] text-slate-500">storefront</span>
-                                        Open Time (Read Only)
-                                    </label>
-                                    <input id="setShiftClinicOpenTime" type="text" value="-" readonly class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 text-[15px] font-semibold cursor-not-allowed"/>
-                                </div>
-                                <div>
-                                    <label for="setShiftClinicCloseTime" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
-                                        <span class="material-symbols-outlined text-[18px] text-slate-500">storefront</span>
-                                        Close Time (Read Only)
-                                    </label>
-                                    <input id="setShiftClinicCloseTime" type="text" value="-" readonly class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 text-[15px] font-semibold cursor-not-allowed"/>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-                            <div>
-                                <label for="setShiftStartTime" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
-                                    <span class="material-symbols-outlined text-[18px] text-slate-500">timer</span>
-                                    Start Time
-                                </label>
-                                <input id="setShiftStartTime" type="time" step="60" value="09:00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
-                            </div>
-                            <div>
-                                <label for="setShiftEndTime" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
-                                    <span class="material-symbols-outlined text-[18px] text-slate-500">timer_off</span>
-                                    End Time
-                                </label>
-                                <input id="setShiftEndTime" type="time" step="60" value="17:00" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
-                            </div>
-                        </div>
-                        <div>
-                            <p class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
-                                <span class="material-symbols-outlined text-[18px] text-slate-500">repeat</span>
-                                Repeat
-                            </p>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                <label class="inline-flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 hover:border-primary/30 cursor-pointer">
-                                    <input type="radio" name="setShiftRepeat" value="one_day" checked class="h-4 w-4 border-slate-300 text-primary focus:ring-primary/30"/>
-                                    One Day
-                                </label>
-                                <label class="inline-flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 hover:border-primary/30 cursor-pointer">
-                                    <input type="radio" name="setShiftRepeat" value="weekly" class="h-4 w-4 border-slate-300 text-primary focus:ring-primary/30"/>
-                                    Weekly
-                                </label>
-                            </div>
-                        </div>
-                        <div>
+                        <div class="mt-6">
                             <label for="setShiftNotes" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
                                 <span class="material-symbols-outlined text-[18px] text-slate-500">description</span>
                                 Notes
                             </label>
-                            <textarea id="setShiftNotes" rows="3" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all resize-y min-h-[100px]" placeholder="Optional text"></textarea>
-                        </div>
+                            <textarea id="setShiftNotes" name="notes" rows="3" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all resize-y min-h-[100px]" placeholder="Optional text"></textarea>
                         </div>
                     </section>
                     <div class="border-t border-slate-100 bg-slate-50/50 px-0 py-4 flex flex-wrap items-center justify-end gap-3">
@@ -2650,12 +2705,6 @@ $dentistsSeedData = array_map(static function ($dentist) {
         const setShiftDentistId = document.getElementById('setShiftDentistId');
         const setShiftForm = document.getElementById('setShiftForm');
         const setShiftNotes = document.getElementById('setShiftNotes');
-        const setShiftStartTime = document.getElementById('setShiftStartTime');
-        const setShiftEndTime = document.getElementById('setShiftEndTime');
-        const setShiftDate = document.getElementById('setShiftDate');
-        const setShiftClinicHoursLabel = document.getElementById('setShiftClinicHoursLabel');
-        const setShiftClinicOpenTime = document.getElementById('setShiftClinicOpenTime');
-        const setShiftClinicCloseTime = document.getElementById('setShiftClinicCloseTime');
         const chooseDentistBtn = document.getElementById('chooseDentistBtn');
         const clearDentistBtn = document.getElementById('clearDentistBtn');
         const selectedDentistLabel = document.getElementById('selectedDentistLabel');
@@ -2691,12 +2740,17 @@ $dentistsSeedData = array_map(static function ($dentist) {
         const stockDentistImage = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=60';
         const clinicAssetBaseUrl = <?php echo json_encode(rtrim(BASE_URL, '/') . '/', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const todayDateOnly = <?php echo json_encode($todayDateOnly, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
-        let selectedClinicHoursForShift = {
-            hasRecord: false,
-            isClosed: false,
-            openTimeRaw: '',
-            closeTimeRaw: ''
-        };
+        const clinicHoursSnapshotByDayName = <?php echo json_encode($clinicHoursSnapshotByDayName ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const scheduleWeekAnchorDefault = <?php echo json_encode($selectedDate->format('Y-m-d'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const setShiftWeekFieldDefs = [
+            { dayName: 'Sunday', startId: 'setShiftWeekSundayStart', endId: 'setShiftWeekSundayEnd' },
+            { dayName: 'Monday', startId: 'setShiftWeekMondayStart', endId: 'setShiftWeekMondayEnd' },
+            { dayName: 'Tuesday', startId: 'setShiftWeekTuesdayStart', endId: 'setShiftWeekTuesdayEnd' },
+            { dayName: 'Wednesday', startId: 'setShiftWeekWednesdayStart', endId: 'setShiftWeekWednesdayEnd' },
+            { dayName: 'Thursday', startId: 'setShiftWeekThursdayStart', endId: 'setShiftWeekThursdayEnd' },
+            { dayName: 'Friday', startId: 'setShiftWeekFridayStart', endId: 'setShiftWeekFridayEnd' },
+            { dayName: 'Saturday', startId: 'setShiftWeekSaturdayStart', endId: 'setShiftWeekSaturdayEnd' }
+        ];
         let selectedWorkShiftForBlockTime = {
             hasRecord: false,
             startTimeRaw: '',
@@ -2989,25 +3043,50 @@ $dentistsSeedData = array_map(static function ($dentist) {
             });
         }
 
-        async function loadClinicHoursForDate(dateValue) {
-            const normalizedDate = String(dateValue || '').trim();
-            if (!setShiftClinicOpenTime || !setShiftClinicCloseTime || !setShiftClinicHoursLabel) return;
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) return;
+        function clearSetShiftWeekFields() {
+            setShiftWeekFieldDefs.forEach(function (row) {
+                const startEl = document.getElementById(row.startId);
+                const endEl = document.getElementById(row.endId);
+                if (startEl) {
+                    startEl.value = '';
+                }
+                if (endEl) {
+                    endEl.value = '';
+                }
+            });
+        }
 
-            setShiftClinicHoursLabel.textContent = 'Clinic Hours for the day ' + formatDateForUiLabel(normalizedDate);
-            setShiftClinicOpenTime.value = 'Loading...';
-            setShiftClinicCloseTime.value = 'Loading...';
-            selectedClinicHoursForShift = {
-                hasRecord: false,
-                isClosed: false,
-                openTimeRaw: '',
-                closeTimeRaw: ''
-            };
+        function applyDefaultSetShiftWeekFields() {
+            const weekdayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+            setShiftWeekFieldDefs.forEach(function (row) {
+                const startEl = document.getElementById(row.startId);
+                const endEl = document.getElementById(row.endId);
+                if (!startEl || !endEl) {
+                    return;
+                }
+                if (weekdayNames.indexOf(row.dayName) !== -1) {
+                    startEl.value = '09:00';
+                    endEl.value = '17:00';
+                } else {
+                    startEl.value = '';
+                    endEl.value = '';
+                }
+            });
+        }
 
+        async function loadWeeklyShiftEditorFromServer() {
+            if (!setShiftDentistId) {
+                return;
+            }
+            const selectedDentistUserId = String(setShiftDentistId.value || '').trim();
+            if (selectedDentistUserId === '') {
+                return;
+            }
+            clearSetShiftWeekFields();
             try {
                 const params = new URLSearchParams({
-                    clinic_hours_lookup: '1',
-                    date: normalizedDate
+                    weekly_shift_editor_lookup: '1',
+                    dentist_user_id: selectedDentistUserId
                 });
                 const response = await fetch(window.location.pathname + '?' + params.toString(), {
                     method: 'GET',
@@ -3015,25 +3094,41 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     credentials: 'same-origin'
                 });
                 if (!response.ok) {
-                    throw new Error('Unable to load clinic hours.');
+                    throw new Error('Unable to load weekly shift.');
                 }
                 const payload = await response.json();
                 if (!payload || payload.success !== true) {
-                    throw new Error((payload && payload.message) ? payload.message : 'Unable to load clinic hours.');
+                    throw new Error((payload && payload.message) ? payload.message : 'Unable to load weekly shift.');
                 }
-
-                setShiftClinicOpenTime.value = String(payload.open_time || '-');
-                setShiftClinicCloseTime.value = String(payload.close_time || '-');
-                selectedClinicHoursForShift = {
-                    hasRecord: Boolean(payload.has_record),
-                    isClosed: Boolean(payload.is_closed),
-                    openTimeRaw: String(payload.open_time_raw || ''),
-                    closeTimeRaw: String(payload.close_time_raw || '')
-                };
-            } catch (error) {
-                setShiftClinicOpenTime.value = '-';
-                setShiftClinicCloseTime.value = '-';
-                showPageAlert((error && error.message) ? error.message : 'Unable to fetch clinic hours for the selected date.');
+                const shifts = payload.shifts && typeof payload.shifts === 'object' ? payload.shifts : {};
+                const shiftKeys = Object.keys(shifts);
+                if (!shiftKeys.length) {
+                    applyDefaultSetShiftWeekFields();
+                } else {
+                    setShiftWeekFieldDefs.forEach(function (row) {
+                        const slot = shifts[row.dayName];
+                        const startEl = document.getElementById(row.startId);
+                        const endEl = document.getElementById(row.endId);
+                        if (!startEl || !endEl) {
+                            return;
+                        }
+                        if (slot && slot.start_time_raw && slot.end_time_raw) {
+                            startEl.value = String(slot.start_time_raw || '').slice(0, 5);
+                            endEl.value = String(slot.end_time_raw || '').slice(0, 5);
+                        } else {
+                            startEl.value = '';
+                            endEl.value = '';
+                        }
+                    });
+                }
+                if (setShiftNotes && typeof payload.notes === 'string') {
+                    setShiftNotes.value = payload.notes;
+                }
+            } catch (ignored) {
+                applyDefaultSetShiftWeekFields();
+                if (setShiftNotes) {
+                    setShiftNotes.value = '';
+                }
             }
         }
 
@@ -3091,20 +3186,12 @@ $dentistsSeedData = array_map(static function ($dentist) {
             }
         }
 
-        function openSetShiftModal() {
+        async function openSetShiftModal() {
             if (!setShiftModal) return;
-            if (setShiftStartTime && !setShiftStartTime.value) {
-                setShiftStartTime.value = '09:00';
+            if (setShiftNotes) {
+                setShiftNotes.value = '';
             }
-            if (setShiftEndTime && !setShiftEndTime.value) {
-                setShiftEndTime.value = '17:00';
-            }
-            if (setShiftDate) {
-                if (!setShiftDate.value || setShiftDate.value < todayDateOnly) {
-                    setShiftDate.value = todayDateOnly;
-                }
-                loadClinicHoursForDate(setShiftDate.value);
-            }
+            await loadWeeklyShiftEditorFromServer();
             setShiftModal.classList.remove('hidden');
             syncModalBodyScrollLock();
         }
@@ -3332,21 +3419,17 @@ $dentistsSeedData = array_map(static function ($dentist) {
         }
         if (saveSetShiftBtn) {
             saveSetShiftBtn.addEventListener('click', async function () {
-                if (!setShiftStartTime || !setShiftEndTime || !setShiftDate || !setShiftDentistId || !setShiftForm) return;
+                if (!setShiftDentistId || !setShiftForm) return;
 
-                const selectedDate = String(setShiftDate.value || '');
-                const selectedStart = String(setShiftStartTime.value || '');
-                const selectedEnd = String(setShiftEndTime.value || '');
                 const selectedDentistUserId = String(setShiftDentistId.value || '');
                 const selectedDentistOption = setShiftDentistId.options[setShiftDentistId.selectedIndex] || null;
                 const selectedDentistId = selectedDentistOption ? String(selectedDentistOption.getAttribute('data-dentist-id') || '') : '';
                 const selectedDentistHasUserId = selectedDentistOption ? selectedDentistOption.getAttribute('data-has-user-id') === '1' : false;
-                const selectedRepeatInput = setShiftForm.querySelector('input[name="setShiftRepeat"]:checked');
-                const selectedRepeat = selectedRepeatInput ? String(selectedRepeatInput.value || 'one_day') : 'one_day';
+                const anchorDate = String((weekReferenceDateInput && weekReferenceDateInput.value) ? weekReferenceDateInput.value : scheduleWeekAnchorDefault || '');
                 const notesValue = setShiftNotes ? String(setShiftNotes.value || '').trim() : '';
 
-                if (!selectedDate || selectedDate < todayDateOnly) {
-                    showPageAlert('Please select today or a future date.');
+                if (!anchorDate || !/^\d{4}-\d{2}-\d{2}$/.test(anchorDate)) {
+                    showPageAlert('Unable to determine the schedule week. Refresh the page and try again.');
                     return;
                 }
                 if (!selectedDentistUserId && !selectedDentistId) {
@@ -3357,44 +3440,52 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     showPageAlert('The selected dentist has no linked account. Please link the dentist to a user account first.');
                     return;
                 }
-                if (!selectedStart || !selectedEnd) {
-                    showPageAlert('Please select both shift start and end times.');
-                    return;
-                }
-                if (toMinutes(selectedEnd) <= toMinutes(selectedStart)) {
-                    showPageAlert('Shift end time must be later than shift start time.');
-                    return;
-                }
-                if (!selectedClinicHoursForShift.hasRecord || !selectedClinicHoursForShift.openTimeRaw || !selectedClinicHoursForShift.closeTimeRaw) {
-                    showPageAlert('Clinic hours are not set for this day. Please set clinic hours first before assigning shifts.');
-                    return;
-                }
-                if (selectedClinicHoursForShift.isClosed) {
-                    showPageAlert('The clinic is marked closed for this date. Shift scheduling is not allowed.');
-                    return;
+
+                for (let w = 0; w < setShiftWeekFieldDefs.length; w++) {
+                    const row = setShiftWeekFieldDefs[w];
+                    const startEl = document.getElementById(row.startId);
+                    const endEl = document.getElementById(row.endId);
+                    if (!startEl || !endEl) {
+                        continue;
+                    }
+                    const selectedStart = String(startEl.value || '').trim();
+                    const selectedEnd = String(endEl.value || '').trim();
+                    if (selectedStart === '' && selectedEnd === '') {
+                        continue;
+                    }
+                    if (selectedStart === '' || selectedEnd === '') {
+                        showPageAlert(row.dayName + ': Enter both start and end times, or leave both empty for a day off.');
+                        return;
+                    }
+                    if (toMinutes(selectedEnd) <= toMinutes(selectedStart)) {
+                        showPageAlert(row.dayName + ': End time must be later than start time.');
+                        return;
+                    }
+                    const snap = clinicHoursSnapshotByDayName[row.dayName];
+                    if (!snap || snap.is_closed || !snap.open_time_raw || !snap.close_time_raw) {
+                        showPageAlert(row.dayName + ': Clinic hours are not available for that weekday. Check clinic hours configuration.');
+                        return;
+                    }
+                    const clinicOpenMinutes = toMinutes(snap.open_time_raw);
+                    const clinicCloseMinutes = toMinutes(snap.close_time_raw);
+                    const shiftStartMinutes = toMinutes(selectedStart);
+                    const shiftEndMinutes = toMinutes(selectedEnd);
+                    if (shiftStartMinutes < clinicOpenMinutes || shiftEndMinutes > clinicCloseMinutes) {
+                        showPageAlert(row.dayName + ': Shift must fall within clinic operating hours for that day.');
+                        return;
+                    }
                 }
 
-                const clinicOpenMinutes = toMinutes(selectedClinicHoursForShift.openTimeRaw);
-                const clinicCloseMinutes = toMinutes(selectedClinicHoursForShift.closeTimeRaw);
-                const shiftStartMinutes = toMinutes(selectedStart);
-                const shiftEndMinutes = toMinutes(selectedEnd);
-                if (shiftStartMinutes < clinicOpenMinutes || shiftEndMinutes > clinicCloseMinutes) {
-                    showPageAlert('Shift time must fall within clinic operating hours for the selected day.');
-                    return;
-                }
                 const originalButtonLabel = saveSetShiftBtn.textContent;
                 saveSetShiftBtn.disabled = true;
                 saveSetShiftBtn.textContent = 'Saving...';
                 try {
-                    const payload = new URLSearchParams();
-                    payload.append('save_set_shift', '1');
-                    payload.append('dentist_id', selectedDentistId);
-                    payload.append('dentist_user_id', selectedDentistUserId);
-                    payload.append('shift_date', selectedDate);
-                    payload.append('start_time', selectedStart);
-                    payload.append('end_time', selectedEnd);
-                    payload.append('repeat', selectedRepeat);
-                    payload.append('notes', notesValue);
+                    const payload = new URLSearchParams(new FormData(setShiftForm));
+                    payload.set('save_set_shift', '1');
+                    payload.set('dentist_id', selectedDentistId);
+                    payload.set('dentist_user_id', selectedDentistUserId);
+                    payload.set('shift_week_anchor', anchorDate);
+                    payload.set('notes', notesValue);
 
                     const response = await fetch(window.location.pathname + window.location.search, {
                         method: 'POST',
@@ -3412,7 +3503,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
 
                     closeSetShiftModal();
                     const refreshedUrl = new URL(window.location.href);
-                    refreshedUrl.searchParams.set('selected_date', selectedDate);
+                    refreshedUrl.searchParams.set('selected_date', anchorDate);
                     refreshedUrl.searchParams.delete('user_id');
                     refreshedUrl.searchParams.delete('dentist_id');
                     window.location.href = refreshedUrl.toString();
@@ -3424,12 +3515,12 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 }
             });
         }
-        if (setShiftDate) {
-            setShiftDate.addEventListener('change', function () {
-                if (setShiftDate.value < todayDateOnly) {
-                    setShiftDate.value = todayDateOnly;
+        if (setShiftDentistId) {
+            setShiftDentistId.addEventListener('change', function () {
+                if (!setShiftModal || setShiftModal.classList.contains('hidden')) {
+                    return;
                 }
-                loadClinicHoursForDate(setShiftDate.value);
+                loadWeeklyShiftEditorFromServer();
             });
         }
         if (chooseDentistBtn) {
