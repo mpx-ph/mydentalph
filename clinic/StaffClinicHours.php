@@ -555,9 +555,13 @@ try {
     let modalScrollLockY = 0;
     let isModalScrollLocked = false;
 
+    /** Full-screen overlays only — must NOT use [id$="Modal"] (buttons like closeClinicHoursSuccessModal also match). */
+    const CLINIC_HOURS_MODAL_OVERLAY_IDS = ['editClinicHoursModal', 'clinicHoursValidationModal', 'clinicHoursSuccessModal'];
+
     function syncBodyScrollLock() {
-        const hasVisibleModal = Array.from(document.querySelectorAll('[id$="Modal"]')).some((modal) => {
-            return !modal.classList.contains('hidden');
+        const hasVisibleModal = CLINIC_HOURS_MODAL_OVERLAY_IDS.some(function (modalId) {
+            const el = document.getElementById(modalId);
+            return el && !el.classList.contains('hidden');
         });
         if (hasVisibleModal && !isModalScrollLocked) {
             modalScrollLockY = window.scrollY || window.pageYOffset || 0;
@@ -697,10 +701,12 @@ try {
         });
     });
 
-    document.querySelectorAll('[id$="Modal"]').forEach((modal) => {
-        modal.addEventListener('click', (event) => {
+    CLINIC_HOURS_MODAL_OVERLAY_IDS.forEach(function (modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        modal.addEventListener('click', function (event) {
             if (event.target === modal) {
-                closeModal(modal.id);
+                closeModal(modalId);
             }
         });
     });
@@ -732,6 +738,7 @@ try {
     if (clinicHoursSuccessModal && closeClinicHoursSuccessModal) {
         const dismissSuccessModal = () => {
             clinicHoursSuccessModal.classList.add('hidden');
+            clinicHoursSuccessModal.classList.remove('flex');
             syncBodyScrollLock();
         };
         closeClinicHoursSuccessModal.addEventListener('click', dismissSuccessModal);
