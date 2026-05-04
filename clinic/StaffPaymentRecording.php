@@ -1260,23 +1260,30 @@ try {
                 try {
                     $wantsPwdSeniorDiscount = isset($_POST['use_pwd_senior_discount'])
                         && (string) ($_POST['use_pwd_senior_discount'] ?? '') === '1';
-                    if ($wantsPwdSeniorDiscount) {
-                        $pwdBlockPost = staff_payment_recording_fetch_approved_discount_verification_blocklist($pdo, $tenantId);
-                        $pNameStmt = $pdo->prepare(
-                            'SELECT first_name, last_name FROM tbl_patients WHERE tenant_id = ? AND patient_id = ? LIMIT 1'
-                        );
-                        $pNameStmt->execute([$tenantId, $patientId]);
-                        $pNameRow = $pNameStmt->fetch(PDO::FETCH_ASSOC) ?: [];
-                        if (!staff_payment_recording_patient_has_approved_discount_verification(
-                            $patientId,
-                            (string) ($pNameRow['first_name'] ?? ''),
-                            (string) ($pNameRow['last_name'] ?? ''),
-                            $pwdBlockPost
-                        )) {
-                            throw new RuntimeException('This patient is not eligible for discount.');
+                        if ($wantsPwdSeniorDiscount) {
+                            $pwdBlockPost = staff_payment_recording_fetch_approved_discount_verification_blocklist($pdo, $tenantId);
+                            $pNameStmt = $pdo->prepare(
+                                'SELECT first_name, last_name FROM tbl_patients WHERE tenant_id = ? AND patient_id = ? LIMIT 1'
+                            );
+                            $pNameStmt->execute([$tenantId, $patientId]);
+                            $pNameRow = $pNameStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+                            if (!staff_payment_recording_patient_has_approved_discount_verification(
+                                $patientId,
+                                (string) ($pNameRow['first_name'] ?? ''),
+                                (string) ($pNameRow['last_name'] ?? ''),
+                                $pwdBlockPost
+                            )) {
+                                throw new RuntimeException('This patient is not eligible for discount.');
+                            }
+                            $pwdBaseIn = isset($_POST['pwd_discount_base']) ? round((float) $_POST['pwd_discount_base'], 2) : 0.0;
+                            $pwdAmtIn = isset($_POST['pwd_discount_amount']) ? round((float) $_POST['pwd_discount_amount'], 2) : 0.0;
+                            $noteExtra = '[PWD/Senior Citizen discount 20%';
+                            if ($pwdBaseIn > 0 && $pwdAmtIn >= 0) {
+                                $noteExtra .= ': subtotal ₱' . number_format($pwdBaseIn, 2) . ', discount ₱' . number_format($pwdAmtIn, 2);
+                            }
+                            $noteExtra .= ']';
+                            $notes = trim(trim($notes) !== '' ? ($notes . ' ') : '') . $noteExtra;
                         }
-                        $notes = trim(trim($notes) !== '' ? ($notes . ' ') : '') . '[PWD/Senior Citizen discount]';
-                    }
                     staff_payment_recording_ensure_installment_schedule(
                         $pdo,
                         $installmentsTableName,
@@ -1670,11 +1677,22 @@ try {
                         if ($installmentPaymentAmount <= 0.0) {
                             throw new RuntimeException('Payment amount must include at least the selected installment amount.');
                         }
+                        $pwdSeniorRate = 0.20;
+                        $expectedAfterPwd = $wantsPwdSeniorDiscount
+                            ? round(max(0.0, $expected * (1 - $pwdSeniorRate)), 2)
+                            : $expected;
+                        $expectedFromScheduleAfterPwd = $wantsPwdSeniorDiscount
+                            ? round(max(0.0, $expectedFromSchedule * (1 - $pwdSeniorRate)), 2)
+                            : $expectedFromSchedule;
                         $matchesExpected = abs($installmentPaymentAmount - $expected) <= 0.05;
-                        // Backward-compatible tolerance: accept full payment that matches schedule total
-                        // in cases where pending-balance reconciliation has not yet been fully aligned.
+                        if (!$matchesExpected && $wantsPwdSeniorDiscount) {
+                            $matchesExpected = abs($installmentPaymentAmount - $expectedAfterPwd) <= 0.05;
+                        }
                         if (!$matchesExpected && $mode === 'full') {
                             $matchesExpected = abs($installmentPaymentAmount - $expectedFromSchedule) <= 0.05;
+                        }
+                        if (!$matchesExpected && $mode === 'full' && $wantsPwdSeniorDiscount) {
+                            $matchesExpected = abs($installmentPaymentAmount - $expectedFromScheduleAfterPwd) <= 0.05;
                         }
                         if (!$matchesExpected) {
                             throw new RuntimeException('Payment amount must be ₱' . number_format($expected, 2) . ' for the selected installment option.');
@@ -2034,8 +2052,27 @@ try {
                         $formInstallmentSlotCount = 1;
                     } else {
 
-                    if ($amount > $pendingBalance) {
-                        throw new RuntimeException('Payment amount exceeds the pending balance of ₱' . number_format($pendingBalance, 2) . '.');
+                    $pwdSeniorRateRegular = 0.20;
+                    $apptPendingPortion = round(max(0.0, (float) $pendingBalance - (float) $addedServicesTotal), 2);
+                    $maxApptPortion = $wantsPwdSeniorDiscount
+                        ? round(max(0.0, $apptPendingPortion * (1 - $pwdSeniorRateRegular)), 2)
+                        : $apptPendingPortion;
+                    $maxTotalAllowable = round(max(0.0, $maxApptPortion + (float) $addedServicesTotal), 2);
+                    $postedApptPortion = round(max(0.0, (float) $amount - (float) $addedServicesTotal), 2);
+                    if ($postedApptPortion > $maxApptPortion + 0.05) {
+                        throw new RuntimeException(
+                            'Payment amount exceeds the allowed balance for this transaction'
+                            . (
+                                $wantsPwdSeniorDiscount
+                                    ? ' (after PWD/Senior discount). Maximum appointment portion is ₱' . number_format($maxApptPortion, 2) . '.'
+                                    : '. Maximum is ₱' . number_format($maxApptPortion, 2) . '.'
+                            )
+                        );
+                    }
+                    if ($amount > $maxTotalAllowable + 0.05) {
+                        throw new RuntimeException(
+                            'Payment amount exceeds the pending balance of ₱' . number_format($maxTotalAllowable, 2) . '.'
+                        );
                     }
 
                     $usePayMongo = in_array($method, ['gcash', 'bank_transfer', 'credit_card'], true);
@@ -2044,7 +2081,7 @@ try {
 
                     $paymentId = 'PAY-' . date('YmdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
                     // Keep compatibility with deployments where payment_type enum only allows downpayment/fullpayment.
-                    $paymentType = ($amount + 0.009 >= $pendingBalance) ? 'fullpayment' : 'downpayment';
+                    $paymentType = ($amount + 0.009 >= $maxTotalAllowable) ? 'fullpayment' : 'downpayment';
 
                     $recordNotes = $notes;
                     if ($addOnNoteExtra !== '') {
@@ -3935,6 +3972,8 @@ if ($paymentError === 'Please select a payment method.') {
 </div>
 <form class="space-y-6" method="post">
 <input type="hidden" name="action" value="record_payment"/>
+<input type="hidden" name="pwd_discount_base" id="pwd_discount_base_input" value=""/>
+<input type="hidden" name="pwd_discount_amount" id="pwd_discount_amount_input" value=""/>
 <div class="space-y-3">
 <label class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-1">Patient Identification</label>
 <div class="flex gap-2 items-stretch">
@@ -3969,6 +4008,24 @@ if ($paymentError === 'Please select a payment method.') {
 <p class="text-[11px] font-black uppercase tracking-widest text-slate-500 ml-0.5">Booked services (this appointment)</p>
 <ul class="text-sm font-semibold text-slate-800 space-y-1.5 list-none pl-0" id="selected-appointment-services-list"></ul>
 <p class="text-xs font-semibold text-slate-600 leading-relaxed hidden" id="selected-appointment-service-summary"></p>
+<div id="appointment-pwd-discount-breakdown" class="hidden mt-3 pt-3 border-t border-slate-200/90 space-y-2 rounded-xl bg-white/70 px-3 py-2.5">
+<div class="flex justify-between gap-3 text-sm text-slate-700 font-semibold">
+<span>Subtotal</span>
+<span id="pwd_breakdown_subtotal" class="tabular-nums font-bold text-slate-900">₱0.00</span>
+</div>
+<div class="flex justify-between gap-3 text-sm text-emerald-800 font-semibold">
+<span>PWD/Senior Discount (20%)</span>
+<span id="pwd_breakdown_discount" class="tabular-nums">-₱0.00</span>
+</div>
+<div id="pwd_breakdown_addons_row" class="hidden flex justify-between gap-3 text-xs text-slate-600 font-semibold">
+<span>Additional services</span>
+<span id="pwd_breakdown_addons" class="tabular-nums">₱0.00</span>
+</div>
+<div class="flex justify-between gap-3 text-sm text-slate-900 font-black pt-1.5 mt-0.5 border-t border-slate-200/80">
+<span>Total Payment Amount</span>
+<span id="pwd_breakdown_total" class="tabular-nums text-primary">₱0.00</span>
+</div>
+</div>
 </div>
 <p class="text-[11px] font-semibold text-slate-500 ml-1"><?php echo $formSelectionLocked
     ? 'Patient and installment plan are fixed for this payment session.'
@@ -4348,6 +4405,14 @@ Close
         const pwdSeniorDiscountState = document.getElementById('pwd_senior_discount_state');
         const pwdSeniorDiscountIneligibleLabel = document.getElementById('pwd_senior_discount_ineligible_label');
         const pwdSeniorDiscountSwitchLabel = document.getElementById('pwd_senior_discount_switch_label');
+        const pwdDiscountBaseInput = document.getElementById('pwd_discount_base_input');
+        const pwdDiscountAmountInput = document.getElementById('pwd_discount_amount_input');
+        const appointmentPwdBreakdownEl = document.getElementById('appointment-pwd-discount-breakdown');
+        const pwdBreakdownSubtotalEl = document.getElementById('pwd_breakdown_subtotal');
+        const pwdBreakdownDiscountEl = document.getElementById('pwd_breakdown_discount');
+        const pwdBreakdownAddonsRowEl = document.getElementById('pwd_breakdown_addons_row');
+        const pwdBreakdownAddonsEl = document.getElementById('pwd_breakdown_addons');
+        const pwdBreakdownTotalEl = document.getElementById('pwd_breakdown_total');
         const installmentSlotRow = document.getElementById('installment_slot_row');
         const installmentSlotLabel = document.getElementById('installment_slot_label');
         const installmentSlotStepper = document.getElementById('installment_slot_stepper');
@@ -4421,6 +4486,54 @@ Close
                 pwdSeniorDiscountToggle.removeAttribute('aria-disabled');
             }
             syncPwdSeniorDiscountStateLabel();
+        }
+
+        const PWD_SENIOR_DISCOUNT_RATE = 0.20;
+
+        function getBookedServicesPriceSum(tx) {
+            if (!tx || !Array.isArray(tx.booked_services)) {
+                return 0;
+            }
+            return tx.booked_services.reduce((acc, s) => acc + Number((s && s.price) || 0), 0);
+        }
+
+        function isPwdSeniorDiscountApplying() {
+            return !!(pwdSeniorDiscountToggle
+                && pwdSeniorDiscountToggle.checked
+                && !pwdSeniorDiscountToggle.disabled
+                && selectedTransaction
+                && Number(selectedTransaction.pwd_senior_discount_eligible) === 1);
+        }
+
+        function updateAppointmentPwdDiscountBreakdown(active, data) {
+            if (!appointmentPwdBreakdownEl) {
+                return;
+            }
+            if (!active || !data) {
+                appointmentPwdBreakdownEl.classList.add('hidden');
+                return;
+            }
+            const bookedSum = data.bookedSum || 0;
+            const subtotalDisplay = bookedSum > 0 ? bookedSum : data.basePreAddon;
+            if (pwdBreakdownSubtotalEl) {
+                pwdBreakdownSubtotalEl.textContent = '₱' + Number(subtotalDisplay).toFixed(2);
+            }
+            if (pwdBreakdownDiscountEl) {
+                pwdBreakdownDiscountEl.textContent = '-₱' + Number(data.discountAmt).toFixed(2);
+            }
+            const st = Number(data.servicesTotal || 0);
+            if (pwdBreakdownAddonsRowEl && pwdBreakdownAddonsEl) {
+                if (st > 0.009) {
+                    pwdBreakdownAddonsRowEl.classList.remove('hidden');
+                    pwdBreakdownAddonsEl.textContent = '₱' + st.toFixed(2);
+                } else {
+                    pwdBreakdownAddonsRowEl.classList.add('hidden');
+                }
+            }
+            if (pwdBreakdownTotalEl) {
+                pwdBreakdownTotalEl.textContent = '₱' + Number(data.finalTotal).toFixed(2);
+            }
+            appointmentPwdBreakdownEl.classList.remove('hidden');
         }
 
         /**
@@ -4725,6 +4838,7 @@ Close
                 selectedAppointmentServicesList.innerHTML = '';
                 selectedAppointmentServiceSummary.textContent = '';
                 selectedAppointmentServiceSummary.classList.add('hidden');
+                updateAppointmentPwdDiscountBreakdown(false, null);
                 return;
             }
             if (String(tx.transaction_type || '').toLowerCase() === 'installment' && Number(tx.hide_recent_appointment_info || 0) === 1) {
@@ -4732,6 +4846,8 @@ Close
                 selectedAppointmentServicesList.innerHTML = '';
                 selectedAppointmentServiceSummary.textContent = '';
                 selectedAppointmentServiceSummary.classList.add('hidden');
+                updateAppointmentPwdDiscountBreakdown(false, null);
+                syncAmountWithAdditionalServices();
                 return;
             }
             const booked = Array.isArray(tx.booked_services) ? tx.booked_services : [];
@@ -4750,6 +4866,7 @@ Close
                 selectedAppointmentServiceSummary.classList.remove('hidden');
             }
             selectedAppointmentDetailPanel.classList.remove('hidden');
+            syncAmountWithAdditionalServices();
         }
 
         function updateAdditionalServiceEligibility() {
@@ -5593,15 +5710,49 @@ Close
             if (additionalServicesTotalHint) {
                 additionalServicesTotalHint.textContent = 'Selected regular services total: ₱' + servicesTotal.toFixed(2);
             }
-            if (selectedTransaction && amountInput) {
-                const hasSchedule = getScheduleList(selectedTransaction).length > 0;
-                if (hasSchedule) {
-                    refreshInstallmentPaymentUi();
-                }
-                const baseAmount = hasSchedule
+            if (pwdDiscountBaseInput) {
+                pwdDiscountBaseInput.value = '';
+            }
+            if (pwdDiscountAmountInput) {
+                pwdDiscountAmountInput.value = '';
+            }
+            if (!selectedTransaction || !amountInput) {
+                updateAppointmentPwdDiscountBreakdown(false, null);
+                return;
+            }
+            const hasSchedule = getScheduleList(selectedTransaction).length > 0;
+            if (hasSchedule) {
+                refreshInstallmentPaymentUi();
+            }
+            const basePreAddon = Math.max(
+                0,
+                Math.round((hasSchedule
                     ? Number(amountInput.value || 0)
-                    : Number(selectedTransaction.pending_balance || 0);
-                amountInput.value = Math.max(0, baseAmount + servicesTotal).toFixed(2);
+                    : Number(selectedTransaction.pending_balance || 0)) * 100) / 100
+            );
+            const pwdOn = isPwdSeniorDiscountApplying();
+            const discountAmt = pwdOn
+                ? Math.round(basePreAddon * PWD_SENIOR_DISCOUNT_RATE * 100) / 100
+                : 0;
+            const afterPwd = Math.max(0, Math.round((basePreAddon - discountAmt) * 100) / 100);
+            const finalTotal = Math.max(0, Math.round((afterPwd + servicesTotal) * 100) / 100);
+            amountInput.value = finalTotal.toFixed(2);
+            if (pwdOn) {
+                if (pwdDiscountBaseInput) {
+                    pwdDiscountBaseInput.value = String(basePreAddon);
+                }
+                if (pwdDiscountAmountInput) {
+                    pwdDiscountAmountInput.value = String(discountAmt);
+                }
+                updateAppointmentPwdDiscountBreakdown(true, {
+                    basePreAddon: basePreAddon,
+                    discountAmt: discountAmt,
+                    servicesTotal: servicesTotal,
+                    finalTotal: finalTotal,
+                    bookedSum: getBookedServicesPriceSum(selectedTransaction),
+                });
+            } else {
+                updateAppointmentPwdDiscountBreakdown(false, null);
             }
         }
 
@@ -5939,8 +6090,12 @@ Close
         }
 
         if (pwdSeniorDiscountToggle) {
-            pwdSeniorDiscountToggle.addEventListener('change', syncPwdSeniorDiscountStateLabel);
+            pwdSeniorDiscountToggle.addEventListener('change', () => {
+                syncPwdSeniorDiscountStateLabel();
+                syncAmountWithAdditionalServices();
+            });
             syncPwdSeniorDiscountStateLabel();
+            syncAmountWithAdditionalServices();
         }
         if (openBtn) {
             openBtn.addEventListener('click', openModal);
