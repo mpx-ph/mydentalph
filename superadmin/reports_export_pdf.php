@@ -249,6 +249,7 @@ $filterPeriod = isset($_GET['period']) ? (string) $_GET['period'] : 'yesterday';
 $filterDateFrom = isset($_GET['date_from']) ? trim((string) $_GET['date_from']) : '';
 $filterDateTo = isset($_GET['date_to']) ? trim((string) $_GET['date_to']) : '';
 $filterClinicId = isset($_GET['clinic']) ? trim((string) $_GET['clinic']) : '';
+$filterRegSearch = isset($_GET['reg_q']) ? trim((string) $_GET['reg_q']) : '';
 
 $totalMyDentalVisits = 0;
 $userRegistrationsTotal = 0;
@@ -330,9 +331,21 @@ try {
         $regWhere .= ' AND u.tenant_id = ?';
         $regParams[] = $filterClinicId;
     }
+    if ($filterRegSearch !== '') {
+        $likeBody = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $filterRegSearch);
+        $likeTerm = '%' . $likeBody . '%';
+        $regWhere .= " AND (
+            COALESCE(NULLIF(TRIM(u.full_name), ''), u.username) LIKE ? ESCAPE '!'
+            OR u.email LIKE ? ESCAPE '!'
+            OR COALESCE(t.clinic_name, '') LIKE ? ESCAPE '!'
+        )";
+        $regParams[] = $likeTerm;
+        $regParams[] = $likeTerm;
+        $regParams[] = $likeTerm;
+    }
 
     if ($includeRegistrationsMetric) {
-        $stmt = $pdo->prepare("SELECT COUNT(*) AS cnt FROM tbl_users u {$regWhere}");
+        $stmt = $pdo->prepare("SELECT COUNT(*) AS cnt FROM tbl_users u LEFT JOIN tbl_tenants t ON t.tenant_id = u.tenant_id {$regWhere}");
         $stmt->execute($regParams);
         $userRegistrationsTotal = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['cnt'] ?? 0);
     }

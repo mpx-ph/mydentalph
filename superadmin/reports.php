@@ -355,6 +355,7 @@ $filterPeriod = isset($_GET['period']) ? (string) $_GET['period'] : 'yesterday';
 $filterDateFrom = isset($_GET['date_from']) ? trim((string) $_GET['date_from']) : '';
 $filterDateTo = isset($_GET['date_to']) ? trim((string) $_GET['date_to']) : '';
 $filterClinicId = isset($_GET['clinic']) ? trim((string) $_GET['clinic']) : '';
+$filterRegSearch = isset($_GET['reg_q']) ? trim((string) $_GET['reg_q']) : '';
 $filterClinicLabel = 'All clinics';
 $periodLabel = '—';
 $reportsFormAction = htmlspecialchars(basename(isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : 'reports.php'), ENT_QUOTES, 'UTF-8');
@@ -439,8 +440,20 @@ try {
         $regWhere .= ' AND u.tenant_id = ?';
         $regParams[] = $filterClinicId;
     }
+    if ($filterRegSearch !== '') {
+        $likeBody = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $filterRegSearch);
+        $likeTerm = '%' . $likeBody . '%';
+        $regWhere .= " AND (
+            COALESCE(NULLIF(TRIM(u.full_name), ''), u.username) LIKE ? ESCAPE '!'
+            OR u.email LIKE ? ESCAPE '!'
+            OR COALESCE(t.clinic_name, '') LIKE ? ESCAPE '!'
+        )";
+        $regParams[] = $likeTerm;
+        $regParams[] = $likeTerm;
+        $regParams[] = $likeTerm;
+    }
 
-    $stmt = $pdo->prepare("SELECT COUNT(*) AS cnt FROM tbl_users u {$regWhere}");
+    $stmt = $pdo->prepare("SELECT COUNT(*) AS cnt FROM tbl_users u LEFT JOIN tbl_tenants t ON t.tenant_id = u.tenant_id {$regWhere}");
     $stmt->execute($regParams);
     $userRegistrationsTotal = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['cnt'] ?? 0);
     $registrationsTotalPages = $userRegistrationsTotal > 0 ? max(1, (int) ceil($userRegistrationsTotal / $registrationsPerPage)) : 1;
@@ -529,20 +542,15 @@ $isCustomPeriod = (strtolower($filterPeriod) === 'custom');
 <!-- Decorative blur shape -->
 <div class="absolute top-40 right-10 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10"></div>
 <!-- Header Section -->
-<section class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<section class="flex flex-col gap-4">
 <div>
 <h2 class="text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Reports</h2>
-<p class="text-on-surface-variant mt-2 font-medium">View and generate detailed reports</p>
+<p class="text-on-surface-variant mt-2 font-medium">View registration activity for the selected period</p>
 <div class="relative w-full max-w-md group mt-4">
-<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-xl">search</span>
-<input class="w-full bg-surface-container-low/50 border-none focus:ring-2 focus:ring-primary/20 rounded-2xl pl-11 pr-4 py-2.5 text-sm transition-all placeholder:text-on-surface-variant/50" placeholder="Search report data..." type="text"/>
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-xl pointer-events-none">search</span>
+<input form="reportsFilters" name="reg_q" id="reportsRegSearch" value="<?php echo htmlspecialchars($filterRegSearch, ENT_QUOTES, 'UTF-8'); ?>" class="w-full bg-surface-container-low/50 border-none focus:ring-2 focus:ring-primary/20 rounded-2xl pl-11 pr-4 py-2.5 text-sm transition-all placeholder:text-on-surface-variant/50" placeholder="Search name, email, or clinic..." type="search" autocomplete="off"/>
 </div>
-</div>
-<div class="flex items-center gap-3 w-full md:w-auto">
-<button class="bg-primary text-white px-7 py-2.5 rounded-2xl text-sm font-bold primary-glow flex items-center justify-center gap-2 hover:translate-y-[-2px] hover:brightness-110 active:translate-y-0 transition-all w-full sm:w-auto">
-<span class="material-symbols-outlined text-lg">add_circle</span>
-                        Generate New Report
-                    </button>
+<p class="text-on-surface-variant text-xs font-medium mt-2">Press Enter or Apply filters to search the registration table.</p>
 </div>
 </section>
 <!-- Filters (summary cards + table use the same range and clinic) -->
@@ -623,14 +631,22 @@ $isCustomPeriod = (strtolower($filterPeriod) === 'custom');
   sel.addEventListener('change', sync);
   sync();
 })();
+(function () {
+  var inp = document.getElementById('reportsRegSearch');
+  var frm = document.getElementById('reportsFilters');
+  if (!inp || !frm || typeof frm.requestSubmit !== 'function') return;
+  inp.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      frm.requestSubmit();
+    }
+  });
+})();
 </script>
 <!-- Export Buttons -->
 <div class="flex flex-wrap items-center gap-3">
 <button type="button" id="open-reports-export-modal" class="px-6 py-2.5 bg-white/60 text-primary text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">
 <span class="material-symbols-outlined text-lg">picture_as_pdf</span> Export PDF
-                </button>
-<button class="px-6 py-2.5 bg-white/60 text-primary text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">
-<span class="material-symbols-outlined text-lg">table_chart</span> Export Excel
                 </button>
 </div>
 <!-- Table Container -->
@@ -773,6 +789,7 @@ Next <span class="material-symbols-outlined text-lg">chevron_right</span>
 <input type="hidden" name="date_from" value="<?php echo htmlspecialchars($filterDateFrom, ENT_QUOTES, 'UTF-8'); ?>"/>
 <input type="hidden" name="date_to" value="<?php echo htmlspecialchars($filterDateTo, ENT_QUOTES, 'UTF-8'); ?>"/>
 <input type="hidden" name="clinic" value="<?php echo htmlspecialchars($filterClinicId, ENT_QUOTES, 'UTF-8'); ?>"/>
+<input type="hidden" name="reg_q" value="<?php echo htmlspecialchars($filterRegSearch, ENT_QUOTES, 'UTF-8'); ?>"/>
 <div>
 <h4 class="text-sm font-bold uppercase tracking-[0.16em] text-on-surface-variant/70 mb-4">Report sections</h4>
 <div class="space-y-4">
@@ -900,7 +917,12 @@ Next <span class="material-symbols-outlined text-lg">chevron_right</span>
         }
 
         document.addEventListener('click', function (e) {
-            var link = e.target.closest('.' + linkClass);
+            var raw = e.target;
+            var origin = raw && raw.nodeType === 1
+                ? raw
+                : (raw && raw.parentElement && raw.parentElement.nodeType === 1 ? raw.parentElement : null);
+            if (!origin || typeof origin.closest !== 'function') return;
+            var link = origin.closest('.' + linkClass);
             if (!link || !panel.contains(link)) return;
             e.preventDefault();
             loadPage(link.href, true);
