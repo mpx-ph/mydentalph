@@ -2477,6 +2477,7 @@ $treatmentScheduleBootstrap = [
         async function runLiveConflictValidation(options) {
             const opts = options || {};
             const showAlerts = Boolean(opts.showAlerts);
+            const repeatPastTimeAlert = Boolean(opts.repeatPastTimeAlert);
             const token = ++liveValidationRequestToken;
             const patientId = selectedPatientIdInput ? String(selectedPatientIdInput.value || '').trim() : '';
             const dentistId = selectedDentistIdInput ? String(selectedDentistIdInput.value || '').trim() : '';
@@ -2588,7 +2589,7 @@ $treatmentScheduleBootstrap = [
             };
             syncCreateAppointmentButtonState();
 
-            if (showAlerts && hasPastTodayTime && !hadPastTodayTime) {
+            if (showAlerts && hasPastTodayTime && (!hadPastTodayTime || repeatPastTimeAlert)) {
                 await staffUiAlert({
                     title: 'Invalid time',
                     message: 'The selected time has already passed. Please choose a future time slot.',
@@ -3231,7 +3232,7 @@ $treatmentScheduleBootstrap = [
             timeInput.addEventListener('change', async function () {
                 await refreshDentistAvailabilityForSelection();
                 await runShiftBoundaryValidation({ showAlerts: true });
-                await runLiveConflictValidation({ showAlerts: true });
+                await runLiveConflictValidation({ showAlerts: true, repeatPastTimeAlert: true });
             });
         }
 
