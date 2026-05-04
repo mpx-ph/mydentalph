@@ -134,19 +134,3 @@ function mobile_wallet_apply_payment_debit(
         $actingUserId,
     ]);
 }
-
-/**
- * tbl_payments.amount is the PayMongo portion; notes carry wallet applied — combine for treatment ledger.
- *
- * @param array<string, mixed> $paymentRow
- * @return array<string, mixed>
- */
-function mobile_wallet_enrich_payment_row_for_ledger(array $paymentRow): array
-{
-    $copy = $paymentRow;
-    $online = (float) ($paymentRow['amount'] ?? 0);
-    $walletPart = mobile_wallet_parse_applied_amount_from_notes((string) ($paymentRow['notes'] ?? ''));
-    $copy['amount'] = round($online + $walletPart, 2);
-
-    return $copy;
-}

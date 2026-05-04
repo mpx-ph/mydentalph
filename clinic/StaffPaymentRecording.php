@@ -1114,7 +1114,10 @@ try {
                         'service_items' => $serviceItems,
                         'services_total' => $servicesTotalLabel,
                         'payment_date' => $paymentDateLabel,
-                        'payment_method' => staff_payment_recording_format_payment_method_display((string) ($receiptRow['payment_method'] ?? '')),
+                        'payment_method' => staff_payment_recording_format_payment_method_display(
+                            (string) ($receiptRow['payment_method'] ?? ''),
+                            (string) ($receiptRow['notes'] ?? '')
+                        ),
                         'amount_paid' => $amountPaidLabel,
                         'remaining_balance' => $balanceLeftLabel,
                     ]);
@@ -3510,7 +3513,10 @@ try {
                     $fullName !== '' ? $fullName : 'Unknown Patient',
                     number_format((float) ($row['amount'] ?? 0), 2, '.', ''),
                     (string) ($row['payment_date'] ?? ''),
-                    staff_payment_recording_format_payment_method_display((string) ($row['payment_method'] ?? '')),
+                    staff_payment_recording_format_payment_method_display(
+                        (string) ($row['payment_method'] ?? ''),
+                        (string) ($row['notes'] ?? '')
+                    ),
                     (string) ($row['status'] ?? ''),
                 ]);
             }
@@ -3829,7 +3835,10 @@ if ($paymentError === 'Please select a payment method.') {
     $paymentDateObj = staff_payment_recording_to_manila_datetime($paymentDateRaw);
     $dateLabel = $paymentDateObj instanceof DateTimeImmutable ? $paymentDateObj->format('M d, Y') : '-';
     $timeLabel = $paymentDateObj instanceof DateTimeImmutable ? $paymentDateObj->format('h:i A') : '-';
-    $methodLabel = staff_payment_recording_format_payment_method_display((string) ($payment['payment_method'] ?? 'cash'));
+    $methodLabel = staff_payment_recording_format_payment_method_display(
+        (string) ($payment['payment_method'] ?? 'cash'),
+        (string) ($payment['notes'] ?? '')
+    );
     $isBookingInstallmentPlan = !empty($payment['is_installment_plan']);
     $installmentNumber = (int) ($payment['installment_number'] ?? 0);
     $paymentLifecycleStatus = strtolower(trim((string) ($payment['status'] ?? '')));

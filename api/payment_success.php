@@ -22,7 +22,8 @@ if ($pid !== '') {
         if ($row) {
             $statusNorm = strtolower(trim((string) ($row['status'] ?? '')));
             $tenantId = trim((string) ($row['tenant_id'] ?? ''));
-            if ($statusNorm !== 'completed') {
+            $wasIncomplete = ($statusNorm !== 'completed');
+            if ($wasIncomplete) {
                 $upd = $pdo->prepare('UPDATE ' . $pq . ' SET status = \'completed\' WHERE payment_id = ?');
                 $upd->execute([$pid]);
             }
@@ -47,9 +48,21 @@ if ($pid !== '') {
                 );
             }
 
-            $ledgerRow = mobile_wallet_enrich_payment_row_for_ledger($fresh);
-            booking_apply_completed_payment_to_treatment($pdo, $ledgerRow);
-            staff_installments_mark_paid_from_mobile_payment_row($pdo, $ledgerRow);
+            if ($wasIncomplete && $walletApplied > 0.009) {
+                $onlineRecorded = (float) ($fresh['amount'] ?? 0);
+                $combinedPaid = round($onlineRecorded + $walletApplied, 2);
+                if ($combinedPaid > 0.009) {
+                    $updAmt = $pdo->prepare('UPDATE ' . $pq . ' SET amount = ? WHERE payment_id = ?');
+                    $updAmt->execute([$combinedPaid, $pid]);
+                }
+            }
+
+            $st3 = $pdo->prepare('SELECT * FROM ' . $pq . ' WHERE payment_id = ? LIMIT 1');
+            $st3->execute([$pid]);
+            $fresh = $st3->fetch(PDO::FETCH_ASSOC) ?: $fresh;
+
+            booking_apply_completed_payment_to_treatment($pdo, $fresh);
+            staff_installments_mark_paid_from_mobile_payment_row($pdo, $fresh);
         }
         $pdo->commit();
     } catch (Throwable $e) {

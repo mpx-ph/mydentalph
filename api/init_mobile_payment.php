@@ -287,12 +287,15 @@ try {
             . sprintf('[Wallet applied: ₱%s]', number_format($wallet_amount_in, 2, '.', ''));
     }
 
-    /** Stored on tbl_payments for staff UI (see staff_payment_recording_format_payment_method_display). */
+    /**
+     * Persist ENUM-safe values: wallet-only → `check`, combo → `gcash` (notes carry `[Wallet applied: …]`).
+     * Staff/app labels use staff_payment_recording_format_payment_method_display(..., notes).
+     */
     $clientPm = strtolower(trim((string) ($input['payment_method'] ?? 'paymongo')));
     if ($clientPm === 'wallet') {
-        $stored_payment_method = 'wallet';
+        $stored_payment_method = 'check';
     } elseif ($clientPm === 'wallet+paymongo') {
-        $stored_payment_method = 'wallet_gcash';
+        $stored_payment_method = 'gcash';
     } else {
         $stored_payment_method = 'gcash';
     }
@@ -300,6 +303,11 @@ try {
     $paymentsPhys = $tables['payments'] ?? 'tbl_payments';
     $ppc = clinic_table_columns($pdo, (string) $paymentsPhys);
     $pq = clinic_quote_identifier((string) $paymentsPhys);
+
+    /** PayMongo row tracks gateway amount; wallet-only must persist total paid for staff/receipts (SUM completed.amount). */
+    $payment_insert_amount = $needs_paymongo ? round($payment_amount, 2) : round($paid_now_total, 2);
+    /** No redirect checkout: mark settled immediately when something was captured (wallet or zero-edge free flows stay pending). */
+    $payment_insert_status = (!$needs_paymongo && $payment_insert_amount > 0.009) ? 'completed' : 'pending';
 
     $payColsIns = [];
     $payBind = [];
@@ -310,9 +318,9 @@ try {
         'booking_id' => $booking_id,
         'treatment_id' => $treatmentFkOrNull,
         'installment_number' => (($ledger['installment_number'] ?? 0) > 0) ? (int) $ledger['installment_number'] : null,
-        'amount' => $payment_amount,
+        'amount' => $payment_insert_amount,
         'payment_method' => $stored_payment_method,
-        'status' => 'pending',
+        'status' => $payment_insert_status,
         'created_by' => (string) $user_id,
         'payment_type' => $payment_type,
         'notes' => $payNotes,
@@ -349,15 +357,12 @@ try {
             $booking_id,
             (string) $user_id,
         );
-        $updCompleted = $pdo->prepare('UPDATE ' . $pq . ' SET status = \'completed\' WHERE payment_id = ?');
-        $updCompleted->execute([$payment_id]);
         $stFreshPay = $pdo->prepare('SELECT * FROM ' . $pq . ' WHERE payment_id = ? LIMIT 1');
         $stFreshPay->execute([$payment_id]);
         $freshPayRow = $stFreshPay->fetch(PDO::FETCH_ASSOC);
         if (is_array($freshPayRow) && $freshPayRow !== []) {
-            $ledgerPayRow = mobile_wallet_enrich_payment_row_for_ledger($freshPayRow);
-            booking_apply_completed_payment_to_treatment($pdo, $ledgerPayRow);
-            staff_installments_mark_paid_from_mobile_payment_row($pdo, $ledgerPayRow);
+            booking_apply_completed_payment_to_treatment($pdo, $freshPayRow);
+            staff_installments_mark_paid_from_mobile_payment_row($pdo, $freshPayRow);
         }
     }
 

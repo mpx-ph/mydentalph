@@ -7,21 +7,35 @@
 
 /**
  * Human-readable payment method for receipts, recent transactions, exports (includes mobile wallet combos).
+ *
+ * Mobile wallet-only rows use ENUM `check` plus `[Wallet applied: …]` in notes; combo uses `gcash` + same note tag.
+ *
+ * @param string|null $notes Optional tbl_payments.notes (or '') so `check` maps to MyDental Wallet when tagged.
  */
-function staff_payment_recording_format_payment_method_display(?string $methodRaw): string
+function staff_payment_recording_format_payment_method_display(?string $methodRaw, ?string $notes = null): string
 {
     $key = strtolower(trim((string) $methodRaw));
+    $notesStr = (string) ($notes ?? '');
+    $notesTagsWallet = str_contains($notesStr, '[Wallet applied:');
+    if ($key === 'check' && $notesTagsWallet) {
+        return 'MyDental Wallet';
+    }
+    if ($key === 'gcash' && $notesTagsWallet) {
+        return 'GCash + MyDental Wallet';
+    }
+
     $map = [
         'gcash' => 'GCash',
         'cash' => 'Cash',
         'bank_transfer' => 'Bank Transfer',
         'credit_card' => 'Credit Card',
-        'wallet' => 'Wallet',
-        /** Mobile app combined checkout (PayMongo + MyDental Wallet). */
-        'wallet_gcash' => 'GCash + Wallet',
-        'wallet+gcash' => 'GCash + Wallet',
-        'wallet+paymongo' => 'GCash + Wallet',
-        'wallet_paymongo' => 'GCash + Wallet',
+        'check' => 'Check',
+        /** Legacy / migrated rows that stored logical codes in VARCHAR. */
+        'wallet' => 'MyDental Wallet',
+        'wallet_gcash' => 'GCash + MyDental Wallet',
+        'wallet+gcash' => 'GCash + MyDental Wallet',
+        'wallet+paymongo' => 'GCash + MyDental Wallet',
+        'wallet_paymongo' => 'GCash + MyDental Wallet',
     ];
     if (isset($map[$key])) {
         return $map[$key];
