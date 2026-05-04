@@ -1258,6 +1258,8 @@ try {
                 $paymentError = 'Selected transaction is already fully paid.';
             } else {
                 try {
+                    $pwdBaseIn = 0.0;
+                    $pwdAmtIn = 0.0;
                     $wantsPwdSeniorDiscount = isset($_POST['use_pwd_senior_discount'])
                         && (string) ($_POST['use_pwd_senior_discount'] ?? '') === '1';
                         if ($wantsPwdSeniorDiscount) {
@@ -1907,6 +1909,8 @@ try {
                                 'payment_date' => $paymentDate,
                                 'booking_id' => $selectedBookingId,
                                 'selected_transaction_type' => $selectedTransactionType,
+                                'use_pwd_senior_discount' => $wantsPwdSeniorDiscount,
+                                'pwd_discount_amount' => $wantsPwdSeniorDiscount ? round((float) ($pwdAmtIn ?? 0), 2) : 0.0,
                                 'installment_finalize' => [
                                     'installments_table' => $installmentsTableName,
                                     'paid_items' => $finalizeItems,
@@ -2054,6 +2058,13 @@ try {
 
                     $pwdSeniorRateRegular = 0.20;
                     $apptPendingPortion = round(max(0.0, (float) $pendingBalance - (float) $addedServicesTotal), 2);
+                    if ($wantsPwdSeniorDiscount) {
+                        $expectedPwdBase = round($apptPendingPortion, 2);
+                        $expectedPwdAmt = round($apptPendingPortion * $pwdSeniorRateRegular, 2);
+                        if (abs($pwdBaseIn - $expectedPwdBase) > 0.05 || abs($pwdAmtIn - $expectedPwdAmt) > 0.05) {
+                            throw new RuntimeException('PWD/Senior discount does not match the appointment balance.');
+                        }
+                    }
                     $maxApptPortion = $wantsPwdSeniorDiscount
                         ? round(max(0.0, $apptPendingPortion * (1 - $pwdSeniorRateRegular)), 2)
                         : $apptPendingPortion;
@@ -2149,6 +2160,20 @@ try {
                     $insertStmt = $pdo->prepare($insertSql);
                     $insertStmt->execute($insertParams);
 
+                    if (
+                        strtolower((string) $recordStatus) === 'completed'
+                        && $wantsPwdSeniorDiscount
+                        && $selectedTransactionType === 'regular'
+                        && $pwdAmtIn > 0.009
+                    ) {
+                        staff_payment_recording_apply_pwd_senior_discount_to_booking_economics(
+                            $pdo,
+                            $tenantId,
+                            $selectedBookingId,
+                            (float) $pwdAmtIn
+                        );
+                    }
+
                     // Apply to treatment progress only for installment transactions.
                     if (
                         strtolower((string) $recordStatus) === 'completed'
@@ -2195,6 +2220,8 @@ try {
                             'payment_date' => $paymentDate,
                             'booking_id' => $selectedBookingId,
                             'selected_transaction_type' => $selectedTransactionType,
+                            'use_pwd_senior_discount' => $wantsPwdSeniorDiscount,
+                            'pwd_discount_amount' => $wantsPwdSeniorDiscount ? round((float) $pwdAmtIn, 2) : 0.0,
                         ];
 
                         $patStmt = $pdo->prepare("

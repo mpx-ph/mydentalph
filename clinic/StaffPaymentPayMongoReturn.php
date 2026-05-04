@@ -212,6 +212,21 @@ try {
             );
         }
 
+        $pwdWants = !empty($stash['use_pwd_senior_discount']);
+        $pwdAmtStash = round((float) ($stash['pwd_discount_amount'] ?? 0), 2);
+        if (
+            $pwdWants
+            && $pwdAmtStash > 0.009
+            && $selectedTransactionType === 'regular'
+        ) {
+            staff_payment_recording_apply_pwd_senior_discount_to_booking_economics(
+                $pdo,
+                $tenantId,
+                $bookingId,
+                $pwdAmtStash
+            );
+        }
+
         // Keep appointment lifecycle independent from payment lifecycle.
         // Successful payment updates payment/treatment/installment records only.
 

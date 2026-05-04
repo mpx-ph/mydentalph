@@ -954,3 +954,169 @@ function staff_payment_recording_compose_receipt_email_payload(PDO $pdo, string 
         'html' => $emailBodyHtml,
     ];
 }
+
+/**
+ * Persist an approved PWD/Senior discount by lowering billable amounts on the booking:
+ * reduces regular (non-installment) appointment line prices and syncs tbl_appointments.total_treatment_cost
+ * to the new line sum so pending, PAID/PARTIAL, receipts, and selectors match the discounted obligation.
+ */
+function staff_payment_recording_apply_pwd_senior_discount_to_booking_economics(
+    PDO $pdo,
+    string $tenantId,
+    string $bookingId,
+    float $discountAmount
+): void {
+    $tenantId = trim($tenantId);
+    $bookingId = trim($bookingId);
+    $discountAmount = round(max(0.0, $discountAmount), 2);
+    if ($tenantId === '' || $bookingId === '' || $discountAmount <= 0.009) {
+        return;
+    }
+
+    $apsTableStmt = $pdo->prepare("
+        SELECT TABLE_NAME
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND LOWER(TABLE_NAME) = 'tbl_appointment_services'
+        LIMIT 1
+    ");
+    $apsTableStmt->execute();
+    $apsPhysical = $apsTableStmt->fetchColumn();
+    if (!$apsPhysical || !is_string($apsPhysical)) {
+        $upd = $pdo->prepare(
+            'UPDATE tbl_appointments
+             SET total_treatment_cost = ROUND(GREATEST(0, COALESCE(total_treatment_cost, 0) - ?), 2)
+             WHERE tenant_id = ? AND booking_id = ?
+             LIMIT 1'
+        );
+        $upd->execute([$discountAmount, $tenantId, $bookingId]);
+
+        return;
+    }
+
+    $apsQuoted = '`' . str_replace('`', '``', $apsPhysical) . '`';
+
+    $apsColsStmt = $pdo->prepare("
+        SELECT COLUMN_NAME
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND LOWER(TABLE_NAME) = LOWER(?)
+    ");
+    $apsColsStmt->execute([$apsPhysical]);
+    $apsCols = array_map('strtolower', array_map('strval', $apsColsStmt->fetchAll(PDO::FETCH_COLUMN) ?: []));
+    $hasApsServiceType = in_array('service_type', $apsCols, true);
+
+    $svcEnableStmt = $pdo->prepare("
+        SELECT 1
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'tbl_services'
+          AND COLUMN_NAME = 'enable_installment'
+        LIMIT 1
+    ");
+    $svcEnableStmt->execute();
+    $hasSvcEnableInst = (bool) $svcEnableStmt->fetchColumn();
+
+    $enableExpr = $hasSvcEnableInst ? 'COALESCE(sv.enable_installment, 0)' : '0';
+
+    $apsTypeExpr = $hasApsServiceType
+        ? "LOWER(TRIM(COALESCE(NULLIF(aps.service_type, ''), '')))"
+        : "''";
+
+    $sql = "
+        SELECT
+            aps.id,
+            COALESCE(aps.price, 0) AS price,
+            {$apsTypeExpr} AS aps_type,
+            LOWER(TRIM(COALESCE(sv.service_type, ''))) AS sv_type,
+            {$enableExpr} AS enable_installment
+        FROM {$apsQuoted} aps
+        LEFT JOIN tbl_services sv
+            ON sv.tenant_id = aps.tenant_id
+           AND sv.service_id = aps.service_id
+        WHERE aps.tenant_id = ?
+          AND aps.booking_id = ?
+        ORDER BY aps.id ASC
+    ";
+    $st = $pdo->prepare($sql);
+    $st->execute([$tenantId, $bookingId]);
+    $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    $regularIndices = [];
+    $regularSum = 0.0;
+    foreach ($rows as $i => $row) {
+        $apsType = (string) ($row['aps_type'] ?? '');
+        $svType = (string) ($row['sv_type'] ?? '');
+        $enableInst = (int) ($row['enable_installment'] ?? 0);
+        if ($apsType === 'included_plan' || $svType === 'included_plan') {
+            continue;
+        }
+        if ($apsType === 'installment' || $svType === 'installment' || $enableInst === 1) {
+            continue;
+        }
+        $price = (float) ($row['price'] ?? 0);
+        if ($price <= 0.009) {
+            continue;
+        }
+        $regularIndices[] = $i;
+        $regularSum += $price;
+    }
+
+    if ($regularSum <= 0.009) {
+        $upd = $pdo->prepare(
+            'UPDATE tbl_appointments
+             SET total_treatment_cost = ROUND(GREATEST(0, COALESCE(total_treatment_cost, 0) - ?), 2)
+             WHERE tenant_id = ? AND booking_id = ?
+             LIMIT 1'
+        );
+        $upd->execute([$discountAmount, $tenantId, $bookingId]);
+
+        return;
+    }
+
+    $allocations = [];
+    $allocated = 0.0;
+    $n = count($regularIndices);
+    foreach ($regularIndices as $j => $idx) {
+        $price = (float) ($rows[$idx]['price'] ?? 0);
+        if ($j === $n - 1) {
+            $share = round(max(0.0, $discountAmount - $allocated), 2);
+        } else {
+            $share = round($discountAmount * ($price / $regularSum), 2);
+            $allocated += $share;
+        }
+        $allocations[$idx] = min($price, $share);
+    }
+
+    $sumAlloc = 0.0;
+    foreach ($regularIndices as $idx) {
+        $sumAlloc += $allocations[$idx] ?? 0.0;
+    }
+    $lastIdx = $regularIndices[$n - 1];
+    if (abs($sumAlloc - $discountAmount) > 0.02) {
+        $allocations[$lastIdx] = round(
+            max(0.0, (float) ($allocations[$lastIdx] ?? 0) + ($discountAmount - $sumAlloc)),
+            2
+        );
+    }
+
+    $updPrice = $pdo->prepare("UPDATE {$apsQuoted} SET price = ? WHERE tenant_id = ? AND id = ? LIMIT 1");
+    foreach ($regularIndices as $idx) {
+        $oldP = (float) ($rows[$idx]['price'] ?? 0);
+        $ded = (float) ($allocations[$idx] ?? 0);
+        $newP = round(max(0.0, $oldP - $ded), 2);
+        $id = (int) ($rows[$idx]['id'] ?? 0);
+        if ($id <= 0) {
+            continue;
+        }
+        $updPrice->execute([$newP, $tenantId, $id]);
+    }
+
+    $sumStmt = $pdo->prepare(
+        "SELECT COALESCE(SUM(price), 0) AS s FROM {$apsQuoted} WHERE tenant_id = ? AND booking_id = ?"
+    );
+    $sumStmt->execute([$tenantId, $bookingId]);
+    $lineTotal = round((float) ($sumStmt->fetchColumn() ?: 0), 2);
+    $hdr = $pdo->prepare('UPDATE tbl_appointments SET total_treatment_cost = ? WHERE tenant_id = ? AND booking_id = ? LIMIT 1');
+    $hdr->execute([$lineTotal, $tenantId, $bookingId]);
+}
