@@ -128,6 +128,22 @@ function provider_tenant_rep_month_key(string $ym): string
     return date('M Y', $ts);
 }
 
+/** Emerald / teal ramp for donut segments (matches clinic dashboard greens). */
+function provider_tenant_rep_service_segment_color(string $label, int $index): string
+{
+    $l = strtolower(trim($label));
+    if ($l === 'unlinked payment' || str_contains($l, 'unlinked')) {
+        return '#64748B';
+    }
+    $palette = [
+        '#065F46', '#047857', '#059669', '#10B981', '#22C55E', '#4ADE80',
+        '#34D399', '#6EE7B7', '#A7F3D0', '#99F6E4', '#5EEAD4', '#2DD4BF',
+        '#14B8A6', '#0D9488', '#0F766E', '#115E59', '#134E4A',
+        '#78716C', '#94A3B8',
+    ];
+    return $palette[$index % count($palette)];
+}
+
 $t_appts = provider_tenant_dash_resolve_table($pdo, ['appointments', 'tbl_appointments']);
 $t_patients = provider_tenant_dash_resolve_table($pdo, ['patients', 'tbl_patients']);
 $t_payments = provider_tenant_dash_resolve_table($pdo, ['payments', 'tbl_payments']);
@@ -575,7 +591,10 @@ $pct_conf = (int) round(100 * $n_confirmed / $ops_den);
 $pct_done = (int) round(100 * $n_completed / $ops_den);
 $pct_prog = (int) round(100 * $n_in_progress / $ops_den);
 
-$chart_colors = ['#22C55E', '#34D399', '#10B981', '#059669', '#2DD4BF', '#14B8A6', '#0D9488', '#047857', '#6EE7B7', '#A7F3D0', '#6B7280', '#94A3B8'];
+$service_colors = [];
+foreach ($service_labels as $si => $slab) {
+    $service_colors[] = provider_tenant_rep_service_segment_color((string) $slab, $si);
+}
 
 ?>
 <!DOCTYPE html>
@@ -678,6 +697,23 @@ $chart_colors = ['#22C55E', '#34D399', '#10B981', '#059669', '#2DD4BF', '#14B8A6
         .reports-chart-wrap {
             position: relative;
             height: 260px;
+        }
+        .reports-service-legend {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.5rem 1.75rem;
+            width: 100%;
+            max-width: 42rem;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        @media (min-width: 640px) {
+            .reports-service-legend {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+        .reports-service-legend-item {
+            min-width: 0;
         }
         @media (max-width: 1023.98px) {
             .provider-top-header {
@@ -857,20 +893,22 @@ Payment records are not available for this tenant context. Connect <code class="
 <div class="elevated-card rounded-3xl p-8 provider-card-lift">
 <p class="text-[11px] font-black uppercase tracking-[0.28em] text-slate-900">Revenue by service</p>
 <p class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/55 mt-1"><?php echo $scope_pay_charts === 'pending' ? 'Pending breakdown by treatment' : 'Earnings breakdown by treatment'; ?></p>
-<div class="reports-chart-wrap mt-6 flex flex-col items-center justify-center">
+<div class="reports-chart-wrap mt-6 flex flex-col items-center justify-center min-h-[280px]">
 <?php if ($t_payments === '') { ?>
 <p class="text-sm text-on-surface-variant font-medium text-center">No payment data.</p>
 <?php } elseif ($service_labels === []) { ?>
 <p class="text-sm text-on-surface-variant font-medium text-center">No service-linked <?php echo $scope_pay_charts === 'pending' ? 'pending' : 'paid'; ?> amounts for these filters.</p>
 <?php } else { ?>
-<canvas id="chart-service-donut" class="max-h-[240px]" aria-label="Revenue by service donut chart"></canvas>
-<div id="chart-service-legend" class="flex flex-wrap justify-center gap-x-5 gap-y-2 mt-6 max-w-md">
+<div class="relative w-full max-w-[280px] h-[220px] shrink-0">
+<canvas id="chart-service-donut" class="max-h-[220px] mx-auto" aria-label="Revenue by service donut chart"></canvas>
+</div>
+<div id="chart-service-legend" class="reports-service-legend mt-8 px-1">
 <?php foreach ($service_labels as $si => $sl) {
-    $col = $chart_colors[$si % max(count($chart_colors), 1)];
+    $col = $service_colors[$si] ?? '#22C55E';
     ?>
-<span class="inline-flex items-center gap-2 text-[11px] font-semibold text-slate-700">
-<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:<?php echo htmlspecialchars($col, ENT_QUOTES, 'UTF-8'); ?>"></span>
-<span><?php echo htmlspecialchars($sl, ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="reports-service-legend-item inline-flex items-start gap-2 text-[11px] font-semibold text-slate-700 leading-snug">
+<span class="w-2.5 h-2.5 rounded-full shrink-0 mt-1" style="background:<?php echo htmlspecialchars($col, ENT_QUOTES, 'UTF-8'); ?>"></span>
+<span class="min-w-0"><?php echo htmlspecialchars($sl, ENT_QUOTES, 'UTF-8'); ?></span>
 </span>
 <?php } ?>
 </div>
@@ -1102,7 +1140,7 @@ Payment records are not available for this tenant context. Connect <code class="
 (function () {
   var svcLbl = <?php echo json_encode($service_labels, JSON_UNESCAPED_UNICODE); ?>;
   var svcVal = <?php echo json_encode($service_values, JSON_UNESCAPED_UNICODE); ?>;
-  var cols = <?php echo json_encode($chart_colors, JSON_UNESCAPED_UNICODE); ?>;
+  var cols = <?php echo json_encode($service_colors, JSON_UNESCAPED_UNICODE); ?>;
   var canvas = document.getElementById('chart-service-donut');
   if (!canvas || typeof Chart === 'undefined' || !svcLbl.length) return;
 
