@@ -2407,6 +2407,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                 $setShiftStartId = 'setShiftWeek' . ucfirst($setShiftDaySlug) . 'Start';
                                 $setShiftEndId = 'setShiftWeek' . ucfirst($setShiftDaySlug) . 'End';
                                 $setShiftLoaderId = 'setShiftWeek' . ucfirst($setShiftDaySlug) . 'Loader';
+                                $setShiftStatusId = 'setShiftWeek' . ucfirst($setShiftDaySlug) . 'Status';
                                 ?>
                             <div class="px-4 py-3.5 sm:px-5 sm:py-4 bg-white/80">
                                 <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-5">
@@ -2434,10 +2435,14 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                             id="<?php echo htmlspecialchars($setShiftLoaderId, ENT_QUOTES, 'UTF-8'); ?>"
                                             class="set-shift-day-loader inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50/90 text-slate-400 shadow-sm"
                                             aria-hidden="true"
-                                            title="Status"
                                         >
                                             <span class="material-symbols-outlined set-shift-day-loader-icon text-[20px] leading-none text-slate-400">progress_activity</span>
                                         </span>
+                                        <span
+                                            id="<?php echo htmlspecialchars($setShiftStatusId, ENT_QUOTES, 'UTF-8'); ?>"
+                                            class="set-shift-day-status text-[11px] sm:text-xs font-semibold text-right leading-snug min-w-0 max-w-[11rem] sm:max-w-[13rem] text-slate-400"
+                                            aria-live="polite"
+                                        ></span>
                                     </div>
                                 </div>
                             </div>
@@ -2739,14 +2744,16 @@ $dentistsSeedData = array_map(static function ($dentist) {
         const todayDateOnly = <?php echo json_encode($todayDateOnly, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const clinicHoursSnapshotByDayName = <?php echo json_encode($clinicHoursSnapshotByDayName ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const scheduleWeekAnchorDefault = <?php echo json_encode($selectedDate->format('Y-m-d'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const SET_SHIFT_CLINIC_VALIDATE_MS = 220;
+        const setShiftRowValidateTimers = {};
         const setShiftWeekFieldDefs = [
-            { dayName: 'Sunday', startId: 'setShiftWeekSundayStart', endId: 'setShiftWeekSundayEnd', loaderId: 'setShiftWeekSundayLoader' },
-            { dayName: 'Monday', startId: 'setShiftWeekMondayStart', endId: 'setShiftWeekMondayEnd', loaderId: 'setShiftWeekMondayLoader' },
-            { dayName: 'Tuesday', startId: 'setShiftWeekTuesdayStart', endId: 'setShiftWeekTuesdayEnd', loaderId: 'setShiftWeekTuesdayLoader' },
-            { dayName: 'Wednesday', startId: 'setShiftWeekWednesdayStart', endId: 'setShiftWeekWednesdayEnd', loaderId: 'setShiftWeekWednesdayLoader' },
-            { dayName: 'Thursday', startId: 'setShiftWeekThursdayStart', endId: 'setShiftWeekThursdayEnd', loaderId: 'setShiftWeekThursdayLoader' },
-            { dayName: 'Friday', startId: 'setShiftWeekFridayStart', endId: 'setShiftWeekFridayEnd', loaderId: 'setShiftWeekFridayLoader' },
-            { dayName: 'Saturday', startId: 'setShiftWeekSaturdayStart', endId: 'setShiftWeekSaturdayEnd', loaderId: 'setShiftWeekSaturdayLoader' }
+            { dayName: 'Sunday', startId: 'setShiftWeekSundayStart', endId: 'setShiftWeekSundayEnd', loaderId: 'setShiftWeekSundayLoader', statusId: 'setShiftWeekSundayStatus' },
+            { dayName: 'Monday', startId: 'setShiftWeekMondayStart', endId: 'setShiftWeekMondayEnd', loaderId: 'setShiftWeekMondayLoader', statusId: 'setShiftWeekMondayStatus' },
+            { dayName: 'Tuesday', startId: 'setShiftWeekTuesdayStart', endId: 'setShiftWeekTuesdayEnd', loaderId: 'setShiftWeekTuesdayLoader', statusId: 'setShiftWeekTuesdayStatus' },
+            { dayName: 'Wednesday', startId: 'setShiftWeekWednesdayStart', endId: 'setShiftWeekWednesdayEnd', loaderId: 'setShiftWeekWednesdayLoader', statusId: 'setShiftWeekWednesdayStatus' },
+            { dayName: 'Thursday', startId: 'setShiftWeekThursdayStart', endId: 'setShiftWeekThursdayEnd', loaderId: 'setShiftWeekThursdayLoader', statusId: 'setShiftWeekThursdayStatus' },
+            { dayName: 'Friday', startId: 'setShiftWeekFridayStart', endId: 'setShiftWeekFridayEnd', loaderId: 'setShiftWeekFridayLoader', statusId: 'setShiftWeekFridayStatus' },
+            { dayName: 'Saturday', startId: 'setShiftWeekSaturdayStart', endId: 'setShiftWeekSaturdayEnd', loaderId: 'setShiftWeekSaturdayLoader', statusId: 'setShiftWeekSaturdayStatus' }
         ];
         let selectedWorkShiftForBlockTime = {
             hasRecord: false,
@@ -3025,6 +3032,139 @@ $dentistsSeedData = array_map(static function ($dentist) {
             return (hour * 60) + minute;
         }
 
+        function applySetShiftRowStatus(statusEl, text, kind) {
+            if (!statusEl) {
+                return;
+            }
+            statusEl.textContent = text || '';
+            statusEl.classList.remove(
+                'text-emerald-700',
+                'text-amber-700',
+                'text-slate-600',
+                'text-rose-600',
+                'text-slate-400'
+            );
+            if (!text) {
+                statusEl.classList.add('text-slate-400');
+                return;
+            }
+            if (kind === 'valid') {
+                statusEl.classList.add('text-emerald-700');
+            } else if (kind === 'outside') {
+                statusEl.classList.add('text-amber-700');
+            } else if (kind === 'closed') {
+                statusEl.classList.add('text-slate-600');
+            } else if (kind === 'invalid') {
+                statusEl.classList.add('text-rose-600');
+            } else {
+                statusEl.classList.add('text-slate-400');
+            }
+        }
+
+        function setSetShiftRowLoading(row, isLoading) {
+            const loaderEl = document.getElementById(row.loaderId);
+            const iconEl = loaderEl ? loaderEl.querySelector('.set-shift-day-loader-icon') : null;
+            if (!iconEl) {
+                return;
+            }
+            if (isLoading) {
+                iconEl.classList.add('animate-spin');
+            } else {
+                iconEl.classList.remove('animate-spin');
+            }
+        }
+
+        function runSetShiftRowValidation(row) {
+            const startEl = document.getElementById(row.startId);
+            const endEl = document.getElementById(row.endId);
+            const statusEl = document.getElementById(row.statusId);
+            const start = String(startEl && startEl.value ? startEl.value : '').trim();
+            const end = String(endEl && endEl.value ? endEl.value : '').trim();
+
+            setSetShiftRowLoading(row, false);
+
+            if (start === '' && end === '') {
+                applySetShiftRowStatus(statusEl, '', 'neutral');
+                return;
+            }
+            if (start === '' || end === '') {
+                applySetShiftRowStatus(statusEl, '', 'neutral');
+                return;
+            }
+            if (!/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end)) {
+                applySetShiftRowStatus(statusEl, 'Invalid times', 'invalid');
+                return;
+            }
+            const shiftStartMinutes = toMinutes(start);
+            const shiftEndMinutes = toMinutes(end);
+            if (shiftEndMinutes <= shiftStartMinutes) {
+                applySetShiftRowStatus(statusEl, 'Invalid times', 'invalid');
+                return;
+            }
+
+            const snap = clinicHoursSnapshotByDayName[row.dayName];
+            if (!snap || snap.is_closed || !snap.open_time_raw || !snap.close_time_raw) {
+                applySetShiftRowStatus(statusEl, 'Clinic Closed', 'closed');
+                return;
+            }
+            const clinicOpenMinutes = toMinutes(snap.open_time_raw);
+            const clinicCloseMinutes = toMinutes(snap.close_time_raw);
+            if (shiftStartMinutes < clinicOpenMinutes || shiftEndMinutes > clinicCloseMinutes) {
+                applySetShiftRowStatus(statusEl, 'Outside Clinic Hours', 'outside');
+                return;
+            }
+            applySetShiftRowStatus(statusEl, 'Valid', 'valid');
+        }
+
+        function scheduleSetShiftRowValidation(row) {
+            const startEl = document.getElementById(row.startId);
+            const endEl = document.getElementById(row.endId);
+            const statusEl = document.getElementById(row.statusId);
+            const dayKey = row.dayName;
+            if (setShiftRowValidateTimers[dayKey]) {
+                clearTimeout(setShiftRowValidateTimers[dayKey]);
+                setShiftRowValidateTimers[dayKey] = null;
+            }
+
+            const start = String(startEl && startEl.value ? startEl.value : '').trim();
+            const end = String(endEl && endEl.value ? endEl.value : '').trim();
+
+            if (start === '' && end === '') {
+                setSetShiftRowLoading(row, false);
+                applySetShiftRowStatus(statusEl, '', 'neutral');
+                return;
+            }
+            if (start === '' || end === '') {
+                setSetShiftRowLoading(row, false);
+                applySetShiftRowStatus(statusEl, '', 'neutral');
+                return;
+            }
+
+            setSetShiftRowLoading(row, true);
+            applySetShiftRowStatus(statusEl, '', 'neutral');
+            setShiftRowValidateTimers[dayKey] = setTimeout(function () {
+                setShiftRowValidateTimers[dayKey] = null;
+                runSetShiftRowValidation(row);
+            }, SET_SHIFT_CLINIC_VALIDATE_MS);
+        }
+
+        function resetAllSetShiftRowStatuses() {
+            setShiftWeekFieldDefs.forEach(function (row) {
+                if (setShiftRowValidateTimers[row.dayName]) {
+                    clearTimeout(setShiftRowValidateTimers[row.dayName]);
+                    setShiftRowValidateTimers[row.dayName] = null;
+                }
+                setSetShiftRowLoading(row, false);
+                applySetShiftRowStatus(document.getElementById(row.statusId), '', 'neutral');
+            });
+        }
+
+        function refreshAllSetShiftRowValidations() {
+            setShiftWeekFieldDefs.forEach(function (row) {
+                scheduleSetShiftRowValidation(row);
+            });
+        }
+
         function formatDateForUiLabel(dateValue) {
             if (!dateValue || !/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
                 return '';
@@ -3051,6 +3191,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     endEl.value = '';
                 }
             });
+            resetAllSetShiftRowStatuses();
         }
 
         function applyDefaultSetShiftWeekFields() {
@@ -3127,6 +3268,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     setShiftNotes.value = '';
                 }
             }
+            refreshAllSetShiftRowValidations();
         }
 
         async function loadWorkShiftForBlockTime(dateValue) {
@@ -3520,6 +3662,20 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 loadWeeklyShiftEditorFromServer();
             });
         }
+        setShiftWeekFieldDefs.forEach(function (row) {
+            const startEl = document.getElementById(row.startId);
+            const endEl = document.getElementById(row.endId);
+            if (!startEl || !endEl) {
+                return;
+            }
+            const onShiftTimeAdjust = function () {
+                scheduleSetShiftRowValidation(row);
+            };
+            startEl.addEventListener('input', onShiftTimeAdjust);
+            startEl.addEventListener('change', onShiftTimeAdjust);
+            endEl.addEventListener('input', onShiftTimeAdjust);
+            endEl.addEventListener('change', onShiftTimeAdjust);
+        });
         if (chooseDentistBtn) {
             chooseDentistBtn.addEventListener('click', openChooseDentistModal);
         }
