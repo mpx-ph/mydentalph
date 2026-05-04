@@ -11,6 +11,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/tenant.php';
 require_once __DIR__ . '/../includes/availability.php';
 require_once __DIR__ . '/../includes/appointment_db_tables.php';
+require_once __DIR__ . '/../includes/patient_booking_slots.php';
 require_once __DIR__ . '/../includes/appointment_reminder_service.php';
 require_once __DIR__ . '/../includes/staff_installment_helpers.php';
 
@@ -746,20 +747,9 @@ function createAppointment() {
         try {
             $dentistUserId = trim((string) ($data['dentist_user_id'] ?? ''));
             if ($dentistUserId === '' && !empty($data['dentist_id'])) {
-                $dentistsTable = clinic_get_physical_table_name($pdo, 'tbl_dentists')
-                    ?? clinic_get_physical_table_name($pdo, 'dentists');
-                if ($dentistsTable !== null) {
-                    $quotedDentistsTable = '`' . str_replace('`', '``', $dentistsTable) . '`';
-                    $dentistLookupStmt = $pdo->prepare("
-                        SELECT user_id
-                        FROM {$quotedDentistsTable}
-                        WHERE tenant_id = ?
-                          AND dentist_id = ?
-                        LIMIT 1
-                    ");
-                    $dentistLookupStmt->execute([$tenantId, trim((string) $data['dentist_id'])]);
-                    $dentistLookup = $dentistLookupStmt->fetch(PDO::FETCH_ASSOC);
-                    $dentistUserId = trim((string) ($dentistLookup['user_id'] ?? ''));
+                $resolved = patient_booking_dentist_user_id($pdo, (string) $tenantId, (int) $data['dentist_id']);
+                if ($resolved !== null) {
+                    $dentistUserId = $resolved;
                 }
             }
             if ($dentistUserId === '') {

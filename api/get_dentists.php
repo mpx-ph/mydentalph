@@ -28,15 +28,35 @@ $qD = clinic_quote_identifier($dTable);
 try {
     if ($with_schedule_blocks && $sbTable !== null) {
         $qSb = clinic_quote_identifier($sbTable);
-        // Only dentists linked to tbl_schedule_blocks (published shift/work — mobile booking uses these windows).
-        $sql = "
-            SELECT DISTINCT d.dentist_id, d.first_name, d.last_name, d.specialization
-            FROM {$qD} d
-            INNER JOIN {$qSb} sb ON sb.tenant_id = d.tenant_id AND sb.user_id = d.user_id
-                AND sb.is_active = 1
-                AND LOWER(sb.block_type) IN ('shift', 'work')
-            WHERE d.tenant_id = ?
-        ";
+        $usersTable = clinic_get_physical_table_name($pdo, 'tbl_users')
+            ?? clinic_get_physical_table_name($pdo, 'users');
+        // Schedule blocks key off user_id; dentist rows may leave user_id NULL and match tbl_users by email (same as StaffWalkIn).
+        if ($usersTable !== null) {
+            $qU = clinic_quote_identifier($usersTable);
+            $sql = "
+                SELECT DISTINCT d.dentist_id, d.first_name, d.last_name, d.specialization
+                FROM {$qD} d
+                LEFT JOIN {$qU} u
+                    ON u.tenant_id = d.tenant_id
+                    AND LOWER(TRIM(COALESCE(u.email, ''))) = LOWER(TRIM(COALESCE(d.email, '')))
+                    AND u.role = 'dentist'
+                INNER JOIN {$qSb} sb
+                    ON sb.tenant_id = d.tenant_id
+                   AND sb.user_id = COALESCE(NULLIF(TRIM(d.user_id), ''), NULLIF(TRIM(u.user_id), ''))
+                   AND sb.is_active = 1
+                   AND LOWER(sb.block_type) IN ('shift', 'work')
+                WHERE d.tenant_id = ?
+            ";
+        } else {
+            $sql = "
+                SELECT DISTINCT d.dentist_id, d.first_name, d.last_name, d.specialization
+                FROM {$qD} d
+                INNER JOIN {$qSb} sb ON sb.tenant_id = d.tenant_id AND sb.user_id = d.user_id
+                    AND sb.is_active = 1
+                    AND LOWER(sb.block_type) IN ('shift', 'work')
+                WHERE d.tenant_id = ?
+            ";
+        }
         if (clinic_table_exists($pdo, $dTable) && in_array('status', clinic_table_columns($pdo, $dTable), true)) {
             $sql .= " AND LOWER(COALESCE(NULLIF(TRIM(COALESCE(d.status, '')), ''), 'active')) = 'active' ";
         } elseif (clinic_table_exists($pdo, $dTable) && in_array('is_active', clinic_table_columns($pdo, $dTable), true)) {

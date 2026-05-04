@@ -30,6 +30,11 @@ if (!function_exists('patient_booking_normalize_time')) {
 }
 
 if (!function_exists('patient_booking_dentist_user_id')) {
+    /**
+     * Resolve the staff user_id used by tbl_schedule_blocks.
+     * Matches StaffWalkIn.php / StaffSetAppointments.php: prefer tbl_dentists.user_id, else tbl_users.user_id
+     * where email matches and role is dentist (handles NULL user_id on dentist rows).
+     */
     function patient_booking_dentist_user_id(PDO $pdo, string $tenantId, int $dentistId): ?string
     {
         $dentistsTable = clinic_get_physical_table_name($pdo, 'tbl_dentists')
@@ -37,15 +42,39 @@ if (!function_exists('patient_booking_dentist_user_id')) {
         if ($dentistsTable === null) {
             return null;
         }
-        $q = clinic_quote_identifier($dentistsTable);
-        $stmt = $pdo->prepare("SELECT user_id FROM {$q} WHERE tenant_id = ? AND dentist_id = ? LIMIT 1");
+        $qD = clinic_quote_identifier($dentistsTable);
+        $usersTable = clinic_get_physical_table_name($pdo, 'tbl_users')
+            ?? clinic_get_physical_table_name($pdo, 'users');
+
+        if ($usersTable !== null) {
+            $qU = clinic_quote_identifier($usersTable);
+            $stmt = $pdo->prepare("
+                SELECT
+                    COALESCE(NULLIF(TRIM(d.user_id), ''), NULLIF(TRIM(u.user_id), ''), '') AS resolved_user_id
+                FROM {$qD} d
+                LEFT JOIN {$qU} u
+                    ON u.tenant_id = d.tenant_id
+                    AND LOWER(TRIM(COALESCE(u.email, ''))) = LOWER(TRIM(COALESCE(d.email, '')))
+                    AND u.role = 'dentist'
+                WHERE d.tenant_id = ? AND d.dentist_id = ?
+                LIMIT 1
+            ");
+        } else {
+            $stmt = $pdo->prepare("
+                SELECT NULLIF(TRIM(user_id), '') AS resolved_user_id
+                FROM {$qD}
+                WHERE tenant_id = ? AND dentist_id = ?
+                LIMIT 1
+            ");
+        }
         $stmt->execute([$tenantId, $dentistId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$row || empty($row['user_id'])) {
+        $uid = trim((string) ($row['resolved_user_id'] ?? ''));
+        if ($uid === '') {
             return null;
         }
 
-        return (string) $row['user_id'];
+        return $uid;
     }
 }
 
