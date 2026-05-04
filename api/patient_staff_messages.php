@@ -198,10 +198,21 @@ if ($with !== '') {
                 m.is_read,
                 m.status,
                 m.created_at,
-                u.photo AS sender_photo
+                COALESCE(
+                    NULLIF(TRIM(us.photo), ''),
+                    NULLIF(TRIM(ss.profile_image), ''),
+                    NULLIF(TRIM(dd.profile_image), ''),
+                    NULLIF(TRIM(mm.profile_image), '')
+                ) AS sender_photo
             FROM tbl_messages m
-            LEFT JOIN tbl_users u
-                ON u.user_id = m.sender_id AND u.tenant_id = m.tenant_id
+            LEFT JOIN tbl_users us
+                ON us.user_id = m.sender_id AND us.tenant_id = m.tenant_id
+            LEFT JOIN tbl_staffs ss
+                ON ss.tenant_id = us.tenant_id AND ss.user_id = us.user_id
+            LEFT JOIN tbl_dentists dd
+                ON dd.tenant_id = us.tenant_id AND dd.user_id = us.user_id
+            LEFT JOIN tbl_managers mm
+                ON mm.tenant_id = us.tenant_id AND mm.user_id = us.user_id
             WHERE m.tenant_id = ?
               AND (
                 (m.sender_id = ? AND m.receiver_id = ?)
@@ -245,20 +256,33 @@ if ($with !== '') {
 // Contacts list
 try {
     $listStmt = $pdo->prepare("
-        SELECT user_id, email, full_name, role, photo
-        FROM tbl_users
-        WHERE tenant_id = ?
-          AND role IN ('tenant_owner', 'manager', 'staff', 'dentist')
-          AND status = 'active'
+        SELECT
+            u.user_id,
+            u.email,
+            u.full_name,
+            u.role,
+            COALESCE(
+                NULLIF(TRIM(u.photo), ''),
+                NULLIF(TRIM(s.profile_image), ''),
+                NULLIF(TRIM(d.profile_image), ''),
+                NULLIF(TRIM(mg.profile_image), '')
+            ) AS photo
+        FROM tbl_users u
+        LEFT JOIN tbl_staffs s ON s.tenant_id = u.tenant_id AND s.user_id = u.user_id
+        LEFT JOIN tbl_dentists d ON d.tenant_id = u.tenant_id AND d.user_id = u.user_id
+        LEFT JOIN tbl_managers mg ON mg.tenant_id = u.tenant_id AND mg.user_id = u.user_id
+        WHERE u.tenant_id = ?
+          AND u.role IN ('tenant_owner', 'manager', 'staff', 'dentist')
+          AND u.status = 'active'
         ORDER BY
-            CASE role
+            CASE u.role
                 WHEN 'tenant_owner' THEN 0
                 WHEN 'manager' THEN 1
                 WHEN 'dentist' THEN 2
                 ELSE 3
             END,
-            full_name ASC,
-            email ASC
+            u.full_name ASC,
+            u.email ASC
     ");
     $listStmt->execute([$tenantId]);
     $staffRows = $listStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -315,10 +339,23 @@ try {
     foreach (array_keys($convMap) as $pid) {
         if ($pid !== '' && !isset($staffById[$pid])) {
             $extraStmt = $pdo->prepare("
-                SELECT user_id, email, full_name, role, photo
-                FROM tbl_users
-                WHERE tenant_id = ? AND user_id = ?
-                  AND role IN ('tenant_owner', 'manager', 'staff', 'dentist')
+                SELECT
+                    u.user_id,
+                    u.email,
+                    u.full_name,
+                    u.role,
+                    COALESCE(
+                        NULLIF(TRIM(u.photo), ''),
+                        NULLIF(TRIM(s.profile_image), ''),
+                        NULLIF(TRIM(d.profile_image), ''),
+                        NULLIF(TRIM(mg.profile_image), '')
+                    ) AS photo
+                FROM tbl_users u
+                LEFT JOIN tbl_staffs s ON s.tenant_id = u.tenant_id AND s.user_id = u.user_id
+                LEFT JOIN tbl_dentists d ON d.tenant_id = u.tenant_id AND d.user_id = u.user_id
+                LEFT JOIN tbl_managers mg ON mg.tenant_id = u.tenant_id AND mg.user_id = u.user_id
+                WHERE u.tenant_id = ? AND u.user_id = ?
+                  AND u.role IN ('tenant_owner', 'manager', 'staff', 'dentist')
                 LIMIT 1
             ");
             $extraStmt->execute([$tenantId, $pid]);
