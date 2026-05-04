@@ -93,11 +93,7 @@ if (!function_exists('clinic_get_effective_schedule_blocks')) {
             ORDER BY start_time ASC
         ");
         $dateSpecificBlocksStmt->execute([(string) $tenantId, (string) $userId, (string) $slotDate]);
-        $effectiveBlocks = $dateSpecificBlocksStmt->fetchAll(PDO::FETCH_ASSOC);
-
-        if (!empty($effectiveBlocks)) {
-            return clinic_normalize_schedule_blocks($effectiveBlocks);
-        }
+        $dateBlocks = $dateSpecificBlocksStmt->fetchAll(PDO::FETCH_ASSOC);
 
         $slotDayOfWeek = date('l', strtotime((string) $slotDate));
         $recurringBlocksStmt = $pdo->prepare("
@@ -111,7 +107,34 @@ if (!function_exists('clinic_get_effective_schedule_blocks')) {
             ORDER BY start_time ASC
         ");
         $recurringBlocksStmt->execute([(string) $tenantId, (string) $userId, (string) $slotDayOfWeek]);
-        return clinic_normalize_schedule_blocks($recurringBlocksStmt->fetchAll(PDO::FETCH_ASSOC));
+        $recurringBlocks = $recurringBlocksStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        /**
+         * StaffScheduling shows date-specific rows AND recurring rows together; booking must match.
+         * Previously, any date-specific row (e.g. one-off break) replaced the entire day and hid recurring shifts.
+         */
+        $partition = static function (array $blocks): array {
+            $shifts = [];
+            $obstacles = [];
+            foreach ($blocks as $block) {
+                $t = strtolower((string) ($block['block_type'] ?? ''));
+                if (in_array($t, ['shift', 'work'], true)) {
+                    $shifts[] = $block;
+                } elseif (in_array($t, ['break', 'blocked'], true)) {
+                    $obstacles[] = $block;
+                }
+            }
+
+            return [$shifts, $obstacles];
+        };
+
+        [$dateShifts, $dateObstacles] = $partition($dateBlocks);
+        [$recShifts, $recObstacles] = $partition($recurringBlocks);
+
+        $shiftLayer = !empty($dateShifts) ? $dateShifts : $recShifts;
+        $merged = array_merge($shiftLayer, $dateObstacles, $recObstacles);
+
+        return clinic_normalize_schedule_blocks($merged);
     }
 }
 
