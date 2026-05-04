@@ -965,7 +965,22 @@ Next <span class="material-symbols-outlined text-lg">chevron_right</span>
     var cancelBtn = document.getElementById('cancel-reports-export-modal');
     var modal = document.getElementById('reports-export-modal');
     if (!openBtn || !modal) return;
+    function syncPdfExportFormFromCurrentUrl() {
+        var form = modal.querySelector('form[action*="reports_export_pdf"]');
+        if (!form) return;
+        var q = new URLSearchParams(window.location.search);
+        var set = function (name, value) {
+            var el = form.querySelector('[name="' + name + '"]');
+            if (el) el.value = value;
+        };
+        set('period', (q.get('period') || 'yesterday').toLowerCase());
+        set('date_from', q.get('date_from') || '');
+        set('date_to', q.get('date_to') || '');
+        set('clinic', q.get('clinic') || '');
+        set('reg_q', q.get('reg_q') || '');
+    }
     function openModal() {
+        syncPdfExportFormFromCurrentUrl();
         modal.classList.remove('hidden');
         modal.classList.add('flex');
         document.body.style.overflow = 'hidden';
