@@ -27,6 +27,77 @@ function staff_payment_recording_apply_payment_to_treatment(
     staff_treatments_apply_payment($pdo, $tenantId, $treatmentId, $amount, $monthsPaidIncrement);
 }
 
+/**
+ * Normalize patient name for matching tbl_discount_verifications.patient_name (align with staff-discount-verification.js).
+ */
+function staff_payment_recording_normalize_patient_name_for_discount_match(string $name): string
+{
+    $n = strtolower(trim($name));
+    if ($n === '') {
+        return '';
+    }
+    $collapsed = preg_replace('/\s+/', ' ', $n);
+
+    return is_string($collapsed) ? $collapsed : $n;
+}
+
+/**
+ * @return list<array{patient_ref: string, patient_name: string}>
+ */
+function staff_payment_recording_fetch_approved_discount_verification_blocklist(PDO $pdo, string $tenantId): array
+{
+    try {
+        $st = $pdo->prepare(
+            'SELECT DISTINCT v.patient_ref, v.patient_name
+             FROM tbl_discount_verifications v
+             WHERE v.tenant_id = ? AND v.status = ?'
+        );
+        $st->execute([$tenantId, 'approved']);
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $out = [];
+        foreach ($rows as $r) {
+            $out[] = [
+                'patient_ref' => $r['patient_ref'] !== null ? (string) $r['patient_ref'] : '',
+                'patient_name' => isset($r['patient_name']) ? (string) $r['patient_name'] : '',
+            ];
+        }
+
+        return $out;
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/**
+ * @param list<array{patient_ref: string, patient_name: string}> $blocklistRows
+ */
+function staff_payment_recording_patient_has_approved_discount_verification(
+    string $patientChartId,
+    string $firstName,
+    string $lastName,
+    array $blocklistRows
+): bool {
+    $refSet = [];
+    $nameSet = [];
+    foreach ($blocklistRows as $row) {
+        $ref = trim((string) ($row['patient_ref'] ?? ''));
+        if ($ref !== '') {
+            $refSet[$ref] = true;
+        }
+        $nk = staff_payment_recording_normalize_patient_name_for_discount_match((string) ($row['patient_name'] ?? ''));
+        if ($nk !== '') {
+            $nameSet[$nk] = true;
+        }
+    }
+    $chart = trim($patientChartId);
+    if ($chart !== '' && isset($refSet[$chart])) {
+        return true;
+    }
+    $displayKey = staff_payment_recording_normalize_patient_name_for_discount_match(trim($firstName . ' ' . $lastName));
+
+    return $displayKey !== '' && isset($nameSet[$displayKey]);
+}
+
 function staff_payment_recording_financial_status(
     float $totalCost,
     float $totalPaid,
@@ -1187,6 +1258,25 @@ try {
                 $paymentError = 'Selected transaction is already fully paid.';
             } else {
                 try {
+                    $wantsPwdSeniorDiscount = isset($_POST['use_pwd_senior_discount'])
+                        && (string) ($_POST['use_pwd_senior_discount'] ?? '') === '1';
+                    if ($wantsPwdSeniorDiscount) {
+                        $pwdBlockPost = staff_payment_recording_fetch_approved_discount_verification_blocklist($pdo, $tenantId);
+                        $pNameStmt = $pdo->prepare(
+                            'SELECT first_name, last_name FROM tbl_patients WHERE tenant_id = ? AND patient_id = ? LIMIT 1'
+                        );
+                        $pNameStmt->execute([$tenantId, $patientId]);
+                        $pNameRow = $pNameStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+                        if (!staff_payment_recording_patient_has_approved_discount_verification(
+                            $patientId,
+                            (string) ($pNameRow['first_name'] ?? ''),
+                            (string) ($pNameRow['last_name'] ?? ''),
+                            $pwdBlockPost
+                        )) {
+                            throw new RuntimeException('This patient is not eligible for discount.');
+                        }
+                        $notes = trim(trim($notes) !== '' ? ($notes . ' ') : '') . '[PWD/Senior Citizen discount]';
+                    }
                     staff_payment_recording_ensure_installment_schedule(
                         $pdo,
                         $installmentsTableName,
@@ -3139,6 +3229,20 @@ try {
                 return $bid !== '' && $pid !== '';
             }));
         }
+        if ($tenantId !== '' && $transactionCandidates !== []) {
+            $pwdDiscountBlocklistForUi = staff_payment_recording_fetch_approved_discount_verification_blocklist($pdo, $tenantId);
+            foreach ($transactionCandidates as $idx => $candRow) {
+                $pid = trim((string) ($candRow['patient_id'] ?? ''));
+                $fn = (string) ($candRow['patient_first_name'] ?? '');
+                $ln = (string) ($candRow['patient_last_name'] ?? '');
+                $transactionCandidates[$idx]['pwd_senior_discount_eligible'] = staff_payment_recording_patient_has_approved_discount_verification(
+                    $pid,
+                    $fn,
+                    $ln,
+                    $pwdDiscountBlocklistForUi
+                ) ? 1 : 0;
+            }
+        }
         foreach ($transactionCandidates as $candRow) {
             $transactionDebugRows[] = [
                 'service_type' => strtolower(trim((string) ($candRow['service_type'] ?? ''))),
@@ -3891,15 +3995,18 @@ if ($paymentError === 'Please select a payment method.') {
 </div>
             <p class="text-[11px] font-semibold text-slate-500" id="installment_progress_hint"></p>
             </div>
-            <div class="flex items-center justify-between gap-4 pt-4 border-t border-slate-200/80">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 pt-4 border-t border-slate-200/80">
                 <p class="text-sm font-bold text-slate-900 min-w-0">Use PWD/Senior Citizen Discount</p>
-                <div class="flex items-center gap-2 shrink-0">
-                    <span class="text-[11px] font-black uppercase tracking-widest tabular-nums w-9 text-right text-slate-400 transition-colors" id="pwd_senior_discount_state">Off</span>
-                    <label class="relative inline-flex h-7 w-12 cursor-pointer items-center shrink-0">
-                        <input type="checkbox" name="use_pwd_senior_discount" value="1" class="peer sr-only" id="pwd_senior_discount_toggle" autocomplete="off"/>
-                        <span class="absolute inset-0 rounded-full bg-slate-300 transition-colors peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary/35"></span>
-                        <span class="pointer-events-none absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-md ring-1 ring-slate-900/10 transition-transform duration-200 ease-out peer-checked:translate-x-5"></span>
-                    </label>
+                <div class="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 shrink-0">
+                    <span class="hidden text-xs font-semibold text-amber-800 text-right max-w-[14rem] sm:max-w-xs leading-snug" id="pwd_senior_discount_ineligible_label" role="status">This patient is not eligible for discount.</span>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="text-[11px] font-black uppercase tracking-widest tabular-nums w-9 text-right text-slate-400 transition-colors" id="pwd_senior_discount_state">Off</span>
+                        <label id="pwd_senior_discount_switch_label" class="relative inline-flex h-7 w-12 cursor-pointer items-center shrink-0">
+                            <input type="checkbox" name="use_pwd_senior_discount" value="1" class="peer sr-only" id="pwd_senior_discount_toggle" autocomplete="off"/>
+                            <span class="absolute inset-0 rounded-full bg-slate-300 transition-colors peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary/35 peer-disabled:opacity-50"></span>
+                            <span class="pointer-events-none absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-md ring-1 ring-slate-900/10 transition-transform duration-200 ease-out peer-checked:translate-x-5 peer-disabled:opacity-80"></span>
+                        </label>
+                    </div>
                 </div>
             </div>
             <p class="hidden rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-xs font-semibold text-amber-900 leading-relaxed" id="installment-flag-only-note">
@@ -4239,6 +4346,8 @@ Close
         const installmentProgressHint = document.getElementById('installment_progress_hint');
         const pwdSeniorDiscountToggle = document.getElementById('pwd_senior_discount_toggle');
         const pwdSeniorDiscountState = document.getElementById('pwd_senior_discount_state');
+        const pwdSeniorDiscountIneligibleLabel = document.getElementById('pwd_senior_discount_ineligible_label');
+        const pwdSeniorDiscountSwitchLabel = document.getElementById('pwd_senior_discount_switch_label');
         const installmentSlotRow = document.getElementById('installment_slot_row');
         const installmentSlotLabel = document.getElementById('installment_slot_label');
         const installmentSlotStepper = document.getElementById('installment_slot_stepper');
@@ -4285,9 +4394,33 @@ Close
                 return;
             }
             const on = pwdSeniorDiscountToggle.checked;
+            const dis = pwdSeniorDiscountToggle.disabled;
             pwdSeniorDiscountState.textContent = on ? 'On' : 'Off';
-            pwdSeniorDiscountState.classList.toggle('text-primary', on);
-            pwdSeniorDiscountState.classList.toggle('text-slate-400', !on);
+            pwdSeniorDiscountState.classList.toggle('text-primary', on && !dis);
+            pwdSeniorDiscountState.classList.toggle('text-slate-400', !on || dis);
+        }
+
+        function refreshPwdSeniorDiscountUi() {
+            if (!pwdSeniorDiscountToggle || !pwdSeniorDiscountState) {
+                return;
+            }
+            const eligible = selectedTransaction && Number(selectedTransaction.pwd_senior_discount_eligible) === 1;
+            if (pwdSeniorDiscountIneligibleLabel) {
+                pwdSeniorDiscountIneligibleLabel.classList.toggle('hidden', !selectedTransaction || eligible);
+            }
+            if (pwdSeniorDiscountSwitchLabel) {
+                pwdSeniorDiscountSwitchLabel.classList.toggle('opacity-50', !selectedTransaction || !eligible);
+                pwdSeniorDiscountSwitchLabel.classList.toggle('cursor-not-allowed', !selectedTransaction || !eligible);
+            }
+            if (!selectedTransaction || !eligible) {
+                pwdSeniorDiscountToggle.checked = false;
+                pwdSeniorDiscountToggle.disabled = true;
+                pwdSeniorDiscountToggle.setAttribute('aria-disabled', 'true');
+            } else {
+                pwdSeniorDiscountToggle.disabled = false;
+                pwdSeniorDiscountToggle.removeAttribute('aria-disabled');
+            }
+            syncPwdSeniorDiscountStateLabel();
         }
 
         /**
@@ -4727,6 +4860,7 @@ Close
                 if (installmentSlotLabel) {
                     installmentSlotLabel.textContent = 'Installments to pay';
                 }
+                refreshPwdSeniorDiscountUi();
                 return;
             }
             const sched = getScheduleList(selectedTransaction);
@@ -4821,6 +4955,7 @@ Close
             }
 
             if (!hasSchedule) {
+                refreshPwdSeniorDiscountUi();
                 return;
             }
 
@@ -5018,6 +5153,7 @@ Close
             if (amountInput) {
                 amountInput.value = sum.toFixed(2);
             }
+            refreshPwdSeniorDiscountUi();
         }
 
         const SETTLED_BALANCE_EPSILON = 0.05;
@@ -5140,6 +5276,7 @@ Close
                 treatment_id: treatmentId,
                 patient_id: String(item.patient_id || ''),
                 patient_name: patientName,
+                pwd_senior_discount_eligible: Number(item.pwd_senior_discount_eligible) === 1 ? 1 : 0,
                 service_type: String(item.service_type || '-'),
                 visit_type: String(item.visit_type || ''),
                 appointment_date: String(item.appointment_date || ''),
@@ -6031,6 +6168,14 @@ Close
                     event.preventDefault();
                     showValidationPopup('No payment method selected');
                     return;
+                }
+                if (pwdSeniorDiscountToggle && pwdSeniorDiscountToggle.checked) {
+                    const elig = selectedTransaction && Number(selectedTransaction.pwd_senior_discount_eligible) === 1;
+                    if (!elig) {
+                        event.preventDefault();
+                        showValidationPopup('This patient is not eligible for discount.');
+                        return;
+                    }
                 }
                 const validation = validateSelectedAdditionalServices();
                 if (!validation.valid) {
