@@ -2,9 +2,7 @@
 $staff_nav_active = 'dashboard';
 require_once __DIR__ . '/config/config.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+clinic_session_start();
 
 if (!isset($currentTenantSlug)) {
     $currentTenantSlug = '';

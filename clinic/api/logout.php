@@ -6,6 +6,10 @@
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/functions.php';
+
+$logoutSlug = isset($_GET['clinic_slug']) ? trim((string) $_GET['clinic_slug']) : '';
+clinic_session_configure($logoutSlug !== '' ? $logoutSlug : null);
+
 require_once __DIR__ . '/../includes/auth.php';
 
 // Get user type and client clinic slug BEFORE destroying session

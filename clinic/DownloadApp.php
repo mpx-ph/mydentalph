@@ -6,7 +6,7 @@
 $pageTitle = 'Download App - Set Appointment';
 require_once __DIR__ . '/config/config.php';
 if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+    clinic_session_start();
 }
 // Use clinic_slug from URL; if missing, use session (e.g. link opened as DownloadApp.php without query)
 if (empty($_GET['clinic_slug']) && !empty($_SESSION['public_tenant_slug'])) {

@@ -10,7 +10,6 @@ ini_set('log_errors', 1);
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/functions.php';
-require_once __DIR__ . '/../includes/auth.php';
 
 header('Content-Type: application/json');
 
@@ -26,11 +25,17 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $debug = false;
 try {
     $input = json_decode(file_get_contents('php://input'), true);
-    
+
     if (json_last_error() !== JSON_ERROR_NONE) {
         jsonResponse(false, 'Invalid JSON data: ' . json_last_error_msg());
     }
-    
+
+    // Resolve per-clinic session *before* auth loads the session (JSON body carries clinic_slug; URI is /clinic/api/...).
+    $preSlug = isset($input['clinic_slug']) ? trim((string) $input['clinic_slug']) : '';
+    clinic_session_configure($preSlug !== '' ? $preSlug : null);
+
+    require_once __DIR__ . '/../includes/auth.php';
+
     $debug = !empty($input['debug']);
     $login = trim((string) ($input['login'] ?? $input['email'] ?? $input['username'] ?? ''));
     $password = $input['password'] ?? '';

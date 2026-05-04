@@ -2,13 +2,11 @@
 /**
  * PayMongo checkout return URL — marks staff-recorded pending payment completed and updates appointment.
  */
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 date_default_timezone_set('Asia/Manila');
 
 require_once __DIR__ . '/config/config.php';
+
+clinic_session_start();
 require_once __DIR__ . '/includes/staff_installment_helpers.php';
 require_once __DIR__ . '/includes/appointment_db_tables.php';
 require_once __DIR__ . '/includes/staff_payment_receipt_functions.inc.php';

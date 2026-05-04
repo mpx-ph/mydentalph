@@ -12,14 +12,28 @@ ob_start();
 
 try {
     require_once __DIR__ . '/../config/config.php';
-    require_once __DIR__ . '/../includes/auth.php';
     require_once __DIR__ . '/../includes/functions.php';
+
+    $method = $_SERVER['REQUEST_METHOD'] ?? '';
+    $earlyInput = [];
+    if ($method === 'POST') {
+        if (!empty($_POST)) {
+            $earlyInput = $_POST;
+        } else {
+            $rawEarly = file_get_contents('php://input');
+            if ($rawEarly !== '') {
+                $decodedEarly = json_decode($rawEarly, true);
+                $earlyInput = is_array($decodedEarly) ? $decodedEarly : [];
+            }
+        }
+    }
+    $earlySlug = isset($earlyInput['clinic_slug']) ? trim((string) $earlyInput['clinic_slug']) : '';
+    clinic_session_configure($earlySlug !== '' ? $earlySlug : null);
+
+    require_once __DIR__ . '/../includes/auth.php';
     require_once __DIR__ . '/../config/database.php';
     require_once __DIR__ . '/../includes/tenant.php';
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-    
+
     // Clear any output that might have been generated
     ob_clean();
     
@@ -36,6 +50,8 @@ try {
     if (!empty($_POST)) {
         // FormData was sent
         $input = $_POST;
+    } elseif ($earlyInput !== []) {
+        $input = $earlyInput;
     } else {
         // Try to read JSON from input
         $rawInput = file_get_contents('php://input');

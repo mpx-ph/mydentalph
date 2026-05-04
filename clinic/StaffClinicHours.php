@@ -2,9 +2,6 @@
 $staff_nav_active = 'clinic_hours';
 require_once __DIR__ . '/config/config.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
 require_once __DIR__ . '/includes/tenant.php';
 
 $currentTenantId = '';

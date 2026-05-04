@@ -69,6 +69,9 @@ define('DB_DEBUG', false);
 // Load database helper so getDBConnection() is always available to pages that use config
 require_once __DIR__ . '/database.php';
 
+// Per-clinic session cookie names (must load before session_start() anywhere under /clinic)
+require_once dirname(__DIR__) . '/includes/session_clinic_scope.php';
+
 // Prevent being embedded in other domains' iframes (avoids "Unsafe attempt to load URL from frame" when opener is an error page)
 if (!headers_sent()) {
     header('X-Frame-Options: SAMEORIGIN');

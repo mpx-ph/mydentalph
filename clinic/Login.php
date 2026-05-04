@@ -6,10 +6,37 @@ $pageTitle = 'Sign In';
 require_once __DIR__ . '/config/config.php';
 
 // Establish tenant context when opened via slug (e.g. /{slug}/login)
-$clinic_slug = isset($_GET['clinic_slug']) ? trim((string) $_GET['clinic_slug']) : '';
-if ($clinic_slug !== '' && preg_match('/^[a-z0-9\-]+$/', strtolower($clinic_slug))) {
-    $_GET['clinic_slug'] = strtolower($clinic_slug);
+$clinic_slug = isset($_GET['clinic_slug']) ? strtolower(trim((string) $_GET['clinic_slug'])) : '';
+if ($clinic_slug !== '' && !preg_match('/^[a-z0-9\-]+$/', $clinic_slug)) {
+    $clinic_slug = '';
+}
+if ($clinic_slug !== '') {
+    $_GET['clinic_slug'] = $clinic_slug;
+}
+
+// Provider SSO stores payload on the default PHP session; slug pages use MDCLS{slug}. Copy once before opening clinic session.
+$__mydental_sso_bridge = null;
+if (!empty($_GET['mydental_sso']) && $clinic_slug !== '') {
+    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+    $GLOBALS['_clinic_session_scope_configured'] = false;
+    session_name('PHPSESSID');
+    session_set_cookie_params(0, '/', '', $secure, true);
+    session_start();
+    if (!empty($_SESSION['mydental_sso_data']) && is_array($_SESSION['mydental_sso_data'])) {
+        $__mydental_sso_bridge = $_SESSION['mydental_sso_data'];
+    }
+    session_write_close();
+    $GLOBALS['_clinic_session_scope_configured'] = false;
+}
+
+if ($clinic_slug !== '') {
     require_once __DIR__ . '/tenant_bootstrap.php';
+    if ($__mydental_sso_bridge !== null) {
+        $_SESSION['mydental_sso_data'] = $__mydental_sso_bridge;
+    }
 }
 
 // Load customization so logos/text can be tenant-aware (falls back to defaults)

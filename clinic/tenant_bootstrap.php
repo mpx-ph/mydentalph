@@ -17,9 +17,7 @@
  *   - $currentTenantData (full row from tbl_tenants)
  */
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+clinic_session_start();
 
 /**
  * Send users to the shared 404 page for unknown/invalid clinic slugs.

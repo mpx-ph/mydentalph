@@ -5,7 +5,7 @@ require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/includes/appointment_db_tables.php';
 
 if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+    clinic_session_start();
 }
 
 if (empty($_GET['clinic_slug']) && !empty($_SESSION['public_tenant_slug'])) {

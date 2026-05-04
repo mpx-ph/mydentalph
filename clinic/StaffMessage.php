@@ -6,11 +6,6 @@ $staff_nav_active = 'messages';
 
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/includes/tenant.php';
-
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 $allowedTypes = ['admin', 'staff', 'doctor', 'manager'];
 if (empty($_SESSION['user_id']) || empty($_SESSION['user_type']) || !in_array($_SESSION['user_type'], $allowedTypes, true)) {
     header('Location: ' . clinicPageUrl('Login.php'));

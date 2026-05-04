@@ -4,7 +4,7 @@ require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/includes/availability.php';
 
 if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+    clinic_session_start();
 }
 
 $pdo = getDBConnection();

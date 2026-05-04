@@ -9,10 +9,6 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/tenant.php';
 require_once __DIR__ . '/../includes/tenant_public_services_lib.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $pdo = getDBConnection();
 $tenantId = trim((string) ($_SESSION['tenant_id'] ?? ''));

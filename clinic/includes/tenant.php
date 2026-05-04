@@ -8,9 +8,7 @@
  * - Public (slug) flows: tenant_id comes from tenant_bootstrap -> $_SESSION['public_tenant_id']
  */
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+clinic_session_start();
 
 /**
  * Get the tenant_id for this clinic request (admin or public).

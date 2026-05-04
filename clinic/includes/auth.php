@@ -4,9 +4,7 @@
  * Requires config.php and functions.php (for getDBConnection via database.php)
  */
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+clinic_session_start();
 
 require_once __DIR__ . '/tenant.php';
 

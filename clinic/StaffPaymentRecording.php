@@ -677,7 +677,7 @@ function staff_payment_recording_ensure_installment_schedule(
 }
 
 // Dentist role restriction: redirect to dashboard
-if (session_status() === PHP_SESSION_NONE) { session_start(); }
+clinic_session_start();
 if (isset($_SESSION['user_role']) && strtolower(trim((string) $_SESSION['user_role'])) === 'dentist') {
     header('Location: StaffDashboard.php');
     exit;
@@ -2011,7 +2011,7 @@ try {
                             }
 
                             if (session_status() === PHP_SESSION_NONE) {
-                                session_start();
+                                clinic_session_start();
                             }
                             $returnToken = bin2hex(random_bytes(24));
                             $_SESSION['staff_paymongo_checkout'] = [
@@ -2323,7 +2323,7 @@ try {
                         }
 
                         if (session_status() === PHP_SESSION_NONE) {
-                            session_start();
+                            clinic_session_start();
                         }
                         $returnToken = bin2hex(random_bytes(24));
                         $_SESSION['staff_paymongo_checkout'] = [

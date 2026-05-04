@@ -84,6 +84,9 @@ if ($__slug_title !== '') {
     $__staff_appointments_checkin_url .= '&clinic_slug=' . rawurlencode($__slug_title);
 }
 $__staff_logout_url = '/clinic/api/logout.php';
+if ($__slug_title !== '') {
+    $__staff_logout_url .= '?clinic_slug=' . rawurlencode($__slug_title);
+}
 
 $__clinic_name = '';
 if (isset($CLINIC['clinic_name']) && is_string($CLINIC['clinic_name'])) {

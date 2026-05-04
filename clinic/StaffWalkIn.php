@@ -6,9 +6,7 @@ require_once __DIR__ . '/includes/tenant.php';
 require_once __DIR__ . '/includes/appointment_db_tables.php';
 require_once __DIR__ . '/includes/availability.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+clinic_session_start();
 $currentStaffUserId = isset($_SESSION['user_id']) ? (string) $_SESSION['user_id'] : '';
 
 if (empty($_GET['clinic_slug']) && !empty($_SESSION['public_tenant_slug'])) {

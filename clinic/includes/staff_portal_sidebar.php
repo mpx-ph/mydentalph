@@ -1,7 +1,7 @@
 <?php
 $staff_nav_active = isset($staff_nav_active) ? (string) $staff_nav_active : 'dashboard';
 if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+    clinic_session_start();
 }
 
 if (!isset($currentTenantId) || trim((string) $currentTenantId) === '') {
