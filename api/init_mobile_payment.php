@@ -7,6 +7,8 @@ require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../clinic/includes/patient_booking_slots.php';
 require_once __DIR__ . '/../clinic/includes/appointment_booking_row.php';
 require_once __DIR__ . '/../clinic/includes/booking_treatment_ledger.php';
+require_once __DIR__ . '/../clinic/includes/staff_installment_helpers.php';
+require_once __DIR__ . '/includes/mobile_wallet_payment.inc.php';
 require_once __DIR__ . '/../paymongo_config.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -329,10 +331,34 @@ try {
         $phParts[] = '?';
         $payBind[] = $val;
     }
+    $paymentInserted = false;
     if ($payColsIns !== []) {
         $psql = 'INSERT INTO ' . $pq . ' (' . implode(', ', $payColsIns) . ') VALUES (' . implode(', ', $phParts) . ')';
         $pst = $pdo->prepare($psql);
         $pst->execute($payBind);
+        $paymentInserted = true;
+    }
+
+    if ($paymentInserted && !$needs_paymongo && $wallet_amount_in > 0.009) {
+        mobile_wallet_apply_payment_debit(
+            $pdo,
+            $tenant_id,
+            $patient_id,
+            $wallet_amount_in,
+            $payment_id,
+            $booking_id,
+            (string) $user_id,
+        );
+        $updCompleted = $pdo->prepare('UPDATE ' . $pq . ' SET status = \'completed\' WHERE payment_id = ?');
+        $updCompleted->execute([$payment_id]);
+        $stFreshPay = $pdo->prepare('SELECT * FROM ' . $pq . ' WHERE payment_id = ? LIMIT 1');
+        $stFreshPay->execute([$payment_id]);
+        $freshPayRow = $stFreshPay->fetch(PDO::FETCH_ASSOC);
+        if (is_array($freshPayRow) && $freshPayRow !== []) {
+            $ledgerPayRow = mobile_wallet_enrich_payment_row_for_ledger($freshPayRow);
+            booking_apply_completed_payment_to_treatment($pdo, $ledgerPayRow);
+            staff_installments_mark_paid_from_mobile_payment_row($pdo, $ledgerPayRow);
+        }
     }
 
     $pdo->commit();

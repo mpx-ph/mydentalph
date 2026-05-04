@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../clinic/includes/booking_treatment_ledger.php';
 require_once __DIR__ . '/../clinic/includes/staff_installment_helpers.php';
+require_once __DIR__ . '/includes/mobile_wallet_payment.inc.php';
 
 $pid = isset($_GET['pid']) ? trim((string) $_GET['pid']) : '';
 
@@ -15,11 +16,12 @@ if ($pid !== '') {
         $pq = clinic_quote_identifier((string) $payPhys);
 
         $pdo->beginTransaction();
-        $st = $pdo->prepare('SELECT * FROM ' . $pq . ' WHERE payment_id = ? LIMIT 1');
+        $st = $pdo->prepare('SELECT * FROM ' . $pq . ' WHERE payment_id = ? LIMIT 1 FOR UPDATE');
         $st->execute([$pid]);
         $row = $st->fetch(PDO::FETCH_ASSOC);
         if ($row) {
             $statusNorm = strtolower(trim((string) ($row['status'] ?? '')));
+            $tenantId = trim((string) ($row['tenant_id'] ?? ''));
             if ($statusNorm !== 'completed') {
                 $upd = $pdo->prepare('UPDATE ' . $pq . ' SET status = \'completed\' WHERE payment_id = ?');
                 $upd->execute([$pid]);
@@ -27,8 +29,27 @@ if ($pid !== '') {
             $st2 = $pdo->prepare('SELECT * FROM ' . $pq . ' WHERE payment_id = ? LIMIT 1');
             $st2->execute([$pid]);
             $fresh = $st2->fetch(PDO::FETCH_ASSOC) ?: $row;
-            booking_apply_completed_payment_to_treatment($pdo, $fresh);
-            staff_installments_mark_paid_from_mobile_payment_row($pdo, $fresh);
+
+            $walletApplied = mobile_wallet_parse_applied_amount_from_notes((string) ($fresh['notes'] ?? ''));
+            if (
+                $walletApplied > 0.009
+                && $tenantId !== ''
+                && !mobile_wallet_payment_debit_exists($pdo, $tenantId, $pid)
+            ) {
+                mobile_wallet_apply_payment_debit(
+                    $pdo,
+                    $tenantId,
+                    trim((string) ($fresh['patient_id'] ?? '')),
+                    $walletApplied,
+                    $pid,
+                    trim((string) ($fresh['booking_id'] ?? '')),
+                    trim((string) ($fresh['created_by'] ?? '')) ?: 'system',
+                );
+            }
+
+            $ledgerRow = mobile_wallet_enrich_payment_row_for_ledger($fresh);
+            booking_apply_completed_payment_to_treatment($pdo, $ledgerRow);
+            staff_installments_mark_paid_from_mobile_payment_row($pdo, $ledgerRow);
         }
         $pdo->commit();
     } catch (Throwable $e) {
