@@ -673,6 +673,47 @@ try {
                 }
             }
         }
+
+        if ($resolvedTreatmentId !== '') {
+            require_once __DIR__ . '/staff_treatment_schedule_constraints.php';
+            require_once __DIR__ . '/staff_installment_helpers.php';
+            $installmentsTableForLock = clinic_get_physical_table_name($pdo, 'tbl_installments')
+                ?? clinic_get_physical_table_name($pdo, 'installments');
+            $planBookingIdForLock = '';
+            if ($installmentsTableForLock !== null && trim((string) $installmentsTableForLock) !== '') {
+                $planBookingIdForLock = staff_installments_resolve_plan_booking_id_for_patient_treatment(
+                    $pdo,
+                    (string) $tenantId,
+                    $patientId,
+                    $resolvedTreatmentId,
+                    (string) $appointmentsTable,
+                    (string) $installmentsTableForLock
+                );
+            }
+            $lockState = staff_treatment_monthly_included_plan_cycle_lock_state(
+                $pdo,
+                (string) $tenantId,
+                $patientId,
+                $resolvedTreatmentId,
+                $planBookingIdForLock,
+                28
+            );
+            $lockedIds = $lockState['locked_service_ids'] ?? [];
+            foreach ($normalizedServices as $s) {
+                if (strtolower(trim((string) ($s['service_type'] ?? ''))) !== 'included_plan') {
+                    continue;
+                }
+                $sid = trim((string) ($s['service_id'] ?? ''));
+                if ($sid !== '' && in_array($sid, $lockedIds, true)) {
+                    $pdo->rollBack();
+                    echo json_encode([
+                        'success' => false,
+                        'message' => 'This monthly plan visit is already scheduled for the current 28-day treatment cycle. Check Treatment Progress, or wait until that visit is completed before booking the same included plan service again.',
+                    ]);
+                    exit;
+                }
+            }
+        }
     }
 
     $mapForHelper = [];

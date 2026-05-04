@@ -221,6 +221,7 @@ function buildSetAppointmentDentistsSnapshot(PDO $pdo, string $tenantId, string 
 }
 
 $walkInDentists = [];
+$treatmentScheduleLockedIncludedPlanIds = [];
 $walkInPaymentSettings = [
     'regular_downpayment_percentage' => 20.0,
     'long_term_min_downpayment' => 500.0,
@@ -309,6 +310,15 @@ try {
                     $walkInAppointmentDateMin = $computedMinFollowup;
                     $walkInAppointmentDateValue = ($computedMinFollowup > $manilaToday) ? $computedMinFollowup : $manilaToday;
                 }
+                $lockState = staff_treatment_monthly_included_plan_cycle_lock_state(
+                    $pdo,
+                    (string) $tenantId,
+                    $staffTreatmentSchedulePatientId,
+                    $staffTreatmentScheduleTreatmentId,
+                    $staffTreatmentScheduleBookingId,
+                    28
+                );
+                $treatmentScheduleLockedIncludedPlanIds = $lockState['locked_service_ids'] ?? [];
             }
         }
     }
@@ -326,6 +336,7 @@ $treatmentScheduleBootstrap = [
     'booking_id' => $staffTreatmentScheduleBookingId,
     'appointment_date_min' => $walkInAppointmentDateMin,
     'appointment_date_value' => $walkInAppointmentDateValue,
+    'locked_included_plan_service_ids' => $treatmentScheduleLockedIncludedPlanIds ?? [],
 ];
 ?>
 <!DOCTYPE html>
@@ -1575,6 +1586,35 @@ $treatmentScheduleBootstrap = [
             return normalizeServiceType(service && service.service_type) === 'included_plan';
         }
 
+        function getMonthlyIncludedPlanLockedServiceIds() {
+            var fromBoot = (typeof TREATMENT_SCHEDULE_BOOTSTRAP !== 'undefined' && TREATMENT_SCHEDULE_BOOTSTRAP && TREATMENT_SCHEDULE_BOOTSTRAP.active)
+                ? (TREATMENT_SCHEDULE_BOOTSTRAP.locked_included_plan_service_ids || [])
+                : [];
+            if (fromBoot.length) {
+                return fromBoot.map(function (s) {
+                    return String(s || '').trim();
+                }).filter(Boolean);
+            }
+            var lock = activeTreatmentContext && activeTreatmentContext.monthly_included_plan_lock
+                ? activeTreatmentContext.monthly_included_plan_lock
+                : null;
+            var ids = lock && Array.isArray(lock.locked_service_ids) ? lock.locked_service_ids : [];
+            return ids.map(function (s) {
+                return String(s || '').trim();
+            }).filter(Boolean);
+        }
+
+        function isMonthlyIncludedPlanServiceLocked(service) {
+            if (!isIncludedPlanService(service)) {
+                return false;
+            }
+            var sid = String(service && service.service_id ? service.service_id : '').trim();
+            if (!sid) {
+                return false;
+            }
+            return getMonthlyIncludedPlanLockedServiceIds().indexOf(sid) !== -1;
+        }
+
         function requiresTreatmentScheduleIncludedPlanOrder() {
             return Boolean(isTreatmentSchedulePatientLocked());
         }
@@ -1711,6 +1751,12 @@ $treatmentScheduleBootstrap = [
                         reason: 'Add plan visit first; extras afterward.'
                     };
                 }
+            }
+            if (isMonthlyIncludedPlanServiceLocked(service)) {
+                return {
+                    allowed: false,
+                    reason: 'Already scheduled for this 28-day treatment cycle (see Treatment Progress).'
+                };
             }
             return { allowed: true, reason: '' };
         }
@@ -2788,6 +2834,18 @@ $treatmentScheduleBootstrap = [
                 await staffUiAlert({
                     title: 'Service combination not allowed',
                     message: compatibility.message,
+                    variant: 'warning'
+                });
+                return;
+            }
+            const lockedMonthlyIdsSetAppt = getMonthlyIncludedPlanLockedServiceIds();
+            const lockedPickSetAppt = selectedServices.find(function (service) {
+                return isIncludedPlanService(service) && lockedMonthlyIdsSetAppt.indexOf(String(service && service.service_id ? service.service_id : '').trim()) !== -1;
+            });
+            if (lockedPickSetAppt) {
+                await staffUiAlert({
+                    title: 'Monthly plan visit already booked',
+                    message: 'This included plan service is already scheduled for the current 28-day cycle. See Treatment Progress, or remove it from this visit.',
                     variant: 'warning'
                 });
                 return;

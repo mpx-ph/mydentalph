@@ -3,6 +3,8 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/appointment_db_tables.php';
+require_once __DIR__ . '/../includes/staff_installment_helpers.php';
+require_once __DIR__ . '/../includes/staff_treatment_schedule_constraints.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -355,6 +357,26 @@ try {
     );
     $snapshotServiceName = trim((string) ($treatment['primary_service_name'] ?? ''));
 
+    $planBookingId = '';
+    if ($appointmentsTable !== null && $installmentsTable !== null) {
+        $planBookingId = staff_installments_resolve_plan_booking_id_for_patient_treatment(
+            $pdo,
+            (string) $tenantId,
+            $patientId,
+            (string) ($treatment['treatment_id'] ?? ''),
+            (string) $appointmentsTable,
+            (string) $installmentsTable
+        );
+    }
+    $monthlyIncludedPlanLock = staff_treatment_monthly_included_plan_cycle_lock_state(
+        $pdo,
+        (string) $tenantId,
+        $patientId,
+        (string) ($treatment['treatment_id'] ?? ''),
+        $planBookingId,
+        28
+    );
+
     echo json_encode([
         'success' => true,
         'message' => 'Treatment context loaded.',
@@ -363,6 +385,7 @@ try {
             'has_active_appointment_today' => $hasActiveAppointmentToday,
             'eligible_for_new_treatment_plan' => false,
             'treatment_plan_closed_reason' => null,
+            'monthly_included_plan_lock' => $monthlyIncludedPlanLock,
             'treatment' => [
                 'treatment_id' => (string) ($treatment['treatment_id'] ?? ''),
                 'patient_id' => (string) ($treatment['patient_id'] ?? ''),

@@ -14,6 +14,7 @@ require_once __DIR__ . '/../includes/appointment_db_tables.php';
 require_once __DIR__ . '/../includes/patient_booking_slots.php';
 require_once __DIR__ . '/../includes/appointment_reminder_service.php';
 require_once __DIR__ . '/../includes/staff_installment_helpers.php';
+require_once __DIR__ . '/../includes/staff_treatment_schedule_constraints.php';
 
 header('Content-Type: application/json');
 
@@ -1150,7 +1151,36 @@ function createAppointment() {
                         ];
                     }
                 }
-                
+
+                if ($isStaffSetAppointmentBooking && trim((string) $resolvedTreatmentId) !== '') {
+                    $planBookingForMonthlyLock = staff_installments_resolve_plan_booking_id_for_patient_treatment(
+                        $pdo,
+                        (string) $tenantId,
+                        trim((string) $data['patient_id']),
+                        trim((string) $resolvedTreatmentId),
+                        (string) $appointmentsTableName,
+                        (string) $installmentsTableName
+                    );
+                    $monthlyLockState = staff_treatment_monthly_included_plan_cycle_lock_state(
+                        $pdo,
+                        (string) $tenantId,
+                        trim((string) $data['patient_id']),
+                        trim((string) $resolvedTreatmentId),
+                        $planBookingForMonthlyLock,
+                        28
+                    );
+                    $lockedMonthlySvcIds = $monthlyLockState['locked_service_ids'] ?? [];
+                    foreach ($normalizedServiceRows as $svcRow) {
+                        if (strtolower(trim((string) ($svcRow['service_type'] ?? ''))) !== 'included_plan') {
+                            continue;
+                        }
+                        $svcId = trim((string) ($svcRow['service_id'] ?? ''));
+                        if ($svcId !== '' && in_array($svcId, $lockedMonthlySvcIds, true)) {
+                            throw new Exception('This monthly plan visit is already scheduled for the current 28-day treatment cycle. Check Treatment Progress, or wait until that visit is completed before booking the same included plan service again.');
+                        }
+                    }
+                }
+
                 // Insert appointment with dynamic column support across table variants.
                 $apptCols = clinic_table_columns($pdo, (string) $appointmentsTableName);
                 $statusForInsert = strtolower(trim((string) ($data['status'] ?? 'pending')));
