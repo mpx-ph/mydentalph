@@ -3354,6 +3354,21 @@ if ($paymentError === 'Please select a payment method.') {
         .txn-type-toggle-track[data-active="installment"] .txn-type-toggle-btn[data-txn-type="installment"] {
             color: #0f172a;
         }
+        .staff-modal-overlay:not(.hidden) {
+            animation: staff-modal-fade-in 0.25s ease forwards;
+            overscroll-behavior: contain;
+        }
+        .staff-modal-panel {
+            animation: staff-modal-panel-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        @keyframes staff-modal-fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes staff-modal-panel-in {
+            from { opacity: 0; transform: translateY(10px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
@@ -4087,6 +4102,74 @@ This booking is installment-priced, but no installment schedule rows exist in th
 </div>
 </div>
 </div>
+<div id="refund-requests-modal" class="staff-modal-overlay fixed inset-0 z-[62] hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4" role="dialog" aria-modal="true" aria-labelledby="refund-requests-modal-title">
+<div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col">
+<div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
+<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
+<span class="material-symbols-outlined text-2xl text-primary">currency_exchange</span>
+</div>
+<div class="min-w-0 flex-1 pr-2">
+<p class="text-[10px] font-black text-primary uppercase tracking-[0.35em] mb-1">Refund requests</p>
+<h3 class="text-xl sm:text-2xl font-extrabold font-headline text-on-background tracking-tight" id="refund-requests-modal-title">Refund Requests</h3>
+<p class="text-sm text-slate-500 mt-1 leading-relaxed">Review pending refund requests for patient bookings</p>
+</div>
+<button type="button" id="close-refund-requests-modal-header" class="shrink-0 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Close">
+<span class="material-symbols-outlined text-[22px]">close</span>
+</button>
+</div>
+<div class="px-6 sm:px-8 pt-5 pb-2 flex-1 min-h-0 flex flex-col gap-4">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">search</span>
+<input id="refund_requests_search" type="search" autocomplete="off" class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" placeholder="Search patient, booking, amount, or reason…"/>
+</div>
+<div class="overflow-x-auto -mx-1 sm:mx-0 rounded-2xl border border-slate-100 flex-1 min-h-[12rem]">
+<table class="w-full min-w-[640px] text-left border-collapse">
+<thead>
+<tr class="bg-slate-50/70 border-b border-slate-100">
+<th class="py-3.5 pl-4 pr-3 sm:pl-5 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">Patient</th>
+<th class="px-3 py-3.5 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">Booking</th>
+<th class="px-3 py-3.5 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">Amount</th>
+<th class="px-3 py-3.5 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">Reason</th>
+<th class="py-3.5 pl-3 pr-4 sm:pr-5 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Action</th>
+</tr>
+</thead>
+<tbody id="refund_requests_table_body" class="divide-y divide-slate-100">
+<tr class="refund-request-row bg-white hover:bg-slate-50/60 transition-colors" data-refund-search="john bk001 500 cancel">
+<td class="py-4 pl-4 pr-3 sm:pl-5 text-sm font-bold text-slate-900">John</td>
+<td class="px-3 py-4 text-sm font-semibold text-slate-700 tabular-nums">BK001</td>
+<td class="px-3 py-4 text-sm font-bold text-slate-900 tabular-nums">₱500</td>
+<td class="px-3 py-4 text-sm font-medium text-slate-600">Cancel</td>
+<td class="py-4 pl-3 pr-4 sm:pr-5 text-right whitespace-nowrap">
+<div class="inline-flex flex-wrap items-center justify-end gap-2">
+<button type="button" class="refund-approve-btn inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold shadow-md shadow-primary/20 hover:bg-primary/92 transition-all">Approve</button>
+<button type="button" class="refund-decline-btn inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold shadow-md shadow-red-600/20 hover:bg-red-700 transition-all">Decline</button>
+</div>
+</td>
+</tr>
+<tr class="refund-request-row bg-white hover:bg-slate-50/60 transition-colors" data-refund-search="faith bk002 700 duplicate">
+<td class="py-4 pl-4 pr-3 sm:pl-5 text-sm font-bold text-slate-900">Faith</td>
+<td class="px-3 py-4 text-sm font-semibold text-slate-700 tabular-nums">BK002</td>
+<td class="px-3 py-4 text-sm font-bold text-slate-900 tabular-nums">₱700</td>
+<td class="px-3 py-4 text-sm font-medium text-slate-600">Duplicate</td>
+<td class="py-4 pl-3 pr-4 sm:pr-5 text-right whitespace-nowrap">
+<div class="inline-flex flex-wrap items-center justify-end gap-2">
+<button type="button" class="refund-approve-btn inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold shadow-md shadow-primary/20 hover:bg-primary/92 transition-all">Approve</button>
+<button type="button" class="refund-decline-btn inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold shadow-md shadow-red-600/20 hover:bg-red-700 transition-all">Decline</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="shrink-0 border-t border-slate-100 bg-slate-50/50 px-6 sm:px-8 py-4 flex flex-wrap items-center justify-end gap-3">
+<button type="button" id="close-refund-requests-modal-footer" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+<span class="material-symbols-outlined text-[18px]">close</span>
+Close
+</button>
+</div>
+</div>
+</div>
 <script>
     (function () {
         const modal = document.getElementById('transaction-modal');
@@ -4166,6 +4249,12 @@ This booking is installment-priced, but no installment schedule rows exist in th
         const paymentValidationOverlay = document.getElementById('payment-validation-overlay');
         const paymentValidationClose = document.getElementById('payment-validation-close');
         const paymentValidationMessage = document.getElementById('payment-validation-message');
+        const refundRequestsModal = document.getElementById('refund-requests-modal');
+        const openRefundRequestsBtn = document.getElementById('open-refund-request-modal');
+        const closeRefundRequestsHeaderBtn = document.getElementById('close-refund-requests-modal-header');
+        const closeRefundRequestsFooterBtn = document.getElementById('close-refund-requests-modal-footer');
+        const refundRequestsSearchInput = document.getElementById('refund_requests_search');
+        const refundRequestsTableBody = document.getElementById('refund_requests_table_body');
         const paymentMethodInput = document.getElementById('payment_method_input');
         const paymentMethodCards = document.querySelectorAll('.payment-card[data-method]');
         const defaultPickerLabel = 'Tap to choose appointment with pending balance';
@@ -5348,6 +5437,57 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
         }
 
+        function shouldReleaseBodyScrollLock() {
+            return (!modal || modal.classList.contains('hidden'))
+                && (!receiptModal || receiptModal.classList.contains('hidden'))
+                && (!selectorModal || selectorModal.classList.contains('hidden'))
+                && (!receiptEmailConfirmModal || receiptEmailConfirmModal.classList.contains('hidden'))
+                && (!paymentValidationModal || paymentValidationModal.classList.contains('hidden'))
+                && (!refundRequestsModal || refundRequestsModal.classList.contains('hidden'));
+        }
+
+        function openRefundRequestsModal() {
+            if (!refundRequestsModal) {
+                return;
+            }
+            if (refundRequestsSearchInput) {
+                refundRequestsSearchInput.value = '';
+            }
+            if (refundRequestsTableBody) {
+                refundRequestsTableBody.querySelectorAll('tr.refund-request-row').forEach((row) => {
+                    row.classList.remove('hidden');
+                });
+            }
+            refundRequestsModal.classList.remove('hidden');
+            refundRequestsModal.classList.add('flex');
+            document.body.classList.add('overflow-hidden');
+            if (refundRequestsSearchInput) {
+                refundRequestsSearchInput.focus();
+            }
+        }
+
+        function closeRefundRequestsModal() {
+            if (!refundRequestsModal) {
+                return;
+            }
+            refundRequestsModal.classList.add('hidden');
+            refundRequestsModal.classList.remove('flex');
+            if (shouldReleaseBodyScrollLock()) {
+                document.body.classList.remove('overflow-hidden');
+            }
+        }
+
+        function filterRefundRequestsTable() {
+            if (!refundRequestsSearchInput || !refundRequestsTableBody) {
+                return;
+            }
+            const q = String(refundRequestsSearchInput.value || '').trim().toLowerCase();
+            refundRequestsTableBody.querySelectorAll('tr.refund-request-row').forEach((row) => {
+                const hay = String(row.getAttribute('data-refund-search') || '').toLowerCase();
+                row.classList.toggle('hidden', q !== '' && !hay.includes(q));
+            });
+        }
+
         function openSelectorModal() {
             if (!selectorModal) return;
             selectorModal.classList.remove('hidden');
@@ -5384,12 +5524,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
             paymentValidationModal.classList.add('hidden');
             paymentValidationModal.classList.remove('flex');
-            if (
-                (!modal || modal.classList.contains('hidden'))
-                && (!receiptModal || receiptModal.classList.contains('hidden'))
-                && (!selectorModal || selectorModal.classList.contains('hidden'))
-                && (!receiptEmailConfirmModal || receiptEmailConfirmModal.classList.contains('hidden'))
-            ) {
+            if (shouldReleaseBodyScrollLock()) {
                 document.body.classList.remove('overflow-hidden');
             }
         }
@@ -5410,7 +5545,9 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
             modal.classList.add('hidden');
             modal.classList.remove('flex');
-            document.body.classList.remove('overflow-hidden');
+            if (shouldReleaseBodyScrollLock()) {
+                document.body.classList.remove('overflow-hidden');
+            }
             if (!hasServerError) {
                 resetRecordPaymentForm();
             } else {
@@ -5601,7 +5738,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
             }
             receiptModal.classList.add('hidden');
             receiptModal.classList.remove('flex');
-            if (!modal || modal.classList.contains('hidden')) {
+            if (shouldReleaseBodyScrollLock()) {
                 document.body.classList.remove('overflow-hidden');
             }
         }
@@ -5641,6 +5778,25 @@ This booking is installment-priced, but no installment schedule rows exist in th
         }
         if (overlay) {
             overlay.addEventListener('click', closeModal);
+        }
+        if (openRefundRequestsBtn) {
+            openRefundRequestsBtn.addEventListener('click', openRefundRequestsModal);
+        }
+        if (closeRefundRequestsHeaderBtn) {
+            closeRefundRequestsHeaderBtn.addEventListener('click', closeRefundRequestsModal);
+        }
+        if (closeRefundRequestsFooterBtn) {
+            closeRefundRequestsFooterBtn.addEventListener('click', closeRefundRequestsModal);
+        }
+        if (refundRequestsModal) {
+            refundRequestsModal.addEventListener('click', (ev) => {
+                if (ev.target === refundRequestsModal) {
+                    closeRefundRequestsModal();
+                }
+            });
+        }
+        if (refundRequestsSearchInput) {
+            refundRequestsSearchInput.addEventListener('input', filterRefundRequestsTable);
         }
         if (closeReceiptModalBtn) {
             closeReceiptModalBtn.addEventListener('click', closeReceiptModal);
@@ -5712,6 +5868,10 @@ This booking is installment-priced, but no installment schedule rows exist in th
                 }
                 if (selectorModal && !selectorModal.classList.contains('hidden')) {
                     closeSelectorModal();
+                    return;
+                }
+                if (refundRequestsModal && !refundRequestsModal.classList.contains('hidden')) {
+                    closeRefundRequestsModal();
                     return;
                 }
                 closeModal();
