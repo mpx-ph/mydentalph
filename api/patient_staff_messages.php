@@ -31,8 +31,8 @@ function psm_verify_client(PDO $pdo, string $tenantId, string $userId): ?array {
         FROM tbl_users
         WHERE user_id = ?
           AND tenant_id = ?
-          AND role = 'client'
-          AND status = 'active'
+          AND LOWER(TRIM(role)) = 'client'
+          AND LOWER(TRIM(status)) = 'active'
         LIMIT 1
     ");
     $st->execute([$userId, $tenantId]);
