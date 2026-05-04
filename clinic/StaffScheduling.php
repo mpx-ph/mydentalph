@@ -193,6 +193,47 @@ function assignTimeOverlappingLaneLayout(array &$entries, array $sortedEntryInde
     $finalizeCluster($entries, $clusterIndexes, $clusterLaneCount);
 }
 
+function scheduling_normalize_dentist_key(string $name): string
+{
+    $t = trim(preg_replace('/\s+/', ' ', $name) ?? '');
+    return strtolower($t);
+}
+
+/**
+ * @return array{left: float, width: float} Horizontal band as percent of the grid column (0–100 scale).
+ */
+function scheduling_lane_rect_percent(float $laneIndex, int $laneTotal, float $laneGapPercent = 1.5): array
+{
+    $laneTotal = max(1, $laneTotal);
+    $laneIndex = max(0.0, min($laneIndex, (float) ($laneTotal - 1)));
+    $usableWidthPercent = 100.0 - (($laneTotal - 1) * $laneGapPercent);
+    $laneWidthPercent = $usableWidthPercent > 0 ? ($usableWidthPercent / $laneTotal) : (100.0 / $laneTotal);
+    $laneLeftPercent = $laneIndex * ($laneWidthPercent + $laneGapPercent);
+
+    return ['left' => $laneLeftPercent, 'width' => $laneWidthPercent];
+}
+
+/**
+ * Appointment rectangle: dentist column (from work-shift lanes) with optional sub-lanes for same-dentist overlaps.
+ *
+ * @return array{left: float, width: float}
+ */
+function scheduling_appointment_lane_rect_percent(int $dentistColumn, int $columnTotal, int $subIndex, int $subTotal, float $laneGapPercent = 1.5): array
+{
+    $columnTotal = max(1, $columnTotal);
+    $dentistColumn = max(0, min($dentistColumn, $columnTotal - 1));
+    $col = scheduling_lane_rect_percent((float) $dentistColumn, $columnTotal, $laneGapPercent);
+    if ($subTotal <= 1) {
+        return $col;
+    }
+    $sub = scheduling_lane_rect_percent((float) $subIndex, $subTotal, $laneGapPercent);
+
+    return [
+        'left' => $col['left'] + ($sub['left'] / 100.0) * $col['width'],
+        'width' => ($sub['width'] / 100.0) * $col['width'],
+    ];
+}
+
 function formatPaymentStatusLabel($statusValue)
 {
     $normalized = strtolower(trim((string) $statusValue));
@@ -1571,6 +1612,7 @@ try {
     // Keep empty-state UI when data is unavailable.
 }
 
+$workDentistLaneByDay = [];
 foreach ($entriesByDate as $dayKey => $entries) {
     usort($entries, static function ($a, $b) {
         $startCompare = ((int) $a['start_min']) <=> ((int) $b['start_min']);
@@ -1595,20 +1637,39 @@ foreach ($entriesByDate as $dayKey => $entries) {
     });
     assignTimeOverlappingLaneLayout($entries, $workEntryIndexes);
 
-    $appointmentEntryIndexes = [];
-    foreach ($entries as $entryIndex => $entry) {
-        if ((string) ($entry['kind'] ?? '') === 'appointment') {
-            $appointmentEntryIndexes[] = $entryIndex;
+    $workDentistLaneByDay[$dayKey] = [];
+    foreach ($entries as $entry) {
+        if ((string) ($entry['kind'] ?? '') !== 'work') {
+            continue;
+        }
+        $dentKey = scheduling_normalize_dentist_key((string) ($entry['dentist_name'] ?? ''));
+        if ($dentKey === '') {
+            continue;
+        }
+        if (!array_key_exists($dentKey, $workDentistLaneByDay[$dayKey])) {
+            $workDentistLaneByDay[$dayKey][$dentKey] = (int) ($entry['lane_index'] ?? 0);
         }
     }
-    usort($appointmentEntryIndexes, static function ($a, $b) use ($entries) {
-        $startCompare = ((int) $entries[$a]['start_min']) <=> ((int) $entries[$b]['start_min']);
-        if ($startCompare !== 0) {
-            return $startCompare;
+
+    $appointmentIndexesByDentist = [];
+    foreach ($entries as $entryIndex => $entry) {
+        if ((string) ($entry['kind'] ?? '') !== 'appointment') {
+            continue;
         }
-        return ((int) $entries[$a]['end_min']) <=> ((int) $entries[$b]['end_min']);
-    });
-    assignTimeOverlappingLaneLayout($entries, $appointmentEntryIndexes);
+        $dentKey = scheduling_normalize_dentist_key((string) ($entry['dentist_name'] ?? ''));
+        $appointmentIndexesByDentist[$dentKey][] = $entryIndex;
+    }
+    foreach ($appointmentIndexesByDentist as $groupIndexes) {
+        usort($groupIndexes, static function ($a, $b) use ($entries) {
+            $startCompare = ((int) $entries[$a]['start_min']) <=> ((int) $entries[$b]['start_min']);
+            if ($startCompare !== 0) {
+                return $startCompare;
+            }
+
+            return ((int) $entries[$a]['end_min']) <=> ((int) $entries[$b]['end_min']);
+        });
+        assignTimeOverlappingLaneLayout($entries, $groupIndexes);
+    }
 
     $entriesByDate[$dayKey] = $entries;
 }
@@ -1707,6 +1768,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
             to { opacity: 1; transform: translateY(0); }
         }
         .schedule-block {
+            box-sizing: border-box;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
         /* Keep schedule blocks below sticky top header (z-30) while preserving in-grid layering */
@@ -2257,17 +2319,32 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                             ? ' flex flex-col min-w-0 overflow-hidden'
                                             : '';
                                         $blockCompactClass = $isCompactBlockedBlock ? ' flex items-center justify-center' : $apptBlockExtraClass;
-                                        $useLaneLayout = $isWork || $isAppointmentEntry;
+                                        $laneGapPercent = 1.5;
                                         $laneTotal = 1;
-                                        if ($useLaneLayout) {
+                                        if ($isWork) {
                                             $laneIndex = max(0, (int) ($entry['lane_index'] ?? 0));
                                             $laneTotal = max(1, (int) ($entry['lane_total'] ?? 1));
-                                            $laneGapPercent = 1.5;
-                                            $usableWidthPercent = 100 - (($laneTotal - 1) * $laneGapPercent);
-                                            $laneWidthPercent = $usableWidthPercent > 0 ? ($usableWidthPercent / $laneTotal) : (100 / $laneTotal);
-                                            $laneLeftPercent = $laneIndex * ($laneWidthPercent + $laneGapPercent);
-                                            $entryStyle .= ' left: calc(6px + ' . number_format($laneLeftPercent, 4, '.', '') . '%);';
-                                            $entryStyle .= ' width: calc(' . number_format($laneWidthPercent, 4, '.', '') . '% - 8px);';
+                                            $rect = scheduling_lane_rect_percent((float) $laneIndex, $laneTotal, $laneGapPercent);
+                                            $entryStyle .= ' left: calc(6px + ' . number_format($rect['left'], 4, '.', '') . '%);';
+                                            $entryStyle .= ' width: calc(' . number_format($rect['width'], 4, '.', '') . '% - 8px);';
+                                        } elseif ($isAppointmentEntry) {
+                                            $apptSubIndex = max(0, (int) ($entry['lane_index'] ?? 0));
+                                            $laneTotal = max(1, (int) ($entry['lane_total'] ?? 1));
+                                            $dayKeyForLanes = (string) ($weekDay['date_key'] ?? '');
+                                            $dayMaxLanes = max(1, (int) ($dayMaxLaneCount[$dayKeyForLanes] ?? 1));
+                                            if ($dayMaxLanes > 1) {
+                                                $dentKey = scheduling_normalize_dentist_key((string) ($entry['dentist_name'] ?? ''));
+                                                $dentistSlots = $workDentistLaneByDay[$dayKeyForLanes] ?? [];
+                                                $dentistCol = array_key_exists($dentKey, $dentistSlots)
+                                                    ? (int) $dentistSlots[$dentKey]
+                                                    : 0;
+                                                $dentistCol = max(0, min($dentistCol, $dayMaxLanes - 1));
+                                                $rect = scheduling_appointment_lane_rect_percent($dentistCol, $dayMaxLanes, $apptSubIndex, $laneTotal, $laneGapPercent);
+                                            } else {
+                                                $rect = scheduling_lane_rect_percent((float) $apptSubIndex, $laneTotal, $laneGapPercent);
+                                            }
+                                            $entryStyle .= ' left: calc(6px + ' . number_format($rect['left'], 4, '.', '') . '%);';
+                                            $entryStyle .= ' width: calc(' . number_format($rect['width'], 4, '.', '') . '% - 8px);';
                                         } else {
                                             $entryStyle .= ' left: 6px; right: 6px;';
                                         }
