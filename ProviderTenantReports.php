@@ -624,13 +624,38 @@ $pct_prog = (int) round(100 * $n_in_progress / $ops_den);
 
 $service_colors = provider_tenant_rep_assign_service_colors($service_labels, $service_values);
 
+$reports_clinic_name = isset($clinic_display_name) ? trim((string) $clinic_display_name) : '';
+if ($reports_clinic_name === '') {
+    $reports_clinic_name = trim((string) ($tenant['clinic_name'] ?? ''));
+}
+if ($reports_clinic_name === '') {
+    $reports_clinic_name = 'My Clinic';
+}
+try {
+    $reports_tz = new DateTimeZone('Asia/Manila');
+} catch (Throwable $e) {
+    $reports_tz = new DateTimeZone('UTC');
+}
+$reports_generated_at = (new DateTimeImmutable('now', $reports_tz))->format('M j, Y g:i A');
+$reports_pay_label = strtoupper(str_replace('_', ' ', $filter_payment));
+if ($date_from !== '' || $date_to !== '') {
+    $reports_period_line = trim(
+        ($date_from !== '' ? 'From ' . $date_from : '')
+            . (($date_from !== '' && $date_to !== '') ? ' · ' : '')
+            . ($date_to !== '' ? 'To ' . $date_to : '')
+    );
+} else {
+    $reports_period_line = 'All dates';
+}
+$reports_search_line = $q_search !== '' ? $q_search : '—';
+
 ?>
 <!DOCTYPE html>
 
 <html class="light" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>MyDental | Reports</title>
+<title><?php echo htmlspecialchars('Reports | ' . $reports_clinic_name, ENT_QUOTES, 'UTF-8'); ?> | MyDental</title>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Playfair+Display:ital,wght@1,400;1,700&amp;display=swap" rel="stylesheet"/>
@@ -800,6 +825,49 @@ $service_colors = provider_tenant_rep_assign_service_colors($service_labels, $se
             }
         }
         body { font-family: 'Manrope', sans-serif; }
+        @media print {
+            @page {
+                margin: 14mm;
+                size: auto;
+            }
+            body.provider-report-print-session aside,
+            body.provider-report-print-session .provider-top-header,
+            body.provider-report-print-session main,
+            body.provider-report-print-session #provider-mobile-sidebar-toggle,
+            body.provider-report-print-session #provider-mobile-sidebar-backdrop,
+            body.provider-report-print-session #provider-sidebar-toggle {
+                display: none !important;
+            }
+            body.provider-report-print-session #reports-preview-modal {
+                position: static !important;
+                inset: auto !important;
+                display: block !important;
+                overflow: visible !important;
+                max-height: none !important;
+                height: auto !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                background: transparent !important;
+                z-index: auto !important;
+            }
+            body.provider-report-print-session #reports-preview-modal .reports-preview-shell {
+                max-height: none !important;
+                height: auto !important;
+                overflow: visible !important;
+                border: none !important;
+                box-shadow: none !important;
+                border-radius: 0 !important;
+            }
+            body.provider-report-print-session #reports-preview-modal .reports-preview-no-print {
+                display: none !important;
+            }
+            body.provider-report-print-session #reports-print-sheet {
+                padding: 0 !important;
+            }
+            body.provider-report-print-session #reports-print-sheet .reports-print-table {
+                break-inside: avoid;
+            }
+        }
     </style>
 </head>
 <body class="mesh-bg font-body text-on-background min-h-screen selection:bg-primary/10">
@@ -819,10 +887,22 @@ $service_colors = provider_tenant_rep_assign_service_colors($service_labels, $se
 <h2 class="font-headline font-extrabold tracking-tighter leading-tight text-on-background text-5xl sm:text-6xl">Clinic <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Reports</span></h2>
 <p class="font-body text-xl font-medium text-slate-600 max-w-3xl leading-relaxed mt-6">Revenue, collections, reviews, and operations scoped to your clinic data.</p>
 </div>
-<div class="flex flex-wrap items-center gap-3 shrink-0">
+<div class="flex flex-col gap-4 items-stretch xl:items-end shrink-0 w-full xl:w-auto">
+<div class="flex flex-wrap items-center justify-start xl:justify-end gap-2 w-full">
+<button type="button" id="reports-open-preview-btn" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-[10px] font-black uppercase tracking-widest text-primary hover:border-primary/35 hover:bg-primary/5 transition-colors">
+<span class="material-symbols-outlined text-[18px]">preview</span>
+                Preview
+            </button>
+<button type="button" id="reports-open-print-btn" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary text-white px-6 py-3 text-[10px] font-black uppercase tracking-widest hover:shadow-lg hover:shadow-primary/25 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-[18px]">print</span>
+                Print / PDF
+            </button>
+</div>
+<div class="flex flex-wrap items-center gap-3 justify-start xl:justify-end">
 <span class="material-symbols-outlined text-primary text-2xl">analytics</span>
 <div class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80">
 <span class="text-slate-900"><?php echo htmlspecialchars(strtoupper(str_replace('_', ' ', $filter_payment)), ENT_QUOTES, 'UTF-8'); ?></span> payments in view
+</div>
 </div>
 </div>
 </div>
@@ -1068,21 +1148,136 @@ Payment records are not available for this tenant context. Connect <code class="
 </div>
 </div>
 
-<footer class="mt-auto p-8 hidden lg:flex justify-center sticky bottom-0 z-10 pointer-events-none">
-<div class="elevated-card pointer-events-auto px-10 py-4 rounded-full border border-slate-200/50 shadow-2xl flex items-center gap-10 text-[10px] font-black text-on-surface-variant/70 uppercase tracking-[0.2em]">
-<div class="flex items-center gap-3 text-primary">
-<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-                Tenant analytics
-            </div>
-<div class="h-4 w-px bg-slate-200"></div>
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-sm">database</span>
-                Live clinic database
-            </div>
-</div>
-</footer>
 </div>
 </main>
+
+<div id="reports-preview-modal" class="hidden fixed inset-0 z-[110] overflow-y-auto py-6 px-4 sm:py-10 sm:px-6" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="reports-preview-heading">
+<button type="button" id="reports-preview-backdrop" class="reports-preview-no-print fixed inset-0 cursor-default border-0 bg-slate-900/55 p-0 backdrop-blur-[2px]" aria-label="Close preview"></button>
+<div class="reports-preview-shell relative z-10 mx-auto flex w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl max-h-[min(92vh,calc(100vh-3rem))]">
+<div class="reports-preview-no-print flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-5 py-4">
+<div class="min-w-0">
+<h2 id="reports-preview-heading" class="font-headline text-lg font-extrabold tracking-tight text-slate-900">Report preview</h2>
+<p class="mt-1 truncate text-xs font-semibold text-on-surface-variant sm:whitespace-normal"><span class="text-slate-900"><?php echo htmlspecialchars($reports_clinic_name, ENT_QUOTES, 'UTF-8'); ?></span> · Check layout, then print or save as PDF.</p>
+</div>
+<div class="flex flex-shrink-0 flex-wrap gap-2">
+<button type="button" id="reports-preview-print-btn" class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white shadow-md hover:shadow-lg hover:shadow-primary/25 transition-all">
+<span class="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+                    Print / PDF
+                </button>
+<button type="button" id="reports-preview-close-btn" class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-on-background hover:bg-slate-50 transition-colors">
+                    Close
+                </button>
+</div>
+</div>
+<div class="min-h-0 flex-1 overflow-y-auto bg-white">
+<div id="reports-print-sheet" class="px-8 py-10 text-slate-900 sm:px-12 sm:py-12">
+<header class="border-b border-slate-200 pb-6 mb-8">
+<p class="text-[10px] font-black uppercase tracking-[0.35em] text-primary">Clinic reports</p>
+<h1 class="font-headline mt-2 text-3xl font-extrabold tracking-tight text-slate-900"><?php echo htmlspecialchars($reports_clinic_name, ENT_QUOTES, 'UTF-8'); ?></h1>
+<p class="mt-3 text-sm font-semibold text-slate-600">Summary exports for the tenant console</p>
+<dl class="mt-6 grid gap-2 text-xs font-semibold text-slate-700 sm:grid-cols-2">
+<div class="flex gap-2"><dt class="text-on-surface-variant shrink-0">Period</dt><dd><?php echo htmlspecialchars($reports_period_line, ENT_QUOTES, 'UTF-8'); ?></dd></div>
+<div class="flex gap-2"><dt class="text-on-surface-variant shrink-0">Payment scope</dt><dd><?php echo htmlspecialchars($reports_pay_label, ENT_QUOTES, 'UTF-8'); ?></dd></div>
+<div class="flex gap-2 sm:col-span-2"><dt class="text-on-surface-variant shrink-0">Search</dt><dd><?php echo htmlspecialchars($reports_search_line, ENT_QUOTES, 'UTF-8'); ?></dd></div>
+<div class="flex gap-2 sm:col-span-2"><dt class="text-on-surface-variant shrink-0">Generated</dt><dd><?php echo htmlspecialchars($reports_generated_at, ENT_QUOTES, 'UTF-8'); ?> (Asia/Manila)</dd></div>
+</dl>
+</header>
+
+<section class="mb-10">
+<h2 class="text-[11px] font-black uppercase tracking-[0.22em] text-slate-900">Summary</h2>
+<table class="reports-print-table mt-4 w-full border-collapse border border-slate-200 text-sm">
+<tbody>
+<tr class="border-b border-slate-200"><td class="px-4 py-3 font-semibold text-slate-700">Total revenue (paid)</td><td class="px-4 py-3 text-right font-bold tabular-nums"><?php echo htmlspecialchars(provider_tenant_rep_fmt_peso($total_revenue), ENT_QUOTES, 'UTF-8'); ?></td></tr>
+<tr class="border-b border-slate-200"><td class="px-4 py-3 font-semibold text-slate-700">Pending / unpaid</td><td class="px-4 py-3 text-right font-bold tabular-nums"><?php echo htmlspecialchars(provider_tenant_rep_fmt_peso($total_pending_amt), ENT_QUOTES, 'UTF-8'); ?></td></tr>
+<tr class="border-b border-slate-200"><td class="px-4 py-3 font-semibold text-slate-700">Average rating</td><td class="px-4 py-3 text-right font-bold"><?php echo $reviews_count > 0 ? htmlspecialchars(number_format($reviews_avg, 2) . ' / 5', ENT_QUOTES, 'UTF-8') : '—'; ?></td></tr>
+<tr><td class="px-4 py-3 font-semibold text-slate-700">Reviews count</td><td class="px-4 py-3 text-right font-bold"><?php echo (int) $reviews_count; ?></td></tr>
+</tbody>
+</table>
+<p class="mt-3 text-[11px] font-medium text-slate-500">Charts on screen are not rendered here; figures below mirror the same filtered data.</p>
+</section>
+
+<section class="mb-10">
+<h2 class="text-[11px] font-black uppercase tracking-[0.22em] text-slate-900"><?php echo $scope_pay_charts === 'pending' ? 'Monthly pending volume' : 'Monthly collections'; ?></h2>
+<?php if ($monthly_labels === []) { ?>
+<p class="mt-3 text-sm text-slate-600">No rows for this filter.</p>
+<?php } else { ?>
+<table class="reports-print-table mt-4 w-full border-collapse border border-slate-200 text-sm">
+<thead><tr class="bg-slate-50"><th class="border-b border-slate-200 px-4 py-2 text-left font-black uppercase tracking-wider text-[10px] text-slate-600">Month</th><th class="border-b border-slate-200 px-4 py-2 text-right font-black uppercase tracking-wider text-[10px] text-slate-600">Amount</th></tr></thead>
+<tbody>
+<?php foreach ($monthly_labels as $mi => $ml) {
+    $mv = $monthly_values[$mi] ?? 0.0;
+    ?>
+<tr class="border-b border-slate-100"><td class="px-4 py-2 font-medium"><?php echo htmlspecialchars($ml, ENT_QUOTES, 'UTF-8'); ?></td><td class="px-4 py-2 text-right tabular-nums font-semibold"><?php echo htmlspecialchars(provider_tenant_rep_fmt_peso((float) $mv), ENT_QUOTES, 'UTF-8'); ?></td></tr>
+<?php } ?>
+</tbody>
+</table>
+<?php } ?>
+</section>
+
+<section class="mb-10">
+<h2 class="text-[11px] font-black uppercase tracking-[0.22em] text-slate-900"><?php echo $scope_pay_charts === 'pending' ? 'Pending by service' : 'Revenue by service'; ?></h2>
+<?php if ($service_labels === []) { ?>
+<p class="mt-3 text-sm text-slate-600">No service-linked amounts.</p>
+<?php } else { ?>
+<table class="reports-print-table mt-4 w-full border-collapse border border-slate-200 text-sm">
+<thead><tr class="bg-slate-50"><th class="border-b border-slate-200 px-4 py-2 text-left font-black uppercase tracking-wider text-[10px] text-slate-600">Service</th><th class="border-b border-slate-200 px-4 py-2 text-right font-black uppercase tracking-wider text-[10px] text-slate-600">Amount</th></tr></thead>
+<tbody>
+<?php foreach ($service_labels as $si => $svcName) {
+    $svcAmt = $service_values[$si] ?? 0.0;
+    ?>
+<tr class="border-b border-slate-100"><td class="px-4 py-2 font-medium"><?php echo htmlspecialchars((string) $svcName, ENT_QUOTES, 'UTF-8'); ?></td><td class="px-4 py-2 text-right tabular-nums font-semibold"><?php echo htmlspecialchars(provider_tenant_rep_fmt_peso((float) $svcAmt), ENT_QUOTES, 'UTF-8'); ?></td></tr>
+<?php } ?>
+</tbody>
+</table>
+<?php } ?>
+</section>
+
+<section class="mb-10">
+<h2 class="text-[11px] font-black uppercase tracking-[0.22em] text-slate-900">Top clients</h2>
+<?php if ($top_clients === []) { ?>
+<p class="mt-3 text-sm text-slate-600">No ranked patients for these filters.</p>
+<?php } else { ?>
+<table class="reports-print-table mt-4 w-full border-collapse border border-slate-200 text-sm">
+<thead><tr class="bg-slate-50"><th class="border-b border-slate-200 px-4 py-2 text-left font-black uppercase tracking-wider text-[10px] text-slate-600">#</th><th class="border-b border-slate-200 px-4 py-2 text-left font-black uppercase tracking-wider text-[10px] text-slate-600">Client</th><th class="border-b border-slate-200 px-4 py-2 text-right font-black uppercase tracking-wider text-[10px] text-slate-600">Appointments</th><th class="border-b border-slate-200 px-4 py-2 text-right font-black uppercase tracking-wider text-[10px] text-slate-600"><?php echo $filter_payment === 'pending' ? 'Pending' : 'Spent'; ?></th></tr></thead>
+<tbody>
+<?php foreach ($top_clients as $ti => $tc) { ?>
+<tr class="border-b border-slate-100"><td class="px-4 py-2 font-bold"><?php echo (int) ($ti + 1); ?></td><td class="px-4 py-2 font-medium"><?php echo htmlspecialchars((string) ($tc['name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td><td class="px-4 py-2 text-right tabular-nums"><?php echo (int) ($tc['appts'] ?? 0); ?></td><td class="px-4 py-2 text-right tabular-nums font-semibold"><?php echo htmlspecialchars(provider_tenant_rep_fmt_peso((float) ($tc['spent'] ?? 0)), ENT_QUOTES, 'UTF-8'); ?></td></tr>
+<?php } ?>
+</tbody>
+</table>
+<?php } ?>
+</section>
+
+<section class="mb-10">
+<h2 class="text-[11px] font-black uppercase tracking-[0.22em] text-slate-900">Billing collection</h2>
+<table class="reports-print-table mt-4 w-full border-collapse border border-slate-200 text-sm">
+<tbody>
+<tr class="border-b border-slate-200"><td class="px-4 py-3 font-semibold text-slate-700">Paid (<?php echo (int) $billing_paid_n; ?>)</td><td class="px-4 py-3 text-right font-bold tabular-nums"><?php echo htmlspecialchars(provider_tenant_rep_fmt_peso($billing_paid_amt), ENT_QUOTES, 'UTF-8'); ?></td></tr>
+<tr><td class="px-4 py-3 font-semibold text-slate-700">Pending (<?php echo (int) $billing_pend_n; ?>)</td><td class="px-4 py-3 text-right font-bold tabular-nums"><?php echo htmlspecialchars(provider_tenant_rep_fmt_peso($billing_pending_amt), ENT_QUOTES, 'UTF-8'); ?></td></tr>
+</tbody>
+</table>
+</section>
+
+<section class="mb-4">
+<h2 class="text-[11px] font-black uppercase tracking-[0.22em] text-slate-900">Clinic operations</h2>
+<p class="mt-2 text-sm font-semibold text-slate-700">Tracked statuses (confirmed / scheduled, completed, in progress): <strong><?php echo (int) $ops_total; ?></strong></p>
+<table class="reports-print-table mt-4 w-full border-collapse border border-slate-200 text-sm">
+<tbody>
+<tr class="border-b border-slate-200"><td class="px-4 py-3 font-semibold text-slate-700">Confirmed</td><td class="px-4 py-3 text-right font-bold"><?php echo (int) $n_confirmed; ?> (<?php echo (int) $pct_conf; ?>%)</td></tr>
+<tr class="border-b border-slate-200"><td class="px-4 py-3 font-semibold text-slate-700">Completed</td><td class="px-4 py-3 text-right font-bold"><?php echo (int) $n_completed; ?> (<?php echo (int) $pct_done; ?>%)</td></tr>
+<tr><td class="px-4 py-3 font-semibold text-slate-700">In progress</td><td class="px-4 py-3 text-right font-bold"><?php echo (int) $n_in_progress; ?> (<?php echo (int) $pct_prog; ?>%)</td></tr>
+</tbody>
+</table>
+</section>
+
+<footer class="mt-12 border-t border-slate-200 pt-6 text-[11px] font-semibold text-slate-500">
+<p><?php echo htmlspecialchars($reports_clinic_name, ENT_QUOTES, 'UTF-8'); ?> · Tenant reports · <?php echo htmlspecialchars($reports_generated_at, ENT_QUOTES, 'UTF-8'); ?></p>
+</footer>
+</div>
+</div>
+</div>
+</div>
+
 <?php include __DIR__ . '/provider_tenant_profile_modal.inc.php'; ?>
 <script>
 (function () {
@@ -1117,6 +1312,70 @@ Payment records are not available for this tenant context. Connect <code class="
   if (typeof desktopQuery.addEventListener === 'function') desktopQuery.addEventListener('change', closeOnDesktop);
   else if (typeof desktopQuery.addListener === 'function') desktopQuery.addListener(closeOnDesktop);
   setMobileSidebar(false);
+})();
+</script>
+<script>
+(function () {
+  var modal = document.getElementById('reports-preview-modal');
+  var backdrop = document.getElementById('reports-preview-backdrop');
+  var btnPrev = document.getElementById('reports-open-preview-btn');
+  var btnPrintTop = document.getElementById('reports-open-print-btn');
+  var btnClose = document.getElementById('reports-preview-close-btn');
+  var btnPrintModal = document.getElementById('reports-preview-print-btn');
+  if (!modal || !btnPrev || !btnPrintTop || !btnClose || !btnPrintModal) {
+    return;
+  }
+
+  function openModal() {
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    try {
+      btnClose.focus();
+    } catch (e) {}
+  }
+
+  function closeModal() {
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  function runPrint() {
+    document.body.classList.add('provider-report-print-session');
+    function cleanup() {
+      document.body.classList.remove('provider-report-print-session');
+      window.removeEventListener('afterprint', cleanup);
+    }
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+  }
+
+  btnPrev.addEventListener('click', openModal);
+  btnClose.addEventListener('click', closeModal);
+  if (backdrop) {
+    backdrop.addEventListener('click', closeModal);
+  }
+
+  btnPrintModal.addEventListener('click', function () {
+    runPrint();
+  });
+
+  btnPrintTop.addEventListener('click', function () {
+    openModal();
+    window.requestAnimationFrame(function () {
+      try {
+        btnPrintModal.focus();
+      } catch (e) {}
+    });
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || modal.classList.contains('hidden')) {
+      return;
+    }
+    closeModal();
+  });
 })();
 </script>
 <script>
