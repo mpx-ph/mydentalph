@@ -64,6 +64,10 @@ try {
     if ($tenant_id !== null && $tenant_id !== '') {
         $sql = "SELECT 
                 a.*,
+                (EXISTS (
+                    SELECT 1 FROM tbl_reviews r
+                    WHERE r.tenant_id = a.tenant_id AND r.appointment_id = a.id
+                )) AS has_review,
                 COALESCE(a.service_type, (SELECT service_name FROM tbl_appointment_services WHERE appointment_id = a.id LIMIT 1)) AS display_service,
                 CONCAT(d.first_name, ' ', d.last_name) AS dentist_name,
                 TRIM(CONCAT(COALESCE(pat.first_name, ''), ' ', COALESCE(pat.last_name, ''))) AS patient_name,
@@ -79,6 +83,10 @@ try {
     } else {
         $sql = "SELECT 
                 a.*,
+                (EXISTS (
+                    SELECT 1 FROM tbl_reviews r
+                    WHERE r.tenant_id = a.tenant_id AND r.appointment_id = a.id
+                )) AS has_review,
                 COALESCE(a.service_type, (SELECT service_name FROM tbl_appointment_services WHERE appointment_id = a.id LIMIT 1)) AS display_service,
                 CONCAT(d.first_name, ' ', d.last_name) AS dentist_name,
                 TRIM(CONCAT(COALESCE(pat.first_name, ''), ' ', COALESCE(pat.last_name, ''))) AS patient_name,
