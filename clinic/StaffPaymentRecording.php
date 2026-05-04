@@ -735,6 +735,7 @@ $summaryTotalRevenue = 0.0;
 $summaryTodayRevenue = 0.0;
 $summaryTotalPayments = 0;
 $recentPayments = [];
+$staffPendingRefundRequests = [];
 $transactionCandidates = [];
 $transactionDebugRows = [];
 $paymentSettingsForUi = [
@@ -2618,6 +2619,29 @@ try {
         $recentParams = $supportsAppointmentServicesTable ? [$tenantId, $tenantId] : [$tenantId];
         $recentStmt->execute($recentParams);
         $recentPayments = $recentStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        try {
+            require_once __DIR__ . '/../api/includes/refund_requests_schema.inc.php';
+            refund_requests_ensure_table($pdo);
+            $rrListStmt = $pdo->prepare(
+                "SELECT rr.id, rr.appointment_id, rr.booking_id, rr.patient_id, rr.reason, rr.created_at,
+                        p.first_name AS patient_first_name, p.last_name AS patient_last_name,
+                        COALESCE((
+                            SELECT SUM(py.amount) FROM tbl_payments py
+                            WHERE py.tenant_id = rr.tenant_id AND py.booking_id = rr.booking_id
+                              AND py.patient_id = rr.patient_id AND py.status = 'completed'
+                        ), 0) AS refundable_amount
+                 FROM tbl_refund_requests rr
+                 INNER JOIN tbl_patients p ON p.tenant_id = rr.tenant_id AND p.patient_id = rr.patient_id
+                 WHERE rr.tenant_id = ? AND rr.status = 'pending'
+                 ORDER BY rr.id ASC"
+            );
+            $rrListStmt->execute([$tenantId]);
+            $staffPendingRefundRequests = $rrListStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $rrListErr) {
+            $staffPendingRefundRequests = [];
+        }
+
         if ($installmentsTableName !== null && $recentPayments !== []) {
             $recentScheduleByBooking = [];
             foreach ($recentPayments as $idx => $paymentRow) {
@@ -4480,30 +4504,48 @@ This booking is installment-priced, but no installment schedule rows exist in th
 </tr>
 </thead>
 <tbody id="refund_requests_table_body" class="divide-y divide-slate-100">
-<tr class="refund-request-row bg-white hover:bg-slate-50/60 transition-colors" data-refund-search="john bk001 500 cancel">
-<td class="py-4 pl-4 pr-3 sm:pl-5 text-sm font-bold text-slate-900">John</td>
-<td class="px-3 py-4 text-sm font-semibold text-slate-700 tabular-nums">BK001</td>
-<td class="px-3 py-4 text-sm font-bold text-slate-900 tabular-nums">₱500</td>
-<td class="px-3 py-4 text-sm font-medium text-slate-600">Cancel</td>
+<?php
+    $__refundRows = isset($staffPendingRefundRequests) && is_array($staffPendingRefundRequests)
+        ? $staffPendingRefundRequests
+        : [];
+    if ($__refundRows === []):
+?>
+<tr class="refund-request-empty">
+<td colspan="5" class="py-9 text-center text-sm font-semibold text-slate-500">No pending cancel &amp; refund requests.</td>
+</tr>
+<?php else: ?>
+<?php foreach ($__refundRows as $__rr): ?>
+<?php
+    $__pid = (int) ($__rr['id'] ?? 0);
+    $__pfn = trim((string) ($__rr['patient_first_name'] ?? ''));
+    $__pln = trim((string) ($__rr['patient_last_name'] ?? ''));
+    $__pname = trim($__pfn . ' ' . $__pln);
+    if ($__pname === '') {
+        $__pname = 'Patient';
+    }
+    $__bid = trim((string) ($__rr['booking_id'] ?? ''));
+    $__ramt = (float) ($__rr['refundable_amount'] ?? 0);
+    $__reason = trim((string) ($__rr['reason'] ?? ''));
+    if ($__reason === '') {
+        $__reason = '—';
+    }
+    $__hay = strtolower($__pname . ' ' . $__bid . ' ' . $__reason . ' ' . number_format($__ramt, 2));
+    $__amtLabel = '₱' . number_format($__ramt, 2);
+?>
+<tr class="refund-request-row bg-white hover:bg-slate-50/60 transition-colors" data-refund-search="<?php echo htmlspecialchars($__hay, ENT_QUOTES, 'UTF-8'); ?>" data-refund-request-id="<?php echo $__pid; ?>">
+<td class="py-4 pl-4 pr-3 sm:pl-5 text-sm font-bold text-slate-900"><?php echo htmlspecialchars($__pname, ENT_QUOTES, 'UTF-8'); ?></td>
+<td class="px-3 py-4 text-sm font-semibold text-slate-700 tabular-nums"><?php echo htmlspecialchars($__bid, ENT_QUOTES, 'UTF-8'); ?></td>
+<td class="px-3 py-4 text-sm font-bold text-slate-900 tabular-nums"><?php echo htmlspecialchars($__amtLabel, ENT_QUOTES, 'UTF-8'); ?></td>
+<td class="px-3 py-4 text-sm font-medium text-slate-600 max-w-[14rem] truncate" title="<?php echo htmlspecialchars($__reason, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($__reason, ENT_QUOTES, 'UTF-8'); ?></td>
 <td class="py-4 pl-3 pr-4 sm:pr-5 text-right whitespace-nowrap">
 <div class="inline-flex flex-wrap items-center justify-end gap-2">
-<button type="button" class="refund-approve-btn inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold shadow-md shadow-primary/20 hover:bg-primary/92 transition-all">Approve</button>
-<button type="button" class="refund-decline-btn inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold shadow-md shadow-red-600/20 hover:bg-red-700 transition-all">Decline</button>
+<button type="button" class="refund-approve-btn inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold shadow-md shadow-primary/20 hover:bg-primary/92 transition-all" data-refund-request-id="<?php echo $__pid; ?>">Approve</button>
+<button type="button" class="refund-decline-btn inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold shadow-md shadow-red-600/20 hover:bg-red-700 transition-all" data-refund-request-id="<?php echo $__pid; ?>">Decline</button>
 </div>
 </td>
 </tr>
-<tr class="refund-request-row bg-white hover:bg-slate-50/60 transition-colors" data-refund-search="faith bk002 700 duplicate">
-<td class="py-4 pl-4 pr-3 sm:pl-5 text-sm font-bold text-slate-900">Faith</td>
-<td class="px-3 py-4 text-sm font-semibold text-slate-700 tabular-nums">BK002</td>
-<td class="px-3 py-4 text-sm font-bold text-slate-900 tabular-nums">₱700</td>
-<td class="px-3 py-4 text-sm font-medium text-slate-600">Duplicate</td>
-<td class="py-4 pl-3 pr-4 sm:pr-5 text-right whitespace-nowrap">
-<div class="inline-flex flex-wrap items-center justify-end gap-2">
-<button type="button" class="refund-approve-btn inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold shadow-md shadow-primary/20 hover:bg-primary/92 transition-all">Approve</button>
-<button type="button" class="refund-decline-btn inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold shadow-md shadow-red-600/20 hover:bg-red-700 transition-all">Decline</button>
-</div>
-</td>
-</tr>
+<?php endforeach; ?>
+<?php endif; ?>
 </tbody>
 </table>
 </div>
@@ -4614,6 +4656,7 @@ Close
         const closeRefundRequestsFooterBtn = document.getElementById('close-refund-requests-modal-footer');
         const refundRequestsSearchInput = document.getElementById('refund_requests_search');
         const refundRequestsTableBody = document.getElementById('refund_requests_table_body');
+        const refundRequestsActionUrl = <?php echo json_encode(rtrim(BASE_URL, '/') . '/api/refund_requests.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const paymentMethodInput = document.getElementById('payment_method_input');
         const paymentMethodCards = document.querySelectorAll('.payment-card[data-method]');
         const defaultPickerLabel = 'Tap to choose appointment with pending balance';
@@ -6103,6 +6146,37 @@ Close
             });
         }
 
+        async function postRefundRequestDecision(requestId, action, btnEl) {
+            if (!refundRequestsActionUrl || !requestId) {
+                return;
+            }
+            const fd = new FormData();
+            fd.append('action', action);
+            fd.append('request_id', String(requestId));
+            try {
+                const res = await fetch(refundRequestsActionUrl, {
+                    method: 'POST',
+                    body: fd,
+                    credentials: 'same-origin',
+                    headers: { Accept: 'application/json' },
+                });
+                const json = await res.json().catch(() => null);
+                if (!json || !json.success) {
+                    if (btnEl) {
+                        btnEl.disabled = false;
+                    }
+                    showValidationPopup(String((json && json.message) || 'Could not update this request.'), 'Refund requests');
+                    return;
+                }
+                window.location.reload();
+            } catch (err) {
+                if (btnEl) {
+                    btnEl.disabled = false;
+                }
+                showValidationPopup('Network error. Please try again.', 'Refund requests');
+            }
+        }
+
         function openSelectorModal() {
             if (!selectorModal) return;
             selectorModal.classList.remove('hidden');
@@ -6420,6 +6494,31 @@ Close
         }
         if (refundRequestsSearchInput) {
             refundRequestsSearchInput.addEventListener('input', filterRefundRequestsTable);
+        }
+        if (refundRequestsTableBody) {
+            refundRequestsTableBody.addEventListener('click', (ev) => {
+                const t = ev.target;
+                if (!t || !t.closest) {
+                    return;
+                }
+                const approve = t.closest('.refund-approve-btn');
+                const decline = t.closest('.refund-decline-btn');
+                const btn = approve || decline;
+                if (!btn) {
+                    return;
+                }
+                const rid = parseInt(String(btn.getAttribute('data-refund-request-id') || ''), 10);
+                if (!(rid > 0)) {
+                    return;
+                }
+                const action = approve ? 'approve' : 'decline';
+                const label = action === 'approve' ? 'Approve this cancel & refund?' : 'Decline this request? The patient keeps the booking as scheduled.';
+                if (!window.confirm(label)) {
+                    return;
+                }
+                btn.disabled = true;
+                postRefundRequestDecision(rid, action, btn);
+            });
         }
         if (closeReceiptModalBtn) {
             closeReceiptModalBtn.addEventListener('click', closeReceiptModal);

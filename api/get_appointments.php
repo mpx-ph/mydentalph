@@ -2,6 +2,7 @@
 // api/get_appointments.php
 require_once '../db.php';
 require_once __DIR__ . '/request_context.inc.php';
+require_once __DIR__ . '/includes/refund_requests_schema.inc.php';
 
 header('Content-Type: application/json');
 api_send_no_cache_headers();
@@ -30,6 +31,8 @@ if ($user_id === '') {
 }
 
 try {
+    refund_requests_ensure_table($pdo);
+
     $tenant_id = api_resolve_tenant_id($pdo, $user_id, $tenant_id);
 
     // 1. All patient rows for this login: account holder (linked_user_id / owner) + dependents (same owner_user_id).
@@ -72,7 +75,15 @@ try {
                 CONCAT(d.first_name, ' ', d.last_name) AS dentist_name,
                 TRIM(CONCAT(COALESCE(pat.first_name, ''), ' ', COALESCE(pat.last_name, ''))) AS patient_name,
                 pat.contact_number AS patient_contact,
-                pat.date_of_birth AS patient_dob
+                pat.date_of_birth AS patient_dob,
+                (
+                    SELECT rr2.status
+                    FROM tbl_refund_requests rr2
+                    WHERE rr2.tenant_id = a.tenant_id
+                      AND rr2.appointment_id = a.id
+                    ORDER BY rr2.id DESC
+                    LIMIT 1
+                ) AS refund_request_status
              FROM tbl_appointments a
              LEFT JOIN tbl_dentists d ON a.dentist_id = d.dentist_id
              LEFT JOIN tbl_patients pat ON pat.tenant_id = a.tenant_id AND pat.patient_id = a.patient_id
@@ -91,7 +102,15 @@ try {
                 CONCAT(d.first_name, ' ', d.last_name) AS dentist_name,
                 TRIM(CONCAT(COALESCE(pat.first_name, ''), ' ', COALESCE(pat.last_name, ''))) AS patient_name,
                 pat.contact_number AS patient_contact,
-                pat.date_of_birth AS patient_dob
+                pat.date_of_birth AS patient_dob,
+                (
+                    SELECT rr2.status
+                    FROM tbl_refund_requests rr2
+                    WHERE rr2.tenant_id = a.tenant_id
+                      AND rr2.appointment_id = a.id
+                    ORDER BY rr2.id DESC
+                    LIMIT 1
+                ) AS refund_request_status
              FROM tbl_appointments a
              LEFT JOIN tbl_dentists d ON a.dentist_id = d.dentist_id
              LEFT JOIN tbl_patients pat ON pat.tenant_id = a.tenant_id AND pat.patient_id = a.patient_id
@@ -116,9 +135,15 @@ try {
         $dbStatus      = strtolower($row['status'] ?? 'pending');
         $displayStatus = $statusMap[$dbStatus] ?? strtoupper($dbStatus);
 
+        $rr = strtolower(trim((string)($row['refund_request_status'] ?? '')));
+        if ($rr === 'pending') {
+            $displayStatus = 'REFUND REQUESTED';
+        }
+
         $item = $row;
         $item['status_code']  = $row['status'] ?? 'pending';
         $item['status']      = $displayStatus;
+        $item['refund_request_status'] = $rr;
         $item['service_name'] = $row['display_service'] ?: 'Appointment';
         $item['dentist_name']  = $row['dentist_name'] ? 'DR. ' . strtoupper($row['dentist_name']) : 'CLINIC';
         $item['price']         = number_format((float)($row['total_treatment_cost'] ?? 0), 2);
