@@ -38,50 +38,53 @@ try {
 
     $pdo->beginTransaction();
 
+    // Same household scope as get_appointments: owner + linked user + dependents (multiple patient_id rows).
     $stmt = $pdo->prepare(
-        'SELECT patient_id
-         FROM tbl_patients
-         WHERE tenant_id = ?
-           AND (owner_user_id = ? OR linked_user_id = ?)
-         LIMIT 1'
+        'SELECT patient_id FROM tbl_patients
+         WHERE tenant_id = ? AND (owner_user_id = ? OR linked_user_id = ?)'
     );
     $stmt->execute([$tenant_id, $user_id, $user_id]);
-    $patient = $stmt->fetch(PDO::FETCH_ASSOC);
+    $patient_ids = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+    $patient_ids = array_values(array_unique(array_filter(array_map('strval', $patient_ids), static function ($v) {
+        return $v !== '';
+    })));
 
-    if (!$patient) {
+    if ($patient_ids === []) {
         throw new Exception('Patient record not found for this user');
     }
 
-    $patient_id = $patient['patient_id'];
+    $in_list = implode(',', array_fill(0, count($patient_ids), '?'));
 
     if ($appointment_id) {
         $stmt = $pdo->prepare(
-            'SELECT id, booking_id, status
+            "SELECT id, booking_id, status, patient_id
              FROM tbl_appointments
              WHERE tenant_id = ?
                AND id = ?
-               AND patient_id = ?
+               AND patient_id IN ($in_list)
              LIMIT 1
-             FOR UPDATE'
+             FOR UPDATE"
         );
-        $stmt->execute([$tenant_id, $appointment_id, $patient_id]);
+        $stmt->execute(array_merge([$tenant_id, $appointment_id], $patient_ids));
     } else {
         $stmt = $pdo->prepare(
-            'SELECT id, booking_id, status
+            "SELECT id, booking_id, status, patient_id
              FROM tbl_appointments
              WHERE tenant_id = ?
                AND booking_id = ?
-               AND patient_id = ?
+               AND patient_id IN ($in_list)
              LIMIT 1
-             FOR UPDATE'
+             FOR UPDATE"
         );
-        $stmt->execute([$tenant_id, $booking_id, $patient_id]);
+        $stmt->execute(array_merge([$tenant_id, $booking_id], $patient_ids));
     }
 
     $appointment = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$appointment) {
         throw new Exception('Appointment not found or not allowed to cancel');
     }
+
+    $patient_id = (string) ($appointment['patient_id'] ?? '');
 
     $resolvedAppointmentId = (int) $appointment['id'];
     $resolvedBookingId = (string) $appointment['booking_id'];
