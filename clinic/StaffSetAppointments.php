@@ -2539,11 +2539,22 @@ $treatmentScheduleBootstrap = [
                     message: 'This patient already has an appointment that overlaps with the selected time. Please choose a different time slot.',
                     variant: 'warning'
                 });
+                if (token !== liveValidationRequestToken) {
+                    return {
+                        hasTimeSlotConflict: liveValidationState.hasTimeSlotConflict,
+                        hasPatientDuplicate: liveValidationState.hasPatientDuplicate
+                    };
+                }
+                if (timeInput) {
+                    timeInput.value = '';
+                }
                 liveValidationState = {
-                    hasTimeSlotConflict: liveValidationState.hasTimeSlotConflict,
-                    hasPatientDuplicate: true
+                    hasTimeSlotConflict: false,
+                    hasPatientDuplicate: false
                 };
                 syncCreateAppointmentButtonState();
+                await refreshDentistAvailabilityForSelection();
+                return runLiveConflictValidation({ showAlerts: false });
             }
 
             return {
