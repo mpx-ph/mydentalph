@@ -78,10 +78,48 @@ if (!function_exists('patient_booking_dentist_user_id')) {
     }
 }
 
+if (!function_exists('patient_booking_count_day_appointments_for_dentist')) {
+    /**
+     * Existing non-cancelled appointments for this dentist on this calendar day (for load-balancing "any dentist").
+     */
+    function patient_booking_count_day_appointments_for_dentist(
+        PDO $pdo,
+        string $tenantId,
+        int $dentistId,
+        string $dateYmd
+    ): int {
+        if ($dentistId <= 0) {
+            return 0;
+        }
+        $tables = clinic_resolve_appointment_db_tables($pdo);
+        $apt = $tables['appointments'] ?? null;
+        if ($apt === null) {
+            return 0;
+        }
+        $q = clinic_quote_identifier((string) $apt);
+        try {
+            $stmt = $pdo->prepare(
+                "SELECT COUNT(*) FROM {$q}
+                 WHERE tenant_id = ?
+                   AND dentist_id = ?
+                   AND DATE(appointment_date) = ?
+                   AND LOWER(COALESCE(status, '')) NOT IN ('cancelled')"
+            );
+            $stmt->execute([$tenantId, $dentistId, $dateYmd]);
+
+            return (int) $stmt->fetchColumn();
+        } catch (Throwable $e) {
+            return 0;
+        }
+    }
+}
+
 if (!function_exists('patient_booking_resolve_mobile_dentist_choice')) {
     /**
-     * Mobile "Any available dentist" sends dentist_id 0 — assign first dentist who passes
-     * patient_booking_list_dentists_for_hour (same ordering as the picker API).
+     * Mobile sends dentist_id > 0 when the patient picked a named dentist.
+     * "Any available dentist" sends 0: we must persist a real dentist_id for the row, conflict checks, and staff UI.
+     * Among everyone who can take that hour, pick the one with the fewest appointments that day (then name tie-break),
+     * not simply the first name alphabetically (which biased the same dentist every time).
      */
     function patient_booking_resolve_mobile_dentist_choice(
         PDO $pdo,
@@ -99,8 +137,39 @@ if (!function_exists('patient_booking_resolve_mobile_dentist_choice')) {
         }
         $hour = (int) substr($norm, 0, 2);
         $list = patient_booking_list_dentists_for_hour($pdo, $tenantId, $dateYmd, $hour);
+        if ($list === []) {
+            return 0;
+        }
+        if (count($list) === 1) {
+            return (int) ($list[0]['dentist_id'] ?? 0);
+        }
+        $counts = [];
+        foreach ($list as $d) {
+            $did = (int) ($d['dentist_id'] ?? 0);
+            if ($did > 0) {
+                $counts[$did] = patient_booking_count_day_appointments_for_dentist($pdo, $tenantId, $did, $dateYmd);
+            }
+        }
+        usort(
+            $list,
+            static function (array $a, array $b) use ($counts): int {
+                $ida = (int) ($a['dentist_id'] ?? 0);
+                $idb = (int) ($b['dentist_id'] ?? 0);
+                $ca = $counts[$ida] ?? 0;
+                $cb = $counts[$idb] ?? 0;
+                if ($ca !== $cb) {
+                    return $ca <=> $cb;
+                }
+                $la = strcasecmp((string) ($a['last_name'] ?? ''), (string) ($b['last_name'] ?? ''));
+                if ($la !== 0) {
+                    return $la;
+                }
 
-        return isset($list[0]['dentist_id']) ? (int) $list[0]['dentist_id'] : 0;
+                return strcasecmp((string) ($a['first_name'] ?? ''), (string) ($b['first_name'] ?? ''));
+            }
+        );
+
+        return (int) ($list[0]['dentist_id'] ?? 0);
     }
 }
 
