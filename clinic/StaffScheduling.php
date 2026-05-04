@@ -2409,9 +2409,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                 $setShiftLoaderId = 'setShiftWeek' . ucfirst($setShiftDaySlug) . 'Loader';
                                 ?>
                             <div class="px-4 py-3.5 sm:px-5 sm:py-4 bg-white/80">
-                                <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:gap-5">
-                                    <div class="w-full lg:w-36 shrink-0">
-                                        <p class="text-sm font-bold text-slate-800 pt-0 lg:pt-2"><?php echo htmlspecialchars($setShiftDayLabel, ENT_QUOTES, 'UTF-8'); ?></p>
+                                <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-5">
+                                    <div class="w-full lg:w-36 shrink-0 flex lg:items-center">
+                                        <p class="text-sm font-bold text-slate-800"><?php echo htmlspecialchars($setShiftDayLabel, ENT_QUOTES, 'UTF-8'); ?></p>
                                     </div>
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 min-w-0">
                                         <div>
@@ -2429,10 +2429,10 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                             <input id="<?php echo htmlspecialchars($setShiftEndId, ENT_QUOTES, 'UTF-8'); ?>" name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_end" type="time" step="60" value="<?php echo htmlspecialchars($setShiftDefaultEnd, ENT_QUOTES, 'UTF-8'); ?>" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
                                         </div>
                                     </div>
-                                    <div class="flex shrink-0 items-center justify-end lg:justify-center lg:w-11 lg:pb-1 pt-1 lg:pt-0 border-t border-slate-100/80 lg:border-t-0">
+                                    <div class="flex shrink-0 items-center justify-end gap-2 pt-3 lg:pt-0 border-t border-slate-100/80 lg:border-t-0 lg:pl-1 lg:pr-3 min-w-0">
                                         <span
                                             id="<?php echo htmlspecialchars($setShiftLoaderId, ENT_QUOTES, 'UTF-8'); ?>"
-                                            class="set-shift-day-loader inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50/90 text-slate-400 shadow-sm"
+                                            class="set-shift-day-loader inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50/90 text-slate-400 shadow-sm"
                                             aria-hidden="true"
                                             title="Status"
                                         >
