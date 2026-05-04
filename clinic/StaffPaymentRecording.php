@@ -5005,8 +5005,16 @@ Close
             if (installmentProgressPaidLine) {
                 installmentProgressPaidLine.textContent = 'Paid ₱' + totalPaid.toFixed(2);
             }
+            let displayPendingForProgress = pending;
+            if (isPwdSeniorDiscountApplying()) {
+                displayPendingForProgress = Math.max(
+                    0,
+                    Math.round(pending * (1 - PWD_SENIOR_DISCOUNT_RATE) * 100) / 100
+                );
+            }
             if (installmentProgressRemainLine) {
-                installmentProgressRemainLine.textContent = 'Remaining ₱' + pending.toFixed(2);
+                installmentProgressRemainLine.textContent =
+                    'Remaining ₱' + displayPendingForProgress.toFixed(2);
             }
             if (installmentProgressHint) {
                 if (hasSchedule) {
