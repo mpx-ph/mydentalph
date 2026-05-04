@@ -102,8 +102,8 @@ try {
             }
             $openMinutes = ((int) $openTimeDt->format('H')) * 60 + (int) $openTimeDt->format('i');
             $closeMinutes = ((int) $closeTimeDt->format('H')) * 60 + (int) $closeTimeDt->format('i');
-            if ($openMinutes === $closeMinutes) {
-                throw new RuntimeException('Opening and closing times cannot be the same.');
+            if ($closeMinutes <= $openMinutes) {
+                throw new RuntimeException('Closing time must be later than opening time on the same day.');
             }
             $openTime = $openTimeDt->format('H:i:s');
             $closeTime = $closeTimeDt->format('H:i:s');
@@ -442,7 +442,7 @@ try {
                 <span class="material-symbols-outlined text-lg">close</span>
             </button>
         </div>
-        <form method="post">
+        <form method="post" id="editClinicHoursForm">
             <input type="hidden" name="save_clinic_hours" value="1"/>
             <input type="hidden" id="modalDayOfWeekInput" name="day_of_week" value="1"/>
             <div class="p-6 sm:p-7 space-y-5">
@@ -459,9 +459,10 @@ try {
                     <div>
                         <label for="modalCloseTime" class="block text-[10px] font-black text-on-surface-variant/65 uppercase tracking-[0.2em] mb-2">Close Time</label>
                         <input id="modalCloseTime" name="close_time" type="time" step="60" class="modal-time-input w-full px-4" value="17:00"/>
-                        <p class="mt-1.5 text-[11px] font-semibold text-slate-400">Supports precise time selection.</p>
+                        <p class="mt-1.5 text-[11px] font-semibold text-slate-400">Must be after open time the same day.</p>
                     </div>
                 </div>
+                <p id="modalTimeRangeError" class="hidden text-sm font-semibold text-red-600" role="alert"></p>
                 <div class="rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5">
                     <label class="inline-flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
                         <input id="modalClosedCheckbox" name="is_closed" type="checkbox" value="1" class="rounded-md border-slate-300 text-primary focus:ring-primary/20"/>
@@ -580,6 +581,7 @@ try {
         button.addEventListener('click', () => {
             const targetModal = button.getAttribute('data-open-modal');
             if (targetModal === 'editClinicHoursModal') {
+                clearModalTimeRangeError();
                 const day = button.getAttribute('data-day') || 'Monday';
                 const openTime = button.getAttribute('data-open-time') || '08:00 AM';
                 const closeTime = button.getAttribute('data-close-time') || '05:00 PM';
@@ -612,7 +614,65 @@ try {
     if (modalClosedCheckbox) {
         modalClosedCheckbox.addEventListener('change', () => {
             setClosedState(modalClosedCheckbox.checked);
+            clearModalTimeRangeError();
         });
+    }
+
+    function modalTimeToMinutes(value) {
+        if (!value || typeof value !== 'string' || !/^\d{2}:\d{2}$/.test(value.trim())) {
+            return null;
+        }
+        const parts = value.trim().split(':');
+        const h = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        if (!Number.isFinite(h) || !Number.isFinite(m)) {
+            return null;
+        }
+        return (h * 60) + m;
+    }
+
+    function clearModalTimeRangeError() {
+        const err = document.getElementById('modalTimeRangeError');
+        if (err) {
+            err.textContent = '';
+            err.classList.add('hidden');
+        }
+    }
+
+    function showModalTimeRangeError(message) {
+        const err = document.getElementById('modalTimeRangeError');
+        if (err) {
+            err.textContent = message;
+            err.classList.remove('hidden');
+        }
+    }
+
+    const editClinicHoursForm = document.getElementById('editClinicHoursForm');
+    const modalOpenTimeInput = document.getElementById('modalOpenTime');
+    const modalCloseTimeInput = document.getElementById('modalCloseTime');
+    if (editClinicHoursForm) {
+        editClinicHoursForm.addEventListener('submit', function (event) {
+            clearModalTimeRangeError();
+            const closed = modalClosedCheckbox && modalClosedCheckbox.checked;
+            if (closed) {
+                return;
+            }
+            const openM = modalTimeToMinutes((modalOpenTimeInput && modalOpenTimeInput.value) ? modalOpenTimeInput.value : '');
+            const closeM = modalTimeToMinutes((modalCloseTimeInput && modalCloseTimeInput.value) ? modalCloseTimeInput.value : '');
+            if (openM === null || closeM === null) {
+                return;
+            }
+            if (closeM <= openM) {
+                event.preventDefault();
+                showModalTimeRangeError('Closing time must be later than opening time on the same day.');
+            }
+        });
+    }
+    if (modalOpenTimeInput) {
+        modalOpenTimeInput.addEventListener('input', clearModalTimeRangeError);
+    }
+    if (modalCloseTimeInput) {
+        modalCloseTimeInput.addEventListener('input', clearModalTimeRangeError);
     }
 
     document.querySelectorAll('[data-close-modal]').forEach((button) => {
