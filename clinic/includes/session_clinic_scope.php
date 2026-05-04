@@ -1,13 +1,43 @@
 <?php
 /**
- * Per-clinic session isolation on one domain: separate session cookie names (MDCLS{slug})
- * with path "/" so slug URLs and /clinic/api/* share the same cookie.
- *
- * Requests without a resolvable clinic slug keep the default PHP session name (provider root, /clinic/* legacy).
+ * Per-clinic session isolation on one domain:
+ * - Slug URLs use cookie MDCLS{slug} (path /).
+ * - Files under /clinic/ without a slug use MDCLSLEGACY — never PHPSESSID — so provider/root pages
+ *   keep their own default session and do not see clinic Staff logins.
+ * - Referer-based slug detection applies only to /clinic/api/* (URLs lack /{slug}/).
  */
+
+if (!defined('MDCLS_LEGACY_SESSION_NAME')) {
+    define('MDCLS_LEGACY_SESSION_NAME', 'MDCLSLEGACY');
+}
 
 if (!isset($GLOBALS['_clinic_session_scope_configured'])) {
     $GLOBALS['_clinic_session_scope_configured'] = false;
+}
+
+/**
+ * True when this request executes a PHP file inside the clinic template directory (filesystem path contains /clinic/).
+ *
+ * @return bool
+ */
+function clinic_request_is_clinic_filesystem_script() {
+    $sf = isset($_SERVER['SCRIPT_FILENAME']) ? str_replace('\\', '/', (string) $_SERVER['SCRIPT_FILENAME']) : '';
+    return $sf !== '' && strpos($sf, '/clinic/') !== false;
+}
+
+/**
+ * Start the default PHP session cookie (PHPSESSID). Use only for bridges that must read provider/root session
+ * while living under /clinic/ (e.g. ProviderMyDentalSSO.php). Never use for normal clinic portal pages.
+ */
+function provider_default_session_start() {
+    if (session_status() !== PHP_SESSION_NONE) {
+        return;
+    }
+    $GLOBALS['_clinic_session_scope_configured'] = false;
+    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+    session_name('PHPSESSID');
+    session_set_cookie_params(0, '/', '', $secure, true);
+    session_start();
 }
 
 /**
@@ -77,7 +107,7 @@ function clinic_session_try_slug_from_referer() {
 }
 
 /**
- * Resolve slug from GET, request path, then Referer.
+ * Resolve slug from GET and request path. Referer is used only for /clinic/api/* (API paths omit /{slug}/).
  *
  * @return string|null
  */
@@ -95,8 +125,15 @@ function clinic_resolve_session_slug_from_request() {
         if ($fromUri !== null) {
             return $fromUri;
         }
+        $normPath = '/' . trim(str_replace('\\', '/', $path), '/');
+        if ($normPath !== '/' && strpos($normPath, '/clinic/api/') !== false) {
+            $fromRef = clinic_session_try_slug_from_referer();
+            if ($fromRef !== null) {
+                return $fromRef;
+            }
+        }
     }
-    return clinic_session_try_slug_from_referer();
+    return null;
 }
 
 /**
@@ -139,6 +176,8 @@ function clinic_session_configure($explicitSlug = null) {
 
     if ($slug !== null) {
         session_name(clinic_session_cookie_name_for_slug($slug));
+    } elseif (clinic_request_is_clinic_filesystem_script()) {
+        session_name(MDCLS_LEGACY_SESSION_NAME);
     }
 
     session_set_cookie_params(0, '/', '', $secure, true);

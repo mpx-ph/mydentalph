@@ -9,7 +9,7 @@ ini_set('log_errors', 1);
 
 require_once __DIR__ . '/config/config.php';
 
-clinic_session_start();
+provider_default_session_start();
 
 try {
 
