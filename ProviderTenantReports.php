@@ -128,20 +128,51 @@ function provider_tenant_rep_month_key(string $ym): string
     return date('M Y', $ts);
 }
 
-/** Emerald / teal ramp for donut segments (matches clinic dashboard greens). */
-function provider_tenant_rep_service_segment_color(string $label, int $index): string
+/**
+ * Map colors like the reference donut: largest slices get deeper greens/teals,
+ * smaller slices shift toward mint/cyan; unlinked stays slate.
+ *
+ * @param array<int, string> $labels
+ * @param array<int, float|int|string> $values
+ * @return array<int, string>
+ */
+function provider_tenant_rep_assign_service_colors(array $labels, array $values): array
 {
-    $l = strtolower(trim($label));
-    if ($l === 'unlinked payment' || str_contains($l, 'unlinked')) {
-        return '#64748B';
+    $n = count($labels);
+    if ($n === 0) {
+        return [];
     }
+    $colors = array_fill(0, $n, '#22C55E');
+    $pairs = [];
+    foreach ($labels as $i => $lbl) {
+        $pairs[] = [
+            'i' => $i,
+            'v' => isset($values[$i]) ? (float) $values[$i] : 0.0,
+            'lbl' => strtolower(trim((string) $lbl)),
+        ];
+    }
+    usort($pairs, static function (array $a, array $b): int {
+        if ($a['v'] === $b['v']) {
+            return $a['i'] <=> $b['i'];
+        }
+        return $a['v'] < $b['v'] ? 1 : -1;
+    });
     $palette = [
-        '#065F46', '#047857', '#059669', '#10B981', '#22C55E', '#4ADE80',
-        '#34D399', '#6EE7B7', '#A7F3D0', '#99F6E4', '#5EEAD4', '#2DD4BF',
-        '#14B8A6', '#0D9488', '#0F766E', '#115E59', '#134E4A',
-        '#78716C', '#94A3B8',
+        '#14532D', '#166534', '#15803D', '#047857', '#059669', '#0F766E',
+        '#0D9488', '#14B8A6', '#0E7490', '#2DD4BF', '#22D3BB', '#5EEAD4',
+        '#99F6E4', '#A7F3D0', '#BBF7D0', '#86EFAC', '#4ADE80', '#34D399',
     ];
-    return $palette[$index % count($palette)];
+    $pi = 0;
+    foreach ($pairs as $p) {
+        if ($p['lbl'] === 'unlinked payment' || str_contains($p['lbl'], 'unlinked')) {
+            $colors[$p['i']] = '#64748B';
+            continue;
+        }
+        $colors[$p['i']] = $palette[$pi % count($palette)];
+        $pi++;
+    }
+
+    return $colors;
 }
 
 $t_appts = provider_tenant_dash_resolve_table($pdo, ['appointments', 'tbl_appointments']);
@@ -591,10 +622,7 @@ $pct_conf = (int) round(100 * $n_confirmed / $ops_den);
 $pct_done = (int) round(100 * $n_completed / $ops_den);
 $pct_prog = (int) round(100 * $n_in_progress / $ops_den);
 
-$service_colors = [];
-foreach ($service_labels as $si => $slab) {
-    $service_colors[] = provider_tenant_rep_service_segment_color((string) $slab, $si);
-}
+$service_colors = provider_tenant_rep_assign_service_colors($service_labels, $service_values);
 
 ?>
 <!DOCTYPE html>
@@ -698,18 +726,33 @@ foreach ($service_labels as $si => $slab) {
             position: relative;
             height: 260px;
         }
+        /* Donut card: do NOT reuse .reports-chart-wrap — fixed height breaks chart + legend */
+        .reports-service-chart-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+        .reports-donut-canvas-host {
+            position: relative;
+            width: min(100%, 340px);
+            height: 280px;
+            margin-left: auto;
+            margin-right: auto;
+        }
         .reports-service-legend {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.5rem 1.75rem;
+            gap: 0.65rem 1.25rem;
             width: 100%;
-            max-width: 42rem;
+            max-width: 44rem;
             margin-left: auto;
             margin-right: auto;
         }
         @media (min-width: 640px) {
             .reports-service-legend {
                 grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 0.65rem 1.75rem;
             }
         }
         .reports-service-legend-item {
@@ -893,21 +936,21 @@ Payment records are not available for this tenant context. Connect <code class="
 <div class="elevated-card rounded-3xl p-8 provider-card-lift">
 <p class="text-[11px] font-black uppercase tracking-[0.28em] text-slate-900">Revenue by service</p>
 <p class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/55 mt-1"><?php echo $scope_pay_charts === 'pending' ? 'Pending breakdown by treatment' : 'Earnings breakdown by treatment'; ?></p>
-<div class="reports-chart-wrap mt-6 flex flex-col items-center justify-center min-h-[280px]">
+<div class="reports-service-chart-panel mt-6">
 <?php if ($t_payments === '') { ?>
-<p class="text-sm text-on-surface-variant font-medium text-center">No payment data.</p>
+<p class="text-sm text-on-surface-variant font-medium text-center py-16">No payment data.</p>
 <?php } elseif ($service_labels === []) { ?>
-<p class="text-sm text-on-surface-variant font-medium text-center">No service-linked <?php echo $scope_pay_charts === 'pending' ? 'pending' : 'paid'; ?> amounts for these filters.</p>
+<p class="text-sm text-on-surface-variant font-medium text-center py-16">No service-linked <?php echo $scope_pay_charts === 'pending' ? 'pending' : 'paid'; ?> amounts for these filters.</p>
 <?php } else { ?>
-<div class="relative w-full max-w-[280px] h-[220px] shrink-0">
-<canvas id="chart-service-donut" class="max-h-[220px] mx-auto" aria-label="Revenue by service donut chart"></canvas>
+<div class="reports-donut-canvas-host">
+<canvas id="chart-service-donut" aria-label="Revenue by service donut chart"></canvas>
 </div>
-<div id="chart-service-legend" class="reports-service-legend mt-8 px-1">
+<div id="chart-service-legend" class="reports-service-legend mt-10 px-1">
 <?php foreach ($service_labels as $si => $sl) {
     $col = $service_colors[$si] ?? '#22C55E';
     ?>
-<span class="reports-service-legend-item inline-flex items-start gap-2 text-[11px] font-semibold text-slate-700 leading-snug">
-<span class="w-2.5 h-2.5 rounded-full shrink-0 mt-1" style="background:<?php echo htmlspecialchars($col, ENT_QUOTES, 'UTF-8'); ?>"></span>
+<span class="reports-service-legend-item inline-flex items-start gap-2.5 text-[11px] font-semibold text-slate-800 leading-snug">
+<span class="w-3 h-3 rounded-full shrink-0 mt-0.5 ring-2 ring-white shadow-sm" style="background:<?php echo htmlspecialchars($col, ENT_QUOTES, 'UTF-8'); ?>"></span>
 <span class="min-w-0"><?php echo htmlspecialchars($sl, ENT_QUOTES, 'UTF-8'); ?></span>
 </span>
 <?php } ?>
@@ -1151,20 +1194,26 @@ Payment records are not available for this tenant context. Connect <code class="
       datasets: [{
         data: svcVal,
         backgroundColor: svcLbl.map(function (_, i) { return cols[i % cols.length]; }),
-        borderWidth: 0,
-        hoverOffset: 6
+        borderColor: '#ffffff',
+        borderWidth: 3,
+        hoverBorderColor: '#ffffff',
+        hoverBorderWidth: 3,
+        hoverOffset: 5,
+        spacing: 1,
+        borderRadius: 3
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      cutout: '68%',
+      layout: { padding: { top: 4, bottom: 4, left: 4, right: 4 } },
+      cutout: '54%',
       plugins: {
         legend: { display: false },
         tooltip: {
           callbacks: {
             label: function (ctx) {
-              var v = ctx.parsed;
+              var v = typeof ctx.raw === 'number' ? ctx.raw : (ctx.parsed !== undefined ? ctx.parsed : 0);
               return ctx.label + ': ₱' + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
             }
           }
