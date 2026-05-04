@@ -936,6 +936,7 @@ CREATE TABLE IF NOT EXISTS tbl_discount_programs (
     discount_program_id INT AUTO_INCREMENT PRIMARY KEY,
     tenant_id VARCHAR(20) NOT NULL,
     name VARCHAR(255) NOT NULL,
+    promo_code VARCHAR(64) NULL DEFAULT NULL,
     discount_type ENUM('percentage','fixed') NOT NULL DEFAULT 'percentage',
     value DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     min_spend DECIMAL(10,2) NOT NULL DEFAULT 0.00,
@@ -951,7 +952,8 @@ CREATE TABLE IF NOT EXISTS tbl_discount_programs (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     KEY idx_discount_programs_tenant (tenant_id),
-    KEY idx_discount_programs_enabled (tenant_id, enabled)
+    KEY idx_discount_programs_enabled (tenant_id, enabled),
+    UNIQUE KEY uq_discount_program_tenant_promo (tenant_id, promo_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS tbl_discount_program_services (

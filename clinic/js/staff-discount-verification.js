@@ -157,6 +157,28 @@
         });
     }
 
+    function programApplyModeFromProg(p) {
+        if (!p) return 'all';
+        if (p.promoCode && String(p.promoCode).trim() !== '') return 'promo';
+        if (p.serviceScope === 'selected') return 'selected';
+        return 'all';
+    }
+
+    function getProgramApplyMode() {
+        var r = document.querySelector('input[name="programApplyMode"]:checked');
+        return r ? r.value : 'all';
+    }
+
+    function syncProgramApplyModeUi() {
+        var mode = getProgramApplyMode();
+        var promoWrap = document.getElementById('programPromoWrap');
+        var svcWrap = document.getElementById('programServicesWrap');
+        var note = document.getElementById('programServicesScopeNote');
+        if (promoWrap) promoWrap.classList.toggle('hidden', mode !== 'promo');
+        if (svcWrap) svcWrap.classList.toggle('hidden', mode !== 'selected');
+        if (note) note.classList.toggle('hidden', mode !== 'selected');
+    }
+
     function snapshotRequirements(prog) {
         if (!prog) return { reqUploadProof: false, reqNotes: false };
         return {
@@ -230,6 +252,9 @@
             base = prog.name + ' (' + prog.value + '%)';
         } else {
             base = prog.name + ' (₱' + Number(prog.value).toLocaleString() + ' off)';
+        }
+        if (prog.promoCode && String(prog.promoCode).trim() !== '') {
+            base += ' · Code ' + String(prog.promoCode).trim();
         }
         var min = typeof prog.minSpend === 'number' && prog.minSpend > 0 ? prog.minSpend : 0;
         if (min > 0) base += ' · Min. spend ₱' + min.toLocaleString();
@@ -355,7 +380,8 @@
         grid.innerHTML = programs.map(function (p) {
             var statusCls = p.enabled ? 'bg-emerald-50 text-emerald-800 border-emerald-100' : 'bg-slate-100 text-slate-600 border-slate-200';
             var stackTxt = p.stacking === 'yes' ? 'May stack' : 'No stacking';
-            var scopeTxt = p.serviceScope === 'all' ? 'All services' : 'Selected procedures';
+            var promoTrim = p.promoCode && String(p.promoCode).trim() !== '' ? String(p.promoCode).trim() : '';
+            var scopeTxt = promoTrim !== '' ? ('Promo · ' + promoTrim) : (p.serviceScope === 'all' ? 'All services' : 'Selected procedures');
             return (
                 '<article class="elevated-card rounded-2xl p-6 flex flex-col gap-4 border border-slate-100">' +
                 '<div class="flex items-start justify-between gap-3">' +
@@ -392,7 +418,7 @@
                 var id = cb.getAttribute('data-id');
                 var prog = programsCache.find(function (x) { return String(x.id) === String(id); });
                 if (!prog) return;
-                var next = Object.assign({}, prog, { enabled: cb.checked });
+                var next = Object.assign({}, prog, { enabled: cb.checked, applyMode: programApplyModeFromProg(prog) });
                 apiJson(CFG.programsApi, { method: 'PUT', body: next }).then(function (data) {
                     if (!data.success) {
                         alert(data.message || 'Could not update program.');
@@ -455,7 +481,11 @@
     function populateApplicationPrograms() {
         var sel = document.getElementById('appDiscountProgram');
         if (!sel) return;
-        var programs = programsCache.filter(function (p) { return p.enabled; });
+        var programs = programsCache.filter(function (p) {
+            if (!p.enabled) return false;
+            if (p.promoCode && String(p.promoCode).trim() !== '') return false;
+            return true;
+        });
         sel.innerHTML = programs.map(function (p) {
             return '<option value="' + String(p.id).replace(/"/g, '&quot;') + '">' + String(p.name).replace(/</g, '&lt;') + '</option>';
         }).join('');
@@ -490,7 +520,11 @@
             document.getElementById('programStart').value = p.validFrom || '';
             document.getElementById('programEnd').value = p.validTo || '';
             document.getElementById('programStacking').value = p.stacking || 'no';
-            document.querySelector('input[name="programScope"][value="' + (p.serviceScope || 'all') + '"]').checked = true;
+            var mode = programApplyModeFromProg(p);
+            var modeInput = document.querySelector('input[name="programApplyMode"][value="' + mode + '"]');
+            if (modeInput) modeInput.checked = true;
+            var promoTrim = (p.promoCode && String(p.promoCode).trim() !== '') ? String(p.promoCode).trim() : '';
+            document.getElementById('programPromoCode').value = promoTrim;
             setProgramServiceChecks(p.serviceIds || []);
         } else {
             document.getElementById('programForm').reset();
@@ -501,11 +535,12 @@
             document.getElementById('programMinSpend').value = '';
             document.getElementById('programAgeMin').value = '';
             document.getElementById('programAgeMax').value = '';
-            document.querySelector('input[name="programScope"][value="all"]').checked = true;
+            document.querySelector('input[name="programApplyMode"][value="all"]').checked = true;
+            document.getElementById('programPromoCode').value = '';
             setProgramServiceChecks([]);
         }
         updateProgramValueLabel();
-        document.getElementById('programServicesWrap').classList.toggle('hidden', document.querySelector('input[name="programScope"]:checked').value !== 'selected');
+        syncProgramApplyModeUi();
         document.getElementById('programEnabledLabel').textContent = document.getElementById('programEnabled').checked ? 'Enabled' : 'Disabled';
         openOverlay(document.getElementById('programModal'));
     }
@@ -600,6 +635,9 @@
         document.getElementById('verifyPatientLine').textContent = (r.patientName || '—') + (r.patientRef ? ' · ' + r.patientRef : '');
         var vProg = programsCache.find(function (x) { return String(x.id) === String(r.programId); });
         var discLine = (r.programName || '—') + ' · ' + requirementsSummaryRecord(r);
+        if (vProg && vProg.promoCode && String(vProg.promoCode).trim() !== '') {
+            discLine += ' · Promo ' + String(vProg.promoCode).trim();
+        }
         var minSpend = vProg && typeof vProg.minSpend === 'number' ? vProg.minSpend : (typeof r.programMinSpend === 'number' ? r.programMinSpend : 0);
         if (minSpend > 0) {
             discLine += ' · Min. spend ₱' + minSpend.toLocaleString();
@@ -689,23 +727,21 @@
     document.getElementById('programEnabled').addEventListener('change', function () {
         document.getElementById('programEnabledLabel').textContent = document.getElementById('programEnabled').checked ? 'Enabled' : 'Disabled';
     });
-    document.querySelectorAll('input[name="programScope"]').forEach(function (r) {
-        r.addEventListener('change', function () {
-            var sel = document.querySelector('input[name="programScope"]:checked').value === 'selected';
-            document.getElementById('programServicesWrap').classList.toggle('hidden', !sel);
-        });
+    document.querySelectorAll('input[name="programApplyMode"]').forEach(function (r) {
+        r.addEventListener('change', syncProgramApplyModeUi);
     });
 
     document.getElementById('programForm').addEventListener('submit', function (e) {
         e.preventDefault();
         var id = document.getElementById('programId').value;
-        var scope = document.querySelector('input[name="programScope"]:checked').value;
         var ageMin = parseOptionalProgramAge('programAgeMin');
         var ageMax = parseOptionalProgramAge('programAgeMax');
         if (ageMin !== null && ageMax !== null && ageMin > ageMax) {
             alert('Minimum age cannot be greater than maximum age.');
             return;
         }
+        var mode = getProgramApplyMode();
+        var scope = mode === 'selected' ? 'selected' : 'all';
         var payload = {
             name: document.getElementById('programName').value.trim(),
             discountType: document.getElementById('programDiscountType').value,
@@ -718,8 +754,10 @@
             enabled: document.getElementById('programEnabled').checked,
             validFrom: document.getElementById('programStart').value,
             validTo: document.getElementById('programEnd').value,
+            applyMode: mode,
+            promoCode: mode === 'promo' ? document.getElementById('programPromoCode').value.trim() : '',
             serviceScope: scope,
-            serviceIds: scope === 'selected' ? getCheckedServiceIds() : [],
+            serviceIds: mode === 'selected' ? getCheckedServiceIds() : [],
             stacking: document.getElementById('programStacking').value
         };
         var method = id ? 'PUT' : 'POST';

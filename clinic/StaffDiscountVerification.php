@@ -314,16 +314,26 @@ body { font-family: 'Manrope', sans-serif; }
                 </div>
             </div>
             <div>
-                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Applicable services</label>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">How it applies</label>
                 <div class="space-y-3">
                     <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                        <input type="radio" name="programScope" value="all" class="text-primary focus:ring-primary" checked/>
+                        <input type="radio" name="programApplyMode" value="all" class="text-primary focus:ring-primary" checked/>
                         All services
                     </label>
                     <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                        <input type="radio" name="programScope" value="selected" class="text-primary focus:ring-primary"/>
+                        <input type="radio" name="programApplyMode" value="selected" class="text-primary focus:ring-primary"/>
                         Selected procedures only
                     </label>
+                    <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                        <input type="radio" name="programApplyMode" value="promo" class="text-primary focus:ring-primary"/>
+                        Promo code <span class="text-xs font-medium text-slate-500">(e.g. MERRYCHRISTMAS — no procedure list)</span>
+                    </label>
+                    <div id="programPromoWrap" class="hidden rounded-xl border border-slate-200 p-4 bg-slate-50/80 space-y-2">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Code</label>
+                        <input id="programPromoCode" type="text" maxlength="64" autocomplete="off" class="w-full uppercase rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold tracking-wide focus:border-primary focus:ring-2 focus:ring-primary/15" placeholder="MERRYCHRISTMAS"/>
+                        <p class="text-xs text-slate-500 leading-relaxed">Letters, numbers, and underscores only. Stored in uppercase. Applies to the whole cart; set minimum spend above if needed (use 0 for none).</p>
+                    </div>
+                    <div id="programServicesScopeNote" class="text-xs text-slate-500 leading-relaxed pl-7 -mt-1">Pick procedures below when &quot;Selected&quot; is chosen.</div>
                     <div id="programServicesWrap" class="hidden max-h-48 overflow-y-auto rounded-xl border border-slate-200 p-3 space-y-2 bg-white">
                         <p class="text-xs text-slate-500 mb-2">Loaded from your clinic service list when available.</p>
                         <div id="programServicesList" class="space-y-2"></div>

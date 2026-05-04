@@ -60,11 +60,17 @@ function map_patient_program_row(PDO $pdo, string $tenantId, array $row): array
         $ageMax = (int) $row['age_max'];
     }
 
+    $promo = '';
+    if (array_key_exists('promo_code', $row) && $row['promo_code'] !== null && trim((string) $row['promo_code']) !== '') {
+        $promo = (string) $row['promo_code'];
+    }
+
     $pid = (int) $row['discount_program_id'];
 
     return [
         'id' => (string) $pid,
         'name' => (string) $row['name'],
+        'promoCode' => $promo,
         'discountType' => (string) $row['discount_type'],
         'value' => (float) $row['value'],
         'minSpend' => (float) $row['min_spend'],

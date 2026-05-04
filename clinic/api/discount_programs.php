@@ -55,6 +55,44 @@ function validateAgeRange(?int $ageMin, ?int $ageMax): void {
     }
 }
 
+/**
+ * Normalize promo code: uppercase A–Z, 0–9, underscore. Empty string if invalid/blank.
+ */
+function normalizePromoCodeInput(mixed $raw): string {
+    $s = strtoupper(trim((string) $raw));
+    if ($s === '') {
+        return '';
+    }
+    if (strlen($s) > 64) {
+        return '';
+    }
+    if (!preg_match('/^[A-Z0-9_]+$/', $s)) {
+        return '';
+    }
+    return $s;
+}
+
+/**
+ * @param int $excludeProgramId Current program id on update (0 on create).
+ */
+function assertPromoCodeUnique(PDO $pdo, string $tenantId, string $promoCode, int $excludeProgramId): void {
+    if ($promoCode === '') {
+        return;
+    }
+    $sql = 'SELECT discount_program_id FROM tbl_discount_programs WHERE tenant_id = ? AND promo_code = ?';
+    $params = [$tenantId, $promoCode];
+    if ($excludeProgramId > 0) {
+        $sql .= ' AND discount_program_id != ?';
+        $params[] = $excludeProgramId;
+    }
+    $sql .= ' LIMIT 1';
+    $st = $pdo->prepare($sql);
+    $st->execute($params);
+    if ($st->fetchColumn()) {
+        jsonResponse(false, 'This promo code is already in use for another program.');
+    }
+}
+
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 try {
@@ -102,9 +140,15 @@ function mapProgramRow(PDO $pdo, string $tenantId, array $row): array {
         $ageMax = (int) $row['age_max'];
     }
 
+    $promo = '';
+    if (array_key_exists('promo_code', $row) && $row['promo_code'] !== null && trim((string) $row['promo_code']) !== '') {
+        $promo = (string) $row['promo_code'];
+    }
+
     return [
         'id' => (string) $id,
         'name' => (string) $row['name'],
+        'promoCode' => $promo,
         'discountType' => (string) $row['discount_type'],
         'value' => (float) $row['value'],
         'minSpend' => (float) $row['min_spend'],
@@ -164,9 +208,24 @@ function handleDiscountProgramsPost(PDO $pdo, string $tenantId): void {
     $ageMax = parseOptionalAgeInput($input, 'ageMax');
     validateAgeRange($ageMin, $ageMax);
 
-    $scope = strtolower(trim((string) ($input['serviceScope'] ?? 'all')));
-    if (!in_array($scope, ['all', 'selected'], true)) {
+    $applyMode = strtolower(trim((string) ($input['applyMode'] ?? '')));
+    if ($applyMode === 'promo') {
+        $promoCodeNorm = normalizePromoCodeInput($input['promoCode'] ?? '');
+        if ($promoCodeNorm === '') {
+            jsonResponse(false, 'Enter a valid promo code (letters, numbers, underscores only, max 64 characters).');
+        }
         $scope = 'all';
+        $isPromoProgram = true;
+    } else {
+        $promoCodeNorm = '';
+        $isPromoProgram = false;
+        if ($applyMode !== 'all' && $applyMode !== 'selected') {
+            $applyMode = strtolower(trim((string) ($input['serviceScope'] ?? 'all')));
+        }
+        if ($applyMode !== 'all' && $applyMode !== 'selected') {
+            $applyMode = 'all';
+        }
+        $scope = $applyMode;
     }
 
     $stacking = strtolower(trim((string) ($input['stacking'] ?? 'no')));
@@ -185,18 +244,21 @@ function handleDiscountProgramsPost(PDO $pdo, string $tenantId): void {
     $vf = $validFrom !== '' ? $validFrom : null;
     $vt = $validTo !== '' ? $validTo : null;
 
+    assertPromoCodeUnique($pdo, $tenantId, $promoCodeNorm, 0);
+
     $pdo->beginTransaction();
     try {
         $ins = $pdo->prepare(
             'INSERT INTO tbl_discount_programs (
-                tenant_id, name, discount_type, value, min_spend, age_min, age_max,
+                tenant_id, name, promo_code, discount_type, value, min_spend, age_min, age_max,
                 req_upload_proof, req_notes, enabled, valid_from, valid_to,
                 service_scope, stacking
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $ins->execute([
             $tenantId,
             $name,
+            $isPromoProgram ? $promoCodeNorm : null,
             $discountType,
             round($value, 2),
             round($minSpend, 2),
@@ -212,7 +274,7 @@ function handleDiscountProgramsPost(PDO $pdo, string $tenantId): void {
         ]);
         $newId = (int) $pdo->lastInsertId();
 
-        if ($scope === 'selected' && $serviceIds !== []) {
+        if (!$isPromoProgram && $scope === 'selected' && $serviceIds !== []) {
             insertProgramServices($pdo, $tenantId, $newId, $serviceIds);
         }
 
@@ -271,6 +333,16 @@ function handleDiscountProgramsPut(PDO $pdo, string $tenantId): void {
         jsonResponse(false, 'Program not found.');
     }
 
+    $peekStmt = $pdo->prepare(
+        'SELECT promo_code, service_scope FROM tbl_discount_programs WHERE discount_program_id = ? AND tenant_id = ? LIMIT 1'
+    );
+    $peekStmt->execute([$id, $tenantId]);
+    $existingPeek = $peekStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $existingPromoNorm = '';
+    if (!empty($existingPeek['promo_code'])) {
+        $existingPromoNorm = normalizePromoCodeInput($existingPeek['promo_code']);
+    }
+
     $name = trim((string) ($input['name'] ?? ''));
     if ($name === '') {
         jsonResponse(false, 'Name is required.');
@@ -291,9 +363,37 @@ function handleDiscountProgramsPut(PDO $pdo, string $tenantId): void {
     $ageMax = parseOptionalAgeInput($input, 'ageMax');
     validateAgeRange($ageMin, $ageMax);
 
-    $scope = strtolower(trim((string) ($input['serviceScope'] ?? 'all')));
-    if (!in_array($scope, ['all', 'selected'], true)) {
+    $applyModeRaw = array_key_exists('applyMode', $input) ? strtolower(trim((string) $input['applyMode'])) : null;
+
+    if ($applyModeRaw === 'promo') {
+        $promoCodeNorm = normalizePromoCodeInput($input['promoCode'] ?? '');
+        if ($promoCodeNorm === '') {
+            jsonResponse(false, 'Enter a valid promo code (letters, numbers, underscores only, max 64 characters).');
+        }
         $scope = 'all';
+        $isPromoProgram = true;
+    } elseif ($applyModeRaw === 'all' || $applyModeRaw === 'selected') {
+        $promoCodeNorm = '';
+        $isPromoProgram = false;
+        $scope = $applyModeRaw;
+    } else {
+        $fromInput = normalizePromoCodeInput($input['promoCode'] ?? '');
+        if ($fromInput !== '') {
+            $promoCodeNorm = $fromInput;
+            $isPromoProgram = true;
+            $scope = 'all';
+        } elseif ($existingPromoNorm !== '') {
+            $promoCodeNorm = $existingPromoNorm;
+            $isPromoProgram = true;
+            $scope = 'all';
+        } else {
+            $promoCodeNorm = '';
+            $isPromoProgram = false;
+            $scope = strtolower(trim((string) ($input['serviceScope'] ?? 'all')));
+            if ($scope !== 'all' && $scope !== 'selected') {
+                $scope = 'all';
+            }
+        }
     }
 
     $stacking = strtolower(trim((string) ($input['stacking'] ?? 'no')));
@@ -312,17 +412,20 @@ function handleDiscountProgramsPut(PDO $pdo, string $tenantId): void {
     $vf = $validFrom !== '' ? $validFrom : null;
     $vt = $validTo !== '' ? $validTo : null;
 
+    assertPromoCodeUnique($pdo, $tenantId, $promoCodeNorm, $id);
+
     $pdo->beginTransaction();
     try {
         $upd = $pdo->prepare(
             'UPDATE tbl_discount_programs SET
-                name = ?, discount_type = ?, value = ?, min_spend = ?, age_min = ?, age_max = ?,
+                name = ?, promo_code = ?, discount_type = ?, value = ?, min_spend = ?, age_min = ?, age_max = ?,
                 req_upload_proof = ?, req_notes = ?, enabled = ?,
                 valid_from = ?, valid_to = ?, service_scope = ?, stacking = ?
              WHERE discount_program_id = ? AND tenant_id = ?'
         );
         $upd->execute([
             $name,
+            $isPromoProgram ? $promoCodeNorm : null,
             $discountType,
             round($value, 2),
             round($minSpend, 2),
@@ -340,7 +443,7 @@ function handleDiscountProgramsPut(PDO $pdo, string $tenantId): void {
         ]);
 
         deleteProgramServices($pdo, $tenantId, $id);
-        if ($scope === 'selected' && $serviceIds !== []) {
+        if (!$isPromoProgram && $scope === 'selected' && $serviceIds !== []) {
             insertProgramServices($pdo, $tenantId, $id, $serviceIds);
         }
 
