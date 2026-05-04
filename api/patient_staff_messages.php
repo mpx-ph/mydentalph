@@ -227,11 +227,11 @@ if ($with !== '') {
                 m.status,
                 m.created_at,
                 COALESCE(
+                    NULLIF(TRIM(us.photo), ''),
                     NULLIF(TRIM(dd_uid.profile_image), ''),
                     NULLIF(TRIM(dd_em.profile_image), ''),
                     NULLIF(TRIM(ss.profile_image), ''),
-                    NULLIF(TRIM(mm.profile_image), ''),
-                    NULLIF(TRIM(us.photo), '')
+                    NULLIF(TRIM(mm.profile_image), '')
                 ) AS sender_photo
             FROM tbl_messages m
             LEFT JOIN tbl_users us
@@ -297,11 +297,11 @@ try {
             u.full_name,
             u.role,
             COALESCE(
+                NULLIF(TRIM(u.photo), ''),
                 NULLIF(TRIM(d_uid.profile_image), ''),
                 NULLIF(TRIM(d_em.profile_image), ''),
                 NULLIF(TRIM(s.profile_image), ''),
-                NULLIF(TRIM(mg.profile_image), ''),
-                NULLIF(TRIM(u.photo), '')
+                NULLIF(TRIM(mg.profile_image), '')
             ) AS photo
         FROM tbl_users u
         LEFT JOIN tbl_staffs s ON s.tenant_id = u.tenant_id AND s.user_id = u.user_id
@@ -384,11 +384,11 @@ try {
                     u.full_name,
                     u.role,
                     COALESCE(
+                        NULLIF(TRIM(u.photo), ''),
                         NULLIF(TRIM(d_uid.profile_image), ''),
                         NULLIF(TRIM(d_em.profile_image), ''),
                         NULLIF(TRIM(s.profile_image), ''),
-                        NULLIF(TRIM(mg.profile_image), ''),
-                        NULLIF(TRIM(u.photo), '')
+                        NULLIF(TRIM(mg.profile_image), '')
                     ) AS photo
                 FROM tbl_users u
                 LEFT JOIN tbl_staffs s ON s.tenant_id = u.tenant_id AND s.user_id = u.user_id
