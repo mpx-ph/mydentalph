@@ -107,6 +107,29 @@ try {
         throw new Exception('This booking cannot be rescheduled because it is completed or cancelled.');
     }
 
+    $tz = new DateTimeZone('Asia/Manila');
+    $existingDate = trim((string) ($row['appointment_date'] ?? ''));
+    $existingTimeNorm = patient_booking_normalize_time($row['appointment_time'] ?? '');
+    if (
+        preg_match('/^\d{4}-\d{2}-\d{2}$/', $existingDate) &&
+        $existingTimeNorm !== null
+    ) {
+        try {
+            $existingStart = new DateTimeImmutable($existingDate . ' ' . $existingTimeNorm, $tz);
+            $threshold = (new DateTimeImmutable('now', $tz))->modify('+24 hours');
+            if ($existingStart <= $threshold) {
+                throw new Exception(
+                    'Rescheduling is not available within 24 hours before your visit. Please contact the clinic.'
+                );
+            }
+        } catch (Exception $e) {
+            if (strpos($e->getMessage(), 'Rescheduling is not available') !== false) {
+                throw $e;
+            }
+            // Ignore parse edge cases — proceed only if we could not interpret the existing slot.
+        }
+    }
+
     $dentist_id = patient_booking_resolve_mobile_dentist_choice(
         $pdo,
         $tenant_id,
