@@ -2406,13 +2406,14 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                 $setShiftDefaultEnd = $setShiftDefaultPair ? '17:00' : '';
                                 $setShiftStartId = 'setShiftWeek' . ucfirst($setShiftDaySlug) . 'Start';
                                 $setShiftEndId = 'setShiftWeek' . ucfirst($setShiftDaySlug) . 'End';
+                                $setShiftLoaderId = 'setShiftWeek' . ucfirst($setShiftDaySlug) . 'Loader';
                                 ?>
                             <div class="px-4 py-3.5 sm:px-5 sm:py-4 bg-white/80">
-                                <div class="flex flex-col lg:flex-row lg:items-end gap-4">
+                                <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:gap-5">
                                     <div class="w-full lg:w-36 shrink-0">
                                         <p class="text-sm font-bold text-slate-800 pt-0 lg:pt-2"><?php echo htmlspecialchars($setShiftDayLabel, ENT_QUOTES, 'UTF-8'); ?></p>
                                     </div>
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 min-w-0">
                                         <div>
                                             <label for="<?php echo htmlspecialchars($setShiftStartId, ENT_QUOTES, 'UTF-8'); ?>" class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
                                                 <span class="material-symbols-outlined text-[18px] text-slate-500">timer</span>
@@ -2427,6 +2428,16 @@ $dentistsSeedData = array_map(static function ($dentist) {
                                             </label>
                                             <input id="<?php echo htmlspecialchars($setShiftEndId, ENT_QUOTES, 'UTF-8'); ?>" name="week_shift_<?php echo htmlspecialchars($setShiftDaySlug, ENT_QUOTES, 'UTF-8'); ?>_end" type="time" step="60" value="<?php echo htmlspecialchars($setShiftDefaultEnd, ENT_QUOTES, 'UTF-8'); ?>" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"/>
                                         </div>
+                                    </div>
+                                    <div class="flex shrink-0 items-center justify-end lg:justify-center lg:w-11 lg:pb-1 pt-1 lg:pt-0 border-t border-slate-100/80 lg:border-t-0">
+                                        <span
+                                            id="<?php echo htmlspecialchars($setShiftLoaderId, ENT_QUOTES, 'UTF-8'); ?>"
+                                            class="set-shift-day-loader inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50/90 text-slate-400 shadow-sm"
+                                            aria-hidden="true"
+                                            title="Status"
+                                        >
+                                            <span class="material-symbols-outlined set-shift-day-loader-icon text-[20px] leading-none text-slate-400">progress_activity</span>
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -2729,13 +2740,13 @@ $dentistsSeedData = array_map(static function ($dentist) {
         const clinicHoursSnapshotByDayName = <?php echo json_encode($clinicHoursSnapshotByDayName ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const scheduleWeekAnchorDefault = <?php echo json_encode($selectedDate->format('Y-m-d'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const setShiftWeekFieldDefs = [
-            { dayName: 'Sunday', startId: 'setShiftWeekSundayStart', endId: 'setShiftWeekSundayEnd' },
-            { dayName: 'Monday', startId: 'setShiftWeekMondayStart', endId: 'setShiftWeekMondayEnd' },
-            { dayName: 'Tuesday', startId: 'setShiftWeekTuesdayStart', endId: 'setShiftWeekTuesdayEnd' },
-            { dayName: 'Wednesday', startId: 'setShiftWeekWednesdayStart', endId: 'setShiftWeekWednesdayEnd' },
-            { dayName: 'Thursday', startId: 'setShiftWeekThursdayStart', endId: 'setShiftWeekThursdayEnd' },
-            { dayName: 'Friday', startId: 'setShiftWeekFridayStart', endId: 'setShiftWeekFridayEnd' },
-            { dayName: 'Saturday', startId: 'setShiftWeekSaturdayStart', endId: 'setShiftWeekSaturdayEnd' }
+            { dayName: 'Sunday', startId: 'setShiftWeekSundayStart', endId: 'setShiftWeekSundayEnd', loaderId: 'setShiftWeekSundayLoader' },
+            { dayName: 'Monday', startId: 'setShiftWeekMondayStart', endId: 'setShiftWeekMondayEnd', loaderId: 'setShiftWeekMondayLoader' },
+            { dayName: 'Tuesday', startId: 'setShiftWeekTuesdayStart', endId: 'setShiftWeekTuesdayEnd', loaderId: 'setShiftWeekTuesdayLoader' },
+            { dayName: 'Wednesday', startId: 'setShiftWeekWednesdayStart', endId: 'setShiftWeekWednesdayEnd', loaderId: 'setShiftWeekWednesdayLoader' },
+            { dayName: 'Thursday', startId: 'setShiftWeekThursdayStart', endId: 'setShiftWeekThursdayEnd', loaderId: 'setShiftWeekThursdayLoader' },
+            { dayName: 'Friday', startId: 'setShiftWeekFridayStart', endId: 'setShiftWeekFridayEnd', loaderId: 'setShiftWeekFridayLoader' },
+            { dayName: 'Saturday', startId: 'setShiftWeekSaturdayStart', endId: 'setShiftWeekSaturdayEnd', loaderId: 'setShiftWeekSaturdayLoader' }
         ];
         let selectedWorkShiftForBlockTime = {
             hasRecord: false,
