@@ -825,261 +825,198 @@ $reports_search_line = $q_search !== '' ? $q_search : '—';
             }
         }
         body { font-family: 'Manrope', sans-serif; }
-        /* Printable document (modal + PDF/print output) */
+        /* Corporate memorandum-style export (distinct from dashboard UI) */
         .reports-print-document {
-            font-family: 'Manrope', system-ui, sans-serif;
-            color: #0f172a;
-            background: linear-gradient(180deg, #f6f9fc 0%, #ffffff 10rem);
-            max-width: 52rem;
+            font-family: Georgia, 'Times New Roman', Times, serif;
+            font-size: 11pt;
+            line-height: 1.55;
+            color: #111827;
+            background: #ffffff;
+            max-width: 46rem;
             margin-left: auto;
             margin-right: auto;
         }
-        .reports-print-hero {
-            position: relative;
-            overflow: hidden;
-            border-radius: 1rem;
-            background: linear-gradient(118deg, #eef6ff 0%, #ffffff 42%, #f8fafc 100%);
-            border: 1px solid #dfe8f4;
+        .reports-doc-header {
             margin-bottom: 1.75rem;
-            box-shadow: 0 4px 24px -8px rgba(15, 23, 42, 0.08);
+            padding-bottom: 0.25rem;
         }
-        .reports-print-hero-accent {
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 6px;
-            background: linear-gradient(180deg, #2b8beb 0%, #1570d6 55%, #22c55e 100%);
-            border-radius: 1rem 0 0 1rem;
-        }
-        .reports-print-hero-inner {
-            padding: 1.65rem 1.75rem 1.65rem 1.85rem;
-            margin-left: 6px;
-        }
-        .reports-print-kicker {
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: 0.32em;
-            text-transform: uppercase;
-            color: #2b8beb;
-            margin-bottom: 0.45rem;
-        }
-        .reports-print-document .reports-print-title {
-            font-family: 'Manrope', sans-serif;
-            font-size: clamp(1.5rem, 4vw, 2rem);
-            font-weight: 800;
-            letter-spacing: -0.035em;
-            line-height: 1.15;
-            color: #0f172a;
-        }
-        .reports-print-document .reports-print-editorial {
-            font-family: 'Playfair Display', Georgia, serif;
-            font-style: italic;
-            font-weight: 400;
-            color: #2b8beb;
-        }
-        .reports-print-tagline {
-            margin-top: 0.55rem;
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: #64748b;
-            max-width: 36rem;
-            line-height: 1.45;
-        }
-        .reports-print-meta-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.65rem;
-            margin-bottom: 2rem;
-        }
-        @media (min-width: 640px) {
-            .reports-print-meta-grid {
-                grid-template-columns: repeat(4, minmax(0, 1fr));
-            }
-        }
-        .reports-print-meta-pill {
-            background: #ffffff;
-            border: 1px solid #e5edf5;
-            border-radius: 0.75rem;
-            padding: 0.85rem 0.95rem;
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-        }
-        .reports-print-meta-pill dt {
-            font-size: 9px;
-            font-weight: 800;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-            color: #94a3b8;
-            margin-bottom: 0.35rem;
-        }
-        .reports-print-meta-pill dd {
-            font-size: 0.8125rem;
+        .reports-doc-confidential {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            font-size: 8px;
             font-weight: 700;
-            color: #1e293b;
-            line-height: 1.35;
-            word-break: break-word;
-        }
-        .reports-print-section {
-            margin-bottom: 2rem;
-        }
-        .reports-print-section-head {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.65rem;
-            margin-bottom: 0.85rem;
-        }
-        .reports-print-section-bar {
-            width: 4px;
-            min-height: 2.75rem;
-            border-radius: 9999px;
-            background: linear-gradient(180deg, #2b8beb 0%, #38bdf8 45%, #22c55e 100%);
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
-        .reports-print-section-head h2 {
-            font-size: 11px;
-            font-weight: 900;
             letter-spacing: 0.22em;
             text-transform: uppercase;
-            color: #334155;
-            padding-top: 0.15rem;
+            color: #6b7280;
+            margin: 0 0 1rem;
         }
-        .reports-print-section-head p {
-            margin-top: 0.35rem;
+        .reports-doc-org {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: #0f172a;
+            margin: 0;
+            line-height: 1.25;
+        }
+        .reports-doc-subtitle {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
             font-size: 12px;
             font-weight: 600;
-            color: #64748b;
-            letter-spacing: 0;
-            text-transform: none;
-            line-height: 1.4;
-            max-width: 40rem;
+            color: #374151;
+            margin: 0.4rem 0 0;
         }
-        .reports-print-metric-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.65rem;
+        .reports-doc-rule {
+            border: none;
+            border-top: 2px solid #0f172a;
+            margin: 1rem 0 1rem;
         }
-        @media (min-width: 640px) {
-            .reports-print-metric-grid {
-                grid-template-columns: repeat(4, minmax(0, 1fr));
-            }
+        .reports-doc-cover-meta {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            font-size: 11px;
+            margin-top: 0.25rem;
         }
-        .reports-print-metric-card {
-            border: 1px solid #e8eef5;
-            border-radius: 0.85rem;
-            padding: 1rem 1rem;
-            background: linear-gradient(165deg, #ffffff 0%, #fafcfe 100%);
-            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+        .reports-doc-cover-meta th {
+            text-align: left;
+            font-weight: 600;
+            color: #4b5563;
+            padding: 0.3rem 1.25rem 0.3rem 0;
+            vertical-align: top;
+            width: 10.5rem;
         }
-        .reports-print-metric-card-label {
-            font-size: 9px;
-            font-weight: 800;
-            letter-spacing: 0.14em;
+        .reports-doc-cover-meta td {
+            padding: 0.3rem 0;
+            font-weight: 500;
+            color: #111827;
+            vertical-align: top;
+        }
+        .reports-print-section {
+            margin-bottom: 1.65rem;
+            page-break-inside: avoid;
+        }
+        .reports-doc-section-title {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
             text-transform: uppercase;
-            color: #94a3b8;
-        }
-        .reports-print-metric-card-value {
-            margin-top: 0.45rem;
-            font-size: 1.35rem;
-            font-weight: 800;
-            letter-spacing: -0.025em;
             color: #0f172a;
-            line-height: 1.15;
+            margin: 0 0 0.5rem;
+            padding-bottom: 0.35rem;
+            border-bottom: 1px solid #0f172a;
         }
-        .reports-print-metric-card-note {
-            margin-top: 0.4rem;
+        .reports-doc-lead {
+            font-size: 10.5pt;
+            color: #374151;
+            margin: 0 0 0.65rem;
+            max-width: 42rem;
+        }
+        .reports-doc-muted {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
             font-size: 10px;
             font-weight: 600;
-            color: #94a3b8;
-            line-height: 1.35;
+            color: #6b7280;
         }
         .reports-print-data-table {
             width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            font-size: 0.8125rem;
-            border: 1px solid #dfe7f0;
-            border-radius: 0.85rem;
-            overflow: hidden;
-            box-shadow: 0 4px 18px -6px rgba(15, 23, 42, 0.07);
+            border-collapse: collapse;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            font-size: 10px;
+            border: 1px solid #9ca3af;
+            border-radius: 0;
+            box-shadow: none;
+            overflow: visible;
         }
         .reports-print-data-table thead th {
-            background: linear-gradient(180deg, #eef4fb 0%, #e3ecf7 100%);
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: 0.14em;
+            background: #f3f4f6;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
             text-transform: uppercase;
-            color: #475569;
-            padding: 0.7rem 1rem;
-            border-bottom: 1px solid #d5e1ed;
+            color: #111827;
+            padding: 0.5rem 0.6rem;
+            border: 1px solid #9ca3af;
             text-align: left;
+            vertical-align: bottom;
         }
         .reports-print-data-table thead th.reports-print-th-num {
             text-align: right;
         }
-        .reports-print-data-table tbody td {
-            padding: 0.72rem 1rem;
-            border-bottom: 1px solid #f0f4fa;
+        .reports-print-data-table tbody th {
             font-weight: 600;
-            color: #334155;
+            text-align: left;
+            padding: 0.45rem 0.6rem;
+            border: 1px solid #d1d5db;
+            color: #1f2937;
+            vertical-align: top;
+            background: #fafafa;
+        }
+        .reports-print-data-table tbody td {
+            padding: 0.45rem 0.6rem;
+            border: 1px solid #d1d5db;
+            font-weight: 500;
+            color: #111827;
             vertical-align: top;
         }
         .reports-print-data-table tbody td.reports-print-td-num {
             text-align: right;
             font-variant-numeric: tabular-nums;
         }
-        .reports-print-data-table tbody tr:last-child td {
-            border-bottom: none;
+        .reports-print-summary-table tbody th {
+            width: 58%;
+            font-size: 10px;
         }
-        .reports-print-data-table tbody tr:nth-child(even) td {
-            background: #fafcfe;
+        .reports-print-summary-table tbody td {
+            font-size: 11px;
+            font-weight: 600;
         }
         .reports-print-empty {
-            margin-top: 0.75rem;
-            padding: 1rem 1.15rem;
-            border-radius: 0.75rem;
-            border: 1px dashed #cbd5e1;
-            background: #f8fafc;
-            font-size: 13px;
-            font-weight: 600;
-            color: #64748b;
+            margin-top: 0.35rem;
+            padding: 0;
+            border: none;
+            background: transparent;
+            font-size: 11px;
+            font-style: italic;
+            color: #4b5563;
         }
         .reports-print-note {
-            margin-top: 1rem;
-            padding: 0.85rem 1.05rem;
-            border-radius: 0.65rem;
-            background: linear-gradient(90deg, rgba(43, 139, 235, 0.06) 0%, rgba(34, 197, 94, 0.06) 100%);
-            border: 1px solid #dbeafe;
-            font-size: 11px;
-            font-weight: 600;
-            color: #475569;
-            line-height: 1.45;
+            margin-top: 0.85rem;
+            padding: 0;
+            border: none;
+            border-left: 3px solid #d1d5db;
+            padding-left: 0.75rem;
+            background: transparent;
+            font-size: 10px;
+            font-style: italic;
+            color: #6b7280;
+            line-height: 1.5;
         }
         .reports-print-footer {
-            margin-top: 2.75rem;
-            padding-top: 1.35rem;
-            border-top: 2px solid #e8eef5;
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-between;
-            gap: 1rem;
-            align-items: flex-end;
+            margin-top: 2.25rem;
+            padding-top: 1rem;
+            border-top: 2px solid #0f172a;
+            text-align: center;
         }
         .reports-print-footer-brand {
-            font-size: 11px;
-            font-weight: 800;
-            letter-spacing: 0.06em;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
             text-transform: uppercase;
-            color: #1e293b;
+            color: #111827;
         }
         .reports-print-footer-meta {
-            font-size: 10px;
-            font-weight: 600;
-            color: #94a3b8;
-            text-align: right;
+            margin-top: 0.4rem;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            font-size: 9px;
+            font-weight: 500;
+            color: #6b7280;
+            line-height: 1.55;
         }
-        .reports-preview-shell-enhanced {
-            box-shadow: 0 28px 70px -24px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(226, 232, 240, 0.9);
+        .reports-preview-shell-corporate {
+            box-shadow: 0 16px 48px rgba(15, 23, 42, 0.14);
+            border-radius: 2px;
         }
         @media print {
             @page {
@@ -1125,10 +1062,8 @@ $reports_search_line = $q_search !== '' ? $q_search : '—';
                 box-shadow: none !important;
                 break-inside: avoid;
             }
-            body.provider-report-print-session #reports-print-sheet .reports-print-hero,
-            body.provider-report-print-session #reports-print-sheet .reports-print-meta-pill,
-            body.provider-report-print-session #reports-print-sheet .reports-print-metric-card,
-            body.provider-report-print-session #reports-print-sheet .reports-print-data-table thead th {
+            body.provider-report-print-session #reports-print-sheet .reports-print-data-table thead th,
+            body.provider-report-print-session #reports-print-sheet .reports-print-data-table tbody th {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
@@ -1414,81 +1349,56 @@ Payment records are not available for this tenant context. Connect <code class="
 
 <div id="reports-preview-modal" class="hidden fixed inset-0 z-[110] overflow-y-auto py-6 px-4 sm:py-10 sm:px-6" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="reports-preview-heading">
 <button type="button" id="reports-preview-backdrop" class="reports-preview-no-print fixed inset-0 cursor-default border-0 bg-slate-900/55 p-0 backdrop-blur-[2px]" aria-label="Close preview"></button>
-<div class="reports-preview-shell reports-preview-shell-enhanced relative z-10 mx-auto flex w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white max-h-[min(92vh,calc(100vh-3rem))]">
-<div class="reports-preview-no-print flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200/90 bg-gradient-to-r from-slate-50 via-white to-[#f4f9ff] px-5 py-4">
+<div class="reports-preview-shell reports-preview-shell-corporate relative z-10 mx-auto flex w-full max-w-4xl flex-col overflow-hidden rounded-sm border border-slate-300 bg-white max-h-[min(92vh,calc(100vh-3rem))]">
+<div class="reports-preview-no-print flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-300 bg-white px-5 py-4">
 <div class="min-w-0">
-<h2 id="reports-preview-heading" class="font-headline text-lg font-extrabold tracking-tight text-slate-900">Export preview</h2>
-<p class="mt-1 max-w-xl text-xs font-semibold leading-snug text-on-surface-variant"><span class="text-slate-900"><?php echo htmlspecialchars($reports_clinic_name, ENT_QUOTES, 'UTF-8'); ?></span> — Review this layout, then print or choose &ldquo;Save as PDF&rdquo; in the print dialog.</p>
+<h2 id="reports-preview-heading" class="font-headline text-base font-bold tracking-tight text-slate-900">Print preview</h2>
+<p class="mt-1 max-w-xl text-xs font-medium leading-snug text-slate-600"><span class="text-slate-900"><?php echo htmlspecialchars($reports_clinic_name, ENT_QUOTES, 'UTF-8'); ?></span> — Use Print / PDF, then choose &ldquo;Save as PDF&rdquo; if needed.</p>
 </div>
 <div class="flex flex-shrink-0 flex-wrap gap-2">
-<button type="button" id="reports-preview-print-btn" class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white shadow-md hover:shadow-lg hover:shadow-primary/25 transition-all">
+<button type="button" id="reports-preview-print-btn" class="inline-flex items-center justify-center gap-2 rounded-sm border border-slate-800 bg-slate-900 px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-white hover:bg-slate-800 transition-colors">
 <span class="material-symbols-outlined text-[18px]">print</span>
                     Print / PDF
                 </button>
-<button type="button" id="reports-preview-close-btn" class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-on-background hover:bg-slate-50 transition-colors">
+<button type="button" id="reports-preview-close-btn" class="inline-flex items-center justify-center rounded-sm border border-slate-300 bg-white px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-800 hover:bg-slate-50 transition-colors">
                     Close
                 </button>
 </div>
 </div>
-<div class="min-h-0 flex-1 overflow-y-auto bg-[#f1f5f9]/40">
+<div class="min-h-0 flex-1 overflow-y-auto bg-slate-100">
 <div id="reports-print-sheet" class="reports-print-document px-7 py-10 sm:px-10 sm:py-12">
-<header class="reports-print-hero">
-<div class="reports-print-hero-accent" aria-hidden="true"></div>
-<div class="reports-print-hero-inner">
-<p class="reports-print-kicker">Tenant intelligence</p>
-<h1 class="reports-print-title"><?php echo htmlspecialchars($reports_clinic_name, ENT_QUOTES, 'UTF-8'); ?> <span class="reports-print-editorial">Reports</span></h1>
-<p class="reports-print-tagline">Financial performance, patient satisfaction signals, and operational throughput — compiled from your filtered clinic dataset.</p>
-</div>
+<header class="reports-doc-header">
+<p class="reports-doc-confidential">Confidential — internal use only</p>
+<h1 class="reports-doc-org"><?php echo htmlspecialchars($reports_clinic_name, ENT_QUOTES, 'UTF-8'); ?></h1>
+<p class="reports-doc-subtitle">Operations &amp; financial summary report</p>
+<hr class="reports-doc-rule" aria-hidden="true" />
+<table class="reports-doc-cover-meta">
+<tbody>
+<tr><th scope="row">Reporting period</th><td><?php echo htmlspecialchars($reports_period_line, ENT_QUOTES, 'UTF-8'); ?></td></tr>
+<tr><th scope="row">Payment scope</th><td><?php echo htmlspecialchars($reports_pay_label, ENT_QUOTES, 'UTF-8'); ?></td></tr>
+<tr><th scope="row">Search filter</th><td><?php echo htmlspecialchars($reports_search_line, ENT_QUOTES, 'UTF-8'); ?></td></tr>
+<tr><th scope="row">Prepared</th><td><?php echo htmlspecialchars($reports_generated_at, ENT_QUOTES, 'UTF-8'); ?> (Asia/Manila)</td></tr>
+</tbody>
+</table>
 </header>
 
-<dl class="reports-print-meta-grid">
-<div class="reports-print-meta-pill"><dt>Reporting period</dt><dd><?php echo htmlspecialchars($reports_period_line, ENT_QUOTES, 'UTF-8'); ?></dd></div>
-<div class="reports-print-meta-pill"><dt>Payment scope</dt><dd><?php echo htmlspecialchars($reports_pay_label, ENT_QUOTES, 'UTF-8'); ?></dd></div>
-<div class="reports-print-meta-pill"><dt>Search filter</dt><dd><?php echo htmlspecialchars($reports_search_line, ENT_QUOTES, 'UTF-8'); ?></dd></div>
-<div class="reports-print-meta-pill"><dt>Prepared</dt><dd><?php echo htmlspecialchars($reports_generated_at, ENT_QUOTES, 'UTF-8'); ?> · Asia/Manila</dd></div>
-</dl>
-
 <section class="reports-print-section">
-<div class="reports-print-section-head">
-<span class="reports-print-section-bar" aria-hidden="true"></span>
-<div>
-<h2>Executive summary</h2>
-<p>High-level KPIs for the selected filters. On-screen charts use the same underlying numbers.</p>
-</div>
-</div>
-<div class="reports-print-metric-grid">
-<div class="reports-print-metric-card">
-<p class="reports-print-metric-card-label">Total revenue</p>
-<p class="reports-print-metric-card-value"><?php echo htmlspecialchars(provider_tenant_rep_fmt_peso($total_revenue), ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="reports-print-metric-card-note">Paid / completed collections</p>
-</div>
-<div class="reports-print-metric-card">
-<p class="reports-print-metric-card-label">Pending / unpaid</p>
-<p class="reports-print-metric-card-value"><?php echo htmlspecialchars(provider_tenant_rep_fmt_peso($total_pending_amt), ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="reports-print-metric-card-note">Outstanding payment rows</p>
-</div>
-<div class="reports-print-metric-card">
-<p class="reports-print-metric-card-label">Average rating</p>
-<p class="reports-print-metric-card-value"><?php echo $reviews_count > 0 ? htmlspecialchars(number_format($reviews_avg, 2) . ' / 5', ENT_QUOTES, 'UTF-8') : '—'; ?></p>
-<p class="reports-print-metric-card-note"><?php echo $t_reviews === '' ? 'Reviews unavailable' : 'From tbl_reviews'; ?></p>
-</div>
-<div class="reports-print-metric-card">
-<p class="reports-print-metric-card-label">Reviews received</p>
-<p class="reports-print-metric-card-value"><?php echo (int) $reviews_count; ?></p>
-<p class="reports-print-metric-card-note">Patient feedback volume</p>
-</div>
-</div>
-<p class="reports-print-note">Charts (trend line &amp; service donut) appear on the dashboard only; all tabular figures here match those visuals for this filter set.</p>
+<h2 class="reports-doc-section-title">1. Executive summary</h2>
+<p class="reports-doc-lead">Key indicators below correspond to the filters applied above. Figures reconcile with on-screen dashboards for the same dataset.</p>
+<table class="reports-print-data-table reports-print-summary-table">
+<tbody>
+<tr><th scope="row">Total revenue (paid / completed collections)</th><td><?php echo htmlspecialchars(provider_tenant_rep_fmt_peso($total_revenue), ENT_QUOTES, 'UTF-8'); ?></td></tr>
+<tr><th scope="row">Pending / unpaid exposure</th><td><?php echo htmlspecialchars(provider_tenant_rep_fmt_peso($total_pending_amt), ENT_QUOTES, 'UTF-8'); ?></td></tr>
+<tr><th scope="row">Average patient rating</th><td><?php echo $reviews_count > 0 ? htmlspecialchars(number_format($reviews_avg, 2) . ' / 5', ENT_QUOTES, 'UTF-8') : '—'; ?></td></tr>
+<tr><th scope="row">Reviews received <?php echo $t_reviews === '' ? '(source unavailable)' : '(tbl_reviews)'; ?></th><td><?php echo (int) $reviews_count; ?></td></tr>
+</tbody>
+</table>
+<p class="reports-print-note">Trend and composition charts appear on the live dashboard only; tabular amounts here match those visuals for this filter set.</p>
 </section>
 
 <section class="reports-print-section">
-<div class="reports-print-section-head">
-<span class="reports-print-section-bar" aria-hidden="true"></span>
-<div>
-<h2><?php echo $scope_pay_charts === 'pending' ? 'Monthly pending volume' : 'Monthly collections'; ?></h2>
-<p>Cash movement aggregated by calendar month.</p>
-</div>
-</div>
+<h2 class="reports-doc-section-title">2. <?php echo $scope_pay_charts === 'pending' ? 'Monthly pending volume' : 'Monthly collections'; ?></h2>
+<p class="reports-doc-lead">Cash movement summarized by calendar month.</p>
 <?php if ($monthly_labels === []) { ?>
 <p class="reports-print-empty">No <?php echo $scope_pay_charts === 'pending' ? 'pending' : 'collection'; ?> transactions matched these filters.</p>
 <?php } else { ?>
@@ -1506,13 +1416,8 @@ Payment records are not available for this tenant context. Connect <code class="
 </section>
 
 <section class="reports-print-section">
-<div class="reports-print-section-head">
-<span class="reports-print-section-bar" aria-hidden="true"></span>
-<div>
-<h2><?php echo $scope_pay_charts === 'pending' ? 'Pending exposure by service' : 'Revenue by service line'; ?></h2>
-<p>Treatment labels sourced from linked appointments.</p>
-</div>
-</div>
+<h2 class="reports-doc-section-title">3. <?php echo $scope_pay_charts === 'pending' ? 'Pending exposure by service' : 'Revenue by service line'; ?></h2>
+<p class="reports-doc-lead">Treatment labels sourced from linked appointments.</p>
 <?php if ($service_labels === []) { ?>
 <p class="reports-print-empty">No service-linked amounts for this scope.</p>
 <?php } else { ?>
@@ -1530,13 +1435,8 @@ Payment records are not available for this tenant context. Connect <code class="
 </section>
 
 <section class="reports-print-section">
-<div class="reports-print-section-head">
-<span class="reports-print-section-bar" aria-hidden="true"></span>
-<div>
-<h2>Leading patients</h2>
-<p>Ranked by <?php echo $filter_payment === 'pending' ? 'pending balance' : 'paid contribution'; ?> with appointment frequency.</p>
-</div>
-</div>
+<h2 class="reports-doc-section-title">4. Leading patients</h2>
+<p class="reports-doc-lead">Ranked by <?php echo $filter_payment === 'pending' ? 'pending balance' : 'paid contribution'; ?> with appointment frequency.</p>
 <?php if ($top_clients === []) { ?>
 <p class="reports-print-empty">No patient ranked under these filters.</p>
 <?php } else { ?>
@@ -1552,37 +1452,27 @@ Payment records are not available for this tenant context. Connect <code class="
 </section>
 
 <section class="reports-print-section">
-<div class="reports-print-section-head">
-<span class="reports-print-section-bar" aria-hidden="true"></span>
-<div>
-<h2>Billing collection mix</h2>
-<p>Paid versus pending transaction totals.</p>
-</div>
-</div>
+<h2 class="reports-doc-section-title">5. Billing collection mix</h2>
+<p class="reports-doc-lead">Paid versus pending transaction totals.</p>
 <table class="reports-print-data-table">
 <thead><tr><th>Category</th><th class="reports-print-th-num">Amount (PHP)</th></tr></thead>
 <tbody>
-<tr><td>Paid <span style="font-weight:700;color:#64748b">(<?php echo (int) $billing_paid_n; ?> txns)</span></td><td class="reports-print-td-num"><?php echo htmlspecialchars(provider_tenant_rep_fmt_peso($billing_paid_amt), ENT_QUOTES, 'UTF-8'); ?></td></tr>
-<tr><td>Pending <span style="font-weight:700;color:#64748b">(<?php echo (int) $billing_pend_n; ?> txns)</span></td><td class="reports-print-td-num"><?php echo htmlspecialchars(provider_tenant_rep_fmt_peso($billing_pending_amt), ENT_QUOTES, 'UTF-8'); ?></td></tr>
+<tr><td>Paid <span class="reports-doc-muted">(<?php echo (int) $billing_paid_n; ?> txns)</span></td><td class="reports-print-td-num"><?php echo htmlspecialchars(provider_tenant_rep_fmt_peso($billing_paid_amt), ENT_QUOTES, 'UTF-8'); ?></td></tr>
+<tr><td>Pending <span class="reports-doc-muted">(<?php echo (int) $billing_pend_n; ?> txns)</span></td><td class="reports-print-td-num"><?php echo htmlspecialchars(provider_tenant_rep_fmt_peso($billing_pending_amt), ENT_QUOTES, 'UTF-8'); ?></td></tr>
 </tbody>
 </table>
 </section>
 
-<section class="reports-print-section" style="margin-bottom:1rem">
-<div class="reports-print-section-head">
-<span class="reports-print-section-bar" aria-hidden="true"></span>
-<div>
-<h2>Operational pipeline</h2>
-<p>Appointment lifecycle counts (confirmed / scheduled, completed, in progress).</p>
-</div>
-</div>
-<p class="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">Total appointments in scope: <strong class="text-slate-900"><?php echo (int) $ops_total; ?></strong></p>
+<section class="reports-print-section">
+<h2 class="reports-doc-section-title">6. Operational pipeline</h2>
+<p class="reports-doc-lead">Appointment lifecycle counts (confirmed / scheduled, completed, in progress).</p>
+<p class="reports-doc-lead"><strong>Total appointments in scope:</strong> <?php echo (int) $ops_total; ?></p>
 <table class="reports-print-data-table">
 <thead><tr><th>Stage</th><th class="reports-print-th-num">Count</th></tr></thead>
 <tbody>
-<tr><td>Confirmed</td><td class="reports-print-td-num"><?php echo (int) $n_confirmed; ?> <span style="color:#64748b;font-weight:700">(<?php echo (int) $pct_conf; ?>%)</span></td></tr>
-<tr><td>Completed</td><td class="reports-print-td-num"><?php echo (int) $n_completed; ?> <span style="color:#64748b;font-weight:700">(<?php echo (int) $pct_done; ?>%)</span></td></tr>
-<tr><td>In progress</td><td class="reports-print-td-num"><?php echo (int) $n_in_progress; ?> <span style="color:#64748b;font-weight:700">(<?php echo (int) $pct_prog; ?>%)</span></td></tr>
+<tr><td>Confirmed</td><td class="reports-print-td-num"><?php echo (int) $n_confirmed; ?> <span class="reports-doc-muted">(<?php echo (int) $pct_conf; ?>%)</span></td></tr>
+<tr><td>Completed</td><td class="reports-print-td-num"><?php echo (int) $n_completed; ?> <span class="reports-doc-muted">(<?php echo (int) $pct_done; ?>%)</span></td></tr>
+<tr><td>In progress</td><td class="reports-print-td-num"><?php echo (int) $n_in_progress; ?> <span class="reports-doc-muted">(<?php echo (int) $pct_prog; ?>%)</span></td></tr>
 </tbody>
 </table>
 </section>
