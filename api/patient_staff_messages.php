@@ -57,11 +57,22 @@ function psm_verify_staff_receiver(PDO $pdo, string $tenantId, string $receiverI
 
 function psm_role_label(string $role): string {
     $r = strtolower(trim($role));
-    return match ($r) {
-        'dentist' => 'DOCTOR',
-        'manager', 'tenant_owner', 'staff' => 'STAFF',
-        default => strtoupper($r !== '' ? $r : 'STAFF'),
-    };
+    if ($r === 'dentist') {
+        return 'DOCTOR';
+    }
+    if ($r === 'manager' || $r === 'tenant_owner' || $r === 'staff') {
+        return 'STAFF';
+    }
+    return strtoupper($r !== '' ? $r : 'STAFF');
+}
+
+/** Uppercase first $len chars; works without mbstring. */
+function psm_upper_slice(string $s, int $len): string {
+    if (function_exists('mb_substr') && function_exists('mb_strtoupper')) {
+        return mb_strtoupper(mb_substr($s, 0, $len, 'UTF-8'), 'UTF-8');
+    }
+    $ascii = substr($s, 0, $len);
+    return strtoupper($ascii);
 }
 
 function psm_initials(string $name, string $email): string {
@@ -69,13 +80,15 @@ function psm_initials(string $name, string $email): string {
     if ($name !== '') {
         $parts = preg_split('/\s+/u', $name) ?: [];
         if (count($parts) >= 2) {
-            return mb_strtoupper(mb_substr($parts[0], 0, 1) . mb_substr($parts[count($parts) - 1], 0, 1), 'UTF-8');
+            $a = psm_upper_slice((string) $parts[0], 1);
+            $b = psm_upper_slice((string) $parts[count($parts) - 1], 1);
+            return $a . $b;
         }
-        return mb_strtoupper(mb_substr($name, 0, 2), 'UTF-8');
+        return psm_upper_slice($name, 2);
     }
     $e = trim($email);
     if ($e !== '') {
-        return mb_strtoupper(mb_substr($e, 0, 2), 'UTF-8');
+        return psm_upper_slice($e, 2);
     }
     return '?';
 }
@@ -213,92 +226,96 @@ try {
     $staffRows = [];
 }
 
-$convStmt = $pdo->prepare("
-    SELECT
-        CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END AS partner_id,
-        MAX(m.created_at) AS last_message_at
-    FROM tbl_messages m
-    INNER JOIN tbl_users su
-        ON su.user_id = CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END
-    WHERE m.tenant_id = ?
-      AND (m.sender_id = ? OR m.receiver_id = ?)
-      AND su.tenant_id = ?
-      AND su.role IN ('tenant_owner', 'manager', 'staff', 'dentist')
-    GROUP BY partner_id
-");
-$convStmt->execute([$userId, $userId, $tenantId, $userId, $userId, $tenantId]);
-$conversations = $convStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+try {
+    $convStmt = $pdo->prepare("
+        SELECT
+            CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END AS partner_id,
+            MAX(m.created_at) AS last_message_at
+        FROM tbl_messages m
+        INNER JOIN tbl_users su
+            ON su.user_id = CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END
+        WHERE m.tenant_id = ?
+          AND (m.sender_id = ? OR m.receiver_id = ?)
+          AND su.tenant_id = ?
+          AND su.role IN ('tenant_owner', 'manager', 'staff', 'dentist')
+        GROUP BY partner_id
+    ");
+    $convStmt->execute([$userId, $userId, $tenantId, $userId, $userId, $tenantId]);
+    $conversations = $convStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-$convMap = [];
-foreach ($conversations as $row) {
-    $pid = (string) ($row['partner_id'] ?? '');
-    if ($pid !== '') {
-        $convMap[$pid] = $row;
-    }
-}
-
-$staffById = [];
-foreach ($staffRows as $r) {
-    $uid = (string) ($r['user_id'] ?? '');
-    if ($uid !== '') {
-        $staffById[$uid] = $r;
-    }
-}
-
-foreach (array_keys($convMap) as $pid) {
-    if ($pid !== '' && !isset($staffById[$pid])) {
-        $extra = $pdo->prepare("
-            SELECT user_id, email, full_name, role
-            FROM tbl_users
-            WHERE tenant_id = ? AND user_id = ?
-              AND role IN ('tenant_owner', 'manager', 'staff', 'dentist')
-            LIMIT 1
-        ");
-        $extra->execute([$tenantId, $pid]);
-        $ex = $extra->fetch(PDO::FETCH_ASSOC);
-        if ($ex && (string) ($ex['user_id'] ?? '') !== '') {
-            $staffById[$pid] = $ex;
+    $convMap = [];
+    foreach ($conversations as $row) {
+        $pid = (string) ($row['partner_id'] ?? '');
+        if ($pid !== '') {
+            $convMap[$pid] = $row;
         }
     }
-}
 
-$contacts = [];
-foreach ($staffById as $sid => $person) {
-    $lastAt = isset($convMap[$sid]['last_message_at']) ? (string) $convMap[$sid]['last_message_at'] : '';
-
-    $unreadStmt = $pdo->prepare("
-        SELECT COUNT(*) FROM tbl_messages
-        WHERE tenant_id = ?
-          AND sender_id = ?
-          AND receiver_id = ?
-          AND is_read = 0
-    ");
-    $unreadStmt->execute([$tenantId, $sid, $userId]);
-    $unread = (int) $unreadStmt->fetchColumn();
-
-    $fn = trim((string) ($person['full_name'] ?? ''));
-    $em = trim((string) ($person['email'] ?? ''));
-    $name = $fn !== '' ? $fn : ($em !== '' ? $em : 'Clinic');
-    $role = psm_role_label((string) ($person['role'] ?? ''));
-
-    $contacts[] = [
-        'user_id' => $sid,
-        'name' => $name,
-        'role' => $role,
-        'email' => $em,
-        'initials' => psm_initials($fn, $em),
-        'unread_count' => $unread,
-        'last_message_at' => $lastAt,
-    ];
-}
-
-usort($contacts, static function (array $a, array $b): int {
-    $ta = (string) ($a['last_message_at'] ?? '');
-    $tb = (string) ($b['last_message_at'] ?? '');
-    if ($ta !== $tb) {
-        return strcmp($tb, $ta);
+    $staffById = [];
+    foreach ($staffRows as $r) {
+        $uid = (string) ($r['user_id'] ?? '');
+        if ($uid !== '') {
+            $staffById[$uid] = $r;
+        }
     }
-    return strcasecmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
-});
 
-psm_json(true, 'Contacts loaded.', ['contacts' => $contacts]);
+    foreach (array_keys($convMap) as $pid) {
+        if ($pid !== '' && !isset($staffById[$pid])) {
+            $extraStmt = $pdo->prepare("
+                SELECT user_id, email, full_name, role
+                FROM tbl_users
+                WHERE tenant_id = ? AND user_id = ?
+                  AND role IN ('tenant_owner', 'manager', 'staff', 'dentist')
+                LIMIT 1
+            ");
+            $extraStmt->execute([$tenantId, $pid]);
+            $ex = $extraStmt->fetch(PDO::FETCH_ASSOC);
+            if ($ex && (string) ($ex['user_id'] ?? '') !== '') {
+                $staffById[$pid] = $ex;
+            }
+        }
+    }
+
+    $contacts = [];
+    foreach ($staffById as $sid => $person) {
+        $lastAt = isset($convMap[$sid]['last_message_at']) ? (string) $convMap[$sid]['last_message_at'] : '';
+
+        $unreadStmt = $pdo->prepare("
+            SELECT COUNT(*) FROM tbl_messages
+            WHERE tenant_id = ?
+              AND sender_id = ?
+              AND receiver_id = ?
+              AND is_read = 0
+        ");
+        $unreadStmt->execute([$tenantId, $sid, $userId]);
+        $unread = (int) $unreadStmt->fetchColumn();
+
+        $fn = trim((string) ($person['full_name'] ?? ''));
+        $em = trim((string) ($person['email'] ?? ''));
+        $name = $fn !== '' ? $fn : ($em !== '' ? $em : 'Clinic');
+        $role = psm_role_label((string) ($person['role'] ?? ''));
+
+        $contacts[] = [
+            'user_id' => $sid,
+            'name' => $name,
+            'role' => $role,
+            'email' => $em,
+            'initials' => psm_initials($fn, $em),
+            'unread_count' => $unread,
+            'last_message_at' => $lastAt,
+        ];
+    }
+
+    usort($contacts, static function (array $a, array $b): int {
+        $ta = (string) ($a['last_message_at'] ?? '');
+        $tb = (string) ($b['last_message_at'] ?? '');
+        if ($ta !== $tb) {
+            return strcmp($tb, $ta);
+        }
+        return strcasecmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
+    });
+
+    psm_json(true, 'Contacts loaded.', ['contacts' => $contacts]);
+} catch (Throwable $e) {
+    psm_json(false, 'Could not load contacts.');
+}
