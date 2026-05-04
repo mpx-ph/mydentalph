@@ -2,7 +2,7 @@
 declare(strict_types=1);
 /**
  * Provider tenant portal sidebar. Requires $provider_nav_active:
- * dashboard|messages|users|appointments|clinical_services|subs|customize|settings
+ * dashboard|messages|users|appointments|reports|clinical_services|subs|customize|settings
  * Uses $avatar_initials, $plan_name, $renewal_sidebar (set by dashboard or lite bootstrap).
  */
 $na = isset($provider_nav_active) ? (string) $provider_nav_active : 'dashboard';
@@ -34,6 +34,7 @@ $nav = [
     'messages' => ['href' => 'ProviderTenantMessage.php', 'icon' => 'chat', 'label' => 'Messages'],
     'users' => ['href' => 'ProviderTenantUsers.php', 'icon' => 'group', 'label' => 'Staff & Doctors'],
     'appointments' => ['href' => 'ProviderTenantAppointments.php', 'icon' => 'calendar_month', 'label' => 'Appointments'],
+    'reports' => ['href' => 'ProviderTenantReports.php', 'icon' => 'bar_chart', 'label' => 'Reports'],
     'clinical_services' => ['href' => 'clinic/TenantListofServices.php', 'icon' => 'medical_services', 'label' => 'Clinical services'],
     'subs' => ['href' => 'ProviderTenantSubs.php', 'icon' => 'payments', 'label' => 'Subscription & Billing'],
     'customize' => ['href' => 'ProviderTenantSiteBuilder.php', 'icon' => 'palette', 'label' => 'Customize'],
