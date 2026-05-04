@@ -17,36 +17,146 @@ if (!isset($currentTenantSlug)) {
     }
 }
 
+/**
+ * @param float $amount
+ */
+function staff_reports_money($amount)
+{
+    return '₱' . number_format((float) $amount, 2, '.', ',');
+}
+
+/**
+ * @param string|null $input
+ * @return string|null
+ */
+function staff_reports_parse_date($input)
+{
+    if ($input === null) {
+        return null;
+    }
+    $trim = trim((string) $input);
+    if ($trim === '') {
+        return null;
+    }
+    $ts = strtotime($trim);
+    if ($ts === false) {
+        return null;
+    }
+
+    return date('Y-m-d', $ts);
+}
+
 $tenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
+$filterQ = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
+$filterDateFrom = staff_reports_parse_date(isset($_GET['date_from']) ? (string) $_GET['date_from'] : null);
+$filterDateTo = staff_reports_parse_date(isset($_GET['date_to']) ? (string) $_GET['date_to'] : null);
+if ($filterDateFrom !== null && $filterDateTo !== null && $filterDateFrom > $filterDateTo) {
+    $tmp = $filterDateFrom;
+    $filterDateFrom = $filterDateTo;
+    $filterDateTo = $tmp;
+}
+$filterStatus = isset($_GET['status']) ? strtolower(trim((string) $_GET['status'])) : '';
+$allowedAppointmentStatus = ['', 'completed', 'confirmed', 'pending', 'cancelled', 'no_show'];
+if ($filterStatus !== '' && !in_array($filterStatus, $allowedAppointmentStatus, true)) {
+    $filterStatus = '';
+}
+$filterDentistId = isset($_GET['dentist_id']) ? trim((string) $_GET['dentist_id']) : '';
+if ($filterDentistId !== '' && !ctype_digit($filterDentistId)) {
+    $filterDentistId = '';
+}
+
+$reportClinicName = '';
+if (isset($_SESSION['clinic_name']) && trim((string) $_SESSION['clinic_name']) !== '') {
+    $reportClinicName = trim((string) $_SESSION['clinic_name']);
+} elseif ($currentTenantSlug !== '') {
+    $reportClinicName = ucwords(str_replace('-', ' ', (string) $currentTenantSlug));
+}
+
 $totalRevenue = 0.0;
 $totalAppointments = 0;
 $totalPatients = 0;
 $allAppointments = [];
+$dentistsList = [];
+$reportsRowCap = 500;
 
 try {
     $pdo = getDBConnection();
 
     if ($tenantId === '' && $currentTenantSlug !== '') {
-        $tenantStmt = $pdo->prepare('SELECT tenant_id FROM tbl_tenants WHERE clinic_slug = ? LIMIT 1');
+        $tenantStmt = $pdo->prepare('SELECT tenant_id, clinic_name FROM tbl_tenants WHERE clinic_slug = ? LIMIT 1');
         $tenantStmt->execute([$currentTenantSlug]);
         $tenantRow = $tenantStmt->fetch(PDO::FETCH_ASSOC);
         if ($tenantRow && isset($tenantRow['tenant_id'])) {
             $tenantId = (string) $tenantRow['tenant_id'];
+            if ($reportClinicName === '' && !empty($tenantRow['clinic_name'])) {
+                $reportClinicName = trim((string) $tenantRow['clinic_name']);
+            }
         }
     }
 
     if ($tenantId !== '') {
-        $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) AS total_revenue FROM tbl_payments WHERE tenant_id = ? AND status = 'completed'");
-        $stmt->execute([$tenantId]);
+        $baseFrom = '
+            FROM tbl_appointments a
+            LEFT JOIN tbl_patients p
+                ON p.tenant_id = a.tenant_id
+               AND p.patient_id = a.patient_id
+            LEFT JOIN tbl_dentists d
+                ON d.tenant_id = a.tenant_id
+               AND d.dentist_id = a.dentist_id
+        ';
+        $whereParts = ['a.tenant_id = ?'];
+        $params = [$tenantId];
+        if ($filterDateFrom !== null) {
+            $whereParts[] = 'a.appointment_date >= ?';
+            $params[] = $filterDateFrom;
+        }
+        if ($filterDateTo !== null) {
+            $whereParts[] = 'a.appointment_date <= ?';
+            $params[] = $filterDateTo;
+        }
+        if ($filterStatus !== '') {
+            $whereParts[] = 'LOWER(TRIM(COALESCE(a.status, \'\'))) = ?';
+            $params[] = $filterStatus;
+        }
+        if ($filterDentistId !== '') {
+            $whereParts[] = 'a.dentist_id = ?';
+            $params[] = $filterDentistId;
+        }
+        if ($filterQ !== '') {
+            $likeTerm = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $filterQ) . '%';
+            $whereParts[] = '(
+                CONCAT(COALESCE(p.first_name, \'\'), \' \', COALESCE(p.last_name, \'\')) LIKE ?
+                OR COALESCE(a.service_type, \'\') LIKE ?
+                OR COALESCE(a.service_description, \'\') LIKE ?
+                OR CONCAT(COALESCE(d.first_name, \'\'), \' \', COALESCE(d.last_name, \'\')) LIKE ?
+            )';
+            $params[] = $likeTerm;
+            $params[] = $likeTerm;
+            $params[] = $likeTerm;
+            $params[] = $likeTerm;
+        }
+        $whereSql = 'WHERE ' . implode(' AND ', $whereParts);
+
+        $revWhereParts = $whereParts;
+        $revParams = $params;
+        $revWhereParts[] = 'LOWER(TRIM(COALESCE(a.status, \'\'))) = \'completed\'';
+        $revWhereSql = 'WHERE ' . implode(' AND ', $revWhereParts);
+
+        $stmt = $pdo->prepare('SELECT COALESCE(SUM(a.total_treatment_cost), 0) AS total_revenue ' . $baseFrom . $revWhereSql);
+        $stmt->execute($revParams);
         $totalRevenue = (float) ($stmt->fetch(PDO::FETCH_ASSOC)['total_revenue'] ?? 0);
 
-        $stmt = $pdo->prepare('SELECT COUNT(*) AS total_appointments FROM tbl_appointments WHERE tenant_id = ?');
-        $stmt->execute([$tenantId]);
+        $stmt = $pdo->prepare('SELECT COUNT(*) AS total_appointments ' . $baseFrom . $whereSql);
+        $stmt->execute($params);
         $totalAppointments = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['total_appointments'] ?? 0);
 
-        $stmt = $pdo->prepare('SELECT COUNT(*) AS total_patients FROM tbl_patients WHERE tenant_id = ?');
-        $stmt->execute([$tenantId]);
+        $stmt = $pdo->prepare('SELECT COUNT(DISTINCT a.patient_id) AS total_patients ' . $baseFrom . $whereSql . ' AND a.patient_id IS NOT NULL AND TRIM(COALESCE(a.patient_id, \'\')) <> \'\'');
+        $stmt->execute($params);
         $totalPatients = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['total_patients'] ?? 0);
+
+        $dentStmt = $pdo->prepare('SELECT dentist_id, first_name, last_name FROM tbl_dentists WHERE tenant_id = ? ORDER BY last_name ASC, first_name ASC');
+        $dentStmt->execute([$tenantId]);
+        $dentistsList = $dentStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         $appointmentsSql = "
             SELECT
@@ -62,24 +172,47 @@ try {
                 p.last_name AS patient_last_name,
                 d.first_name AS dentist_first_name,
                 d.last_name AS dentist_last_name
-            FROM tbl_appointments a
-            LEFT JOIN tbl_patients p
-                ON p.tenant_id = a.tenant_id
-               AND p.patient_id = a.patient_id
-            LEFT JOIN tbl_dentists d
-                ON d.tenant_id = a.tenant_id
-               AND d.dentist_id = a.dentist_id
-            WHERE a.tenant_id = ?
+            " . $baseFrom . $whereSql . '
             ORDER BY a.appointment_date DESC, a.appointment_time DESC, a.created_at DESC
-            LIMIT 100
-        ";
+            LIMIT ' . (int) $reportsRowCap . '
+        ';
         $stmt = $pdo->prepare($appointmentsSql);
-        $stmt->execute([$tenantId]);
+        $stmt->execute($params);
         $allAppointments = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 } catch (Throwable $e) {
     error_log('Staff reports load error: ' . $e->getMessage());
 }
+
+$filterSummaryParts = [];
+if ($filterDateFrom !== null || $filterDateTo !== null) {
+    $filterSummaryParts[] = 'Dates: '
+        . ($filterDateFrom !== null ? date('M j, Y', strtotime($filterDateFrom)) : '…')
+        . ' – '
+        . ($filterDateTo !== null ? date('M j, Y', strtotime($filterDateTo)) : '…');
+}
+if ($filterStatus !== '') {
+    $filterSummaryParts[] = 'Status: ' . ucfirst(str_replace('_', ' ', $filterStatus));
+}
+if ($filterDentistId !== '') {
+    $dn = '';
+    foreach ($dentistsList as $dr) {
+        if ((string) ($dr['dentist_id'] ?? '') === $filterDentistId) {
+            $dn = trim((string) ($dr['first_name'] ?? '') . ' ' . (string) ($dr['last_name'] ?? ''));
+            break;
+        }
+    }
+    $filterSummaryParts[] = 'Staff: ' . ($dn !== '' ? $dn : ('#' . $filterDentistId));
+}
+if ($filterQ !== '') {
+    $filterSummaryParts[] = 'Search: "' . $filterQ . '"';
+}
+$filterSummaryText = $filterSummaryParts !== [] ? implode(' · ', $filterSummaryParts) : 'All appointments (no filters)';
+$generatedReportLine = date('M j, Y \a\t h:i A');
+$hasActiveFilters = ($filterQ !== '' || $filterDateFrom !== null || $filterDateTo !== null || $filterStatus !== '' || $filterDentistId !== '');
+$reportsPageBase = basename(isset($_SERVER['SCRIPT_NAME']) ? (string) $_SERVER['SCRIPT_NAME'] : 'StaffReports.php');
+$reportsResetHref = htmlspecialchars($reportsPageBase . ($currentTenantSlug !== '' ? ('?clinic_slug=' . rawurlencode($currentTenantSlug)) : ''), ENT_QUOTES, 'UTF-8');
+$reportsTableTruncated = $tenantId !== '' && $totalAppointments > count($allAppointments);
 ?>
 <!DOCTYPE html>
 <html class="light" lang="en"><head>
@@ -155,14 +288,98 @@ try {
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
+        .staff-reports-print-header {
+            display: none;
+        }
+        @page {
+            margin: 14mm 16mm;
+        }
+        @media print {
+            body {
+                background: #fff !important;
+            }
+            .mesh-bg {
+                background: #fff !important;
+                background-image: none !important;
+            }
+            #staff-sidebar,
+            #staff-sidebar-toggle,
+            header[data-purpose="top-header"],
+            .staff-reports-no-print {
+                display: none !important;
+            }
+            main {
+                margin-left: 0 !important;
+                padding-top: 0 !important;
+            }
+            main > div {
+                padding: 0 !important;
+            }
+            .provider-page-enter {
+                animation: none;
+            }
+            .elevated-card {
+                box-shadow: none !important;
+                border: 1px solid #e2e8f0 !important;
+                border-radius: 10px !important;
+                break-inside: avoid;
+            }
+            .elevated-card:hover {
+                transform: none !important;
+            }
+            .staff-reports-print-header {
+                display: block !important;
+                margin-bottom: 20px;
+                padding-bottom: 16px;
+                border-bottom: 1px solid #e2e8f0;
+                font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            }
+            .staff-reports-print-header h1 {
+                margin: 0 0 4px 0;
+                font-size: 1.5rem;
+                font-weight: 800;
+                letter-spacing: -0.02em;
+                color: #0f172a;
+            }
+            .staff-reports-print-header .staff-reports-print-sub {
+                margin: 0 0 12px 0;
+                font-size: 10px;
+                font-weight: 600;
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+                color: #94a3b8;
+            }
+            .staff-reports-print-header .staff-reports-print-filters {
+                margin: 0;
+                font-size: 12px;
+                color: #475569;
+                line-height: 1.45;
+            }
+            .staff-reports-print-table thead th {
+                font-size: 10px;
+                letter-spacing: 0.08em;
+                color: #475569 !important;
+                border-bottom: 1px solid #cbd5e1 !important;
+            }
+            .staff-reports-print-table tbody td {
+                border-bottom: 1px solid #e2e8f0 !important;
+                color: #111827 !important;
+            }
+        }
     </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
+<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter print:ml-0 print:pt-4">
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
-<div class="p-10 space-y-8">
-<section class="flex flex-col gap-4 mb-2">
+<div class="p-10 space-y-8 print:p-0">
+<div class="staff-reports-print-header">
+<h1><?php echo htmlspecialchars($reportClinicName !== '' ? $reportClinicName : 'Clinic', ENT_QUOTES, 'UTF-8'); ?> <span style="color:#0d9488;font-weight:700">Staff reports</span></h1>
+<p class="staff-reports-print-sub">Generated on <?php echo htmlspecialchars(strtoupper($generatedReportLine), ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="staff-reports-print-filters"><?php echo htmlspecialchars($filterSummaryText, ENT_QUOTES, 'UTF-8'); ?></p>
+</div>
+
+<section class="flex flex-col gap-4 mb-2 staff-reports-no-print">
 <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
 <span class="w-12 h-[1.5px] bg-primary"></span> CLINICAL PRECISION
             </div>
@@ -176,24 +393,71 @@ try {
 </div>
 </section>
 
+<form method="get" action="<?php echo htmlspecialchars($reportsPageBase, ENT_QUOTES, 'UTF-8'); ?>" id="staff-reports-filter-form" class="staff-reports-no-print space-y-8">
+<?php if ($currentTenantSlug !== ''): ?>
+<input type="hidden" name="clinic_slug" value="<?php echo htmlspecialchars($currentTenantSlug, ENT_QUOTES, 'UTF-8'); ?>"/>
+<?php endif; ?>
 <section class="elevated-card p-8 rounded-3xl">
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
 <div class="lg:col-span-2">
-<label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Search</label>
+<label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2" for="staff-reports-q">Search</label>
 <div class="relative">
-<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
-<input class="w-full bg-slate-50 border-none rounded-xl py-2.5 pl-10 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-bold" placeholder="Search by patient, service, or staff" type="text"/>
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg pointer-events-none">search</span>
+<input id="staff-reports-q" name="q" class="w-full bg-slate-50 border-none rounded-xl py-2.5 pl-10 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-bold" placeholder="Patient, service, or staff" type="search" autocomplete="off" value="<?php echo htmlspecialchars($filterQ, ENT_QUOTES, 'UTF-8'); ?>"/>
 </div>
 </div>
 <div>
-<label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Export Data</label>
-<button class="w-full bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-2">
-<span class="material-symbols-outlined text-sm">download</span>
-                        Export CSV
+<label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Print</label>
+<button type="button" id="staff-reports-print-btn" class="w-full bg-white border-2 border-primary/25 hover:border-primary/50 hover:bg-surface-container-low text-primary px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">print</span>
+                        Print preview
                     </button>
 </div>
 </div>
 </section>
+
+<section class="elevated-card p-8 rounded-3xl">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+<div>
+<label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2" for="staff-reports-date-from">From date</label>
+<input id="staff-reports-date-from" name="date_from" class="w-full bg-slate-50 border-none rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-bold" type="date" value="<?php echo $filterDateFrom !== null ? htmlspecialchars($filterDateFrom, ENT_QUOTES, 'UTF-8') : ''; ?>"/>
+</div>
+<div>
+<label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2" for="staff-reports-date-to">To date</label>
+<input id="staff-reports-date-to" name="date_to" class="w-full bg-slate-50 border-none rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-bold" type="date" value="<?php echo $filterDateTo !== null ? htmlspecialchars($filterDateTo, ENT_QUOTES, 'UTF-8') : ''; ?>"/>
+</div>
+<div>
+<label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2" for="staff-reports-status">Status</label>
+<select id="staff-reports-status" name="status" onchange="if(this.form)this.form.submit()" class="w-full bg-slate-50 border-none rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-bold appearance-none">
+<option value=""<?php echo $filterStatus === '' ? ' selected' : ''; ?>>All statuses</option>
+<option value="completed"<?php echo $filterStatus === 'completed' ? ' selected' : ''; ?>>Completed</option>
+<option value="confirmed"<?php echo $filterStatus === 'confirmed' ? ' selected' : ''; ?>>Confirmed</option>
+<option value="pending"<?php echo $filterStatus === 'pending' ? ' selected' : ''; ?>>Pending</option>
+<option value="cancelled"<?php echo $filterStatus === 'cancelled' ? ' selected' : ''; ?>>Cancelled</option>
+<option value="no_show"<?php echo $filterStatus === 'no_show' ? ' selected' : ''; ?>>No show</option>
+</select>
+</div>
+<div>
+<label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2" for="staff-reports-dentist">Assigned staff</label>
+<select id="staff-reports-dentist" name="dentist_id" onchange="if(this.form)this.form.submit()" class="w-full bg-slate-50 border-none rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-bold appearance-none">
+<option value=""<?php echo $filterDentistId === '' ? ' selected' : ''; ?>>All staff</option>
+<?php foreach ($dentistsList as $dent): ?>
+<?php
+    $did = (string) ($dent['dentist_id'] ?? '');
+    $dname = trim((string) ($dent['first_name'] ?? '') . ' ' . (string) ($dent['last_name'] ?? ''));
+?>
+<option value="<?php echo htmlspecialchars($did, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $filterDentistId === $did ? ' selected' : ''; ?>><?php echo htmlspecialchars($dname !== '' ? $dname : ('Staff #' . $did), ENT_QUOTES, 'UTF-8'); ?></option>
+<?php endforeach; ?>
+</select>
+</div>
+</div>
+<div class="flex flex-wrap items-center gap-3 mt-6">
+<button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-primary text-white px-5 py-2.5 text-xs font-bold uppercase tracking-wide shadow-lg shadow-primary/25 hover:bg-primary/90 transition-all">Apply filters</button>
+<a href="<?php echo $reportsResetHref; ?>" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-on-surface-variant hover:bg-slate-50 transition-all">
+<span class="material-symbols-outlined text-base">restart_alt</span> Reset</a>
+</div>
+</section>
+</form>
 
 <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 <div class="elevated-card p-7 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
@@ -201,11 +465,11 @@ try {
 <div class="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 transition-colors group-hover:bg-emerald-500 group-hover:text-white">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">payments</span>
 </div>
-<span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full uppercase tracking-widest">Monthly</span>
+<span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full uppercase tracking-widest"><?php echo $hasActiveFilters ? 'Filtered' : 'Completed'; ?></span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">$<?php echo number_format($totalRevenue, 2); ?></p>
-<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Total Revenue</p>
+<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo staff_reports_money($totalRevenue); ?></p>
+<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Treatment total (completed)</p>
 </div>
 </div>
 
@@ -214,11 +478,11 @@ try {
 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event_available</span>
 </div>
-<span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">All Time</span>
+<span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest"><?php echo $hasActiveFilters ? 'Filtered' : 'All'; ?></span>
 </div>
 <div>
 <p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo number_format($totalAppointments); ?></p>
-<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Total Appointments</p>
+<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Appointments</p>
 </div>
 </div>
 
@@ -227,52 +491,24 @@ try {
 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">group</span>
 </div>
-<span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">Registered</span>
+<span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest"><?php echo $hasActiveFilters ? 'Filtered' : 'Distinct'; ?></span>
 </div>
 <div>
 <p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo number_format($totalPatients); ?></p>
-<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Total Patients</p>
+<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Patients in view</p>
 </div>
 </div>
 </section>
 
-<section class="elevated-card p-8 rounded-3xl">
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-<div>
-<label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Date</label>
-<div class="relative">
-<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">calendar_month</span>
-<input class="w-full bg-slate-50 border-none rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-bold" placeholder="Select date range" type="text"/>
-</div>
-</div>
-<div>
-<label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Status</label>
-<select class="w-full bg-slate-50 border-none rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-bold appearance-none">
-<option>All Statuses</option>
-<option>Completed</option>
-<option>Confirmed</option>
-<option>Pending</option>
-<option>Cancelled</option>
-</select>
-</div>
-<div>
-<label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Assigned Staff</label>
-<select class="w-full bg-slate-50 border-none rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-bold appearance-none">
-<option>All Staff</option>
-<option>Dr. Helena Vance</option>
-<option>Dr. Simon Kaan</option>
-<option>Dr. Noah Ellis</option>
-</select>
-</div>
-</div>
-</section>
-
-<section class="elevated-card rounded-3xl overflow-hidden">
+<section class="elevated-card rounded-3xl overflow-hidden staff-reports-print-table-wrap">
 <div class="px-8 py-6 border-b border-slate-100 bg-white">
-<h3 class="text-2xl font-bold font-headline text-on-background">All Appointments</h3>
+<h3 class="text-2xl font-bold font-headline text-on-background">All appointments</h3>
+<?php if ($reportsTableTruncated): ?>
+<p class="text-xs text-slate-500 font-medium mt-1">Showing the first <?php echo number_format(count($allAppointments)); ?> of <?php echo number_format($totalAppointments); ?> matching rows. Narrow filters for a shorter list.</p>
+<?php endif; ?>
 </div>
 <div class="overflow-x-auto">
-<table class="w-full text-left border-collapse">
+<table class="staff-reports-print-table w-full text-left border-collapse">
 <thead>
 <tr class="bg-slate-50/50">
 <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Patient Details</th>
@@ -286,7 +522,15 @@ try {
 <tbody class="divide-y divide-slate-100">
 <?php if (empty($allAppointments)): ?>
 <tr>
-<td class="px-8 py-8 text-sm font-semibold text-slate-500" colspan="6">No appointments found for this clinic yet.</td>
+<td class="px-8 py-8 text-sm font-semibold text-slate-500" colspan="6"><?php
+if ($tenantId === '') {
+    echo 'Sign in and select a clinic to load reports.';
+} elseif ($hasActiveFilters) {
+    echo 'No appointments match your filters.';
+} else {
+    echo 'No appointments found for this clinic yet.';
+}
+?></td>
 </tr>
 <?php else: ?>
 <?php foreach ($allAppointments as $appointment): ?>
@@ -358,7 +602,7 @@ try {
 <?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?>
 </span>
 </td>
-<td class="px-8 py-6 text-right text-sm font-extrabold text-slate-900">$<?php echo number_format($amount, 2); ?></td>
+<td class="px-8 py-6 text-right text-sm font-extrabold text-slate-900"><?php echo staff_reports_money($amount); ?></td>
 </tr>
 <?php endforeach; ?>
 <?php endif; ?>
@@ -367,5 +611,15 @@ try {
 </div>
 </section>
 </div>
+<script>
+(function () {
+    var btn = document.getElementById('staff-reports-print-btn');
+    if (btn) {
+        btn.addEventListener('click', function () {
+            window.print();
+        });
+    }
+})();
+</script>
 </main>
 </body></html>
