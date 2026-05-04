@@ -137,6 +137,383 @@ function subscriptions_format_date_disp(?string $d): string
     return date('M j, Y', $t);
 }
 
+/**
+ * @param array<string, mixed> $row
+ */
+function subscriptions_cycle_label(array $row): string
+{
+    $raw = strtolower(trim((string) ($row['billing_cycle'] ?? '')));
+    return $raw === '' ? '—' : $raw;
+}
+
+/**
+ * @param array<string, mixed> $row
+ * @param 'screen'|'print' $variant
+ *
+ * @return array{label: string, class: string}
+ */
+function subscriptions_status_visual(array $row, string $variant): array
+{
+    $tenantSt = strtolower(trim((string) ($row['tenant_subscription_status'] ?? '')));
+    $paySt = strtolower(trim((string) ($row['payment_status'] ?? '')));
+    $disp = subscriptions_derive_display_status($row);
+    $labelBase = match ($disp) {
+        'active' => 'ACTIVE',
+        'expired' => 'EXPIRED',
+        'cancelled' => 'CANCELLED',
+        'suspended' => 'SUSPENDED',
+        default => strtoupper((string) $disp),
+    };
+    if ($variant === 'print' && in_array($paySt, ['pending', 'failed'], true) && $tenantSt !== 'suspended') {
+        return ['label' => 'TRIAL', 'class' => 'subs-p-stat subs-p-stat--trial'];
+    }
+    return match ($disp) {
+        'active' => ['label' => $labelBase, 'class' => 'subs-p-stat subs-p-stat--active'],
+        'expired' => ['label' => $labelBase, 'class' => 'subs-p-stat subs-p-stat--expired'],
+        'cancelled', 'suspended' => ['label' => $labelBase, 'class' => 'subs-p-stat'],
+        default => ['label' => $labelBase, 'class' => 'subs-p-stat subs-p-stat--expired'],
+    };
+}
+
+/**
+ * @param array<string, mixed> $row
+ */
+function subscriptions_owner_email_cell(array $row): string
+{
+    $email = trim((string) ($row['owner_email'] ?? ''));
+
+    return $email !== '' ? htmlspecialchars($email, ENT_QUOTES, 'UTF-8') : '—';
+}
+
+/**
+ * Renders AJAX-replaceable table body (pagination, mobile cards, desktop table).
+ *
+ * @param array<int, array<string, mixed>> $subsRows
+ * @param array<string, string> $filterBase
+ */
+function subscriptions_render_table_fragment(
+    ?string $dbError,
+    array $subsRows,
+    int $totalRows,
+    int $rangeStart,
+    int $rangeEnd,
+    int $page,
+    int $totalPages,
+    array $filterBase
+): void {
+    ?>
+<div class="px-5 sm:px-6 lg:px-8 py-5 flex flex-wrap items-center justify-between gap-3 border-b border-white/50">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-75">
+                        Showing <span class="text-primary opacity-100"><?php echo $totalRows === 0 ? '0' : number_format($rangeStart) . '–' . number_format($rangeEnd); ?></span>
+                        of <?php echo number_format($totalRows); ?> subscriptions
+                    </p>
+<p class="text-sm font-semibold text-on-surface-variant">Page <span id="subs-page-indicator"><?php echo (int) $page; ?></span> / <?php echo (int) $totalPages; ?></p>
+</div>
+<div class="md:hidden px-4 sm:px-6 py-5 space-y-4 subs-table-swap-cards">
+<?php if ($dbError !== null): ?>
+<div class="rounded-2xl border border-error/20 bg-error/10 px-4 py-5 text-sm text-error font-medium">Unable to load subscriptions.</div>
+<?php elseif ($subsRows === []): ?>
+<div class="rounded-2xl border border-outline-variant/20 bg-white/70 px-4 py-5 text-sm text-on-surface-variant font-medium">No subscriptions match your filters.</div>
+<?php else: ?>
+<?php foreach ($subsRows as $row):
+        $dispStatus = subscriptions_derive_display_status($row);
+        $badge = subscriptions_status_badge($dispStatus);
+        $planName = trim((string) ($row['plan_name'] ?? ''));
+        $ownerName = trim((string) ($row['owner_name'] ?? ''));
+        $ownerEmail = trim((string) ($row['owner_email'] ?? ''));
+        $payOk = strtolower((string) ($row['payment_status'] ?? '')) === 'paid';
+        $nextBillingStr = $dispStatus === 'active'
+            ? subscriptions_format_date_disp($row['subscription_end'] ?? null)
+            : '—';
+        $lastAmt = subscriptions_money(isset($row['amount_paid']) ? (float) $row['amount_paid'] : null);
+?>
+<article class="rounded-2xl bg-white/80 border border-white/70 shadow-sm p-4 space-y-3">
+<div class="flex items-start justify-between gap-2">
+<div>
+<p class="text-xs font-bold text-on-surface-variant uppercase tracking-wide">Clinic</p>
+<p class="text-sm font-bold text-on-surface"><?php echo htmlspecialchars((string) ($row['clinic_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
+</div>
+<?php echo $badge; ?>
+</div>
+<div class="flex gap-3">
+<div class="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-primary text-[10px] font-bold shrink-0"><?php echo htmlspecialchars(subscriptions_initials($ownerName !== '' ? $ownerName : (string) ($row['clinic_name'] ?? '?')), ENT_QUOTES, 'UTF-8'); ?></div>
+<div class="min-w-0">
+<p class="text-sm font-semibold text-on-surface truncate"><?php echo htmlspecialchars($ownerName !== '' ? $ownerName : '—', ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-[11px] text-on-surface-variant truncate"><?php echo $ownerEmail !== '' ? htmlspecialchars($ownerEmail, ENT_QUOTES, 'UTF-8') : '—'; ?></p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3 text-xs">
+<div>
+<p class="text-[10px] font-bold uppercase text-on-surface-variant/70 tracking-wide">Plan</p>
+<p class="font-semibold text-primary mt-0.5"><?php echo $planName !== '' ? htmlspecialchars($planName, ENT_QUOTES, 'UTF-8') : '—'; ?></p>
+</div>
+<div>
+<p class="text-[10px] font-bold uppercase text-on-surface-variant/70 tracking-wide">Next billing</p>
+<p class="font-medium text-on-surface mt-0.5"><?php echo htmlspecialchars($nextBillingStr, ENT_QUOTES, 'UTF-8'); ?></p>
+</div>
+<div class="col-span-2">
+<p class="text-[10px] font-bold uppercase text-on-surface-variant/70 tracking-wide">Last payment</p>
+<p class="font-bold text-on-surface mt-0.5"><?php echo $payOk ? $lastAmt : '—'; ?></p>
+</div>
+</div>
+</article>
+<?php endforeach; ?>
+<?php endif; ?>
+</div>
+<div class="hidden md:block overflow-x-auto subs-table-swap-desktop">
+<table class="w-full text-left">
+<thead>
+<tr class="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/60">
+<th class="px-10 py-5">Clinic Name</th>
+<th class="px-8 py-5">Owner</th>
+<th class="px-8 py-5">Plan</th>
+<th class="px-8 py-5">Status</th>
+<th class="px-8 py-5">Next Billing</th>
+<th class="px-10 py-5 text-right">Last Payment</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-white/40">
+<?php if ($dbError !== null): ?>
+<tr>
+<td colspan="6" class="px-10 py-12 text-center text-sm text-error font-medium">Unable to load subscriptions.</td>
+</tr>
+<?php elseif ($subsRows === []): ?>
+<tr>
+<td colspan="6" class="px-10 py-12 text-center text-sm text-on-surface-variant font-medium">No subscriptions match your filters.</td>
+</tr>
+<?php else: ?>
+<?php foreach ($subsRows as $row):
+        $dispStatus = subscriptions_derive_display_status($row);
+        $badge = subscriptions_status_badge($dispStatus);
+        $planName = trim((string) ($row['plan_name'] ?? ''));
+        $ownerName = trim((string) ($row['owner_name'] ?? ''));
+        $ownerEmail = trim((string) ($row['owner_email'] ?? ''));
+        $displayOwner = $ownerName !== '' ? $ownerName : '—';
+        $payOk = strtolower((string) ($row['payment_status'] ?? '')) === 'paid';
+        $nextBillingStr = $dispStatus === 'active'
+            ? subscriptions_format_date_disp($row['subscription_end'] ?? null)
+            : '—';
+        $lastAmt = subscriptions_money(isset($row['amount_paid']) ? (float) $row['amount_paid'] : null);
+?>
+<tr class="hover:bg-primary/5 transition-colors">
+<td class="px-10 py-5">
+<p class="text-sm font-bold text-on-surface"><?php echo htmlspecialchars((string) ($row['clinic_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-[10px] text-on-surface-variant font-medium mt-0.5"><?php echo htmlspecialchars((string) ($row['tenant_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
+</td>
+<td class="px-8 py-5">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-primary text-[10px] font-bold border-2 border-white shadow-sm shrink-0"><?php echo htmlspecialchars(subscriptions_initials($displayOwner !== '—' ? $displayOwner : (string) ($row['clinic_name'] ?? '?')), ENT_QUOTES, 'UTF-8'); ?></div>
+<div>
+<p class="text-sm font-bold text-on-surface"><?php echo htmlspecialchars($displayOwner, ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-[10px] text-on-surface-variant font-medium"><?php echo $ownerEmail !== '' ? htmlspecialchars($ownerEmail, ENT_QUOTES, 'UTF-8') : '—'; ?></p>
+</div>
+</div>
+</td>
+<td class="px-8 py-5">
+<?php if ($planName !== ''): ?>
+<span class="text-sm font-bold text-primary"><?php echo htmlspecialchars($planName, ENT_QUOTES, 'UTF-8'); ?></span>
+<?php else: ?>
+<span class="text-sm font-medium text-on-surface-variant/60">—</span>
+<?php endif; ?>
+</td>
+<td class="px-8 py-5"><?php echo $badge; ?></td>
+<td class="px-8 py-5 text-sm font-medium text-on-surface-variant"><?php echo htmlspecialchars($nextBillingStr, ENT_QUOTES, 'UTF-8'); ?></td>
+<td class="px-10 py-5 text-right text-sm font-bold text-on-surface"><?php echo $payOk ? $lastAmt : '—'; ?></td>
+</tr>
+<?php endforeach; ?>
+<?php endif; ?>
+</tbody>
+</table>
+</div>
+<div class="px-4 sm:px-6 lg:px-10 py-8 flex flex-wrap items-center justify-between gap-4 border-t border-white/50 subs-table-pager">
+<?php if ($page > 1): ?>
+<a href="<?php echo htmlspecialchars(subscriptions_url($filterBase, ['page' => $page - 1]), ENT_QUOTES, 'UTF-8'); ?>" class="subs-pjax-link px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2" data-subs-pjax="1">
+<span class="material-symbols-outlined text-lg">chevron_left</span> Previous
+                </a>
+<?php else: ?>
+<span class="px-5 py-2.5 bg-white/40 text-on-surface-variant text-sm font-bold rounded-xl border border-white/60 shadow-sm flex items-center gap-2 opacity-40 cursor-not-allowed">
+<span class="material-symbols-outlined text-lg">chevron_left</span> Previous
+                </span>
+<?php endif; ?>
+<p class="text-sm font-bold text-on-surface order-first sm:order-none w-full sm:w-auto text-center sm:text-left">Page <?php echo (int) $page; ?> of <?php echo (int) $totalPages; ?></p>
+<?php if ($page < $totalPages): ?>
+<a href="<?php echo htmlspecialchars(subscriptions_url($filterBase, ['page' => $page + 1]), ENT_QUOTES, 'UTF-8'); ?>" class="subs-pjax-link px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2" data-subs-pjax="1">
+                    Next <span class="material-symbols-outlined text-lg">chevron_right</span>
+                </a>
+<?php else: ?>
+<span class="px-5 py-2.5 bg-white/40 text-on-surface-variant text-sm font-bold rounded-xl border border-white/60 shadow-sm flex items-center gap-2 opacity-40 cursor-not-allowed">
+                    Next <span class="material-symbols-outlined text-lg">chevron_right</span>
+                </span>
+<?php endif; ?>
+</div>
+    <?php
+}
+
+/**
+ * Standalone minimalist print preview (filtered list, up to capped rows).
+ *
+ * @param array<int, array<string, mixed>> $printRows
+ */
+function subscriptions_render_print_view(
+    string $systemName,
+    ?string $dbError,
+    array $printRows,
+    int $totalFiltered,
+    bool $truncated,
+    float $metricTotalRevenue,
+    int $metricActivePlans,
+    int $metricTrials
+): void {
+    $generated = strtoupper(date('M j, Y \a\t h:i A'));
+    $brandEsc = htmlspecialchars($systemName, ENT_QUOTES, 'UTF-8');
+    header('Content-Type: text/html; charset=utf-8');
+    ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title><?php echo $brandEsc; ?> Subscriptions List</title>
+<style>
+@page { margin: 14mm 16mm; }
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    padding: 28px 32px 40px;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px;
+    color: #111827;
+    background: #fff;
+}
+.subs-ph1 { margin: 0 0 6px 0; font-size: 1.65rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; color: #0f172a; }
+.subs-ph1-accent { font-weight: 700; color: #0d9488; }
+.subs-p-gen { margin: 0 0 28px 0; font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #94a3b8; }
+.subs-p-cards { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
+.subs-p-card {
+    flex: 1 1 140px;
+    min-width: 120px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 16px 18px;
+    text-align: center;
+    background: #fff;
+}
+.subs-p-card-label {
+    margin: 0 0 8px 0;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+.subs-p-card-val { margin: 0; font-size: 1.75rem; font-weight: 800; color: #0f172a; line-height: 1.15; }
+.subs-p-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.subs-p-table th {
+    text-align: left;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #475569;
+    padding: 10px 8px 10px 0;
+    border-bottom: 1px solid #cbd5e1;
+}
+.subs-p-table td {
+    padding: 12px 8px 12px 0;
+    vertical-align: top;
+    border-bottom: 1px solid #e2e8f0;
+    word-wrap: break-word;
+}
+.subs-p-table th:last-child, .subs-p-table td:last-child { text-align: right; padding-right: 0; padding-left: 8px; }
+.subs-p-stat { display: inline-block; margin: 0; font-weight: 800; font-size: 11px; letter-spacing: 0.06em; }
+.subs-p-stat--active { color: #166534; }
+.subs-p-stat--trial { color: #9a3412; }
+.subs-p-stat--expired { color: #64748b; }
+.subs-p-note { margin: 16px 0 0; font-size: 11px; color: #64748b; }
+.subs-p-err { padding: 16px; border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; border-radius: 8px; }
+.subs-p-cycle { text-transform: lowercase; color: #334155; }
+@media print {
+    body { padding: 0; }
+    .subs-p-no-print { display: none; }
+}
+</style>
+</head>
+<body>
+<?php if ($dbError !== null): ?>
+<p class="subs-p-err">Could not load subscription data for print. Please return to the subscriptions page and try again.</p>
+<?php else: ?>
+<h1 class="subs-ph1"><span class="subs-ph1-brand"><?php echo $brandEsc; ?></span> <span class="subs-ph1-accent">Subscriptions List</span></h1>
+<p class="subs-p-gen">Generated on <?php echo htmlspecialchars($generated, ENT_QUOTES, 'UTF-8'); ?></p>
+<div class="subs-p-cards">
+<div class="subs-p-card">
+<p class="subs-p-card-label">Total</p>
+<p class="subs-p-card-val"><?php echo number_format($totalFiltered); ?></p>
+</div>
+<div class="subs-p-card">
+<p class="subs-p-card-label">Active</p>
+<p class="subs-p-card-val"><?php echo number_format($metricActivePlans); ?></p>
+</div>
+<div class="subs-p-card">
+<p class="subs-p-card-label">Trials</p>
+<p class="subs-p-card-val"><?php echo number_format($metricTrials); ?></p>
+</div>
+<div class="subs-p-card">
+<p class="subs-p-card-label">Revenue</p>
+<p class="subs-p-card-val"><?php echo '₱' . number_format($metricTotalRevenue, 0, '.', ','); ?></p>
+</div>
+</div>
+<table class="subs-p-table">
+<thead>
+<tr>
+<th>Clinic</th>
+<th>Owner</th>
+<th>Plan</th>
+<th>Cycle</th>
+<th>Status</th>
+<th>Next billing</th>
+<th>Last payment</th>
+</tr>
+</thead>
+<tbody>
+<?php if ($printRows === []): ?>
+<tr><td colspan="7" style="border:none;padding:20px 0;color:#64748b;">No subscriptions match the current filters.</td></tr>
+<?php else: ?>
+<?php foreach ($printRows as $row):
+        $disp = subscriptions_derive_display_status($row);
+        $sv = subscriptions_status_visual($row, 'print');
+        $payOk = strtolower((string) ($row['payment_status'] ?? '')) === 'paid';
+        $nextB = $disp === 'active'
+            ? htmlspecialchars(subscriptions_format_date_disp($row['subscription_end'] ?? null), ENT_QUOTES, 'UTF-8')
+            : '—';
+        $lastP = $payOk
+            ? subscriptions_money(isset($row['amount_paid']) ? (float) $row['amount_paid'] : null)
+            : '—';
+        $planN = trim((string) ($row['plan_name'] ?? ''));
+        $cycle = htmlspecialchars(subscriptions_cycle_label($row), ENT_QUOTES, 'UTF-8');
+?>
+<tr>
+<td><?php echo htmlspecialchars((string) ($row['clinic_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
+<td><?php echo subscriptions_owner_email_cell($row); ?></td>
+<td><?php echo $planN !== '' ? htmlspecialchars($planN, ENT_QUOTES, 'UTF-8') : '—'; ?></td>
+<td><span class="subs-p-cycle"><?php echo $cycle; ?></span></td>
+<td><span class="<?php echo htmlspecialchars($sv['class'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($sv['label'], ENT_QUOTES, 'UTF-8'); ?></span></td>
+<td><?php echo $nextB; ?></td>
+<td><?php echo $lastP; ?></td>
+</tr>
+<?php endforeach; ?>
+<?php endif; ?>
+</tbody>
+</table>
+<?php if ($truncated): ?>
+<p class="subs-p-note">Showing the first <?php echo number_format(count($printRows)); ?> rows of <?php echo number_format($totalFiltered); ?> matching subscriptions. Refine filters for a shorter list.</p>
+<?php endif; ?>
+<?php endif; ?>
+<p class="subs-p-note subs-p-no-print" style="margin-top:28px"><button type="button" onclick="window.print()" style="padding:10px 20px;border-radius:8px;border:1px solid #cbd5e1;background:#f8fafc;font-weight:700;cursor:pointer">Print</button></p>
+</body>
+</html>
+    <?php
+}
+
 $page = max(1, (int) (isset($_GET['page']) ? $_GET['page'] : 1));
 $perPage = 12;
 
@@ -166,6 +543,9 @@ $filterBase = [
     'date_to' => $filterDateTo !== null ? $filterDateTo : '',
 ];
 
+$isPartialTable = isset($_GET['partial']) && (string) $_GET['partial'] === 'table';
+$isPrintView = isset($_GET['print']) && (string) $_GET['print'] === '1';
+
 $dbError = null;
 $plans = [];
 $clinics = [];
@@ -177,6 +557,10 @@ $rangeEnd = 0;
 $metricTotalRevenue = 0.0;
 $metricActivePlans = 0;
 $metricPendingOverdue = 0;
+$metricTrialLike = 0;
+$printSubsRows = [];
+$printRowCap = 2000;
+$printTruncated = false;
 
 $sqlStatusFragment = <<<SQL
 (
@@ -299,6 +683,7 @@ try {
     $metricTotalRevenue = (float) ($metricsRow['total_revenue'] ?? 0);
     $metricActivePlans = (int) ($metricsRow['active_plans'] ?? 0);
     $pendingSubRows = (int) ($metricsRow['pending_rows'] ?? 0);
+    $metricTrialLike = $pendingSubRows;
 
     $invoiceWhere = ['i.status = ?'];
     $invoiceParams = ['overdue'];
@@ -340,31 +725,63 @@ try {
     $overdueInvoiceCount = (int) $invStmt->fetchColumn();
     $metricPendingOverdue = $pendingSubRows + $overdueInvoiceCount;
 
-    $listSql = "
-        SELECT
-            ts.id,
-            ts.subscription_start,
-            ts.subscription_end,
-            ts.payment_status,
-            ts.amount_paid,
-            ts.created_at,
-            t.tenant_id,
-            t.clinic_name,
-            t.subscription_status AS tenant_subscription_status,
-            sp.plan_name,
-            u.full_name AS owner_name,
-            u.email AS owner_email
-        FROM tbl_tenant_subscriptions ts
-        INNER JOIN tbl_tenants t ON t.tenant_id = ts.tenant_id
-        LEFT JOIN tbl_users u ON u.user_id = t.owner_user_id
-        LEFT JOIN tbl_subscription_plans sp ON sp.plan_id = ts.plan_id
-        WHERE {$whereSql}
-        ORDER BY ts.id DESC
-        LIMIT {$perPage} OFFSET {$offset}
-    ";
-    $listStmt = $pdo->prepare($listSql);
-    $listStmt->execute($countParams);
-    $subsRows = $listStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    if ($isPrintView) {
+        $pcap = (int) $printRowCap;
+        $printSql = "
+            SELECT
+                ts.id,
+                ts.subscription_start,
+                ts.subscription_end,
+                ts.payment_status,
+                ts.amount_paid,
+                ts.created_at,
+                t.tenant_id,
+                t.clinic_name,
+                t.subscription_status AS tenant_subscription_status,
+                sp.plan_name,
+                sp.billing_cycle,
+                u.full_name AS owner_name,
+                u.email AS owner_email
+            FROM tbl_tenant_subscriptions ts
+            INNER JOIN tbl_tenants t ON t.tenant_id = ts.tenant_id
+            LEFT JOIN tbl_users u ON u.user_id = t.owner_user_id
+            LEFT JOIN tbl_subscription_plans sp ON sp.plan_id = ts.plan_id
+            WHERE {$whereSql}
+            ORDER BY ts.id DESC
+            LIMIT {$pcap}
+        ";
+        $printStmt = $pdo->prepare($printSql);
+        $printStmt->execute($countParams);
+        $printSubsRows = $printStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $printTruncated = $totalRows > count($printSubsRows);
+    } elseif (!$isPrintView) {
+        $listSql = "
+            SELECT
+                ts.id,
+                ts.subscription_start,
+                ts.subscription_end,
+                ts.payment_status,
+                ts.amount_paid,
+                ts.created_at,
+                t.tenant_id,
+                t.clinic_name,
+                t.subscription_status AS tenant_subscription_status,
+                sp.plan_name,
+                sp.billing_cycle,
+                u.full_name AS owner_name,
+                u.email AS owner_email
+            FROM tbl_tenant_subscriptions ts
+            INNER JOIN tbl_tenants t ON t.tenant_id = ts.tenant_id
+            LEFT JOIN tbl_users u ON u.user_id = t.owner_user_id
+            LEFT JOIN tbl_subscription_plans sp ON sp.plan_id = ts.plan_id
+            WHERE {$whereSql}
+            ORDER BY ts.id DESC
+            LIMIT {$perPage} OFFSET {$offset}
+        ";
+        $listStmt = $pdo->prepare($listSql);
+        $listStmt->execute($countParams);
+        $subsRows = $listStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
 } catch (Throwable $e) {
     $dbError = 'database';
 }
@@ -375,6 +792,37 @@ if (!isset($offset)) {
 
 $rangeStart = $totalRows === 0 ? 0 : $offset + 1;
 $rangeEnd = $totalRows === 0 ? 0 : min($totalRows, $offset + count($subsRows));
+
+if ($isPartialTable) {
+    header('Content-Type: text/html; charset=utf-8');
+    subscriptions_render_table_fragment(
+        $dbError,
+        $subsRows,
+        $totalRows,
+        $rangeStart,
+        $rangeEnd,
+        $page,
+        $totalPages,
+        $filterBase
+    );
+    exit;
+}
+
+if ($isPrintView) {
+    require_once __DIR__ . '/superadmin_settings_lib.php';
+    $saBrand = superadmin_get_settings($pdo);
+    subscriptions_render_print_view(
+        (string) ($saBrand['system_name'] ?? 'MyDental'),
+        $dbError,
+        $printSubsRows,
+        $totalRows,
+        $printTruncated,
+        $metricTotalRevenue,
+        $metricActivePlans,
+        $metricTrialLike
+    );
+    exit;
+}
 ?>
 <!DOCTYPE html>
 
@@ -442,6 +890,14 @@ $rangeEnd = $totalRows === 0 ? 0 : min($totalRows, $offset + count($subsRows));
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
+        #subscriptions-table-swap.subs-swap-busy {
+            opacity: 0.58;
+            pointer-events: none;
+            transition: opacity 140ms ease;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #subscriptions-table-swap.subs-swap-busy { transition: none; }
+        }
         @media (max-width: 1023px) {
             #superadmin-sidebar {
                 transform: translateX(-100%);
@@ -501,25 +957,15 @@ require __DIR__ . '/superadmin_header.php';
 <main class="ml-0 lg:ml-64 pt-20 min-h-screen">
 <div class="pt-6 sm:pt-8 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-8 sm:space-y-10 relative">
 <div class="absolute top-40 right-10 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10"></div>
-<section class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<section class="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
 <div>
 <h2 class="text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface">Subscriptions</h2>
-<p class="text-on-surface-variant mt-2 font-medium">Monitor SaaS subscriptions, renewal dates, and payments across clinics.</p>
-<form method="get" action="subscriptions.php" class="relative w-full max-w-md group mt-4">
-<input type="hidden" name="clinic" value="<?php echo htmlspecialchars($filterBase['clinic'], ENT_QUOTES, 'UTF-8'); ?>"/>
-<input type="hidden" name="plan" value="<?php echo htmlspecialchars($filterBase['plan'], ENT_QUOTES, 'UTF-8'); ?>"/>
-<input type="hidden" name="status" value="<?php echo htmlspecialchars($filterBase['status'], ENT_QUOTES, 'UTF-8'); ?>"/>
-<input type="hidden" name="date_from" value="<?php echo htmlspecialchars($filterBase['date_from'], ENT_QUOTES, 'UTF-8'); ?>"/>
-<input type="hidden" name="date_to" value="<?php echo htmlspecialchars($filterBase['date_to'], ENT_QUOTES, 'UTF-8'); ?>"/>
-<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-xl pointer-events-none">search</span>
-<input name="q" value="<?php echo htmlspecialchars($searchQ, ENT_QUOTES, 'UTF-8'); ?>" class="w-full bg-surface-container-low/50 border-none focus:ring-2 focus:ring-primary/20 rounded-2xl pl-11 pr-4 py-2.5 text-sm transition-all placeholder:text-on-surface-variant/50" placeholder="Search clinic, owner name or email..." type="search" autocomplete="off"/>
-</form>
+<p class="text-on-surface-variant mt-2 font-medium max-w-xl">Monitor SaaS subscriptions, renewal dates, and payments across clinics. Use filters below; the subscriptions table refreshes without reloading the page.</p>
 </div>
-<div class="flex flex-wrap gap-3 w-full md:w-auto md:justify-end">
-<a href="subscriptions.php" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-white bg-white/60 px-5 py-2.5 text-sm font-bold text-on-surface-variant hover:bg-white transition-all shadow-sm">
+<div class="flex flex-wrap gap-3 w-full md:w-auto shrink-0">
+<a href="subscriptions.php" class="subs-reset-link inline-flex items-center justify-center gap-2 rounded-2xl border border-white bg-white/60 px-5 py-2.5 text-sm font-bold text-on-surface-variant hover:bg-white transition-all shadow-sm">
 <span class="material-symbols-outlined text-lg">restart_alt</span>
-                    Reset filters
-                </a>
+               Clear all filters</a>
 </div>
 </section>
 <?php if ($dbError !== null): ?>
@@ -559,13 +1005,17 @@ require __DIR__ . '/superadmin_header.php';
 <p class="text-[11px] text-on-surface-variant mt-2 font-medium">Subscription rows awaiting payment plus overdue invoices (clinic/date filters apply).</p>
 </div>
 </section>
-<div id="subscriptions-directory-panel" class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
-<div class="px-5 sm:px-6 lg:px-8 py-6 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 border-b border-white/50">
-<form method="get" action="subscriptions.php" class="flex flex-wrap items-center gap-3 sm:gap-4">
-<input type="search" name="q" value="<?php echo htmlspecialchars($searchQ, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Search..." class="shrink min-w-[8rem] w-44 sm:w-52 bg-surface-container-low/50 border-none rounded-xl px-4 py-2.5 text-sm font-semibold text-on-surface placeholder:text-on-surface-variant/60 focus:ring-2 focus:ring-primary/20"/>
-<button type="submit" class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-surface-container-low/60 text-on-surface-variant hover:bg-white/80 transition-colors" aria-label="Apply search">
-<span class="material-symbols-outlined text-[20px]">search</span>
-</button>
+<div id="subscriptions-filter-panel" class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
+<div class="px-6 sm:px-8 py-6 border-b border-white/55">
+<h3 class="text-lg font-extrabold font-headline text-on-surface">Filters</h3>
+<p class="text-sm text-on-surface-variant font-medium mt-1">Refine subscriptions by clinic, plan, lifecycle status, dates, or search.</p>
+</div>
+<form id="subs-filter-form" method="get" action="subscriptions.php" class="px-6 sm:px-8 py-7 flex flex-col gap-5">
+<div class="relative w-full md:max-w-lg group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-xl pointer-events-none">search</span>
+<input name="q" value="<?php echo htmlspecialchars($searchQ, ENT_QUOTES, 'UTF-8'); ?>" class="w-full bg-surface-container-low/50 border-none focus:ring-2 focus:ring-primary/20 rounded-2xl pl-11 pr-4 py-3 text-sm transition-all placeholder:text-on-surface-variant/50 font-semibold" placeholder="Search clinic, owner name or email..." type="search" autocomplete="off"/>
+</div>
+<div class="flex flex-wrap items-center gap-3 sm:gap-4">
 <div class="relative group shrink-0">
 <select name="clinic" class="appearance-none bg-surface-container-low/50 border-none rounded-xl px-6 pr-12 py-2.5 text-sm font-bold text-on-surface cursor-pointer hover:bg-white/80 focus:ring-2 focus:ring-primary/20 transition-all min-w-[10rem] max-w-[14rem]" title="Clinic">
 <option value="">All Clinics</option>
@@ -598,168 +1048,165 @@ require __DIR__ . '/superadmin_header.php';
 <input id="subs-date-from" type="date" name="date_from" value="<?php echo htmlspecialchars($filterBase['date_from'], ENT_QUOTES, 'UTF-8'); ?>" class="shrink-0 bg-surface-container-low/50 border-none rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold text-on-surface focus:ring-2 focus:ring-primary/20"/>
 <label class="sr-only" for="subs-date-to">To date</label>
 <input id="subs-date-to" type="date" name="date_to" value="<?php echo htmlspecialchars($filterBase['date_to'], ENT_QUOTES, 'UTF-8'); ?>" class="shrink-0 bg-surface-container-low/50 border-none rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold text-on-surface focus:ring-2 focus:ring-primary/20"/>
-<a href="subscriptions.php" class="inline-flex items-center gap-2 rounded-xl border border-outline-variant/30 bg-white/70 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-on-surface-variant hover:bg-white">
+<a href="subscriptions.php" class="subs-reset-link inline-flex items-center gap-2 rounded-xl border border-outline-variant/30 bg-white/70 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-on-surface-variant hover:bg-white transition-colors">
 <span class="material-symbols-outlined text-base">restart_alt</span> Reset</a>
-<button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-primary text-white px-5 py-2.5 text-xs font-bold uppercase tracking-wide primary-glow hover:brightness-105">Apply</button>
+<button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-primary text-white px-5 py-2.5 text-xs font-bold uppercase tracking-wide primary-glow hover:brightness-105">Apply filters</button>
+</div>
 </form>
-<div class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60 xl:text-right">
-                    Showing <span class="text-primary opacity-100"><?php echo $totalRows === 0 ? '0' : number_format($rangeStart) . '–' . number_format($rangeEnd); ?></span> of <?php echo number_format($totalRows); ?> subscriptions
-                </div>
 </div>
-<div class="md:hidden px-4 sm:px-6 py-5 space-y-4">
-<?php if ($dbError !== null): ?>
-<div class="rounded-2xl border border-error/20 bg-error/10 px-4 py-5 text-sm text-error font-medium">Unable to load subscriptions.</div>
-<?php elseif ($subsRows === []): ?>
-<div class="rounded-2xl border border-outline-variant/20 bg-white/70 px-4 py-5 text-sm text-on-surface-variant font-medium">No subscriptions match your filters.</div>
-<?php else: ?>
-<?php foreach ($subsRows as $row):
-    $dispStatus = subscriptions_derive_display_status($row);
-    $badge = subscriptions_status_badge($dispStatus);
-    $planName = trim((string) ($row['plan_name'] ?? ''));
-    $ownerName = trim((string) ($row['owner_name'] ?? ''));
-    $ownerEmail = trim((string) ($row['owner_email'] ?? ''));
-    $payOk = strtolower((string) ($row['payment_status'] ?? '')) === 'paid';
-    $nextBillingStr = $dispStatus === 'active'
-        ? subscriptions_format_date_disp($row['subscription_end'] ?? null)
-        : '—';
-    $lastAmt = subscriptions_money(isset($row['amount_paid']) ? (float) $row['amount_paid'] : null);
+<div id="subscriptions-table-shell" class="bg-white/70 backdrop-blur-xl rounded-[2.5rem] editorial-shadow overflow-hidden">
+<div class="px-6 sm:px-8 py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/55">
+<div>
+<h3 class="text-lg font-extrabold font-headline text-on-surface">All subscriptions</h3>
+<p class="text-sm text-on-surface-variant font-medium mt-0.5">Table and pagination refresh in place.</p>
+</div>
+<button type="button" class="subs-open-print inline-flex items-center justify-center gap-2 rounded-2xl border border-outline-variant/30 bg-white/90 px-5 py-2.5 text-sm font-bold text-on-surface shadow-sm hover:bg-white transition-colors">
+<span class="material-symbols-outlined text-lg text-primary">print</span>
+            Print list
+        </button>
+</div>
+<div id="subscriptions-table-swap" class="subs-table-swap-root transition-opacity duration-150 ease-out min-h-[12rem]" data-subs-swap-root="1">
+<?php
+    subscriptions_render_table_fragment(
+        $dbError,
+        $subsRows,
+        $totalRows,
+        $rangeStart,
+        $rangeEnd,
+        $page,
+        $totalPages,
+        $filterBase
+    );
 ?>
-<article class="rounded-2xl bg-white/80 border border-white/70 shadow-sm p-4 space-y-3">
-<div class="flex items-start justify-between gap-2">
-<div>
-<p class="text-xs font-bold text-on-surface-variant uppercase tracking-wide">Clinic</p>
-<p class="text-sm font-bold text-on-surface"><?php echo htmlspecialchars((string) ($row['clinic_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
-</div>
-<?php echo $badge; ?>
-</div>
-<div class="flex gap-3">
-<div class="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-primary text-[10px] font-bold shrink-0"><?php echo htmlspecialchars(subscriptions_initials($ownerName !== '' ? $ownerName : (string) ($row['clinic_name'] ?? '?')), ENT_QUOTES, 'UTF-8'); ?></div>
-<div class="min-w-0">
-<p class="text-sm font-semibold text-on-surface truncate"><?php echo htmlspecialchars($ownerName !== '' ? $ownerName : '—', ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="text-[11px] text-on-surface-variant truncate"><?php echo $ownerEmail !== '' ? htmlspecialchars($ownerEmail, ENT_QUOTES, 'UTF-8') : '—'; ?></p>
-</div>
-</div>
-<div class="grid grid-cols-2 gap-3 text-xs">
-<div>
-<p class="text-[10px] font-bold uppercase text-on-surface-variant/70 tracking-wide">Plan</p>
-<p class="font-semibold text-primary mt-0.5"><?php echo $planName !== '' ? htmlspecialchars($planName, ENT_QUOTES, 'UTF-8') : '—'; ?></p>
-</div>
-<div>
-<p class="text-[10px] font-bold uppercase text-on-surface-variant/70 tracking-wide">Next billing</p>
-<p class="font-medium text-on-surface mt-0.5"><?php echo htmlspecialchars($nextBillingStr, ENT_QUOTES, 'UTF-8'); ?></p>
-</div>
-<div class="col-span-2">
-<p class="text-[10px] font-bold uppercase text-on-surface-variant/70 tracking-wide">Last payment</p>
-<p class="font-bold text-on-surface mt-0.5"><?php echo $payOk ? $lastAmt : '—'; ?></p>
-</div>
-</div>
-</article>
-<?php endforeach; ?>
-<?php endif; ?>
-</div>
-<div class="hidden md:block overflow-x-auto">
-<table class="w-full text-left">
-<thead>
-<tr class="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/60">
-<th class="px-10 py-5">Clinic Name</th>
-<th class="px-8 py-5">Owner</th>
-<th class="px-8 py-5">Plan</th>
-<th class="px-8 py-5">Status</th>
-<th class="px-8 py-5">Next Billing</th>
-<th class="px-10 py-5 text-right">Last Payment</th>
-</tr>
-</thead>
-<tbody class="divide-y divide-white/40">
-<?php if ($dbError !== null): ?>
-<tr>
-<td colspan="6" class="px-10 py-12 text-center text-sm text-error font-medium">Unable to load subscriptions.</td>
-</tr>
-<?php elseif ($subsRows === []): ?>
-<tr>
-<td colspan="6" class="px-10 py-12 text-center text-sm text-on-surface-variant font-medium">No subscriptions match your filters.</td>
-</tr>
-<?php else: ?>
-<?php foreach ($subsRows as $row):
-    $dispStatus = subscriptions_derive_display_status($row);
-    $badge = subscriptions_status_badge($dispStatus);
-    $planName = trim((string) ($row['plan_name'] ?? ''));
-    $ownerName = trim((string) ($row['owner_name'] ?? ''));
-    $ownerEmail = trim((string) ($row['owner_email'] ?? ''));
-    $displayOwner = $ownerName !== '' ? $ownerName : '—';
-    $payOk = strtolower((string) ($row['payment_status'] ?? '')) === 'paid';
-    $nextBillingStr = $dispStatus === 'active'
-        ? subscriptions_format_date_disp($row['subscription_end'] ?? null)
-        : '—';
-    $lastAmt = subscriptions_money(isset($row['amount_paid']) ? (float) $row['amount_paid'] : null);
-?>
-<tr class="hover:bg-primary/5 transition-colors">
-<td class="px-10 py-5">
-<p class="text-sm font-bold text-on-surface"><?php echo htmlspecialchars((string) ($row['clinic_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="text-[10px] text-on-surface-variant font-medium mt-0.5"><?php echo htmlspecialchars((string) ($row['tenant_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
-</td>
-<td class="px-8 py-5">
-<div class="flex items-center gap-3">
-<div class="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-primary text-[10px] font-bold border-2 border-white shadow-sm shrink-0"><?php echo htmlspecialchars(subscriptions_initials($displayOwner !== '—' ? $displayOwner : (string) ($row['clinic_name'] ?? '?')), ENT_QUOTES, 'UTF-8'); ?></div>
-<div>
-<p class="text-sm font-bold text-on-surface"><?php echo htmlspecialchars($displayOwner, ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="text-[10px] text-on-surface-variant font-medium"><?php echo $ownerEmail !== '' ? htmlspecialchars($ownerEmail, ENT_QUOTES, 'UTF-8') : '—'; ?></p>
-</div>
-</div>
-</td>
-<td class="px-8 py-5">
-<?php if ($planName !== ''): ?>
-<span class="text-sm font-bold text-primary"><?php echo htmlspecialchars($planName, ENT_QUOTES, 'UTF-8'); ?></span>
-<?php else: ?>
-<span class="text-sm font-medium text-on-surface-variant/60">—</span>
-<?php endif; ?>
-</td>
-<td class="px-8 py-5"><?php echo $badge; ?></td>
-<td class="px-8 py-5 text-sm font-medium text-on-surface-variant"><?php echo htmlspecialchars($nextBillingStr, ENT_QUOTES, 'UTF-8'); ?></td>
-<td class="px-10 py-5 text-right text-sm font-bold text-on-surface"><?php echo $payOk ? $lastAmt : '—'; ?></td>
-</tr>
-<?php endforeach; ?>
-<?php endif; ?>
-</tbody>
-</table>
-</div>
-<div class="px-4 sm:px-6 lg:px-10 py-8 flex flex-wrap items-center justify-between gap-4 border-t border-white/50">
-<?php if ($page > 1): ?>
-<a href="<?php echo htmlspecialchars(subscriptions_url($filterBase, ['page' => $page - 1]), ENT_QUOTES, 'UTF-8'); ?>" class="px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
-<span class="material-symbols-outlined text-lg">chevron_left</span> Previous
-                </a>
-<?php else: ?>
-<span class="px-5 py-2.5 bg-white/40 text-on-surface-variant text-sm font-bold rounded-xl border border-white/60 shadow-sm flex items-center gap-2 opacity-40 cursor-not-allowed">
-<span class="material-symbols-outlined text-lg">chevron_left</span> Previous
-                </span>
-<?php endif; ?>
-<p class="text-sm font-bold text-on-surface order-first sm:order-none w-full sm:w-auto text-center sm:text-left">Page <?php echo (int) $page; ?> of <?php echo (int) $totalPages; ?></p>
-<?php if ($page < $totalPages): ?>
-<a href="<?php echo htmlspecialchars(subscriptions_url($filterBase, ['page' => $page + 1]), ENT_QUOTES, 'UTF-8'); ?>" class="px-5 py-2.5 bg-white/60 text-on-surface-variant text-sm font-bold rounded-xl border border-white hover:bg-white transition-all shadow-sm flex items-center gap-2">
-                    Next <span class="material-symbols-outlined text-lg">chevron_right</span>
-                </a>
-<?php else: ?>
-<span class="px-5 py-2.5 bg-white/40 text-on-surface-variant text-sm font-bold rounded-xl border border-white/60 shadow-sm flex items-center gap-2 opacity-40 cursor-not-allowed">
-                    Next <span class="material-symbols-outlined text-lg">chevron_right</span>
-                </span>
-<?php endif; ?>
 </div>
 </div>
 </div>
 </main>
 <script>
 (function () {
-    var panel = document.getElementById('subscriptions-directory-panel');
-    if (!panel) return;
-    panel.querySelectorAll('select[name="clinic"], select[name="plan"], select[name="status"]').forEach(function (sel) {
-        sel.addEventListener('change', function () {
-            var f = sel.form;
-            if (!f) return;
-            if (typeof f.requestSubmit === 'function') {
-                f.requestSubmit();
-            } else {
-                f.submit();
-            }
+    var swap = document.getElementById('subscriptions-table-swap');
+    var form = document.getElementById('subs-filter-form');
+    if (!swap || !form) return;
+
+    function syncFormFromLocation() {
+        var sp = new URL(window.location.href).searchParams;
+        var qi = form.querySelector('[name="q"]');
+        if (qi) qi.value = sp.get('q') || '';
+        var map = [['clinic', ''], ['plan', ''], ['status', ''], ['date_from', ''], ['date_to', '']];
+        map.forEach(function (pair) {
+            var name = pair[0];
+            var el = form.querySelector('[name="' + name + '"]');
+            if (!el) return;
+            var v = sp.get(name);
+            el.value = v != null ? v : '';
         });
+    }
+
+    function qsFromForm(resetPage, extra) {
+        var fd = new FormData(form);
+        if (resetPage !== false) {
+            fd.delete('page');
+        }
+        fd.delete('partial');
+        fd.delete('print');
+        fd.set('partial', 'table');
+        if (extra && typeof extra === 'object') {
+            Object.keys(extra).forEach(function (k) {
+                fd.delete(k);
+                if (extra[k] !== '' && extra[k] != null) {
+                    fd.set(k, String(extra[k]));
+                }
+            });
+        }
+        return new URLSearchParams(fd).toString();
+    }
+
+    function loadSwap(serialized, pushHistory, skipSyncBefore) {
+        if (!skipSyncBefore) syncFormFromLocation();
+        swap.classList.add('subs-swap-busy');
+        var url = window.location.pathname + '?' + serialized;
+        fetch(url, {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            cache: 'no-store'
+        })
+            .then(function (res) {
+                return res.text();
+            })
+            .then(function (html) {
+                swap.innerHTML = html;
+                if (pushHistory !== false && window.history.pushState) {
+                    var up = new URLSearchParams(serialized);
+                    up.delete('partial');
+                    up.delete('print');
+                    window.history.pushState({}, '', window.location.pathname + (up.toString() ? '?' + up.toString() : ''));
+                }
+                syncFormFromLocation();
+            })
+            .finally(function () {
+                swap.classList.remove('subs-swap-busy');
+            });
+    }
+
+    form.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        syncFormFromLocation();
+        loadSwap(qsFromForm(true), true, true);
+    });
+
+    form.addEventListener('change', function (ev) {
+        var t = ev.target;
+        if (!t || t.tagName !== 'SELECT') return;
+        syncFormFromLocation();
+        loadSwap(qsFromForm(true), true, true);
+    });
+
+    document.body.addEventListener('click', function (ev) {
+        var reset = ev.target.closest('a.subs-reset-link');
+        if (reset) {
+            ev.preventDefault();
+            if (window.history.pushState) {
+                window.history.pushState({}, '', window.location.pathname);
+            }
+            var qi = form.querySelector('[name="q"]');
+            if (qi) qi.value = '';
+            ['clinic', 'plan', 'status'].forEach(function (n) {
+                var el = form.querySelector('[name="' + n + '"]');
+                if (el) el.selectedIndex = 0;
+            });
+            [['date_from', ''], ['date_to', '']].forEach(function (pair) {
+                var el = form.querySelector('[name="' + pair[0] + '"]');
+                if (el) el.value = pair[1];
+            });
+            loadSwap('partial=table', true, true);
+            return;
+        }
+        var a = ev.target.closest('a.subs-pjax-link');
+        if (!a || !swap.contains(a)) return;
+        ev.preventDefault();
+        var u = new URL(a.href);
+        var sp = new URLSearchParams(u.search);
+        sp.set('partial', 'table');
+        loadSwap(sp.toString(), true);
+    });
+
+    document.body.querySelectorAll('button.subs-open-print').forEach(function (btn) {
+        btn.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            var fd = new FormData(form);
+            fd.delete('partial');
+            fd.delete('page');
+            fd.delete('print');
+            fd.append('print', '1');
+            window.open(window.location.pathname + '?' + new URLSearchParams(fd).toString(), '_blank', 'noopener');
+        });
+    });
+
+    window.addEventListener('popstate', function () {
+        syncFormFromLocation();
+        var sp = new URL(window.location.href).searchParams;
+        sp.set('partial', 'table');
+        loadSwap(sp.toString(), false, true);
     });
 })();
 </script>
