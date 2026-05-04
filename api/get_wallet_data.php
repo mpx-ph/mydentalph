@@ -169,7 +169,7 @@ try {
             WHERE tenant_id = ?
               AND wallet_id IN ($ph)
             ORDER BY created_at DESC, id DESC
-            LIMIT 100
+            LIMIT 2000
         ");
         $stmt->execute(array_merge([$tenant_id], $wallet_id_list));
         $wallet_transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
