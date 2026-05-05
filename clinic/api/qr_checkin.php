@@ -39,7 +39,7 @@ if (!is_array($input)) {
 $scanRaw = (string) ($input['scan'] ?? $input['scan_payload'] ?? $input['raw'] ?? '');
 
 /**
- * Extract booking_id from JSON, URL, or BK-YYYY-NNNNNN pattern.
+ * Extract booking_id from JSON/URLs/free text. Appointment validity is enforced only via tbl_appointments lookup below.
  */
 $parseBookingId = static function (string $raw): string {
     $s = trim($raw);
@@ -62,12 +62,24 @@ $parseBookingId = static function (string $raw): string {
         return trim($m[1]);
     }
 
-    if (preg_match('#/(BK-\d{4}-\d{6})#i', $s, $m)) {
+    if (preg_match('#/(BK-[A-Za-z0-9\-]+)#i', $s, $m)) {
         return $m[1];
     }
 
     if (preg_match('/BK-\d{4}-\d{6}/i', $s, $m)) {
-        return $m[0];
+        return strtoupper(trim($m[0]));
+    }
+
+    // Patient app QR is the raw booking_id (e.g. BK- + 10 hex chars from add_booking / init_mobile_payment).
+    if (preg_match('/BK-[A-F0-9]{10}/i', $s, $m)) {
+        return strtoupper(trim($m[0]));
+    }
+
+    if (preg_match('/^BK-[A-Za-z0-9\-]+$/u', $s)) {
+        $normalized = preg_replace('/\s+/u', '', $s);
+        if (preg_match('/^BK-[A-Za-z0-9\-]{4,}$/', $normalized) && strlen($normalized) <= 64) {
+            return trim($normalized);
+        }
     }
 
     return '';
