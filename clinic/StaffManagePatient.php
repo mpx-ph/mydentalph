@@ -114,6 +114,9 @@ body { font-family: "Manrope", sans-serif; }
 #treatmentProgressModal:not(.hidden) {
     animation: staff-modal-fade-in 0.25s ease forwards;
 }
+#patientFilePreviewModal:not(.hidden) {
+    animation: staff-modal-fade-in 0.25s ease forwards;
+}
 </style>
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
@@ -422,6 +425,34 @@ body { font-family: "Manrope", sans-serif; }
             <button type="button" id="closeTreatmentProgressModalFooter" class="inline-flex items-center justify-center rounded-xl bg-slate-200/90 hover:bg-slate-200 px-8 py-2.5 text-sm font-semibold text-slate-700 transition-colors">
                 Close
             </button>
+        </div>
+    </div>
+</div>
+
+<div id="patientFilePreviewModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-900/60 backdrop-blur-[2px] p-4" aria-hidden="true">
+    <div class="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_-12px_rgba(15,23,42,0.28)] border border-slate-100" role="dialog" aria-modal="true" aria-labelledby="patientFilePreviewTitle">
+        <div class="flex shrink-0 items-center justify-between gap-4 border-b border-slate-100 px-5 py-4">
+            <h3 id="patientFilePreviewTitle" class="truncate text-base font-extrabold text-slate-900 tracking-tight min-w-0 pr-4"></h3>
+            <button type="button" id="closePatientFilePreviewModalX" class="shrink-0 p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label="Close preview">
+                <span class="material-symbols-outlined text-[24px]">close</span>
+            </button>
+        </div>
+        <div class="flex-1 min-h-0 overflow-auto bg-slate-50/90 flex items-center justify-center p-4">
+            <img id="patientFilePreviewImage" alt="" class="hidden max-h-[min(80vh,880px)] max-w-full object-contain rounded-lg shadow-sm border border-slate-200/80 bg-white"/>
+            <iframe id="patientFilePreviewPdf" title="Document preview" class="hidden w-full min-h-[70vh] rounded-lg border border-slate-200 bg-white shadow-sm"></iframe>
+            <div id="patientFilePreviewNoPreview" class="hidden max-w-md text-center py-10 px-6">
+                <span class="material-symbols-outlined text-5xl text-slate-300">description</span>
+                <p class="mt-3 text-sm text-slate-600 font-medium leading-relaxed">Preview is not available for this file type. Use <strong>Download</strong> below.</p>
+            </div>
+        </div>
+        <div class="shrink-0 flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 px-5 py-4 bg-white">
+            <button type="button" id="closePatientFilePreviewModalFooter" class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors">
+                Close
+            </button>
+            <a id="patientFilePreviewDownloadBtn" href="#" download="" class="inline-flex items-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-primary/20 transition-colors">
+                <span class="material-symbols-outlined text-[18px]">download</span>
+                Download
+            </a>
         </div>
     </div>
 </div>
@@ -927,17 +958,27 @@ function renderFilesTab(files) {
         <div id="patientFilesListContainer">
             ${files.length ? `
                 <div class="space-y-3">
-                    ${files.map((file) => `
+                    ${files.map((file) => {
+                        const u = escapeHtml(file.file_url || '');
+                        const fn = escapeHtml(file.file_name || 'download');
+                        const mt = escapeHtml(file.file_type || '');
+                        return `
                         <div class="rounded-lg border border-slate-100 bg-slate-50/80 p-4 flex flex-wrap items-start justify-between gap-3">
                             <div class="min-w-0">
                                 <p class="text-sm font-bold text-slate-900">${escapeHtml(file.file_name || 'Unnamed file')}</p>
                                 <p class="text-xs text-slate-600 mt-1">Type: ${escapeHtml(file.file_type || 'Unknown')} • Uploaded: ${escapeHtml(file.formatted_date || formatDate(file.created_at))}</p>
                             </div>
-                            <a href="${escapeHtml(file.file_url || '#')}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-bold hover:bg-white transition-all shrink-0">
-                                <span class="material-symbols-outlined text-[16px] text-primary">download</span> View / Download
-                            </a>
+                            <div class="flex flex-wrap items-center gap-2 shrink-0">
+                                <button type="button" class="patient-file-view-btn inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 transition-all" data-url="${u}" data-filename="${fn}" data-mime="${mt}">
+                                    <span class="material-symbols-outlined text-[16px] text-primary">visibility</span> View
+                                </button>
+                                <a href="${u}" download="${fn}" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-primary/25 bg-primary/5 text-primary text-xs font-bold hover:bg-primary/10 transition-all">
+                                    <span class="material-symbols-outlined text-[16px] text-primary">download</span> Download
+                                </a>
+                            </div>
                         </div>
-                    `).join('')}
+                    `;
+                    }).join('')}
                 </div>
             ` : `<p class="text-slate-500 text-sm font-medium">No uploaded files yet for this patient.</p>`}
         </div>
@@ -949,6 +990,84 @@ function renderFilesTab(files) {
             await uploadPatientFileForActiveProfile();
         });
     }
+    section.querySelectorAll('.patient-file-view-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            openPatientFilePreviewModal(
+                btn.getAttribute('data-url') || '',
+                btn.getAttribute('data-filename') || 'download',
+                btn.getAttribute('data-mime') || ''
+            );
+        });
+    });
+}
+
+function closePatientFilePreviewModal() {
+    const modal = document.getElementById('patientFilePreviewModal');
+    const img = document.getElementById('patientFilePreviewImage');
+    const frame = document.getElementById('patientFilePreviewPdf');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    modal.setAttribute('aria-hidden', 'true');
+    if (img) {
+        img.classList.add('hidden');
+        img.removeAttribute('src');
+    }
+    if (frame) {
+        frame.classList.add('hidden');
+        frame.removeAttribute('src');
+    }
+    const noPrev = document.getElementById('patientFilePreviewNoPreview');
+    if (noPrev) noPrev.classList.add('hidden');
+    syncModalBodyScrollLock();
+}
+
+function openPatientFilePreviewModal(url, fileName, mimeType) {
+    const modal = document.getElementById('patientFilePreviewModal');
+    const titleEl = document.getElementById('patientFilePreviewTitle');
+    const img = document.getElementById('patientFilePreviewImage');
+    const frame = document.getElementById('patientFilePreviewPdf');
+    const noPrev = document.getElementById('patientFilePreviewNoPreview');
+    const dl = document.getElementById('patientFilePreviewDownloadBtn');
+    if (!modal || !titleEl || !img || !frame || !noPrev || !dl) return;
+
+    const u = String(url || '').trim();
+    if (!u) {
+        staffUiAlert({ title: 'File', message: 'File link is missing.', variant: 'warning' });
+        return;
+    }
+
+    const mime = String(mimeType || '').trim().toLowerCase();
+    titleEl.textContent = fileName || 'File';
+    dl.href = u;
+    dl.setAttribute('download', fileName || '');
+
+    img.classList.add('hidden');
+    frame.classList.add('hidden');
+    noPrev.classList.add('hidden');
+    img.removeAttribute('src');
+    frame.removeAttribute('src');
+
+    const ext = (fileName.includes('.') ? fileName.split('.').pop() : '').toLowerCase();
+    const imageExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'avif'].includes(ext);
+    const pdfExt = ext === 'pdf';
+    const isImage = mime.startsWith('image/') || (mime === '' && imageExt);
+    const isPdf = mime === 'application/pdf' || (mime === '' && pdfExt);
+
+    if (isImage) {
+        img.src = u;
+        img.classList.remove('hidden');
+    } else if (isPdf) {
+        frame.src = u;
+        frame.classList.remove('hidden');
+    } else {
+        noPrev.classList.remove('hidden');
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    modal.setAttribute('aria-hidden', 'false');
+    syncModalBodyScrollLock();
 }
 
 async function loadAppointmentsForPatient(patient) {
@@ -1560,7 +1679,9 @@ function syncModalBodyScrollLock() {
     const viewOpen = viewPatientModal && !viewPatientModal.classList.contains('hidden');
     const tpModal = document.getElementById('treatmentProgressModal');
     const tpOpen = tpModal && !tpModal.classList.contains('hidden');
-    document.body.style.overflow = (addOpen || viewOpen || tpOpen) ? 'hidden' : '';
+    const filePreviewModal = document.getElementById('patientFilePreviewModal');
+    const filePreviewOpen = filePreviewModal && !filePreviewModal.classList.contains('hidden');
+    document.body.style.overflow = (addOpen || viewOpen || tpOpen || filePreviewOpen) ? 'hidden' : '';
 }
 
 async function savePatient(event) {
@@ -1765,6 +1886,21 @@ document.getElementById('treatmentProgressModalBody').addEventListener('click', 
             params.set('clinic_slug', slug);
         }
         window.location.href = CLINIC_STAFF_BASE + 'StaffSetAppointments.php?' + params.toString();
+    }
+});
+
+document.getElementById('closePatientFilePreviewModalX').addEventListener('click', closePatientFilePreviewModal);
+document.getElementById('closePatientFilePreviewModalFooter').addEventListener('click', closePatientFilePreviewModal);
+document.getElementById('patientFilePreviewModal').addEventListener('click', function (e) {
+    if (e.target === this) {
+        closePatientFilePreviewModal();
+    }
+});
+document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    const m = document.getElementById('patientFilePreviewModal');
+    if (m && !m.classList.contains('hidden')) {
+        closePatientFilePreviewModal();
     }
 });
 
