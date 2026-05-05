@@ -32,18 +32,27 @@ try {
         exit;
     }
 
-    $stmt = $pdo->prepare(
-        'SELECT patient_id FROM tbl_patients WHERE (owner_user_id = ? OR linked_user_id = ?) AND tenant_id = ? LIMIT 1'
+    $pStmt = $pdo->prepare(
+        'SELECT patient_id FROM tbl_patients
+         WHERE tenant_id = ? AND (owner_user_id = ? OR linked_user_id = ?)'
     );
-    $stmt->execute([$userId, $userId, $tenantId]);
-    $patRow = $stmt->fetch(PDO::FETCH_ASSOC);
+    $pStmt->execute([$tenantId, $userId, $userId]);
+    $patientRows = $pStmt->fetchAll(PDO::FETCH_ASSOC);
+    $patientIds = [];
+    foreach ($patientRows as $pr) {
+        $pid = trim((string) ($pr['patient_id'] ?? ''));
+        if ($pid !== '') {
+            $patientIds[$pid] = true;
+        }
+    }
+    $patientIds = array_keys($patientIds);
 
-    if (!$patRow) {
+    if ($patientIds === []) {
         echo json_encode(['success' => true, 'patient_id' => null, 'treatments' => []]);
         exit;
     }
 
-    $patientId = (string) $patRow['patient_id'];
+    $placeholders = implode(',', array_fill(0, count($patientIds), '?'));
 
     $sql = '
         SELECT
@@ -66,9 +75,9 @@ try {
             created_at,
             updated_at
         FROM tbl_treatments
-        WHERE tenant_id = ? AND patient_id = ?
+        WHERE tenant_id = ? AND patient_id IN (' . $placeholders . ')
     ';
-    $bind = [$tenantId, $patientId];
+    $bind = array_merge([$tenantId], $patientIds);
 
     if ($statusFilter !== '') {
         $sql .= ' AND status = ? ';
@@ -84,6 +93,8 @@ try {
     $stmt = $pdo->prepare($sql);
     $stmt->execute($bind);
     $treatments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $patientIdOut = count($patientIds) === 1 ? $patientIds[0] : null;
 
     // Normalize INT unix `started_at` / etc. for mobile (JSON numbers were shown as raw digits; tiny values = 1970 bugs).
     $tzPh = new DateTimeZone('Asia/Manila');
@@ -124,7 +135,7 @@ try {
 
     echo json_encode([
         'success' => true,
-        'patient_id' => $patientId,
+        'patient_id' => $patientIdOut,
         'treatments' => $treatments,
     ]);
 } catch (Throwable $e) {

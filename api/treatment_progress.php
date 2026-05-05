@@ -20,6 +20,7 @@ if ((string) ($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
 $userId = trim((string) ($_GET['user_id'] ?? ''));
 $treatmentId = trim((string) ($_GET['treatment_id'] ?? ''));
 $tenantHint = isset($_GET['tenant_id']) ? trim((string) $_GET['tenant_id']) : '';
+$patientIdHint = isset($_GET['patient_id']) ? trim((string) $_GET['patient_id']) : '';
 
 if ($userId === '' || $treatmentId === '') {
     http_response_code(400);
@@ -42,28 +43,42 @@ try {
         exit;
     }
 
-    $stmt = $pdo->prepare(
-        'SELECT patient_id FROM tbl_patients WHERE (owner_user_id = ? OR linked_user_id = ?) AND tenant_id = ? LIMIT 1'
+    // Resolve patient from the treatment row (authoritative). The previous LIMIT 1 on tbl_patients
+    // broke accounts with multiple profiles (e.g. guardian + dependents): wrong patient → 404.
+    $tStmt = $pdo->prepare(
+        'SELECT patient_id FROM tbl_treatments WHERE tenant_id = ? AND treatment_id = ? LIMIT 1'
     );
-    $stmt->execute([$userId, $userId, $tenantId]);
-    $patRow = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$patRow) {
-        echo json_encode(['success' => false, 'message' => 'Patient profile not found for this account.']);
-        exit;
-    }
-    $patientId = trim((string) ($patRow['patient_id'] ?? ''));
-    if ($patientId === '') {
-        echo json_encode(['success' => false, 'message' => 'Patient profile not linked.']);
+    $tStmt->execute([$tenantId, $treatmentId]);
+    $treatRow = $tStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$treatRow) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => 'Treatment not found.']);
         exit;
     }
 
-    $chk = $pdo->prepare(
-        'SELECT 1 FROM tbl_treatments WHERE tenant_id = ? AND patient_id = ? AND treatment_id = ? LIMIT 1'
-    );
-    $chk->execute([$tenantId, $patientId, $treatmentId]);
-    if (!$chk->fetchColumn()) {
+    $patientId = trim((string) ($treatRow['patient_id'] ?? ''));
+    if ($patientId === '') {
         http_response_code(404);
-        echo json_encode(['success' => false, 'message' => 'Treatment not found for this patient.']);
+        echo json_encode(['success' => false, 'message' => 'Treatment has no linked patient.']);
+        exit;
+    }
+
+    if ($patientIdHint !== '' && $patientIdHint !== $patientId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'patient_id does not match this treatment.']);
+        exit;
+    }
+
+    $accessStmt = $pdo->prepare(
+        'SELECT 1 FROM tbl_patients
+         WHERE tenant_id = ? AND patient_id = ?
+           AND (owner_user_id = ? OR linked_user_id = ?)
+         LIMIT 1'
+    );
+    $accessStmt->execute([$tenantId, $patientId, $userId, $userId]);
+    if (!$accessStmt->fetchColumn()) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Not allowed to view this treatment.']);
         exit;
     }
 
