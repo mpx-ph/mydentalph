@@ -2195,7 +2195,7 @@ $treatmentScheduleBootstrap = [
 
             try {
                 while (page <= totalPages) {
-                    const response = await fetch(patientsApiUrl + '?page=' + page + '&limit=100', {
+                    const response = await fetch(buildApiUrl(patientsApiUrl + '?page=' + page + '&limit=100'), {
                         credentials: 'include'
                     });
                     const data = await response.json();
