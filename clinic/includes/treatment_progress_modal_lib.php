@@ -470,10 +470,13 @@ function treatment_progress_reconcile_payment_states(array &$steps, array $treat
 
     $fullySettled = $totalCost > 0 && ($remainingBalance <= $eps || $amountPaid >= $totalCost - $eps);
     if ($fullySettled) {
+        // Balance zero does not mean every visit happened — only tbl_installments.status === completed
+        // should mark visit_completed (same rule as the partial-payment branch below).
         foreach ($steps as &$st) {
             $st['payment_status'] = 'Paid';
             $st['payment_bucket'] = 'paid';
-            $st['visit_completed'] = true;
+            $idb = strtolower(trim((string) ($st['installment_status_db'] ?? '')));
+            $st['visit_completed'] = ($idb === 'completed');
             treatment_progress_paint_visit_for_step($st);
         }
         unset($st);
