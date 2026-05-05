@@ -63,7 +63,7 @@ require_once __DIR__ . '/includes/header.php';
             </p>
 <!-- Store Button -->
 <div class="flex justify-center mb-20" data-purpose="store-buttons">
-<a class="inline-flex items-center justify-center bg-slate-900 text-white px-6 py-3 rounded-full hover:scale-105 transition-transform shadow-lg font-medium" href="https://drive.google.com/file/d/13PU1mMRTcTpmAGziMJurAr4xgJtB94OC/view?usp=sharing">Download</a>
+<a class="inline-flex items-center justify-center bg-slate-900 text-white px-6 py-3 rounded-full hover:scale-105 transition-transform shadow-lg font-medium" href="https://drive.google.com/uc?id=18yvg4NJIM_xjIPW1L_KwpoFJnd4TpqfS&export=download">Download</a>
 </div>
 </div>
 <!-- Mockup Display Section (Triple Phone Layout like IMAGE_66) -->
