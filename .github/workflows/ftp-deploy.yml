@@ -12,7 +12,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy files to htdocs
+      - name: Deploy files to mydentalph.gt.tc htdocs
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
           server: ${{ secrets.IF0_FTP_HOST }}
@@ -21,7 +21,7 @@ jobs:
           port: 21
           protocol: ftp
           local-dir: ./
-          server-dir: /htdocs/
+          server-dir: /htdocs/mydentalph.gt.tc/
           exclude: |
             **/.git*
             **/.git*/**
