@@ -201,7 +201,7 @@ require_once __DIR__ . '/provider_auth.php';
                     class="w-full max-w-none sm:max-w-xl lg:max-w-2xl xl:max-w-[40rem] lg:pl-10 xl:pl-16 2xl:pl-20">
                     <h1
                         class="font-headline text-[clamp(2.45rem,10vw,3.15rem)] sm:text-[clamp(2.1rem,7vw,4.75rem)] font-extrabold tracking-[-0.045em] text-on-surface mb-5 sm:mb-8 leading-[0.92]">
-                        <span class="block">Modernize Your</span>
+                        <span class="block">Modernizeee Your</span>
                         <span class="relative block">
                             <span
                                 class="font-editorial italic font-normal text-primary editorial-word transform -skew-x-6 inline-block">Practice.</span>
