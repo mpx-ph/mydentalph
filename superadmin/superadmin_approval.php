@@ -2,6 +2,7 @@
 require_once __DIR__ . '/require_superadmin.php';
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../mail_config.php';
+require_once __DIR__ . '/../site_config.php';
 
 $error = '';
 $success = '';
@@ -64,8 +65,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $to_email = trim((string) ($request['owner_email'] ?? ''));
                     if ($to_email !== '') {
-                        $login_url = 'https://mydentalph.ct.ws/ProviderLogin.php';
-                        $find_account_url = 'https://mydentalph.ct.ws/ProviderFindAccount.php';
+                        $site_base = rtrim(mydental_site_base_url(), '/');
+                        $login_url = $site_base . '/ProviderLogin.php';
+                        $find_account_url = $site_base . '/ProviderFindAccount.php';
                         $owner_username = '';
                         $owner_login_email = $to_email;
                         if (!empty($request['owner_user_id'])) {
@@ -87,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $safe_login_email = htmlspecialchars($owner_login_email, ENT_QUOTES, 'UTF-8');
                         $safe_username = htmlspecialchars($owner_username !== '' ? $owner_username : 'Not available', ENT_QUOTES, 'UTF-8');
                         $body_text = "Hello {$request['owner_name']},\n\nYour clinic verification for {$request['clinic_name']} has been approved.\n\nTenant Owner Login Details:\nEmail: {$owner_login_email}\nUsername: " . ($owner_username !== '' ? $owner_username : 'Not available') . "\nPassword: For security reasons, your current password cannot be sent by email.\n\nLog in here:\n{$login_url}\n\nForgot password?\n{$find_account_url}";
-                        $body_html = "<p>Hello {$safe_owner},</p><p>Your clinic verification for <strong>{$safe_clinic}</strong> has been approved.</p><p><strong>Tenant Owner Login Details</strong><br>Email: {$safe_login_email}<br>Username: {$safe_username}<br>Password: For security reasons, your current password cannot be sent by email.</p><p><a href=\"{$safe_login_url}\">https://mydentalph.ct.ws/ProviderLogin.php</a></p><p>Forgot password? <a href=\"{$safe_find_account_url}\">https://mydentalph.ct.ws/ProviderFindAccount.php</a></p>";
+                        $body_html = "<p>Hello {$safe_owner},</p><p>Your clinic verification for <strong>{$safe_clinic}</strong> has been approved.</p><p><strong>Tenant Owner Login Details</strong><br>Email: {$safe_login_email}<br>Username: {$safe_username}<br>Password: For security reasons, your current password cannot be sent by email.</p><p><a href=\"{$safe_login_url}\">{$safe_login_url}</a></p><p>Forgot password? <a href=\"{$safe_find_account_url}\">{$safe_find_account_url}</a></p>";
                         if (!send_smtp_gmail($to_email, 'Clinic Verification Approved - Continue Setup', $body_text, $body_html)) {
                             $success = 'Request approved. Email could not be sent; check SMTP settings.';
                         } else {

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/site_config.php';
 session_start();
 set_exception_handler(function (Throwable $e): void {
     error_log('[ProviderPurchaseReceipt][UnhandledException] ' . $e->getMessage());
@@ -388,10 +389,7 @@ try {
 
     $pdo->commit();
 
-    $public_host = trim((string) ($_SERVER['HTTP_HOST'] ?? 'mydental.ct.ws'));
-    if ($public_host === '') {
-        $public_host = 'mydental.ct.ws';
-    }
+    $public_host = mydental_site_host();
     $_SESSION['tenant_clinic_slug'] = $resolvedClinicSlug;
     $_SESSION['tenant_clinic_link'] = $public_host . '/' . $resolvedClinicSlug;
 } catch (Throwable $e) {

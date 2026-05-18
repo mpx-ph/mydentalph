@@ -13,6 +13,7 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../site_config.php';
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
@@ -139,7 +140,7 @@ function psm_site_public_base_url(): string {
         || (isset($_s['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_s['HTTP_X_FORWARDED_PROTO']) === 'https');
     $host = trim((string) ($_s['HTTP_HOST'] ?? ''));
     if ($host === '') {
-        $cached = 'http://mydentalph.ct.ws/';
+        $cached = 'https://' . MYDENTAL_SITE_HOST . '/';
         return $cached;
     }
 

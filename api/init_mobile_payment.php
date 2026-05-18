@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 // api/init_mobile_payment.php — mobile PayMongo; writes treatment ledger + linkage like staff bookings.
 require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../site_config.php';
 require_once __DIR__ . '/../clinic/includes/patient_booking_slots.php';
 require_once __DIR__ . '/../clinic/includes/appointment_booking_row.php';
 require_once __DIR__ . '/../clinic/includes/booking_treatment_ledger.php';
@@ -409,7 +410,7 @@ try {
 
     $scheme = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http');
     $host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
-    $baseApi = ($host !== '' ? "{$scheme}://{$host}" : 'http://mydentalph.ct.ws') . '/api';
+    $baseApi = ($host !== '' ? "{$scheme}://{$host}" : 'https://' . MYDENTAL_SITE_HOST) . '/api';
 
     $paymongo_data = [
         'data' => [

@@ -870,7 +870,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     setTimeout(function() {
                         const tenantSlug = '<?php echo isset($currentTenantSlug) && $currentTenantSlug ? rawurlencode($currentTenantSlug) : ''; ?>';
                         if (tenantSlug) {
-                            // Redirect to tenant root, e.g., https://mydental.ct.ws/arman
+                            // Redirect to tenant root, e.g., https://mydentalph.gt.tc/arman
                             window.location.href = window.location.origin.replace(/\/+$/, '') + '/' + tenantSlug;
                         } else {
                             // Fallback to clinic main page

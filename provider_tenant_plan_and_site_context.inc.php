@@ -6,6 +6,8 @@
  */
 declare(strict_types=1);
 
+require_once __DIR__ . '/site_config.php';
+
 if (!function_exists('provider_dashboard_slugify')) {
     function provider_dashboard_slugify(string $value): string
     {
@@ -318,10 +320,7 @@ if ($tenant_subscription_status === 'active') {
 }
 
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$host = trim((string) ($_SERVER['HTTP_HOST'] ?? 'mydental.ct.ws'));
-if ($host === '') {
-    $host = 'mydental.ct.ws';
-}
+$host = mydental_site_host();
 $raw_website_value = trim((string) ($tenant['clinic_slug'] ?? ''));
 if ($raw_website_value === '') {
     $raw_website_value = $clinic_slug;

@@ -76,7 +76,7 @@ if ($footerCopyrightCustom !== '') {
         </div>
         <div class="border-t border-slate-200 pb-10 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
             <p class="text-xs text-slate-500"><?php echo $footerCopyrightHtml; ?></p>
-            <a href="https://mydentalph.ct.ws/" class="text-xs text-slate-500 hover:text-primary transition-colors" target="_blank" rel="noopener noreferrer">Powered by MyDental Philippines</a>
+            <a href="<?php echo htmlspecialchars((defined('PROVIDER_BASE_URL') ? rtrim((string) PROVIDER_BASE_URL, '/') : ('https://' . (defined('MYDENTAL_SITE_HOST') ? MYDENTAL_SITE_HOST : 'mydentalph.gt.tc'))) . '/', ENT_QUOTES, 'UTF-8'); ?>" class="text-xs text-slate-500 hover:text-primary transition-colors" target="_blank" rel="noopener noreferrer">Powered by MyDental Philippines</a>
         </div>
     </div>
 </footer>

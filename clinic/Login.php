@@ -148,7 +148,7 @@ if ($ssoData !== null) {
 
 // URL for "Create new account" respecting clinic slug routing
 // .htaccess maps /{slug}/register -> clinic/RegisterClient.php?clinic_slug={slug}
-// For slug-based access (e.g. mydental.ct.ws/{slug}/login), we must build URLs from the domain root,
+// For slug-based access (e.g. mydentalph.gt.tc/{slug}/login), we must build URLs from the domain root,
 // not from /clinic, so we use PROVIDER_BASE_URL here.
 $registerClientUrl = ($clinic_slug !== '')
     ? (PROVIDER_BASE_URL . rawurlencode(strtolower($clinic_slug)) . '/register')

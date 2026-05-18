@@ -8,6 +8,8 @@ if (!defined('CONFIG_LOADED')) {
     define('CONFIG_LOADED', true);
 }
 
+require_once dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'site_config.php';
+
 // Show PHP errors when ?debug=1 (remove in production or restrict by IP)
 if (isset($_GET['debug']) && $_GET['debug'] === '1') {
     @ini_set('display_errors', 1);

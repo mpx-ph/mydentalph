@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../site_config.php';
 require_once __DIR__ . '/../paymongo_config.php';
 require_once __DIR__ . '/../clinic/includes/appointment_db_tables.php';
 
@@ -158,7 +159,7 @@ try {
 
     $scheme = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http');
     $host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
-    $baseApi = ($host !== '' ? "{$scheme}://{$host}" : 'http://mydentalph.ct.ws') . '/api';
+    $baseApi = ($host !== '' ? "{$scheme}://{$host}" : 'https://' . MYDENTAL_SITE_HOST) . '/api';
 
     $description = ($installment_number >= 1)
         ? "Plan installment #$installment_number for $booking_id"

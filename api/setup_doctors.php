@@ -1,7 +1,7 @@
 <?php
 // api/setup_doctors.php
 // Visit this link once in your browser to setup the doctors: 
-// https://mydentalph.ct.ws/api/setup_doctors.php
+// https://mydentalph.gt.tc/api/setup_doctors.php
 
 require_once '../db.php';
 header('Content-Type: application/json');

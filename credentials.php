@@ -388,8 +388,8 @@ git push</textarea>
             <h2>Super Admin</h2>
             <div class="link-row">
                 Link:
-                <a href="https://mydentalph.ct.ws/ProviderLogin.php" target="_blank">
-                    https://mydentalph.ct.ws/ProviderLogin.php
+                <a href="https://mydentalph.gt.tc/ProviderLogin.php" target="_blank">
+                    https://mydentalph.gt.tc/ProviderLogin.php
                 </a>
             </div>
 
@@ -413,8 +413,8 @@ git push</textarea>
             <div class="subdesc">Uses new subscription rule</div>
             <div class="link-row">
                 Link:
-                <a href="https://mydentalph.ct.ws/hotdog/" target="_blank">
-                    https://mydentalph.ct.ws/hotdog/
+                <a href="https://mydentalph.gt.tc/hotdog/" target="_blank">
+                    https://mydentalph.gt.tc/hotdog/
                 </a>
             </div>
 
@@ -479,8 +479,8 @@ git push</textarea>
             <h2>SISIG DENTALS <span class="new-badge">(NEW)</span></h2>
             <div class="link-row">
                 Link:
-                <a href="https://mydentalph.ct.ws/sisigdentals" target="_blank">
-                    https://mydentalph.ct.ws/sisigdentals
+                <a href="https://mydentalph.gt.tc/sisigdentals" target="_blank">
+                    https://mydentalph.gt.tc/sisigdentals
                 </a>
             </div>
 
@@ -517,14 +517,14 @@ git push</textarea>
             <h2>Ilocos Empanada Dental Clinic</h2>
             <div class="link-row">
                 Link:
-                <a href="https://mydentalph.ct.ws/ilocosempanadadental/login" target="_blank">
-                    https://mydentalph.ct.ws/ilocosempanadadental/login
+                <a href="https://mydentalph.gt.tc/ilocosempanadadental/login" target="_blank">
+                    https://mydentalph.gt.tc/ilocosempanadadental/login
                 </a>
             </div>
             <div class="link-row">
                 Tenant Login:
-                <a href="https://mydentalph.ct.ws/ProviderLogin.php" target="_blank">
-                    https://mydentalph.ct.ws/ProviderLogin.php
+                <a href="https://mydentalph.gt.tc/ProviderLogin.php" target="_blank">
+                    https://mydentalph.gt.tc/ProviderLogin.php
                 </a>
             </div>
 
@@ -589,8 +589,8 @@ git push</textarea>
             <h2>John Pork Dental Clinic</h2>
             <div class="link-row">
                 Link:
-                <a href="https://mydentalph.ct.ws/ProviderLogin.php" target="_blank">
-                    https://mydentalph.ct.ws/ProviderLogin.php
+                <a href="https://mydentalph.gt.tc/ProviderLogin.php" target="_blank">
+                    https://mydentalph.gt.tc/ProviderLogin.php
                 </a>
             </div>
 
@@ -618,7 +618,7 @@ git push</textarea>
                 </div>
                 <div class="card-priority__body">
                     <ul>
-                        <li>mydentalph.ct.ws Mobile view UI fixes (handled by MP)</li>
+                        <li>mydentalph.gt.tc Mobile view UI fixes (handled by MP)</li>
                         <li>Create account not yet included in customization</li>
                         <li>HOTDOG FAMILY CLINIC ACCOUNT IS AUTO-LOGGING IN WHEN SISIG DENTALS WAS OPENED.</li>
                         <li>Approval of the Terms &amp; Conditions modal during plan purchases</li>
