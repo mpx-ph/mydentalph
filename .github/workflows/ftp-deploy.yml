@@ -21,7 +21,7 @@ jobs:
           port: 21
           protocol: ftp
           local-dir: ./
-          server-dir: /htdocs/mydentalph.gt.tc/
+          server-dir: /mydentalph.ct.ws/htdocs/
           exclude: |
             **/.git*
             **/.git*/**
