@@ -295,28 +295,10 @@ $renewal_ts = $renewal_end !== '' ? strtotime($renewal_end) : false;
 $renewal_date = ($renewal_ts !== false) ? date('M j, Y', $renewal_ts) : '—';
 
 $billing_cycle_raw = strtolower(trim((string) ($dash_sub['billing_cycle'] ?? '')));
-
-$is_yearly_detected = false;
-$plan_slug_lower = strtolower(trim((string) ($dash_sub['plan_slug'] ?? ($sub['plan_slug'] ?? ''))));
-$plan_name_lower = strtolower($plan_name);
-
-if ($billing_cycle_raw === 'yearly') {
-    $is_yearly_detected = true;
-} elseif (strpos($plan_name_lower, 'yearly') !== false || strpos($plan_name_lower, 'annual') !== false) {
-    $is_yearly_detected = true;
-} elseif (strpos($plan_slug_lower, 'yearly') !== false || strpos($plan_slug_lower, 'annual') !== false) {
-    $is_yearly_detected = true;
-} elseif ($period_start_ts !== false && $renewal_ts !== false) {
-    $diff_days = ($renewal_ts - $period_start_ts) / 86400;
-    if ($diff_days > 300) {
-        $is_yearly_detected = true;
-    }
-}
-
-if ($is_yearly_detected) {
-    $plan_billing_cycle_label = 'Yearly billing';
-} elseif ($billing_cycle_raw === 'monthly') {
+if ($billing_cycle_raw === 'monthly') {
     $plan_billing_cycle_label = 'Monthly billing';
+} elseif ($billing_cycle_raw === 'yearly') {
+    $plan_billing_cycle_label = 'Yearly billing';
 } else {
     $plan_billing_cycle_label = '';
 }

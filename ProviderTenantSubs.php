@@ -24,13 +24,13 @@ try {
 }
 
 $coverage_months = [];
-$cycle_type = ($is_yearly_detected) ? 'YEARLY' : 'MONTHLY';
+$cycle_type = ($billing_cycle_raw === 'yearly') ? 'YEARLY' : 'MONTHLY';
 
 if ($is_subscription_active && $period_start_ts !== false) {
     $start_time = $period_start_ts;
     $current_time = $start_time;
     for ($i = 0; $i < 12; $i++) {
-        if ($is_yearly_detected) {
+        if ($billing_cycle_raw === 'yearly') {
             $is_covered = true;
         } else {
             $month_midpoint = strtotime('+15 days', $current_time);
@@ -179,9 +179,6 @@ if ($is_subscription_active && !empty($sub)) {
             pointer-events: none;
         }
         .dash-stat-card--plan::before {
-            background: linear-gradient(90deg, #2b8beb, #60a5fa);
-        }
-        .dash-stat-card--timeline::before {
             background: linear-gradient(90deg, #2b8beb, #60a5fa);
         }
         .dash-stat-card--domain::before {
@@ -361,11 +358,11 @@ if ($is_subscription_active && !empty($sub)) {
     </div>
 
     <!-- Coverage Timeline Card -->
-    <div class="dash-stat-card dash-stat-card--timeline relative overflow-hidden rounded-3xl backdrop-blur-md p-7 provider-card-lift group lg:col-span-2 flex flex-col justify-between">
+    <div class="dash-stat-card relative overflow-hidden rounded-3xl backdrop-blur-md p-7 provider-card-lift group lg:col-span-2 flex flex-col justify-between" style="border-top: 3px solid #10b981;">
         <!-- Header -->
         <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
             <div>
-                <h3 class="text-xl font-extrabold text-on-background font-headline tracking-tight uppercase">Coverage <span class="text-primary font-editorial italic font-normal transform -skew-x-6 inline-block">Timeline</span></h3>
+                <h3 class="text-xl font-extrabold text-on-background font-headline tracking-tight uppercase">Coverage <span class="text-emerald-500 font-editorial italic font-normal transform -skew-x-6 inline-block">Timeline</span></h3>
                 <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-[0.2em] opacity-70 mt-1"><?php echo $cycle_type === 'YEARLY' ? '12-Month Annual' : '1-Month Monthly'; ?> Cycle Overview</p>
             </div>
             <div>
@@ -378,9 +375,9 @@ if ($is_subscription_active && !empty($sub)) {
         <div class="bg-slate-50/85 border border-slate-100/90 rounded-2xl py-3 px-4 text-center mb-6">
             <span class="text-[11px] font-black text-on-surface-variant/80 uppercase tracking-widest">
                 Active from 
-                <span class="text-primary font-bold italic"><?php echo $period_start_ts !== false ? strtoupper(date('M j, Y', $period_start_ts)) : 'N/A'; ?></span>
+                <span class="text-emerald-500 font-bold italic"><?php echo $period_start_ts !== false ? strtoupper(date('M j, Y', $period_start_ts)) : 'N/A'; ?></span>
                 to 
-                <span class="text-primary font-bold italic"><?php echo $renewal_ts !== false ? strtoupper(date('M j, Y', $renewal_ts)) : 'N/A'; ?></span>
+                <span class="text-emerald-500 font-bold italic"><?php echo $renewal_ts !== false ? strtoupper(date('M j, Y', $renewal_ts)) : 'N/A'; ?></span>
             </span>
         </div>
         
@@ -389,9 +386,9 @@ if ($is_subscription_active && !empty($sub)) {
             <div class="grid grid-cols-3 sm:grid-cols-6 gap-3 sm:gap-4">
                 <?php foreach ($coverage_months as $month): ?>
                     <?php if ($month['active']): ?>
-                        <div class="bg-primary/8 border border-primary/20 rounded-3xl p-3 flex flex-col items-center justify-center gap-1.5 shadow-sm">
-                            <span class="text-[11px] font-bold text-primary tracking-tight"><?php echo $month['label']; ?></span>
-                            <span class="material-symbols-outlined text-primary font-bold text-lg">check_circle</span>
+                        <div class="bg-emerald-50/70 border border-emerald-200/60 rounded-3xl p-3 flex flex-col items-center justify-center gap-1.5 shadow-sm">
+                            <span class="text-[11px] font-bold text-emerald-800 tracking-tight"><?php echo $month['label']; ?></span>
+                            <span class="material-symbols-outlined text-emerald-500 font-bold text-lg">check_circle</span>
                         </div>
                     <?php else: ?>
                         <div class="bg-slate-100/50 border border-slate-200/50 rounded-3xl p-3 flex flex-col items-center justify-center gap-1.5 opacity-60">
