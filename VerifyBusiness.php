@@ -143,7 +143,7 @@ $verification_status = $existing['verification_status'] ?? 'pending';
 $submitted_at = $existing['submitted_at'] ?? null;
 $uploaded_file_path = $existing['uploaded_file_path'] ?? '';
 $has_extracted_details = has_extracted_business_details($ocn_tin_branch, $taxpayer_name, $registered_address);
-$is_effectively_submitted = $verification_status === 'submitted' && $has_extracted_details;
+$is_effectively_submitted = in_array($verification_status, ['submitted', 'approved'], true) && $has_extracted_details;
 
 if ($verification_status === 'submitted' && !$has_extracted_details) {
     $error = 'Business permit is not valid yet. Please upload the correct permit file so extracted details are filled.';
@@ -312,7 +312,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <div class="pt-2 border-t border-slate-100 text-sm">
                     <span class="font-semibold">Status:</span>
-                    <?php if ($is_effectively_submitted): ?>
+                    <?php if ($verification_status === 'approved'): ?>
+                        <span class="text-emerald-700 font-semibold">Approved</span>
+                    <?php elseif ($is_effectively_submitted): ?>
                         <span class="text-emerald-700 font-semibold">Submitted</span>
                         <?php if ($submitted_at): ?>
                             <span class="text-slate-500">(<?php echo htmlspecialchars($submitted_at); ?>)</span>

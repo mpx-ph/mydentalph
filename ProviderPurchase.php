@@ -153,7 +153,7 @@ try {
     $stmt = $pdo->prepare("
         SELECT verification_id
         FROM tbl_tenant_business_verifications
-        WHERE tenant_id = ? AND verification_status = 'submitted'
+        WHERE tenant_id = ? AND verification_status IN ('submitted', 'approved')
         ORDER BY verification_id DESC
         LIMIT 1
     ");
