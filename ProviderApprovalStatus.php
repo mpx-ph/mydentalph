@@ -43,7 +43,7 @@ if ($verificationStatus === 'approved') {
         $hasActiveSubscription = false;
     }
 
-    if ($hasActiveSubscription) {
+    if ($hasActiveSubscription && $setupLinkError === '') {
         header('Location: ProviderTenantDashboard.php');
         exit;
     }

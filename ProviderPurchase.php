@@ -123,6 +123,13 @@ if (!provider_has_authenticated_provider_session()) {
 
 [$tenant_id, $user_id] = provider_get_authenticated_provider_identity_from_session();
 
+if (empty($_SESSION['onboarding_user_id']) && !empty($user_id)) {
+    $_SESSION['onboarding_user_id'] = $user_id;
+}
+if (empty($_SESSION['onboarding_tenant_id']) && !empty($tenant_id)) {
+    $_SESSION['onboarding_tenant_id'] = $tenant_id;
+}
+
 if (!empty($_SESSION['onboarding_user_id']) && !empty($_SESSION['onboarding_tenant_id'])) {
     $onboarding_tenant_id = (string) $_SESSION['onboarding_tenant_id'];
     $onboarding_user_id = (string) $_SESSION['onboarding_user_id'];
@@ -149,22 +156,32 @@ $_SESSION['onboarding_plan'] = $plan_slug;
 
 // Require business permit verification before purchase step.
 $business_verification = null;
+$has_active_subscription = false;
 try {
-    $stmt = $pdo->prepare("
-        SELECT verification_id
-        FROM tbl_tenant_business_verifications
-        WHERE tenant_id = ? AND verification_status IN ('submitted', 'approved')
-        ORDER BY verification_id DESC
-        LIMIT 1
-    ");
-    $stmt->execute([$tenant_id]);
-    $business_verification = $stmt->fetch(PDO::FETCH_ASSOC);
+    $sub_state = provider_get_tenant_subscription_state($pdo, (string) $tenant_id);
+    $has_active_subscription = !empty($sub_state['has_active_subscription']);
 } catch (Throwable $e) {
-    $business_verification = null;
+    $has_active_subscription = false;
 }
-if (!$business_verification && !$skip_business_verification_gate) {
-    header('Location: VerifyBusiness.php');
-    exit;
+
+if (!$has_active_subscription) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT verification_id
+            FROM tbl_tenant_business_verifications
+            WHERE tenant_id = ? AND verification_status IN ('submitted', 'approved')
+            ORDER BY verification_id DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$tenant_id]);
+        $business_verification = $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        $business_verification = null;
+    }
+    if (!$business_verification && !$skip_business_verification_gate) {
+        header('Location: VerifyBusiness.php');
+        exit;
+    }
 }
 
 // Simulate payment failure (for testing)

@@ -12,6 +12,13 @@ if ($debug_mode) {
     error_reporting(E_ALL);
 }
 
+if (empty($_SESSION['onboarding_user_id']) && !empty($_SESSION['user_id'])) {
+    $_SESSION['onboarding_user_id'] = $_SESSION['user_id'];
+}
+if (empty($_SESSION['onboarding_tenant_id']) && !empty($_SESSION['tenant_id'])) {
+    $_SESSION['onboarding_tenant_id'] = $_SESSION['tenant_id'];
+}
+
 if (empty($_SESSION['onboarding_user_id']) || empty($_SESSION['onboarding_tenant_id'])) {
     header('Location: ProviderOTP.php');
     exit;
