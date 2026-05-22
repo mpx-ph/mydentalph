@@ -296,10 +296,35 @@ try {
     $existingId = $checkStmt->fetchColumn();
 
     if (!$existingId) {
-        $start = date('Y-m-d');
-        $end = $plan_slug === 'yearly'
-            ? date('Y-m-d', strtotime('+1 year'))
-            : date('Y-m-d', strtotime('+1 month'));
+        $latestEnd = null;
+        try {
+            $activeSubStmt = $pdo->prepare("
+                SELECT subscription_end 
+                FROM tbl_tenant_subscriptions 
+                WHERE tenant_id = ? 
+                  AND LOWER(TRIM(payment_status)) IN ('paid', 'succeeded', 'complete', 'completed', 'success')
+                  AND subscription_end >= ?
+                ORDER BY subscription_end DESC 
+                LIMIT 1
+            ");
+            $activeSubStmt->execute([(string) $tenant_id, date('Y-m-d')]);
+            $latestEnd = $activeSubStmt->fetchColumn() ?: null;
+        } catch (Throwable $e) {
+            $latestEnd = null;
+        }
+
+        if ($latestEnd) {
+            $start = $latestEnd;
+            $end = $plan_slug === 'yearly'
+                ? date('Y-m-d', strtotime($latestEnd . ' +1 year'))
+                : date('Y-m-d', strtotime($latestEnd . ' +1 month'));
+        } else {
+            $start = date('Y-m-d');
+            $end = $plan_slug === 'yearly'
+                ? date('Y-m-d', strtotime('+1 year'))
+                : date('Y-m-d', strtotime('+1 month'));
+        }
+
         $insertStmt = $pdo->prepare("
             INSERT INTO tbl_tenant_subscriptions
             (tenant_id, plan_id, subscription_start, subscription_end, payment_status, payment_method, amount_paid, reference_number)

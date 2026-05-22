@@ -144,6 +144,63 @@ if (empty($tenant)) {
     ];
 }
 
+// Self-healing check for overlapping/duplicate active subscription periods
+try {
+    $overlapStmt = $pdo->prepare("
+        SELECT ts.id, ts.subscription_start, ts.subscription_end, p.plan_slug, p.billing_cycle
+        FROM tbl_tenant_subscriptions ts
+        LEFT JOIN tbl_subscription_plans p ON p.plan_id = ts.plan_id
+        WHERE ts.tenant_id = ?
+          AND LOWER(TRIM(ts.payment_status)) IN ('paid', 'succeeded', 'complete', 'completed', 'success')
+        ORDER BY ts.id ASC
+    ");
+    $overlapStmt->execute([(string) $tenant_id]);
+    $overlapRows = $overlapStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    
+    if (count($overlapRows) > 1) {
+        $prev_end_str = '';
+        foreach ($overlapRows as $row) {
+            $row_id = (int) $row['id'];
+            $start_str = trim((string) ($row['subscription_start'] ?? ''));
+            $end_str = trim((string) ($row['subscription_end'] ?? ''));
+            $plan_slug = strtolower(trim((string) ($row['plan_slug'] ?? '')));
+            $billing_cycle = strtolower(trim((string) ($row['billing_cycle'] ?? '')));
+            
+            $duration = ($plan_slug === 'yearly' || $billing_cycle === 'yearly') ? '+1 year' : '+1 month';
+            
+            if ($start_str === '' || $end_str === '') {
+                continue;
+            }
+            
+            if ($prev_end_str !== '') {
+                $prev_end_ts = strtotime($prev_end_str);
+                $curr_start_ts = strtotime($start_str);
+                
+                // If this subscription starts before or on the previous one's end date, shift it!
+                if ($prev_end_ts !== false && $curr_start_ts !== false && $curr_start_ts <= $prev_end_ts) {
+                    $new_start_str = $prev_end_str;
+                    $new_end_str = date('Y-m-d', strtotime($new_start_str . ' ' . $duration));
+                    
+                    if ($start_str !== $new_start_str || $end_str !== $new_end_str) {
+                        $updateOverlap = $pdo->prepare("
+                            UPDATE tbl_tenant_subscriptions 
+                            SET subscription_start = ?, subscription_end = ? 
+                            WHERE id = ?
+                        ");
+                        $updateOverlap->execute([$new_start_str, $new_end_str, $row_id]);
+                        
+                        $start_str = $new_start_str;
+                        $end_str = $new_end_str;
+                    }
+                }
+            }
+            $prev_end_str = $end_str;
+        }
+    }
+} catch (Throwable $e) {
+    error_log('[SubscriptionSelfHealing] Error: ' . $e->getMessage());
+}
+
 $sub = [];
 $subscription_state = 'none';
 $is_subscription_active = false;
@@ -291,7 +348,60 @@ $plan_name = is_string($plan_name_raw) && trim($plan_name_raw) !== ''
     ? trim((string) $plan_name_raw)
     : ($is_subscription_active ? 'Active Plan' : 'No Active Subscription');
 $renewal_end = trim((string) ($dash_sub['subscription_end'] ?? ($sub['subscription_end'] ?? '')));
-$renewal_ts = $renewal_end !== '' ? strtotime($renewal_end) : false;
+$period_start_raw = trim((string) ($dash_sub['subscription_start'] ?? ''));
+
+$active_starts = [];
+$active_ends = [];
+try {
+    $activeQuery = $pdo->prepare("
+        SELECT ts.subscription_start, ts.subscription_end
+        FROM tbl_tenant_subscriptions ts
+        WHERE ts.tenant_id = ?
+          AND LOWER(TRIM(ts.payment_status)) IN ('paid', 'succeeded', 'complete', 'completed', 'success')
+    ");
+    $activeQuery->execute([(string) $tenant_id]);
+    $activeList = $activeQuery->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    foreach ($activeList as $ar) {
+        $a_start = trim((string) ($ar['subscription_start'] ?? ''));
+        $a_end = trim((string) ($ar['subscription_end'] ?? ''));
+        if ($a_end !== '') {
+            $a_end_ts = strtotime($a_end . ' 23:59:59');
+            if ($a_end_ts !== false && $a_end_ts >= time()) {
+                if ($a_start !== '') {
+                    $s_ts = strtotime($a_start);
+                    if ($s_ts !== false) {
+                        $active_starts[] = $s_ts;
+                    }
+                }
+                $e_ts = strtotime($a_end);
+                if ($e_ts !== false) {
+                    $active_ends[] = $e_ts;
+                }
+            }
+        } else {
+            if ($a_start !== '') {
+                $s_ts = strtotime($a_start);
+                if ($s_ts !== false) {
+                    $active_starts[] = $s_ts;
+                }
+            }
+        }
+    }
+} catch (Throwable $e) {
+}
+
+if (!empty($active_starts)) {
+    $period_start_ts = min($active_starts);
+} else {
+    $period_start_ts = $period_start_raw !== '' ? strtotime($period_start_raw) : false;
+}
+
+if (!empty($active_ends)) {
+    $renewal_ts = max($active_ends);
+} else {
+    $renewal_ts = $renewal_end !== '' ? strtotime($renewal_end) : false;
+}
+
 $renewal_date = ($renewal_ts !== false) ? date('M j, Y', $renewal_ts) : '—';
 
 $billing_cycle_raw = strtolower(trim((string) ($dash_sub['billing_cycle'] ?? '')));
@@ -303,8 +413,6 @@ if ($billing_cycle_raw === 'monthly') {
     $plan_billing_cycle_label = '';
 }
 
-$period_start_raw = trim((string) ($dash_sub['subscription_start'] ?? ''));
-$period_start_ts = $period_start_raw !== '' ? strtotime($period_start_raw) : false;
 $period_start_display = ($period_start_ts !== false) ? date('M j, Y', $period_start_ts) : '—';
 $has_subscription_row = $latest_subscription_row !== null;
 
