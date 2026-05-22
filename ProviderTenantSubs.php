@@ -391,17 +391,29 @@ if ($is_subscription_active && !empty($sub)) {
         
         <!-- Months Grid -->
         <div class="bg-slate-50/50 border border-slate-200/40 rounded-2xl p-4 sm:p-5 mb-6 flex-1 flex flex-col justify-center">
-            <div class="grid grid-cols-3 sm:grid-cols-6 gap-3 sm:gap-4">
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3.5">
                 <?php foreach ($coverage_months as $month): ?>
                     <?php if ($month['active']): ?>
-                        <div class="bg-blue-50/70 border border-blue-200/60 rounded-3xl p-3 flex flex-col items-center justify-center gap-1.5 shadow-sm">
-                            <span class="text-[11px] font-bold text-blue-800 tracking-tight"><?php echo $month['label']; ?></span>
-                            <span class="material-symbols-outlined text-primary font-bold text-lg">check_circle</span>
+                        <div class="relative bg-white border border-slate-200/60 rounded-2xl p-3.5 flex flex-col justify-between shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all hover:border-primary/30">
+                            <div class="flex justify-between items-start">
+                                <span class="text-[11px] font-extrabold text-slate-700 tracking-tight"><?php echo $month['label']; ?></span>
+                                <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_#2b8beb]"></span>
+                            </div>
+                            <div class="mt-4 flex items-center justify-between">
+                                <span class="text-[9px] font-black text-primary uppercase tracking-wider">Covered</span>
+                                <span class="material-symbols-outlined text-primary text-base font-bold">check</span>
+                            </div>
                         </div>
                     <?php else: ?>
-                        <div class="bg-slate-100/50 border border-slate-200/50 rounded-3xl p-3 flex flex-col items-center justify-center gap-1.5 opacity-60">
-                            <span class="text-[11px] font-semibold text-slate-500 tracking-tight"><?php echo $month['label']; ?></span>
-                            <span class="material-symbols-outlined text-slate-300 text-lg">radio_button_unchecked</span>
+                        <div class="relative bg-slate-50/40 border border-slate-200/30 rounded-2xl p-3.5 flex flex-col justify-between opacity-60">
+                            <div class="flex justify-between items-start">
+                                <span class="text-[11px] font-semibold text-slate-400 tracking-tight"><?php echo $month['label']; ?></span>
+                                <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                            </div>
+                            <div class="mt-4 flex items-center justify-between">
+                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Unpaid</span>
+                                <span class="material-symbols-outlined text-slate-300 text-base">close</span>
+                            </div>
                         </div>
                     <?php endif; ?>
                 <?php endforeach; ?>
