@@ -22,6 +22,45 @@ try {
 } catch (Throwable $e) {
     $subscription_financial_log = [];
 }
+
+$coverage_months = [];
+$cycle_type = ($billing_cycle_raw === 'yearly') ? 'YEARLY' : 'MONTHLY';
+
+if ($is_subscription_active && $period_start_ts !== false) {
+    $start_time = $period_start_ts;
+    $current_time = $start_time;
+    for ($i = 0; $i < 12; $i++) {
+        if ($billing_cycle_raw === 'yearly') {
+            $is_covered = true;
+        } else {
+            $month_midpoint = strtotime('+15 days', $current_time);
+            $is_covered = ($month_midpoint >= $period_start_ts && $renewal_ts !== false && $month_midpoint <= $renewal_ts);
+        }
+        $coverage_months[] = [
+            'label' => strtoupper(date('M y', $current_time)),
+            'active' => $is_covered
+        ];
+        $current_time = strtotime('+1 month', $current_time);
+    }
+} else {
+    $current_time = time();
+    for ($i = 0; $i < 12; $i++) {
+        $coverage_months[] = [
+            'label' => strtoupper(date('M y', $current_time)),
+            'active' => false
+        ];
+        $current_time = strtotime('+1 month', $current_time);
+    }
+}
+
+$sub_ref_id = '—';
+if ($is_subscription_active && !empty($sub)) {
+    if (!empty($sub['reference_number'])) {
+        $sub_ref_id = $sub['reference_number'];
+    } elseif (!empty($sub['payment_method'])) {
+        $sub_ref_id = $sub['payment_method'];
+    }
+}
 ?>
 <!DOCTYPE html>
 <html class="light" lang="en"><head>
@@ -246,110 +285,176 @@ try {
 <p class="font-body text-base sm:text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-4">Manage your clinic's subscription, plans, and payment methods.</p>
 </div>
 </section>
-<section class="grid grid-cols-1 md:grid-cols-3 gap-7 lg:gap-8" data-purpose="subscription-overview-stats">
-<div class="dash-stat-card dash-stat-card--plan relative overflow-hidden rounded-3xl backdrop-blur-md p-7 provider-card-lift group">
-<div class="flex justify-between items-start mb-5">
-<div class="p-3 bg-gradient-to-br from-primary/15 to-blue-100/80 text-primary rounded-2xl shadow-inner ring-1 ring-white/60">
-<span class="material-symbols-outlined text-[26px]">subscriptions</span>
-</div>
-<?php if ($is_subscription_active): ?>
-<span class="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg uppercase">Active</span>
-<?php elseif ($subscription_state === 'expired'): ?>
-<span class="text-[10px] font-extrabold text-amber-800 bg-amber-50 px-2 py-1 rounded-lg uppercase">Expired</span>
-<?php elseif ($subscription_state === 'inactive'): ?>
-<span class="text-[10px] font-bold text-on-surface-variant bg-surface-container-low px-2 py-1 rounded-lg uppercase">Inactive</span>
-<?php else: ?>
-<span class="text-[10px] font-bold text-on-surface-variant/60 bg-slate-100 px-2 py-1 rounded-lg uppercase">None</span>
-<?php endif; ?>
-</div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">Current Plan</p>
-<h3 class="text-2xl font-extrabold text-on-background mt-2 font-headline break-words leading-tight"><?php echo htmlspecialchars($plan_name, ENT_QUOTES, 'UTF-8'); ?></h3>
-<div class="mt-5 space-y-3">
-<?php if ($plan_billing_cycle_label !== ''): ?>
-<p class="text-on-surface-variant text-sm font-medium"><?php echo htmlspecialchars($plan_billing_cycle_label, ENT_QUOTES, 'UTF-8'); ?></p>
-<?php endif; ?>
-<?php if ($has_subscription_row): ?>
-<div class="mt-4 pt-4 border-t border-slate-200/80 grid grid-cols-1 gap-4 sm:grid-cols-3">
-<div>
-<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em] opacity-70">Subscription cost</p>
-<p class="text-base font-extrabold text-on-background mt-1.5 tabular-nums"><?php echo htmlspecialchars($sub_payment_amount_display, ENT_QUOTES, 'UTF-8'); ?></p>
-</div>
-<div>
-<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em] opacity-70">Payment date</p>
-<p class="text-sm font-bold text-on-background mt-1.5"><?php echo htmlspecialchars($sub_payment_date_display, ENT_QUOTES, 'UTF-8'); ?></p>
-</div>
-<div>
-<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em] opacity-70">Payment time</p>
-<p class="text-sm font-medium text-on-surface-variant/80 mt-1.5 tabular-nums"><?php echo htmlspecialchars($sub_payment_time_display, ENT_QUOTES, 'UTF-8'); ?></p>
-</div>
-</div>
-<?php endif; ?>
-<?php if ($has_subscription_row && $period_start_ts !== false && $renewal_ts !== false): ?>
-<div class="w-full bg-slate-200/80 h-2.5 rounded-full overflow-hidden ring-1 ring-white/50">
-<div class="bg-gradient-to-r from-primary to-sky-400 h-full rounded-full transition-all shadow-sm" style="width: <?php echo (int) $plan_period_util_pct; ?>%;"></div>
-</div>
-<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wide">Renewal <?php echo htmlspecialchars($renewal_date, ENT_QUOTES, 'UTF-8'); ?> · <?php echo (int) $plan_period_util_pct; ?>% period</p>
-<?php elseif ($has_subscription_row): ?>
-<p class="text-sm text-on-surface-variant"><?php echo htmlspecialchars($period_start_display, ENT_QUOTES, 'UTF-8'); ?> — <?php echo htmlspecialchars($renewal_date, ENT_QUOTES, 'UTF-8'); ?></p>
-<?php else: ?>
-<p class="text-sm text-on-surface-variant/70">No subscription record yet.</p>
-<?php endif; ?>
-<div class="mt-5 pt-5 border-t border-slate-200/80">
-<?php if ($is_subscription_active): ?>
-<button type="button" class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 text-slate-500 px-4 py-3 text-xs font-extrabold uppercase tracking-wide cursor-not-allowed ring-1 ring-slate-200/80" disabled aria-disabled="true" title="You already have an active subscription.">
-<span class="material-symbols-outlined text-base">block</span>
-<span>Plan purchase unavailable</span>
-</button>
-<p class="mt-2 text-xs text-amber-700 font-semibold">You already have an active subscription. Wait until expiry or contact support to switch plans.</p>
-<?php else: ?>
-<a href="Provider-Plans.php" class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-white hover:bg-primary/90 px-4 py-3 text-xs font-extrabold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
-<span class="material-symbols-outlined text-base">shopping_cart</span>
-<span>Buy plan</span>
-</a>
-<p class="mt-2 text-xs text-on-surface-variant/75 font-medium">No active subscription. Choose a plan to continue premium access.</p>
-<?php endif; ?>
-</div>
-</div>
-</div>
-<div class="dash-stat-card dash-stat-card--domain relative overflow-hidden rounded-3xl backdrop-blur-md p-7 provider-card-lift group flex flex-col">
-<div class="flex justify-between items-start mb-5">
-<div class="p-3 bg-gradient-to-br from-teal-400/20 to-cyan-100/90 text-teal-800 rounded-2xl shadow-inner ring-1 ring-white/60">
-<span class="material-symbols-outlined text-[26px]">language</span>
-</div>
-<span class="text-[10px] font-bold <?php echo $has_visible_website ? 'text-teal-700 bg-teal-50' : 'text-amber-800 bg-amber-50'; ?> px-2.5 py-1 rounded-lg uppercase tracking-wider"><?php echo $has_visible_website ? 'Live' : 'Pending'; ?></span>
-</div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">Domain &amp; Hosting</p>
-<?php if ($tenant_public_site_url_h !== ''): ?>
-<a href="<?php echo $tenant_public_site_url_h; ?>" target="_blank" rel="noopener noreferrer" class="dash-domain-link block mt-2 group/link">
-<h3 class="text-xl font-extrabold text-on-background font-headline break-all leading-snug group-hover/link:text-primary transition-colors"><?php echo htmlspecialchars($domain_display, ENT_QUOTES, 'UTF-8'); ?></h3>
-<span class="inline-flex items-center gap-1 text-primary text-xs font-bold uppercase tracking-wide mt-2">Open website <span class="material-symbols-outlined text-base transition-transform group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5">open_in_new</span></span>
-</a>
-<?php else: ?>
-<h3 class="text-xl font-extrabold text-on-background mt-2 font-headline"><?php echo htmlspecialchars($domain_display, ENT_QUOTES, 'UTF-8'); ?></h3>
-<?php endif; ?>
-<p class="text-sm text-on-surface-variant font-medium mt-3"><?php echo htmlspecialchars($hosting_status_label, ENT_QUOTES, 'UTF-8'); ?></p>
-<div class="flex items-center gap-2.5 mt-auto pt-5 border-t border-slate-200/80">
-<span class="material-symbols-outlined <?php echo $has_visible_website ? 'text-emerald-500' : 'text-amber-500'; ?> text-xl">verified_user</span>
-<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest"><?php echo $has_visible_website ? 'Published' : 'Not published'; ?></span>
-</div>
-</div>
-<div class="dash-stat-card dash-stat-card--actions relative overflow-hidden rounded-3xl backdrop-blur-md p-7 provider-card-lift group flex flex-col">
-<div class="flex justify-between items-start mb-5">
-<div class="p-3 bg-gradient-to-br from-violet-400/20 to-violet-100/90 text-violet-800 rounded-2xl shadow-inner ring-1 ring-white/60">
-<span class="material-symbols-outlined text-[26px]">tune</span>
-</div>
-<span class="text-[10px] font-bold text-violet-800/80 bg-violet-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Shortcuts</span>
-</div>
-<p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">Website</p>
-<h3 class="text-lg font-extrabold text-on-background mt-2 font-headline">Quick actions</h3>
-<div class="flex flex-wrap gap-2 mt-5">
-<button type="button" class="bg-primary/12 text-primary hover:bg-primary hover:text-white px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all ring-1 ring-primary/10">Publish</button>
-<button type="button" class="bg-slate-100/90 text-on-surface-variant hover:bg-slate-200/90 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all ring-1 ring-slate-200/80">Unpublish</button>
-</div>
-<a class="inline-flex items-center gap-2 text-primary text-xs font-bold uppercase tracking-wide mt-auto pt-6 hover:gap-2.5 transition-all <?php echo ($tenant_public_site_url_h === '') ? 'pointer-events-none opacity-50' : ''; ?>" href="<?php echo $tenant_public_site_url_h !== '' ? $tenant_public_site_url_h : '#'; ?>" <?php if ($tenant_public_site_url_h !== ''): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>>
-<?php echo $tenant_public_site_url_h !== '' ? 'View live site' : 'Link unavailable'; ?> <span class="material-symbols-outlined text-base">open_in_new</span>
-</a>
-</div>
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-7 lg:gap-8" data-purpose="subscription-overview-stats">
+    <div class="dash-stat-card dash-stat-card--plan relative overflow-hidden rounded-3xl backdrop-blur-md p-7 provider-card-lift group">
+        <div class="flex justify-between items-start mb-5">
+            <div class="p-3 bg-gradient-to-br from-primary/15 to-blue-100/80 text-primary rounded-2xl shadow-inner ring-1 ring-white/60">
+                <span class="material-symbols-outlined text-[26px]">subscriptions</span>
+            </div>
+            <?php if ($is_subscription_active): ?>
+                <span class="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg uppercase">Active</span>
+            <?php elseif ($subscription_state === 'expired'): ?>
+                <span class="text-[10px] font-extrabold text-amber-800 bg-amber-50 px-2 py-1 rounded-lg uppercase">Expired</span>
+            <?php elseif ($subscription_state === 'inactive'): ?>
+                <span class="text-[10px] font-bold text-on-surface-variant bg-surface-container-low px-2 py-1 rounded-lg uppercase">Inactive</span>
+            <?php else: ?>
+                <span class="text-[10px] font-bold text-on-surface-variant/60 bg-slate-100 px-2 py-1 rounded-lg uppercase">None</span>
+            <?php endif; ?>
+        </div>
+        <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">Current Plan</p>
+        <h3 class="text-2xl font-extrabold text-on-background mt-2 font-headline break-words leading-tight"><?php echo htmlspecialchars($plan_name, ENT_QUOTES, 'UTF-8'); ?></h3>
+        <div class="mt-5 space-y-3">
+            <?php if ($plan_billing_cycle_label !== ''): ?>
+                <p class="text-on-surface-variant text-sm font-medium"><?php echo htmlspecialchars($plan_billing_cycle_label, ENT_QUOTES, 'UTF-8'); ?></p>
+            <?php endif; ?>
+            <?php if ($has_subscription_row): ?>
+                <div class="mt-4 pt-4 border-t border-slate-200/80 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div>
+                        <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em] opacity-70">Subscription cost</p>
+                        <p class="text-base font-extrabold text-on-background mt-1.5 tabular-nums"><?php echo htmlspecialchars($sub_payment_amount_display, ENT_QUOTES, 'UTF-8'); ?></p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em] opacity-70">Payment date</p>
+                        <p class="text-sm font-bold text-on-background mt-1.5"><?php echo htmlspecialchars($sub_payment_date_display, ENT_QUOTES, 'UTF-8'); ?></p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em] opacity-70">Payment time</p>
+                        <p class="text-sm font-medium text-on-surface-variant/80 mt-1.5 tabular-nums"><?php echo htmlspecialchars($sub_payment_time_display, ENT_QUOTES, 'UTF-8'); ?></p>
+                    </div>
+                </div>
+            <?php endif; ?>
+            <?php if ($has_subscription_row && $period_start_ts !== false && $renewal_ts !== false): ?>
+                <div class="w-full bg-slate-200/80 h-2.5 rounded-full overflow-hidden ring-1 ring-white/50">
+                    <div class="bg-gradient-to-r from-primary to-sky-400 h-full rounded-full transition-all shadow-sm" style="width: <?php echo (int) $plan_period_util_pct; ?>%;"></div>
+                </div>
+                <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wide">Renewal <?php echo htmlspecialchars($renewal_date, ENT_QUOTES, 'UTF-8'); ?> · <?php echo (int) $plan_period_util_pct; ?>% period</p>
+            <?php elseif ($has_subscription_row): ?>
+                <p class="text-sm text-on-surface-variant"><?php echo htmlspecialchars($period_start_display, ENT_QUOTES, 'UTF-8'); ?> — <?php echo htmlspecialchars($renewal_date, ENT_QUOTES, 'UTF-8'); ?></p>
+            <?php else: ?>
+                <p class="text-sm text-on-surface-variant/70">No subscription record yet.</p>
+            <?php endif; ?>
+            <div class="mt-5 pt-5 border-t border-slate-200/80">
+                <?php if ($is_subscription_active): ?>
+                    <div class="space-y-3">
+                        <h4 class="text-xs font-bold text-on-background uppercase tracking-[0.1em]">Renew Early</h4>
+                        <p class="text-xs text-on-surface-variant leading-relaxed">
+                            Your subscription is active until <span class="font-bold text-on-background"><?php echo htmlspecialchars($renewal_date, ENT_QUOTES, 'UTF-8'); ?></span>.<br>
+                            You may already pay for your next billing cycle to avoid interruption.
+                        </p>
+                        <a href="ProviderPurchase.php?plan=<?php echo urlencode((string)($sub['plan_slug'] ?? 'monthly')); ?>" class="w-full mt-3 inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-white hover:bg-primary/90 px-4 py-3 text-xs font-extrabold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                            <span class="material-symbols-outlined text-base">payment</span>
+                            <span>PAY NEXT BILLING</span>
+                        </a>
+                    </div>
+                <?php else: ?>
+                    <a href="Provider-Plans.php" class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-white hover:bg-primary/90 px-4 py-3 text-xs font-extrabold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                        <span class="material-symbols-outlined text-base">shopping_cart</span>
+                        <span>Buy plan</span>
+                    </a>
+                    <p class="mt-2 text-xs text-on-surface-variant/75 font-medium">No active subscription. Choose a plan to continue premium access.</p>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- Coverage Timeline Card -->
+    <div class="dash-stat-card relative overflow-hidden rounded-3xl backdrop-blur-md p-7 provider-card-lift group lg:col-span-2 flex flex-col justify-between" style="border-top: 3px solid #10b981;">
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
+            <div>
+                <h3 class="text-xl font-extrabold text-on-background font-headline tracking-tight uppercase">Coverage <span class="text-emerald-500 font-editorial italic font-normal transform -skew-x-6 inline-block">Timeline</span></h3>
+                <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-[0.2em] opacity-70 mt-1"><?php echo $cycle_type === 'YEARLY' ? '12-Month Annual' : '1-Month Monthly'; ?> Cycle Overview</p>
+            </div>
+            <div>
+                <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-[0.2em] opacity-70 sm:text-right">PayMongo Ref ID</p>
+                <p class="text-xs font-mono font-bold text-on-background sm:text-right mt-1"><?php echo htmlspecialchars($sub_ref_id, ENT_QUOTES, 'UTF-8'); ?></p>
+            </div>
+        </div>
+        
+        <!-- Active Period -->
+        <div class="bg-slate-50/85 border border-slate-100/90 rounded-2xl py-3 px-4 text-center mb-6">
+            <span class="text-[11px] font-black text-on-surface-variant/80 uppercase tracking-widest">
+                Active from 
+                <span class="text-emerald-500 font-bold italic"><?php echo $period_start_ts !== false ? strtoupper(date('M j, Y', $period_start_ts)) : 'N/A'; ?></span>
+                to 
+                <span class="text-emerald-500 font-bold italic"><?php echo $renewal_ts !== false ? strtoupper(date('M j, Y', $renewal_ts)) : 'N/A'; ?></span>
+            </span>
+        </div>
+        
+        <!-- Months Grid -->
+        <div class="bg-slate-50/50 border border-slate-200/40 rounded-2xl p-4 sm:p-5 mb-6 flex-1 flex flex-col justify-center">
+            <div class="grid grid-cols-3 sm:grid-cols-6 gap-3 sm:gap-4">
+                <?php foreach ($coverage_months as $month): ?>
+                    <?php if ($month['active']): ?>
+                        <div class="bg-emerald-50/70 border border-emerald-200/60 rounded-3xl p-3 flex flex-col items-center justify-center gap-1.5 shadow-sm">
+                            <span class="text-[11px] font-bold text-emerald-800 tracking-tight"><?php echo $month['label']; ?></span>
+                            <span class="material-symbols-outlined text-emerald-500 font-bold text-lg">check_circle</span>
+                        </div>
+                    <?php else: ?>
+                        <div class="bg-slate-100/50 border border-slate-200/50 rounded-3xl p-3 flex flex-col items-center justify-center gap-1.5 opacity-60">
+                            <span class="text-[11px] font-semibold text-slate-500 tracking-tight"><?php echo $month['label']; ?></span>
+                            <span class="material-symbols-outlined text-slate-300 text-lg">radio_button_unchecked</span>
+                        </div>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        
+        <!-- Footer Info -->
+        <?php if ($is_subscription_active): ?>
+            <div class="w-full bg-slate-100/60 border border-slate-200/50 rounded-2xl py-3 flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined text-slate-500 text-sm">lock</span>
+                <span class="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]"><?php echo $cycle_type; ?> SUBSCRIPTION ACTIVE</span>
+            </div>
+        <?php else: ?>
+            <div class="w-full bg-slate-100/60 border border-slate-200/50 rounded-2xl py-3 flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined text-slate-400 text-sm">lock_open</span>
+                <span class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">NO ACTIVE SUBSCRIPTION</span>
+            </div>
+        <?php endif; ?>
+    </div>
+</section>
+
+<section class="grid grid-cols-1 md:grid-cols-2 gap-7 lg:gap-8 mt-7 lg:mt-8">
+    <div class="dash-stat-card dash-stat-card--domain relative overflow-hidden rounded-3xl backdrop-blur-md p-7 provider-card-lift group flex flex-col">
+        <div class="flex justify-between items-start mb-5">
+            <div class="p-3 bg-gradient-to-br from-teal-400/20 to-cyan-100/90 text-teal-800 rounded-2xl shadow-inner ring-1 ring-white/60">
+                <span class="material-symbols-outlined text-[26px]">language</span>
+            </div>
+            <span class="text-[10px] font-bold <?php echo $has_visible_website ? 'text-teal-700 bg-teal-50' : 'text-amber-800 bg-amber-50'; ?> px-2.5 py-1 rounded-lg uppercase tracking-wider"><?php echo $has_visible_website ? 'Live' : 'Pending'; ?></span>
+        </div>
+        <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">Domain &amp; Hosting</p>
+        <?php if ($tenant_public_site_url_h !== ''): ?>
+            <a href="<?php echo $tenant_public_site_url_h; ?>" target="_blank" rel="noopener noreferrer" class="dash-domain-link block mt-2 group/link">
+                <h3 class="text-xl font-extrabold text-on-background font-headline break-all leading-snug group-hover/link:text-primary transition-colors"><?php echo htmlspecialchars($domain_display, ENT_QUOTES, 'UTF-8'); ?></h3>
+                <span class="inline-flex items-center gap-1 text-primary text-xs font-bold uppercase tracking-wide mt-2">Open website <span class="material-symbols-outlined text-base transition-transform group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5">open_in_new</span></span>
+            </a>
+        <?php else: ?>
+            <h3 class="text-xl font-extrabold text-on-background mt-2 font-headline"><?php echo htmlspecialchars($domain_display, ENT_QUOTES, 'UTF-8'); ?></h3>
+        <?php endif; ?>
+        <p class="text-sm text-on-surface-variant font-medium mt-3"><?php echo htmlspecialchars($hosting_status_label, ENT_QUOTES, 'UTF-8'); ?></p>
+        <div class="flex items-center gap-2.5 mt-auto pt-5 border-t border-slate-200/80">
+            <span class="material-symbols-outlined <?php echo $has_visible_website ? 'text-emerald-500' : 'text-amber-500'; ?> text-xl">verified_user</span>
+            <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest"><?php echo $has_visible_website ? 'Published' : 'Not published'; ?></span>
+        </div>
+    </div>
+    <div class="dash-stat-card dash-stat-card--actions relative overflow-hidden rounded-3xl backdrop-blur-md p-7 provider-card-lift group flex flex-col">
+        <div class="flex justify-between items-start mb-5">
+            <div class="p-3 bg-gradient-to-br from-violet-400/20 to-violet-100/90 text-violet-800 rounded-2xl shadow-inner ring-1 ring-white/60">
+                <span class="material-symbols-outlined text-[26px]">tune</span>
+            </div>
+            <span class="text-[10px] font-bold text-violet-800/80 bg-violet-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Shortcuts</span>
+        </div>
+        <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">Website</p>
+        <h3 class="text-lg font-extrabold text-on-background mt-2 font-headline">Quick actions</h3>
+        <div class="flex flex-wrap gap-2 mt-5">
+            <button type="button" class="bg-primary/12 text-primary hover:bg-primary hover:text-white px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all ring-1 ring-primary/10">Publish</button>
+            <button type="button" class="bg-slate-100/90 text-on-surface-variant hover:bg-slate-200/90 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all ring-1 ring-slate-200/80">Unpublish</button>
+        </div>
+        <a class="inline-flex items-center gap-2 text-primary text-xs font-bold uppercase tracking-wide mt-auto pt-6 hover:gap-2.5 transition-all <?php echo ($tenant_public_site_url_h === '') ? 'pointer-events-none opacity-50' : ''; ?>" href="<?php echo $tenant_public_site_url_h !== '' ? $tenant_public_site_url_h : '#'; ?>" <?php if ($tenant_public_site_url_h !== ''): ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>>
+            <?php echo $tenant_public_site_url_h !== '' ? 'View live site' : 'Link unavailable'; ?> <span class="material-symbols-outlined text-base">open_in_new</span>
+        </a>
+    </div>
 </section>
 <section class="ftl-log-shell elevated-card rounded-3xl border border-slate-200/70 overflow-hidden provider-card-lift bg-white">
 <div class="ftl-log-header relative overflow-hidden px-6 sm:px-8 pt-9 pb-7 sm:pt-10 sm:pb-8 border-b border-slate-200/60">
