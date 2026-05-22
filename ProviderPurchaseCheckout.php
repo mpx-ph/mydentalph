@@ -42,17 +42,6 @@ if (!in_array($payment_method, $valid_methods, true)) {
     exit;
 }
 
-$payment_mode = strtolower(trim((string) ($_POST['payment_mode'] ?? 'one_time')));
-if (!in_array($payment_mode, ['one_time', 'subscription'], true)) {
-    $payment_mode = 'one_time';
-}
-
-if ($payment_mode === 'subscription' && $payment_method !== 'card') {
-    $_SESSION['provider_purchase_error'] = 'Subscriptions must be paid using a Credit/Debit Card.';
-    header('Location: ProviderPurchase.php');
-    exit;
-}
-
 $plan_slug = strtolower(trim((string) ($_POST['selected_plan_slug'] ?? 'monthly')));
 if (!in_array($plan_slug, $allowed_plans, true)) {
     $plan_slug = 'monthly';
@@ -286,7 +275,6 @@ $payload = json_encode([
                 'plan_price' => (string) $plan_price,
                 'plan_slug' => (string) $plan_slug,
                 'payment_method' => (string) $payment_method,
-                'payment_mode' => (string) $payment_mode,
             ],
         ],
     ],
@@ -348,7 +336,6 @@ try {
         $_SESSION['paymongo_plan_name'] = $plan_name;
         $_SESSION['paymongo_plan_price'] = $plan_price;
         $_SESSION['paymongo_plan_slug'] = $plan_slug;
-        $_SESSION['paymongo_payment_mode'] = $payment_mode;
         $_SESSION['paymongo_reference_number'] = $checkout_reference;
         header('Location: ' . $checkout_url);
         exit;

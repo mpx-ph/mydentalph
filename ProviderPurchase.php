@@ -463,34 +463,6 @@ $back_href = 'ProviderClinicSetup.php';
 <section class="bg-surface-container-low rounded-2xl p-5 sm:p-6 border border-on-surface/5">
 <div class="flex items-center gap-3 mb-5">
 <div class="bg-primary text-white p-2 rounded-xl shadow-md shadow-primary/20">
-<span class="material-symbols-outlined text-[22px]">autorenew</span>
-</div>
-<div>
-<h2 class="font-headline text-lg sm:text-xl font-extrabold tracking-tight">Payment Mode</h2>
-<p class="text-xs font-medium text-on-surface-variant">Choose how you want to pay</p>
-</div>
-</div>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-<label id="pmode_one_time_label" class="group flex items-start gap-3 p-4 bg-white border rounded-xl transition-all duration-300 cursor-pointer border-primary ring-2 ring-primary/20 shadow-sm">
-<input name="payment_mode" value="one_time" type="radio" class="mt-0.5 text-primary focus:ring-primary h-4 w-4 border-on-surface/20" checked/>
-<div>
-<p class="text-sm font-bold text-on-surface">One-Time Payment</p>
-<p class="text-xs text-on-surface-variant mt-0.5">Pay once for the selected billing cycle.</p>
-</div>
-</label>
-<label id="pmode_subscription_label" class="group flex items-start gap-3 p-4 bg-white border rounded-xl transition-all duration-300 cursor-pointer border-on-surface/10 hover:border-primary/30">
-<input name="payment_mode" value="subscription" type="radio" class="mt-0.5 text-primary focus:ring-primary h-4 w-4 border-on-surface/20"/>
-<div>
-<p class="text-sm font-bold text-on-surface">Subscribe</p>
-<p class="text-xs text-on-surface-variant mt-0.5">Automatically renew. (Card only)</p>
-</div>
-</label>
-</div>
-</section>
-
-<section class="bg-surface-container-low rounded-2xl p-5 sm:p-6 border border-on-surface/5">
-<div class="flex items-center gap-3 mb-5">
-<div class="bg-primary text-white p-2 rounded-xl shadow-md shadow-primary/20">
 <span class="material-symbols-outlined text-[22px]">payments</span>
 </div>
 <div>
@@ -709,76 +681,6 @@ $is_modal_selected = ($plan_option_slug === $plan_slug);
       applySelection();
     }
   });
-
-  var paymentModeInputs = document.querySelectorAll('input[name="payment_mode"]');
-  var pmodeOneTimeLabel = document.getElementById('pmode_one_time_label');
-  var pmodeSubscriptionLabel = document.getElementById('pmode_subscription_label');
-  var pmGcash = document.getElementById('pm_gcash');
-  var pmMaya = document.getElementById('pm_maya');
-  var pmCard = document.getElementById('pm_card');
-
-  function updatePaymentModeUI() {
-    var mode = document.querySelector('input[name="payment_mode"]:checked').value;
-    var isSub = (mode === 'subscription');
-    
-    pmodeOneTimeLabel.classList.toggle('border-primary', !isSub);
-    pmodeOneTimeLabel.classList.toggle('ring-2', !isSub);
-    pmodeOneTimeLabel.classList.toggle('ring-primary/20', !isSub);
-    pmodeOneTimeLabel.classList.toggle('border-on-surface/10', isSub);
-    
-    pmodeSubscriptionLabel.classList.toggle('border-primary', isSub);
-    pmodeSubscriptionLabel.classList.toggle('ring-2', isSub);
-    pmodeSubscriptionLabel.classList.toggle('ring-primary/20', isSub);
-    pmodeSubscriptionLabel.classList.toggle('border-on-surface/10', !isSub);
-    
-    if (isSub) {
-      if (pmGcash) {
-        pmGcash.disabled = true;
-        var labelG = pmGcash.closest('label');
-        if (labelG) {
-          labelG.style.opacity = '0.5';
-          labelG.style.cursor = 'not-allowed';
-        }
-      }
-      if (pmMaya) {
-        pmMaya.disabled = true;
-        var labelM = pmMaya.closest('label');
-        if (labelM) {
-          labelM.style.opacity = '0.5';
-          labelM.style.cursor = 'not-allowed';
-        }
-      }
-      
-      if ((pmGcash && pmGcash.checked) || (pmMaya && pmMaya.checked)) {
-        if (pmCard) pmCard.checked = true;
-        applySelection();
-      }
-    } else {
-      if (pmGcash) {
-        pmGcash.disabled = false;
-        var labelG = pmGcash.closest('label');
-        if (labelG) {
-          labelG.style.opacity = '1';
-          labelG.style.cursor = 'pointer';
-        }
-      }
-      if (pmMaya) {
-        pmMaya.disabled = false;
-        var labelM = pmMaya.closest('label');
-        if (labelM) {
-          labelM.style.opacity = '1';
-          labelM.style.cursor = 'pointer';
-        }
-      }
-    }
-  }
-
-  if (paymentModeInputs) {
-    paymentModeInputs.forEach(function(input) {
-        input.addEventListener('change', updatePaymentModeUI);
-    });
-    updatePaymentModeUI();
-  }
 
   if (form && submitBtn) {
     submitBtn.addEventListener('click', function () {
