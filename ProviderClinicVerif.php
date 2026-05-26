@@ -3,9 +3,12 @@ session_start();
 require_once __DIR__ . '/provider_redirect_superadmin.php';
 require_once __DIR__ . '/db.php';
 
-function run_ocr_space(string $file_path, string $mime): array
+function run_ocr_space(string $file_path, string $mime, string $original_name = ''): array
 {
     $api_key = getenv('OCR_SPACE_API_KEY') ?: 'helloworld';
+    
+    $postname = $original_name !== '' ? basename($original_name) : basename($file_path);
+    
     $payload = [
         'apikey' => $api_key,
         'language' => 'eng',
@@ -13,8 +16,16 @@ function run_ocr_space(string $file_path, string $mime): array
         'detectOrientation' => 'true',
         'scale' => 'true',
         'OCREngine' => '2',
-        'file' => new CURLFile($file_path, $mime, basename($file_path)),
+        'file' => new CURLFile($file_path, $mime, $postname),
     ];
+
+    $ext = strtolower(pathinfo($postname, PATHINFO_EXTENSION));
+    if ($ext === 'jpeg') {
+        $ext = 'jpg';
+    }
+    if (in_array($ext, ['pdf', 'png', 'jpg', 'gif', 'webp'], true)) {
+        $payload['filetype'] = strtoupper($ext);
+    }
 
     $ch = curl_init('https://api.ocr.space/parse/image');
     curl_setopt_array($ch, [
@@ -237,7 +248,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Run OCR Space
-        $ocr = run_ocr_space($tmp, $mime !== '' ? $mime : 'application/octet-stream');
+        $ocr = run_ocr_space($tmp, $mime !== '' ? $mime : 'application/octet-stream', $name);
         if (!$ocr['ok']) {
             echo json_encode(['ok' => false, 'error' => $ocr['error']]);
             exit;
@@ -394,7 +405,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         // Run OCR Space on business permits to check expiration
                         if ($doc_type === 'business_permit') {
-                            $ocr = run_ocr_space($target_path, $mime);
+                            $ocr = run_ocr_space($target_path, $mime, $original_name);
                             if (!$ocr['ok']) {
                                 $upload_error_found = 'OCR Verification Error for ' . htmlspecialchars($original_name) . ': ' . $ocr['error'];
                                 if (file_exists($target_path)) {
