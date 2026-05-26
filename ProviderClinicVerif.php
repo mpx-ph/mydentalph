@@ -3,6 +3,140 @@ session_start();
 require_once __DIR__ . '/provider_redirect_superadmin.php';
 require_once __DIR__ . '/db.php';
 
+function run_ocr_space(string $file_path, string $mime): array
+{
+    $api_key = getenv('OCR_SPACE_API_KEY') ?: 'helloworld';
+    $payload = [
+        'apikey' => $api_key,
+        'language' => 'eng',
+        'isOverlayRequired' => 'false',
+        'detectOrientation' => 'true',
+        'scale' => 'true',
+        'OCREngine' => '2',
+        'file' => new CURLFile($file_path, $mime, basename($file_path)),
+    ];
+
+    $ch = curl_init('https://api.ocr.space/parse/image');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 60,
+    ]);
+    $response = curl_exec($ch);
+    $curl_error = curl_error($ch);
+    curl_close($ch);
+
+    if ($response === false || $curl_error) {
+        return ['ok' => false, 'error' => 'OCR service is unavailable right now. Please try again.'];
+    }
+
+    $json = json_decode($response, true);
+    if (!is_array($json)) {
+        return ['ok' => false, 'error' => 'Unexpected OCR response. Please try another file.'];
+    }
+
+    $parsed_text = '';
+    if (!empty($json['ParsedResults']) && is_array($json['ParsedResults'])) {
+        foreach ($json['ParsedResults'] as $item) {
+            $parsed_text .= ($item['ParsedText'] ?? '') . "\n";
+        }
+    }
+
+    if (trim($parsed_text) === '') {
+        $api_error = $json['ErrorMessage'] ?? '';
+        if (is_array($api_error)) {
+            $api_error = implode(', ', $api_error);
+        }
+        return ['ok' => false, 'error' => $api_error !== '' ? $api_error : 'No readable text found in the document.'];
+    }
+
+    return ['ok' => true, 'text' => trim($parsed_text)];
+}
+
+function check_expiration_date(string $text): array
+{
+    $lines = explode("\n", $text);
+    $keywords = ['expiration', 'expiry', 'valid until', 'valid thru', 'expires', 'validity'];
+    
+    // Date regex patterns
+    // 1. Text Month Day Year (e.g. December 31, 2026)
+    $pattern_month_day_year = '/\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)[a-z.]*\s+\d{1,2}(?:st|nd|rd|th)?\b(?:\s*,\s*|\s+)\d{4}\b/i';
+    
+    // 2. Day Text Month Year (e.g. 31 December 2026, 31-Dec-2026)
+    $pattern_day_month_year = '/\b\d{1,2}\s*(?:[-\s]|de\s+)?(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)[a-z.]*(?:[-\s]|\s+de\s+|\s*,\s*)\d{4}\b/i';
+    
+    // 3. YYYY-MM-DD
+    $pattern_yyyy_mm_dd = '/\b\d{4}[-.\/]\d{1,2}[-.\/]\d{1,2}\b/';
+    
+    // 4. MM/DD/YYYY or DD/MM/YYYY
+    $pattern_numeric_slash = '/\b\d{1,2}[-.\/]\d{1,2}[-.\/]\d{4}\b/';
+
+    foreach ($lines as $index => $line) {
+        $matched_keyword = false;
+        foreach ($keywords as $kw) {
+            if (stripos($line, $kw) !== false) {
+                $matched_keyword = true;
+                break;
+            }
+        }
+        
+        if ($matched_keyword) {
+            // We search for date patterns in this line and the next line (if available)
+            $search_context = $line;
+            if (isset($lines[$index + 1])) {
+                $search_context .= ' ' . $lines[$index + 1];
+            }
+            
+            // Check patterns in order of specificity
+            $found_date = null;
+            if (preg_match($pattern_month_day_year, $search_context, $m)) {
+                $found_date = $m[0];
+            } elseif (preg_match($pattern_day_month_year, $search_context, $m)) {
+                $found_date = $m[0];
+            } elseif (preg_match($pattern_yyyy_mm_dd, $search_context, $m)) {
+                $found_date = $m[0];
+            } elseif (preg_match($pattern_numeric_slash, $search_context, $m)) {
+                $found_date = $m[0];
+            }
+            
+            if ($found_date) {
+                // Try to parse the date.
+                // Replace slashes with dashes if strtotime fails to handle DD/MM/YYYY.
+                $clean_date = trim($found_date);
+                $timestamp = strtotime($clean_date);
+                if ($timestamp === false && strpos($clean_date, '/') !== false) {
+                    $replaced_date = str_replace('/', '-', $clean_date);
+                    $timestamp = strtotime($replaced_date);
+                }
+                
+                if ($timestamp !== false) {
+                    $today = strtotime('today');
+                    if ($timestamp < $today) {
+                        return [
+                            'status' => 'expired',
+                            'date' => date('Y-m-d', $timestamp),
+                            'raw' => $found_date
+                        ];
+                    } else {
+                        return [
+                            'status' => 'valid',
+                            'date' => date('Y-m-d', $timestamp),
+                            'raw' => $found_date
+                        ];
+                    }
+                }
+            }
+        }
+    }
+    
+    return [
+        'status' => 'unknown',
+        'date' => null,
+        'raw' => null
+    ];
+}
+
 $error = '';
 $success = '';
 $field_errors = [];
@@ -213,6 +347,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             break 2;
                         }
 
+                        // Run OCR Space on business permits to check expiration
+                        if ($doc_type === 'business_permit') {
+                            $ocr = run_ocr_space($target_path, $mime);
+                            if (!$ocr['ok']) {
+                                $upload_error_found = 'OCR Verification Error for ' . htmlspecialchars($original_name) . ': ' . $ocr['error'];
+                                if (file_exists($target_path)) {
+                                    @unlink($target_path);
+                                }
+                                break 2;
+                            } else {
+                                $expiration = check_expiration_date($ocr['text']);
+                                if ($expiration['status'] === 'expired') {
+                                    $upload_error_found = 'The uploaded Business Permit (' . htmlspecialchars($original_name) . ') has expired. Detected Expiration: ' . htmlspecialchars($expiration['date']) . '. Please upload a valid, active document.';
+                                    if (file_exists($target_path)) {
+                                        @unlink($target_path);
+                                    }
+                                    break 2;
+                                }
+                            }
+                        }
+
                         $staged[] = [
                             'doc_type' => $doc_type,
                             'original_name' => $original_name,
@@ -225,6 +380,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if ($upload_error_found !== '') {
                     $error = $upload_error_found;
+                    // Clean up any successfully moved staged files in this request to avoid orphan uploads
+                    foreach ($staged as $s) {
+                        $full_path = __DIR__ . '/' . $s['path'];
+                        if (file_exists($full_path)) {
+                            @unlink($full_path);
+                        }
+                    }
                 } elseif (empty($staged)) {
                     $error = 'Please upload at least one verification document to continue.';
                 } else {
