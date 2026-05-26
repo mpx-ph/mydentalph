@@ -208,6 +208,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $has_submitted_clinic_docs) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? 'submit_clinic_verification';
+
+    if ($action === 'validate_document_ocr') {
+        header('Content-Type: application/json');
+        if (!isset($_FILES['doc'])) {
+            echo json_encode(['ok' => false, 'error' => 'No file received.']);
+            exit;
+        }
+        $file = $_FILES['doc'];
+        $tmp = $file['tmp_name'] ?? '';
+        $name = $file['name'] ?? '';
+        $size = (int) ($file['size'] ?? 0);
+        $error_code = $file['error'] ?? UPLOAD_ERR_NO_FILE;
+
+        if ($error_code !== UPLOAD_ERR_OK || !is_uploaded_file($tmp)) {
+            echo json_encode(['ok' => false, 'error' => 'File upload failed.']);
+            exit;
+        }
+
+        // basic validation
+        $mime = (string) (mime_content_type($tmp) ?: '');
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        
+        $allowed_exts = ['pdf', 'jpg', 'jpeg', 'png'];
+        if (!in_array($ext, $allowed_exts, true)) {
+            echo json_encode(['ok' => false, 'error' => 'Unsupported file type. Upload PDF, JPG, or PNG only.']);
+            exit;
+        }
+
+        // Run OCR Space
+        $ocr = run_ocr_space($tmp, $mime !== '' ? $mime : 'application/octet-stream');
+        if (!$ocr['ok']) {
+            echo json_encode(['ok' => false, 'error' => $ocr['error']]);
+            exit;
+        }
+
+        $expiration = check_expiration_date($ocr['text']);
+        echo json_encode([
+            'ok' => true,
+            'status' => $expiration['status'], // 'expired', 'valid', or 'unknown'
+            'date' => $expiration['date'],
+            'raw' => $expiration['raw']
+        ]);
+        exit;
+    }
+
     if ($action === 'submit_clinic_verification') {
         if ($has_submitted_clinic_docs) {
             header('Location: ProviderApplication.php');
@@ -801,6 +846,96 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         return row;
     }
 
+    const submitButton = document.querySelector('#clinic-verification-form button[type="submit"]');
+    const ocrStatus = {
+        scanning: 0,
+        expired: false
+    };
+
+    function updateSubmitButton() {
+        if (!submitButton) return;
+        if (ocrStatus.scanning > 0) {
+            submitButton.disabled = true;
+            submitButton.classList.add('opacity-70', 'cursor-not-allowed');
+            submitButton.innerHTML = 'Scanning Business Permit...';
+        } else if (ocrStatus.expired) {
+            submitButton.disabled = true;
+            submitButton.classList.add('opacity-70', 'cursor-not-allowed');
+            submitButton.innerHTML = 'Expired Permit Uploaded';
+        } else {
+            submitButton.disabled = false;
+            submitButton.classList.remove('opacity-70', 'cursor-not-allowed');
+            submitButton.innerHTML = 'Submit for Verification';
+        }
+    }
+
+    async function scanFileOcr(file, errorEl) {
+        ocrStatus.scanning++;
+        updateSubmitButton();
+        renderError(errorEl, 'Scanning document validity via OCR. Please wait...');
+        errorEl.classList.remove('bg-red-50', 'text-red-700', 'border-red-200');
+        errorEl.classList.add('bg-blue-50', 'text-blue-700', 'border-blue-200');
+
+        const formData = new FormData();
+        formData.append('action', 'validate_document_ocr');
+        formData.append('doc', file);
+
+        try {
+            const response = await fetch('ProviderClinicVerif.php', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (data.ok) {
+                if (data.status === 'expired') {
+                    ocrStatus.expired = true;
+                    errorEl.classList.remove('bg-blue-50', 'text-blue-700', 'border-blue-200');
+                    errorEl.classList.add('bg-red-50', 'text-red-700', 'border-red-200');
+                    renderError(errorEl, `The Business Permit (${file.name}) has expired. Detected Expiration: ${data.date}. Please upload a valid document.`);
+                } else if (data.status === 'valid') {
+                    errorEl.classList.remove('bg-blue-50', 'text-blue-700', 'border-blue-200');
+                    errorEl.classList.add('bg-emerald-50', 'text-emerald-700', 'border-emerald-200');
+                    renderError(errorEl, `Document OCR check passed! Detected Expiration: ${data.date}.`);
+                    setTimeout(() => {
+                        if (!ocrStatus.expired && ocrStatus.scanning === 0) {
+                            renderError(errorEl, '');
+                        }
+                    }, 5000);
+                } else {
+                    errorEl.classList.remove('bg-blue-50', 'text-blue-700', 'border-blue-200');
+                    errorEl.classList.add('bg-slate-50', 'text-slate-700', 'border-slate-200');
+                    renderError(errorEl, 'Document scanned. Expiration date could not be determined automatically. Superadmin will review manually.');
+                    setTimeout(() => {
+                        if (!ocrStatus.expired && ocrStatus.scanning === 0) {
+                            renderError(errorEl, '');
+                        }
+                    }, 5000);
+                }
+            } else {
+                errorEl.classList.remove('bg-blue-50', 'text-blue-700', 'border-blue-200');
+                errorEl.classList.add('bg-slate-50', 'text-slate-700', 'border-slate-200');
+                renderError(errorEl, `OCR scan could not be completed (${data.error}). The document will be reviewed manually.`);
+                setTimeout(() => {
+                    if (!ocrStatus.expired && ocrStatus.scanning === 0) {
+                        renderError(errorEl, '');
+                    }
+                }, 5000);
+            }
+        } catch (e) {
+            errorEl.classList.remove('bg-blue-50', 'text-blue-700', 'border-blue-200');
+            errorEl.classList.add('bg-slate-50', 'text-slate-700', 'border-slate-200');
+            renderError(errorEl, 'OCR service communication issue. The document will be reviewed manually.');
+            setTimeout(() => {
+                if (!ocrStatus.expired && ocrStatus.scanning === 0) {
+                    renderError(errorEl, '');
+                }
+            }, 5000);
+        } finally {
+            ocrStatus.scanning--;
+            updateSubmitButton();
+        }
+    }
+
     function setupInput(input) {
         const previewId = input.dataset.previewTarget || '';
         const errorId = input.dataset.errorTarget || '';
@@ -849,6 +984,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     syncInputFiles();
                     renderPreview();
                     renderError(errorEl, '');
+                    if (input.name === 'business_permit_docs[]') {
+                        ocrStatus.expired = false;
+                        updateSubmitButton();
+                    }
                 }));
             });
             preview.appendChild(list);
@@ -879,16 +1018,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             const existing = new Set(selectedFiles.map(fileKey));
+            const newFiles = [];
             picked.forEach((file) => {
                 const key = fileKey(file);
                 if (!existing.has(key)) {
                     selectedFiles.push(file);
+                    newFiles.push(file);
                     existing.add(key);
                 }
             });
             syncInputFiles();
             renderError(errorEl, '');
             renderPreview();
+
+            if (input.name === 'business_permit_docs[]' && newFiles.length > 0) {
+                ocrStatus.expired = false;
+                newFiles.forEach((file) => {
+                    scanFileOcr(file, errorEl);
+                });
+            }
         });
     }
 
@@ -897,8 +1045,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     const form = document.getElementById('clinic-verification-form');
     if (form) {
-        form.addEventListener('submit', () => {
-            const submitButton = form.querySelector('button[type="submit"]');
+        form.addEventListener('submit', (e) => {
+            if (ocrStatus.scanning > 0 || ocrStatus.expired) {
+                e.preventDefault();
+                return;
+            }
             if (submitButton) {
                 submitButton.disabled = true;
                 submitButton.classList.add('opacity-70', 'cursor-not-allowed');
