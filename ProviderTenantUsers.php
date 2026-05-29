@@ -792,6 +792,11 @@ $team_total = count($team_members);
 <button type="button" class="add-user-role-btn flex-1 min-w-[6.5rem] rounded-2xl border-2 border-slate-200 bg-white px-3 py-3.5 text-[11px] font-black uppercase tracking-widest text-on-background transition-all hover:border-primary/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" data-role="Manager" aria-pressed="false">Manager</button>
 </div>
 </div>
+<div id="add-user-license-wrap" class="hidden rounded-2xl border border-primary/15 bg-surface-container-low/60 px-4 py-4 sm:px-5 sm:py-4" aria-hidden="true">
+<label class="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/80 mb-2" for="add-user-license">Professional license number</label>
+<input type="text" id="add-user-license" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-medium text-on-background placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" placeholder="e.g. PRC license no." maxlength="100" autocomplete="off"/>
+<p class="text-[9px] font-bold uppercase tracking-wider text-on-surface-variant/65 mt-2 leading-relaxed">Required for dentists. The doctor will see this on their clinic profile.</p>
+</div>
 </div>
 <div class="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 px-8 py-5 bg-white border-t border-slate-100">
 <button type="button" class="text-center sm:text-left text-[11px] font-black uppercase tracking-[0.2em] text-primary hover:text-primary/80 transition-colors py-2" data-modal-dismiss>Cancel</button>
@@ -861,6 +866,8 @@ Cancel
   var lastInput = document.getElementById('add-user-last');
   var emailInput = document.getElementById('add-user-email');
   var roleGroup = document.getElementById('add-user-role-group');
+  var licenseWrap = document.getElementById('add-user-license-wrap');
+  var licenseInput = document.getElementById('add-user-license');
   var selectedRole = '';
   var submitBtn = document.getElementById('add-user-submit');
   var verifyModal = document.getElementById('add-user-verify-modal');
@@ -896,6 +903,18 @@ Cancel
   function clearRoleSelection() {
     selectedRole = '';
     syncRoleButtons();
+    syncLicenseField();
+  }
+
+  function syncLicenseField() {
+    var isDentist = selectedRole === 'Doctor';
+    if (!licenseWrap) return;
+    licenseWrap.classList.toggle('hidden', !isDentist);
+    licenseWrap.setAttribute('aria-hidden', isDentist ? 'false' : 'true');
+    if (licenseInput) {
+      licenseInput.required = isDentist;
+      if (!isDentist) licenseInput.value = '';
+    }
   }
 
   if (roleGroup) {
@@ -906,6 +925,7 @@ Cancel
       if (!val) return;
       selectedRole = val;
       syncRoleButtons();
+      syncLicenseField();
     });
   }
 
@@ -1023,6 +1043,8 @@ Cancel
       strengthBar.className = 'h-full rounded-full bg-primary/30 w-0 transition-all duration-300 ease-out';
     }
     clearRoleSelection();
+    if (licenseInput) licenseInput.value = '';
+    syncLicenseField();
   }
 
   function applyOwnerIdentityFields() {
@@ -1149,6 +1171,22 @@ Cancel
         }
         return;
       }
+      var licenseNo = licenseInput ? licenseInput.value.trim() : '';
+      if (role === 'Doctor') {
+        if (licenseNo === '') {
+          if (window.providerNotify) {
+            window.providerNotify.alert('Enter the dentist\'s professional license number before continuing.', { variant: 'warning', title: 'License required' });
+          }
+          if (licenseInput) licenseInput.focus();
+          return;
+        }
+        if (licenseNo.length > 100) {
+          if (window.providerNotify) {
+            window.providerNotify.alert('License number must be 100 characters or fewer.', { variant: 'warning', title: 'License number' });
+          }
+          return;
+        }
+      }
       var pw = pwInput ? pwInput.value : '';
       if (!owner) {
         if (!pwConfirm || pw !== pwConfirm.value) {
@@ -1166,6 +1204,7 @@ Cancel
         last_name: ln,
         email: em,
         role: role,
+        license_number: role === 'Doctor' ? licenseNo : '',
         password: owner ? '' : pw
       })
         .then(function (res) {

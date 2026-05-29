@@ -210,6 +210,7 @@ function getProfile(): void
                 'barangay' => (string) ($dentist['barangay'] ?? ''),
                 'city_municipality' => (string) ($dentist['city_municipality'] ?? ''),
                 'province' => (string) ($dentist['province'] ?? ''),
+                'license_number' => trim((string) ($dentist['license_number'] ?? '')),
                 'profile_image' => $primaryImg,
                 'profile_image_url' => $photoUrl,
                 'username' => (string) ($user['username'] ?? ''),
@@ -480,7 +481,15 @@ function updatePersonalDetails(string $userId, array $input): void
             jsonResponse(false, 'Full name is too long.');
         }
 
+        $licenseIn = trim(sanitize($input['license_number'] ?? ''));
+        if (strlen($licenseIn) > 100) {
+            jsonResponse(false, 'License number must be 100 characters or fewer.');
+        }
+
         if (admin_profile_is_dentist_session()) {
+            if ($licenseIn === '') {
+                jsonResponse(false, 'Professional license number is required.');
+            }
             $dentist = admin_profile_resolve_dentist_row($pdo, $tenantId, (string) ($existingUserRow['email'] ?? ''));
             if (!$dentist) {
                 jsonResponse(false, 'Dentist profile is not linked to this account.');
@@ -497,6 +506,7 @@ function updatePersonalDetails(string $userId, array $input): void
                     first_name = ?,
                     last_name = ?,
                     email = ?,
+                    license_number = ?,
                     contact_number = ?,
                     gender = ?,
                     house_street = ?,
@@ -510,6 +520,7 @@ function updatePersonalDetails(string $userId, array $input): void
                 $staffData['first_name'],
                 $staffData['last_name'],
                 $dentistEmail,
+                $licenseIn,
                 $staffData['contact_number'] !== '' ? $staffData['contact_number'] : null,
                 $staffData['gender'] !== '' ? $staffData['gender'] : null,
                 $staffData['house_street'] !== '' ? $staffData['house_street'] : null,

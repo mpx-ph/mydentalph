@@ -122,14 +122,23 @@ function tenant_staff_invite_insert_dentist_profile(
     string $tenant_id,
     string $first_name,
     string $last_name,
-    string $email
+    string $email,
+    string $license_number
 ): void {
     $display_id = tenant_staff_invite_next_dentist_display_id($pdo, $tenant_id);
+    $license_number = trim($license_number);
     $stmt = $pdo->prepare('
-        INSERT INTO tbl_dentists (tenant_id, dentist_display_id, first_name, last_name, email, status, created_at)
-        VALUES (?, ?, ?, ?, ?, \'active\', NOW())
+        INSERT INTO tbl_dentists (tenant_id, dentist_display_id, first_name, last_name, email, license_number, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, \'active\', NOW())
     ');
-    $stmt->execute([$tenant_id, $display_id, $first_name, $last_name, strtolower(trim($email))]);
+    $stmt->execute([
+        $tenant_id,
+        $display_id,
+        $first_name,
+        $last_name,
+        strtolower(trim($email)),
+        $license_number !== '' ? $license_number : null,
+    ]);
 }
 
 function tenant_staff_invite_read_session(): ?array
@@ -201,6 +210,7 @@ if ($action === 'send_code' || $action === 'resend') {
         $last = trim((string) ($data['last_name'] ?? ''));
         $email = strtolower(trim((string) ($data['email'] ?? '')));
         $role_label = trim((string) ($data['role'] ?? ''));
+        $license_number = trim((string) ($data['license_number'] ?? ''));
         $password = (string) ($data['password'] ?? '');
 
         $role_db = tenant_staff_invite_map_role($role_label);
@@ -208,6 +218,21 @@ if ($action === 'send_code' || $action === 'resend') {
             http_response_code(400);
             echo json_encode(['ok' => false, 'error' => 'Choose a valid clinic role (Manager, Staff, or Doctor).']);
             exit;
+        }
+
+        if ($role_db === 'dentist') {
+            if ($license_number === '') {
+                http_response_code(400);
+                echo json_encode(['ok' => false, 'error' => 'Professional license number is required for dentists.']);
+                exit;
+            }
+            if (strlen($license_number) > 100) {
+                http_response_code(400);
+                echo json_encode(['ok' => false, 'error' => 'License number must be 100 characters or fewer.']);
+                exit;
+            }
+        } else {
+            $license_number = '';
         }
 
         if ($first === '' || $last === '') {
@@ -298,6 +323,7 @@ if ($action === 'send_code' || $action === 'resend') {
             'last' => $last,
             'email' => $email,
             'role' => $role_db,
+            'license_number' => $license_number,
             'password_hash' => $password_hash,
             'inviter_user_id' => $inviter_user_id,
         ];
@@ -397,7 +423,8 @@ if ($action === 'verify') {
                     $tenant_id,
                     (string) $payload['first'],
                     (string) $payload['last'],
-                    $owner_email
+                    $owner_email,
+                    (string) ($payload['license_number'] ?? '')
                 );
             } elseif ($invite_role === 'manager') {
                 $stmt = $pdo->prepare('SELECT 1 FROM tbl_managers WHERE tenant_id = ? AND user_id = ? LIMIT 1');
@@ -481,7 +508,8 @@ if ($action === 'verify') {
                     $tenant_id,
                     (string) $payload['first'],
                     (string) $payload['last'],
-                    $email
+                    $email,
+                    (string) ($payload['license_number'] ?? '')
                 );
             } elseif ($role === 'manager') {
                 $manager_display = tenant_staff_invite_next_manager_display_id($pdo, $tenant_id);

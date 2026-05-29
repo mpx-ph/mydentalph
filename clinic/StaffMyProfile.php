@@ -254,6 +254,10 @@ if (!isset($currentTenantSlug)) {
                                 <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldLast">Last name</label>
                                 <input id="fieldLast" name="last_name" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="text" autocomplete="family-name" minlength="2" maxlength="60" pattern="[A-Za-z .'-]+" title="Use 2 to 60 characters. Letters, spaces, apostrophe, period, and hyphen only." required/>
                             </div>
+                            <div class="sm:col-span-2 hidden" id="fieldLicenseWrap">
+                                <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldLicense">Professional license number</label>
+                                <input id="fieldLicense" name="license_number" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="text" maxlength="100" autocomplete="off" placeholder="e.g. PRC license no."/>
+                            </div>
                             <div class="sm:col-span-2">
                                 <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mb-2" for="fieldContact">Contact number</label>
                                 <input id="fieldContact" name="contact_number" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 transition-all shadow-sm" type="tel" autocomplete="tel" inputmode="numeric" maxlength="11" pattern="^(09\d{9})?$" title="Use 11 digits starting with 09, or leave blank." placeholder="e.g. 09XX XXX XXXX"/>
@@ -595,6 +599,14 @@ if (!isset($currentTenantSlug)) {
     refreshCitySelect(city, brgy);
   }
 
+  function setLicenseFieldVisible(show) {
+    var wrap = document.getElementById('fieldLicenseWrap');
+    var input = document.getElementById('fieldLicense');
+    if (!wrap || !input) return;
+    wrap.classList.toggle('hidden', !show);
+    input.required = !!show;
+  }
+
   function setGenderRadio(g) {
     var gm = document.getElementById('genderMale');
     var gf = document.getElementById('genderFemale');
@@ -765,6 +777,9 @@ if (!isset($currentTenantSlug)) {
 
     var isDentist = IS_DENTIST_PORTAL || (d.profile_kind === 'dentist');
     var isManager = IS_MANAGER_PORTAL || (d.profile_kind === 'manager');
+    setLicenseFieldVisible(isDentist);
+    var licenseEl = document.getElementById('fieldLicense');
+    if (licenseEl) licenseEl.value = isDentist ? (d.license_number || '') : '';
     var intro = document.getElementById('profileIntroCopy');
     if (intro) {
       intro.textContent = isDentist
@@ -801,6 +816,7 @@ if (!isset($currentTenantSlug)) {
       email: d.email || '',
       first_name: d.first_name || '',
       last_name: d.last_name || '',
+      license_number: d.license_number || '',
       contact_number: d.contact_number || '',
       house_street: d.house_street || '',
       gender: d.gender || '',
@@ -815,6 +831,8 @@ if (!isset($currentTenantSlug)) {
     document.getElementById('fieldEmail').value = personalSnapshot.email;
     document.getElementById('fieldFirst').value = personalSnapshot.first_name;
     document.getElementById('fieldLast').value = personalSnapshot.last_name;
+    var fl = document.getElementById('fieldLicense');
+    if (fl) fl.value = personalSnapshot.license_number || '';
     var fc = document.getElementById('fieldContact');
     if (fc) fc.value = personalSnapshot.contact_number;
     var fs = document.getElementById('fieldStreet');
@@ -841,11 +859,13 @@ if (!isset($currentTenantSlug)) {
     var gVal = '';
     if (gMale && gMale.checked) gVal = 'Male';
     else if (gFemale && gFemale.checked) gVal = 'Female';
+    var isDentistSave = IS_DENTIST_PORTAL || (personalSnapshot && document.getElementById('fieldLicenseWrap') && !document.getElementById('fieldLicenseWrap').classList.contains('hidden'));
     var body = {
       username: document.getElementById('fieldUsername').value.trim(),
       email: document.getElementById('fieldEmail').value.trim(),
       first_name: document.getElementById('fieldFirst').value.trim(),
       last_name: document.getElementById('fieldLast').value.trim(),
+      license_number: isDentistSave && document.getElementById('fieldLicense') ? document.getElementById('fieldLicense').value.trim() : '',
       contact_number: document.getElementById('fieldContact') ? document.getElementById('fieldContact').value.trim() : '',
       gender: gVal,
       house_street: document.getElementById('fieldStreet') ? document.getElementById('fieldStreet').value.trim() : '',
@@ -884,6 +904,16 @@ if (!isset($currentTenantSlug)) {
     if (!namePattern.test(body.last_name)) {
       showPersonalError('Last name must be 2 to 60 characters and may include letters, spaces, apostrophe, period, and hyphen.', 'fieldLast');
       return;
+    }
+    if (isDentistSave) {
+      if (!body.license_number) {
+        showPersonalError('Professional license number is required.', 'fieldLicense');
+        return;
+      }
+      if (body.license_number.length > 100) {
+        showPersonalError('License number must not exceed 100 characters.', 'fieldLicense');
+        return;
+      }
     }
     if (body.contact_number && !contactPattern.test(body.contact_number)) {
       showPersonalError('Contact number must be 11 digits and start with 09.', 'fieldContact');
