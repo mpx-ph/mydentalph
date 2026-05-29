@@ -14,9 +14,7 @@
             --border: #e5e7eb;
             --primary: #1d4ed8;
             --primary-hover: #1e40af;
-            --primary-soft: #eff6ff;
             --success: #16a34a;
-            --accent: #0ea5e9;
         }
 
         * {
@@ -25,135 +23,109 @@
 
         body {
             margin: 0;
-            font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 16px;
             background: var(--bg);
             color: var(--text);
-            line-height: 1.5;
-            -webkit-font-smoothing: antialiased;
+            line-height: 1.55;
         }
 
         .container {
-            max-width: 640px;
+            max-width: 720px;
             margin: 0 auto;
-            padding: 40px 20px 48px;
+            padding: 36px 20px 48px;
         }
 
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 28px;
+        .page-header {
+            margin-bottom: 32px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border);
         }
 
-        .brand-mark {
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
-            background: linear-gradient(145deg, var(--primary) 0%, var(--accent) 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            font-weight: 700;
-            font-size: 15px;
-            letter-spacing: -0.02em;
-            box-shadow: 0 4px 14px rgba(29, 78, 216, 0.25);
+        .page-header img {
+            display: block;
+            height: 56px;
+            width: auto;
+            max-width: 100%;
+            margin-bottom: 20px;
         }
 
-        .header h1 {
-            margin: 0 0 6px;
-            font-size: 26px;
-            font-weight: 700;
-            letter-spacing: -0.02em;
+        .page-header h1 {
+            margin: 0 0 10px;
+            font-size: 28px;
+            line-height: 1.25;
         }
 
-        .header p {
+        .page-header p {
             margin: 0;
             color: var(--muted);
             font-size: 15px;
-        }
-
-        .section-label {
-            margin: 28px 0 10px;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--muted);
+            max-width: 52ch;
         }
 
         .card {
             background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 18px 20px;
-            margin-top: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            border-radius: 12px;
+            padding: 20px 22px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
         }
 
         .card h2 {
-            margin: 0 0 4px;
-            font-size: 17px;
-            font-weight: 700;
+            margin: 0 0 6px;
+            font-size: 20px;
         }
 
-        .card-desc {
-            margin: 0 0 14px;
-            font-size: 13px;
+        .card-intro {
+            margin: 0 0 18px;
             color: var(--muted);
-        }
-
-        .site-link {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 12px 14px;
-            margin-top: 8px;
-            background: var(--primary-soft);
-            border: 1px solid rgba(29, 78, 216, 0.12);
-            border-radius: 10px;
-            text-decoration: none;
-            color: var(--primary);
             font-size: 14px;
-            font-weight: 600;
-            word-break: break-all;
-            transition: background 0.15s, border-color 0.15s;
+            line-height: 1.5;
         }
 
-        .site-link:hover {
-            background: #dbeafe;
-            border-color: rgba(29, 78, 216, 0.22);
+        .link-row {
+            margin: 0 0 14px;
+            font-size: 15px;
+            line-height: 1.5;
         }
 
-        .site-link span:last-child {
-            flex-shrink: 0;
-            font-size: 18px;
-            opacity: 0.7;
+        .link-row:last-child {
+            margin-bottom: 0;
         }
 
-        .login-hint {
-            margin: 0 0 12px;
-            font-size: 13px;
-            color: var(--muted);
+        .link-row strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 14px;
+            color: var(--text);
         }
 
-        .login-hint a {
+        .link-row a {
             color: var(--primary);
-            text-decoration: none;
-            font-weight: 600;
+            word-break: break-all;
         }
 
-        .login-hint a:hover {
+        .link-row a:hover {
             text-decoration: underline;
+        }
+
+        .login-note {
+            margin: 0 0 16px;
+            padding: 12px 14px;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 15px;
+            line-height: 1.5;
         }
 
         .credential {
             border: 1px solid var(--border);
             border-radius: 10px;
-            padding: 14px;
-            margin-top: 10px;
-            background: #fafbfc;
+            padding: 16px;
+            margin-top: 14px;
+            background: #fbfdff;
         }
 
         .credential:first-of-type {
@@ -161,20 +133,17 @@
         }
 
         .role {
-            font-size: 12px;
             font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            color: var(--primary);
-            margin-bottom: 10px;
+            font-size: 16px;
+            margin-bottom: 12px;
         }
 
         .row {
             display: grid;
-            grid-template-columns: 88px 1fr auto;
-            gap: 10px;
+            grid-template-columns: 110px 1fr auto;
+            gap: 12px;
             align-items: center;
-            margin-top: 8px;
+            margin-top: 10px;
         }
 
         .row:first-of-type {
@@ -182,45 +151,42 @@
         }
 
         .row .label {
-            font-size: 12px;
+            font-size: 14px;
             color: var(--muted);
-            font-weight: 600;
         }
 
         .value {
-            font-size: 14px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 15px;
             background: #fff;
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 8px 11px;
+            border-radius: 6px;
+            padding: 10px 12px;
             word-break: break-all;
         }
 
         .value.empty {
+            font-family: Arial, Helvetica, sans-serif;
             color: var(--muted);
             font-style: italic;
         }
 
-        .value-or {
-            margin: 6px 0 0;
-            font-size: 11px;
-            font-weight: 600;
+        .alt-login {
+            margin: 12px 0 0;
+            padding-top: 12px;
+            border-top: 1px dashed var(--border);
+            font-size: 14px;
             color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
         }
 
         button.copy-btn {
             border: 0;
-            border-radius: 8px;
+            border-radius: 6px;
             background: var(--primary);
             color: #fff;
             cursor: pointer;
-            padding: 8px 14px;
-            font-size: 12px;
-            font-weight: 600;
-            white-space: nowrap;
-            transition: background 0.15s;
+            padding: 9px 14px;
+            font-size: 13px;
         }
 
         button.copy-btn:hover {
@@ -232,22 +198,26 @@
         }
 
         button.copy-btn:disabled {
-            opacity: 0.45;
+            opacity: 0.5;
             cursor: not-allowed;
         }
 
         .footer-note {
-            margin-top: 32px;
-            padding: 14px 16px;
-            font-size: 13px;
+            margin-top: 8px;
+            padding-top: 20px;
+            font-size: 14px;
             color: var(--muted);
             text-align: center;
             border-top: 1px solid var(--border);
         }
 
-        @media (max-width: 520px) {
+        @media (max-width: 640px) {
             .container {
-                padding: 28px 16px 40px;
+                padding: 24px 16px 40px;
+            }
+
+            .page-header h1 {
+                font-size: 24px;
             }
 
             .row {
@@ -255,54 +225,42 @@
             }
 
             .row .label {
-                margin-bottom: -4px;
-            }
-
-            button.copy-btn {
-                width: 100%;
+                margin-bottom: -2px;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="brand">
-            <div class="brand-mark" aria-hidden="true">MD</div>
-            <div class="header">
-                <h1>Login Information</h1>
-                <p>MyDentalPH test accounts — tap Copy to use each value.</p>
+        <header class="page-header">
+            <img src="MyDental Logo.svg" alt="MyDental Philippines">
+            <h1>Login Information</h1>
+            <p>Test account details for MyDentalPH. Click <strong>Copy</strong> beside each username or password to paste it when signing in.</p>
+        </header>
+
+        <section class="card">
+            <h2>Websites</h2>
+            <p class="card-intro">Open these links in your browser.</p>
+
+            <div class="link-row">
+                <strong>Provider website</strong>
+                <a href="https://mydentalph.gt.tc" target="_blank" rel="noopener noreferrer">https://mydentalph.gt.tc</a>
             </div>
-        </div>
 
-        <p class="section-label">Websites</p>
-
-        <section class="card">
-            <h2>Provider website</h2>
-            <p class="card-desc">Main platform entry point.</p>
-            <a class="site-link" href="https://mydentalph.gt.tc" target="_blank" rel="noopener noreferrer">
-                <span>https://mydentalph.gt.tc</span>
-                <span aria-hidden="true">↗</span>
-            </a>
+            <div class="link-row">
+                <strong>Dental clinic (SISIG Dentals)</strong>
+                <a href="https://mydentalph.gt.tc/sisigdentals" target="_blank" rel="noopener noreferrer">https://mydentalph.gt.tc/sisigdentals</a>
+            </div>
         </section>
 
         <section class="card">
-            <h2>Dental clinic</h2>
-            <p class="card-desc">SISIG Dentals clinic page.</p>
-            <a class="site-link" href="https://mydentalph.gt.tc/sisigdentals" target="_blank" rel="noopener noreferrer">
-                <span>https://mydentalph.gt.tc/sisigdentals</span>
-                <span aria-hidden="true">↗</span>
-            </a>
-        </section>
+            <h2>Account credentials</h2>
+            <p class="card-intro">For Super Admin and Tenant (clinic owner).</p>
 
-        <p class="section-label">Account credentials</p>
-        <p class="login-hint">
-            Sign in at
-            <a href="https://mydentalph.gt.tc/ProviderLogin.php" target="_blank" rel="noopener noreferrer">Provider Login</a>
-        </p>
-
-        <section class="card">
-            <h2>Platform accounts</h2>
-            <p class="card-desc">Super admin and tenant (clinic owner) access.</p>
+            <p class="login-note">
+                <strong>Where to sign in:</strong><br>
+                <a href="https://mydentalph.gt.tc/ProviderLogin.php" target="_blank" rel="noopener noreferrer">https://mydentalph.gt.tc/ProviderLogin.php</a>
+            </p>
 
             <div class="credential">
                 <div class="role">Super Admin</div>
@@ -333,14 +291,14 @@
             </div>
         </section>
 
-        <p class="section-label">Dental clinic staff</p>
-        <p class="login-hint">
-            Staff and doctor accounts also use
-            <a href="https://mydentalph.gt.tc/ProviderLogin.php" target="_blank" rel="noopener noreferrer">Provider Login</a>
-        </p>
-
         <section class="card">
-            <h2>SISIG Dentals — Staff &amp; Doctor</h2>
+            <h2>Dental clinic staff</h2>
+            <p class="card-intro">For clinic staff and doctor accounts at SISIG Dentals.</p>
+
+            <p class="login-note">
+                <strong>Where to sign in:</strong><br>
+                <a href="https://mydentalph.gt.tc/sisigdentals/login" target="_blank" rel="noopener noreferrer">https://mydentalph.gt.tc/sisigdentals/login</a>
+            </p>
 
             <div class="credential">
                 <div class="role">Staff</div>
@@ -349,7 +307,7 @@
                     <div class="value">nelmanlapaz19@gmail.com</div>
                     <button type="button" class="copy-btn" data-copy="nelmanlapaz19@gmail.com">Copy</button>
                 </div>
-                <p class="value-or">or username</p>
+                <p class="alt-login">You may also sign in with this username:</p>
                 <div class="row">
                     <div class="label">Username</div>
                     <div class="value">layooonel</div>
@@ -377,7 +335,7 @@
             </div>
         </section>
 
-        <p class="footer-note">For internal testing only. Keep these details confidential.</p>
+        <p class="footer-note">For internal testing only. Please keep these details confidential.</p>
     </div>
 
     <script>
