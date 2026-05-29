@@ -195,3 +195,116 @@ function send_smtp_gmail($to_email, $subject, $body_text, $body_html = null) {
     $GLOBALS['smtp_last_error'] = '';
     return true;
 }
+
+/**
+ * Send subscription confirmation email with end/renewal date.
+ *
+ * @param string $to_email Recipient email
+ * @param string $recipient_name Name of the recipient
+ * @param string $plan_name Plan name (e.g., Monthly, Yearly)
+ * @param string $end_date End/renewal date (e.g., June 29, 2026)
+ * @param float $amount Amount paid
+ * @param string $reference_number Reference number for the payment
+ * @param string $billing_cycle Billing cycle (monthly/yearly)
+ * @return bool True if sent, false on failure
+ */
+function send_subscription_confirmation_email(
+    string $to_email,
+    string $recipient_name,
+    string $plan_name,
+    string $end_date,
+    float $amount,
+    string $reference_number,
+    string $billing_cycle
+): bool {
+    $name = trim($recipient_name) !== '' ? trim($recipient_name) : 'Valued Subscriber';
+    $subject = 'Your MyDental Subscription is Confirmed — Active until ' . $end_date;
+    
+    $dashboard_url = rtrim(mydental_site_base_url(), '/') . '/ProviderTenantSubs.php';
+    
+    $safeName = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+    $safePlanName = htmlspecialchars($plan_name, ENT_QUOTES, 'UTF-8');
+    $safeEndDate = htmlspecialchars($end_date, ENT_QUOTES, 'UTF-8');
+    $safeAmount = number_format($amount, 2);
+    $safeRef = htmlspecialchars($reference_number, ENT_QUOTES, 'UTF-8');
+    $safeUrl = htmlspecialchars($dashboard_url, ENT_QUOTES, 'UTF-8');
+    
+    $body_text = "Hi {$name},\r\n\r\n"
+        . "Thank you for subscribing to MyDental!\r\n\r\n"
+        . "Your subscription to the {$plan_name} plan is now active. Your subscription will run until {$end_date}.\r\n\r\n"
+        . "Payment Details:\r\n"
+        . "- Plan: {$plan_name}\r\n"
+        . "- Amount Paid: PHP {$safeAmount}\r\n"
+        . "- Reference Number: {$reference_number}\r\n"
+        . "- End/Renewal Date: {$end_date}\r\n\r\n"
+        . "To avoid any service disruptions, you can pay in advance for your next billing cycle at any time by visiting your billing dashboard:\r\n"
+        . "{$dashboard_url}\r\n\r\n"
+        . "If you have any questions or need assistance, please feel free to reach out to our support team.\r\n\r\n"
+        . "Thank you,\r\n"
+        . "MyDental Philippines Team";
+
+    // Design a beautiful HTML template matching the platform styles
+    $body_html = '
+    <div style="font-family: \'Manrope\', Helvetica, Arial, sans-serif; background-color: #f8fafc; padding: 40px 20px; color: #101922;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; border: 1px solid #cbd5e1; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <!-- Header -->
+            <div style="background-color: #2b8beb; padding: 32px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">Subscription Confirmed</h1>
+                <p style="color: #e0f2fe; margin: 8px 0 0 0; font-size: 14px; font-weight: 500;">Thank you for your purchase!</p>
+            </div>
+            
+            <!-- Body Content -->
+            <div style="padding: 32px;">
+                <p style="font-size: 16px; line-height: 1.6; margin-top: 0;">Hi <strong>' . $safeName . '</strong>,</p>
+                <p style="font-size: 15px; line-height: 1.6; color: #404752;">Your subscription is officially active! You now have full access to MyDental Philippines premium clinic management services.</p>
+                
+                <!-- Plan Summary Card -->
+                <div style="background-color: #f1f5f9; border-radius: 12px; padding: 20px; margin: 24px 0;">
+                    <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #404752;">Subscription Details</h3>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                        <tr>
+                            <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Plan</td>
+                            <td style="padding: 6px 0; font-weight: 700; text-align: right;">' . $safePlanName . '</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Amount Paid</td>
+                            <td style="padding: 6px 0; font-weight: 700; text-align: right; color: #0f766e;">₱' . $safeAmount . '</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Reference Number</td>
+                            <td style="padding: 6px 0; font-family: monospace; text-align: right; color: #404752;">' . $safeRef . '</td>
+                        </tr>
+                        <tr style="border-top: 1px solid #e2e8f0;">
+                            <td style="padding: 12px 0 6px 0; color: #64748b; font-weight: 500;">Subscription End Date</td>
+                            <td style="padding: 12px 0 6px 0; font-weight: 800; text-align: right; color: #2b8beb;">' . $safeEndDate . '</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Pay in Advance Banner -->
+                <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 16px; margin: 24px 0; text-align: center;">
+                    <p style="font-size: 13px; line-height: 1.5; color: #1e3a8a; margin: 0 0 12px 0;">
+                        To prevent any disruptions to your clinic services, you can pay in advance for your next billing cycle at any time.
+                    </p>
+                    <a href="' . $safeUrl . '" style="display: inline-block; background-color: #2b8beb; color: #ffffff; text-decoration: none; padding: 10px 20px; font-size: 13px; font-weight: 700; border-radius: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        Manage Subscription
+                    </a>
+                </div>
+
+                <p style="font-size: 14px; line-height: 1.6; color: #404752; margin-bottom: 0;">
+                    If you have any questions or need technical support, please reply to this email or contact our customer support desk.
+                </p>
+            </div>
+            
+            <!-- Footer -->
+            <div style="background-color: #f8fafc; border-top: 1px solid #cbd5e1; padding: 24px; text-align: center; font-size: 12px; color: #64748b;">
+                <p style="margin: 0 0 8px 0;">&copy; ' . date('Y') . ' MyDental Philippines. All rights reserved.</p>
+                <p style="margin: 0;">This is an automated transaction receipt. Please do not reply directly to this message.</p>
+            </div>
+        </div>
+    </div>
+    ';
+    
+    return send_smtp_gmail($to_email, $subject, $body_text, $body_html);
+}
+

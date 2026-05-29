@@ -31,6 +31,7 @@ if (!provider_has_authenticated_provider_session()) {
     exit;
 }
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/mail_config.php';
 require_once __DIR__ . '/provider_signup_lib.php';
 require_once 'paymongo_config.php';
 
@@ -270,6 +271,7 @@ if (in_array((string) $status_from_query, ['failed', 'cancelled', 'canceled'], t
     exit;
 }
 
+$newly_inserted = false;
 // Idempotent finalization: do not insert duplicate successful subscriptions.
 try {
     $pdo->beginTransaction();
@@ -339,6 +341,7 @@ try {
             (float) $plan_price,
             (string) $reference_number,
         ]);
+        $newly_inserted = true;
     }
 
     $existingClinicName = trim((string) ($tenantRow['clinic_name'] ?? ''));
@@ -443,6 +446,23 @@ try {
         $stmt2->execute([(string) $tenant_id]);
         $t = $stmt2->fetch(PDO::FETCH_ASSOC);
         $_SESSION['is_owner'] = ($t && isset($t['owner_user_id']) && (string) $t['owner_user_id'] === (string) $user['user_id']);
+
+        if ($newly_inserted && !empty($user['email'])) {
+            try {
+                $formatted_end_date = date('M j, Y', strtotime($end));
+                send_subscription_confirmation_email(
+                    $user['email'],
+                    $user['full_name'] ?: $user['username'],
+                    $plan_name,
+                    $formatted_end_date,
+                    (float) $plan_price,
+                    $reference_number,
+                    $plan_slug
+                );
+            } catch (Throwable $mailEx) {
+                error_log('[ProviderPurchaseReceipt][MailFailure] ' . $mailEx->getMessage());
+            }
+        }
     }
 } catch (Throwable $e) {
     // Keep existing session values if refresh cannot complete.
