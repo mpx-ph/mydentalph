@@ -323,14 +323,14 @@
             <div class="credential">
                 <div class="role">Doctor</div>
                 <div class="row">
-                    <div class="label">Username</div>
-                    <div class="value empty">Not provided yet</div>
-                    <button type="button" class="copy-btn" disabled>Copy</button>
+                    <div class="label">Email</div>
+                    <div class="value">bibej53496@nazisat.com</div>
+                    <button type="button" class="copy-btn" data-copy="bibej53496@nazisat.com">Copy</button>
                 </div>
                 <div class="row">
                     <div class="label">Password</div>
-                    <div class="value empty">Not provided yet</div>
-                    <button type="button" class="copy-btn" disabled>Copy</button>
+                    <div class="value">Admin123456_</div>
+                    <button type="button" class="copy-btn" data-copy="Admin123456_">Copy</button>
                 </div>
             </div>
         </section>
