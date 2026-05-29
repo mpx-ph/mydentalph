@@ -75,6 +75,11 @@ if ($verificationStatus === 'approved') {
     exit;
 }
 
+if ($verificationStatus === 'action_required') {
+    header('Location: ProviderClinicVerif.php');
+    exit;
+}
+
 // Pending/under-review tenants should not be blocked on this page.
 // Let them continue to the provider home experience.
 if ($verificationStatus !== 'rejected' && $emailVerified && $docsSubmitted) {

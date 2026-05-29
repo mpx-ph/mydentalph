@@ -9,7 +9,7 @@ $success = '';
 
 $selected_request_id = isset($_GET['request_id']) ? (int) $_GET['request_id'] : 0;
 $status_filter = isset($_GET['status']) ? strtolower(trim((string) $_GET['status'])) : 'pending';
-$allowed_filters = ['pending', 'approved', 'rejected'];
+$allowed_filters = ['pending', 'approved', 'rejected', 'action_required'];
 if (!in_array($status_filter, $allowed_filters, true)) {
     $status_filter = 'pending';
 }
@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $notes = trim((string) ($_POST['reviewer_notes'] ?? ''));
     $reviewer_id = (string) ($_SESSION['user_id'] ?? '');
 
-    if ($request_id <= 0 || !in_array($action, ['approve', 'reject'], true)) {
+    if ($request_id <= 0 || !in_array($action, ['submit_review', 'reject_entire'], true)) {
         $error = 'Invalid review action request.';
     } else {
         try {
@@ -35,70 +35,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (!$request) {
                 $error = 'Verification request was not found.';
-            } elseif (($request['status'] ?? '') !== 'pending') {
-                $error = 'Only pending verification requests can be reviewed.';
+            } elseif (!in_array(($request['status'] ?? ''), ['pending', 'action_required'], true)) {
+                $error = 'Only pending or revision-requested verification requests can be reviewed.';
             } else {
-                if ($action === 'approve') {
-                    $raw_token = bin2hex(random_bytes(32));
-                    $token_hash = password_hash($raw_token, PASSWORD_DEFAULT);
-                    $token_expires_at = date('Y-m-d H:i:s', time() + (60 * 60 * 24 * 7)); // 7 days
-
-                    $update = $pdo->prepare("
-                        UPDATE tbl_tenant_verification_requests
-                        SET status = 'approved',
-                            reviewed_at = NOW(),
-                            reviewed_by = ?,
-                            reviewer_notes = ?,
-                            setup_token_hash = ?,
-                            setup_token_expires_at = ?,
-                            setup_token_used_at = NULL
-                        WHERE request_id = ?
-                    ");
-                    $update->execute([$reviewer_id, $notes !== '' ? $notes : null, $token_hash, $token_expires_at, $request_id]);
-
-                    // Activate the provider owner user now that the tenant is approved.
-                    // This prevents pending/rejected tenants from having "active" provider accounts.
-                    if (!empty($request['owner_user_id'])) {
-                        $pdo->prepare("UPDATE tbl_users SET status = 'active' WHERE user_id = ? LIMIT 1")
-                            ->execute([(string) $request['owner_user_id']]);
-                    }
-
-                    $to_email = trim((string) ($request['owner_email'] ?? ''));
-                    if ($to_email !== '') {
-                        $site_base = rtrim(mydental_site_base_url(), '/');
-                        $login_url = $site_base . '/ProviderLogin.php';
-                        $find_account_url = $site_base . '/ProviderFindAccount.php';
-                        $owner_username = '';
-                        $owner_login_email = $to_email;
-                        if (!empty($request['owner_user_id'])) {
-                            $owner_stmt = $pdo->prepare("SELECT username, email FROM tbl_users WHERE user_id = ? LIMIT 1");
-                            $owner_stmt->execute([(string) $request['owner_user_id']]);
-                            $owner_row = $owner_stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-                            if ($owner_row) {
-                                $owner_username = trim((string) ($owner_row['username'] ?? ''));
-                                $db_email = trim((string) ($owner_row['email'] ?? ''));
-                                if ($db_email !== '') {
-                                    $owner_login_email = $db_email;
-                                }
-                            }
-                        }
-                        $safe_owner = htmlspecialchars((string) ($request['owner_name'] ?? 'Clinic Owner'), ENT_QUOTES, 'UTF-8');
-                        $safe_clinic = htmlspecialchars((string) ($request['clinic_name'] ?? 'Clinic'), ENT_QUOTES, 'UTF-8');
-                        $safe_login_url = htmlspecialchars($login_url, ENT_QUOTES, 'UTF-8');
-                        $safe_find_account_url = htmlspecialchars($find_account_url, ENT_QUOTES, 'UTF-8');
-                        $safe_login_email = htmlspecialchars($owner_login_email, ENT_QUOTES, 'UTF-8');
-                        $safe_username = htmlspecialchars($owner_username !== '' ? $owner_username : 'Not available', ENT_QUOTES, 'UTF-8');
-                        $body_text = "Hello {$request['owner_name']},\n\nYour clinic verification for {$request['clinic_name']} has been approved.\n\nTenant Owner Login Details:\nEmail: {$owner_login_email}\nUsername: " . ($owner_username !== '' ? $owner_username : 'Not available') . "\nPassword: For security reasons, your current password cannot be sent by email.\n\nLog in here:\n{$login_url}\n\nForgot password?\n{$find_account_url}";
-                        $body_html = "<p>Hello {$safe_owner},</p><p>Your clinic verification for <strong>{$safe_clinic}</strong> has been approved.</p><p><strong>Tenant Owner Login Details</strong><br>Email: {$safe_login_email}<br>Username: {$safe_username}<br>Password: For security reasons, your current password cannot be sent by email.</p><p><a href=\"{$safe_login_url}\">{$safe_login_url}</a></p><p>Forgot password? <a href=\"{$safe_find_account_url}\">{$safe_find_account_url}</a></p>";
-                        if (!send_smtp_gmail($to_email, 'Clinic Verification Approved - Continue Setup', $body_text, $body_html)) {
-                            $success = 'Request approved. Email could not be sent; check SMTP settings.';
-                        } else {
-                            $success = 'Request approved and setup email was sent.';
-                        }
-                    } else {
-                        $success = 'Request approved, but owner email is missing.';
-                    }
-                } else {
+                if ($action === 'reject_entire') {
+                    // Update request status to 'rejected'
                     $update = $pdo->prepare("
                         UPDATE tbl_tenant_verification_requests
                         SET status = 'rejected',
@@ -112,13 +53,182 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ");
                     $update->execute([$reviewer_id, $notes !== '' ? $notes : null, $request_id]);
 
-                    // Deactivate the provider owner user on rejection.
+                    // Update all files to 'rejected'
+                    $pdo->prepare("UPDATE tbl_tenant_verification_files SET status = 'rejected', reviewer_notes = ? WHERE request_id = ?")
+                        ->execute([$notes !== '' ? $notes : null, $request_id]);
+
+                    // Deactivate provider owner user
                     if (!empty($request['owner_user_id'])) {
                         $pdo->prepare("UPDATE tbl_users SET status = 'inactive' WHERE user_id = ? LIMIT 1")
                             ->execute([(string) $request['owner_user_id']]);
                     }
 
-                    $success = 'Request has been rejected.';
+                    // Send rejection email
+                    $to_email = trim((string) ($request['owner_email'] ?? ''));
+                    if ($to_email !== '') {
+                        $safe_owner = htmlspecialchars((string) ($request['owner_name'] ?? 'Clinic Owner'), ENT_QUOTES, 'UTF-8');
+                        $safe_clinic = htmlspecialchars((string) ($request['clinic_name'] ?? 'Clinic'), ENT_QUOTES, 'UTF-8');
+                        $body_text = "Hello {$request['owner_name']},\n\nYour clinic verification registration for {$request['clinic_name']} has been rejected.\n\nReviewer Notes:\n" . ($notes !== '' ? $notes : 'No additional notes provided.') . "\n\nPlease contact support for next steps.";
+                        $body_html = "<p>Hello {$safe_owner},</p><p>Your clinic verification registration for <strong>{$safe_clinic}</strong> has been rejected.</p><p><strong>Reviewer Notes</strong><br>" . nl2br(htmlspecialchars($notes !== '' ? $notes : 'No additional notes provided.')) . "</p><p>Please contact support for next steps.</p>";
+                        send_smtp_gmail($to_email, 'Clinic Verification Rejected', $body_text, $body_html);
+                    }
+
+                    $success = 'Request has been entirely rejected.';
+                } elseif ($action === 'submit_review') {
+                    // Update individual file statuses and notes
+                    $file_statuses = $_POST['file_status'] ?? [];
+                    $file_notes = $_POST['file_notes'] ?? [];
+
+                    foreach ($file_statuses as $fid => $fstatus) {
+                        $fid = (int) $fid;
+                        $fnote = trim((string) ($file_notes[$fid] ?? ''));
+                        if (in_array($fstatus, ['approved', 'rejected', 'pending'], true)) {
+                            $pdo->prepare("UPDATE tbl_tenant_verification_files SET status = ?, reviewer_notes = ? WHERE file_id = ? AND request_id = ?")
+                                ->execute([$fstatus, $fnote !== '' ? $fnote : null, $fid, $request_id]);
+                        }
+                    }
+
+                    // Check which files are currently approved for this request
+                    $check_stmt = $pdo->prepare("SELECT document_type, status, reviewer_notes FROM tbl_tenant_verification_files WHERE request_id = ?");
+                    $check_stmt->execute([$request_id]);
+                    $current_files = $check_stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+                    $approved_types = [];
+                    $rejected_details = [];
+                    foreach ($current_files as $cf) {
+                        if ($cf['status'] === 'approved') {
+                            $approved_types[] = $cf['document_type'];
+                        } elseif ($cf['status'] === 'rejected') {
+                            $rejected_details[] = $cf;
+                        }
+                    }
+
+                    // Define required types
+                    $required_types = ['business_permit', 'bir_certificate'];
+                    $all_approved = true;
+                    foreach ($required_types as $req_type) {
+                        if (!in_array($req_type, $approved_types, true)) {
+                            $all_approved = false;
+                        }
+                    }
+
+                    if ($all_approved) {
+                        // 1. ALL APPROVED flow
+                        $raw_token = bin2hex(random_bytes(32));
+                        $token_hash = password_hash($raw_token, PASSWORD_DEFAULT);
+                        $token_expires_at = date('Y-m-d H:i:s', time() + (60 * 60 * 24 * 7)); // 7 days
+
+                        $update = $pdo->prepare("
+                            UPDATE tbl_tenant_verification_requests
+                            SET status = 'approved',
+                                reviewed_at = NOW(),
+                                reviewed_by = ?,
+                                reviewer_notes = ?,
+                                setup_token_hash = ?,
+                                setup_token_expires_at = ?,
+                                setup_token_used_at = NULL
+                            WHERE request_id = ?
+                        ");
+                        $update->execute([$reviewer_id, $notes !== '' ? $notes : null, $token_hash, $token_expires_at, $request_id]);
+
+                        // Activate the provider owner user now that the tenant is approved.
+                        if (!empty($request['owner_user_id'])) {
+                            $pdo->prepare("UPDATE tbl_users SET status = 'active' WHERE user_id = ? LIMIT 1")
+                                ->execute([(string) $request['owner_user_id']]);
+                        }
+
+                        $to_email = trim((string) ($request['owner_email'] ?? ''));
+                        if ($to_email !== '') {
+                            $site_base = rtrim(mydental_site_base_url(), '/');
+                            $login_url = $site_base . '/ProviderLogin.php';
+                            $find_account_url = $site_base . '/ProviderFindAccount.php';
+                            $owner_username = '';
+                            $owner_login_email = $to_email;
+                            if (!empty($request['owner_user_id'])) {
+                                $owner_stmt = $pdo->prepare("SELECT username, email FROM tbl_users WHERE user_id = ? LIMIT 1");
+                                $owner_stmt->execute([(string) $request['owner_user_id']]);
+                                $owner_row = $owner_stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+                                if ($owner_row) {
+                                    $owner_username = trim((string) ($owner_row['username'] ?? ''));
+                                    $db_email = trim((string) ($owner_row['email'] ?? ''));
+                                    if ($db_email !== '') {
+                                        $owner_login_email = $db_email;
+                                    }
+                                }
+                            }
+                            $safe_owner = htmlspecialchars((string) ($request['owner_name'] ?? 'Clinic Owner'), ENT_QUOTES, 'UTF-8');
+                            $safe_clinic = htmlspecialchars((string) ($request['clinic_name'] ?? 'Clinic'), ENT_QUOTES, 'UTF-8');
+                            $safe_login_url = htmlspecialchars($login_url, ENT_QUOTES, 'UTF-8');
+                            $safe_find_account_url = htmlspecialchars($find_account_url, ENT_QUOTES, 'UTF-8');
+                            $safe_login_email = htmlspecialchars($owner_login_email, ENT_QUOTES, 'UTF-8');
+                            $safe_username = htmlspecialchars($owner_username !== '' ? $owner_username : 'Not available', ENT_QUOTES, 'UTF-8');
+                            $body_text = "Hello {$request['owner_name']},\n\nYour clinic verification for {$request['clinic_name']} has been approved.\n\nTenant Owner Login Details:\nEmail: {$owner_login_email}\nUsername: " . ($owner_username !== '' ? $owner_username : 'Not available') . "\nPassword: For security reasons, your current password cannot be sent by email.\n\nLog in here:\n{$login_url}\n\nForgot password?\n{$find_account_url}";
+                            $body_html = "<p>Hello {$safe_owner},</p><p>Your clinic verification for <strong>{$safe_clinic}</strong> has been approved.</p><p><strong>Tenant Owner Login Details</strong><br>Email: {$safe_login_email}<br>Username: {$safe_username}<br>Password: For security reasons, your current password cannot be sent by email.</p><p><a href=\"{$safe_login_url}\">{$safe_login_url}</a></p><p>Forgot password? <a href=\"{$safe_find_account_url}\">{$safe_find_account_url}</a></p>";
+                            if (!send_smtp_gmail($to_email, 'Clinic Verification Approved - Continue Setup', $body_text, $body_html)) {
+                                $success = 'Request approved. Email could not be sent; check SMTP settings.';
+                            } else {
+                                $success = 'Request approved and setup email was sent.';
+                            }
+                        } else {
+                            $success = 'Request approved, but owner email is missing.';
+                        }
+                    } else {
+                        // 2. PARTIAL REJECTION / ACTION REQUIRED flow
+                        $raw_token = bin2hex(random_bytes(32));
+                        $token_hash = password_hash($raw_token, PASSWORD_DEFAULT);
+                        $token_expires_at = date('Y-m-d H:i:s', time() + (60 * 60 * 24 * 7)); // 7 days
+
+                        $update = $pdo->prepare("
+                            UPDATE tbl_tenant_verification_requests
+                            SET status = 'action_required',
+                                reviewed_at = NOW(),
+                                reviewed_by = ?,
+                                reviewer_notes = ?,
+                                setup_token_hash = ?,
+                                setup_token_expires_at = ?,
+                                setup_token_used_at = NULL
+                            WHERE request_id = ?
+                        ");
+                        $update->execute([$reviewer_id, $notes !== '' ? $notes : null, $token_hash, $token_expires_at, $request_id]);
+
+                        // Keep provider owner user deactivated
+                        if (!empty($request['owner_user_id'])) {
+                            $pdo->prepare("UPDATE tbl_users SET status = 'inactive' WHERE user_id = ? LIMIT 1")
+                                ->execute([(string) $request['owner_user_id']]);
+                        }
+
+                        // Send revision request email
+                        $to_email = trim((string) ($request['owner_email'] ?? ''));
+                        if ($to_email !== '') {
+                            $site_base = rtrim(mydental_site_base_url(), '/');
+                            $upload_url = $site_base . '/ProviderClinicVerif.php?token=' . $raw_token . '&request_id=' . $request_id;
+                            
+                            $rejected_list = '';
+                            $rejected_list_html = '<ul>';
+                            foreach ($rejected_details as $rd) {
+                                $doc_label = sa_document_label($rd['document_type']);
+                                $fnote = $rd['reviewer_notes'] ?: 'No specific reason provided.';
+                                $rejected_list .= "- {$doc_label}: {$fnote}\n";
+                                $rejected_list_html .= "<li><strong>{$doc_label}</strong>: " . htmlspecialchars($fnote) . "</li>";
+                            }
+                            $rejected_list_html .= '</ul>';
+
+                            $safe_owner = htmlspecialchars((string) ($request['owner_name'] ?? 'Clinic Owner'), ENT_QUOTES, 'UTF-8');
+                            $safe_clinic = htmlspecialchars((string) ($request['clinic_name'] ?? 'Clinic'), ENT_QUOTES, 'UTF-8');
+                            $safe_upload_url = htmlspecialchars($upload_url, ENT_QUOTES, 'UTF-8');
+                            
+                            $body_text = "Hello {$request['owner_name']},\n\nWe reviewed your clinic verification documents for {$request['clinic_name']} and found that some files require revision.\n\nRejected Documents:\n{$rejected_list}\nGeneral Notes:\n" . ($notes !== '' ? $notes : 'None') . "\n\nPlease click the link below to securely log in and upload the replacement documents:\n{$upload_url}";
+                            $body_html = "<p>Hello {$safe_owner},</p><p>We reviewed your clinic verification documents for <strong>{$safe_clinic}</strong> and found that some files require revision.</p><p><strong>Rejected Documents:</strong></p>{$rejected_list_html}<p><strong>General Notes:</strong> " . nl2br(htmlspecialchars($notes !== '' ? $notes : 'None')) . "</p><p><a href=\"{$safe_upload_url}\">Click here to re-upload replacement documents</a></p>";
+                            
+                            if (!send_smtp_gmail($to_email, 'Action Required: Clinic Verification Revision Needed', $body_text, $body_html)) {
+                                $success = 'Review submitted. Email could not be sent; check SMTP settings.';
+                            } else {
+                                $success = 'Review submitted and revision request email was sent.';
+                            }
+                        } else {
+                            $success = 'Review submitted, but owner email is missing.';
+                        }
+                    }
                 }
             }
         } catch (Throwable $e) {
@@ -154,7 +264,7 @@ if ($selected_request_id > 0) {
 
     if ($selected) {
         $files_stmt = $pdo->prepare("
-            SELECT document_type, original_file_name, stored_file_path, mime_type, file_size_bytes, uploaded_at
+            SELECT file_id, document_type, original_file_name, stored_file_path, mime_type, file_size_bytes, uploaded_at, status, reviewer_notes
             FROM tbl_tenant_verification_files
             WHERE request_id = ?
             ORDER BY file_id ASC
@@ -171,6 +281,9 @@ function sa_status_badge_class(string $status): string
     }
     if ($status === 'rejected') {
         return 'bg-rose-50 text-rose-700 border-rose-200';
+    }
+    if ($status === 'action_required') {
+        return 'bg-orange-50 text-orange-700 border-orange-200';
     }
     return 'bg-amber-50 text-amber-700 border-amber-200';
 }
@@ -388,6 +501,7 @@ require __DIR__ . '/superadmin_header.php';
 <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
 <div class="flex flex-wrap gap-2 p-1.5 bg-white/40 backdrop-blur-md rounded-2xl border border-white/60">
 <a href="?status=pending" class="sa-status-tab px-4 sm:px-5 py-2 rounded-xl text-xs font-bold transition-colors <?php echo $status_filter === 'pending' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Pending Tenants</a>
+<a href="?status=action_required" class="sa-status-tab px-4 sm:px-5 py-2 rounded-xl text-xs font-bold transition-colors <?php echo $status_filter === 'action_required' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Awaiting Revision</a>
 <a href="?status=approved" class="sa-status-tab px-4 sm:px-5 py-2 rounded-xl text-xs font-bold <?php echo $status_filter === 'approved' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Approved</a>
 <a href="?status=rejected" class="sa-status-tab px-4 sm:px-5 py-2 rounded-xl text-xs font-bold <?php echo $status_filter === 'rejected' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-on-surface-variant hover:bg-white/50'; ?>">Rejected</a>
 </div>
@@ -415,7 +529,11 @@ require __DIR__ . '/superadmin_header.php';
 </div>
 </div>
 </div>
-<span class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold uppercase tracking-widest border <?php echo sa_status_badge_class((string) ($r['status'] ?? 'pending')); ?>"><?php echo htmlspecialchars(strtoupper((string) ($r['status'] ?? 'pending')), ENT_QUOTES, 'UTF-8'); ?></span>
+<?php 
+$r_status = (string) ($r['status'] ?? 'pending');
+$disp_text = $r_status === 'action_required' ? 'Awaiting Revision' : $r_status;
+?>
+<span class="px-3 py-1.5 rounded-xl text-[10px] font-extrabold uppercase tracking-widest border <?php echo sa_status_badge_class($r_status); ?>"><?php echo htmlspecialchars(strtoupper($disp_text), ENT_QUOTES, 'UTF-8'); ?></span>
 </div>
 </a>
 <?php endforeach; ?>
@@ -455,48 +573,96 @@ require __DIR__ . '/superadmin_header.php';
 <div class="bg-white/60 backdrop-blur-md rounded-[2rem] p-6 editorial-shadow">
 <div class="flex items-center justify-between border-b border-on-surface/5 pb-4 sa-status-row">
 <span class="text-[11px] font-extrabold text-on-surface-variant uppercase tracking-widest">Verification Status</span>
-<span class="px-2 py-1 rounded-lg border text-[10px] uppercase tracking-widest font-extrabold <?php echo sa_status_badge_class((string) ($selected['status'] ?? 'pending')); ?>"><?php echo htmlspecialchars((string) ($selected['status'] ?? 'pending'), ENT_QUOTES, 'UTF-8'); ?></span>
+<?php 
+$sel_status = (string) ($selected['status'] ?? 'pending');
+$sel_disp_text = $sel_status === 'action_required' ? 'Awaiting Revision' : $sel_status;
+?>
+<span class="px-2 py-1 rounded-lg border text-[10px] uppercase tracking-widest font-extrabold <?php echo sa_status_badge_class($sel_status); ?>"><?php echo htmlspecialchars(strtoupper($sel_disp_text), ENT_QUOTES, 'UTF-8'); ?></span>
 </div>
 <p class="text-xs font-semibold text-on-surface-variant mt-4">Reviewed at: <?php echo htmlspecialchars((string) ($selected['reviewed_at'] ?? 'Not reviewed yet'), ENT_QUOTES, 'UTF-8'); ?></p>
 </div>
+
+<form method="POST" class="space-y-6">
+<input type="hidden" name="request_id" value="<?php echo (int) $selected['request_id']; ?>"/>
+
 <div class="space-y-3">
 <h5 class="text-[10px] font-extrabold text-on-surface-variant uppercase tracking-[0.2em] opacity-60">Submitted Documents</h5>
 <?php if (empty($files)): ?>
 <p class="text-sm font-semibold text-on-surface-variant">No files uploaded.</p>
 <?php else: ?>
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<div class="grid grid-cols-1 gap-6">
 <?php foreach ($files as $f): ?>
-<button type="button" data-file-url="../<?php echo htmlspecialchars((string) ($f['stored_file_path'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" data-file-name="<?php echo htmlspecialchars((string) ($f['original_file_name'] ?? 'file'), ENT_QUOTES, 'UTF-8'); ?>" class="doc-preview-trigger group relative aspect-[4/3] rounded-2xl overflow-hidden editorial-shadow bg-white/40 border border-white cursor-pointer text-left">
-<div class="w-full h-full flex flex-col items-center justify-center px-3 text-center bg-gradient-to-br from-white to-blue-50/60">
-<span class="material-symbols-outlined text-4xl text-primary/70">description</span>
-<p class="mt-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant"><?php echo htmlspecialchars(sa_document_label((string) ($f['document_type'] ?? 'other')), ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="text-[11px] font-bold text-on-surface line-clamp-2"><?php echo htmlspecialchars((string) ($f['original_file_name'] ?? 'file'), ENT_QUOTES, 'UTF-8'); ?></p>
+<div class="border border-white/50 bg-white/30 rounded-3xl p-4 flex flex-col sm:flex-row gap-4">
+    <!-- Button trigger preview -->
+    <button type="button" data-file-url="../<?php echo htmlspecialchars((string) ($f['stored_file_path'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" data-file-name="<?php echo htmlspecialchars((string) ($f['original_file_name'] ?? 'file'), ENT_QUOTES, 'UTF-8'); ?>" class="doc-preview-trigger group relative aspect-[4/3] w-full sm:w-44 rounded-2xl overflow-hidden editorial-shadow bg-white/40 border border-white cursor-pointer text-left shrink-0">
+        <div class="w-full h-full flex flex-col items-center justify-center px-3 text-center bg-gradient-to-br from-white to-blue-50/60">
+            <span class="material-symbols-outlined text-3xl text-primary/70">description</span>
+            <p class="mt-1 text-[9px] font-black uppercase tracking-widest text-on-surface-variant"><?php echo htmlspecialchars(sa_document_label((string) ($f['document_type'] ?? 'other')), ENT_QUOTES, 'UTF-8'); ?></p>
+            <p class="text-[10px] font-bold text-on-surface line-clamp-2"><?php echo htmlspecialchars((string) ($f['original_file_name'] ?? 'file'), ENT_QUOTES, 'UTF-8'); ?></p>
+        </div>
+        <div class="absolute inset-0 bg-primary/20 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
+            <span class="material-symbols-outlined text-white text-2xl">visibility</span>
+            <span class="text-white text-[8px] font-extrabold tracking-widest">VIEW FILE</span>
+        </div>
+        <div class="absolute bottom-2 left-2 px-1.5 py-0.5 bg-white/90 backdrop-blur-md rounded text-[8px] font-bold text-on-surface border border-white">
+            <?php echo htmlspecialchars((string) ($f['mime_type'] ?? 'file'), ENT_QUOTES, 'UTF-8'); ?>
+        </div>
+    </button>
+
+    <!-- File Status and Review Details -->
+    <div class="flex-grow flex flex-col justify-between pt-2 sm:pt-0">
+        <?php if (in_array(($selected['status'] ?? ''), ['pending', 'action_required'], true)): ?>
+            <div class="space-y-3">
+                <div class="flex flex-wrap items-center justify-between text-xs gap-2">
+                    <span class="font-bold text-on-surface-variant">Document Review:</span>
+                    <div class="flex gap-3">
+                        <label class="inline-flex items-center gap-1 cursor-pointer">
+                            <input type="radio" name="file_status[<?php echo $f['file_id']; ?>]" value="approved" <?php echo ($f['status'] ?? 'pending') === 'approved' ? 'checked' : ''; ?> class="text-emerald-600 focus:ring-emerald-500 border-slate-300">
+                            <span class="font-semibold text-emerald-700">Approve</span>
+                        </label>
+                        <label class="inline-flex items-center gap-1 cursor-pointer">
+                            <input type="radio" name="file_status[<?php echo $f['file_id']; ?>]" value="rejected" <?php echo ($f['status'] ?? 'pending') === 'rejected' ? 'checked' : ''; ?> class="text-rose-600 focus:ring-rose-500 border-slate-300">
+                            <span class="font-semibold text-rose-700">Reject</span>
+                        </label>
+                        <label class="inline-flex items-center gap-1 cursor-pointer">
+                            <input type="radio" name="file_status[<?php echo $f['file_id']; ?>]" value="pending" <?php echo ($f['status'] ?? 'pending') === 'pending' ? 'checked' : ''; ?> class="text-amber-600 focus:ring-amber-500 border-slate-300">
+                            <span class="font-semibold text-amber-700">Pending</span>
+                        </label>
+                    </div>
+                </div>
+                <input type="text" name="file_notes[<?php echo $f['file_id']; ?>]" value="<?php echo htmlspecialchars((string)($f['reviewer_notes'] ?? '')); ?>" placeholder="Notes/rejection reason (if rejected)" class="w-full text-xs rounded-xl border border-slate-200 px-3 py-2 bg-white/70 focus:border-primary/40 focus:ring-primary/20">
+            </div>
+        <?php else: ?>
+            <div>
+                <div class="text-xs font-semibold flex items-center justify-between">
+                    <span class="text-on-surface-variant">Status:</span>
+                    <span class="px-2.5 py-1 rounded-lg border text-[10px] uppercase font-bold tracking-widest <?php echo ($f['status'] ?? '') === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (($f['status'] ?? '') === 'rejected' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'); ?>">
+                        <?php echo htmlspecialchars(strtoupper((string)($f['status'] ?? 'pending'))); ?>
+                    </span>
+                </div>
+                <?php if (!empty($f['reviewer_notes'])): ?>
+                    <p class="text-[11px] mt-2 font-medium italic text-on-surface-variant/80 bg-slate-50 border border-slate-100 rounded-xl p-2.5">
+                        Note: <?php echo htmlspecialchars((string)$f['reviewer_notes']); ?>
+                    </p>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+    </div>
 </div>
-<div class="absolute inset-0 bg-primary/20 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-<span class="material-symbols-outlined text-white text-3xl">visibility</span>
-<span class="text-white text-[10px] font-extrabold tracking-widest">VIEW FILE</span>
-</div>
-<div class="absolute bottom-3 left-3 px-2 py-1 bg-white/90 backdrop-blur-md rounded-lg text-[9px] font-bold text-on-surface border border-white">
-<?php echo htmlspecialchars((string) ($f['mime_type'] ?? 'file'), ENT_QUOTES, 'UTF-8'); ?> • <?php echo number_format(((int) ($f['file_size_bytes'] ?? 0)) / 1024, 1); ?> KB
-</div>
-</button>
 <?php endforeach; ?>
- </div>
+</div>
 <?php endif; ?>
 </div>
 
-<?php if (($selected['status'] ?? '') === 'pending'): ?>
+<?php if (in_array(($selected['status'] ?? ''), ['pending', 'action_required'], true)): ?>
 <div class="pt-6 border-t border-white/60 space-y-4">
-<form method="POST" class="space-y-4">
-<input type="hidden" name="request_id" value="<?php echo (int) $selected['request_id']; ?>"/>
-<textarea name="reviewer_notes" rows="3" class="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm bg-white/80 focus:border-primary/40 focus:ring-primary/20" placeholder="Optional notes for this review"></textarea>
+<textarea name="reviewer_notes" rows="3" class="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm bg-white/80 focus:border-primary/40 focus:ring-primary/20" placeholder="General review notes (optional, sent in email if action required)"></textarea>
 <div class="flex flex-col sm:flex-row gap-3">
-<button type="submit" name="action" value="approve" class="flex-1 bg-primary text-white font-headline font-extrabold py-4 rounded-[2rem] primary-glow hover:brightness-110 transition-all">Approve Clinic Access</button>
-<button type="submit" name="action" value="reject" class="flex-1 bg-white/80 border border-error/20 text-error font-headline font-extrabold py-4 rounded-[2rem] editorial-shadow hover:bg-error/5 transition-all">Reject Registration</button>
+<button type="submit" name="action" value="submit_review" class="flex-1 bg-primary text-white font-headline font-extrabold py-4 rounded-[2rem] primary-glow hover:brightness-110 transition-all">Submit Review</button>
+<button type="submit" name="action" value="reject_entire" class="flex-1 bg-white/80 border border-error/20 text-error font-headline font-extrabold py-4 rounded-[2rem] editorial-shadow hover:bg-error/5 transition-all">Reject Entirely</button>
 </div>
-</form>
 <p class="text-[10px] text-center text-on-surface-variant/60 mt-2 font-bold uppercase tracking-widest leading-relaxed">
-Final approval will trigger automated onboarding email to clinic administrator.
+If all required documents are approved, clinic onboarding and email activation will trigger automatically.
 </p>
 </div>
 <?php else: ?>
@@ -507,6 +673,7 @@ Final approval will trigger automated onboarding email to clinic administrator.
 </div>
 </div>
 <?php endif; ?>
+</form>
 <?php endif; ?>
 </div>
 </aside>

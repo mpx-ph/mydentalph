@@ -3,6 +3,40 @@ session_start();
 require_once __DIR__ . '/provider_redirect_superadmin.php';
 require_once __DIR__ . '/db.php';
 
+// Check for revision token / setup token auto-login link
+$token = trim((string) ($_GET['token'] ?? ''));
+$request_id = (int) ($_GET['request_id'] ?? 0);
+if ($token !== '' && $request_id > 0) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT tenant_id, owner_user_id, status, setup_token_hash, setup_token_expires_at, setup_token_used_at
+            FROM tbl_tenant_verification_requests
+            WHERE request_id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$request_id]);
+        $req = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($req) {
+            $token_hash = (string) ($req['setup_token_hash'] ?? '');
+            $expires_at = (string) ($req['setup_token_expires_at'] ?? '');
+            $used_at = (string) ($req['setup_token_used_at'] ?? '');
+            $status = strtolower(trim((string) ($req['status'] ?? '')));
+            
+            $expires_ts = strtotime($expires_at);
+            if ($status === 'action_required' && $token_hash !== '' && $expires_ts !== false && $expires_ts >= time() && $used_at === '' && password_verify($token, $token_hash)) {
+                // Log the user into the onboarding session
+                $_SESSION['onboarding_tenant_id'] = $req['tenant_id'];
+                $_SESSION['onboarding_user_id'] = $req['owner_user_id'];
+                // Redirect back to this page without GET query string
+                header('Location: ProviderClinicVerif.php');
+                exit;
+            }
+        }
+    } catch (Throwable $e) {
+        // Fall back/ignore database error for auto-login
+    }
+}
+
 function run_ocr_space(string $file_path, string $mime, string $original_name = ''): array
 {
     $api_key = getenv('OCR_SPACE_API_KEY') ?: 'helloworld';
@@ -160,6 +194,25 @@ if ($tenant_id === '' || $user_id === '') {
     exit;
 }
 
+$existing_files = [];
+if ($tenant_id !== '') {
+    try {
+        $files_stmt = $pdo->prepare("
+            SELECT f.document_type, f.original_file_name, f.stored_file_path, f.mime_type, f.file_size_bytes, f.status, f.reviewer_notes
+            FROM tbl_tenant_verification_files f
+            JOIN tbl_tenant_verification_requests r ON r.request_id = f.request_id
+            WHERE r.tenant_id = ?
+        ");
+        $files_stmt->execute([$tenant_id]);
+        $rows = $files_stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        foreach ($rows as $row) {
+            $existing_files[$row['document_type']] = $row;
+        }
+    } catch (Throwable $e) {
+        // Fallback
+    }
+}
+
 // Step guard: if this tenant was already rejected, do not allow further onboarding progress.
 try {
     $stmt = $pdo->prepare("
@@ -212,7 +265,7 @@ try {
 $session_docs_submitted_at = $_SESSION['onboarding_clinic_docs_submitted_at'] ?? 0;
 $session_docs_submitted = is_numeric($session_docs_submitted_at) && (int) $session_docs_submitted_at > 0;
 $has_submitted_clinic_docs = $has_submitted_clinic_docs || $session_docs_submitted;
-if ($_SERVER['REQUEST_METHOD'] === 'GET' && $has_submitted_clinic_docs) {
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $has_submitted_clinic_docs && $reqStatus !== 'action_required') {
     header('Location: ProviderApplication.php');
     exit;
 }
@@ -265,7 +318,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($action === 'submit_clinic_verification') {
-        if ($has_submitted_clinic_docs) {
+        if ($has_submitted_clinic_docs && $reqStatus !== 'action_required') {
             header('Location: ProviderApplication.php');
             exit;
         }
@@ -296,6 +349,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ];
 
             foreach ($required_doc_types as $required_type) {
+                // If it is already approved in the database, it's not required to upload it again
+                if (isset($existing_files[$required_type]) && $existing_files[$required_type]['status'] === 'approved') {
+                    continue;
+                }
+
                 $bucket = $files_by_type[$required_type] ?? null;
                 $bucket_names = [];
                 if (is_array($bucket) && isset($bucket['name'])) {
@@ -485,12 +543,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             throw new RuntimeException('Could not resolve verification request.');
                         }
 
-                        $pdo->prepare('DELETE FROM tbl_tenant_verification_files WHERE request_id = ?')->execute([$request_id]);
+                        // Delete only files of the document types being uploaded/replaced
+                        $doc_types_to_replace = array_unique(array_column($staged, 'doc_type'));
+                        if (!empty($doc_types_to_replace)) {
+                            $placeholders = implode(',', array_fill(0, count($doc_types_to_replace), '?'));
+                            
+                            // Select stored_file_path to delete physical files
+                            $select_old = $pdo->prepare("SELECT stored_file_path FROM tbl_tenant_verification_files WHERE request_id = ? AND document_type IN ($placeholders)");
+                            $select_old->execute(array_merge([$request_id], $doc_types_to_replace));
+                            $old_paths = $select_old->fetchAll(PDO::FETCH_COLUMN) ?: [];
+                            foreach ($old_paths as $old_path) {
+                                $full_old_path = __DIR__ . '/' . $old_path;
+                                if (file_exists($full_old_path)) {
+                                    @unlink($full_old_path);
+                                }
+                            }
+                            
+                            // Delete from DB
+                            $delete_old = $pdo->prepare("DELETE FROM tbl_tenant_verification_files WHERE request_id = ? AND document_type IN ($placeholders)");
+                            $delete_old->execute(array_merge([$request_id], $doc_types_to_replace));
+                        }
 
                         $file_stmt = $pdo->prepare("
                             INSERT INTO tbl_tenant_verification_files
-                            (request_id, tenant_id, document_type, original_file_name, stored_file_path, mime_type, file_size_bytes)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            (request_id, tenant_id, document_type, original_file_name, stored_file_path, mime_type, file_size_bytes, status)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
                         ");
                         foreach ($staged as $f) {
                             $file_stmt->execute([
@@ -518,6 +595,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+}
+
+function render_verification_slot(string $doc_type, string $title, string $subtitle, bool $required, array $existing_files, string $input_name) {
+    $file = $existing_files[$doc_type] ?? null;
+    $status = $file ? $file['status'] : '';
+    $label = $required ? 'Required' : 'Optional';
+    
+    echo '<div class="upload-bin rounded-3xl p-4 md:p-5">';
+    echo '  <div class="flex items-center justify-between gap-3 mb-4">';
+    echo '    <div>';
+    echo '      <h3 class="font-headline font-extrabold text-lg text-on-surface tracking-tight">' . htmlspecialchars($title) . '</h3>';
+    echo '      <p class="text-on-surface-variant text-xs font-semibold">' . htmlspecialchars($subtitle) . '</p>';
+    echo '    </div>';
+    echo '    <span class="upload-badge rounded-full px-3 py-1 font-black uppercase text-on-surface-variant">' . $label . '</span>';
+    echo '  </div>';
+    
+    if ($status === 'approved') {
+        echo '  <div class="rounded-2xl p-6 text-center bg-emerald-50 border border-emerald-200 text-emerald-800">';
+        echo '    <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-3">';
+        echo '      <span class="material-symbols-outlined text-3xl">check_circle</span>';
+        echo '    </div>';
+        echo '    <p class="font-headline text-base font-extrabold">Document Approved</p>';
+        echo '    <p class="text-xs font-semibold mt-1 text-emerald-700/80">' . htmlspecialchars($file['original_file_name']) . '</p>';
+        echo '  </div>';
+    } elseif ($status === 'pending') {
+        echo '  <div class="rounded-2xl p-6 text-center bg-blue-50 border border-blue-200 text-blue-800">';
+        echo '    <div class="w-14 h-14 mx-auto rounded-2xl bg-blue-100 text-primary flex items-center justify-center mb-3">';
+        echo '      <span class="material-symbols-outlined text-3xl">schedule</span>';
+        echo '    </div>';
+        echo '    <p class="font-headline text-base font-extrabold">Under Review</p>';
+        echo '    <p class="text-xs font-semibold mt-1 text-blue-700/80">' . htmlspecialchars($file['original_file_name']) . '</p>';
+        echo '  </div>';
+    } else {
+        if ($status === 'rejected') {
+            echo '  <div class="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-xs text-left">';
+            echo '    <p class="font-bold uppercase tracking-wider mb-1">Previous document was rejected:</p>';
+            echo '    <p class="font-semibold">' . htmlspecialchars($file['original_file_name']) . '</p>';
+            echo '    <p class="mt-2 font-medium italic">Reason: ' . htmlspecialchars($file['reviewer_notes'] ?: 'No reason provided.') . '</p>';
+            echo '  </div>';
+        }
+        
+        $target_preview = 'preview-' . str_replace('_', '-', $doc_type);
+        $target_error = 'error-' . str_replace('_', '-', $doc_type);
+        
+        echo '  <div class="relative upload-bin-drop rounded-2xl p-6 md:p-7 text-center">';
+        echo '    <div class="w-14 h-14 mx-auto rounded-2xl bg-primary-fixed flex items-center justify-center mb-3">';
+        echo '      <span class="material-symbols-outlined text-primary text-3xl">upload_file</span>';
+        echo '    </div>';
+        echo '    <p class="font-headline text-sm md:text-base font-extrabold text-on-surface">Drop files here or click to browse</p>';
+        echo '    <p class="text-xs font-semibold text-on-surface-variant mt-1">Upload a replacement document</p>';
+        echo '    <input class="absolute inset-0 opacity-0 cursor-pointer clinic-upload-input" type="file" name="' . htmlspecialchars($input_name) . '[]" multiple accept=".pdf,.jpg,.jpeg,.png" data-doc-label="' . htmlspecialchars($title) . '" data-preview-target="' . $target_preview . '" data-error-target="' . $target_error . '"/>';
+        echo '  </div>';
+        echo '  <div id="' . $target_error . '" class="hidden w-full mt-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold"></div>';
+        echo '  <div id="' . $target_preview . '" class="hidden w-full mt-3 rounded-2xl border border-outline-variant/60 bg-white p-4"></div>';
+    }
+    
+    echo '</div>';
 }
 ?>
 <!DOCTYPE html>
@@ -642,85 +776,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <form method="POST" enctype="multipart/form-data" class="w-full flex flex-col items-center" id="clinic-verification-form">
     <input type="hidden" name="action" value="submit_clinic_verification"/>
     <div class="w-full space-y-5 mb-8">
-        <div class="upload-bin rounded-3xl p-4 md:p-5">
-            <div class="flex items-center justify-between gap-3 mb-4">
-                <div>
-                    <h3 class="font-headline font-extrabold text-lg text-on-surface tracking-tight">Business Permit</h3>
-                    <p class="text-on-surface-variant text-xs font-semibold">PDF/JPG/PNG, multiple files, up to 8MB each</p>
-                </div>
-                <span class="upload-badge rounded-full px-3 py-1 font-black uppercase text-on-surface-variant">Required</span>
-            </div>
-            <div class="relative upload-bin-drop rounded-2xl p-6 md:p-7 text-center">
-                <div class="w-14 h-14 mx-auto rounded-2xl bg-primary-fixed flex items-center justify-center mb-3">
-                    <span class="material-symbols-outlined text-primary text-3xl">upload_file</span>
-                </div>
-                <p class="font-headline text-sm md:text-base font-extrabold text-on-surface">Drop files here or click to browse</p>
-                <p class="text-xs font-semibold text-on-surface-variant mt-1">Business Permit documents</p>
-                <input class="absolute inset-0 opacity-0 cursor-pointer clinic-upload-input" type="file" name="business_permit_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png" data-doc-label="Business Permit" data-preview-target="preview-business-permit" data-error-target="error-business-permit"/>
-            </div>
-            <div id="error-business-permit" class="hidden w-full mt-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold"></div>
-            <div id="preview-business-permit" class="hidden w-full mt-3 rounded-2xl border border-outline-variant/60 bg-white p-4"></div>
-        </div>
-
-        <div class="upload-bin rounded-3xl p-4 md:p-5">
-            <div class="flex items-center justify-between gap-3 mb-4">
-                <div>
-                    <h3 class="font-headline font-extrabold text-lg text-on-surface tracking-tight">BIR Certificate / Form 2303</h3>
-                    <p class="text-on-surface-variant text-xs font-semibold">PDF/JPG/PNG, multiple files, up to 8MB each</p>
-                </div>
-                <span class="upload-badge rounded-full px-3 py-1 font-black uppercase text-on-surface-variant">Required</span>
-            </div>
-            <div class="relative upload-bin-drop rounded-2xl p-6 md:p-7 text-center">
-                <div class="w-14 h-14 mx-auto rounded-2xl bg-primary-fixed flex items-center justify-center mb-3">
-                    <span class="material-symbols-outlined text-primary text-3xl">fact_check</span>
-                </div>
-                <p class="font-headline text-sm md:text-base font-extrabold text-on-surface">Drop files here or click to browse</p>
-                <p class="text-xs font-semibold text-on-surface-variant mt-1">BIR registration files</p>
-                <input class="absolute inset-0 opacity-0 cursor-pointer clinic-upload-input" type="file" name="bir_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png" data-doc-label="BIR Certificate / Form 2303" data-preview-target="preview-bir" data-error-target="error-bir"/>
-            </div>
-            <div id="error-bir" class="hidden w-full mt-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold"></div>
-            <div id="preview-bir" class="hidden w-full mt-3 rounded-2xl border border-outline-variant/60 bg-white p-4"></div>
-        </div>
-
-        <div class="upload-bin rounded-3xl p-4 md:p-5">
-            <div class="flex items-center justify-between gap-3 mb-4">
-                <div>
-                    <h3 class="font-headline font-extrabold text-lg text-on-surface tracking-tight">SEC/DTI Certificate</h3>
-                    <p class="text-on-surface-variant text-xs font-semibold">Optional supporting registration document</p>
-                </div>
-                <span class="upload-badge rounded-full px-3 py-1 font-black uppercase text-on-surface-variant">Optional</span>
-            </div>
-            <div class="relative upload-bin-drop rounded-2xl p-6 md:p-7 text-center">
-                <div class="w-14 h-14 mx-auto rounded-2xl bg-primary-fixed flex items-center justify-center mb-3">
-                    <span class="material-symbols-outlined text-primary text-3xl">apartment</span>
-                </div>
-                <p class="font-headline text-sm md:text-base font-extrabold text-on-surface">Drop files here or click to browse</p>
-                <p class="text-xs font-semibold text-on-surface-variant mt-1">SEC/DTI files (if available)</p>
-                <input class="absolute inset-0 opacity-0 cursor-pointer clinic-upload-input" type="file" name="sec_dti_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png" data-doc-label="SEC/DTI Certificate" data-preview-target="preview-sec-dti" data-error-target="error-sec-dti"/>
-            </div>
-            <div id="error-sec-dti" class="hidden w-full mt-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold"></div>
-            <div id="preview-sec-dti" class="hidden w-full mt-3 rounded-2xl border border-outline-variant/60 bg-white p-4"></div>
-        </div>
-
-        <div class="upload-bin rounded-3xl p-4 md:p-5">
-            <div class="flex items-center justify-between gap-3 mb-4">
-                <div>
-                    <h3 class="font-headline font-extrabold text-lg text-on-surface tracking-tight">Other Supporting Documents</h3>
-                    <p class="text-on-surface-variant text-xs font-semibold">Additional files that help verification</p>
-                </div>
-                <span class="upload-badge rounded-full px-3 py-1 font-black uppercase text-on-surface-variant">Optional</span>
-            </div>
-            <div class="relative upload-bin-drop rounded-2xl p-6 md:p-7 text-center">
-                <div class="w-14 h-14 mx-auto rounded-2xl bg-primary-fixed flex items-center justify-center mb-3">
-                    <span class="material-symbols-outlined text-primary text-3xl">note_stack</span>
-                </div>
-                <p class="font-headline text-sm md:text-base font-extrabold text-on-surface">Drop files here or click to browse</p>
-                <p class="text-xs font-semibold text-on-surface-variant mt-1">Any extra supporting proof</p>
-                <input class="absolute inset-0 opacity-0 cursor-pointer clinic-upload-input" type="file" name="other_docs[]" multiple accept=".pdf,.jpg,.jpeg,.png" data-doc-label="Other Supporting Document" data-preview-target="preview-other" data-error-target="error-other"/>
-            </div>
-            <div id="error-other" class="hidden w-full mt-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold"></div>
-            <div id="preview-other" class="hidden w-full mt-3 rounded-2xl border border-outline-variant/60 bg-white p-4"></div>
-        </div>
+        <?php
+        render_verification_slot('business_permit', 'Business Permit', 'PDF/JPG/PNG, multiple files, up to 8MB each', true, $existing_files, 'business_permit_docs');
+        render_verification_slot('bir_certificate', 'BIR Certificate / Form 2303', 'PDF/JPG/PNG, multiple files, up to 8MB each', true, $existing_files, 'bir_docs');
+        render_verification_slot('sec_dti', 'SEC/DTI Certificate', 'Optional supporting registration document', false, $existing_files, 'sec_dti_docs');
+        render_verification_slot('other', 'Other Supporting Documents', 'Additional files that help verification', false, $existing_files, 'other_docs');
+        ?>
     </div>
 <!-- Note & CTA -->
 <div class="space-y-6 w-full">

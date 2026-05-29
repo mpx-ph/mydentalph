@@ -883,7 +883,7 @@ CREATE TABLE IF NOT EXISTS tbl_tenant_verification_requests (
     clinic_name VARCHAR(255) NOT NULL,
     owner_name VARCHAR(255) DEFAULT NULL,
     owner_email VARCHAR(255) DEFAULT NULL,
-    status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+    status ENUM('pending','approved','rejected','action_required') NOT NULL DEFAULT 'pending',
     submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     reviewed_at DATETIME DEFAULT NULL,
     reviewed_by VARCHAR(20) DEFAULT NULL,
@@ -912,6 +912,8 @@ CREATE TABLE IF NOT EXISTS tbl_tenant_verification_files (
     stored_file_path VARCHAR(500) NOT NULL,
     mime_type VARCHAR(120) DEFAULT NULL,
     file_size_bytes BIGINT DEFAULT NULL,
+    status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+    reviewer_notes TEXT DEFAULT NULL,
     uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_verification_files_request (request_id),
     KEY idx_verification_files_tenant (tenant_id)

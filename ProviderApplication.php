@@ -30,6 +30,10 @@ try {
         header('Location: ProviderApprovalStatus.php');
         exit;
     }
+    if ($reqStatus === 'action_required') {
+        header('Location: ProviderClinicVerif.php');
+        exit;
+    }
 } catch (Throwable $e) {
     // If status can't be read, fall back to normal guards below.
 }
