@@ -175,21 +175,21 @@ if (!isset($currentTenantSlug)) {
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-[4.75rem] provider-page-enter">
+<main class="flex-1 flex flex-col min-w-0 ml-0 pt-[4.5rem] sm:pt-20 provider-page-enter">
     <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
 
-    <div class="px-4 sm:px-6 pb-6 sm:pb-8 pt-3 sm:pt-4 space-y-5 sm:space-y-6 max-w-7xl mx-auto w-full">
-        <div id="toast" class="hidden fixed bottom-8 right-8 z-[60] max-w-sm rounded-2xl border px-4 py-3 shadow-xl text-sm font-semibold" role="status"></div>
+    <div class="pt-4 sm:pt-6 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-6 sm:space-y-8 max-w-7xl mx-auto w-full">
+        <div id="toast" class="hidden fixed bottom-4 left-4 right-4 sm:left-auto sm:right-8 sm:bottom-8 z-[60] sm:max-w-sm rounded-2xl border px-4 py-3 shadow-xl text-sm font-semibold" role="status"></div>
 
-        <section class="flex flex-col gap-2 sm:gap-3">
-            <div class="text-primary font-bold text-xs uppercase flex items-center gap-3 tracking-[0.3em]">
-                <span class="w-10 sm:w-12 h-[1.5px] bg-primary"></span> MY PROFILE
+        <section class="flex flex-col gap-3 sm:gap-4">
+            <div class="text-primary font-bold text-[10px] sm:text-xs uppercase flex items-center gap-3 sm:gap-4 tracking-[0.25em] sm:tracking-[0.3em]">
+                <span class="w-8 sm:w-12 h-[1.5px] bg-primary"></span> MY PROFILE
             </div>
             <div>
-                <h2 class="font-headline text-3xl sm:text-4xl font-extrabold tracking-tighter leading-tight text-on-background">
+                <h2 class="font-headline text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight sm:tracking-tighter leading-tight text-on-background">
                     Your <span class="font-editorial italic font-normal text-primary">profile</span>
                 </h2>
-                <p class="font-body text-sm sm:text-base font-medium text-on-surface-variant max-w-xl leading-relaxed mt-2" id="profileIntroCopy">
+                <p class="font-body text-base sm:text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3 sm:mt-4" id="profileIntroCopy">
                     Keep your clinic identity accurate. Changes here sync with your clinic account across the portal.
                 </p>
             </div>
@@ -224,7 +224,7 @@ if (!isset($currentTenantSlug)) {
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
             <div class="lg:col-span-7 order-1">
-                <section class="profile-section-card rounded-3xl border border-slate-200/70 p-8 sm:p-9">
+                <section class="profile-section-card rounded-3xl border border-slate-200/70 p-5 sm:p-8 lg:p-9">
                     <header class="flex flex-col sm:flex-row sm:items-start gap-4 pb-6 mb-6 border-b border-slate-100">
                         <div class="w-12 h-12 rounded-2xl bg-surface-container-low border border-primary/10 flex items-center justify-center text-primary shrink-0">
                             <span class="material-symbols-outlined text-2xl">badge</span>
@@ -308,7 +308,7 @@ if (!isset($currentTenantSlug)) {
             </div>
 
             <div class="lg:col-span-5 order-2">
-                <section class="profile-section-card profile-section-card--security rounded-3xl border border-slate-200/70 p-8 sm:p-9 lg:sticky lg:top-24">
+                <section class="profile-section-card profile-section-card--security rounded-3xl border border-slate-200/70 p-5 sm:p-8 lg:p-9 lg:sticky lg:top-24">
                     <header class="flex flex-col sm:flex-row sm:items-start gap-4 pb-6 mb-6 border-b border-slate-100">
                         <div class="w-12 h-12 rounded-2xl bg-[#0b3463]/10 border border-[#0b3463]/15 flex items-center justify-center text-[#0b3463] shrink-0">
                             <span class="material-symbols-outlined text-2xl">shield_lock</span>
@@ -366,14 +366,15 @@ if (!isset($currentTenantSlug)) {
                 </section>
             </div>
         </div>
+        <div class="h-10"></div>
     </div>
 </main>
 
 <!-- Centered confirmation (profile / password success) -->
-<div id="confirmModal" class="hidden fixed inset-0 z-[65] flex items-center justify-center p-4 bg-slate-900/45 backdrop-blur-sm" aria-modal="true" role="dialog" aria-labelledby="confirmModalTitle" aria-hidden="true">
-    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200/90 text-center">
+<div id="confirmModal" class="hidden fixed inset-0 z-[65] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/45 backdrop-blur-sm" aria-modal="true" role="dialog" aria-labelledby="confirmModalTitle" aria-hidden="true">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200/90 text-center sm:mx-auto">
         <div class="h-1.5 w-full bg-gradient-to-r from-[#1e3a5f] via-primary to-[#5ab0ff]"></div>
-        <div class="p-8 sm:p-10">
+        <div class="p-6 sm:p-8 lg:p-10">
             <div class="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                 <span class="material-symbols-outlined text-3xl" id="confirmModalIcon">check_circle</span>
             </div>
@@ -385,36 +386,36 @@ if (!isset($currentTenantSlug)) {
 </div>
 
 <!-- OTP Modal -->
-<div id="otpModal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" aria-modal="true" role="dialog">
-    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200/90">
+<div id="otpModal" class="hidden fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm" aria-modal="true" role="dialog">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200/90 sm:mx-auto">
         <div class="h-1.5 w-full bg-gradient-to-r from-[#1e3a5f] via-primary to-[#5ab0ff]"></div>
-        <div class="p-8">
+        <div class="p-5 sm:p-8">
         <h3 class="text-xl font-extrabold text-on-background font-headline">Enter verification code</h3>
         <p class="text-sm text-on-surface-variant mt-2">We sent a 6-digit code to your clinic email. Enter it below to finish updating your password.</p>
         <label class="block text-[11px] font-black text-on-surface-variant/70 uppercase tracking-widest mt-6 mb-2" for="otpInput">6-digit code</label>
         <input id="otpInput" type="text" inputmode="numeric" maxlength="6" pattern="[0-9]*" class="w-full tracking-[0.4em] text-center text-2xl font-bold bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-primary/30" placeholder="000000" autocomplete="one-time-code"/>
         <p id="otpError" class="hidden text-sm text-rose-600 font-semibold mt-3"></p>
-        <div class="flex gap-3 mt-6">
-            <button type="button" id="otpCancelBtn" class="flex-1 px-4 py-3 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-black uppercase tracking-widest border border-slate-200/80">Cancel</button>
-            <button type="button" id="otpConfirmBtn" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white hover:bg-primary/90 text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/25">Verify</button>
+        <div class="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 mt-6">
+            <button type="button" id="otpCancelBtn" class="w-full sm:flex-1 px-4 py-3 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-black uppercase tracking-widest border border-slate-200/80">Cancel</button>
+            <button type="button" id="otpConfirmBtn" class="w-full sm:flex-1 px-4 py-3 rounded-xl bg-primary text-white hover:bg-primary/90 text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/25">Verify</button>
         </div>
         </div>
     </div>
 </div>
 
 <!-- Photo crop modal -->
-<div id="cropModal" class="hidden fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-    <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200/90">
+<div id="cropModal" class="hidden fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-lg w-full max-h-[92vh] overflow-y-auto border border-slate-200/90 sm:mx-auto">
         <div class="h-1.5 w-full bg-gradient-to-r from-primary to-[#5ab0ff]"></div>
-        <div class="p-6">
+        <div class="p-5 sm:p-6">
         <h3 class="text-lg font-extrabold text-on-background font-headline">Adjust profile photo</h3>
         <p class="text-sm text-on-surface-variant mt-1">Drag to reposition, scroll to zoom.</p>
-        <div class="mt-4 max-h-[60vh] cropper-modal-wrap">
+        <div class="mt-4 max-h-[50vh] sm:max-h-[60vh] cropper-modal-wrap">
             <img id="cropImage" src="" alt="" class="block max-w-full rounded-2xl"/>
         </div>
-        <div class="flex gap-3 mt-6">
-            <button type="button" id="cropCancelBtn" class="flex-1 px-4 py-3 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-black uppercase tracking-widest border border-slate-200/80">Cancel</button>
-            <button type="button" id="cropSaveBtn" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white hover:bg-primary/90 text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/25">Save photo</button>
+        <div class="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 mt-6">
+            <button type="button" id="cropCancelBtn" class="w-full sm:flex-1 px-4 py-3 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-black uppercase tracking-widest border border-slate-200/80">Cancel</button>
+            <button type="button" id="cropSaveBtn" class="w-full sm:flex-1 px-4 py-3 rounded-xl bg-primary text-white hover:bg-primary/90 text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/25">Save photo</button>
         </div>
         </div>
     </div>
