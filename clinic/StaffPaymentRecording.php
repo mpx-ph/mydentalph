@@ -5,6 +5,7 @@ require_once __DIR__ . '/../mail_config.php';
 require_once __DIR__ . '/includes/appointment_db_tables.php';
 require_once __DIR__ . '/includes/staff_installment_helpers.php';
 require_once __DIR__ . '/includes/staff_payment_receipt_functions.inc.php';
+require_once __DIR__ . '/includes/staff_payment_recording_recent_row.inc.php';
 
 // Ensure all generated timestamps in this page use Philippine Standard Time.
 date_default_timezone_set('Asia/Manila');
@@ -3544,6 +3545,20 @@ if ($paymentError === 'Please select a payment method.') {
     $serverValidationPopupMessage = 'Payment was discontinued. No payment was recorded.';
     $inlinePaymentError = '';
 }
+
+$recentPaymentRowContexts = [];
+foreach ($recentPayments as $_recentPaymentRow) {
+    $recentPaymentRowContexts[] = staff_payment_recording_recent_payment_row_context(
+        $_recentPaymentRow,
+        isset($pdo) && $pdo instanceof PDO ? $pdo : null,
+        $tenantId,
+        $supportsAppointmentServicesTable,
+        $supportsAppointmentServiceTypeColumn,
+        $supportsServiceEnableInstallmentColumn,
+        $clinicDisplayName,
+        $clinicLogoUrl
+    );
+}
 ?>
 <!DOCTYPE html>
 
@@ -3716,38 +3731,37 @@ if ($paymentError === 'Please select a payment method.') {
 <!-- SideNavBar Component -->
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
 <!-- Main Wrapper -->
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
+<main class="flex-1 flex flex-col min-w-0 ml-0 pt-[4.5rem] sm:pt-20 provider-page-enter">
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
-<!-- Scrollable Content -->
-<div class="p-10 space-y-10">
+<div class="pt-4 sm:pt-6 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-6 sm:space-y-8">
 <!-- Page Header -->
-<section class="flex flex-col gap-4 mb-4">
-<div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
-<span class="w-12 h-[1.5px] bg-primary"></span> PAYMENT RECORDING
+<section class="flex flex-col gap-3 sm:gap-4">
+<div class="text-primary font-bold text-[10px] sm:text-xs uppercase flex items-center gap-3 sm:gap-4 tracking-[0.25em] sm:tracking-[0.3em]">
+<span class="w-8 sm:w-12 h-[1.5px] bg-primary"></span> PAYMENT RECORDING
             </div>
-<div class="flex items-end justify-between">
+<div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
 <div>
-<h2 class="font-headline text-6xl font-extrabold tracking-tighter leading-tight text-on-background">
+<h2 class="font-headline text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight sm:tracking-tighter leading-tight text-on-background">
                         Payment <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Recording</span>
 </h2>
-<p class="font-body text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-4">
+<p class="font-body text-base sm:text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3 sm:mt-4">
                         Record and track all clinic payment transactions
                     </p>
 </div>
-<div class="flex items-center gap-3 shrink-0">
-<button class="px-6 py-3 bg-primary text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all" id="open-refund-request-modal" type="button">
+<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 shrink-0 w-full sm:w-auto">
+<button class="w-full sm:w-auto px-6 py-3 bg-primary text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all" id="open-refund-request-modal" type="button">
                     View Refund Request
                 </button>
-<button class="px-6 py-3 bg-primary text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all" id="open-transaction-modal" type="button">
+<button class="w-full sm:w-auto px-6 py-3 bg-primary text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all" id="open-transaction-modal" type="button">
                     New Transaction
                 </button>
 </div>
 </div>
 </section>
 <!-- Summary Cards -->
-<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<section class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
 <!-- Total Revenue -->
-<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
+<div class="elevated-card p-5 sm:p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 transition-colors group-hover:bg-emerald-500 group-hover:text-white">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
@@ -3755,12 +3769,12 @@ if ($paymentError === 'Please select a payment method.') {
 <span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full uppercase tracking-widest">+12.5%</span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">₱<?php echo number_format($summaryTotalRevenue, 2); ?></p>
+<p class="text-3xl sm:text-5xl font-extrabold font-headline text-on-background tracking-tighter">₱<?php echo number_format($summaryTotalRevenue, 2); ?></p>
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Total Revenue</p>
 </div>
 </div>
 <!-- Today's Revenue -->
-<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
+<div class="elevated-card p-5 sm:p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">today</span>
@@ -3768,12 +3782,12 @@ if ($paymentError === 'Please select a payment method.') {
 <span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">Today</span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">₱<?php echo number_format($summaryTodayRevenue, 2); ?></p>
+<p class="text-3xl sm:text-5xl font-extrabold font-headline text-on-background tracking-tighter">₱<?php echo number_format($summaryTodayRevenue, 2); ?></p>
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Today's Revenue</p>
 </div>
 </div>
 <!-- Total Payments -->
-<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
+<div class="elevated-card p-5 sm:p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
@@ -3781,28 +3795,66 @@ if ($paymentError === 'Please select a payment method.') {
 <span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">Lifetime</span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo number_format($summaryTotalPayments); ?></p>
+<p class="text-3xl sm:text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo number_format($summaryTotalPayments); ?></p>
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Total Payments</p>
 </div>
 </div>
 </section>
 <!-- Recent Transactions Section -->
-<section class="elevated-card rounded-3xl overflow-hidden">
-<div class="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
+<section id="recentPaymentsSection" class="elevated-card rounded-3xl overflow-hidden">
+<div class="p-4 sm:p-6 lg:p-8 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white">
 <div>
-<h3 class="text-2xl font-bold font-headline text-on-background">Recent Transactions</h3>
-<p class="text-[11px] text-on-surface-variant/60 font-black uppercase tracking-widest mt-1">Latest daily transaction log</p>
+<h3 class="text-xl sm:text-2xl font-bold font-headline text-on-background">Recent Transactions</h3>
+<p class="text-[10px] sm:text-[11px] text-on-surface-variant/60 font-black uppercase tracking-widest mt-1">Latest daily transaction log</p>
 </div>
-<div class="flex gap-3">
-<button class="px-5 py-2.5 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all flex items-center gap-2">
+<div class="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+<button class="w-full sm:w-auto px-5 py-2.5 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all flex items-center justify-center gap-2" type="button">
 <span class="material-symbols-outlined text-sm">filter_list</span> Filter
                     </button>
-<a class="px-5 py-2.5 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all flex items-center gap-2" href="?export=csv<?php echo $currentTenantSlug !== '' ? '&clinic_slug=' . urlencode($currentTenantSlug) : ''; ?>">
+<a class="w-full sm:w-auto px-5 py-2.5 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all flex items-center justify-center gap-2" href="?export=csv<?php echo $currentTenantSlug !== '' ? '&clinic_slug=' . urlencode($currentTenantSlug) : ''; ?>">
 <span class="material-symbols-outlined text-sm">download</span> Export CSV
                     </a>
 </div>
 </div>
-<div class="overflow-x-auto">
+<div id="recentPaymentsMobileList" class="lg:hidden divide-y divide-slate-100 px-4 sm:px-6">
+<?php if ($recentPaymentRowContexts === []): ?>
+<p class="py-8 text-sm font-semibold text-slate-500 text-center">No payment transactions yet.</p>
+<?php else: ?>
+<?php foreach ($recentPaymentRowContexts as $payRow): ?>
+<article class="py-4 first:pt-5 last:pb-5">
+<div class="flex items-start gap-3">
+<div class="w-10 h-10 shrink-0 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs"><?php echo htmlspecialchars((string) $payRow['initials'], ENT_QUOTES, 'UTF-8'); ?></div>
+<div class="min-w-0 flex-1">
+<p class="text-sm font-bold text-slate-900 leading-snug"><?php echo htmlspecialchars((string) $payRow['patient_name'], ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-[10px] text-slate-500 font-medium mt-0.5"><?php echo ($payRow['patient_id_label'] ?? '') !== '' ? 'ID: ' . htmlspecialchars((string) $payRow['patient_id_label'], ENT_QUOTES, 'UTF-8') : 'ID: N/A'; ?></p>
+</div>
+<span class="shrink-0 inline-flex items-center justify-center px-2.5 py-1 <?php echo htmlspecialchars((string) $payRow['status_classes'], ENT_QUOTES, 'UTF-8'); ?> text-[9px] font-black rounded-full uppercase tracking-widest"><?php echo htmlspecialchars((string) $payRow['financial_status'], ENT_QUOTES, 'UTF-8'); ?></span>
+</div>
+<dl class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+<div><dt class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount</dt><dd class="font-extrabold text-slate-900 mt-0.5"><?php echo htmlspecialchars((string) $payRow['amount_label'], ENT_QUOTES, 'UTF-8'); ?></dd></div>
+<div><dt class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Method</dt><dd class="font-semibold text-slate-700 mt-0.5"><?php echo htmlspecialchars((string) $payRow['method_label'], ENT_QUOTES, 'UTF-8'); ?></dd></div>
+<div class="col-span-2"><dt class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date &amp; time</dt><dd class="font-semibold text-slate-700 mt-0.5"><?php echo htmlspecialchars((string) $payRow['date_label'], ENT_QUOTES, 'UTF-8'); ?> · <?php echo htmlspecialchars((string) $payRow['time_label'], ENT_QUOTES, 'UTF-8'); ?></dd></div>
+</dl>
+<div class="mt-3 flex gap-2">
+<button class="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors inline-flex items-center justify-center gap-1.5" title="<?php echo htmlspecialchars((string) $payRow['payment_id'], ENT_QUOTES, 'UTF-8'); ?>" type="button">
+<span class="material-symbols-outlined text-base">visibility</span> Details
+</button>
+<button
+    class="flex-1 py-2.5 rounded-xl bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-widest hover:bg-primary/15 transition-colors inline-flex items-center justify-center gap-1.5"
+    title="View receipt"
+    type="button"
+    data-action="open-receipt"
+    data-payment-lifecycle-status="<?php echo htmlspecialchars((string) $payRow['payment_lifecycle_status'], ENT_QUOTES, 'UTF-8'); ?>"
+    data-receipt='<?php echo htmlspecialchars((string) $payRow['receipt_json'], ENT_QUOTES, 'UTF-8'); ?>'
+>
+<span class="material-symbols-outlined text-base">receipt_long</span> Receipt
+</button>
+</div>
+</article>
+<?php endforeach; ?>
+<?php endif; ?>
+</div>
+<div class="hidden lg:block overflow-x-auto">
 <table class="w-full text-left border-collapse">
 <thead>
 <tr class="bg-slate-50/50">
@@ -3815,219 +3867,41 @@ if ($paymentError === 'Please select a payment method.') {
 </tr>
 </thead>
 <tbody class="divide-y divide-slate-100">
-<?php if (empty($recentPayments)): ?>
+<?php if ($recentPaymentRowContexts === []): ?>
 <tr>
 <td class="px-8 py-7 text-sm font-semibold text-slate-500" colspan="6">No payment transactions yet.</td>
 </tr>
 <?php else: ?>
-<?php foreach ($recentPayments as $payment): ?>
-<?php
-    $patientFirst = trim((string) ($payment['patient_first_name'] ?? ''));
-    $patientLast = trim((string) ($payment['patient_last_name'] ?? ''));
-    $patientName = trim($patientFirst . ' ' . $patientLast);
-    if ($patientName === '') {
-        $patientName = 'Unknown Patient';
-    }
-    $patientIdLabel = trim((string) ($payment['patient_id'] ?? ''));
-    $initials = strtoupper(substr($patientFirst !== '' ? $patientFirst : $patientName, 0, 1) . substr($patientLast !== '' ? $patientLast : 'X', 0, 1));
-    $amountLabel = '₱' . number_format((float) ($payment['amount'] ?? 0), 2);
-    $paymentDateRaw = trim((string) ($payment['payment_date'] ?? ''));
-    $paymentDateObj = staff_payment_recording_to_manila_datetime($paymentDateRaw);
-    $dateLabel = $paymentDateObj instanceof DateTimeImmutable ? $paymentDateObj->format('M d, Y') : '-';
-    $timeLabel = $paymentDateObj instanceof DateTimeImmutable ? $paymentDateObj->format('h:i A') : '-';
-    $methodLabel = staff_payment_recording_format_payment_method_display(
-        (string) ($payment['payment_method'] ?? 'cash'),
-        (string) ($payment['notes'] ?? '')
-    );
-    $isBookingInstallmentPlan = !empty($payment['is_installment_plan']);
-    $installmentNumber = (int) ($payment['installment_number'] ?? 0);
-    $paymentLifecycleStatus = strtolower(trim((string) ($payment['status'] ?? '')));
-    $isCompletedPayment = in_array($paymentLifecycleStatus, ['completed', 'paid'], true);
-    $isExplicitInstallmentPayment = $installmentNumber > 0;
-    // Rows that are not successfully settled must show that row's payment status. Booking-level
-    // PAID/PARTIAL would otherwise label abandoned checkouts (pending/cancelled) as PAID when the
-    // appointment was already fully paid from other transactions.
-    if (!$isCompletedPayment) {
-        $lifecycleLabels = [
-            'cancelled' => 'Cancelled',
-            'canceled' => 'Cancelled',
-            'pending' => 'Pending',
-            'failed' => 'Failed',
-            'refunded' => 'Refunded',
-        ];
-        if (isset($lifecycleLabels[$paymentLifecycleStatus])) {
-            $financialStatus = $lifecycleLabels[$paymentLifecycleStatus];
-        } elseif ($paymentLifecycleStatus !== '') {
-            $financialStatus = ucwords(str_replace('_', ' ', $paymentLifecycleStatus));
-        } else {
-            $financialStatus = 'Unknown';
-        }
-        $statusClasses = 'bg-slate-100 text-slate-700 border border-slate-200';
-        if ($paymentLifecycleStatus === 'cancelled' || $paymentLifecycleStatus === 'canceled') {
-            $statusClasses = 'bg-rose-50 text-rose-700 border border-rose-200';
-        } elseif ($paymentLifecycleStatus === 'pending') {
-            $statusClasses = 'bg-amber-50 text-amber-700 border border-amber-200';
-        } elseif ($paymentLifecycleStatus === 'failed') {
-            $statusClasses = 'bg-red-50 text-red-700 border border-red-200';
-        }
-    } elseif ($isBookingInstallmentPlan && !$isExplicitInstallmentPayment) {
-        // Appointment total can be ₱0 for included_plan visits; payment row must reflect treatment/installment balance.
-        $appointmentTreatmentId = trim((string) ($payment['appointment_treatment_id'] ?? ''));
-        $treatmentRemaining = (float) ($payment['treatment_remaining_balance'] ?? 0);
-        $statusTotalCost = max(
-            (float) ($payment['total_treatment_cost'] ?? 0),
-            (float) ($payment['treatment_total_cost'] ?? 0)
-        );
-        $statusTotalPaid = max(
-            (float) ($payment['booking_total_paid'] ?? 0),
-            (float) ($payment['treatment_amount_paid'] ?? 0)
-        );
-        $financialStatus = staff_payment_recording_financial_status(
-            $statusTotalCost,
-            $statusTotalPaid,
-            trim((string) ($payment['appointment_date'] ?? '')),
-            $isBookingInstallmentPlan,
-            (array) ($payment['installment_schedule'] ?? [])
-        );
-        if ($appointmentTreatmentId !== '' && $treatmentRemaining > 0.009 && $financialStatus === 'PAID') {
-            $financialStatus = 'PARTIAL';
-        }
-        $statusClasses = 'bg-rose-50 text-rose-700 border border-rose-200';
-        if ($financialStatus === 'PAID') {
-            $statusClasses = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-        } elseif ($financialStatus === 'PARTIAL') {
-            $statusClasses = 'bg-amber-50 text-amber-700 border border-amber-200';
-        } elseif ($financialStatus === 'UNPAID') {
-            $statusClasses = 'bg-slate-100 text-slate-700 border border-slate-200';
-        }
-    } else {
-        $statusTotalCost = max(
-            (float) ($payment['total_treatment_cost'] ?? 0),
-            (float) ($payment['treatment_total_cost'] ?? 0)
-        );
-        $statusTotalPaid = max(
-            (float) ($payment['booking_total_paid'] ?? 0),
-            (float) ($payment['treatment_amount_paid'] ?? 0)
-        );
-        $financialStatus = staff_payment_recording_financial_status(
-            $statusTotalCost,
-            $statusTotalPaid,
-            trim((string) ($payment['appointment_date'] ?? '')),
-            $isBookingInstallmentPlan,
-            (array) ($payment['installment_schedule'] ?? [])
-        );
-        $appointmentTreatmentIdRow = trim((string) ($payment['appointment_treatment_id'] ?? ''));
-        $treatmentRemainingRow = (float) ($payment['treatment_remaining_balance'] ?? 0);
-        $paymentTypeKeyRow = strtolower(trim((string) ($payment['payment_type'] ?? '')));
-        $isInstallmentDownpaymentRow = $isBookingInstallmentPlan && $paymentTypeKeyRow === 'downpayment';
-        if ($isInstallmentDownpaymentRow && $financialStatus === 'PAID') {
-            $stillUnsettled = ($appointmentTreatmentIdRow !== '' && $treatmentRemainingRow > 0.009)
-                || ($statusTotalPaid + 0.009 < $statusTotalCost);
-            if ($stillUnsettled) {
-                $financialStatus = 'PARTIAL';
-            }
-        }
-        $statusClasses = 'bg-rose-50 text-rose-700 border border-rose-200';
-        if ($financialStatus === 'PAID') {
-            $statusClasses = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-        } elseif ($financialStatus === 'PARTIAL') {
-            $statusClasses = 'bg-amber-50 text-amber-700 border border-amber-200';
-        } elseif ($financialStatus === 'UNPAID') {
-            $statusClasses = 'bg-slate-100 text-slate-700 border border-slate-200';
-        }
-    }
-    $serviceLabel = trim((string) ($payment['service_list'] ?? ''));
-    if ($serviceLabel === '') {
-        $serviceLabel = 'Dental treatment';
-    }
-    $referenceLabel = trim((string) ($payment['reference_number'] ?? ''));
-    if ($referenceLabel === '') {
-        $referenceLabel = trim((string) ($payment['payment_id'] ?? ''));
-    }
-    $patientEmail = trim((string) ($payment['patient_email'] ?? ''));
-    $paymentBookingId = trim((string) ($payment['booking_id'] ?? ''));
-    $appointmentServicesSummaryReceipt = '';
-    if ($paymentBookingId !== '' && isset($pdo) && $pdo instanceof PDO) {
-        $payment['regular_service_items'] = staff_payment_recording_fetch_regular_services_for_booking(
-            $pdo,
-            $tenantId,
-            $paymentBookingId,
-            $supportsAppointmentServicesTable,
-            $supportsAppointmentServiceTypeColumn,
-            $supportsServiceEnableInstallmentColumn
-        );
-        $appointmentServicesSummaryReceipt = staff_payment_recording_fetch_appointment_service_names_summary(
-            $pdo,
-            $tenantId,
-            $paymentBookingId,
-            $supportsAppointmentServicesTable
-        );
-    } else {
-        $payment['regular_service_items'] = [];
-    }
-    $receiptBreakdown = staff_payment_recording_build_transaction_breakdown($payment);
-    $isRegularAddOnReceipt = strcasecmp((string) ($receiptBreakdown['service_label'] ?? ''), 'Add-on Services') === 0;
-    if ($isRegularAddOnReceipt) {
-        $remainingBalance = 0.0;
-    } elseif (trim((string) ($payment['appointment_treatment_id'] ?? '')) !== '' && (float) ($payment['treatment_remaining_balance'] ?? 0) > 0.009) {
-        $remainingBalance = max(0, (float) ($payment['treatment_remaining_balance'] ?? 0));
-    } else {
-        $remainingBalance = max(0, (float) ($payment['total_treatment_cost'] ?? 0) - (float) ($payment['booking_total_paid'] ?? 0));
-    }
-    $receiptServiceItems = isset($receiptBreakdown['service_items']) && is_array($receiptBreakdown['service_items'])
-        ? $receiptBreakdown['service_items']
-        : [];
-    $receiptServicesTotal = (float) ($receiptBreakdown['services_total'] ?? 0);
-    $receiptPayload = [
-        'payment_id' => (string) ($payment['payment_id'] ?? ''),
-        'patient_name' => $patientName,
-        'patient_id' => $patientIdLabel,
-        'patient_email' => $patientEmail,
-        'service' => (string) ($receiptBreakdown['service_label'] ?? $serviceLabel),
-        'service_items' => $receiptServiceItems,
-        'services_total' => round($receiptServicesTotal, 2),
-        'amount_paid' => round((float) ($payment['amount'] ?? 0), 2),
-        'remaining_balance' => round($remainingBalance, 2),
-        'payment_date' => $paymentDateObj instanceof DateTimeImmutable
-            ? $paymentDateObj->format('Y-m-d H:i:s')
-            : $paymentDateRaw,
-        'payment_method' => $methodLabel,
-        'reference_number' => $referenceLabel,
-        'booking_id' => (string) ($payment['booking_id'] ?? ''),
-        'clinic_name' => $clinicDisplayName,
-        'clinic_logo' => $clinicLogoUrl,
-        'appointment_services' => $appointmentServicesSummaryReceipt,
-    ];
-?>
+<?php foreach ($recentPaymentRowContexts as $payRow): ?>
 <tr class="hover:bg-slate-50/30 transition-colors group">
 <td class="px-8 py-5">
 <div class="flex items-center gap-4">
-<div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs"><?php echo htmlspecialchars($initials, ENT_QUOTES, 'UTF-8'); ?></div>
+<div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs"><?php echo htmlspecialchars((string) $payRow['initials'], ENT_QUOTES, 'UTF-8'); ?></div>
 <div>
-<p class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors"><?php echo htmlspecialchars($patientName, ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="text-[10px] text-slate-500 font-medium mt-0.5"><?php echo $patientIdLabel !== '' ? 'ID: ' . htmlspecialchars($patientIdLabel, ENT_QUOTES, 'UTF-8') : 'ID: N/A'; ?></p>
+<p class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors"><?php echo htmlspecialchars((string) $payRow['patient_name'], ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-[10px] text-slate-500 font-medium mt-0.5"><?php echo ($payRow['patient_id_label'] ?? '') !== '' ? 'ID: ' . htmlspecialchars((string) $payRow['patient_id_label'], ENT_QUOTES, 'UTF-8') : 'ID: N/A'; ?></p>
 </div>
 </div>
 </td>
 <td class="px-6 py-5">
-<p class="text-sm font-extrabold text-slate-900"><?php echo htmlspecialchars($amountLabel, ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-sm font-extrabold text-slate-900"><?php echo htmlspecialchars((string) $payRow['amount_label'], ENT_QUOTES, 'UTF-8'); ?></p>
 </td>
 <td class="px-6 py-5">
-<p class="text-sm font-semibold text-slate-700"><?php echo htmlspecialchars($dateLabel, ENT_QUOTES, 'UTF-8'); ?></p>
-<p class="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-0.5"><?php echo htmlspecialchars($timeLabel, ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-sm font-semibold text-slate-700"><?php echo htmlspecialchars((string) $payRow['date_label'], ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-0.5"><?php echo htmlspecialchars((string) $payRow['time_label'], ENT_QUOTES, 'UTF-8'); ?></p>
 </td>
 <td class="px-6 py-5">
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-slate-500 text-sm">payments</span>
-<span class="text-[10px] font-bold text-slate-600 uppercase tracking-wider"><?php echo htmlspecialchars($methodLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="text-[10px] font-bold text-slate-600 uppercase tracking-wider"><?php echo htmlspecialchars((string) $payRow['method_label'], ENT_QUOTES, 'UTF-8'); ?></span>
 </div>
 </td>
 <td class="px-6 py-5">
-<span class="inline-flex items-center justify-center px-3 py-1 <?php echo htmlspecialchars($statusClasses, ENT_QUOTES, 'UTF-8'); ?> text-[10px] font-black rounded-full uppercase tracking-widest"><?php echo htmlspecialchars($financialStatus, ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="inline-flex items-center justify-center px-3 py-1 <?php echo htmlspecialchars((string) $payRow['status_classes'], ENT_QUOTES, 'UTF-8'); ?> text-[10px] font-black rounded-full uppercase tracking-widest"><?php echo htmlspecialchars((string) $payRow['financial_status'], ENT_QUOTES, 'UTF-8'); ?></span>
 </td>
 <td class="px-8 py-5 text-right">
 <div class="flex justify-end gap-2">
-<button class="p-2 hover:bg-primary/10 rounded-lg text-primary transition-colors" title="<?php echo htmlspecialchars((string) ($payment['payment_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" type="button">
+<button class="p-2 hover:bg-primary/10 rounded-lg text-primary transition-colors" title="<?php echo htmlspecialchars((string) $payRow['payment_id'], ENT_QUOTES, 'UTF-8'); ?>" type="button">
 <span class="material-symbols-outlined text-sm">visibility</span>
 </button>
 <button
@@ -4035,8 +3909,8 @@ if ($paymentError === 'Please select a payment method.') {
     title="View receipt"
     type="button"
     data-action="open-receipt"
-    data-payment-lifecycle-status="<?php echo htmlspecialchars($paymentLifecycleStatus, ENT_QUOTES, 'UTF-8'); ?>"
-    data-receipt='<?php echo htmlspecialchars(json_encode($receiptPayload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8'); ?>'
+    data-payment-lifecycle-status="<?php echo htmlspecialchars((string) $payRow['payment_lifecycle_status'], ENT_QUOTES, 'UTF-8'); ?>"
+    data-receipt='<?php echo htmlspecialchars((string) $payRow['receipt_json'], ENT_QUOTES, 'UTF-8'); ?>'
 >
 <span class="material-symbols-outlined text-sm">receipt_long</span>
 </button>
@@ -4048,8 +3922,8 @@ if ($paymentError === 'Please select a payment method.') {
 </tbody>
 </table>
 </div>
-<div class="p-6 bg-slate-50/30 border-t border-slate-100 flex items-center justify-between">
-<p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Showing <?php echo number_format(count($recentPayments)); ?> of <?php echo number_format($summaryTotalPayments); ?> recent entries</p>
+<div class="p-4 sm:p-6 bg-slate-50/30 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+<p class="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest text-center sm:text-left">Showing <?php echo number_format(count($recentPaymentRowContexts)); ?> of <?php echo number_format($summaryTotalPayments); ?> recent entries</p>
 <div class="flex gap-2">
 <button class="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-primary transition-colors">
 <span class="material-symbols-outlined text-sm">chevron_left</span>
@@ -4067,10 +3941,10 @@ if ($paymentError === 'Please select a payment method.') {
 <input type="hidden" name="action" value="send_receipt_email"/>
 <input type="hidden" name="receipt_payment_id" id="receipt_payment_id_input" value=""/>
 </form>
-<div class="fixed inset-0 z-[70] hidden items-center justify-center p-6" id="receipt-modal" role="dialog" aria-modal="true" aria-labelledby="receipt-modal-title">
+<div class="fixed inset-0 z-[70] hidden items-end sm:items-center justify-center p-0 sm:p-6" id="receipt-modal" role="dialog" aria-modal="true" aria-labelledby="receipt-modal-title">
 <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" id="receipt-modal-overlay"></div>
-<div class="relative z-10 w-full max-w-2xl">
-<div class="glass-form bg-white rounded-[2rem] shadow-2xl shadow-primary/20 max-h-[90vh] overflow-hidden flex flex-col">
+<div class="relative z-10 w-full max-w-2xl sm:mx-auto">
+<div class="glass-form bg-white rounded-t-3xl sm:rounded-[2rem] shadow-2xl shadow-primary/20 max-h-[92vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
 <div class="px-7 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-primary/[0.09] via-white to-sky-500/[0.10]">
 <div>
 <p class="text-[10px] font-black uppercase tracking-[0.24em] text-primary/80">Transactions</p>
@@ -4146,18 +4020,18 @@ if ($paymentError === 'Please select a payment method.') {
 </div>
 </div>
 </div>
-<div class="fixed inset-0 z-[80] hidden items-center justify-center p-6" id="receipt-email-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="receipt-email-confirm-title">
+<div class="fixed inset-0 z-[80] hidden items-end sm:items-center justify-center p-0 sm:p-6" id="receipt-email-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="receipt-email-confirm-title">
 <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" id="receipt-email-confirm-overlay"></div>
-<div class="relative z-10 w-full max-w-md rounded-2xl bg-white border border-emerald-100 shadow-2xl p-6 text-center">
+<div class="relative z-10 w-full max-w-md rounded-t-3xl sm:rounded-2xl bg-white border border-emerald-100 shadow-2xl p-6 text-center sm:mx-auto">
 <h4 id="receipt-email-confirm-title" class="text-lg font-black text-slate-900">Receipt Sent</h4>
 <p class="text-sm text-slate-600 mt-3">The receipt has been sent to the patient’s email.</p>
 <button type="button" id="receipt-email-confirm-close" class="mt-5 px-5 py-2.5 rounded-xl bg-emerald-500 text-white text-[11px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors">Close</button>
 </div>
 </div>
-<div class="fixed inset-0 z-50 hidden items-center justify-center p-6" id="transaction-modal" role="dialog" aria-modal="true" aria-labelledby="transaction-modal-title">
+<div class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-6" id="transaction-modal" role="dialog" aria-modal="true" aria-labelledby="transaction-modal-title">
 <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" id="transaction-modal-overlay"></div>
-<div class="relative z-10 w-full max-w-4xl">
-<div class="glass-form bg-white p-8 rounded-[2.5rem] shadow-2xl shadow-primary/20 max-h-[88vh] overflow-y-auto no-scrollbar">
+<div class="relative z-10 w-full max-w-4xl sm:mx-auto">
+<div class="glass-form bg-white p-5 sm:p-8 rounded-t-3xl sm:rounded-[2.5rem] shadow-2xl shadow-primary/20 max-h-[92vh] sm:max-h-[88vh] overflow-y-auto no-scrollbar">
 <?php if ($inlinePaymentError !== ''): ?>
 <div class="mb-6 rounded-2xl border border-red-200 bg-red-50 text-red-700 px-5 py-3 text-sm font-semibold">
 <?php echo htmlspecialchars($inlinePaymentError, ENT_QUOTES, 'UTF-8'); ?>
@@ -4444,18 +4318,18 @@ This booking is installment-priced, but no installment schedule rows exist in th
 </div>
 </div>
 </div>
-<div class="fixed inset-0 z-[90] hidden items-center justify-center p-6" id="payment-validation-modal" role="dialog" aria-modal="true" aria-labelledby="payment-validation-title">
+<div class="fixed inset-0 z-[90] hidden items-end sm:items-center justify-center p-0 sm:p-6" id="payment-validation-modal" role="dialog" aria-modal="true" aria-labelledby="payment-validation-title">
 <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" id="payment-validation-overlay"></div>
-<div class="relative z-10 w-full max-w-md rounded-2xl bg-white border border-rose-100 shadow-2xl p-6 text-center">
+<div class="relative z-10 w-full max-w-md rounded-t-3xl sm:rounded-2xl bg-white border border-rose-100 shadow-2xl p-6 text-center sm:mx-auto">
 <h4 id="payment-validation-title" class="text-lg font-black text-slate-900">Validation Required</h4>
 <p class="text-sm text-slate-600 mt-3" id="payment-validation-message">Please review your input.</p>
 <button type="button" id="payment-validation-close" class="mt-5 px-5 py-2.5 rounded-xl bg-primary text-white text-[11px] font-black uppercase tracking-widest hover:bg-primary/90 transition-colors">OK</button>
 </div>
 </div>
-<div class="fixed inset-0 z-[60] hidden items-center justify-center p-6" id="transaction-selector-modal" role="dialog" aria-modal="true" aria-labelledby="transaction-selector-title">
+<div class="fixed inset-0 z-[60] hidden items-end sm:items-center justify-center p-0 sm:p-6" id="transaction-selector-modal" role="dialog" aria-modal="true" aria-labelledby="transaction-selector-title">
 <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" id="transaction-selector-overlay"></div>
-<div class="relative z-10 w-full max-w-5xl">
-<div class="bg-white p-6 rounded-3xl shadow-2xl border border-slate-200 max-h-[88vh] overflow-hidden flex flex-col">
+<div class="relative z-10 w-full max-w-5xl sm:mx-auto">
+<div class="bg-white p-5 sm:p-6 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 max-h-[92vh] sm:max-h-[88vh] overflow-hidden flex flex-col">
 <div class="flex items-center justify-between gap-4 pb-4 border-b border-slate-100">
 <div>
 <h3 class="text-xl font-black text-slate-900" id="transaction-selector-title">Select Pending Transaction</h3>
@@ -4480,8 +4354,8 @@ This booking is installment-priced, but no installment schedule rows exist in th
 </div>
 </div>
 </div>
-<div id="refund-requests-modal" class="staff-modal-overlay fixed inset-0 z-[62] hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4" role="dialog" aria-modal="true" aria-labelledby="refund-requests-modal-title">
-<div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col">
+<div id="refund-requests-modal" class="staff-modal-overlay fixed inset-0 z-[62] hidden items-end sm:items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-0 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="refund-requests-modal-title">
+<div class="staff-modal-panel bg-white rounded-t-3xl sm:rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col">
 <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
 <span class="material-symbols-outlined text-2xl text-primary">currency_exchange</span>
@@ -4500,8 +4374,50 @@ This booking is installment-priced, but no installment schedule rows exist in th
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">search</span>
 <input id="refund_requests_search" type="search" autocomplete="off" class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" placeholder="Search patient, booking, amount, or reason…"/>
 </div>
-<div class="overflow-x-auto -mx-1 sm:mx-0 rounded-2xl border border-slate-100 flex-1 min-h-[12rem]">
-<table class="w-full min-w-[640px] text-left border-collapse">
+<?php
+    $__refundRows = isset($staffPendingRefundRequests) && is_array($staffPendingRefundRequests)
+        ? $staffPendingRefundRequests
+        : [];
+?>
+<div id="refund_requests_mobile_list" class="lg:hidden flex-1 min-h-0 overflow-y-auto space-y-3 -mx-1 sm:mx-0">
+<?php if ($__refundRows === []): ?>
+<p class="refund-request-empty py-9 text-center text-sm font-semibold text-slate-500 rounded-2xl border border-slate-100">No pending cancel &amp; refund requests.</p>
+<?php else: ?>
+<?php foreach ($__refundRows as $__rr): ?>
+<?php
+    $__pid = (int) ($__rr['id'] ?? 0);
+    $__pfn = trim((string) ($__rr['patient_first_name'] ?? ''));
+    $__pln = trim((string) ($__rr['patient_last_name'] ?? ''));
+    $__pname = trim($__pfn . ' ' . $__pln);
+    if ($__pname === '') {
+        $__pname = 'Patient';
+    }
+    $__bid = trim((string) ($__rr['booking_id'] ?? ''));
+    $__ramt = (float) ($__rr['refundable_amount'] ?? 0);
+    $__reason = trim((string) ($__rr['reason'] ?? ''));
+    if ($__reason === '') {
+        $__reason = '—';
+    }
+    $__hay = strtolower($__pname . ' ' . $__bid . ' ' . $__reason . ' ' . number_format($__ramt, 2));
+    $__amtLabel = '₱' . number_format($__ramt, 2);
+?>
+<article class="refund-request-row rounded-2xl border border-slate-100 bg-white p-4 shadow-sm" data-refund-search="<?php echo htmlspecialchars($__hay, ENT_QUOTES, 'UTF-8'); ?>" data-refund-request-id="<?php echo $__pid; ?>">
+<p class="text-sm font-bold text-slate-900"><?php echo htmlspecialchars($__pname, ENT_QUOTES, 'UTF-8'); ?></p>
+<dl class="mt-3 space-y-2 text-xs">
+<div class="flex justify-between gap-3"><dt class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Booking</dt><dd class="font-semibold text-slate-700 tabular-nums"><?php echo htmlspecialchars($__bid, ENT_QUOTES, 'UTF-8'); ?></dd></div>
+<div class="flex justify-between gap-3"><dt class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount</dt><dd class="font-bold text-slate-900 tabular-nums"><?php echo htmlspecialchars($__amtLabel, ENT_QUOTES, 'UTF-8'); ?></dd></div>
+<div><dt class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reason</dt><dd class="font-medium text-slate-600 mt-1 leading-snug"><?php echo htmlspecialchars($__reason, ENT_QUOTES, 'UTF-8'); ?></dd></div>
+</dl>
+<div class="mt-4 flex flex-col sm:flex-row gap-2">
+<button type="button" class="refund-approve-btn w-full inline-flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl bg-primary text-white text-xs font-bold shadow-md shadow-primary/20 hover:bg-primary/92 transition-all" data-refund-request-id="<?php echo $__pid; ?>">Approve</button>
+<button type="button" class="refund-decline-btn w-full inline-flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl bg-red-600 text-white text-xs font-bold shadow-md shadow-red-600/20 hover:bg-red-700 transition-all" data-refund-request-id="<?php echo $__pid; ?>">Decline</button>
+</div>
+</article>
+<?php endforeach; ?>
+<?php endif; ?>
+</div>
+<div class="hidden lg:block overflow-x-auto -mx-1 sm:mx-0 rounded-2xl border border-slate-100 flex-1 min-h-[12rem]">
+<table class="w-full text-left border-collapse">
 <thead>
 <tr class="bg-slate-50/70 border-b border-slate-100">
 <th class="py-3.5 pl-4 pr-3 sm:pl-5 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">Patient</th>
@@ -4512,12 +4428,7 @@ This booking is installment-priced, but no installment schedule rows exist in th
 </tr>
 </thead>
 <tbody id="refund_requests_table_body" class="divide-y divide-slate-100">
-<?php
-    $__refundRows = isset($staffPendingRefundRequests) && is_array($staffPendingRefundRequests)
-        ? $staffPendingRefundRequests
-        : [];
-    if ($__refundRows === []):
-?>
+<?php if ($__refundRows === []): ?>
 <tr class="refund-request-empty">
 <td colspan="5" class="py-9 text-center text-sm font-semibold text-slate-500">No pending cancel &amp; refund requests.</td>
 </tr>
@@ -6112,6 +6023,13 @@ Close
                 && (!refundRequestsModal || refundRequestsModal.classList.contains('hidden'));
         }
 
+        function queryRefundRequestRows() {
+            if (!refundRequestsModal) {
+                return [];
+            }
+            return Array.from(refundRequestsModal.querySelectorAll('.refund-request-row'));
+        }
+
         function openRefundRequestsModal() {
             if (!refundRequestsModal) {
                 return;
@@ -6119,11 +6037,9 @@ Close
             if (refundRequestsSearchInput) {
                 refundRequestsSearchInput.value = '';
             }
-            if (refundRequestsTableBody) {
-                refundRequestsTableBody.querySelectorAll('tr.refund-request-row').forEach((row) => {
-                    row.classList.remove('hidden');
-                });
-            }
+            queryRefundRequestRows().forEach((row) => {
+                row.classList.remove('hidden');
+            });
             refundRequestsModal.classList.remove('hidden');
             refundRequestsModal.classList.add('flex');
             document.body.classList.add('overflow-hidden');
@@ -6144,11 +6060,11 @@ Close
         }
 
         function filterRefundRequestsTable() {
-            if (!refundRequestsSearchInput || !refundRequestsTableBody) {
+            if (!refundRequestsSearchInput) {
                 return;
             }
             const q = String(refundRequestsSearchInput.value || '').trim().toLowerCase();
-            refundRequestsTableBody.querySelectorAll('tr.refund-request-row').forEach((row) => {
+            queryRefundRequestRows().forEach((row) => {
                 const hay = String(row.getAttribute('data-refund-search') || '').toLowerCase();
                 row.classList.toggle('hidden', q !== '' && !hay.includes(q));
             });
@@ -6497,14 +6413,8 @@ Close
             refundRequestsModal.addEventListener('click', (ev) => {
                 if (ev.target === refundRequestsModal) {
                     closeRefundRequestsModal();
+                    return;
                 }
-            });
-        }
-        if (refundRequestsSearchInput) {
-            refundRequestsSearchInput.addEventListener('input', filterRefundRequestsTable);
-        }
-        if (refundRequestsTableBody) {
-            refundRequestsTableBody.addEventListener('click', (ev) => {
                 const t = ev.target;
                 if (!t || !t.closest) {
                     return;
@@ -6527,6 +6437,9 @@ Close
                 btn.disabled = true;
                 postRefundRequestDecision(rid, action, btn);
             });
+        }
+        if (refundRequestsSearchInput) {
+            refundRequestsSearchInput.addEventListener('input', filterRefundRequestsTable);
         }
         if (closeReceiptModalBtn) {
             closeReceiptModalBtn.addEventListener('click', closeReceiptModal);
@@ -6562,8 +6475,13 @@ Close
         if (paymentValidationOverlay) {
             paymentValidationOverlay.addEventListener('click', closeValidationPopup);
         }
-        document.querySelectorAll('button[data-action="open-receipt"]').forEach((btn) => {
-            btn.addEventListener('click', () => {
+        const recentPaymentsSection = document.getElementById('recentPaymentsSection');
+        if (recentPaymentsSection) {
+            recentPaymentsSection.addEventListener('click', (event) => {
+                const btn = event.target.closest('button[data-action="open-receipt"]');
+                if (!btn) {
+                    return;
+                }
                 const lifecycle = String(btn.getAttribute('data-payment-lifecycle-status') || '').trim().toLowerCase();
                 if (lifecycle === 'cancelled' || lifecycle === 'canceled') {
                     showValidationPopup(
@@ -6581,7 +6499,7 @@ Close
                 } catch (err) {
                 }
             });
-        });
+        }
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
                 if (receiptEmailConfirmModal && !receiptEmailConfirmModal.classList.contains('hidden')) {
