@@ -68,6 +68,68 @@ function staff_reports_parse_date($input)
     return date('Y-m-d', $ts);
 }
 
+/**
+ * @param array<string, mixed> $appointment
+ * @return array<string, mixed>
+ */
+function staff_reports_appointment_row_context(array $appointment)
+{
+    $patientName = trim(((string) ($appointment['patient_first_name'] ?? '')) . ' ' . ((string) ($appointment['patient_last_name'] ?? '')));
+    if ($patientName === '') {
+        $patientName = 'Unknown Patient';
+    }
+    $patientId = trim((string) ($appointment['patient_id'] ?? ''));
+    $patientInitials = strtoupper(substr(trim((string) ($appointment['patient_first_name'] ?? 'U')), 0, 1) . substr(trim((string) ($appointment['patient_last_name'] ?? 'P')), 0, 1));
+    if ($patientInitials === '') {
+        $patientInitials = 'NA';
+    }
+    $dateLabel = '-';
+    if (!empty($appointment['appointment_date'])) {
+        $dateLabel = date('M d, Y', strtotime((string) $appointment['appointment_date']));
+    }
+    $timeLabel = '-';
+    if (!empty($appointment['appointment_time'])) {
+        $timeLabel = date('h:i A', strtotime((string) $appointment['appointment_time']));
+    }
+    $serviceMain = trim((string) ($appointment['service_type'] ?? ''));
+    if ($serviceMain === '') {
+        $serviceMain = 'General Consultation';
+    }
+    $serviceDetails = staff_reports_normalize_service_note(trim((string) ($appointment['service_description'] ?? '')));
+    $serviceDetailHtml = $serviceDetails !== '' ? nl2br(htmlspecialchars($serviceDetails, ENT_QUOTES, 'UTF-8')) : '';
+    $dentistName = trim(((string) ($appointment['dentist_first_name'] ?? '')) . ' ' . ((string) ($appointment['dentist_last_name'] ?? '')));
+    if ($dentistName === '') {
+        $dentistName = 'Unassigned Dentist';
+    }
+    $status = strtolower(trim((string) ($appointment['status'] ?? 'pending')));
+    $statusLabel = $status === 'in_progress' ? 'Checked-In' : ($status !== '' ? ucfirst(str_replace('_', ' ', $status)) : 'Pending');
+    $statusClasses = 'bg-amber-50 text-amber-800';
+    if ($status === 'completed') {
+        $statusClasses = 'bg-emerald-50 text-emerald-800';
+    } elseif ($status === 'confirmed') {
+        $statusClasses = 'bg-sky-50 text-sky-800';
+    } elseif ($status === 'in_progress') {
+        $statusClasses = 'bg-blue-50 text-blue-800';
+    } elseif ($status === 'cancelled' || $status === 'no_show') {
+        $statusClasses = 'bg-slate-100 text-slate-700';
+    }
+    $amount = (float) ($appointment['total_treatment_cost'] ?? 0);
+
+    return [
+        'patient_name' => $patientName,
+        'patient_id' => $patientId,
+        'patient_initials' => $patientInitials,
+        'date_label' => $dateLabel,
+        'time_label' => $timeLabel,
+        'service_main' => $serviceMain,
+        'service_detail_html' => $serviceDetailHtml,
+        'dentist_name' => $dentistName,
+        'status_label' => $statusLabel,
+        'status_classes' => $statusClasses,
+        'amount_html' => staff_reports_money_html($amount),
+    ];
+}
+
 $tenantId = isset($_SESSION['tenant_id']) ? trim((string) $_SESSION['tenant_id']) : '';
 $filterQ = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
 $filterDateFrom = staff_reports_parse_date(isset($_GET['date_from']) ? (string) $_GET['date_from'] : null);
@@ -235,6 +297,16 @@ $hasActiveFilters = ($filterQ !== '' || $filterDateFrom !== null || $filterDateT
 $reportsPageBase = basename(isset($_SERVER['SCRIPT_NAME']) ? (string) $_SERVER['SCRIPT_NAME'] : 'StaffReports.php');
 $reportsResetHref = htmlspecialchars($reportsPageBase . ($currentTenantSlug !== '' ? ('?clinic_slug=' . rawurlencode($currentTenantSlug)) : ''), ENT_QUOTES, 'UTF-8');
 $reportsTableTruncated = $tenantId !== '' && $totalAppointments > count($allAppointments);
+$reportAppointmentRows = [];
+foreach ($allAppointments as $_reportAppointment) {
+    $reportAppointmentRows[] = staff_reports_appointment_row_context($_reportAppointment);
+}
+$reportsEmptyMessage = 'No appointments found for this clinic yet.';
+if ($tenantId === '') {
+    $reportsEmptyMessage = 'Sign in and select a clinic to load reports.';
+} elseif ($hasActiveFilters) {
+    $reportsEmptyMessage = 'No appointments match your filters.';
+}
 ?>
 <!DOCTYPE html>
 <html class="light" lang="en"><head>
@@ -415,35 +487,35 @@ $reportsTableTruncated = $tenantId !== '' && $totalAppointments > count($allAppo
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter print:ml-0 print:pt-4">
+<main class="flex-1 flex flex-col min-w-0 ml-0 pt-[4.5rem] sm:pt-20 provider-page-enter print:ml-0 print:pt-4">
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
-<div class="p-10 space-y-8 print:p-0">
+<div class="pt-4 sm:pt-6 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-6 sm:space-y-8 print:p-0">
 <div class="staff-reports-print-header">
 <h1><?php echo htmlspecialchars($reportClinicName !== '' ? $reportClinicName : 'Clinic', ENT_QUOTES, 'UTF-8'); ?> <span class="staff-reports-print-accent">· Appointments report</span></h1>
 <p class="staff-reports-print-sub">Generated <?php echo htmlspecialchars(strtoupper($generatedReportLine), ENT_QUOTES, 'UTF-8'); ?></p>
 <p class="staff-reports-print-filters"><?php echo htmlspecialchars($filterSummaryText, ENT_QUOTES, 'UTF-8'); ?></p>
 </div>
 
-<section class="flex flex-col gap-4 mb-2 staff-reports-no-print">
-<div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
-<span class="w-12 h-[1.5px] bg-primary"></span> CLINICAL PRECISION
+<section class="flex flex-col gap-3 sm:gap-4 mb-2 staff-reports-no-print">
+<div class="text-primary font-bold text-[10px] sm:text-xs uppercase flex items-center gap-3 sm:gap-4 tracking-[0.25em] sm:tracking-[0.3em]">
+<span class="w-8 sm:w-12 h-[1.5px] bg-primary"></span> CLINICAL PRECISION
             </div>
 <div>
-<h2 class="font-headline text-6xl font-extrabold tracking-tighter leading-tight text-on-background">
+<h2 class="font-headline text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight sm:tracking-tighter leading-tight text-on-background">
                     Reports <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Overview</span>
 </h2>
-<p class="font-body text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-4">
+<p class="font-body text-base sm:text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3 sm:mt-4">
                     Track appointments, service delivery, and revenue in one place.
                 </p>
 </div>
 </section>
 
-<form method="get" action="<?php echo htmlspecialchars($reportsPageBase, ENT_QUOTES, 'UTF-8'); ?>" id="staff-reports-filter-form" class="staff-reports-no-print space-y-8">
+<form method="get" action="<?php echo htmlspecialchars($reportsPageBase, ENT_QUOTES, 'UTF-8'); ?>" id="staff-reports-filter-form" class="staff-reports-no-print space-y-4 sm:space-y-6">
 <?php if ($currentTenantSlug !== ''): ?>
 <input type="hidden" name="clinic_slug" value="<?php echo htmlspecialchars($currentTenantSlug, ENT_QUOTES, 'UTF-8'); ?>"/>
 <?php endif; ?>
-<section class="elevated-card p-8 rounded-3xl">
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+<section class="elevated-card p-4 sm:p-6 lg:p-8 rounded-3xl">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
 <div class="lg:col-span-2">
 <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2" for="staff-reports-q">Search</label>
 <div class="relative">
@@ -461,8 +533,8 @@ $reportsTableTruncated = $tenantId !== '' && $totalAppointments > count($allAppo
 </div>
 </section>
 
-<section class="elevated-card p-8 rounded-3xl">
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+<section class="elevated-card p-4 sm:p-6 lg:p-8 rounded-3xl">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
 <div>
 <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2" for="staff-reports-date-from">From date</label>
 <input id="staff-reports-date-from" name="date_from" class="w-full bg-slate-50 border-none rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-bold" type="date" value="<?php echo $filterDateFrom !== null ? htmlspecialchars($filterDateFrom, ENT_QUOTES, 'UTF-8') : ''; ?>"/>
@@ -496,16 +568,16 @@ $reportsTableTruncated = $tenantId !== '' && $totalAppointments > count($allAppo
 </select>
 </div>
 </div>
-<div class="flex flex-wrap items-center gap-3 mt-6">
-<button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-primary text-white px-5 py-2.5 text-xs font-bold uppercase tracking-wide shadow-lg shadow-primary/25 hover:bg-primary/90 transition-all">Apply filters</button>
-<a href="<?php echo $reportsResetHref; ?>" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-on-surface-variant hover:bg-slate-50 transition-all">
+<div class="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 sm:gap-3 mt-4 sm:mt-6">
+<button type="submit" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-white px-5 py-2.5 text-xs font-bold uppercase tracking-wide shadow-lg shadow-primary/25 hover:bg-primary/90 transition-all">Apply filters</button>
+<a href="<?php echo $reportsResetHref; ?>" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-on-surface-variant hover:bg-slate-50 transition-all">
 <span class="material-symbols-outlined text-base">restart_alt</span> Reset</a>
 </div>
 </section>
 </form>
 
-<section class="staff-reports-kpi-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-<div class="staff-reports-kpi-card elevated-card p-7 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
+<section class="staff-reports-kpi-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+<div class="staff-reports-kpi-card elevated-card p-5 sm:p-7 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 transition-colors group-hover:bg-emerald-500 group-hover:text-white">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">payments</span>
@@ -513,12 +585,12 @@ $reportsTableTruncated = $tenantId !== '' && $totalAppointments > count($allAppo
 <span class="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md tracking-wide uppercase"><?php echo $hasActiveFilters ? 'Filtered' : 'Completed only'; ?></span>
 </div>
 <div>
-<p class="staff-reports-kpi-value text-4xl sm:text-5xl font-extrabold font-headline text-on-background tracking-tight"><?php echo staff_reports_money_html($totalRevenue); ?></p>
+<p class="staff-reports-kpi-value text-3xl sm:text-4xl lg:text-5xl font-extrabold font-headline text-on-background tracking-tight"><?php echo staff_reports_money_html($totalRevenue); ?></p>
 <p class="text-xs font-semibold text-slate-500 mt-2 tracking-wide uppercase">Treatment total</p>
 </div>
 </div>
 
-<div class="staff-reports-kpi-card elevated-card p-7 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
+<div class="staff-reports-kpi-card elevated-card p-5 sm:p-7 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event_available</span>
@@ -526,12 +598,12 @@ $reportsTableTruncated = $tenantId !== '' && $totalAppointments > count($allAppo
 <span class="text-[10px] font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-md tracking-wide uppercase"><?php echo $hasActiveFilters ? 'Filtered' : 'In period'; ?></span>
 </div>
 <div>
-<p class="staff-reports-kpi-value text-4xl sm:text-5xl font-extrabold font-headline text-on-background tabular-nums tracking-tight"><?php echo number_format($totalAppointments); ?></p>
+<p class="staff-reports-kpi-value text-3xl sm:text-4xl lg:text-5xl font-extrabold font-headline text-on-background tabular-nums tracking-tight"><?php echo number_format($totalAppointments); ?></p>
 <p class="text-xs font-semibold text-slate-500 mt-2 tracking-wide uppercase">Appointments</p>
 </div>
 </div>
 
-<div class="staff-reports-kpi-card elevated-card p-7 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
+<div class="staff-reports-kpi-card elevated-card p-5 sm:p-7 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">group</span>
@@ -539,20 +611,44 @@ $reportsTableTruncated = $tenantId !== '' && $totalAppointments > count($allAppo
 <span class="text-[10px] font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-md tracking-wide uppercase"><?php echo $hasActiveFilters ? 'Filtered' : 'Distinct'; ?></span>
 </div>
 <div>
-<p class="staff-reports-kpi-value text-4xl sm:text-5xl font-extrabold font-headline text-on-background tabular-nums tracking-tight"><?php echo number_format($totalPatients); ?></p>
+<p class="staff-reports-kpi-value text-3xl sm:text-4xl lg:text-5xl font-extrabold font-headline text-on-background tabular-nums tracking-tight"><?php echo number_format($totalPatients); ?></p>
 <p class="text-xs font-semibold text-slate-500 mt-2 tracking-wide uppercase">Patients</p>
 </div>
 </div>
 </section>
 
-<section class="elevated-card rounded-3xl overflow-hidden staff-reports-print-table-wrap">
-<div class="px-8 py-6 border-b border-slate-100 bg-white">
-<h3 class="text-xl sm:text-2xl font-semibold font-headline text-slate-900">Appointments</h3>
+<section id="staffReportsListSection" class="elevated-card rounded-3xl overflow-hidden staff-reports-print-table-wrap">
+<div class="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-b border-slate-100 bg-white">
+<h3 class="text-lg sm:text-xl lg:text-2xl font-semibold font-headline text-slate-900">Appointments</h3>
 <?php if ($reportsTableTruncated): ?>
-<p class="text-xs text-slate-500 font-medium mt-1">Showing the first <?php echo number_format(count($allAppointments)); ?> of <?php echo number_format($totalAppointments); ?> matching rows. Narrow filters for a shorter list.</p>
+<p class="text-xs text-slate-500 font-medium mt-1">Showing the first <?php echo number_format(count($reportAppointmentRows)); ?> of <?php echo number_format($totalAppointments); ?> matching rows. Narrow filters for a shorter list.</p>
 <?php endif; ?>
 </div>
-<div class="overflow-x-auto">
+<div id="staffReportsMobileList" class="lg:hidden staff-reports-no-print divide-y divide-slate-100 px-4 sm:px-6">
+<?php if ($reportAppointmentRows === []): ?>
+<p class="py-8 text-sm font-semibold text-slate-500 text-center"><?php echo htmlspecialchars($reportsEmptyMessage, ENT_QUOTES, 'UTF-8'); ?></p>
+<?php else: ?>
+<?php foreach ($reportAppointmentRows as $row): ?>
+<article class="py-4 first:pt-5 last:pb-5">
+<div class="flex items-start gap-3">
+<div class="w-10 h-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center font-bold text-primary text-[10px]"><?php echo htmlspecialchars((string) $row['patient_initials'], ENT_QUOTES, 'UTF-8'); ?></div>
+<div class="min-w-0 flex-1">
+<p class="text-sm font-semibold text-slate-900 leading-snug"><?php echo htmlspecialchars((string) $row['patient_name'], ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-[10px] text-slate-500 font-medium mt-0.5 tabular-nums"><?php echo ($row['patient_id'] ?? '') !== '' ? htmlspecialchars((string) $row['patient_id'], ENT_QUOTES, 'UTF-8') : '—'; ?></p>
+</div>
+<span class="shrink-0 inline-flex items-center px-2.5 py-1 <?php echo htmlspecialchars((string) $row['status_classes'], ENT_QUOTES, 'UTF-8'); ?> text-[10px] font-medium rounded-md ring-1 ring-inset ring-black/[0.06]"><?php echo htmlspecialchars((string) $row['status_label'], ENT_QUOTES, 'UTF-8'); ?></span>
+</div>
+<dl class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+<div class="col-span-2"><dt class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Service</dt><dd class="font-semibold text-slate-900 mt-0.5 leading-snug"><?php echo htmlspecialchars((string) $row['service_main'], ENT_QUOTES, 'UTF-8'); ?></dd><?php if (($row['service_detail_html'] ?? '') !== ''): ?><dd class="text-slate-600 mt-1 leading-relaxed break-words"><?php echo $row['service_detail_html']; ?></dd><?php endif; ?></div>
+<div><dt class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Schedule</dt><dd class="font-semibold text-slate-700 mt-0.5 tabular-nums"><?php echo htmlspecialchars((string) $row['date_label'], ENT_QUOTES, 'UTF-8'); ?> · <?php echo htmlspecialchars((string) $row['time_label'], ENT_QUOTES, 'UTF-8'); ?></dd></div>
+<div><dt class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Provider</dt><dd class="font-medium text-slate-700 mt-0.5"><?php echo htmlspecialchars((string) $row['dentist_name'], ENT_QUOTES, 'UTF-8'); ?></dd></div>
+<div class="col-span-2 flex justify-between items-center gap-3 pt-1 border-t border-slate-100"><dt class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount</dt><dd class="text-sm font-semibold text-slate-900"><?php echo $row['amount_html']; ?></dd></div>
+</dl>
+</article>
+<?php endforeach; ?>
+<?php endif; ?>
+</div>
+<div class="hidden lg:block overflow-x-auto print:block">
 <table class="staff-reports-print-table w-full min-w-[960px] text-left border-collapse table-fixed">
 <thead>
 <tr class="bg-slate-50/50">
@@ -565,90 +661,39 @@ $reportsTableTruncated = $tenantId !== '' && $totalAppointments > count($allAppo
 </tr>
 </thead>
 <tbody class="divide-y divide-slate-100">
-<?php if (empty($allAppointments)): ?>
+<?php if ($reportAppointmentRows === []): ?>
 <tr>
-<td class="px-8 py-8 text-sm font-semibold text-slate-500" colspan="6"><?php
-if ($tenantId === '') {
-    echo 'Sign in and select a clinic to load reports.';
-} elseif ($hasActiveFilters) {
-    echo 'No appointments match your filters.';
-} else {
-    echo 'No appointments found for this clinic yet.';
-}
-?></td>
+<td class="px-8 py-8 text-sm font-semibold text-slate-500" colspan="6"><?php echo htmlspecialchars($reportsEmptyMessage, ENT_QUOTES, 'UTF-8'); ?></td>
 </tr>
 <?php else: ?>
-<?php foreach ($allAppointments as $appointment): ?>
-<?php
-    $patientName = trim(((string) ($appointment['patient_first_name'] ?? '')) . ' ' . ((string) ($appointment['patient_last_name'] ?? '')));
-    if ($patientName === '') {
-        $patientName = 'Unknown Patient';
-    }
-    $patientId = trim((string) ($appointment['patient_id'] ?? ''));
-    $patientInitials = strtoupper(substr(trim((string) ($appointment['patient_first_name'] ?? 'U')), 0, 1) . substr(trim((string) ($appointment['patient_last_name'] ?? 'P')), 0, 1));
-    if ($patientInitials === '') {
-        $patientInitials = 'NA';
-    }
-    $dateLabel = '-';
-    if (!empty($appointment['appointment_date'])) {
-        $dateLabel = date('M d, Y', strtotime((string) $appointment['appointment_date']));
-    }
-    $timeLabel = '-';
-    if (!empty($appointment['appointment_time'])) {
-        $timeLabel = date('h:i A', strtotime((string) $appointment['appointment_time']));
-    }
-    $serviceMain = trim((string) ($appointment['service_type'] ?? ''));
-    if ($serviceMain === '') {
-        $serviceMain = 'General Consultation';
-    }
-    $serviceDetails = staff_reports_normalize_service_note(trim((string) ($appointment['service_description'] ?? '')));
-    $serviceMainEsc = htmlspecialchars($serviceMain, ENT_QUOTES, 'UTF-8');
-    $serviceDetailHtml = $serviceDetails !== '' ? nl2br(htmlspecialchars($serviceDetails, ENT_QUOTES, 'UTF-8')) : '';
-    $dentistName = trim(((string) ($appointment['dentist_first_name'] ?? '')) . ' ' . ((string) ($appointment['dentist_last_name'] ?? '')));
-    if ($dentistName === '') {
-        $dentistName = 'Unassigned Dentist';
-    }
-    $status = strtolower(trim((string) ($appointment['status'] ?? 'pending')));
-    $statusLabel = $status === 'in_progress' ? 'Checked-In' : ($status !== '' ? ucfirst(str_replace('_', ' ', $status)) : 'Pending');
-    $statusClasses = 'bg-amber-50 text-amber-800';
-    if ($status === 'completed') {
-        $statusClasses = 'bg-emerald-50 text-emerald-800';
-    } elseif ($status === 'confirmed') {
-        $statusClasses = 'bg-sky-50 text-sky-800';
-    } elseif ($status === 'in_progress') {
-        $statusClasses = 'bg-blue-50 text-blue-800';
-    } elseif ($status === 'cancelled' || $status === 'no_show') {
-        $statusClasses = 'bg-slate-100 text-slate-700';
-    }
-    $amount = (float) ($appointment['total_treatment_cost'] ?? 0);
-?>
+<?php foreach ($reportAppointmentRows as $row): ?>
 <tr class="hover:bg-slate-50/40 transition-colors group">
 <td class="px-6 py-5 align-top">
 <div class="flex items-center gap-3 min-w-0">
-<div class="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center font-bold text-primary text-[10px] shrink-0"><?php echo htmlspecialchars($patientInitials, ENT_QUOTES, 'UTF-8'); ?></div>
+<div class="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center font-bold text-primary text-[10px] shrink-0"><?php echo htmlspecialchars((string) $row['patient_initials'], ENT_QUOTES, 'UTF-8'); ?></div>
 <div class="flex flex-col min-w-0">
-<span class="text-sm font-semibold text-slate-900 group-hover:text-primary transition-colors truncate"><?php echo htmlspecialchars($patientName, ENT_QUOTES, 'UTF-8'); ?></span>
-<span class="text-[10px] text-slate-500 font-medium mt-0.5 tabular-nums"><?php echo $patientId !== '' ? htmlspecialchars($patientId, ENT_QUOTES, 'UTF-8') : '—'; ?></span>
+<span class="text-sm font-semibold text-slate-900 group-hover:text-primary transition-colors truncate"><?php echo htmlspecialchars((string) $row['patient_name'], ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="text-[10px] text-slate-500 font-medium mt-0.5 tabular-nums"><?php echo ($row['patient_id'] ?? '') !== '' ? htmlspecialchars((string) $row['patient_id'], ENT_QUOTES, 'UTF-8') : '—'; ?></span>
 </div>
 </div>
 </td>
 <td class="px-4 py-5 align-top whitespace-nowrap">
 <div class="flex flex-col">
-<span class="text-sm font-semibold text-slate-800 tabular-nums"><?php echo htmlspecialchars($dateLabel, ENT_QUOTES, 'UTF-8'); ?></span>
-<span class="text-xs text-slate-500 font-medium mt-0.5 tabular-nums"><?php echo htmlspecialchars($timeLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="text-sm font-semibold text-slate-800 tabular-nums"><?php echo htmlspecialchars((string) $row['date_label'], ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="text-xs text-slate-500 font-medium mt-0.5 tabular-nums"><?php echo htmlspecialchars((string) $row['time_label'], ENT_QUOTES, 'UTF-8'); ?></span>
 </div>
 </td>
 <td class="px-4 py-5 align-top min-w-0">
-<div class="text-sm font-semibold text-slate-900 leading-snug"><?php echo $serviceMainEsc; ?></div>
-<?php if ($serviceDetailHtml !== ''): ?>
-<div class="text-xs text-slate-600 mt-1.5 leading-relaxed break-words"><?php echo $serviceDetailHtml; ?></div>
+<div class="text-sm font-semibold text-slate-900 leading-snug"><?php echo htmlspecialchars((string) $row['service_main'], ENT_QUOTES, 'UTF-8'); ?></div>
+<?php if (($row['service_detail_html'] ?? '') !== ''): ?>
+<div class="text-xs text-slate-600 mt-1.5 leading-relaxed break-words"><?php echo $row['service_detail_html']; ?></div>
 <?php endif; ?>
 </td>
-<td class="px-4 py-5 align-top text-sm font-medium text-slate-800 break-words"><?php echo htmlspecialchars($dentistName, ENT_QUOTES, 'UTF-8'); ?></td>
+<td class="px-4 py-5 align-top text-sm font-medium text-slate-800 break-words"><?php echo htmlspecialchars((string) $row['dentist_name'], ENT_QUOTES, 'UTF-8'); ?></td>
 <td class="px-4 py-5 align-middle whitespace-nowrap">
-<span class="inline-flex items-center px-2.5 py-1 <?php echo $statusClasses; ?> text-xs font-medium rounded-md ring-1 ring-inset ring-black/[0.06]"><?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+<span class="inline-flex items-center px-2.5 py-1 <?php echo htmlspecialchars((string) $row['status_classes'], ENT_QUOTES, 'UTF-8'); ?> text-xs font-medium rounded-md ring-1 ring-inset ring-black/[0.06]"><?php echo htmlspecialchars((string) $row['status_label'], ENT_QUOTES, 'UTF-8'); ?></span>
 </td>
-<td class="px-6 py-5 text-right align-middle text-sm font-semibold text-slate-900"><?php echo staff_reports_money_html($amount); ?></td>
+<td class="px-6 py-5 text-right align-middle text-sm font-semibold text-slate-900"><?php echo $row['amount_html']; ?></td>
 </tr>
 <?php endforeach; ?>
 <?php endif; ?>
@@ -656,6 +701,7 @@ if ($tenantId === '') {
 </table>
 </div>
 </section>
+<div class="h-10 staff-reports-no-print"></div>
 </div>
 <script>
 (function () {
