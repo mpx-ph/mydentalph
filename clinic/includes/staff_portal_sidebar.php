@@ -253,6 +253,42 @@ if ($currentUserRole === 'dentist') {
         transition: none !important;
     }
 }
+@media (max-width: 1023.98px) {
+    #staff-sidebar {
+        transform: translateX(-100%);
+        transition: transform 220ms ease;
+        z-index: 60;
+    }
+    body.staff-mobile-sidebar-open #staff-sidebar {
+        transform: translateX(0);
+    }
+    #staff-mobile-sidebar-toggle {
+        transition: left 220ms ease, background-color 220ms ease, color 220ms ease;
+    }
+    body.staff-mobile-sidebar-open #staff-mobile-sidebar-toggle {
+        left: calc(16rem - 3.25rem);
+        background: rgba(255, 255, 255, 0.98);
+        color: #0066ff;
+    }
+    #staff-mobile-sidebar-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(19, 28, 37, 0.45);
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+        z-index: 55;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 220ms ease;
+    }
+    body.staff-mobile-sidebar-open #staff-mobile-sidebar-backdrop {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    .staff-top-header > div {
+        padding-left: 3.25rem;
+    }
+}
 </style>
 <aside id="staff-sidebar" class="staff-sidebar-brand fixed left-0 top-0 h-full w-64 z-40 bg-white flex flex-col py-8 border-r border-slate-200/60 min-h-screen">
     <div class="px-7 mb-8 shrink-0">
@@ -292,6 +328,10 @@ if ($currentUserRole === 'dentist') {
 <button id="staff-sidebar-toggle" class="staff-sidebar-divider-toggle hidden lg:flex items-center justify-center" type="button" aria-label="Collapse sidebar" aria-expanded="true">
     <span class="material-symbols-outlined text-[20px]">chevron_left</span>
 </button>
+<button id="staff-mobile-sidebar-toggle" type="button" class="fixed top-6 left-4 z-[65] lg:hidden w-10 h-10 rounded-xl bg-white/90 border border-white text-primary shadow-md flex items-center justify-center" aria-controls="staff-sidebar" aria-expanded="false" aria-label="Open navigation menu">
+    <span class="material-symbols-outlined text-[20px]">menu</span>
+</button>
+<div id="staff-mobile-sidebar-backdrop" class="lg:hidden" aria-hidden="true"></div>
 <script>
 (function () {
     var body = document.body;
@@ -357,5 +397,59 @@ if ($currentUserRole === 'dentist') {
     }
 
     restoreState();
+})();
+</script>
+<script>
+(function () {
+    var body = document.body;
+    var sidebar = document.getElementById('staff-sidebar');
+    var mobileToggle = document.getElementById('staff-mobile-sidebar-toggle');
+    var mobileBackdrop = document.getElementById('staff-mobile-sidebar-backdrop');
+    var desktopQuery = window.matchMedia('(min-width: 1024px)');
+
+    if (!body || !sidebar || !mobileToggle || !mobileBackdrop) {
+        return;
+    }
+
+    function setMobileSidebar(open) {
+        body.classList.toggle('staff-mobile-sidebar-open', open);
+        mobileToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        mobileToggle.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+        var icon = mobileToggle.querySelector('.material-symbols-outlined');
+        if (icon) {
+            icon.textContent = open ? 'close' : 'menu';
+        }
+    }
+
+    function closeOnDesktop() {
+        if (desktopQuery.matches) {
+            setMobileSidebar(false);
+        }
+    }
+
+    mobileToggle.addEventListener('click', function () {
+        setMobileSidebar(!body.classList.contains('staff-mobile-sidebar-open'));
+    });
+    mobileBackdrop.addEventListener('click', function () {
+        setMobileSidebar(false);
+    });
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && body.classList.contains('staff-mobile-sidebar-open')) {
+            setMobileSidebar(false);
+        }
+    });
+    sidebar.querySelectorAll('a').forEach(function (link) {
+        link.addEventListener('click', function () {
+            if (!desktopQuery.matches) {
+                setMobileSidebar(false);
+            }
+        });
+    });
+    if (typeof desktopQuery.addEventListener === 'function') {
+        desktopQuery.addEventListener('change', closeOnDesktop);
+    } else if (typeof desktopQuery.addListener === 'function') {
+        desktopQuery.addListener(closeOnDesktop);
+    }
+    closeOnDesktop();
 })();
 </script>

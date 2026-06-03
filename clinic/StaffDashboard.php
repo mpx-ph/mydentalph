@@ -243,18 +243,18 @@ try {
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
+<main class="flex-1 flex flex-col min-w-0 ml-0 pt-[4.5rem] sm:pt-20 provider-page-enter">
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
-<div class="p-10 space-y-10">
-<section class="flex flex-col gap-4 mb-4">
-<div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
-<span class="w-12 h-[1.5px] bg-primary"></span> STAFF DASHBOARD
+<div class="pt-4 sm:pt-6 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-6 sm:space-y-8">
+<section class="flex flex-col gap-3 sm:gap-4">
+<div class="text-primary font-bold text-[10px] sm:text-xs uppercase flex items-center gap-3 sm:gap-4 tracking-[0.25em] sm:tracking-[0.3em]">
+<span class="w-8 sm:w-12 h-[1.5px] bg-primary"></span> STAFF DASHBOARD
 </div>
 <div>
-<h2 class="font-headline text-6xl font-extrabold tracking-tighter leading-tight text-on-background">
+<h2 class="font-headline text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight sm:tracking-tighter leading-tight text-on-background">
                     Welcome to <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Dashboard</span>
 </h2>
-<p class="font-body text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-4">
+<p class="font-body text-base sm:text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3 sm:mt-4">
                     Live overview of appointments, pending requests, and today's revenue.
                 </p>
 </div>
@@ -277,8 +277,8 @@ try {
 </div>
 </section>
 
-<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-<div class="elevated-card staff-card-lift staff-stat-card staff-stat-card--appointments p-8 rounded-3xl flex flex-col justify-between">
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+<div class="elevated-card staff-card-lift staff-stat-card staff-stat-card--appointments p-6 sm:p-8 rounded-3xl flex flex-col justify-between">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event_available</span>
@@ -286,12 +286,12 @@ try {
 <span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">Today</span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo number_format($todayAppointments); ?></p>
+<p class="text-4xl sm:text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo number_format($todayAppointments); ?></p>
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Today's Appointments</p>
 </div>
 </div>
 
-<div class="elevated-card staff-card-lift staff-stat-card staff-stat-card--pending p-8 rounded-3xl flex flex-col justify-between">
+<div class="elevated-card staff-card-lift staff-stat-card staff-stat-card--pending p-6 sm:p-8 rounded-3xl flex flex-col justify-between">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">pending_actions</span>
@@ -299,12 +299,12 @@ try {
 <span class="text-[10px] font-black text-amber-600 bg-amber-50 px-3 py-1.5 rounded-full uppercase tracking-widest">Queue</span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo number_format($pendingRequests); ?></p>
+<p class="text-4xl sm:text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo number_format($pendingRequests); ?></p>
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Pending Request</p>
 </div>
 </div>
 
-<div class="elevated-card staff-card-lift staff-stat-card staff-stat-card--revenue p-8 rounded-3xl flex flex-col justify-between">
+<div class="elevated-card staff-card-lift staff-stat-card staff-stat-card--revenue p-6 sm:p-8 rounded-3xl flex flex-col justify-between">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">payments</span>
@@ -312,20 +312,89 @@ try {
 <span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full uppercase tracking-widest">Today</span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">₱<?php echo number_format($todayRevenue, 2); ?></p>
+<p class="text-3xl sm:text-5xl font-extrabold font-headline text-on-background tracking-tighter break-words">₱<?php echo number_format($todayRevenue, 2); ?></p>
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Today's Revenue</p>
 </div>
 </div>
 </section>
 
 <section class="elevated-card staff-card-lift rounded-3xl overflow-hidden">
-<div class="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
+<div class="p-5 sm:p-8 border-b border-slate-100 flex justify-between items-center bg-white">
 <div>
-<h3 class="text-2xl font-bold font-headline text-on-background">Recent <span class="font-editorial italic font-normal text-primary">Bookings</span></h3>
-<p class="text-[11px] text-on-surface-variant/60 font-black uppercase tracking-widest mt-1">Latest tenant appointment entries</p>
+<h3 class="text-xl sm:text-2xl font-bold font-headline text-on-background">Recent <span class="font-editorial italic font-normal text-primary">Bookings</span></h3>
+<p class="text-[10px] sm:text-[11px] text-on-surface-variant/60 font-black uppercase tracking-widest mt-1">Latest tenant appointment entries</p>
 </div>
 </div>
-<div class="max-h-[34rem] overflow-y-auto overflow-x-hidden">
+<div class="lg:hidden max-h-[34rem] overflow-y-auto divide-y divide-slate-100">
+<?php if (empty($recentBookings)): ?>
+<p class="px-5 py-10 text-sm font-semibold text-slate-500">No recent bookings found for this clinic.</p>
+<?php else: ?>
+<?php foreach ($recentBookings as $booking): ?>
+<?php
+    $patientName = trim(((string) ($booking['patient_first_name'] ?? '')) . ' ' . ((string) ($booking['patient_last_name'] ?? '')));
+    if ($patientName === '') {
+        $patientName = 'Unknown Patient';
+    }
+    $patientIdLabel = trim((string) ($booking['patient_display_id'] ?? ''));
+    $serviceType = trim((string) ($booking['service_type'] ?? ''));
+    if ($serviceType === '') {
+        $serviceType = 'General Consultation';
+    }
+    $dentistName = trim(((string) ($booking['dentist_first_name'] ?? '')) . ' ' . ((string) ($booking['dentist_last_name'] ?? '')));
+    if ($dentistName === '') {
+        $dentistName = 'Unassigned Dentist';
+    }
+    $status = strtolower(trim((string) ($booking['status'] ?? 'pending')));
+    $statusLabel = $status === 'in_progress' ? 'Checked-In' : ($status !== '' ? ucfirst(str_replace('_', ' ', $status)) : 'Pending');
+    $statusClasses = 'bg-amber-50 text-amber-600';
+    if ($status === 'completed') {
+        $statusClasses = 'bg-emerald-50 text-emerald-600';
+    } elseif ($status === 'confirmed') {
+        $statusClasses = 'bg-primary/10 text-primary';
+    } elseif ($status === 'in_progress') {
+        $statusClasses = 'bg-blue-50 text-blue-700 border border-blue-200';
+    } elseif ($status === 'cancelled' || $status === 'no_show') {
+        $statusClasses = 'bg-slate-100 text-slate-600';
+    }
+    $dateDisplay = '-';
+    if (!empty($booking['appointment_date'])) {
+        $dateDisplay = date('M d, Y', strtotime((string) $booking['appointment_date']));
+    }
+    $timeDisplay = '-';
+    if (!empty($booking['appointment_time'])) {
+        $timeDisplay = date('h:i A', strtotime((string) $booking['appointment_time']));
+    }
+    $amount = (float) ($booking['total_treatment_cost'] ?? 0);
+?>
+<article class="px-5 py-4 space-y-3">
+<div class="flex items-start justify-between gap-3">
+<div class="min-w-0 flex-1">
+<p class="text-sm font-bold text-slate-900 truncate"><?php echo htmlspecialchars($patientName, ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-[10px] text-slate-500 font-medium mt-0.5"><?php echo $patientIdLabel !== '' ? 'ID: ' . htmlspecialchars($patientIdLabel, ENT_QUOTES, 'UTF-8') : 'ID: N/A'; ?></p>
+</div>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 <?php echo $statusClasses; ?> text-[10px] font-black rounded-full uppercase tracking-widest shrink-0">
+<span class="w-1.5 h-1.5 rounded-full bg-current"></span>
+<?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?>
+</span>
+</div>
+<div class="grid grid-cols-2 gap-3 text-sm">
+<div>
+<p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">When</p>
+<p class="font-semibold text-slate-700 mt-0.5"><?php echo htmlspecialchars($dateDisplay, ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-[10px] text-slate-500 font-bold uppercase"><?php echo htmlspecialchars($timeDisplay, ENT_QUOTES, 'UTF-8'); ?></p>
+</div>
+<div>
+<p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount</p>
+<p class="font-extrabold text-slate-900 mt-0.5">₱<?php echo number_format($amount, 2); ?></p>
+</div>
+</div>
+<p class="text-sm text-slate-600"><span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Service · </span><?php echo htmlspecialchars($serviceType, ENT_QUOTES, 'UTF-8'); ?></p>
+<p class="text-sm text-slate-600"><span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dentist · </span><?php echo htmlspecialchars($dentistName, ENT_QUOTES, 'UTF-8'); ?></p>
+</article>
+<?php endforeach; ?>
+<?php endif; ?>
+</div>
+<div class="hidden lg:block max-h-[34rem] overflow-y-auto overflow-x-hidden">
 <table class="w-full text-left border-collapse table-fixed">
 <thead>
 <tr class="bg-slate-50/50">
@@ -414,7 +483,7 @@ try {
 </tbody>
 </table>
 </div>
-<div class="p-6 bg-slate-50/30 border-t border-slate-100">
+<div class="p-4 sm:p-6 bg-slate-50/30 border-t border-slate-100">
 <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Showing <?php echo count($recentBookings); ?> recent entries</p>
 </div>
 </section>

@@ -114,7 +114,7 @@ if ($__hdr_role === 'dentist') {
     $__portal_label = 'Manager Workspace';
 }
 ?>
-<header class="sticky top-0 z-30 min-h-[4.5rem] sm:h-20 sm:min-h-0 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 shadow-sm shadow-slate-200/30" data-purpose="top-header">
+<header class="staff-top-header sticky top-0 z-30 min-h-[4.5rem] sm:h-20 sm:min-h-0 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 shadow-sm shadow-slate-200/30" data-purpose="top-header">
   <div class="flex items-center justify-between gap-4 px-4 lg:px-8 py-3 sm:py-0 sm:h-full">
     <div class="min-w-0">
       <p class="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.24em] text-primary/80 truncate"><?php echo htmlspecialchars($__portal_label, ENT_QUOTES, 'UTF-8'); ?></p>
