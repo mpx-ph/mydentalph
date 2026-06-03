@@ -312,7 +312,7 @@ try {
 <span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full uppercase tracking-widest">Today</span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">$<?php echo number_format($todayRevenue, 2); ?></p>
+<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter">₱<?php echo number_format($todayRevenue, 2); ?></p>
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Today's Revenue</p>
 </div>
 </div>
@@ -404,7 +404,7 @@ try {
 </span>
 </td>
 <td class="px-6 py-5 text-right align-top">
-<p class="text-sm font-extrabold text-slate-900">$<?php echo number_format($amount, 2); ?></p>
+<p class="text-sm font-extrabold text-slate-900">₱<?php echo number_format($amount, 2); ?></p>
 </td>
 </tr>
 <?php endforeach; ?>
