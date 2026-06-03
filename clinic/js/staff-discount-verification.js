@@ -423,7 +423,7 @@
             var promoTrim = p.promoCode && String(p.promoCode).trim() !== '' ? String(p.promoCode).trim() : '';
             var scopeTxt = promoTrim !== '' ? ('Promo · ' + promoTrim) : (p.serviceScope === 'all' ? 'All services' : 'Selected procedures');
             return (
-                '<article class="elevated-card rounded-2xl p-6 flex flex-col gap-4 border border-slate-100">' +
+                '<article class="elevated-card rounded-2xl p-4 sm:p-6 flex flex-col gap-4 border border-slate-100">' +
                 '<div class="flex items-start justify-between gap-3">' +
                 '<div class="min-w-0">' +
                 '<h4 class="font-headline font-bold text-lg text-slate-900 leading-tight">' + String(p.name).replace(/</g, '&lt;') + '</h4>' +
@@ -620,6 +620,65 @@
         }
     }
 
+    function historyStatusBadgeClass(eff) {
+        var badgeCls = 'bg-slate-100 text-slate-700';
+        if (eff === 'pending') badgeCls = 'bg-amber-50 text-amber-800 border border-amber-100';
+        if (eff === 'approved') badgeCls = 'bg-emerald-50 text-emerald-800 border border-emerald-100';
+        if (eff === 'rejected') badgeCls = 'bg-red-50 text-red-800 border border-red-100';
+        if (eff === 'expired') badgeCls = 'bg-slate-200 text-slate-700 border border-slate-300';
+        return badgeCls;
+    }
+
+    function historyRowActionsHtml(r, eff) {
+        var actions = '';
+        if (eff === 'pending') {
+            actions = '<button type="button" class="verify-open text-primary font-bold text-xs uppercase tracking-wide hover:underline" data-id="' + r.id + '">Verify</button>';
+        }
+        actions += '<button type="button" class="view-open text-slate-600 font-bold text-xs uppercase tracking-wide hover:underline' + (eff === 'pending' ? ' ml-3' : '') + '" data-id="' + r.id + '">View</button>';
+        return actions;
+    }
+
+    function buildHistoryTableRowHtml(r) {
+        var eff = effectiveStatus(r);
+        var badgeCls = historyStatusBadgeClass(eff);
+        var actions = historyRowActionsHtml(r, eff);
+        return '<tr class="hover:bg-slate-50/80">' +
+            '<td class="px-6 py-4 text-sm font-semibold text-slate-800 whitespace-nowrap">' + (r.dateApplied || '—') + '</td>' +
+            '<td class="px-6 py-4 text-sm font-bold text-slate-900">' + String(r.patientName || '').replace(/</g, '&lt;') +
+            (r.patientRef ? '<span class="block text-xs font-medium text-slate-500">' + String(r.patientRef).replace(/</g, '&lt;') + '</span>' : '') + '</td>' +
+            '<td class="px-6 py-4 text-sm text-slate-700">' + String(r.programName || '').replace(/</g, '&lt;') + '</td>' +
+            '<td class="px-6 py-4 text-sm font-mono text-slate-600">' + maskId(r.idNumber) + '</td>' +
+            '<td class="px-6 py-4"><span class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ' + badgeCls + '">' + eff + '</span></td>' +
+            '<td class="px-6 py-4 text-sm text-slate-700">' + (eff === 'approved' ? String(r.approvedBy || '—').replace(/</g, '&lt;') : '—') + '</td>' +
+            '<td class="px-6 py-4 text-sm text-slate-600 max-w-[200px] truncate" title="' + String(r.remarks || '').replace(/"/g, '&quot;') + '">' + (r.remarks ? String(r.remarks).replace(/</g, '&lt;') : '—') + '</td>' +
+            '<td class="px-6 py-4 text-right whitespace-nowrap">' + actions + '</td>' +
+            '</tr>';
+    }
+
+    function buildHistoryMobileCardHtml(r) {
+        var eff = effectiveStatus(r);
+        var badgeCls = historyStatusBadgeClass(eff);
+        var actions = historyRowActionsHtml(r, eff);
+        var remarks = r.remarks ? String(r.remarks).replace(/</g, '&lt;') : '—';
+        return (
+            '<article class="px-4 py-4 space-y-3">' +
+            '<div class="flex items-start justify-between gap-3">' +
+            '<div class="min-w-0">' +
+            '<p class="text-sm font-bold text-slate-900 truncate">' + String(r.patientName || '—').replace(/</g, '&lt;') + '</p>' +
+            (r.patientRef ? '<p class="text-xs text-slate-500 font-medium">' + String(r.patientRef).replace(/</g, '&lt;') + '</p>' : '') +
+            '<p class="text-[10px] font-semibold text-slate-500 mt-1">' + (r.dateApplied || '—') + '</p>' +
+            '</div>' +
+            '<span class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg shrink-0 ' + badgeCls + '">' + eff + '</span>' +
+            '</div>' +
+            '<p class="text-sm text-slate-700"><span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Discount · </span>' + String(r.programName || '—').replace(/</g, '&lt;') + '</p>' +
+            '<p class="text-sm font-mono text-slate-600"><span class="text-[10px] font-black uppercase tracking-widest text-slate-400 font-sans">ID · </span>' + maskId(r.idNumber) + '</p>' +
+            '<p class="text-sm text-slate-600"><span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Approved by · </span>' + (eff === 'approved' ? String(r.approvedBy || '—').replace(/</g, '&lt;') : '—') + '</p>' +
+            '<p class="text-sm text-slate-600 break-words"><span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Remarks · </span>' + remarks + '</p>' +
+            '<div class="flex flex-wrap gap-2 pt-1">' + actions + '</div>' +
+            '</article>'
+        );
+    }
+
     function renderHistory() {
         var records = recordsCache;
         var fReq = document.getElementById('filterRequirements').value;
@@ -648,44 +707,26 @@
         document.getElementById('pendingCount').textContent = String(pendingN);
 
         var tbody = document.getElementById('historyTableBody');
+        var mobileList = document.getElementById('historyMobileList');
+        var emptyMsg = 'No records match filters.';
 
         if (!filtered.length) {
-            tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-slate-500">No records match filters.</td></tr>';
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-slate-500">' + emptyMsg + '</td></tr>';
+            }
+            if (mobileList) {
+                mobileList.innerHTML = '<p class="px-4 py-10 text-center text-slate-500 text-sm">' + emptyMsg + '</p>';
+            }
         } else {
-            tbody.innerHTML = filtered.map(function (r) {
-                var eff = effectiveStatus(r);
-                var badgeCls = 'bg-slate-100 text-slate-700';
-                if (eff === 'pending') badgeCls = 'bg-amber-50 text-amber-800 border border-amber-100';
-                if (eff === 'approved') badgeCls = 'bg-emerald-50 text-emerald-800 border border-emerald-100';
-                if (eff === 'rejected') badgeCls = 'bg-red-50 text-red-800 border border-red-100';
-                if (eff === 'expired') badgeCls = 'bg-slate-200 text-slate-700 border border-slate-300';
-                var actions = '';
-                if (eff === 'pending') {
-                    actions = '<button type="button" class="verify-open text-primary font-bold text-xs uppercase tracking-wide hover:underline mr-2" data-id="' + r.id + '">Verify</button>';
-                }
-                actions += '<button type="button" class="view-open text-slate-600 font-bold text-xs uppercase tracking-wide hover:underline" data-id="' + r.id + '">View</button>';
-                return '<tr class="hover:bg-slate-50/80">' +
-                    '<td class="px-6 py-4 text-sm font-semibold text-slate-800 whitespace-nowrap">' + (r.dateApplied || '—') + '</td>' +
-                    '<td class="px-6 py-4 text-sm font-bold text-slate-900">' + String(r.patientName || '').replace(/</g, '&lt;') +
-                    (r.patientRef ? '<span class="block text-xs font-medium text-slate-500">' + String(r.patientRef).replace(/</g, '&lt;') + '</span>' : '') + '</td>' +
-                    '<td class="px-6 py-4 text-sm text-slate-700">' + String(r.programName || '').replace(/</g, '&lt;') + '</td>' +
-                    '<td class="px-6 py-4 text-sm font-mono text-slate-600">' + maskId(r.idNumber) + '</td>' +
-                    '<td class="px-6 py-4"><span class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ' + badgeCls + '">' + eff + '</span></td>' +
-                    '<td class="px-6 py-4 text-sm text-slate-700">' + (eff === 'approved' ? String(r.approvedBy || '—').replace(/</g, '&lt;') : '—') + '</td>' +
-                    '<td class="px-6 py-4 text-sm text-slate-600 max-w-[200px] truncate" title="' + String(r.remarks || '').replace(/"/g, '&quot;') + '">' + (r.remarks ? String(r.remarks).replace(/</g, '&lt;') : '—') + '</td>' +
-                    '<td class="px-6 py-4 text-right whitespace-nowrap">' + actions + '</td>' +
-                    '</tr>';
-            }).join('');
+            if (tbody) {
+                tbody.innerHTML = filtered.map(buildHistoryTableRowHtml).join('');
+            }
+            if (mobileList) {
+                mobileList.innerHTML = filtered.map(buildHistoryMobileCardHtml).join('');
+            }
         }
 
         document.getElementById('historySummary').textContent = 'Showing ' + filtered.length + ' of ' + records.length + ' records';
-
-        tbody.querySelectorAll('.verify-open').forEach(function (b) {
-            b.addEventListener('click', function () { openVerifyModal(b.getAttribute('data-id'), true); });
-        });
-        tbody.querySelectorAll('.view-open').forEach(function (b) {
-            b.addEventListener('click', function () { openVerifyModal(b.getAttribute('data-id'), false); });
-        });
     }
 
     function openVerifyModal(recId, allowActions) {
@@ -986,8 +1027,25 @@
 
     fetchServices();
 
+    var historyListSection = document.getElementById('historyListSection');
+    if (historyListSection) {
+        historyListSection.addEventListener('click', function (event) {
+            var verifyBtn = event.target.closest('.verify-open');
+            var viewBtn = event.target.closest('.view-open');
+            if (verifyBtn) {
+                openVerifyModal(verifyBtn.getAttribute('data-id'), true);
+            } else if (viewBtn) {
+                openVerifyModal(viewBtn.getAttribute('data-id'), false);
+            }
+        });
+    }
+
     document.getElementById('programsGrid').innerHTML = '<p class="text-slate-500 col-span-full py-6 text-center text-sm">Loading programs…</p>';
     document.getElementById('historyTableBody').innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-slate-500">Loading…</td></tr>';
+    var historyMobileInit = document.getElementById('historyMobileList');
+    if (historyMobileInit) {
+        historyMobileInit.innerHTML = '<p class="px-4 py-10 text-center text-slate-500 text-sm">Loading…</p>';
+    }
 
     Promise.all([loadPrograms(), loadApplicationPatients(), loadApprovedPatientBlocklist()]).then(function () {
         populateApplicationPatientSelect();

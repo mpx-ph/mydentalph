@@ -103,29 +103,29 @@ body { font-family: 'Manrope', sans-serif; }
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
+<main class="flex-1 flex flex-col min-w-0 ml-0 pt-[4.5rem] sm:pt-20 provider-page-enter">
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
-<div class="p-10 space-y-8 max-w-[1600px] mx-auto w-full">
+<div class="pt-4 sm:pt-6 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-6 sm:space-y-8 max-w-[1600px] mx-auto w-full">
 
-    <section class="flex flex-col gap-4">
-        <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
-            <span class="w-12 h-[1.5px] bg-primary"></span> PATIENTS &amp; SERVICES
+    <section class="flex flex-col gap-3 sm:gap-4">
+        <div class="text-primary font-bold text-[10px] sm:text-xs uppercase flex items-center gap-3 sm:gap-4 tracking-[0.25em] sm:tracking-[0.3em]">
+            <span class="w-8 sm:w-12 h-[1.5px] bg-primary"></span> PATIENTS &amp; SERVICES
         </div>
-        <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+        <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5 sm:gap-6">
             <div>
-                <h2 class="font-headline text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tighter leading-tight text-on-background">
+                <h2 class="font-headline text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight sm:tracking-tighter leading-tight text-on-background">
                     Discount <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Verification</span>
                 </h2>
-                <p class="font-body text-lg sm:text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-4">
+                <p class="font-body text-base sm:text-lg lg:text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3 sm:mt-4">
                     Configure clinic discount programs, verify ID-backed applications, and review approval history.
                 </p>
             </div>
-            <div class="flex flex-wrap gap-3 shrink-0 relative z-40">
-                <button type="button" id="btnNewProgram" class="bg-primary hover:bg-primary/90 text-white px-6 py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-primary/30 flex items-center gap-2">
+            <div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 shrink-0 relative z-40 w-full lg:w-auto">
+                <button type="button" id="btnNewProgram" class="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white px-6 py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-2">
                     <span class="material-symbols-outlined text-sm">add_circle</span>
                     New discount program
                 </button>
-                <button type="button" id="btnNewApplication" class="border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 px-6 py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2">
+                <button type="button" id="btnNewApplication" class="w-full sm:w-auto border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 px-6 py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2">
                     <span class="material-symbols-outlined text-sm">assignment_add</span>
                     Record application
                 </button>
@@ -139,14 +139,14 @@ body { font-family: 'Manrope', sans-serif; }
             <h3 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em]">A. Discount programs</h3>
             <p class="text-xs text-slate-500 max-w-xl">Define requirements, amounts, validity, which services apply, and whether discounts can stack. Use the toggle for quick enable/disable.</p>
         </div>
-        <div id="programsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div id="programsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
             <p class="text-slate-500 col-span-full py-6 text-center text-sm">Loading programs…</p>
         </div>
     </section>
 
     <!-- B + C + D: Filters + History -->
-    <section class="elevated-card rounded-3xl overflow-hidden">
-        <div class="p-6 border-b border-slate-100 bg-white space-y-4">
+    <section id="historyListSection" class="elevated-card rounded-3xl overflow-hidden">
+        <div class="p-4 sm:p-6 border-b border-slate-100 bg-white space-y-4">
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <h3 class="text-sm font-black text-slate-800 uppercase tracking-[0.15em] flex items-center gap-2">
                     <span class="material-symbols-outlined text-primary text-[22px]">history</span>
@@ -157,7 +157,7 @@ body { font-family: 'Manrope', sans-serif; }
                     <span id="pendingCount">0</span> pending
                 </p>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3 sm:gap-4">
                 <div>
                     <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">D. Requirements</label>
                     <select id="filterRequirements" class="w-full bg-slate-50 border-none rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 text-sm font-bold">
@@ -200,8 +200,11 @@ body { font-family: 'Manrope', sans-serif; }
                 </div>
             </div>
         </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse min-w-[920px]">
+        <div id="historyMobileList" class="lg:hidden divide-y divide-slate-100">
+            <p class="px-4 py-10 text-center text-slate-500 text-sm">Loading…</p>
+        </div>
+        <div class="hidden lg:block overflow-x-auto">
+            <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-slate-50/50">
                         <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
@@ -219,7 +222,7 @@ body { font-family: 'Manrope', sans-serif; }
                 </tbody>
             </table>
         </div>
-        <div class="p-6 bg-slate-50/30 border-t border-slate-100">
+        <div class="p-4 sm:p-6 bg-slate-50/30 border-t border-slate-100">
             <p id="historySummary" class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Showing 0 records</p>
         </div>
     </section>
@@ -227,8 +230,8 @@ body { font-family: 'Manrope', sans-serif; }
 </main>
 
 <!-- Modal: Discount program (add/edit) -->
-<div id="programModal" class="staff-modal-overlay fixed inset-0 z-[75] hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4" aria-hidden="true">
-    <div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col">
+<div id="programModal" class="staff-modal-overlay fixed inset-0 z-[75] hidden items-end sm:items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-0 sm:p-4" aria-hidden="true">
+    <div class="staff-modal-panel bg-white rounded-t-3xl sm:rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col">
         <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
             <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
                 <span class="material-symbols-outlined text-2xl text-primary">percent</span>
@@ -356,8 +359,8 @@ body { font-family: 'Manrope', sans-serif; }
 </div>
 
 <!-- Modal: Record new application -->
-<div id="applicationModal" class="staff-modal-overlay fixed inset-0 z-[75] hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4" aria-hidden="true">
-    <div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-lg max-h-[92vh] overflow-hidden flex flex-col">
+<div id="applicationModal" class="staff-modal-overlay fixed inset-0 z-[75] hidden items-end sm:items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-0 sm:p-4" aria-hidden="true">
+    <div class="staff-modal-panel bg-white rounded-t-3xl sm:rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-lg max-h-[92vh] overflow-hidden flex flex-col">
         <div class="shrink-0 px-6 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
             <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
                 <span class="material-symbols-outlined text-2xl text-primary">assignment_add</span>
@@ -419,8 +422,8 @@ body { font-family: 'Manrope', sans-serif; }
 </div>
 
 <!-- Modal: B. Verify / view details -->
-<div id="verifyModal" class="staff-modal-overlay fixed inset-0 z-[80] hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4" aria-hidden="true">
-    <div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col">
+<div id="verifyModal" class="staff-modal-overlay fixed inset-0 z-[80] hidden items-end sm:items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-0 sm:p-4" aria-hidden="true">
+    <div class="staff-modal-panel bg-white rounded-t-3xl sm:rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col">
         <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
             <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
                 <span class="material-symbols-outlined text-2xl text-primary">verified_user</span>
@@ -470,14 +473,14 @@ body { font-family: 'Manrope', sans-serif; }
             <div id="verifyActionBlock" class="space-y-3">
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Staff remarks (optional)</label>
                 <textarea id="verifyRemarksInput" rows="3" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm" placeholder="Internal notes visible in history…"></textarea>
-                <div class="flex flex-wrap gap-2 pt-2">
-                    <button type="button" id="btnApprove" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700">
+                <div class="flex flex-col sm:flex-row flex-wrap gap-2 pt-2">
+                    <button type="button" id="btnApprove" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700">
                         <span class="material-symbols-outlined text-[18px]">check_circle</span> Approve
                     </button>
-                    <button type="button" id="btnReject" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700">
+                    <button type="button" id="btnReject" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700">
                         <span class="material-symbols-outlined text-[18px]">cancel</span> Reject
                     </button>
-                    <button type="button" id="btnRequestInfo" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 text-sm font-bold hover:bg-amber-100">
+                    <button type="button" id="btnRequestInfo" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 text-sm font-bold hover:bg-amber-100">
                         <span class="material-symbols-outlined text-[18px]">mail</span> Request additional info
                     </button>
                 </div>
