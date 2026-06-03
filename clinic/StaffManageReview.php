@@ -281,10 +281,9 @@ $formatReviewDate = static function ($row) {
 <!-- SideNavBar Component -->
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
 <!-- Main Wrapper -->
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
+<main class="flex-1 flex flex-col min-w-0 ml-0 pt-[4.5rem] sm:pt-20 provider-page-enter">
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
-<!-- Scrollable Content -->
-<div class="p-10 space-y-10">
+<div class="pt-4 sm:pt-6 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-6 sm:space-y-8">
 <?php if ($reviewLoadError === 'missing_tenant') { ?>
 <div class="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
     No clinic workspace in your session. Sign in again from the provider portal so reviews can load for your tenant.
@@ -295,24 +294,22 @@ $formatReviewDate = static function ($row) {
 </div>
 <?php } ?>
 <!-- Page Header (High-contrast typography) -->
-<section class="flex flex-col gap-4 mb-4">
-<div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
-<span class="w-12 h-[1.5px] bg-primary"></span> PATIENT REVIEWS
+<section class="flex flex-col gap-3 sm:gap-4">
+<div class="text-primary font-bold text-[10px] sm:text-xs uppercase flex items-center gap-3 sm:gap-4 tracking-[0.25em] sm:tracking-[0.3em]">
+<span class="w-8 sm:w-12 h-[1.5px] bg-primary"></span> PATIENT REVIEWS
                 </div>
-<div class="flex items-end justify-between">
 <div>
-<h2 class="font-headline text-6xl font-extrabold tracking-tighter leading-tight text-on-background">
+<h2 class="font-headline text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight sm:tracking-tighter leading-tight text-on-background">
                             Patient <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Reviews</span>
 </h2>
-<p class="font-body text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-4">
+<p class="font-body text-base sm:text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3 sm:mt-4">
                             View and manage feedback from patients
                         </p>
 </div>
-</div>
 </section>
 <!-- Stats Grid — from tbl_reviews -->
-<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
-<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
+<section class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+<div class="elevated-card p-5 sm:p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
@@ -321,13 +318,13 @@ $formatReviewDate = static function ($row) {
 </div>
 <div>
 <div class="flex items-baseline gap-2">
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo $esc($totalReviewsAll > 0 ? (string) $avgRating : '—'); ?></p>
+<p class="text-3xl sm:text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo $esc($totalReviewsAll > 0 ? (string) $avgRating : '—'); ?></p>
 <p class="text-sm font-bold text-on-surface-variant/40">/ 5.0</p>
 </div>
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Average Rating</p>
 </div>
 </div>
-<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
+<div class="elevated-card p-5 sm:p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">forum</span>
@@ -335,11 +332,11 @@ $formatReviewDate = static function ($row) {
 <span class="text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-full uppercase tracking-widest">Clinic total</span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo (int) $totalReviewsAll; ?></p>
+<p class="text-3xl sm:text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo (int) $totalReviewsAll; ?></p>
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Total Reviews</p>
 </div>
 </div>
-<div class="elevated-card p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
+<div class="elevated-card p-5 sm:p-8 rounded-3xl flex flex-col justify-between hover:border-primary/30 transition-all group">
 <div class="flex justify-between items-start mb-6">
 <div class="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 transition-colors group-hover:bg-emerald-500 group-hover:text-white">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">recommend</span>
@@ -347,20 +344,20 @@ $formatReviewDate = static function ($row) {
 <span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full uppercase tracking-widest">4★ &amp; up</span>
 </div>
 <div>
-<p class="text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo $totalReviewsAll > 0 ? (int) $positivePct : '—'; ?><?php echo $totalReviewsAll > 0 ? '%' : ''; ?></p>
+<p class="text-3xl sm:text-5xl font-extrabold font-headline text-on-background tracking-tighter"><?php echo $totalReviewsAll > 0 ? (int) $positivePct : '—'; ?><?php echo $totalReviewsAll > 0 ? '%' : ''; ?></p>
 <p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Positive Feedback</p>
 </div>
 </div>
 </section>
 <!-- Filters -->
-<form method="get" class="elevated-card p-5 rounded-2xl flex flex-wrap items-end gap-4" action="<?php echo $esc($staffReviewsRequestPath); ?>">
-<div class="flex-1 relative min-w-[300px]">
+<form method="get" class="elevated-card p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3 sm:gap-4" action="<?php echo $esc($staffReviewsRequestPath); ?>">
+<div class="relative w-full sm:flex-1 sm:min-w-[240px]">
 <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">search</span>
 <input name="q" value="<?php echo $esc($searchQ); ?>" class="w-full pl-12 pr-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Search name, comment, booking ID…" type="text"/>
 </div>
-<div class="flex flex-wrap gap-3 items-center">
+<div class="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center w-full sm:w-auto">
 <label class="sr-only" for="rating-filter">Rating</label>
-<select id="rating-filter" name="rating" class="bg-slate-50 border-none rounded-xl py-2.5 px-5 pr-10 text-xs font-bold uppercase tracking-wider text-slate-600 focus:ring-2 focus:ring-primary/20 cursor-pointer">
+<select id="rating-filter" name="rating" class="w-full sm:w-auto bg-slate-50 border-none rounded-xl py-2.5 px-5 pr-10 text-xs font-bold uppercase tracking-wider text-slate-600 focus:ring-2 focus:ring-primary/20 cursor-pointer">
 <option value=""<?php echo $ratingFilter === '' ? ' selected' : ''; ?>>All ratings</option>
 <option value="5"<?php echo $ratingFilter === '5' ? ' selected' : ''; ?>>5 stars</option>
 <option value="4"<?php echo $ratingFilter === '4' ? ' selected' : ''; ?>>4 stars</option>
@@ -368,20 +365,20 @@ $formatReviewDate = static function ($row) {
 <option value="2"<?php echo $ratingFilter === '2' ? ' selected' : ''; ?>>2 stars</option>
 <option value="1"<?php echo $ratingFilter === '1' ? ' selected' : ''; ?>>1 star</option>
 </select>
-<button type="submit" class="px-5 py-2.5 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all flex items-center gap-2">
+<button type="submit" class="w-full sm:w-auto px-5 py-2.5 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
 <span class="material-symbols-outlined text-sm">filter_list</span> Apply
 </button>
 <?php if ($searchQ !== '' || $ratingFilter !== '') { ?>
-<a class="px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-primary hover:underline" href="<?php echo $esc($staffReviewsRequestPath); ?>">Reset</a>
+<a class="w-full sm:w-auto text-center sm:text-left px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-primary hover:underline" href="<?php echo $esc($staffReviewsRequestPath); ?>">Reset</a>
 <?php } ?>
 </div>
 </form>
 <!-- Reviews list -->
 <section class="elevated-card rounded-3xl overflow-hidden divide-y divide-slate-100">
 <?php if ($reviewLoadError !== '' && $reviewLoadError !== 'missing_tenant') { ?>
-<div class="p-12 text-center text-on-surface-variant">Unable to load reviews.</div>
+<div class="p-8 sm:p-12 text-center text-on-surface-variant">Unable to load reviews.</div>
 <?php } elseif ($tenantId !== '' && $reviewLoadError === '' && count($reviews) === 0) { ?>
-<div class="p-12 text-center text-on-surface-variant">
+<div class="p-8 sm:p-12 text-center text-on-surface-variant">
 <?php if ($totalReviewsAll === 0) { ?>
 <p class="font-headline font-bold text-lg text-on-background">No reviews yet</p>
 <p class="mt-2 text-sm max-w-md mx-auto">When patients submit ratings after appointments, they will appear here.</p>
@@ -397,47 +394,48 @@ $formatReviewDate = static function ($row) {
     }
     $commentRaw = trim((string) ($row['comment'] ?? ''));
 ?>
-<div class="p-8 hover:bg-slate-50/30 transition-colors group">
-<div class="flex justify-between items-start mb-6 flex-wrap gap-4">
-<div class="flex gap-4 items-center">
-<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-headline font-bold text-sm ring-2 ring-primary/5"><?php echo $esc($patientInitials($row)); ?></div>
-<div>
-<h4 class="font-headline font-extrabold text-lg group-hover:text-primary transition-colors"><?php echo $patientLabel($row); ?></h4>
-<p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5"><?php echo $esc($formatReviewDate($row)); ?> · <?php echo $esc((string) ($row['review_id'] ?? '')); ?></p>
+<div class="p-4 sm:p-6 lg:p-8 hover:bg-slate-50/30 transition-colors group">
+<div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
+<div class="flex gap-3 sm:gap-4 items-center min-w-0">
+<div class="w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-full bg-primary/10 flex items-center justify-center text-primary font-headline font-bold text-sm ring-2 ring-primary/5"><?php echo $esc($patientInitials($row)); ?></div>
+<div class="min-w-0">
+<h4 class="font-headline font-extrabold text-base sm:text-lg group-hover:text-primary transition-colors truncate"><?php echo $patientLabel($row); ?></h4>
+<p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5 break-all"><?php echo $esc($formatReviewDate($row)); ?> · <?php echo $esc((string) ($row['review_id'] ?? '')); ?></p>
 </div>
 </div>
-<div class="flex gap-0.5"><?php echo $starsHtml((int) ($row['rating'] ?? 0)); ?></div>
+<div class="flex gap-0.5 shrink-0"><?php echo $starsHtml((int) ($row['rating'] ?? 0)); ?></div>
 </div>
-<div class="mb-6">
-<span class="inline-block px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full uppercase tracking-widest mb-3"><?php echo $esc($svc); ?></span>
+<div class="mb-4 sm:mb-6">
+<span class="inline-block max-w-full px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full uppercase tracking-widest mb-3 truncate"><?php echo $esc($svc); ?></span>
 <?php if ($commentRaw !== '') { ?>
-<p class="text-on-surface-variant font-medium leading-relaxed italic text-base">“<?php echo nl2br($esc($commentRaw)); ?>”</p>
+<p class="text-on-surface-variant font-medium leading-relaxed italic text-sm sm:text-base break-words">“<?php echo nl2br($esc($commentRaw)); ?>”</p>
 <?php } else { ?>
 <p class="text-slate-400 font-medium italic text-sm">No written comment.</p>
 <?php } ?>
 </div>
-<div class="flex flex-wrap items-center justify-between gap-3 pt-6 border-t border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-<span>Booking <?php echo $esc((string) ($row['booking_id'] ?? '')); ?> · Appt #<?php echo (int) ($row['appointment_id'] ?? 0); ?></span>
+<div class="flex flex-wrap items-center justify-between gap-3 pt-4 sm:pt-6 border-t border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+<span class="break-all">Booking <?php echo $esc((string) ($row['booking_id'] ?? '')); ?> · Appt #<?php echo (int) ($row['appointment_id'] ?? 0); ?></span>
 </div>
 </div>
 <?php } } ?>
 </section>
 <!-- Pagination -->
-<div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+<div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-2 sm:pt-4">
 <?php if ($totalPages > 1) { ?>
-<p class="text-xs text-on-surface-variant font-medium">Page <?php echo (int) $page; ?> of <?php echo (int) $totalPages; ?> (<?php echo (int) $reviewsListTotal; ?> reviews)</p>
-<div class="flex gap-2">
+<p class="text-xs text-on-surface-variant font-medium text-center">Page <?php echo (int) $page; ?> of <?php echo (int) $totalPages; ?> (<?php echo (int) $reviewsListTotal; ?> reviews)</p>
+<div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto max-w-sm sm:max-w-none">
 <?php if ($page > 1) { ?>
-<a class="px-6 py-3 bg-primary/10 text-primary font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-primary hover:text-white transition-all" href="<?php echo $esc($buildReviewsPageUrl($page - 1)); ?>">Previous</a>
+<a class="w-full sm:w-auto text-center px-6 py-3 bg-primary/10 text-primary font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-primary hover:text-white transition-all" href="<?php echo $esc($buildReviewsPageUrl($page - 1)); ?>">Previous</a>
 <?php } ?>
 <?php if ($page < $totalPages) { ?>
-<a class="px-6 py-3 bg-primary/10 text-primary font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-primary hover:text-white transition-all" href="<?php echo $esc($buildReviewsPageUrl($page + 1)); ?>">Next</a>
+<a class="w-full sm:w-auto text-center px-6 py-3 bg-primary/10 text-primary font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-primary hover:text-white transition-all" href="<?php echo $esc($buildReviewsPageUrl($page + 1)); ?>">Next</a>
 <?php } ?>
 </div>
 <?php } elseif ($reviewsListTotal > 0) { ?>
-<p class="text-xs text-on-surface-variant font-medium"><?php echo (int) $reviewsListTotal; ?> review<?php echo $reviewsListTotal === 1 ? '' : 's'; ?> total</p>
+<p class="text-xs text-on-surface-variant font-medium text-center"><?php echo (int) $reviewsListTotal; ?> review<?php echo $reviewsListTotal === 1 ? '' : 's'; ?> total</p>
 <?php } ?>
 </div>
+<div class="h-10"></div>
 </div>
 </main>
 </body></html>
