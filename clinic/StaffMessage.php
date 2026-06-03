@@ -271,16 +271,20 @@ if ($missingPartnerIds !== []) {
 $staffMessageNavBase = $buildStaffMessageHref([]);
 $staffMessageNavSep = strpos($staffMessageNavBase, '?') !== false ? '&' : '?';
 
+$showConversationListOnly = isset($_GET['list']) && trim((string) $_GET['list']) === '1';
 $selectedPatientId = '';
-if (isset($_GET['with'])) {
-    $requested = trim((string) $_GET['with']);
-    if ($requested !== '' && isset($userById[$requested])) {
-        $selectedPatientId = $requested;
+if (!$showConversationListOnly) {
+    if (isset($_GET['with'])) {
+        $requested = trim((string) $_GET['with']);
+        if ($requested !== '' && isset($userById[$requested])) {
+            $selectedPatientId = $requested;
+        }
+    }
+    if ($selectedPatientId === '' && $conversations !== []) {
+        $selectedPatientId = (string) ($conversations[0]['partner_id'] ?? '');
     }
 }
-if ($selectedPatientId === '' && $conversations !== []) {
-    $selectedPatientId = (string) ($conversations[0]['partner_id'] ?? '');
-}
+$mobileThreadOpen = !$showConversationListOnly && $selectedPatientId !== '';
 
 $switchPatientRows = $patientClients;
 if ($switchPatientRows === [] && $conversations !== []) {
@@ -394,19 +398,19 @@ if ($selectedPatientId !== '') {
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
+<main class="flex-1 flex flex-col min-w-0 ml-0 pt-[4.5rem] sm:pt-20 provider-page-enter">
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
 
-<div class="p-6 sm:p-10 space-y-8">
-    <section class="flex flex-col gap-4">
-        <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
-            <span class="w-12 h-[1.5px] bg-primary"></span> PATIENT CARE
+<div class="pt-4 sm:pt-6 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-6 sm:space-y-8">
+    <section class="flex flex-col gap-3 sm:gap-4">
+        <div class="text-primary font-bold text-[10px] sm:text-xs uppercase flex items-center gap-3 sm:gap-4 tracking-[0.25em] sm:tracking-[0.3em]">
+            <span class="w-8 sm:w-12 h-[1.5px] bg-primary"></span> PATIENT CARE
         </div>
         <div>
-            <h2 class="font-headline text-4xl sm:text-5xl font-extrabold tracking-tighter leading-tight text-on-background">
+            <h2 class="font-headline text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight sm:tracking-tighter leading-tight text-on-background">
                 Patient <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Messages</span>
             </h2>
-            <p class="font-body text-base sm:text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3">
+            <p class="font-body text-base sm:text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-2 sm:mt-3">
                 Secure two-way messaging with registered patient accounts for this clinic.
             </p>
         </div>
@@ -420,16 +424,16 @@ if ($selectedPatientId !== '') {
     <?php endif; ?>
 
     <?php if (!$showPatientMessaging): ?>
-        <section class="elevated-card rounded-3xl p-10 text-center text-on-surface-variant">
+        <section class="elevated-card rounded-3xl p-6 sm:p-10 text-center text-on-surface-variant">
             <p class="font-semibold text-on-background">No patient conversations yet</p>
             <p class="text-sm mt-2 max-w-md mx-auto">Patient messaging uses portal accounts with the <strong class="font-bold text-on-background">client</strong> role. Add patients from Patients management; when they have an account, you can message them here.</p>
         </section>
     <?php else: ?>
-        <section class="elevated-card rounded-3xl overflow-hidden min-h-[65vh] grid grid-cols-1 xl:grid-cols-[19rem,1fr]">
-            <aside class="border-b xl:border-b-0 xl:border-r border-slate-200/80 p-4 sm:p-5 bg-white/60">
+        <section class="elevated-card rounded-3xl overflow-hidden min-h-[min(70dvh,32rem)] xl:min-h-[65vh] grid grid-cols-1 xl:grid-cols-[minmax(0,19rem),1fr]">
+            <aside class="<?php echo $mobileThreadOpen ? 'hidden xl:flex' : 'flex'; ?> flex-col border-b xl:border-b-0 xl:border-r border-slate-200/80 p-4 sm:p-5 bg-white/60 min-h-0">
                 <p class="text-[11px] uppercase tracking-[0.18em] text-primary font-extrabold">Conversations</p>
                 <p class="text-xs text-on-surface-variant mt-1"><?php echo count($conversations); ?> patient account(s)</p>
-                <div class="mt-3 space-y-2 max-h-[42vh] xl:max-h-[58vh] overflow-y-auto no-scrollbar pr-1">
+                <div class="mt-3 flex-1 min-h-0 space-y-2 overflow-y-auto no-scrollbar pr-1 max-h-[min(55dvh,28rem)] xl:max-h-[58vh]">
                     <?php foreach ($conversations as $conv):
                         $pid = (string) ($conv['partner_id'] ?? '');
                         $isActive = $pid !== '' && $pid === $selectedPatientId;
@@ -448,8 +452,8 @@ if ($selectedPatientId !== '') {
                 </div>
             </aside>
 
-            <div class="flex flex-col min-h-[50vh] xl:min-h-[65vh] bg-white/40">
-                <div class="border-b border-slate-200/80 px-5 py-4 bg-white/80">
+            <div class="<?php echo $mobileThreadOpen ? 'flex' : 'hidden xl:flex'; ?> flex-col flex-1 min-h-[min(70dvh,32rem)] xl:min-h-[65vh] bg-white/40 min-w-0">
+                <div class="border-b border-slate-200/80 px-4 sm:px-5 py-3 sm:py-4 bg-white/80 shrink-0">
                     <?php
                     $activeRow = $selectedPatientId !== '' ? ($userById[$selectedPatientId] ?? []) : [];
                     [$threadTitle, $threadSub] = $patientDisplayFromRow($activeRow + ['user_id' => $selectedPatientId]);
@@ -458,14 +462,18 @@ if ($selectedPatientId !== '') {
                         $threadSub = '';
                     }
                     ?>
+                    <a href="<?php echo htmlspecialchars($buildStaffMessageHref(['list' => '1']), ENT_QUOTES, 'UTF-8'); ?>" class="xl:hidden inline-flex items-center gap-1.5 text-primary text-xs font-bold uppercase tracking-widest mb-2 hover:text-primary/80 transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+                        Conversations
+                    </a>
                     <p class="text-xs uppercase tracking-[0.18em] text-primary font-extrabold">Thread</p>
-                    <h3 class="text-lg font-extrabold font-headline mt-1"><?php echo htmlspecialchars($threadTitle, ENT_QUOTES, 'UTF-8'); ?></h3>
+                    <h3 class="text-base sm:text-lg font-extrabold font-headline mt-1 truncate"><?php echo htmlspecialchars($threadTitle, ENT_QUOTES, 'UTF-8'); ?></h3>
                     <?php if ($threadSub !== ''): ?>
-                        <p class="text-xs text-on-surface-variant mt-1"><?php echo htmlspecialchars($threadSub, ENT_QUOTES, 'UTF-8'); ?></p>
+                        <p class="text-xs text-on-surface-variant mt-1 truncate"><?php echo htmlspecialchars($threadSub, ENT_QUOTES, 'UTF-8'); ?></p>
                     <?php endif; ?>
                 </div>
 
-                <div id="thread-box" class="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-3 bg-gradient-to-b from-white/90 to-slate-50/60">
+                <div id="thread-box" class="flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 space-y-3 bg-gradient-to-b from-white/90 to-slate-50/60">
                     <?php if ($selectedPatientId === ''): ?>
                         <div class="h-full min-h-[12rem] flex items-center justify-center text-sm text-on-surface-variant">Select a patient from the list.</div>
                     <?php elseif ($messages === []): ?>
@@ -475,7 +483,7 @@ if ($selectedPatientId !== '') {
                             $mine = (string) ($m['sender_id'] ?? '') === $staffUserId;
                         ?>
                             <div class="flex <?php echo $mine ? 'justify-end' : 'justify-start'; ?>">
-                                <div class="max-w-[90%] sm:max-w-[82%] rounded-2xl px-4 py-3 shadow-sm <?php echo $mine ? 'bg-primary text-white' : 'bg-white border border-slate-200 text-on-background'; ?>">
+                                <div class="max-w-[min(90%,20rem)] sm:max-w-[82%] rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 shadow-sm <?php echo $mine ? 'bg-primary text-white' : 'bg-white border border-slate-200 text-on-background'; ?>">
                                     <p class="text-sm leading-relaxed whitespace-pre-wrap break-words"><?php echo htmlspecialchars((string) ($m['message'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
                                     <p class="text-[11px] mt-2 <?php echo $mine ? 'text-white/80' : 'text-on-surface-variant'; ?>">
                                         <?php echo htmlspecialchars(date('M j, Y g:i A', strtotime((string) ($m['created_at'] ?? 'now'))), ENT_QUOTES, 'UTF-8'); ?>
@@ -493,9 +501,9 @@ if ($selectedPatientId !== '') {
                 <?php elseif ($selectedPatientId !== ''): ?>
                 <form method="post" class="border-t border-slate-200/80 p-4 sm:p-5 bg-white/95">
                     <input type="hidden" name="receiver_id" value="<?php echo htmlspecialchars($selectedPatientId, ENT_QUOTES, 'UTF-8'); ?>"/>
-                    <label class="block text-[10px] font-black text-on-surface-variant/70 uppercase tracking-[0.16em] mb-2 md:hidden">Switch patient</label>
+                    <label class="block text-[10px] font-black text-on-surface-variant/70 uppercase tracking-[0.16em] mb-2 xl:hidden">Switch patient</label>
                     <?php if ($switchPatientRows !== []): ?>
-                    <select class="w-full md:hidden mb-3 rounded-xl border-slate-200 text-sm font-semibold focus:border-primary focus:ring-primary/25" aria-label="Switch patient" id="staff-msg-patient-switch">
+                    <select class="w-full xl:hidden mb-3 rounded-xl border-slate-200 text-sm font-semibold focus:border-primary focus:ring-primary/25" aria-label="Switch patient" id="staff-msg-patient-switch">
                         <?php foreach ($switchPatientRows as $opt):
                             $oid = (string) ($opt['user_id'] ?? '');
                             [$oname] = $patientDisplayFromRow($opt);
@@ -516,7 +524,7 @@ if ($selectedPatientId !== '') {
                             });
                         })();
                     </script>
-                    <div class="flex gap-2">
+                    <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
                         <textarea
                             name="message"
                             rows="3"
@@ -524,7 +532,7 @@ if ($selectedPatientId !== '') {
                             placeholder="Write a message to the patient..."
                             class="flex-1 min-w-0 rounded-xl border-slate-200 text-sm focus:border-primary focus:ring-primary/25 resize-none"
                         ></textarea>
-                        <button type="submit" class="inline-flex items-center justify-center self-end rounded-xl bg-primary px-5 h-11 md:h-auto md:self-stretch md:px-6 text-white text-sm font-bold hover:bg-primary/90 transition shadow-md shadow-primary/20 shrink-0">
+                        <button type="submit" class="inline-flex items-center justify-center w-full sm:w-auto sm:self-stretch rounded-xl bg-primary px-6 py-3 sm:py-0 sm:h-auto sm:min-h-[2.75rem] text-white text-sm font-bold hover:bg-primary/90 transition shadow-md shadow-primary/20 shrink-0">
                             Send
                         </button>
                     </div>
