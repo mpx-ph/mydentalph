@@ -504,46 +504,45 @@ $treatmentScheduleBootstrap = [
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
+<main class="flex-1 flex flex-col min-w-0 ml-0 pt-[4.5rem] sm:pt-20 provider-page-enter">
     <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
 
-    <div class="p-10 space-y-4">
-        <section class="flex flex-col gap-2">
-            <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
-                <span class="w-12 h-[1.5px] bg-primary"></span> APPOINTMENT MANAGEMENT
+    <div class="pt-4 sm:pt-6 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-6 sm:space-y-8">
+        <section class="flex flex-col gap-3 sm:gap-4">
+            <div class="text-primary font-bold text-[10px] sm:text-xs uppercase flex items-center gap-3 sm:gap-4 tracking-[0.25em] sm:tracking-[0.3em]">
+                <span class="w-8 sm:w-12 h-[1.5px] bg-primary"></span> APPOINTMENT MANAGEMENT
             </div>
-            <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                    <h1 class="font-headline text-5xl font-extrabold tracking-tighter leading-tight text-on-background">
+                    <h1 class="font-headline text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight sm:tracking-tighter leading-tight text-on-background">
                         Create <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Scheduled Appointment</span>
                     </h1>
-                    <p class="font-body text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-2">
+                    <p class="font-body text-base sm:text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3 sm:mt-4">
                         Register and schedule a future patient appointment with full service and payment preview.
                     </p>
                 </div>
-                <div class="flex flex-col items-start lg:items-end gap-2 lg:mt-2">
+                <div class="flex flex-col items-stretch sm:items-start lg:items-end gap-2 w-full lg:w-auto shrink-0">
                     <a
                         href="<?php echo htmlspecialchars($backToAppointmentsHref, ENT_QUOTES, 'UTF-8'); ?>"
-                        class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-slate-700 transition-colors"
+                        class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-slate-700 transition-colors"
                     >
                         <span class="material-symbols-outlined text-[18px]">arrow_back</span>
                         Back to Appointments
                     </a>
-                    <div class="h-4"></div>
-                    <button id="registerPatientBtnTop" type="button" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-blue-500 text-white px-4 py-2.5 text-xs font-black uppercase tracking-wider shadow-lg shadow-primary/30 walkin-primary-btn">
+                    <button id="registerPatientBtnTop" type="button" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-blue-500 text-white px-4 py-2.5 text-xs font-black uppercase tracking-wider shadow-lg shadow-primary/30 walkin-primary-btn">
                         <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">person_add</span>
                         Register New Patient
                     </button>
-                    <p class="text-xs font-semibold text-slate-500 leading-relaxed max-w-xs lg:text-right whitespace-nowrap">
-                        Click the button to register new Patient.
+                    <p class="text-xs font-semibold text-slate-500 leading-relaxed max-w-xs lg:text-right">
+                        Click the button to register a new patient.
                     </p>
                 </div>
             </div>
         </section>
 
-        <section class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch">
-            <div class="xl:col-span-4 xl:row-span-2 flex min-h-0 self-stretch">
-                <div class="elevated-card rounded-3xl p-6 h-full min-h-0 w-full flex flex-col">
+        <section class="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 items-stretch">
+            <div class="xl:col-span-4 xl:row-span-2 flex min-h-0 self-stretch order-1">
+                <div class="elevated-card rounded-3xl p-4 sm:p-6 h-full min-h-0 w-full flex flex-col">
                     <div class="flex items-center gap-3 mb-5">
                         <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                             <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person_search</span>
@@ -559,8 +558,8 @@ $treatmentScheduleBootstrap = [
                             <input id="selectedPatientId" type="hidden" value=""/>
                             <input id="patientSearchInput" type="text" class="walkin-input walkin-input-bordered w-full py-3 px-4" placeholder="Search patient name, ID, or contact number"/>
                         </div>
-                        <div class="flex items-stretch gap-2">
-                            <div class="rounded-xl border border-primary/15 bg-primary/5 px-4 py-2.5 flex-1 max-w-[88%]">
+                        <div class="flex flex-col sm:flex-row items-stretch gap-2">
+                            <div class="rounded-xl border border-primary/15 bg-primary/5 px-4 py-2.5 flex-1 min-w-0 sm:max-w-[88%]">
                                 <p class="text-[10px] font-black uppercase tracking-[0.18em] text-primary/70 mb-1">Selected Patient</p>
                                 <p id="selectedPatientLabel" class="text-sm font-extrabold text-slate-900 truncate">Choose patient from list</p>
                             </div>
@@ -568,7 +567,7 @@ $treatmentScheduleBootstrap = [
                                 <span class="material-symbols-outlined text-[16px]">close</span>
                             </button>
                         </div>
-                        <div id="walkInPatientListScroll" class="rounded-2xl border border-slate-100 bg-slate-50/60 flex-1 min-h-[22rem] overflow-y-auto">
+                        <div id="walkInPatientListScroll" class="rounded-2xl border border-slate-100 bg-slate-50/60 flex-1 min-h-[14rem] sm:min-h-[18rem] xl:min-h-[22rem] overflow-y-auto">
                             <div id="patientListEmptyState" class="hidden px-4 py-8 text-center text-sm font-semibold text-slate-500"></div>
                             <div id="patientListContainer" class="divide-y divide-slate-100"></div>
                         </div>
@@ -576,8 +575,8 @@ $treatmentScheduleBootstrap = [
                 </div>
             </div>
 
-            <div class="xl:col-span-8 space-y-6">
-                <div class="elevated-card rounded-3xl p-6">
+            <div class="xl:col-span-8 space-y-4 sm:space-y-6 order-2">
+                <div class="elevated-card rounded-3xl p-4 sm:p-6">
                     <div class="flex items-center gap-3 mb-5">
                         <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                             <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event_note</span>
@@ -616,7 +615,7 @@ $treatmentScheduleBootstrap = [
                                     </span>
                                     <span class="material-symbols-outlined text-[18px] text-slate-500">keyboard_arrow_down</span>
                                 </button>
-                                <button id="addServiceBtn" type="button" class="w-11 h-11 rounded-xl bg-primary text-white inline-flex items-center justify-center hover:bg-primary/90 transition-colors">
+                                <button id="addServiceBtn" type="button" class="shrink-0 w-11 h-11 rounded-xl bg-primary text-white inline-flex items-center justify-center hover:bg-primary/90 transition-colors" aria-label="Add another service">
                                     <span class="material-symbols-outlined text-[18px]">add</span>
                                 </button>
                             </div>
@@ -652,45 +651,45 @@ $treatmentScheduleBootstrap = [
                     </div>
                 </div>
 
-                <div id="walkInDefaultPaymentDetailsSection" class="elevated-card rounded-3xl p-6">
+                <div id="walkInDefaultPaymentDetailsSection" class="elevated-card rounded-3xl p-4 sm:p-6">
                     <div class="flex items-center justify-between gap-3 mb-4">
                         <div>
                             <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Payment Details</p>
                             <h3 class="text-lg font-extrabold text-slate-900">Payment Breakdown</h3>
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-left">
-                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-left">
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-3 sm:px-4 py-3 sm:py-4">
                             <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Amount</p>
-                            <p id="walkInDefaultEstimatedTotal" class="mt-2 text-2xl font-extrabold text-slate-900">P0.00</p>
+                            <p id="walkInDefaultEstimatedTotal" class="mt-2 text-lg sm:text-2xl font-extrabold text-slate-900">P0.00</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-3 sm:px-4 py-3 sm:py-4">
                             <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Down Payment</p>
-                            <p id="walkInDefaultDownPayment" class="mt-2 text-2xl font-extrabold text-slate-900">P0.00</p>
+                            <p id="walkInDefaultDownPayment" class="mt-2 text-lg sm:text-2xl font-extrabold text-slate-900">P0.00</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-3 sm:px-4 py-3 sm:py-4">
                             <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Monthly</p>
-                            <p id="walkInDefaultMonthlyEstimate" class="mt-2 text-2xl font-extrabold text-slate-900">P0.00</p>
+                            <p id="walkInDefaultMonthlyEstimate" class="mt-2 text-lg sm:text-2xl font-extrabold text-slate-900">P0.00</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-3 sm:px-4 py-3 sm:py-4 col-span-2 md:col-span-1">
                             <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Duration</p>
-                            <p id="walkInDefaultDurationMax" class="mt-2 text-2xl font-extrabold text-slate-900">0 Months</p>
+                            <p id="walkInDefaultDurationMax" class="mt-2 text-lg sm:text-2xl font-extrabold text-slate-900">0 Months</p>
                         </div>
                     </div>
                 </div>
 
-                <div id="walkInTreatmentPaymentProgressSection" class="elevated-card rounded-3xl p-6 hidden">
-                    <div class="flex items-center justify-between gap-3 mb-4">
+                <div id="walkInTreatmentPaymentProgressSection" class="elevated-card rounded-3xl p-4 sm:p-6 hidden">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-4">
                         <div>
                             <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Payment Details</p>
                             <h3 class="text-lg font-extrabold text-slate-900">Treatment Payment Progress</h3>
                         </div>
-                        <span class="inline-flex items-center gap-1 text-xs font-bold text-slate-500">
+                        <span class="inline-flex items-center gap-1 text-xs font-bold text-slate-500 shrink-0">
                             <span class="material-symbols-outlined text-[16px]">payments</span>
                             <span id="walkInInstallmentAvailable">Active Installment Treatment: No</span>
                         </span>
                     </div>
-                    <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4 mb-4">
+                    <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-3 sm:px-4 py-3 sm:py-4 mb-4">
                         <div class="flex items-center justify-between text-[11px] font-bold text-slate-600">
                             <span>Payment Completion</span>
                             <span id="walkInPaymentProgressLabel">0%</span>
@@ -699,40 +698,41 @@ $treatmentScheduleBootstrap = [
                             <div id="walkInPaymentProgressBar" class="h-full bg-gradient-to-r from-primary to-blue-500 rounded-full" style="width: 0%;"></div>
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-left">
-                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-left">
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-3 sm:px-4 py-3 sm:py-4">
                             <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Cost</p>
-                            <p id="walkInTotalAmount" class="mt-2 text-2xl font-extrabold text-slate-900">P0.00</p>
+                            <p id="walkInTotalAmount" class="mt-2 text-lg sm:text-2xl font-extrabold text-slate-900">P0.00</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-3 sm:px-4 py-3 sm:py-4">
                             <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Amount Paid</p>
-                            <p id="walkInAmountPaid" class="mt-2 text-xl font-extrabold text-slate-900">P0.00</p>
+                            <p id="walkInAmountPaid" class="mt-2 text-lg sm:text-xl font-extrabold text-slate-900">P0.00</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-3 sm:px-4 py-3 sm:py-4">
                             <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Remaining Balance</p>
-                            <p id="walkInRemainingBalance" class="mt-2 text-xl font-extrabold text-slate-900">P0.00</p>
+                            <p id="walkInRemainingBalance" class="mt-2 text-lg sm:text-xl font-extrabold text-slate-900">P0.00</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4">
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-3 sm:px-4 py-3 sm:py-4 col-span-2 md:col-span-1">
                             <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Months Left</p>
-                            <p id="walkInMonthsLeft" class="mt-2 text-xl font-extrabold text-slate-900">0 Months</p>
+                            <p id="walkInMonthsLeft" class="mt-2 text-lg sm:text-xl font-extrabold text-slate-900">0 Months</p>
                         </div>
                     </div>
                     <p class="text-[11px] font-semibold text-slate-500 mt-4">Installment treatment progress is computed at treatment level and reused across follow-up visits.</p>
                 </div>
             </div>
 
-            <div class="xl:col-start-5 xl:col-span-8 w-full min-w-0">
-                <button id="createWalkInAppointmentBtn" type="button" class="walkin-primary-btn w-full max-w-full rounded-2xl bg-gradient-to-r from-primary to-blue-500 text-white py-3.5 text-sm font-extrabold uppercase tracking-wide shadow-lg shadow-primary/35 inline-flex items-center justify-center gap-2">
+            <div class="xl:col-start-5 xl:col-span-8 w-full min-w-0 order-3">
+                <button id="createWalkInAppointmentBtn" type="button" class="walkin-primary-btn w-full max-w-full rounded-2xl bg-gradient-to-r from-primary to-blue-500 text-white py-3.5 sm:py-4 text-sm font-extrabold uppercase tracking-wide shadow-lg shadow-primary/35 inline-flex items-center justify-center gap-2">
                     <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">calendar_add_on</span>
                     Create Scheduled Appointment
                 </button>
             </div>
         </section>
+        <div class="h-10"></div>
     </div>
 </main>
 
-<div id="addPatientModal" class="staff-modal-overlay fixed inset-0 z-[75] hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4">
-    <div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col">
+<div id="addPatientModal" class="staff-modal-overlay fixed inset-0 z-[75] hidden items-end sm:items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-0 sm:p-4">
+    <div class="staff-modal-panel bg-white rounded-t-3xl sm:rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col sm:mx-auto">
         <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
             <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
                 <span class="material-symbols-outlined text-2xl text-primary">person_add</span>
@@ -771,7 +771,7 @@ $treatmentScheduleBootstrap = [
                                 <input id="addLastName" type="text" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-[15px] shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" placeholder="Enter last name"/>
                                 <p id="addLastNameError" class="mt-1 text-xs text-red-500 hidden"></p>
                             </div>
-                            <div class="grid grid-cols-2 gap-3">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label class="flex items-center gap-1.5 text-sm font-semibold text-slate-800 mb-2">
                                         <span class="material-symbols-outlined text-[18px] text-slate-500">event</span>
@@ -902,12 +902,12 @@ $treatmentScheduleBootstrap = [
                     </div>
                 </section>
             </div>
-            <div class="border-t border-slate-100 bg-slate-50/50 px-6 sm:px-8 py-4 flex flex-wrap items-center justify-end gap-3">
-                <button type="button" id="cancelAddPatientBtn" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+            <div class="border-t border-slate-100 bg-slate-50/50 px-6 sm:px-8 py-4 flex flex-col-reverse sm:flex-row flex-wrap items-stretch sm:items-center sm:justify-end gap-2 sm:gap-3">
+                <button type="button" id="cancelAddPatientBtn" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
                     <span class="material-symbols-outlined text-[18px]">close</span>
                     Cancel
                 </button>
-                <button type="submit" id="savePatientBtn" class="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/92 text-white text-sm font-bold shadow-lg shadow-primary/25 transition-all">
+                <button type="submit" id="savePatientBtn" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/92 text-white text-sm font-bold shadow-lg shadow-primary/25 transition-all">
                     <span class="material-symbols-outlined text-[18px]">check_circle</span>
                     Register Patient
                 </button>
@@ -916,10 +916,10 @@ $treatmentScheduleBootstrap = [
     </div>
 </div>
 
-<div id="chooseDentistModal" class="hidden fixed inset-0 z-[70]">
-    <div class="absolute inset-0 bg-slate-900/45"></div>
-    <div class="relative h-full w-full flex items-center justify-center p-4">
-        <div class="w-full max-w-5xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+<div id="chooseDentistModal" class="hidden fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="absolute inset-0 bg-slate-900/45 backdrop-blur-sm"></div>
+    <div class="relative z-10 w-full max-w-5xl max-h-[92vh] flex flex-col sm:mx-auto">
+        <div class="w-full rounded-t-3xl sm:rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
             <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
                 <div>
                     <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Dentist Selection</p>
@@ -929,16 +929,16 @@ $treatmentScheduleBootstrap = [
                     <span class="material-symbols-outlined text-[18px]">close</span>
                 </button>
             </div>
-            <div id="dentistListContainer" class="p-5 flex flex-wrap justify-center gap-4"></div>
-            <div id="dentistListEmptyState" class="hidden px-5 pb-5 text-sm font-semibold text-slate-500"></div>
+            <div id="dentistListContainer" class="p-4 sm:p-5 flex flex-wrap justify-center gap-3 sm:gap-4 overflow-y-auto flex-1 min-h-0"></div>
+            <div id="dentistListEmptyState" class="hidden px-5 pb-5 text-sm font-semibold text-slate-500 text-center"></div>
         </div>
     </div>
 </div>
 
-<div id="chooseServiceModal" class="hidden fixed inset-0 z-[70]">
-    <div class="absolute inset-0 bg-slate-900/45"></div>
-    <div class="relative h-full w-full flex items-center justify-center p-4">
-        <div class="w-full max-w-3xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+<div id="chooseServiceModal" class="hidden fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="absolute inset-0 bg-slate-900/45 backdrop-blur-sm"></div>
+    <div class="relative z-10 w-full max-w-3xl max-h-[92vh] flex flex-col sm:mx-auto">
+        <div class="w-full rounded-t-3xl sm:rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
             <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
                 <div>
                     <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Service Selection</p>
@@ -963,7 +963,7 @@ $treatmentScheduleBootstrap = [
                 </div>
             </div>
 
-            <div class="max-h-[24rem] overflow-y-auto">
+            <div class="flex-1 min-h-0 max-h-[50vh] sm:max-h-[24rem] overflow-y-auto">
                 <div id="serviceListEmptyState" class="hidden px-5 py-8 text-center text-sm font-semibold text-slate-500"></div>
                 <div id="serviceListContainer" class="divide-y divide-slate-100 bg-white"></div>
             </div>
@@ -1469,7 +1469,7 @@ $treatmentScheduleBootstrap = [
                             '<p class="text-sm font-bold text-slate-900 truncate">' + fullName + '</p>' +
                             '<p class="text-xs font-semibold text-slate-500 mt-1">ID: ' + displayId + ' | Contact: ' + contact + '</p>' +
                         '</div>' +
-                        '<button type="button" data-action="select-patient" data-patient-id="' + escapeHtml(patient.patient_id || '') + '" data-patient-name="' + fullName + '" class="shrink-0 rounded-lg bg-primary text-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide hover:bg-primary/90 transition-colors">' +
+                        '<button type="button" data-action="select-patient" data-patient-id="' + escapeHtml(patient.patient_id || '') + '" data-patient-name="' + fullName + '" class="w-full sm:w-auto shrink-0 rounded-lg bg-primary text-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide hover:bg-primary/90 transition-colors">' +
                             'Select' +
                         '</button>' +
                     '</div>';
@@ -1503,8 +1503,8 @@ $treatmentScheduleBootstrap = [
                     : '';
                 const buttonDisabled = !selectionRule.allowed;
                 const buttonClass = buttonDisabled
-                    ? 'shrink-0 rounded-lg bg-slate-200 text-slate-500 px-3 py-2 text-xs font-extrabold uppercase tracking-wide cursor-not-allowed'
-                    : 'shrink-0 rounded-lg bg-primary text-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide hover:bg-primary/90 transition-colors';
+                    ? 'w-full sm:w-auto shrink-0 rounded-lg bg-slate-200 text-slate-500 px-3 py-2 text-xs font-extrabold uppercase tracking-wide cursor-not-allowed'
+                    : 'w-full sm:w-auto shrink-0 rounded-lg bg-primary text-white px-3 py-2 text-xs font-extrabold uppercase tracking-wide hover:bg-primary/90 transition-colors';
                 return '' +
                     '<div class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 hover:bg-slate-50/80 transition-colors">' +
                         '<div class="min-w-0 flex-1">' +
