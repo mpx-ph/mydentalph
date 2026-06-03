@@ -202,60 +202,57 @@ try {
 <!-- SideNavBar Component -->
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
 <!-- Main Wrapper -->
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
+<main class="flex-1 flex flex-col min-w-0 ml-0 pt-[4.5rem] sm:pt-20 provider-page-enter">
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
-<!-- Scrollable Content -->
-<div class="p-10 space-y-10">
+<div class="pt-4 sm:pt-6 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-6 sm:space-y-8">
 <!-- Page Header -->
-<section class="flex flex-col gap-4 mb-4">
-<div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
-<span class="w-12 h-[1.5px] bg-primary"></span> FINANCE &amp; PAYMENTS
+<section class="flex flex-col gap-3 sm:gap-4">
+<div class="text-primary font-bold text-[10px] sm:text-xs uppercase flex items-center gap-3 sm:gap-4 tracking-[0.25em] sm:tracking-[0.3em]">
+<span class="w-8 sm:w-12 h-[1.5px] bg-primary"></span> FINANCE &amp; PAYMENTS
             </div>
-<div class="flex items-end justify-between">
 <div>
-<h2 class="font-headline text-6xl font-extrabold tracking-tighter leading-tight text-on-background">
+<h2 class="font-headline text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight sm:tracking-tighter leading-tight text-on-background">
                         Payment <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Settings</span>
 </h2>
-<p class="font-body text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-4">
+<p class="font-body text-base sm:text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3 sm:mt-4">
                         Configure payment rules and down payment options for services
                     </p>
 </div>
-</div>
 </section>
 <?php if ($formMessage !== ''): ?>
-<section class="rounded-2xl border px-6 py-4 <?php echo $formMessageType === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'; ?>">
+<section class="rounded-2xl border px-4 sm:px-6 py-4 <?php echo $formMessageType === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'; ?>">
 <p class="text-sm font-semibold"><?php echo htmlspecialchars($formMessage, ENT_QUOTES, 'UTF-8'); ?></p>
 </section>
 <?php endif; ?>
 <!-- Configuration Cards Grid -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 items-stretch">
 <!-- Regular Services Down Payment -->
-<div class="elevated-card rounded-3xl p-10 flex flex-col h-full hover:border-primary/30 transition-all group bg-slate-50/50">
-<form method="post" class="h-full flex flex-col gap-6 payment-rule-form">
+<div class="elevated-card rounded-3xl p-5 sm:p-8 lg:p-10 flex flex-col h-full hover:border-primary/30 transition-all group bg-slate-50/50">
+<form method="post" class="h-full flex flex-col gap-5 sm:gap-6 payment-rule-form">
 <input type="hidden" name="update_field" value="regular"/>
-<div class="flex items-center gap-5">
-<div class="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
-<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+<div class="flex items-start sm:items-center gap-4 sm:gap-5">
+<div class="w-12 h-12 sm:w-14 sm:h-14 shrink-0 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined text-2xl sm:text-3xl" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
 </div>
-<div>
-<h3 class="font-headline font-bold text-2xl text-on-background tracking-tight">Regular Services Down Payment</h3>
-<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-1">Standard clinic procedures &amp; checkups</p>
+<div class="min-w-0">
+<h3 class="font-headline font-bold text-xl sm:text-2xl text-on-background tracking-tight">Regular Services Down Payment</h3>
+<p class="text-[10px] sm:text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-1">Standard clinic procedures &amp; checkups</p>
 </div>
 </div>
-<div class="space-y-6 flex-1 flex flex-col">
+<div class="space-y-5 sm:space-y-6 flex-1 flex flex-col">
 <div class="space-y-3">
 <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Requirement Percentage</label>
 <div class="relative">
-<input class="w-full bg-white border-none rounded-xl px-6 py-5 text-2xl font-headline font-extrabold text-on-background focus:ring-2 focus:ring-primary/20 transition-all shadow-sm" type="number" name="regular_downpayment_percentage" min="0" max="100" step="0.01" value="<?php echo htmlspecialchars(number_format((float) $paymentSettings['regular_downpayment_percentage'], 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?>"/>
-<div class="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none">
-<span class="text-2xl font-extrabold text-primary">%</span>
+<input class="w-full bg-white border-none rounded-xl px-5 sm:px-6 py-4 sm:py-5 text-xl sm:text-2xl font-headline font-extrabold text-on-background focus:ring-2 focus:ring-primary/20 transition-all shadow-sm" type="number" name="regular_downpayment_percentage" min="0" max="100" step="0.01" value="<?php echo htmlspecialchars(number_format((float) $paymentSettings['regular_downpayment_percentage'], 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?>"/>
+<div class="absolute right-5 sm:right-6 top-1/2 -translate-y-1/2 pointer-events-none">
+<span class="text-xl sm:text-2xl font-extrabold text-primary">%</span>
 </div>
 </div>
 </div>
-<div class="p-5 rounded-2xl bg-white/60 border border-slate-100 text-sm text-slate-500 font-medium leading-relaxed min-h-[96px]">
+<div class="p-4 sm:p-5 rounded-2xl bg-white/60 border border-slate-100 text-sm text-slate-500 font-medium leading-relaxed min-h-[72px] sm:min-h-[96px]">
                         Applied to all basic diagnostic, preventative, and minor restorative services.
                     </div>
-<button type="submit" class="w-full py-4 bg-primary text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 transition-all flex items-center justify-center gap-2 mt-auto">
+<button type="submit" class="w-full py-3.5 sm:py-4 bg-primary text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 transition-all flex items-center justify-center gap-2 mt-auto">
 <span class="material-symbols-outlined text-lg">published_with_changes</span>
                         Update Rule
                     </button>
@@ -263,35 +260,35 @@ try {
 </form>
 </div>
 <!-- Long-Term Services Down Payment -->
-<div class="elevated-card rounded-3xl p-10 flex flex-col h-full hover:border-primary/30 transition-all group bg-slate-50/50">
-<form method="post" class="h-full flex flex-col gap-6 payment-rule-form">
+<div class="elevated-card rounded-3xl p-5 sm:p-8 lg:p-10 flex flex-col h-full hover:border-primary/30 transition-all group bg-slate-50/50">
+<form method="post" class="h-full flex flex-col gap-5 sm:gap-6 payment-rule-form">
 <input type="hidden" name="update_field" value="long_term"/>
-<div class="flex items-center gap-5">
-<div class="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
-<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">event_repeat</span>
+<div class="flex items-start sm:items-center gap-4 sm:gap-5">
+<div class="w-12 h-12 sm:w-14 sm:h-14 shrink-0 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined text-2xl sm:text-3xl" style="font-variation-settings: 'FILL' 1;">event_repeat</span>
 </div>
-<div>
-<h3 class="font-headline font-bold text-2xl text-on-background tracking-tight">Long-Term Services Down Payment</h3>
-<p class="text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-1">Orthodontics, implants, and multi-stage plans</p>
+<div class="min-w-0">
+<h3 class="font-headline font-bold text-xl sm:text-2xl text-on-background tracking-tight">Long-Term Services Down Payment</h3>
+<p class="text-[10px] sm:text-xs font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-1">Orthodontics, implants, and multi-stage plans</p>
 </div>
 </div>
-<div class="space-y-6 flex-1 flex flex-col">
+<div class="space-y-5 sm:space-y-6 flex-1 flex flex-col">
 <div class="space-y-3">
 <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Fixed Minimum Amount</label>
 <div class="relative">
-<input class="w-full bg-white border-none rounded-xl pl-14 pr-16 py-5 text-2xl font-headline font-extrabold text-on-background focus:ring-2 focus:ring-primary/20 transition-all shadow-sm" type="number" name="long_term_min_downpayment" min="0" step="0.01" value="<?php echo htmlspecialchars(number_format((float) $paymentSettings['long_term_min_downpayment'], 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?>"/>
-<div class="absolute left-6 top-1/2 -translate-y-1/2 pointer-events-none">
-<span class="material-symbols-outlined text-primary text-2xl" style="font-variation-settings: 'FILL' 1;">payments</span>
+<input class="w-full bg-white border-none rounded-xl pl-12 sm:pl-14 pr-14 sm:pr-16 py-4 sm:py-5 text-xl sm:text-2xl font-headline font-extrabold text-on-background focus:ring-2 focus:ring-primary/20 transition-all shadow-sm" type="number" name="long_term_min_downpayment" min="0" step="0.01" value="<?php echo htmlspecialchars(number_format((float) $paymentSettings['long_term_min_downpayment'], 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?>"/>
+<div class="absolute left-5 sm:left-6 top-1/2 -translate-y-1/2 pointer-events-none">
+<span class="text-lg sm:text-2xl font-extrabold text-primary">₱</span>
 </div>
-<div class="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none">
-<span class="text-xs font-black text-slate-400 uppercase tracking-widest">USD</span>
+<div class="absolute right-5 sm:right-6 top-1/2 -translate-y-1/2 pointer-events-none">
+<span class="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest">PHP</span>
 </div>
 </div>
 </div>
-<div class="p-5 rounded-2xl bg-white/60 border border-slate-100 text-sm text-slate-500 font-medium leading-relaxed min-h-[96px]">
+<div class="p-4 sm:p-5 rounded-2xl bg-white/60 border border-slate-100 text-sm text-slate-500 font-medium leading-relaxed min-h-[72px] sm:min-h-[96px]">
                         Minimum deposit required to initiate multi-month treatment cycles and material orders.
                     </div>
-<button type="submit" class="w-full py-4 bg-primary text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 transition-all flex items-center justify-center gap-2 mt-auto">
+<button type="submit" class="w-full py-3.5 sm:py-4 bg-primary text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 transition-all flex items-center justify-center gap-2 mt-auto">
 <span class="material-symbols-outlined text-lg">published_with_changes</span>
                         Update Rule
                     </button>
@@ -299,23 +296,23 @@ try {
 </form>
 </div>
 </div>
-</div>
+<div class="h-10"></div>
 </main>
-<div id="update-rule-confirm-modal" class="fixed inset-0 z-50 hidden items-center justify-center px-4">
-<div id="update-rule-confirm-overlay" class="absolute inset-0 bg-slate-900/50"></div>
-<div class="relative w-full max-w-md rounded-3xl bg-white border border-slate-200 shadow-2xl p-8">
+<div id="update-rule-confirm-modal" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center p-0 sm:px-4">
+<div id="update-rule-confirm-overlay" class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
+<div class="relative w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-white border border-slate-200 shadow-2xl p-6 sm:p-8 sm:mx-auto">
 <div class="flex items-start gap-4">
 <div class="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">help</span>
 </div>
-<div class="space-y-2">
-<h4 class="text-xl font-headline font-extrabold text-on-background">Confirm Update</h4>
+<div class="space-y-2 min-w-0">
+<h4 class="text-lg sm:text-xl font-headline font-extrabold text-on-background">Confirm Update</h4>
 <p class="text-sm font-medium text-on-surface-variant leading-relaxed">Are you sure you want to update these payment rules?</p>
 </div>
 </div>
-<div class="mt-8 flex justify-end gap-3">
-<button type="button" id="update-rule-cancel-btn" class="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Cancel</button>
-<button type="button" id="update-rule-confirm-btn" class="px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all">Confirm</button>
+<div class="mt-6 sm:mt-8 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
+<button type="button" id="update-rule-cancel-btn" class="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Cancel</button>
+<button type="button" id="update-rule-confirm-btn" class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all">Confirm</button>
 </div>
 </div>
 </div>
