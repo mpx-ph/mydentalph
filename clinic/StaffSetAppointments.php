@@ -41,6 +41,14 @@ if ($clinicSlugBoot !== '' && preg_match('/^[a-z0-9\-]+$/', strtolower($clinicSl
     $currentTenantSlug = '';
 }
 
+if ($currentTenantSlug === '' && function_exists('getClinicTenantSlug')) {
+    $resolvedStaffSlug = getClinicTenantSlug();
+    if ($resolvedStaffSlug !== null && $resolvedStaffSlug !== '') {
+        $currentTenantSlug = $resolvedStaffSlug;
+        $_GET['clinic_slug'] = $resolvedStaffSlug;
+    }
+}
+
 $manilaNow = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
 $selectedDateValue = $manilaNow->format('Y-m-d');
 $selectedTimeValue = $manilaNow->format('H:i');
@@ -144,6 +152,14 @@ function buildSetAppointmentDentistsSnapshot(PDO $pdo, string $tenantId, string 
         if ($parsed instanceof DateTimeImmutable) {
             return $parsed->format('H:i:s');
         }
+        if (preg_match('/^(\d{1,2}):(\d{2})(?::(\d{2}))?/', $timeValue, $matches)) {
+            $hour = (int) ($matches[1] ?? 0);
+            $minute = (int) ($matches[2] ?? 0);
+            $second = isset($matches[3]) && $matches[3] !== '' ? (int) $matches[3] : 0;
+            if ($hour >= 0 && $hour <= 23 && $minute >= 0 && $minute <= 59 && $second >= 0 && $second <= 59) {
+                return sprintf('%02d:%02d:%02d', $hour, $minute, $second);
+            }
+        }
         return '';
     };
 
@@ -226,18 +242,11 @@ $walkInPaymentSettings = [
 try {
     if (function_exists('getDBConnection')) {
         $pdo = getDBConnection();
-        $tenantId = null;
-        if (function_exists('getClinicTenantId')) {
-            $tenantId = getClinicTenantId();
-        }
+        $tenantId = function_exists('clinic_resolve_walkin_tenant_id')
+            ? clinic_resolve_walkin_tenant_id($pdo)
+            : null;
         if (empty($tenantId) && isset($currentTenantId) && $currentTenantId !== '') {
             $tenantId = (string) $currentTenantId;
-        }
-        if (empty($tenantId) && !empty($_SESSION['tenant_id'])) {
-            $tenantId = (string) $_SESSION['tenant_id'];
-        }
-        if (empty($tenantId) && !empty($_SESSION['public_tenant_id'])) {
-            $tenantId = (string) $_SESSION['public_tenant_id'];
         }
         if ($pdo && $tenantId) {
             $todayDate = $manilaNow->format('Y-m-d');
@@ -2163,13 +2172,15 @@ $treatmentScheduleBootstrap = [
             }
 
             try {
-                const response = await fetch(url.pathname + url.search, { credentials: 'include' });
+                const response = await fetch(buildApiUrl(url.pathname + url.search), { credentials: 'include' });
                 const data = await parseJsonResponse(response);
                 if (!response.ok || !data.success || !data.data || !Array.isArray(data.data.dentists)) {
                     throw new Error(data.message || 'Failed to load dentist schedule.');
                 }
                 dentistsData = data.data.dentists.slice();
-                renderDentistsList();
+                if (chooseDentistModal && !chooseDentistModal.classList.contains('hidden')) {
+                    renderDentistsList();
+                }
 
                 const currentDentistId = selectedDentistIdInput ? String(selectedDentistIdInput.value || '').trim() : '';
                 if (!currentDentistId) return;
@@ -2256,7 +2267,7 @@ $treatmentScheduleBootstrap = [
 
             try {
                 while (hasMore) {
-                    const response = await fetch(servicesApiUrl + '?status=active&page=' + page + '&limit=100', {
+                    const response = await fetch(buildApiUrl(servicesApiUrl + '?status=active&page=' + page + '&limit=100'), {
                         credentials: 'include'
                     });
                     const data = await response.json();
@@ -2284,10 +2295,18 @@ $treatmentScheduleBootstrap = [
             document.body.classList.toggle('overflow-hidden', hasOpenModal);
         }
 
-        function openChooseDentistModal() {
+        async function openChooseDentistModal() {
             if (!chooseDentistModal) return;
             chooseDentistModal.classList.remove('hidden');
             syncModalBodyScrollLock();
+            if (dentistListEmptyState) {
+                dentistListEmptyState.textContent = 'Loading dentist schedules...';
+                dentistListEmptyState.classList.remove('hidden');
+            }
+            if (dentistListContainer) {
+                dentistListContainer.innerHTML = '';
+            }
+            await refreshDentistAvailabilityForSelection();
             renderDentistsList();
         }
 

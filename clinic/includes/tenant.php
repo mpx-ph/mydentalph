@@ -11,10 +11,48 @@
 clinic_session_start();
 
 /**
+ * When ?clinic_slug= is present, load tenant into session for API calls that use the per-clinic cookie.
+ */
+function clinic_bootstrap_tenant_from_slug_param() {
+    if (!empty($_SESSION['tenant_id']) || !empty($_SESSION['public_tenant_id'])) {
+        return;
+    }
+    if (!function_exists('clinic_normalize_slug')) {
+        require_once __DIR__ . '/session_clinic_scope.php';
+    }
+    $slug = isset($_GET['clinic_slug']) ? clinic_normalize_slug((string) $_GET['clinic_slug']) : null;
+    if ($slug === null) {
+        return;
+    }
+    try {
+        if (!function_exists('getDBConnection')) {
+            require_once __DIR__ . '/../config/config.php';
+        }
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("
+            SELECT tenant_id, clinic_slug
+            FROM tbl_tenants
+            WHERE clinic_slug = ?
+              AND (subscription_status IS NULL OR subscription_status = 'active')
+            LIMIT 1
+        ");
+        $stmt->execute([$slug]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (is_array($row) && !empty($row['tenant_id'])) {
+            $_SESSION['public_tenant_id'] = (string) $row['tenant_id'];
+            $_SESSION['public_tenant_slug'] = strtolower(trim((string) ($row['clinic_slug'] ?? $slug)));
+        }
+    } catch (Throwable $e) {
+        error_log('clinic_bootstrap_tenant_from_slug_param: ' . $e->getMessage());
+    }
+}
+
+/**
  * Get the tenant_id for this clinic request (admin or public).
  * @return string|null
  */
 function getClinicTenantId() {
+    clinic_bootstrap_tenant_from_slug_param();
     if (!empty($_SESSION['tenant_id'])) return (string) $_SESSION['tenant_id'];
     if (!empty($_SESSION['public_tenant_id'])) return (string) $_SESSION['public_tenant_id'];
     return null;
