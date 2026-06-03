@@ -121,31 +121,31 @@ body { font-family: "Manrope", sans-serif; }
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
+<main class="flex-1 flex flex-col min-w-0 ml-0 pt-[4.5rem] sm:pt-20 provider-page-enter">
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
-<div class="p-10 space-y-8">
-    <section class="flex flex-col gap-4">
-        <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
-            <span class="w-12 h-[1.5px] bg-primary"></span> CLINICAL PRECISION
+<div class="pt-4 sm:pt-6 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-6 sm:space-y-8">
+    <section class="flex flex-col gap-3 sm:gap-4">
+        <div class="text-primary font-bold text-[10px] sm:text-xs uppercase flex items-center gap-3 sm:gap-4 tracking-[0.25em] sm:tracking-[0.3em]">
+            <span class="w-8 sm:w-12 h-[1.5px] bg-primary"></span> CLINICAL PRECISION
         </div>
-        <div class="flex items-end justify-between gap-6">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-                <h2 class="font-headline text-6xl font-extrabold tracking-tighter leading-tight text-on-background">
+                <h2 class="font-headline text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight sm:tracking-tighter leading-tight text-on-background">
                     Patients <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Management</span>
                 </h2>
-                <p class="font-body text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-4">
+                <p class="font-body text-base sm:text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3 sm:mt-4">
                     Manage and view all registered patient records.
                 </p>
             </div>
-            <button id="addNewPatientBtn" class="bg-primary hover:bg-primary/90 text-white px-8 py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-primary/30 flex items-center gap-2 mb-2">
+            <button id="addNewPatientBtn" class="w-full sm:w-auto shrink-0 bg-primary hover:bg-primary/90 text-white px-6 sm:px-8 py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-2">
                 <span class="material-symbols-outlined text-sm">add</span>
                 Add New Patient
             </button>
         </div>
     </section>
 
-    <section class="elevated-card p-8 rounded-3xl">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+    <section class="elevated-card p-4 sm:p-6 lg:p-8 rounded-3xl">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             <div>
                 <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Search Records</label>
                 <div class="relative">
@@ -181,8 +181,11 @@ body { font-family: "Manrope", sans-serif; }
         </div>
     </section>
 
-    <section class="elevated-card rounded-3xl overflow-hidden">
-        <div class="overflow-x-auto">
+    <section id="patientsListSection" class="elevated-card rounded-3xl overflow-hidden">
+        <div id="patientsMobileList" class="lg:hidden divide-y divide-slate-100">
+            <p class="px-4 py-10 text-center text-slate-500 font-medium text-sm">Loading patients...</p>
+        </div>
+        <div class="hidden lg:block overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-slate-50/50">
@@ -200,15 +203,15 @@ body { font-family: "Manrope", sans-serif; }
                 </tbody>
             </table>
         </div>
-        <div class="p-6 bg-slate-50/30 border-t border-slate-100">
+        <div class="p-4 sm:p-6 bg-slate-50/30 border-t border-slate-100">
             <p id="recordsSummary" class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Showing 0 of 0 patients</p>
         </div>
     </section>
 </div>
 </main>
 
-<div id="addPatientModal" class="staff-modal-overlay fixed inset-0 z-[75] hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4">
-    <div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col">
+<div id="addPatientModal" class="staff-modal-overlay fixed inset-0 z-[75] hidden items-end sm:items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-0 sm:p-4">
+    <div class="staff-modal-panel bg-white rounded-t-3xl sm:rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col">
         <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
             <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
                 <span class="material-symbols-outlined text-2xl text-primary">person_add</span>
@@ -395,7 +398,7 @@ body { font-family: "Manrope", sans-serif; }
 </div>
 
 <div id="viewPatientModal" class="staff-modal-overlay fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-50 hidden flex justify-end">
-    <div id="viewPatientPanel" class="relative ml-auto h-full w-full max-w-xl lg:max-w-2xl bg-white shadow-[0_0_48px_-12px_rgba(15,23,42,0.18)] overflow-hidden border-l border-slate-200/90 flex flex-col transform translate-x-full transition-transform duration-300 ease-out rounded-l-2xl">
+    <div id="viewPatientPanel" class="relative ml-auto h-full w-full max-w-full sm:max-w-xl lg:max-w-2xl bg-white shadow-[0_0_48px_-12px_rgba(15,23,42,0.18)] overflow-hidden border-l border-slate-200/90 flex flex-col transform translate-x-full transition-transform duration-300 ease-out sm:rounded-l-2xl">
         <button type="button" id="closeViewPatientModal" class="absolute top-5 right-5 z-20 p-2 rounded-lg text-primary hover:text-primary/80 hover:bg-primary/10 transition-colors" aria-label="Close profile panel">
             <span class="material-symbols-outlined text-[22px]">close</span>
         </button>
@@ -665,6 +668,8 @@ let viewPatientCloseTimer = null;
 let activeProfilePatient = null;
 
 const tableBody = document.getElementById('patientsTableBody');
+const patientsMobileList = document.getElementById('patientsMobileList');
+const patientsListSection = document.getElementById('patientsListSection');
 const recordsSummary = document.getElementById('recordsSummary');
 const searchInput = document.getElementById('searchInput');
 const statusFilter = document.getElementById('statusFilter');
@@ -1341,55 +1346,96 @@ function validatePatientForm(payload) {
     return isValid;
 }
 
+function buildPatientStatusBadgeHtml(patient) {
+    const statusActive = patient.status !== 'inactive';
+    return `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 ${statusActive ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'} text-[10px] font-black rounded-full uppercase tracking-widest shrink-0">
+        <span class="w-1.5 h-1.5 rounded-full ${statusActive ? 'bg-emerald-500' : 'bg-slate-400'}"></span>
+        ${statusActive ? 'Active' : 'Inactive'}
+    </span>`;
+}
+
+function buildPatientActionsHtml(patient) {
+    return `<div class="flex flex-wrap items-center gap-2">
+        <button data-action="profile" data-id="${patient.id}" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 border border-primary/20 text-primary hover:bg-primary/5 rounded-xl transition-all text-xs font-bold uppercase tracking-wider">
+            <span class="material-symbols-outlined text-[16px]">badge</span>
+            View Profile
+        </button>
+        <button data-action="edit" data-id="${patient.id}" type="button" class="w-9 h-9 flex items-center justify-center border border-slate-200 text-slate-400 hover:text-primary hover:border-primary/20 rounded-xl transition-all" title="Edit Patient">
+            <span class="material-symbols-outlined text-lg">edit_square</span>
+        </button>
+        <button data-action="delete" data-id="${patient.id}" type="button" class="w-9 h-9 flex items-center justify-center border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-100 rounded-xl transition-all" title="Delete Patient">
+            <span class="material-symbols-outlined text-lg">delete</span>
+        </button>
+    </div>`;
+}
+
+function buildPatientTableRowHtml(patient) {
+    const fullName = `${patient.firstName} ${patient.lastName}`.trim() || 'Patient';
+    const initials = `${patient.firstName?.[0] || ''}${patient.lastName?.[0] || ''}`.toUpperCase() || 'PT';
+    return `
+        <tr class="hover:bg-slate-50/30 transition-colors group">
+            <td class="px-8 py-6">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary text-xs">${escapeHtml(initials)}</div>
+                    <div class="flex flex-col">
+                        <span class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">${escapeHtml(fullName)}</span>
+                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">ID: #${escapeHtml(patient.patientId || patient.id)}</span>
+                    </div>
+                </div>
+            </td>
+            <td class="px-6 py-6 text-sm font-bold text-slate-700">${escapeHtml(patient.contact || 'N/A')}</td>
+            <td class="px-6 py-6 text-sm font-medium text-slate-500">${escapeHtml(patient.email || 'N/A')}</td>
+            <td class="px-6 py-6 text-center text-sm font-semibold text-slate-600">${escapeHtml(patient.gender || 'N/A')}</td>
+            <td class="px-6 py-6 text-sm font-semibold text-slate-700">${escapeHtml(formatDate(patient.createdAt))}</td>
+            <td class="px-6 py-6">${buildPatientStatusBadgeHtml(patient)}</td>
+            <td class="px-8 py-6 text-right">${buildPatientActionsHtml(patient)}</td>
+        </tr>
+    `;
+}
+
+function buildPatientMobileCardHtml(patient) {
+    const fullName = `${patient.firstName} ${patient.lastName}`.trim() || 'Patient';
+    const initials = `${patient.firstName?.[0] || ''}${patient.lastName?.[0] || ''}`.toUpperCase() || 'PT';
+    return `
+        <article class="px-4 py-4 space-y-3">
+            <div class="flex items-start justify-between gap-3">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-10 h-10 shrink-0 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary text-xs">${escapeHtml(initials)}</div>
+                    <div class="min-w-0">
+                        <p class="text-sm font-bold text-slate-900 truncate">${escapeHtml(fullName)}</p>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">ID: #${escapeHtml(patient.patientId || patient.id)}</p>
+                    </div>
+                </div>
+                ${buildPatientStatusBadgeHtml(patient)}
+            </div>
+            <div class="grid grid-cols-1 gap-2 text-sm">
+                <p class="text-slate-700"><span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Contact · </span>${escapeHtml(patient.contact || 'N/A')}</p>
+                <p class="text-slate-600 break-all"><span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Email · </span>${escapeHtml(patient.email || 'N/A')}</p>
+                <div class="flex flex-wrap gap-x-4 gap-y-1 text-slate-600">
+                    <span><span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Gender · </span>${escapeHtml(patient.gender || 'N/A')}</span>
+                    <span><span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Registered · </span>${escapeHtml(formatDate(patient.createdAt))}</span>
+                </div>
+            </div>
+            ${buildPatientActionsHtml(patient)}
+        </article>
+    `;
+}
+
 function renderPatients(patients) {
     if (!patients.length) {
-        tableBody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-slate-500 font-medium">No patients found.</td></tr>';
+        const emptyMsg = 'No patients found.';
+        tableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-10 text-center text-slate-500 font-medium">${emptyMsg}</td></tr>`;
+        if (patientsMobileList) {
+            patientsMobileList.innerHTML = `<p class="px-4 py-10 text-center text-slate-500 font-medium text-sm">${emptyMsg}</p>`;
+        }
         recordsSummary.textContent = `Showing 0 of ${allPatientsData.length} patients`;
         return;
     }
 
-    tableBody.innerHTML = patients.map(patient => {
-        const fullName = `${patient.firstName} ${patient.lastName}`.trim() || 'Patient';
-        const initials = `${patient.firstName?.[0] || ''}${patient.lastName?.[0] || ''}`.toUpperCase() || 'PT';
-        const statusActive = patient.status !== 'inactive';
-        return `
-            <tr class="hover:bg-slate-50/30 transition-colors group">
-                <td class="px-8 py-6">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary text-xs">${escapeHtml(initials)}</div>
-                        <div class="flex flex-col">
-                            <span class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">${escapeHtml(fullName)}</span>
-                            <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">ID: #${escapeHtml(patient.patientId || patient.id)}</span>
-                        </div>
-                    </div>
-                </td>
-                <td class="px-6 py-6 text-sm font-bold text-slate-700">${escapeHtml(patient.contact || 'N/A')}</td>
-                <td class="px-6 py-6 text-sm font-medium text-slate-500">${escapeHtml(patient.email || 'N/A')}</td>
-                <td class="px-6 py-6 text-center text-sm font-semibold text-slate-600">${escapeHtml(patient.gender || 'N/A')}</td>
-                <td class="px-6 py-6 text-sm font-semibold text-slate-700">${escapeHtml(formatDate(patient.createdAt))}</td>
-                <td class="px-6 py-6">
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1 ${statusActive ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'} text-[10px] font-black rounded-full uppercase tracking-widest">
-                        <span class="w-1.5 h-1.5 rounded-full ${statusActive ? 'bg-emerald-500' : 'bg-slate-400'}"></span>
-                        ${statusActive ? 'Active' : 'Inactive'}
-                    </span>
-                </td>
-                <td class="px-8 py-6 text-right">
-                    <div class="flex justify-end gap-2">
-                        <button data-action="profile" data-id="${patient.id}" class="inline-flex items-center gap-1.5 px-3.5 py-2 border border-primary/20 text-primary hover:bg-primary/5 rounded-xl transition-all text-xs font-bold uppercase tracking-wider">
-                            <span class="material-symbols-outlined text-[16px]">badge</span>
-                            View Profile
-                        </button>
-                        <button data-action="edit" data-id="${patient.id}" class="w-9 h-9 flex items-center justify-center border border-slate-200 text-slate-400 hover:text-primary hover:border-primary/20 rounded-xl transition-all" title="Edit Patient">
-                            <span class="material-symbols-outlined text-lg">edit_square</span>
-                        </button>
-                        <button data-action="delete" data-id="${patient.id}" class="w-9 h-9 flex items-center justify-center border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-100 rounded-xl transition-all" title="Delete Patient">
-                            <span class="material-symbols-outlined text-lg">delete</span>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `;
-    }).join('');
+    tableBody.innerHTML = patients.map(buildPatientTableRowHtml).join('');
+    if (patientsMobileList) {
+        patientsMobileList.innerHTML = patients.map(buildPatientMobileCardHtml).join('');
+    }
 
     recordsSummary.textContent = `Showing ${patients.length} of ${allPatientsData.length} patients`;
 }
@@ -1432,7 +1478,11 @@ async function loadPatients() {
         allPatientsData = data.data.patients.map(normalizePatient);
         applyFilters();
     } catch (error) {
-        tableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-10 text-center text-red-500 font-medium">${escapeHtml(error.message || 'Unable to load patients.')}</td></tr>`;
+        const errMsg = escapeHtml(error.message || 'Unable to load patients.');
+        tableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-10 text-center text-red-500 font-medium">${errMsg}</td></tr>`;
+        if (patientsMobileList) {
+            patientsMobileList.innerHTML = `<p class="px-4 py-10 text-center text-red-500 font-medium text-sm">${errMsg}</p>`;
+        }
         recordsSummary.textContent = 'Showing 0 of 0 patients';
     }
 }
@@ -1810,7 +1860,7 @@ Object.keys(fieldValidators).forEach(fieldId => {
 });
 searchInput.addEventListener('change', applyFilters);
 
-tableBody.addEventListener('click', function (event) {
+function handlePatientListClick(event) {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
     const action = button.getAttribute('data-action');
@@ -1828,7 +1878,11 @@ tableBody.addEventListener('click', function (event) {
     } else if (action === 'delete') {
         deletePatient(id);
     }
-});
+}
+
+if (patientsListSection) {
+    patientsListSection.addEventListener('click', handlePatientListClick);
+}
 
 document.getElementById('schedulePatientBtn').addEventListener('click', () => {
     staffUiAlert({
