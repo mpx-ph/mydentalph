@@ -744,6 +744,7 @@ function formatPeso(amount) {
 function formatStatusLabel(rawStatus) {
     const status = String(rawStatus || '').trim().toLowerCase();
     if (!status) return 'Pending';
+    if (status === 'in_progress') return 'Checked-In';
     return status.replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 

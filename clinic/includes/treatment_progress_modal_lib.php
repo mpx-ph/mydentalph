@@ -200,7 +200,7 @@ function treatment_progress_overlay_staff_appointment_visit_status(array &$steps
 
     $labelMap = [
         'pending' => 'Pending',
-        'in_progress' => 'In Progress',
+        'in_progress' => 'Checked-In',
         'completed' => 'Completed',
         'cancelled' => 'Cancelled',
         'no_show' => 'No Show',

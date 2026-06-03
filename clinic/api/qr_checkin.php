@@ -182,7 +182,7 @@ try {
         'booking_id' => $bookingId,
         'patient_name' => $patientName,
         'status' => 'in_progress',
-        'status_label' => 'In Progress',
+        'status_label' => 'Checked-In',
     ]);
 } catch (Throwable $e) {
     error_log('qr_checkin: ' . $e->getMessage());

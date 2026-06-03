@@ -101,6 +101,9 @@ function normalizeAppointmentStatus($statusValue)
 function formatAppointmentStatusLabel($statusValue)
 {
     $normalized = normalizeAppointmentStatus($statusValue);
+    if ($normalized === 'in_progress') {
+        return 'Checked-In';
+    }
     return ucwords(str_replace('_', ' ', $normalized));
 }
 

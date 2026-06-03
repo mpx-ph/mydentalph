@@ -503,6 +503,9 @@ Manage Team
     }
     $st = strtolower(trim((string) ($ra['status'] ?? '')));
     $st_label = $st !== '' ? ucfirst(str_replace('_', ' ', $st)) : '—';
+    if ($st === 'in_progress') {
+        $st_label = 'Checked-In';
+    }
     $svc = trim((string) ($ra['service_type'] ?? ''));
     if ($svc === '') {
         $svc = 'Appointment';
@@ -521,6 +524,8 @@ Manage Team
         $badge_cls = 'bg-amber-50 text-amber-900';
     } elseif (in_array($st, ['cancelled', 'canceled', 'no_show'], true)) {
         $badge_cls = 'bg-red-50 text-red-800';
+    } elseif ($st === 'in_progress') {
+        $badge_cls = 'bg-blue-50 text-blue-700 border border-blue-200';
     }
 ?>
 <li class="py-4 first:pt-0 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">

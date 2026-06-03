@@ -49,6 +49,7 @@ function provider_tenant_appt_status_badge(string $raw): array
         'pending' => ['bg-amber-100 text-amber-900', 'Pending'],
         'confirmed' => ['bg-primary/10 text-primary', 'Confirmed'],
         'completed' => ['bg-emerald-100 text-emerald-900', 'Completed'],
+        'in_progress' => ['bg-blue-100 text-blue-900 border border-blue-200', 'Checked-In'],
         'cancelled', 'canceled' => ['bg-slate-100 text-on-surface-variant', 'Cancelled'],
         'no_show' => ['bg-rose-100 text-rose-800', 'No-show'],
         default => ['bg-slate-100 text-on-surface-variant', $raw !== '' ? ucfirst($s) : 'Unknown'],
@@ -65,7 +66,7 @@ $has_service_type = $t_appts !== '' && provider_tenant_table_has_column($pdo, $t
 $has_service_desc = $t_appts !== '' && provider_tenant_table_has_column($pdo, $t_appts, 'service_description');
 
 $filter_status = strtolower(trim((string) ($_GET['status'] ?? 'all')));
-$allowed_status = ['all', 'pending', 'confirmed', 'completed', 'cancelled', 'no_show'];
+$allowed_status = ['all', 'pending', 'confirmed', 'completed', 'cancelled', 'no_show', 'in_progress'];
 if (!in_array($filter_status, $allowed_status, true)) {
     $filter_status = 'all';
 }
@@ -646,6 +647,7 @@ if (isset($_GET['ajax']) && (string) $_GET['ajax'] === 'appointments_table') {
 <option value="all"<?php echo $filter_status === 'all' ? ' selected' : ''; ?>>All statuses</option>
 <option value="pending"<?php echo $filter_status === 'pending' ? ' selected' : ''; ?>>Pending</option>
 <option value="confirmed"<?php echo $filter_status === 'confirmed' ? ' selected' : ''; ?>>Confirmed</option>
+<option value="in_progress"<?php echo $filter_status === 'in_progress' ? ' selected' : ''; ?>>Checked-In</option>
 <option value="completed"<?php echo $filter_status === 'completed' ? ' selected' : ''; ?>>Completed</option>
 <option value="cancelled"<?php echo $filter_status === 'cancelled' ? ' selected' : ''; ?>>Cancelled</option>
 <option value="no_show"<?php echo $filter_status === 'no_show' ? ' selected' : ''; ?>>No-show</option>

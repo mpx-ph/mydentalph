@@ -609,12 +609,14 @@ if ($tenantId === '') {
         $dentistName = 'Unassigned Dentist';
     }
     $status = strtolower(trim((string) ($appointment['status'] ?? 'pending')));
-    $statusLabel = $status !== '' ? ucfirst(str_replace('_', ' ', $status)) : 'Pending';
+    $statusLabel = $status === 'in_progress' ? 'Checked-In' : ($status !== '' ? ucfirst(str_replace('_', ' ', $status)) : 'Pending');
     $statusClasses = 'bg-amber-50 text-amber-800';
     if ($status === 'completed') {
         $statusClasses = 'bg-emerald-50 text-emerald-800';
     } elseif ($status === 'confirmed') {
         $statusClasses = 'bg-sky-50 text-sky-800';
+    } elseif ($status === 'in_progress') {
+        $statusClasses = 'bg-blue-50 text-blue-800';
     } elseif ($status === 'cancelled' || $status === 'no_show') {
         $statusClasses = 'bg-slate-100 text-slate-700';
     }

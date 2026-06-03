@@ -732,7 +732,7 @@ try {
 $statusLabels = [
     'all' => 'All Statuses',
     'pending' => 'Pending',
-    'in_progress' => 'In Progress',
+    'in_progress' => 'Checked-In',
     'completed' => 'Completed',
     'cancelled' => 'Cancelled',
     'no_show' => 'No Show',
@@ -740,7 +740,7 @@ $statusLabels = [
 /** Human-readable label for a normalized appointment status (Daily Schedule, modal). */
 $appointmentStatusText = [
     'pending' => 'Pending',
-    'in_progress' => 'In Progress',
+    'in_progress' => 'Checked-In',
     'completed' => 'Completed',
     'cancelled' => 'Cancelled',
     'no_show' => 'No Show',
@@ -962,7 +962,7 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
                     <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event_available</span>
                 </div>
                 <p class="text-4xl font-extrabold tracking-tight"><?php echo number_format($summary['in_progress']); ?></p>
-                <p class="text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">In Progress</p>
+                <p class="text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Checked-In</p>
             </div>
             <div class="elevated-card p-7 rounded-3xl">
                 <div class="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-5">
@@ -1350,7 +1350,7 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
                                 <input type="hidden" name="modal_booking_id" id="statusBookingId" value=""/>
                                 <select id="statusSelector" name="update_status" class="w-full bg-white border border-slate-200 rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 text-sm font-bold text-slate-700">
                                     <option value="pending">Pending</option>
-                                    <option value="in_progress">In Progress</option>
+                                    <option value="in_progress">Checked-In</option>
                                     <option value="completed">Completed</option>
                                     <option value="cancelled">Cancelled</option>
                                     <option value="no_show">No Show</option>
@@ -1607,7 +1607,7 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
         }
         if (qrCheckInSuccessPatient) qrCheckInSuccessPatient.textContent = data.patient_name || '';
         if (qrCheckInSuccessBooking) qrCheckInSuccessBooking.textContent = data.booking_id || '';
-        if (qrCheckInSuccessStatus) qrCheckInSuccessStatus.textContent = data.status_label || data.status || 'In Progress';
+        if (qrCheckInSuccessStatus) qrCheckInSuccessStatus.textContent = data.status_label || data.status || 'Checked-In';
         qrCheckInSuccessModal.classList.remove('hidden');
         qrCheckInSuccessModal.classList.add('flex');
         qrCheckInSuccessModal.setAttribute('aria-hidden', 'false');
@@ -1671,7 +1671,7 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
             openQrCheckInSuccessModal({
                 patient_name: d.patient_name || '',
                 booking_id: d.booking_id || '',
-                status_label: d.status_label || 'In Progress',
+                status_label: d.status_label || 'Checked-In',
                 status: d.status || 'in_progress',
             });
         } catch (err) {

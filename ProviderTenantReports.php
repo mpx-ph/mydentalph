@@ -1304,7 +1304,7 @@ Payment records are not available for this tenant context. Connect <code class="
 <p class="text-[11px] font-black uppercase tracking-[0.28em] text-slate-900">Clinic operations</p>
 <p class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/55 mt-1">Appointment lifecycle breakdown</p>
 </div>
-<span class="shrink-0 min-w-[2.25rem] h-9 px-2 rounded-full bg-slate-900 text-white text-xs font-black flex items-center justify-center" title="Confirmed + completed + in progress"><?php echo (int) $ops_total; ?></span>
+<span class="shrink-0 min-w-[2.25rem] h-9 px-2 rounded-full bg-slate-900 text-white text-xs font-black flex items-center justify-center" title="Confirmed + completed + checked-in"><?php echo (int) $ops_total; ?></span>
 </div>
 <?php if ($t_appts === '') { ?>
 <p class="text-sm text-on-surface-variant font-medium mt-10">No appointment storage resolved.</p>
@@ -1332,7 +1332,7 @@ Payment records are not available for this tenant context. Connect <code class="
 </div>
 <div>
 <div class="flex justify-between items-center gap-2 mb-2">
-<span class="text-[9px] font-black uppercase tracking-wider text-on-surface-variant">In progress</span>
+<span class="text-[9px] font-black uppercase tracking-wider text-on-surface-variant">Checked-In</span>
 <span class="text-[11px] font-bold text-slate-700 tabular-nums"><?php echo (int) $n_in_progress; ?> (<?php echo (int) $pct_prog; ?>%)</span>
 </div>
 <div class="h-2 rounded-full bg-slate-100 overflow-hidden">
@@ -1472,7 +1472,7 @@ Payment records are not available for this tenant context. Connect <code class="
 <tbody>
 <tr><td>Confirmed</td><td class="reports-print-td-num"><?php echo (int) $n_confirmed; ?> <span class="reports-doc-muted">(<?php echo (int) $pct_conf; ?>%)</span></td></tr>
 <tr><td>Completed</td><td class="reports-print-td-num"><?php echo (int) $n_completed; ?> <span class="reports-doc-muted">(<?php echo (int) $pct_done; ?>%)</span></td></tr>
-<tr><td>In progress</td><td class="reports-print-td-num"><?php echo (int) $n_in_progress; ?> <span class="reports-doc-muted">(<?php echo (int) $pct_prog; ?>%)</span></td></tr>
+<tr><td>Checked-In</td><td class="reports-print-td-num"><?php echo (int) $n_in_progress; ?> <span class="reports-doc-muted">(<?php echo (int) $pct_prog; ?>%)</span></td></tr>
 </tbody>
 </table>
 </section>

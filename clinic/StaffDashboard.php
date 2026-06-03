@@ -359,12 +359,14 @@ try {
         $dentistName = 'Unassigned Dentist';
     }
     $status = strtolower(trim((string) ($booking['status'] ?? 'pending')));
-    $statusLabel = $status !== '' ? ucfirst(str_replace('_', ' ', $status)) : 'Pending';
+    $statusLabel = $status === 'in_progress' ? 'Checked-In' : ($status !== '' ? ucfirst(str_replace('_', ' ', $status)) : 'Pending');
     $statusClasses = 'bg-amber-50 text-amber-600';
     if ($status === 'completed') {
         $statusClasses = 'bg-emerald-50 text-emerald-600';
     } elseif ($status === 'confirmed') {
         $statusClasses = 'bg-primary/10 text-primary';
+    } elseif ($status === 'in_progress') {
+        $statusClasses = 'bg-blue-50 text-blue-700 border border-blue-200';
     } elseif ($status === 'cancelled' || $status === 'no_show') {
         $statusClasses = 'bg-slate-100 text-slate-600';
     }
