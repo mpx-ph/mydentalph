@@ -312,20 +312,20 @@ try {
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
+<main class="flex-1 flex flex-col min-w-0 ml-0 pt-[4.5rem] sm:pt-20 provider-page-enter">
     <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
 
-    <div class="p-10 space-y-8">
-        <section class="flex flex-col gap-4">
-            <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
-                <span class="w-12 h-[1.5px] bg-primary"></span> CLINIC SETTINGS
+    <div class="pt-4 sm:pt-6 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-6 sm:space-y-8">
+        <section class="flex flex-col gap-3 sm:gap-4">
+            <div class="text-primary font-bold text-[10px] sm:text-xs uppercase flex items-center gap-3 sm:gap-4 tracking-[0.25em] sm:tracking-[0.3em]">
+                <span class="w-8 sm:w-12 h-[1.5px] bg-primary"></span> CLINIC SETTINGS
             </div>
             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                    <h1 class="font-headline text-5xl font-extrabold tracking-tighter leading-tight text-on-background">
+                    <h1 class="font-headline text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight sm:tracking-tighter leading-tight text-on-background">
                         Clinic <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Hours</span>
                     </h1>
-                    <p class="font-body text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3">
+                    <p class="font-body text-base sm:text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-2 sm:mt-3">
                         Set a recurring weekly schedule—changes apply to every matching weekday on the calendar.
                     </p>
                 </div>
@@ -347,8 +347,8 @@ try {
             </section>
         <?php endif; ?>
 
-        <section class="elevated-card rounded-3xl p-7">
-            <div class="flex flex-col gap-4 mb-6">
+        <section class="elevated-card rounded-3xl p-4 sm:p-7">
+            <div class="flex flex-col gap-4 mb-5 sm:mb-6">
                 <div class="space-y-2">
                     <h2 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em]">Weekly Hours</h2>
                     <p class="text-xs font-medium text-slate-500 leading-relaxed max-w-2xl">
@@ -357,8 +357,57 @@ try {
                 </div>
             </div>
 
-            <div class="overflow-x-auto">
-                <div class="min-w-[640px] border border-slate-200 rounded-2xl overflow-hidden bg-white">
+            <div class="lg:hidden divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden bg-white">
+                <?php for ($dayOfWeekIndex = 0; $dayOfWeekIndex < 7; $dayOfWeekIndex++): ?>
+                    <?php
+                    $row = isset($fallbackRowsByDayIndex[$dayOfWeekIndex])
+                        ? $fallbackRowsByDayIndex[$dayOfWeekIndex]
+                        : ['open_time' => '08:00 AM', 'close_time' => '05:00 PM', 'is_closed' => false, 'notes' => '', 'open_time_raw' => '', 'close_time_raw' => ''];
+                    $dayNameLabel = isset($row['day']) ? (string) $row['day'] : $defaultClinicHoursRows[$dayOfWeekIndex]['day'];
+                    $statusLabel = $row['is_closed'] ? 'Closed' : 'Open';
+                    $statusClass = $row['is_closed']
+                        ? 'border-rose-200 bg-rose-50 text-rose-700'
+                        : 'border-emerald-200 bg-emerald-50 text-emerald-700';
+                    ?>
+                    <article class="px-4 py-4 flex items-start justify-between gap-3">
+                        <div class="min-w-0 flex-1 space-y-2">
+                            <p class="text-sm font-bold text-slate-800"><?php echo htmlspecialchars($dayNameLabel, ENT_QUOTES, 'UTF-8'); ?></p>
+                            <div class="grid grid-cols-2 gap-3 text-sm">
+                                <div>
+                                    <p class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Open</p>
+                                    <p class="font-semibold text-slate-700 mt-0.5"><?php echo htmlspecialchars($row['open_time'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Close</p>
+                                    <p class="font-semibold text-slate-700 mt-0.5"><?php echo htmlspecialchars($row['close_time'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                </div>
+                            </div>
+                            <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] <?php echo $statusClass; ?>">
+                                <?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?>
+                            </span>
+                        </div>
+                        <button
+                            type="button"
+                            data-open-modal="editClinicHoursModal"
+                            data-day="<?php echo htmlspecialchars($dayNameLabel, ENT_QUOTES, 'UTF-8'); ?>"
+                            data-day-index="<?php echo htmlspecialchars((string) $dayOfWeekIndex, ENT_QUOTES, 'UTF-8'); ?>"
+                            data-open-time="<?php echo htmlspecialchars($row['open_time'], ENT_QUOTES, 'UTF-8'); ?>"
+                            data-close-time="<?php echo htmlspecialchars($row['close_time'], ENT_QUOTES, 'UTF-8'); ?>"
+                            data-open-time-raw="<?php echo htmlspecialchars(isset($row['open_time_raw']) ? (string) $row['open_time_raw'] : '', ENT_QUOTES, 'UTF-8'); ?>"
+                            data-close-time-raw="<?php echo htmlspecialchars(isset($row['close_time_raw']) ? (string) $row['close_time_raw'] : '', ENT_QUOTES, 'UTF-8'); ?>"
+                            data-notes="<?php echo htmlspecialchars(isset($row['notes']) ? (string) $row['notes'] : '', ENT_QUOTES, 'UTF-8'); ?>"
+                            data-is-closed="<?php echo $row['is_closed'] ? '1' : '0'; ?>"
+                            class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 transition-colors"
+                            aria-label="Edit clinic hours for <?php echo htmlspecialchars($dayNameLabel, ENT_QUOTES, 'UTF-8'); ?>"
+                        >
+                            <span class="material-symbols-outlined text-[20px]">edit</span>
+                        </button>
+                    </article>
+                <?php endfor; ?>
+            </div>
+
+            <div class="hidden lg:block overflow-x-auto">
+                <div class="min-w-0 border border-slate-200 rounded-2xl overflow-hidden bg-white">
                     <table class="w-full text-sm">
                         <thead class="bg-slate-50 border-b border-slate-200">
                         <tr>
@@ -424,8 +473,8 @@ try {
     </div>
 </main>
 
-<div id="editClinicHoursModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/45">
-    <div class="modal-shell modal-surface w-full max-w-xl overflow-hidden rounded-[1.9rem]">
+<div id="editClinicHoursModal" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/45">
+    <div class="modal-shell modal-surface w-full max-w-xl overflow-hidden rounded-t-[1.9rem] sm:rounded-[1.9rem] max-h-[92vh] sm:max-h-none flex flex-col">
         <div class="px-6 sm:px-7 py-5 border-b border-slate-200/80 flex items-start justify-between gap-4">
             <div>
                 <span class="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
