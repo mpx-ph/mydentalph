@@ -114,31 +114,30 @@ if (!isset($currentTenantSlug)) {
 <!-- SideNavBar Component -->
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
 <!-- Main Wrapper -->
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
+<main class="flex-1 flex flex-col min-w-0 ml-0 pt-[4.5rem] sm:pt-20 provider-page-enter">
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
-<!-- Scrollable Content -->
-<div class="p-10 space-y-10">
+<div class="pt-4 sm:pt-6 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-6 sm:space-y-8">
 <!-- Page Header -->
-<section class="flex flex-col gap-4 mb-4">
-<div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
-<span class="w-12 h-[1.5px] bg-primary"></span> USER MANAGEMENT
+<section class="flex flex-col gap-3 sm:gap-4">
+<div class="text-primary font-bold text-[10px] sm:text-xs uppercase flex items-center gap-3 sm:gap-4 tracking-[0.25em] sm:tracking-[0.3em]">
+<span class="w-8 sm:w-12 h-[1.5px] bg-primary"></span> USER MANAGEMENT
                 </div>
-<div class="flex items-end justify-between">
+<div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
 <div>
-<h2 class="font-headline text-6xl font-extrabold tracking-tighter leading-tight text-on-background">
+<h2 class="font-headline text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight sm:tracking-tighter leading-tight text-on-background">
                             User <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Management</span>
 </h2>
-<p class="font-body text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-4">
+<p class="font-body text-base sm:text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3 sm:mt-4">
                             Manage practitioner access and administrative permissions for your clinic.
                         </p>
 </div>
-<div class="flex items-center gap-4">
-<div class="relative">
+<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 w-full lg:w-auto">
+<div class="relative w-full sm:flex-1 lg:w-72">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base">search</span>
-<input id="userSearchInput" class="pl-10 pr-4 py-3 w-72 bg-white border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl focus:ring-primary/20 focus:border-primary transition-all outline-none" placeholder="Search name, email or role..." type="text"/>
+<input id="userSearchInput" class="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl focus:ring-primary/20 focus:border-primary transition-all outline-none" placeholder="Search name, email or role..." type="text"/>
 </div>
-<div class="relative">
-<select id="roleFilterSelect" class="appearance-none bg-white border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl px-5 py-3 pr-10 focus:ring-primary/20 focus:border-primary transition-all outline-none">
+<div class="relative w-full sm:w-auto">
+<select id="roleFilterSelect" class="w-full appearance-none bg-white border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl px-5 py-3 pr-10 focus:ring-primary/20 focus:border-primary transition-all outline-none">
 <option value="">All Roles</option>
 <option value="manager">Manager</option>
 <option value="doctor">Doctor</option>
@@ -151,14 +150,14 @@ if (!isset($currentTenantSlug)) {
 </div>
 </section>
 <!-- User Registry Table -->
-<section class="elevated-card rounded-3xl overflow-hidden">
-<div class="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
+<section id="usersListSection" class="elevated-card rounded-3xl overflow-hidden">
+<div class="p-4 sm:p-6 lg:p-8 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white">
 <div>
-<h3 class="text-2xl font-bold font-headline text-on-background">User Registry</h3>
-<p class="text-[11px] text-on-surface-variant/60 font-black uppercase tracking-widest mt-1">Practitioner profiles and access logs</p>
+<h3 class="text-xl sm:text-2xl font-bold font-headline text-on-background">User Registry</h3>
+<p class="text-[10px] sm:text-[11px] text-on-surface-variant/60 font-black uppercase tracking-widest mt-1">Practitioner profiles and access logs</p>
 </div>
-<div class="relative">
-<select id="statusFilterSelect" class="appearance-none bg-white border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl px-5 py-2.5 pr-10 focus:ring-primary/20 focus:border-primary transition-all outline-none">
+<div class="relative w-full sm:w-auto">
+<select id="statusFilterSelect" class="w-full appearance-none bg-white border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-xl px-5 py-2.5 pr-10 focus:ring-primary/20 focus:border-primary transition-all outline-none">
 <option value="">All Status</option>
 <option value="active">Active</option>
 <option value="inactive">Suspended</option>
@@ -166,7 +165,10 @@ if (!isset($currentTenantSlug)) {
 <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm">expand_more</span>
 </div>
 </div>
-<div class="overflow-x-auto">
+<div id="usersMobileList" class="lg:hidden divide-y divide-slate-100 px-4 sm:px-6">
+<p class="py-10 text-center text-slate-500 font-medium text-sm">Loading users...</p>
+</div>
+<div class="hidden lg:block overflow-x-auto">
 <table class="w-full text-left border-collapse">
 <thead>
 <tr class="bg-slate-50/50">
@@ -185,22 +187,23 @@ if (!isset($currentTenantSlug)) {
 </table>
 </div>
 <!-- Pagination Footer -->
-<div class="p-6 bg-slate-50/30 border-t border-slate-100 flex items-center justify-between">
-<p id="recordsSummary" class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Showing 0 of 0 users</p>
+<div class="p-4 sm:p-6 bg-slate-50/30 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+<p id="recordsSummary" class="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest text-center sm:text-left">Showing 0 of 0 users</p>
 </div>
 </section>
+<div class="h-10"></div>
 </div>
-<div class="staff-modal-overlay fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4" id="editUserModal">
-<div class="staff-modal-panel bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 border border-slate-200">
-<div class="flex items-center justify-between mb-6">
-<h2 class="text-2xl font-bold text-slate-900">Update User Details</h2>
+<div class="staff-modal-overlay fixed inset-0 bg-black/50 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4" id="editUserModal">
+<div class="staff-modal-panel bg-white rounded-t-3xl sm:rounded-2xl shadow-xl max-w-xl w-full p-5 sm:p-6 border border-slate-200 max-h-[92vh] overflow-y-auto">
+<div class="flex items-center justify-between mb-5 sm:mb-6">
+<h2 class="text-xl sm:text-2xl font-bold text-slate-900">Update User Details</h2>
 <button class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" id="closeEditModal" type="button">
 <span class="material-symbols-outlined text-[24px]">close</span>
 </button>
 </div>
 <form class="space-y-4" id="editUserForm">
 <input id="editUserId" type="hidden"/>
-<div class="grid grid-cols-2 gap-3">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 <div>
 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1" for="editFirstName">First name</label>
 <input class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" id="editFirstName" required type="text"/>
@@ -210,7 +213,7 @@ if (!isset($currentTenantSlug)) {
 <input class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" id="editLastName" required type="text"/>
 </div>
 </div>
-<div class="grid grid-cols-2 gap-3">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 <div>
 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1" for="editEmail">Email</label>
 <input class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" id="editEmail" required type="email"/>
@@ -220,7 +223,7 @@ if (!isset($currentTenantSlug)) {
 <input class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" id="editUsername" type="text"/>
 </div>
 </div>
-<div class="grid grid-cols-2 gap-3">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 <div>
 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1" for="editRole">Role</label>
 <select class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" id="editRole">
@@ -239,17 +242,17 @@ if (!isset($currentTenantSlug)) {
 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1" for="editPassword">New password (optional)</label>
 <input class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" id="editPassword" placeholder="Leave blank to keep current password" type="password"/>
 </div>
-<div class="flex justify-end gap-3 pt-3">
-<button class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-sm" id="cancelEditBtn" type="button">Cancel</button>
-<button class="px-4 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl font-semibold text-sm" type="submit">Save Changes</button>
+<div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-3">
+<button class="w-full sm:w-auto px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-sm" id="cancelEditBtn" type="button">Cancel</button>
+<button class="w-full sm:w-auto px-4 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl font-semibold text-sm" type="submit">Save Changes</button>
 </div>
 </form>
 </div>
 </div>
 <!-- Site Footer -->
-<footer class="mt-auto px-10 py-8 border-t border-slate-100 flex justify-between items-center text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-<p>© 2024 Precision Dental Clinic System. All clinical data encrypted.</p>
-<div class="flex gap-8">
+<footer class="mt-auto px-4 sm:px-10 py-6 sm:py-8 border-t border-slate-100 flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+<p class="text-center sm:text-left">© 2024 Precision Dental Clinic System. All clinical data encrypted.</p>
+<div class="flex flex-wrap justify-center sm:justify-end gap-4 sm:gap-8">
 <a class="hover:text-primary transition-colors" href="#">Privacy Protocol</a>
 <a class="hover:text-primary transition-colors" href="#">System Status</a>
 <a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
@@ -257,12 +260,14 @@ if (!isset($currentTenantSlug)) {
 </footer>
 </main>
 <!-- Floating Action Button -->
-<button class="fixed bottom-8 right-8 w-14 h-14 bg-primary text-white rounded-2xl shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50">
+<button class="fixed bottom-5 right-4 sm:bottom-8 sm:right-8 w-12 h-12 sm:w-14 sm:h-14 bg-primary text-white rounded-2xl shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50">
 <span class="material-symbols-outlined text-2xl">add</span>
 </button>
 <script src="<?php echo htmlspecialchars(BASE_URL, ENT_QUOTES, 'UTF-8'); ?>js/staff-ui-dialogs.js"></script>
 <script>
 const API_USERS_URL = <?php echo json_encode(rtrim((string) dirname($_SERVER['SCRIPT_NAME']), '/\\') . '/api/users.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+const usersListSection = document.getElementById('usersListSection');
+const usersMobileList = document.getElementById('usersMobileList');
 const usersTableBody = document.getElementById('usersTableBody');
 const recordsSummary = document.getElementById('recordsSummary');
 const userSearchInput = document.getElementById('userSearchInput');
@@ -316,42 +321,81 @@ function initialsFromName(firstName, lastName, email) {
     return String(email || 'U').charAt(0).toUpperCase();
 }
 
+function userStatusToggleHtml(user) {
+    const isActive = String(user.status || '').toLowerCase() === 'active';
+    return ''
+        + '<label class="inline-flex items-center cursor-pointer">'
+        + '<input class="sr-only peer user-status-toggle" data-user-id="' + escapeHtml(user.id) + '" type="checkbox" ' + (isActive ? 'checked' : '') + '>'
+        + '<div class="relative w-11 h-6 bg-slate-200 rounded-full peer-checked:bg-primary after:content-[\'\'] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>'
+        + '<span class="ms-3 text-xs font-medium text-slate-600 status-label">' + (isActive ? 'Active' : 'Suspended') + '</span>'
+        + '</label>';
+}
+
+function buildUserTableRowHtml(user) {
+    const fullName = (String(user.first_name || '') + ' ' + String(user.last_name || '')).trim() || String(user.email || 'User');
+    const initials = initialsFromName(user.first_name, user.last_name, user.email);
+    return ''
+        + '<tr class="hover:bg-slate-50/30 transition-colors group" data-user-id="' + escapeHtml(user.id) + '">'
+        + '<td class="px-8 py-6"><div class="flex items-center gap-4">'
+        + '<div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">' + escapeHtml(initials) + '</div>'
+        + '<div><p class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">' + escapeHtml(fullName) + '</p>'
+        + '<p class="text-[10px] text-slate-500 font-medium mt-0.5">' + escapeHtml(user.email || '') + '</p></div></div></td>'
+        + '<td class="px-6 py-6">' + roleBadge(user.user_type) + '</td>'
+        + '<td class="px-6 py-6 text-sm font-semibold text-slate-700">' + escapeHtml(formatLastLogin(user.last_login)) + '</td>'
+        + '<td class="px-6 py-6">' + userStatusToggleHtml(user) + '</td>'
+        + '<td class="px-8 py-6 text-right"><button type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 rounded-xl transition-all text-xs font-bold uppercase tracking-wider edit-user-btn" data-user-id="' + escapeHtml(user.id) + '"><span class="material-symbols-outlined text-[16px]">edit_square</span>Update</button></td>'
+        + '</tr>';
+}
+
+function buildUserMobileCardHtml(user) {
+    const fullName = (String(user.first_name || '') + ' ' + String(user.last_name || '')).trim() || String(user.email || 'User');
+    const initials = initialsFromName(user.first_name, user.last_name, user.email);
+    return ''
+        + '<article class="py-4 first:pt-5 last:pb-5" data-user-id="' + escapeHtml(user.id) + '">'
+        + '<div class="flex items-start gap-3">'
+        + '<div class="w-10 h-10 shrink-0 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">' + escapeHtml(initials) + '</div>'
+        + '<div class="min-w-0 flex-1">'
+        + '<p class="text-sm font-bold text-slate-900 leading-snug">' + escapeHtml(fullName) + '</p>'
+        + '<p class="text-[10px] text-slate-500 font-medium mt-0.5 break-all">' + escapeHtml(user.email || '') + '</p>'
+        + '<div class="mt-2">' + roleBadge(user.user_type) + '</div>'
+        + '</div></div>'
+        + '<dl class="mt-3 space-y-2 text-xs">'
+        + '<div class="flex justify-between gap-3"><dt class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Last login</dt><dd class="font-semibold text-slate-700">' + escapeHtml(formatLastLogin(user.last_login)) + '</dd></div>'
+        + '<div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100"><dt class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</dt><dd>' + userStatusToggleHtml(user) + '</dd></div>'
+        + '</dl>'
+        + '<button type="button" class="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 rounded-xl transition-all text-xs font-bold uppercase tracking-wider edit-user-btn" data-user-id="' + escapeHtml(user.id) + '"><span class="material-symbols-outlined text-[16px]">edit_square</span>Update</button>'
+        + '</article>';
+}
+
+function setUsersListMessage(message, tone) {
+    const msgClass = tone === 'error' ? 'text-red-500' : 'text-slate-500';
+    if (usersMobileList) {
+        usersMobileList.innerHTML = '<p class="py-10 text-center font-medium text-sm ' + msgClass + '">' + escapeHtml(message) + '</p>';
+    }
+    if (usersTableBody) {
+        usersTableBody.innerHTML = '<tr><td class="px-6 py-10 text-center font-medium ' + msgClass + '" colspan="5">' + escapeHtml(message) + '</td></tr>';
+    }
+}
+
 function renderUsers(users) {
     if (!Array.isArray(users) || users.length === 0) {
-        usersTableBody.innerHTML = '<tr><td class="px-6 py-10 text-center text-slate-500 font-medium" colspan="5">No users found.</td></tr>';
+        setUsersListMessage('No users found.', 'empty');
         recordsSummary.textContent = 'Showing 0 of 0 users';
         return;
     }
 
-    usersTableBody.innerHTML = users.map(function (user) {
-        const fullName = (String(user.first_name || '') + ' ' + String(user.last_name || '')).trim() || String(user.email || 'User');
-        const initials = initialsFromName(user.first_name, user.last_name, user.email);
-        const isActive = String(user.status || '').toLowerCase() === 'active';
-        return ''
-            + '<tr class="hover:bg-slate-50/30 transition-colors group">'
-            + '<td class="px-8 py-6"><div class="flex items-center gap-4">'
-            + '<div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">' + escapeHtml(initials) + '</div>'
-            + '<div><p class="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">' + escapeHtml(fullName) + '</p>'
-            + '<p class="text-[10px] text-slate-500 font-medium mt-0.5">' + escapeHtml(user.email || '') + '</p></div></div></td>'
-            + '<td class="px-6 py-6">' + roleBadge(user.user_type) + '</td>'
-            + '<td class="px-6 py-6 text-sm font-semibold text-slate-700">' + escapeHtml(formatLastLogin(user.last_login)) + '</td>'
-            + '<td class="px-6 py-6"><label class="inline-flex items-center cursor-pointer">'
-            + '<input class="sr-only peer user-status-toggle" data-user-id="' + escapeHtml(user.id) + '" type="checkbox" ' + (isActive ? 'checked' : '') + '>'
-            + '<div class="relative w-11 h-6 bg-slate-200 rounded-full peer-checked:bg-primary after:content-[\'\'] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>'
-            + '<span class="ms-3 text-xs font-medium text-slate-600 status-label">' + (isActive ? 'Active' : 'Suspended') + '</span></label></td>'
-            + '<td class="px-8 py-6 text-right"><button class="inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 rounded-xl transition-all text-xs font-bold uppercase tracking-wider edit-user-btn" data-user-id="' + escapeHtml(user.id) + '"><span class="material-symbols-outlined text-[16px]">edit_square</span>Update</button></td>'
-            + '</tr>';
-    }).join('');
+    if (usersMobileList) {
+        usersMobileList.innerHTML = users.map(buildUserMobileCardHtml).join('');
+    }
+    if (usersTableBody) {
+        usersTableBody.innerHTML = users.map(buildUserTableRowHtml).join('');
+    }
 
     recordsSummary.textContent = 'Showing ' + users.length + ' of ' + users.length + ' users';
-
-    usersTableBody.querySelectorAll('.user-status-toggle').forEach(function (toggle) {
-        toggle.addEventListener('change', handleStatusToggle);
-    });
 }
 
 async function loadUsers() {
-    usersTableBody.innerHTML = '<tr><td class="px-6 py-10 text-center text-slate-500 font-medium" colspan="5">Loading users...</td></tr>';
+    setUsersListMessage('Loading users...', 'loading');
     const params = new URLSearchParams();
     const search = (userSearchInput.value || '').trim();
     const role = roleFilterSelect.value;
@@ -370,7 +414,7 @@ async function loadUsers() {
         usersData = data.data.users;
         renderUsers(usersData);
     } catch (error) {
-        usersTableBody.innerHTML = '<tr><td class="px-6 py-10 text-center text-red-500 font-medium" colspan="5">' + escapeHtml(error.message || 'Unable to load users.') + '</td></tr>';
+        setUsersListMessage(error.message || 'Unable to load users.', 'error');
         recordsSummary.textContent = 'Showing 0 of 0 users';
     }
 }
@@ -390,11 +434,22 @@ async function handleStatusToggle(event) {
         if (!res.ok || !data.success) {
             throw new Error(data.message || 'Failed to update status.');
         }
-        const row = toggle.closest('tr');
-        const label = row ? row.querySelector('.status-label') : null;
-        if (label) label.textContent = isActive ? 'Active' : 'Suspended';
+        if (usersListSection) {
+            usersListSection.querySelectorAll('[data-user-id="' + CSS.escape(userId) + '"] .user-status-toggle').forEach(function (otherToggle) {
+                otherToggle.checked = isActive;
+            });
+            usersListSection.querySelectorAll('[data-user-id="' + CSS.escape(userId) + '"] .status-label').forEach(function (label) {
+                label.textContent = isActive ? 'Active' : 'Suspended';
+            });
+        }
     } catch (error) {
-        toggle.checked = !isActive;
+        if (usersListSection) {
+            usersListSection.querySelectorAll('[data-user-id="' + CSS.escape(userId) + '"] .user-status-toggle').forEach(function (otherToggle) {
+                otherToggle.checked = !isActive;
+            });
+        } else {
+            toggle.checked = !isActive;
+        }
         void staffUiAlert({ message: error.message || 'Failed to update user status.', variant: 'error', title: 'Status update failed' });
     }
 }
@@ -419,12 +474,20 @@ function closeEditModal() {
     editUserModal.classList.remove('flex');
 }
 
-usersTableBody.addEventListener('click', function (event) {
-    const editBtn = event.target.closest('.edit-user-btn');
-    if (editBtn) {
-        openEditModal(String(editBtn.dataset.userId || ''));
-    }
-});
+if (usersListSection) {
+    usersListSection.addEventListener('click', function (event) {
+        const editBtn = event.target.closest('.edit-user-btn');
+        if (editBtn) {
+            openEditModal(String(editBtn.dataset.userId || ''));
+        }
+    });
+    usersListSection.addEventListener('change', function (event) {
+        const toggle = event.target;
+        if (toggle && toggle.classList && toggle.classList.contains('user-status-toggle')) {
+            handleStatusToggle(event);
+        }
+    });
+}
 
 document.getElementById('closeEditModal').addEventListener('click', closeEditModal);
 document.getElementById('cancelEditBtn').addEventListener('click', closeEditModal);
