@@ -877,48 +877,49 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main id="appointmentsPageContent" class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
+<main id="appointmentsPageContent" class="flex-1 flex flex-col min-w-0 ml-0 pt-[4.5rem] sm:pt-20 provider-page-enter">
     <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
-    <div class="p-10 space-y-8">
+    <div class="pt-4 sm:pt-6 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-6 sm:space-y-8">
         <?php if ($pageNotice): ?>
             <?php $noticeIsSuccess = $pageNotice['type'] === 'success'; ?>
             <section class="rounded-2xl border px-4 py-3 <?php echo $noticeIsSuccess ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-700'; ?>">
                 <p class="text-sm font-semibold"><?php echo htmlspecialchars((string) $pageNotice['message'], ENT_QUOTES, 'UTF-8'); ?></p>
             </section>
         <?php endif; ?>
-        <section class="flex flex-col gap-4">
-            <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
-                <span class="w-12 h-[1.5px] bg-primary"></span> APPOINTMENT MANAGEMENT
+        <section class="flex flex-col gap-3 sm:gap-4">
+            <div class="text-primary font-bold text-[10px] sm:text-xs uppercase flex items-center gap-3 sm:gap-4 tracking-[0.25em] sm:tracking-[0.3em]">
+                <span class="w-8 sm:w-12 h-[1.5px] bg-primary"></span> APPOINTMENT MANAGEMENT
             </div>
             <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                    <h2 class="font-headline text-5xl font-extrabold tracking-tighter leading-tight text-on-background">
+                    <h2 class="font-headline text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight sm:tracking-tighter leading-tight text-on-background">
                         Bookings <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Manager</span>
                     </h2>
-                    <p class="font-body text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3">
+                    <p class="font-body text-base sm:text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-2 sm:mt-3">
                         Daily schedule with status tracking and treatment details.
                     </p>
                 </div>
-                <div class="shrink-0 pt-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-4 lg:gap-5">
-                    <div class="flex flex-col gap-2">
+                <div class="shrink-0 flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4 lg:gap-5 w-full lg:w-auto">
+                    <div class="flex flex-col gap-2 w-full sm:w-auto">
                         <label for="openPatientCheckInQrBtn" class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-widest">
                             Check In for Patient
                         </label>
                         <button
                             type="button"
                             id="openPatientCheckInQrBtn"
-                            class="booking-action-btn inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-blue-500 hover:from-primary hover:to-blue-600 text-white px-5 py-3 font-bold text-sm tracking-wide shadow-lg shadow-primary/30"
+                            class="booking-action-btn w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-blue-500 hover:from-primary hover:to-blue-600 text-white px-5 py-3 font-bold text-sm tracking-wide shadow-lg shadow-primary/30"
                             aria-label="Open patient check-in QR"
                         >
                             <span class="material-symbols-outlined text-[20px]" aria-hidden="true">qr_code_2</span>
+                            <span class="sm:hidden">Check in patient</span>
                         </button>
                     </div>
-                    <div class="flex flex-col gap-2">
-                        <span class="block text-[10px] font-black uppercase tracking-widest invisible pointer-events-none select-none" aria-hidden="true">&nbsp;</span>
+                    <div class="flex flex-col gap-2 w-full sm:w-auto">
+                        <span class="hidden sm:block text-[10px] font-black uppercase tracking-widest invisible pointer-events-none select-none" aria-hidden="true">&nbsp;</span>
                         <button
                             type="button"
                             id="openBookingTypeModalBtn"
-                            class="booking-action-btn inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-blue-500 hover:from-primary hover:to-blue-600 text-white px-5 py-3 font-bold text-sm tracking-wide shadow-lg shadow-primary/30"
+                            class="booking-action-btn w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-blue-500 hover:from-primary hover:to-blue-600 text-white px-5 py-3 font-bold text-sm tracking-wide shadow-lg shadow-primary/30"
                         >
                             <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">add_circle</span>
                             Add New Booking
@@ -928,8 +929,8 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
             </div>
         </section>
 
-        <section class="elevated-card p-6 rounded-3xl">
-            <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <section class="elevated-card p-4 sm:p-6 rounded-3xl">
+            <form method="get" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-end">
                 <input type="hidden" name="clinic_slug" value="<?php echo htmlspecialchars($currentTenantSlug, ENT_QUOTES, 'UTF-8'); ?>"/>
                 <input type="hidden" name="month" value="<?php echo htmlspecialchars($selectedMonth, ENT_QUOTES, 'UTF-8'); ?>"/>
                 <div>
@@ -950,45 +951,197 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
                     <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-widest mb-2">Search</label>
                     <input class="w-full bg-slate-50 border-none rounded-xl py-2.5 px-4 outline-none focus:ring-2 focus:ring-primary/20 text-sm font-bold" type="text" name="q" value="<?php echo htmlspecialchars($searchTerm, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Patient, booking, service"/>
                 </div>
-                <button class="bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-primary/25" type="submit">
+                <button class="sm:col-span-2 lg:col-span-1 w-full bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-primary/25" type="submit">
                     Apply Filters
                 </button>
             </form>
         </section>
 
-        <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="elevated-card p-7 rounded-3xl">
+        <section class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+            <div class="elevated-card p-5 sm:p-7 rounded-3xl">
                 <div class="w-11 h-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-5">
                     <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event_available</span>
                 </div>
-                <p class="text-4xl font-extrabold tracking-tight"><?php echo number_format($summary['in_progress']); ?></p>
+                <p class="text-3xl sm:text-4xl font-extrabold tracking-tight"><?php echo number_format($summary['in_progress']); ?></p>
                 <p class="text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Checked-In</p>
             </div>
-            <div class="elevated-card p-7 rounded-3xl">
+            <div class="elevated-card p-5 sm:p-7 rounded-3xl">
                 <div class="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-5">
                     <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">cancel</span>
                 </div>
-                <p class="text-4xl font-extrabold tracking-tight"><?php echo number_format($summary['cancelled']); ?></p>
+                <p class="text-3xl sm:text-4xl font-extrabold tracking-tight"><?php echo number_format($summary['cancelled']); ?></p>
                 <p class="text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Cancelled</p>
             </div>
-            <div class="elevated-card p-7 rounded-3xl">
+            <div class="elevated-card p-5 sm:p-7 rounded-3xl">
                 <div class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-5">
                     <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">pending_actions</span>
                 </div>
-                <p class="text-4xl font-extrabold tracking-tight"><?php echo number_format($summary['pending']); ?></p>
+                <p class="text-3xl sm:text-4xl font-extrabold tracking-tight"><?php echo number_format($summary['pending']); ?></p>
                 <p class="text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mt-2">Pending</p>
             </div>
         </section>
 
-        <section class="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-            <div class="xl:col-span-2 elevated-card rounded-3xl overflow-hidden">
-                <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white">
-                    <h3 class="text-2xl font-bold font-headline text-on-background">Daily Schedule</h3>
+        <section class="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6 items-start">
+            <div class="order-1 xl:order-2 elevated-card rounded-3xl p-4 sm:p-6 self-start h-fit">
+                <div class="flex items-center justify-between mb-4 sm:mb-5">
+                    <a href="<?php echo htmlspecialchars(buildAppointmentsUrl(['month' => $prevMonth]), ENT_QUOTES, 'UTF-8'); ?>" class="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:text-primary hover:border-primary transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">chevron_left</span>
+                    </a>
+                    <h4 class="text-base sm:text-lg font-bold text-primary"><?php echo htmlspecialchars(date('F Y', strtotime($selectedMonth . '-01')), ENT_QUOTES, 'UTF-8'); ?></h4>
+                    <a href="<?php echo htmlspecialchars(buildAppointmentsUrl(['month' => $nextMonth]), ENT_QUOTES, 'UTF-8'); ?>" class="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:text-primary hover:border-primary transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">chevron_right</span>
+                    </a>
+                </div>
+                <div class="grid grid-cols-7 gap-1 sm:gap-2 text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                    <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+                </div>
+                <div class="grid grid-cols-7 gap-1 sm:gap-2">
+                    <?php
+                    $firstDayTs = strtotime($selectedMonth . '-01');
+                    $firstDayWeekIndex = (int) date('w', $firstDayTs ?: time());
+                    $daysInMonth = (int) date('t', $firstDayTs ?: time());
+                    for ($blank = 0; $blank < $firstDayWeekIndex; $blank++):
+                    ?>
+                        <div class="h-9 sm:h-10"></div>
+                    <?php endfor; ?>
+                    <?php for ($day = 1; $day <= $daysInMonth; $day++): ?>
+                        <?php
+                        $dayDate = sprintf('%s-%02d', $selectedMonth, $day);
+                        $isSelected = $dayDate === $selectedDate;
+                        $count = isset($monthCounts[$dayDate]) ? (int) $monthCounts[$dayDate] : 0;
+                        ?>
+                        <a
+                            href="<?php echo htmlspecialchars(buildAppointmentsUrl(['date' => $dayDate]), ENT_QUOTES, 'UTF-8'); ?>"
+                            class="h-9 sm:h-10 rounded-lg sm:rounded-xl border flex items-center justify-center relative text-xs sm:text-sm font-bold transition-colors <?php echo $isSelected ? 'bg-primary text-white border-primary' : 'border-slate-200 text-slate-700 hover:border-primary hover:text-primary'; ?>"
+                        >
+                            <?php echo (int) $day; ?>
+                            <?php if ($count > 0): ?>
+                                <span class="absolute bottom-0.5 sm:bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full <?php echo $isSelected ? 'bg-white' : 'bg-primary'; ?>"></span>
+                            <?php endif; ?>
+                        </a>
+                    <?php endfor; ?>
+                </div>
+            </div>
+
+            <div class="order-2 xl:order-1 xl:col-span-2 elevated-card rounded-3xl overflow-hidden">
+                <div class="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-white">
+                    <h3 class="text-xl sm:text-2xl font-bold font-headline text-on-background">Daily Schedule</h3>
                     <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                         <?php echo htmlspecialchars(date('M d, Y', strtotime($selectedDate)), ENT_QUOTES, 'UTF-8'); ?>
                     </p>
                 </div>
-                <div class="overflow-x-auto">
+                <div class="lg:hidden divide-y divide-slate-100 max-h-[32rem] overflow-y-auto">
+                    <?php if (empty($dailyAppointments)): ?>
+                        <p class="px-4 py-10 text-center text-slate-500 font-semibold text-sm">No appointments found for this day/filter.</p>
+                    <?php else: ?>
+                        <?php foreach ($dailyAppointments as $appointment): ?>
+                            <?php
+                            $patientName = trim(((string) ($appointment['patient_first_name'] ?? '')) . ' ' . ((string) ($appointment['patient_last_name'] ?? '')));
+                            if ($patientName === '') {
+                                $patientName = 'Unknown Patient';
+                            }
+                            $timeLabel = !empty($appointment['appointment_time']) ? date('g:i A', strtotime((string) $appointment['appointment_time'])) : '-';
+                            $statusResolved = staff_appointments_resolve_status_for_ui($appointment['status'] ?? '', $appointmentStatusText);
+                            $statusRaw = $statusResolved['code'];
+                            $statusLabel = $statusResolved['label'];
+                            $statusClass = $statusResolved['class'];
+                            $appointmentRowId = (int) ($appointment['appointment_row_id'] ?? 0);
+                            $serviceKey = $appointmentRowId > 0 ? ('id:' . $appointmentRowId) : ('booking:' . (string) ($appointment['booking_id'] ?? ''));
+                            $serviceLines = $appointmentServicesByKey[$serviceKey] ?? [];
+                            if (empty($serviceLines)) {
+                                $fallbackTypeLabel = trim((string) ($appointment['booking_type_label'] ?? 'Short Term'));
+                                if ($fallbackTypeLabel === '') {
+                                    $fallbackTypeLabel = 'Short Term';
+                                }
+                                $serviceLines[] = [
+                                    'name' => (string) ($appointment['service_type'] ?? 'General Consultation'),
+                                    'type_label' => $fallbackTypeLabel,
+                                    'raw_type' => $fallbackTypeLabel === 'Long Term' ? 'installment' : 'regular',
+                                ];
+                            }
+                            $hasInstallmentInLines = false;
+                            $serviceLineNames = [];
+                            foreach ($serviceLines as $line) {
+                                $serviceLineNames[] = (string) ($line['name'] ?? '');
+                                if (strtolower(trim((string) ($line['raw_type'] ?? 'regular'))) === 'installment') {
+                                    $hasInstallmentInLines = true;
+                                }
+                            }
+                            $typeLabel = $hasInstallmentInLines ? 'Long Term' : 'Short Term';
+                            $treatmentType = $hasInstallmentInLines ? 'long_term' : 'short_term';
+                            $serviceLabelForModal = implode(', ', array_values(array_filter($serviceLineNames, static function ($name) {
+                                return trim((string) $name) !== '';
+                            })));
+                            if ($serviceLabelForModal === '') {
+                                $serviceLabelForModal = (string) ($appointment['service_type'] ?? '');
+                            }
+                            $totalCost = (float) ($appointment['total_treatment_cost'] ?? 0);
+                            $totalPaid = (float) ($appointment['total_paid'] ?? 0);
+                            $pendingBalance = max(0, $totalCost - $totalPaid);
+                            $patientIdLabel = (string) ($appointment['patient_display_id'] ?? $appointment['patient_id'] ?? 'N/A');
+                            $staffLabel = trim((string) ($appointment['assigned_staff_name'] ?? ''));
+                            if ($staffLabel === '') {
+                                $staffLabel = 'Unassigned';
+                            }
+                            ?>
+                            <article class="px-4 py-4 space-y-3">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-bold text-primary"><?php echo htmlspecialchars($timeLabel, ENT_QUOTES, 'UTF-8'); ?></p>
+                                        <p class="text-sm font-bold text-slate-800 mt-1 truncate"><?php echo htmlspecialchars($patientName, ENT_QUOTES, 'UTF-8'); ?></p>
+                                        <p class="text-[10px] font-bold uppercase tracking-wide text-slate-500"><?php echo htmlspecialchars((string) $patientIdLabel, ENT_QUOTES, 'UTF-8'); ?></p>
+                                    </div>
+                                    <span class="inline-flex items-center justify-center px-2.5 py-1 rounded-full <?php echo htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8'); ?> text-[10px] font-black uppercase tracking-wider shrink-0">
+                                        <?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?>
+                                    </span>
+                                </div>
+                                <div class="space-y-2">
+                                    <?php foreach ($serviceLines as $line): ?>
+                                        <?php
+                                        $lineTypeLabel = (string) ($line['type_label'] ?? 'Short Term');
+                                        $lineTypeClass = strtolower(trim($lineTypeLabel)) === 'long term'
+                                            ? 'bg-orange-50 text-orange-700 border border-orange-200'
+                                            : 'bg-blue-50 text-blue-700 border border-blue-200';
+                                        ?>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <p class="text-sm font-semibold text-slate-700"><?php echo htmlspecialchars((string) ($line['name'] ?? 'General Consultation'), ENT_QUOTES, 'UTF-8'); ?></p>
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider <?php echo htmlspecialchars($lineTypeClass, ENT_QUOTES, 'UTF-8'); ?>">
+                                                <?php echo htmlspecialchars($lineTypeLabel, ENT_QUOTES, 'UTF-8'); ?>
+                                            </span>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                                <button
+                                    type="button"
+                                    class="open-treatment-modal w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 text-primary hover:border-primary py-2.5 text-sm font-bold transition-all"
+                                    data-booking-id="<?php echo htmlspecialchars((string) ($appointment['booking_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-patient-name="<?php echo htmlspecialchars($patientName, ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-patient-id="<?php echo htmlspecialchars((string) $patientIdLabel, ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-patient-contact="<?php echo htmlspecialchars((string) ($appointment['patient_contact_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-patient-email="<?php echo htmlspecialchars((string) ($appointment['patient_email'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-staff="<?php echo htmlspecialchars($staffLabel, ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-date="<?php echo htmlspecialchars(date('F j, Y', strtotime((string) ($appointment['appointment_date'] ?? $selectedDate))), ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-time="<?php echo htmlspecialchars($timeLabel, ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-type="<?php echo htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-treatment="<?php echo htmlspecialchars($serviceLabelForModal, ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-description="<?php echo htmlspecialchars((string) ($appointment['service_description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-cost="<?php echo htmlspecialchars((string) $totalCost, ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-total-paid="<?php echo htmlspecialchars((string) $totalPaid, ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-pending-balance="<?php echo htmlspecialchars((string) $pendingBalance, ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-notes="<?php echo htmlspecialchars((string) ($appointment['notes'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-status="<?php echo htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-status-raw="<?php echo htmlspecialchars($statusRaw, ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-treatment-type-raw="<?php echo htmlspecialchars($treatmentType, ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-existing-service-ids="<?php echo htmlspecialchars((string) ($appointment['appointment_service_ids'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                >
+                                    <span class="material-symbols-outlined text-[20px]">visibility</span>
+                                    View details
+                                </button>
+                            </article>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+                <div class="hidden lg:block overflow-x-auto">
                     <table class="w-full text-left">
                         <thead>
                         <tr class="bg-slate-50/70">
@@ -1128,51 +1281,10 @@ $qrCheckinApiUrl = BASE_URL . 'api/qr_checkin.php';
                         </tbody>
                     </table>
                 </div>
-                <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/40">
+                <div class="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 bg-slate-50/40">
                     <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                         Showing <?php echo number_format(count($dailyAppointments)); ?> appointment(s)
                     </p>
-                </div>
-            </div>
-
-            <div class="elevated-card rounded-3xl p-6 self-start h-fit">
-                <div class="flex items-center justify-between mb-5">
-                    <a href="<?php echo htmlspecialchars(buildAppointmentsUrl(['month' => $prevMonth]), ENT_QUOTES, 'UTF-8'); ?>" class="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:text-primary hover:border-primary transition-colors">
-                        <span class="material-symbols-outlined text-[18px]">chevron_left</span>
-                    </a>
-                    <h4 class="text-lg font-bold text-primary"><?php echo htmlspecialchars(date('F Y', strtotime($selectedMonth . '-01')), ENT_QUOTES, 'UTF-8'); ?></h4>
-                    <a href="<?php echo htmlspecialchars(buildAppointmentsUrl(['month' => $nextMonth]), ENT_QUOTES, 'UTF-8'); ?>" class="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:text-primary hover:border-primary transition-colors">
-                        <span class="material-symbols-outlined text-[18px]">chevron_right</span>
-                    </a>
-                </div>
-                <div class="grid grid-cols-7 gap-2 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
-                    <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
-                </div>
-                <div class="grid grid-cols-7 gap-2">
-                    <?php
-                    $firstDayTs = strtotime($selectedMonth . '-01');
-                    $firstDayWeekIndex = (int) date('w', $firstDayTs ?: time());
-                    $daysInMonth = (int) date('t', $firstDayTs ?: time());
-                    for ($blank = 0; $blank < $firstDayWeekIndex; $blank++):
-                    ?>
-                        <div class="h-10"></div>
-                    <?php endfor; ?>
-                    <?php for ($day = 1; $day <= $daysInMonth; $day++): ?>
-                        <?php
-                        $dayDate = sprintf('%s-%02d', $selectedMonth, $day);
-                        $isSelected = $dayDate === $selectedDate;
-                        $count = isset($monthCounts[$dayDate]) ? (int) $monthCounts[$dayDate] : 0;
-                        ?>
-                        <a
-                            href="<?php echo htmlspecialchars(buildAppointmentsUrl(['date' => $dayDate]), ENT_QUOTES, 'UTF-8'); ?>"
-                            class="h-10 rounded-xl border flex items-center justify-center relative text-sm font-bold transition-colors <?php echo $isSelected ? 'bg-primary text-white border-primary' : 'border-slate-200 text-slate-700 hover:border-primary hover:text-primary'; ?>"
-                        >
-                            <?php echo (int) $day; ?>
-                            <?php if ($count > 0): ?>
-                                <span class="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full <?php echo $isSelected ? 'bg-white' : 'bg-primary'; ?>"></span>
-                            <?php endif; ?>
-                        </a>
-                    <?php endfor; ?>
                 </div>
             </div>
         </section>
