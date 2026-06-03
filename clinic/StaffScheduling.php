@@ -2021,29 +2021,29 @@ $dentistsSeedData = array_map(static function ($dentist) {
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
+<main class="flex-1 flex flex-col min-w-0 ml-0 pt-[4.5rem] sm:pt-20 provider-page-enter">
     <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
 
-    <div class="p-10 space-y-8">
-        <section class="flex flex-col gap-4">
-            <div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
-                <span class="w-12 h-[1.5px] bg-primary"></span> DENTIST SCHEDULING
+    <div class="pt-4 sm:pt-6 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-6 sm:space-y-8">
+        <section class="flex flex-col gap-3 sm:gap-4">
+            <div class="text-primary font-bold text-[10px] sm:text-xs uppercase flex items-center gap-3 sm:gap-4 tracking-[0.25em] sm:tracking-[0.3em]">
+                <span class="w-8 sm:w-12 h-[1.5px] bg-primary"></span> DENTIST SCHEDULING
             </div>
             <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                 <div>
-                    <h1 class="font-headline text-5xl font-extrabold tracking-tighter leading-tight text-on-background">
+                    <h1 class="font-headline text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight sm:tracking-tighter leading-tight text-on-background">
                         My <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Schedule</span>
                     </h1>
-                    <p class="font-body text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3">
+                    <p class="font-body text-base sm:text-lg font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-2 sm:mt-3">
                         Manage your weekly schedule, appointments, and blocked time
                     </p>
                 </div>
-                <div class="mt-5 xl:mt-14 flex flex-wrap items-center gap-2.5 xl:justify-end">
-                    <button id="openBlockTimeModalBtn" type="button" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs uppercase tracking-widest transition-colors shadow-sm">
+                <div class="flex flex-col sm:flex-row gap-2.5 w-full xl:w-auto xl:mt-14 xl:justify-end">
+                    <button id="openBlockTimeModalBtn" type="button" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs uppercase tracking-widest transition-colors shadow-sm">
                         <span class="material-symbols-outlined text-base">add</span>
                         Block Time
                     </button>
-                    <button id="openSetShiftModalBtn" type="button" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 font-bold text-xs uppercase tracking-widest transition-colors shadow-sm">
+                    <button id="openSetShiftModalBtn" type="button" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 font-bold text-xs uppercase tracking-widest transition-colors shadow-sm">
                         <span class="material-symbols-outlined text-base">schedule</span>
                         Set Shift
                     </button>
@@ -2051,9 +2051,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
             </div>
         </section>
 
-        <section class="elevated-card p-6 rounded-3xl">
-            <form method="get" id="scheduleFilterForm" class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                <div class="lg:col-span-4">
+        <section class="elevated-card p-4 sm:p-6 rounded-3xl">
+            <form method="get" id="scheduleFilterForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4">
+                <div class="sm:col-span-2 lg:col-span-4">
                     <label class="block text-[10px] font-black text-on-surface-variant/60 uppercase tracking-[0.2em] mb-2">Dentist</label>
                     <input id="selectedDentistUserId" type="hidden" name="user_id" value="<?php echo htmlspecialchars($selectedDentistUserId, ENT_QUOTES, 'UTF-8'); ?>"/>
                     <input id="selectedDentistId" type="hidden" name="dentist_id" value="<?php echo htmlspecialchars($selectedDentistId, ENT_QUOTES, 'UTF-8'); ?>"/>
@@ -2085,9 +2085,9 @@ $dentistsSeedData = array_map(static function ($dentist) {
             </form>
         </section>
 
-        <section class="grid grid-cols-1 2xl:grid-cols-12 gap-6 items-start">
-            <aside class="2xl:col-span-3 space-y-6">
-                <div class="elevated-card rounded-3xl p-6">
+        <section class="grid grid-cols-1 2xl:grid-cols-12 gap-4 sm:gap-6 items-start">
+            <aside class="contents 2xl:block 2xl:col-span-3 2xl:space-y-6">
+                <div class="order-1 2xl:order-none elevated-card rounded-3xl p-4 sm:p-6">
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em]">Calendar</h2>
                         <div class="flex items-center gap-1.5">
@@ -2110,18 +2110,18 @@ $dentistsSeedData = array_map(static function ($dentist) {
                             </button>
                         </div>
                     </div>
-                    <div class="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">
+                    <div class="grid grid-cols-7 gap-1 sm:gap-1.5 text-center text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">
                         <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
                     </div>
-                    <div class="space-y-1.5">
+                    <div class="space-y-1 sm:space-y-1.5">
                         <?php foreach ($miniCalendar as $weekIndex => $weekRow): ?>
-                            <div class="grid grid-cols-7 gap-1.5">
+                            <div class="grid grid-cols-7 gap-1 sm:gap-1.5">
                                 <?php foreach ($weekRow as $cellDate): ?>
                                     <?php
                                     $dateNumber = (int) $cellDate->format('j');
                                     $isCurrentDate = $cellDate->format('Y-m-d') === $selectedDate->format('Y-m-d');
                                     $isActiveWeek = $cellDate >= $startOfWeek && $cellDate <= $endOfWeek;
-                                    $dateClasses = 'h-8 rounded-lg text-xs font-bold flex items-center justify-center border';
+                                    $dateClasses = 'h-9 sm:h-8 rounded-lg text-xs font-bold flex items-center justify-center border';
                                     if ($isCurrentDate) {
                                         $dateClasses .= ' bg-primary text-white border-primary';
                                     } elseif ($isActiveWeek) {
@@ -2144,7 +2144,7 @@ $dentistsSeedData = array_map(static function ($dentist) {
                     </div>
                 </div>
 
-                <div class="elevated-card rounded-3xl p-6">
+                <div class="order-3 2xl:order-none elevated-card rounded-3xl p-4 sm:p-6">
                     <h3 class="text-sm font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Legend</h3>
                     <div class="space-y-4">
                         <div>
@@ -2210,12 +2210,18 @@ $dentistsSeedData = array_map(static function ($dentist) {
                 </div>
             </aside>
 
-            <div class="2xl:col-span-9 elevated-card rounded-3xl p-5 lg:p-6 overflow-hidden">
-                <div class="mb-4 inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-extrabold uppercase tracking-[0.15em] <?php echo $isDentistFiltered ? 'border-primary/30 bg-primary/10 text-primary' : 'border-slate-200 bg-slate-50 text-slate-600'; ?>">
-                    <span class="material-symbols-outlined text-base"><?php echo $isDentistFiltered ? 'filter_alt' : 'groups'; ?></span>
-                    <?php echo htmlspecialchars($isDentistFiltered ? ('Filtered: ' . $selectedDentistName) : 'Overall View: All Dentists', ENT_QUOTES, 'UTF-8'); ?>
+            <div class="order-2 2xl:order-none 2xl:col-span-9 elevated-card rounded-3xl p-4 sm:p-5 lg:p-6 overflow-hidden min-w-0">
+                <div class="mb-3 sm:mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[10px] sm:text-xs font-extrabold uppercase tracking-[0.15em] max-w-full <?php echo $isDentistFiltered ? 'border-primary/30 bg-primary/10 text-primary' : 'border-slate-200 bg-slate-50 text-slate-600'; ?>">
+                        <span class="material-symbols-outlined text-base shrink-0"><?php echo $isDentistFiltered ? 'filter_alt' : 'groups'; ?></span>
+                        <span class="truncate"><?php echo htmlspecialchars($isDentistFiltered ? ('Filtered: ' . $selectedDentistName) : 'Overall View: All Dentists', ENT_QUOTES, 'UTF-8'); ?></span>
+                    </div>
+                    <p class="2xl:hidden text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1 shrink-0">
+                        <span class="material-symbols-outlined text-sm">swipe</span>
+                        Swipe for full week
+                    </p>
                 </div>
-                <div class="overflow-x-auto min-w-0 w-full" style="-webkit-overflow-scrolling: touch;">
+                <div class="overflow-x-auto min-w-0 w-full rounded-xl" style="-webkit-overflow-scrolling: touch;">
                     <div class="border border-slate-200 rounded-2xl overflow-hidden bg-white shrink-0" style="min-width: <?php echo (int) $scheduleGridMinWidth; ?>px;">
                         <div class="grid bg-slate-50 border-b border-slate-200" style="grid-template-columns: <?php echo htmlspecialchars($scheduleGridTemplateColumns, ENT_QUOTES, 'UTF-8'); ?>;">
                             <div class="px-3 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 sticky left-0 z-20 bg-slate-50 border-r border-slate-200 shadow-[2px_0_12px_-4px_rgba(15,23,42,0.1)]">Time</div>
