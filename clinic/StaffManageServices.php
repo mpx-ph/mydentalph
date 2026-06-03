@@ -147,41 +147,41 @@ try {
 </head>
 <body class="bg-background text-on-background mesh-bg min-h-screen flex">
 <?php include __DIR__ . '/includes/staff_portal_sidebar.php'; ?>
-<main class="flex-1 flex flex-col min-w-0 ml-64 pt-[4.5rem] sm:pt-20 provider-page-enter">
+<main class="flex-1 flex flex-col min-w-0 ml-0 pt-[4.5rem] sm:pt-20 provider-page-enter">
 <?php include __DIR__ . '/includes/staff_top_header.inc.php'; ?>
-<div class="p-10 space-y-8">
-<section class="flex flex-col gap-4">
-<div class="text-primary font-bold text-xs uppercase flex items-center gap-4 tracking-[0.3em]">
-<span class="w-12 h-[1.5px] bg-primary"></span> CLINICAL SERVICES
+<div class="pt-4 sm:pt-6 px-4 sm:px-6 lg:px-10 pb-12 sm:pb-16 space-y-6 sm:space-y-8">
+<section class="flex flex-col gap-3 sm:gap-4">
+<div class="text-primary font-bold text-[10px] sm:text-xs uppercase flex items-center gap-3 sm:gap-4 tracking-[0.25em] sm:tracking-[0.3em]">
+<span class="w-8 sm:w-12 h-[1.5px] bg-primary"></span> CLINICAL SERVICES
             </div>
-<div class="flex items-end justify-between gap-4 flex-wrap">
+<div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
 <div>
-<h2 class="font-headline text-6xl font-extrabold tracking-tighter leading-tight text-on-background">
+<h2 class="font-headline text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight sm:tracking-tighter leading-tight text-on-background">
                     Manage Services &amp; <span class="font-editorial italic font-normal text-primary transform -skew-x-6 inline-block">Pricing</span>
 </h2>
-<p class="font-body text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-4">Update clinic services, categories, and pricing for booking and billing.</p>
+<p class="font-body text-base sm:text-xl font-medium text-on-surface-variant max-w-3xl leading-relaxed mt-3 sm:mt-4">Update clinic services, categories, and pricing for booking and billing.</p>
 </div>
-<button id="openNewServiceBtn" class="px-6 py-3.5 bg-primary text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2">
+<button id="openNewServiceBtn" class="w-full sm:w-auto shrink-0 px-6 py-3.5 bg-primary text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
 <span class="material-symbols-outlined text-sm">add</span>
                     Add New Service
                 </button>
 </div>
 </section>
 
-<section class="elevated-card rounded-3xl overflow-hidden">
-<div class="p-6 border-b border-slate-100 flex flex-col gap-4 bg-white">
-<div class="flex items-center justify-between gap-3 flex-wrap">
-<div class="relative flex-1 min-w-[280px] max-w-xl">
+<section id="servicesListSection" class="elevated-card rounded-3xl overflow-hidden">
+<div class="p-4 sm:p-6 border-b border-slate-100 flex flex-col gap-4 bg-white">
+<div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+<div class="relative w-full lg:flex-1 lg:max-w-xl">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
 <input id="searchInput" class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" placeholder="Search services..." type="text"/>
 </div>
-<div class="flex items-center gap-3">
-<button id="exportCsvBtn" class="px-4 py-2.5 border border-slate-200 text-slate-700 text-[11px] font-bold uppercase tracking-wider rounded-xl hover:bg-slate-50 transition-all flex items-center gap-2">
+<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full lg:w-auto">
+<button id="exportCsvBtn" class="w-full sm:w-auto px-4 py-2.5 border border-slate-200 text-slate-700 text-[11px] font-bold uppercase tracking-wider rounded-xl hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
 <span class="material-symbols-outlined text-sm">download</span> Export CSV
                     </button>
-<div class="relative">
+<div class="relative w-full sm:w-auto">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">sort</span>
-<select id="sortSelect" class="appearance-none pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold uppercase tracking-wider focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer">
+<select id="sortSelect" class="w-full appearance-none pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold uppercase tracking-wider focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer">
 <option value="name">Sort: Name</option>
 <option value="price-high">Price: High-Low</option>
 <option value="price-low">Price: Low-High</option>
@@ -195,8 +195,11 @@ try {
 </div>
 </div>
 
-<div class="overflow-x-auto px-4 sm:px-6 md:px-8">
-<table class="w-full min-w-[56rem] text-left border-collapse table-fixed">
+<div id="servicesMobileList" class="lg:hidden divide-y divide-slate-100 px-4 sm:px-6">
+<p class="py-8 text-center text-sm text-slate-500">Loading services...</p>
+</div>
+<div class="hidden lg:block overflow-x-auto px-4 sm:px-6 md:px-8">
+<table class="w-full text-left border-collapse table-fixed">
 <colgroup>
 <col class="min-w-0" style="width: 20%"/>
 <col class="min-w-0" style="width: 20%"/>
@@ -221,17 +224,17 @@ try {
 </table>
 </div>
 
-<div id="paginationContainer" class="hidden py-4 px-4 sm:px-6 md:px-8 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between gap-4">
-<p id="paginationInfo" class="text-[11px] font-bold text-slate-500 uppercase tracking-widest"></p>
-<div id="paginationButtons" class="flex items-center gap-2"></div>
+<div id="paginationContainer" class="hidden py-4 px-4 sm:px-6 md:px-8 bg-slate-50/70 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+<p id="paginationInfo" class="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest text-center sm:text-left"></p>
+<div id="paginationButtons" class="flex flex-wrap items-center justify-center sm:justify-end gap-2"></div>
 </div>
 </section>
 </div>
 <div class="h-10"></div>
 </main>
 
-<div id="newServiceModal" class="staff-modal-overlay fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4">
-<div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col">
+<div id="newServiceModal" class="staff-modal-overlay fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-0 sm:p-4">
+<div class="staff-modal-panel bg-white rounded-t-3xl sm:rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col">
 <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
 <span class="material-symbols-outlined text-2xl text-primary">add</span>
@@ -444,8 +447,8 @@ Add Service
 </div>
 </div>
 
-<div id="editServiceModal" class="staff-modal-overlay fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-4">
-<div class="staff-modal-panel bg-white rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col">
+<div id="editServiceModal" class="staff-modal-overlay fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-0 sm:p-4">
+<div class="staff-modal-panel bg-white rounded-t-3xl sm:rounded-3xl shadow-[0_24px_64px_-12px_rgba(15,23,42,0.25)] border border-slate-100 w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col">
 <div class="shrink-0 px-6 sm:px-8 pt-7 pb-5 border-b border-slate-100 flex items-start gap-4">
 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
 <span class="material-symbols-outlined text-2xl text-primary">edit</span>
@@ -770,17 +773,20 @@ function bindEvents() {
     document.getElementById('cancelEditServiceBtn').addEventListener('click', closeEditServiceModal);
     document.getElementById('saveServiceChangesBtn').addEventListener('click', saveServiceChanges);
 
-    document.getElementById('servicesTableBody').addEventListener('click', function (e) {
-        const editBtn = e.target.closest('[data-edit-id]');
-        if (editBtn) {
-            openEditServiceModal(parseInt(editBtn.getAttribute('data-edit-id'), 10));
-            return;
-        }
-        const deleteBtn = e.target.closest('[data-delete-id]');
-        if (deleteBtn) {
-            deleteService(parseInt(deleteBtn.getAttribute('data-delete-id'), 10));
-        }
-    });
+    const servicesListSection = document.getElementById('servicesListSection');
+    if (servicesListSection) {
+        servicesListSection.addEventListener('click', function (e) {
+            const editBtn = e.target.closest('[data-edit-id]');
+            if (editBtn) {
+                openEditServiceModal(parseInt(editBtn.getAttribute('data-edit-id'), 10));
+                return;
+            }
+            const deleteBtn = e.target.closest('[data-delete-id]');
+            if (deleteBtn) {
+                deleteService(parseInt(deleteBtn.getAttribute('data-delete-id'), 10));
+            }
+        });
+    }
 
     document.getElementById('categoryFilters').addEventListener('click', function (e) {
         const btn = e.target.closest('.category-btn');
@@ -842,6 +848,10 @@ function loadServices() {
         .catch(function (error) {
             console.error(error);
             document.getElementById('servicesTableBody').innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-sm text-red-500">Failed to load services.</td></tr>';
+            const servicesMobileErr = document.getElementById('servicesMobileList');
+            if (servicesMobileErr) {
+                servicesMobileErr.innerHTML = '<p class="py-8 text-center text-sm text-red-500">Failed to load services.</p>';
+            }
             document.getElementById('paginationContainer').classList.add('hidden');
         });
 }
@@ -881,10 +891,91 @@ function applyFilters() {
     renderServices();
 }
 
+function servicePriceLabel(service) {
+    const normalizedServiceType = String(service.service_type || '').toLowerCase().trim();
+    const isIncludedPlan = normalizedServiceType === 'included_plan';
+    const price = Number(service.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return isIncludedPlan
+        ? '<span class="font-extrabold text-primary">Covered by Plan</span>'
+        : '<span class="font-extrabold text-slate-900">₱' + price + '</span>';
+}
+
+function serviceStatusBadge(service) {
+    return (service.status || '').toLowerCase() === 'active'
+        ? '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700">Active</span>'
+        : '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600">Inactive</span>';
+}
+
+function serviceActionsHtml(service) {
+    return '<div class="flex flex-wrap items-center gap-3">' +
+        '<button type="button" class="text-primary font-bold text-sm hover:underline inline-flex items-center gap-1" data-edit-id="' + Number(service.id) + '">' +
+            '<span class="material-symbols-outlined text-sm">edit</span>Edit' +
+        '</button>' +
+        '<button type="button" class="text-red-600 font-bold text-sm hover:underline inline-flex items-center gap-1" data-delete-id="' + Number(service.id) + '">' +
+            '<span class="material-symbols-outlined text-sm">delete</span>Delete' +
+        '</button>' +
+    '</div>';
+}
+
+function buildServiceTableRowHtml(service) {
+    const serviceName = escapeHtml(service.service_name || '');
+    const serviceDetails = escapeHtml(service.service_details || '');
+    const serviceId = escapeHtml(service.service_id || '');
+    const category = escapeHtml(service.category || 'Uncategorized');
+    const colorClass = categoryColors[service.category] || 'bg-slate-100 text-slate-700';
+    const currentPriceHtml = servicePriceLabel(service);
+    const status = serviceStatusBadge(service);
+    return '<tr class="hover:bg-slate-50/60 transition-colors">' +
+        '<td class="py-4 pl-5 pr-3 sm:pl-6 sm:pr-4 min-w-0 align-top text-left"><div class="font-bold text-slate-900 break-words">' + serviceName + '</div>' +
+        (serviceDetails ? '<div class="text-xs text-slate-500 mt-0.5 break-words">' + serviceDetails + '</div>' : '') +
+        (serviceId ? '<div class="text-[10px] text-slate-400 mt-1 font-semibold uppercase tracking-wider">ID: ' + serviceId + '</div>' : '') +
+        '</td>' +
+        '<td class="px-4 py-4 align-top text-center"><span class="inline-flex max-w-full px-2.5 py-1 rounded-full text-[11px] font-bold ' + colorClass + '">' + category + '</span></td>' +
+        '<td class="px-4 py-4 align-top text-center whitespace-nowrap">' + currentPriceHtml + '</td>' +
+        '<td class="px-4 py-4 align-top text-center">' + status + '</td>' +
+        '<td class="py-4 pl-3 pr-5 sm:pl-4 sm:pr-6 text-right align-top whitespace-nowrap">' +
+            '<div class="inline-flex items-center justify-end gap-3 flex-wrap">' + serviceActionsHtml(service) + '</div>' +
+        '</td>' +
+        '</tr>';
+}
+
+function buildServiceMobileCardHtml(service) {
+    const serviceName = escapeHtml(service.service_name || '');
+    const serviceDetails = escapeHtml(service.service_details || '');
+    const serviceId = escapeHtml(service.service_id || '');
+    const category = escapeHtml(service.category || 'Uncategorized');
+    const colorClass = categoryColors[service.category] || 'bg-slate-100 text-slate-700';
+    const currentPriceHtml = servicePriceLabel(service);
+    const status = serviceStatusBadge(service);
+    return '<article class="py-4 space-y-3">' +
+        '<div class="flex items-start justify-between gap-3">' +
+        '<div class="min-w-0 flex-1">' +
+        '<p class="font-bold text-slate-900 break-words">' + serviceName + '</p>' +
+        (serviceDetails ? '<p class="text-xs text-slate-500 mt-0.5 break-words">' + serviceDetails + '</p>' : '') +
+        (serviceId ? '<p class="text-[10px] text-slate-400 mt-1 font-semibold uppercase tracking-wider">ID: ' + serviceId + '</p>' : '') +
+        '</div>' +
+        status +
+        '</div>' +
+        '<div class="flex flex-wrap items-center gap-2">' +
+        '<span class="inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold ' + colorClass + '">' + category + '</span>' +
+        '<span class="text-sm">' + currentPriceHtml + '</span>' +
+        '</div>' +
+        serviceActionsHtml(service) +
+        '</article>';
+}
+
 function renderServices() {
     const tbody = document.getElementById('servicesTableBody');
+    const mobileList = document.getElementById('servicesMobileList');
+    const emptyMsg = 'No services found.';
+
     if (filteredServices.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-sm text-slate-500">No services found.</td></tr>';
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-sm text-slate-500">' + emptyMsg + '</td></tr>';
+        }
+        if (mobileList) {
+            mobileList.innerHTML = '<p class="py-8 text-center text-sm text-slate-500">' + emptyMsg + '</p>';
+        }
         document.getElementById('paginationContainer').classList.add('hidden');
         return;
     }
@@ -904,41 +995,12 @@ function renderServices() {
     const end = start + itemsPerPage;
     const pageItems = sorted.slice(start, end);
 
-    tbody.innerHTML = pageItems.map(function (service) {
-        const serviceName = escapeHtml(service.service_name || '');
-        const serviceDetails = escapeHtml(service.service_details || '');
-        const serviceId = escapeHtml(service.service_id || '');
-        const category = escapeHtml(service.category || 'Uncategorized');
-        const colorClass = categoryColors[service.category] || 'bg-slate-100 text-slate-700';
-        const normalizedServiceType = String(service.service_type || '').toLowerCase().trim();
-        const isIncludedPlan = normalizedServiceType === 'included_plan';
-        const price = Number(service.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        const currentPriceHtml = isIncludedPlan
-            ? '<span class="font-extrabold text-primary">Covered by Plan</span>'
-            : '<span class="font-extrabold text-slate-900">P' + price + '</span>';
-        const status = (service.status || '').toLowerCase() === 'active'
-            ? '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700">Active</span>'
-            : '<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600">Inactive</span>';
-        return '<tr class="hover:bg-slate-50/60 transition-colors">' +
-            '<td class="py-4 pl-5 pr-3 sm:pl-6 sm:pr-4 min-w-0 align-top text-left"><div class="font-bold text-slate-900 break-words">' + serviceName + '</div>' +
-            (serviceDetails ? '<div class="text-xs text-slate-500 mt-0.5 break-words">' + serviceDetails + '</div>' : '') +
-            (serviceId ? '<div class="text-[10px] text-slate-400 mt-1 font-semibold uppercase tracking-wider">ID: ' + serviceId + '</div>' : '') +
-            '</td>' +
-            '<td class="px-4 py-4 align-top text-center"><span class="inline-flex max-w-full px-2.5 py-1 rounded-full text-[11px] font-bold ' + colorClass + '">' + category + '</span></td>' +
-            '<td class="px-4 py-4 align-top text-center whitespace-nowrap">' + currentPriceHtml + '</td>' +
-            '<td class="px-4 py-4 align-top text-center">' + status + '</td>' +
-            '<td class="py-4 pl-3 pr-5 sm:pl-4 sm:pr-6 text-right align-top whitespace-nowrap">' +
-                '<div class="inline-flex items-center justify-end gap-3 flex-wrap">' +
-                    '<button class="text-primary font-bold text-sm hover:underline inline-flex items-center gap-1" data-edit-id="' + Number(service.id) + '">' +
-                        '<span class="material-symbols-outlined text-sm">edit</span>Edit' +
-                    '</button>' +
-                    '<button class="text-red-600 font-bold text-sm hover:underline inline-flex items-center gap-1" data-delete-id="' + Number(service.id) + '">' +
-                        '<span class="material-symbols-outlined text-sm">delete</span>Delete' +
-                    '</button>' +
-                '</div>' +
-            '</td>' +
-            '</tr>';
-    }).join('');
+    if (tbody) {
+        tbody.innerHTML = pageItems.map(buildServiceTableRowHtml).join('');
+    }
+    if (mobileList) {
+        mobileList.innerHTML = pageItems.map(buildServiceMobileCardHtml).join('');
+    }
 
     updatePagination(sorted.length);
 }
